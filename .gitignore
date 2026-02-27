@@ -13,6 +13,9 @@ claude_auth.md
 oauth-testing.md
 scripts/db-permissions.sql
 
+# explicitly allow .env.example (needed for Docker build)
+!.env.example
+
 # dependencies
 /node_modules
 node_modules/
