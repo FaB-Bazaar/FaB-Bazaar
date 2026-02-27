@@ -1,0 +1,58 @@
+{
+  "name": "FabBazaar",
+  "description": "Search Flesh and Blood card printings and manage wants lists with comprehensive filtering for editions, foilings, and pricing.",
+  "description_for_model": "Comprehensive Flesh and Blood card database with advanced search capabilities and personal collection management. Features: (1) Card search with traditional IDs (WTR216), MongoDB printing IDs, price filters, editions, foilings, rarities, and format legality. (2) Personal wants list management with Bearer token authentication - view, search, and filter your wants by priority and card name. (3) Specialized ID extraction for bulk operations. (4) Binder management for collection tracking. User-specific features require Bearer token authentication.",
+  "logo_url": "https://fabbazaar.app/icon-1024x1024.png",
+  "contact_email": "support@fabbazaar.app",
+  "legal_info_url": "https://fabbazaar.app/privacy",
+  "api": {
+    "type": "http",
+    "url": "https://2207-2601-c4-c502-8a90-1dc7-c5f1-d0d1-6542.ngrok-free.app/api/mcp/server"
+  },
+  "auth": {
+    "type": "bearer",
+    "description": "Bearer token authentication for secure access to personal wants lists and binders. Generate tokens via the FabBazaar web interface at https://fabbazaar.app/mcp-integration. Required for user-specific features like wants list and collection management."
+  },
+  "capabilities": [
+    "Card search and filtering",
+    "Wants list management (Bearer token required)",
+    "Binder management (Bearer token required)", 
+    "Printing ID extraction",
+    "Price and market data",
+    "Format legality checking"
+  ],
+  "tools": [
+    {
+      "name": "read_mandatory_constants_first",
+      "description": "Load essential constants and setup data (required first step)"
+    },
+    {
+      "name": "search_printings", 
+      "description": "Search card printings with advanced filtering"
+    },
+    {
+      "name": "extract_printing_ids",
+      "description": "Extract printing IDs for bulk operations"
+    },
+    {
+      "name": "get_wants",
+      "description": "Retrieve and search your personal wants list (Bearer token required)"
+    },
+    {
+      "name": "update_wants",
+      "description": "Add cards to your wants list (Bearer token required)"
+    },
+    {
+      "name": "get_binder",
+      "description": "View your card collection (Bearer token required)"
+    },
+    {
+      "name": "update_binder",
+      "description": "Manage your card collection (Bearer token required)"
+    },
+    {
+      "name": "who_has",
+      "description": "Find users who own specific cards"
+    }
+  ]
+}

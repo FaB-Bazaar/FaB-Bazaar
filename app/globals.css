@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* --- LIGHT MODE --- */
+    /* We add a new '--page' variable for the off-white background */
+    --page: 240 5% 96%; /* Apple-style muted gray (#f5f5f7) */
+    --background: 0 0% 100%; /* Pure white, now used for components like cards */
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+
+    --chart-1: 222.2 47.4% 11.2%;
+    --chart-2: 215 25% 27%;
+    --chart-3: 217 33% 17%;
+    --chart-4: 219 14% 51%;
+    --chart-5: 218 11% 65%;
+  }
+
+  .dark {
+    /* --- DARK MODE --- */
+    /* We add a new '--page' variable for the off-black background */
+    --page: 224 71.4% 4.1%; /* A very dark blue/gray (off-black) */
+    --background: 222.2 84% 4.9%; /* Your original near-black, now used for components */
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    /* We keep bg-background here as the default, but your layout.tsx will override it */
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Rainbow foil effect (Unchanged) */
+.rainbow-foil-effect {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 0, 0, 0.5) 0%,
+    rgba(255, 165, 0, 0.5) 16%,
+    rgba(255, 255, 0, 0.5) 33%,
+    rgba(0, 128, 0, 0.5) 50%,
+    rgba(0, 0, 255, 0.5) 66%,
+    rgba(75, 0, 130, 0.5) 83%,
+    rgba(238, 130, 238, 0.5) 100%
+  );
+  animation: rainbow-shift 3s linear infinite;
+  mix-blend-mode: color-dodge;
+}
+
+@keyframes rainbow-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* --- NEW: Add these classes for smooth accordion animations --- */
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
+}
+
+.accordion-content-expanded {
+  /* A large max-height that will accommodate any content */
+  max-height: 5000px;
+  transition: max-height 1s ease-in-out;
+}
+
+/* --- Fade-in animation for carousel --- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-in forwards;
+}
+
+/* Fix excessive line spacing when InlineCard components appear in prose content */
+.prose p:has(span[class*="inline"]) {
+  line-height: 1.75;
+  min-height: 0;
+}
+
+/* Ensure inline images within prose stay within line-height */
+.prose img[style*="height"] {
+  vertical-align: baseline;
+  margin: 0;
+}
+
+/* Force desktop ad height constraint - override AdSense dynamic sizing */
+.desktop-ad-container {
+  height: 110px !important;
+  max-height: 110px !important;
+  overflow: hidden !important;
+}
+
+.desktop-ad-container .ad-container,
+.desktop-ad-container .ad-container > ins,
+.desktop-ad-container .adsbygoogle {
+  height: 90px !important;
+  max-height: 90px !important;
+  overflow: hidden !important;
+}

@@ -1,0 +1,452 @@
+"use client"
+
+import { useEffect, useState, useMemo } from "react"
+import { useParams } from "next/navigation"
+import { FeaturedCardsCarousel } from "@/components/shared/FeaturedCardsCarousel"
+import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { getSetMetadata, hasFirstEdition } from '@/lib/fab-constants'
+import { getSetImageUrl } from "@/lib/set-images"
+
+// Get the edition code based on set and edition parameter
+function getEditionCode(setCode: string, editionParam?: string): string {
+  // Special case: EVR only has first edition
+  if (setCode === 'evr') {
+    return 'f'; // Always return first edition for EVR
+  }
+
+  // If no edition specified, return default
+  if (!editionParam) {
+    // Default to unlimited for sets with first edition, normal for others
+    return hasFirstEdition(setCode) ? 'u' : 'n';
+  }
+
+  // If '1st' is specified
+  if (editionParam === '1st') {
+    // WTR uses 'a' for alpha, others use 'f' for first
+    return setCode === 'wtr' ? 'a' : 'f';
+  }
+
+  // Otherwise return the edition as-is (allows for future flexibility)
+  return editionParam;
+}
+
+// Get human-readable edition name
+function getEditionName(setCode: string, editionCode: string): string {
+  // Special case: EVR should show "First Edition" but not in the header
+  // since it's the only edition available
+  if (setCode === 'evr') return '';
+
+  if (editionCode === 'a') return 'Alpha Edition';
+  if (editionCode === 'f') return 'First Edition';
+  if (editionCode === 'u') return 'Unlimited Edition';
+  if (editionCode === 'n') return '';
+  return editionCode.toUpperCase();
+}
+
+export default function SetPage() {
+  // Get params synchronously via useParams hook (idiomatic for client components)
+  const params = useParams<{ setCode: string; edition?: string[] }>();
+  const setCode = ((params.setCode as string) ?? '').toLowerCase();
+  const editionParam = Array.isArray(params.edition) ? params.edition[0] : undefined;
+
+  // Derive values with useMemo (not useState) to avoid flicker
+  const editionCode = useMemo(
+    () => (setCode ? getEditionCode(setCode, editionParam) : ''),
+    [setCode, editionParam]
+  );
+
+  const editionName = useMemo(
+    () => (setCode && editionCode ? getEditionName(setCode, editionCode) : ''),
+    [setCode, editionCode]
+  );
+
+  const setInfo = useMemo(() => {
+    if (!setCode) return undefined;
+    const metadata = getSetMetadata(setCode);
+    if (metadata) {
+      return {
+        name: metadata.name,
+        released: metadata.releaseDate,
+        defaultRarity: metadata.defaultRarity,
+      };
+    }
+    return {
+      name: setCode.toUpperCase(),
+      released: '',
+      defaultRarity: undefined,
+    };
+  }, [setCode]);
+
+  // State for dynamic values
+  const [cards, setCards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRarity, setSelectedRarity] = useState<string>('');
+  const [selectedFoiling, setSelectedFoiling] = useState<string>('');
+  const [imageError, setImageError] = useState(false);
+
+  // Initialize rarity/foiling defaults when setCode/setInfo changes
+  useEffect(() => {
+    if (!setCode) return;
+
+    // Reset image error when setCode changes
+    setImageError(false);
+
+    // Set default rarity - use set-specific default or fall back to Legendary
+    // Legendary loads faster and provides better UX than "All Cards"
+    setSelectedRarity(setInfo?.defaultRarity || 'L');
+
+    // Default to Non Foil for FAB (Promos) set since there's no "All" button
+    if (setCode === 'fab') {
+      setSelectedFoiling('s');
+    } else {
+      setSelectedFoiling('');
+    }
+  }, [setCode, setInfo?.defaultRarity]);
+
+  // Fetch cards with cancellation support
+  useEffect(() => {
+    // Don't fetch until setCode is available
+    if (!setCode || !editionCode) return;
+
+    const abortController = new AbortController();
+    let isCancelled = false;
+
+    const fetchTopCards = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Build query parameters
+        const queryParams: Record<string, string> = {
+          sets: setCode.toUpperCase(),
+          editions: editionCode,
+          sortBy: 'collector_number',
+          sortOrder: 'asc'
+        };
+
+        // For gem and fab (promos) sets, use foiling filter; otherwise use rarity filter
+        if (setCode === 'gem' || setCode === 'fab') {
+          if (selectedFoiling) {
+            queryParams.foilings = selectedFoiling;
+          }
+        } else {
+          if (selectedRarity) {
+            queryParams.rarities = selectedRarity;
+          }
+        }
+
+        // Get all cards in the set (no limit)
+        queryParams.limit = '1000';
+
+        const response = await fetch(
+          `/api/search/core?${new URLSearchParams(queryParams)}`,
+          { signal: abortController.signal }
+        );
+
+        // Check if cancelled before processing response
+        if (isCancelled) return;
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Check if cancelled before updating state
+        if (isCancelled) return;
+
+        if (data.success && data.data.printings) {
+          // Map to match the expected card format
+          const mappedCards = data.data.printings.map((printing: any) => ({
+            printing_id: printing.printing_id,
+            card_unique_id: printing.card_unique_id,
+            name: printing.display_name || printing.name,
+            set: printing.set,
+            collector_number: printing.collector_number,
+            edition: printing.edition,
+            foiling: printing.foiling,
+            rarity: printing.rarity,
+            is_extended_art: printing.is_extended_art,
+            tcgplayer_url: printing.tcgplayer_url,
+            tcg_low: printing.tcg_low,
+            tcg_market: printing.tcg_low || printing.tcg_market,
+            image_url: printing.image_url,
+          }));
+
+          setCards(mappedCards);
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (err) {
+        // Ignore abort errors
+        if (err instanceof Error && err.name === 'AbortError') return;
+
+        // Only update state if not cancelled
+        if (!isCancelled) {
+          console.error('Failed to fetch top cards for set:', setCode, 'edition:', editionCode, err);
+          setError(err instanceof Error ? err.message : 'Failed to load cards');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchTopCards();
+
+    // Cleanup: cancel request on unmount or dependency change
+    return () => {
+      isCancelled = true;
+      abortController.abort();
+    };
+  }, [setCode, editionCode, selectedRarity, selectedFoiling]);
+
+  return (
+    <main className="min-h-screen bg-gray-200 dark:bg-page">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto px-6 pt-2 pb-2">
+        {/* Back Button */}
+        <div className="mb-2">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Home
+            </Link>
+          </Button>
+        </div>
+
+        {/* Set Image - Centered (only show if no error) */}
+        {setCode && !imageError && (
+          <div className="mb-2 flex justify-center">
+            <img
+              src={getSetImageUrl(setCode)}
+              alt={setInfo?.name || setCode.toUpperCase()}
+              className="max-w-md w-full h-auto rounded-lg shadow-lg"
+              onError={() => setImageError(true)}
+            />
+          </div>
+        )}
+
+        <div className="text-center mb-3">
+          {/* Show set name if no image or image failed to load */}
+          {imageError && (
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              {setInfo ? setInfo.name : setCode.toUpperCase()}
+            </h1>
+          )}
+          {editionName && (
+            <p className="text-lg text-gray-700 dark:text-gray-300 font-medium">
+              {editionName}
+            </p>
+          )}
+          {/* Don't show release date for GEM (evergreen set) */}
+          {setInfo && setCode !== 'gem' && setInfo.released && (
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              Released: {new Date(setInfo.released).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: 'UTC'
+              })}
+            </p>
+          )}
+
+          {/* Edition Toggle for applicable sets (exclude EVR as it only has first edition) */}
+          {hasFirstEdition(setCode) && setCode !== 'evr' && (
+            <div className="flex gap-2 justify-center mt-4">
+              <Button
+                asChild
+                variant={!editionParam ? "default" : "outline"}
+                size="sm"
+              >
+                <Link href={`/sets/${setCode}`}>
+                  Unlimited
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant={editionParam === '1st' ? "default" : "outline"}
+                size="sm"
+              >
+                <Link href={`/sets/${setCode}/1st`}>
+                  {setCode === 'wtr' ? 'Alpha' : 'First Edition'}
+                </Link>
+              </Button>
+            </div>
+          )}
+
+          {/* Filter - Foiling for GEM and FAB sets, Rarity for others */}
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <div className="flex flex-wrap gap-2 justify-center">
+              {setCode === 'gem' ? (
+                // Foiling filter for GEM set (no Gold Foil)
+                <>
+                  <Button
+                    variant={selectedFoiling === '' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={selectedFoiling === 's' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('s')}
+                  >
+                    Non Foil
+                  </Button>
+                  <Button
+                    variant={selectedFoiling === 'r' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('r')}
+                  >
+                    Rainbow Foil
+                  </Button>
+                  <Button
+                    variant={selectedFoiling === 'c' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('c')}
+                  >
+                    Cold Foil
+                  </Button>
+                </>
+              ) : setCode === 'fab' ? (
+                // Foiling filter for FAB (Promos) set (has Gold Foil, no "All")
+                <>
+                  <Button
+                    variant={selectedFoiling === 's' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('s')}
+                  >
+                    Non Foil
+                  </Button>
+                  <Button
+                    variant={selectedFoiling === 'r' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('r')}
+                  >
+                    Rainbow Foil
+                  </Button>
+                  <Button
+                    variant={selectedFoiling === 'c' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('c')}
+                  >
+                    Cold Foil
+                  </Button>
+                  <Button
+                    variant={selectedFoiling === 'g' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFoiling('g')}
+                  >
+                    Gold Foil
+                  </Button>
+                </>
+              ) : (
+                // Rarity filter for other sets
+                <>
+                  <Button
+                    variant={selectedRarity === '' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedRarity('')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={selectedRarity === 'L' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedRarity('L')}
+                  >
+                    Legendary
+                  </Button>
+                  <Button
+                    variant={selectedRarity === 'M' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedRarity('M')}
+                  >
+                    Majestic
+                  </Button>
+                  <Button
+                    variant={selectedRarity === 'R' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedRarity('R')}
+                  >
+                    Rare
+                  </Button>
+                  <Button
+                    variant={selectedRarity === 'F' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedRarity('F')}
+                  >
+                    Fabled
+                  </Button>
+                  {/* Super Rare only appears in WTR, ARC, and SUP */}
+                  {(setCode === 'wtr' || setCode === 'arc' || setCode === 'sup') && (
+                    <Button
+                      variant={selectedRarity === 'S' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedRarity('S')}
+                    >
+                      Super Rare
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Cards Carousel */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                <div className="w-6 h-6 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin"></div>
+                <span>Loading top cards...</span>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500 dark:text-red-400 text-lg mb-2">
+                Failed to load cards
+              </p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">{error}</p>
+            </div>
+          ) : cards.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400 text-lg">
+                No cards found for this set and edition
+              </p>
+            </div>
+          ) : (
+            <div className="animate-fade-in">
+              <FeaturedCardsCarousel cards={cards} />
+            </div>
+          )}
+        </div>
+
+        {/* Additional Info */}
+        {cards.length > 0 && (
+          <div className="mt-8 text-center">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button asChild variant="outline">
+                <Link href="/search/results?show=summary&view=checklist">
+                  Search All Cards
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/signup">
+                  Start Trading
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}

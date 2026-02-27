@@ -1,0 +1,14 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/refresh-featured-cards",
+      "schedule": "0 */12 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "feature/decks-update": true
+    }
+  }
+}

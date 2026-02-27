@@ -1,0 +1,1 @@
+ALTER TABLE "printings" DROP COLUMN "printing_card_id";

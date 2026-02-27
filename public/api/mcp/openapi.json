@@ -1,0 +1,54 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "FabBazaar MCP API",
+    "version": "1.0.0",
+    "description": "API for FabBazaar MCP endpoints supporting binders, wants list, trades, etc."
+  },
+  "paths": {
+    "/api/mcp/my_wants_list": {
+      "get": {
+        "summary": "Get the wants list for the authenticated user",
+        "responses": {
+          "200": {
+            "description": "The user's wants list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "discordId": { "type": "string" },
+                    "wants": {
+                      "type": "array",
+                      "items": { "type": "object" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Secure-next-auth.session-token"
+      }
+    }
+  }
+} 

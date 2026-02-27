@@ -1,0 +1,112 @@
+services:
+  caddy:
+    image: caddy:2-alpine@sha256:3b2a0196e0687279c14c27adff9fc6b44acfa318dbb97eaebe385bdf99e5364c
+    container_name: fabbazaar-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - fabbazaar
+    depends_on:
+      - nextjs
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine@sha256:97ff59a4e30e08d1c11bdcd9455e7832368c0572b576c9092cde2df4ae5552a3
+    container_name: fabbazaar-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fabbazaar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-fabbazaar_dev}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fabbazaar
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fabbazaar} -d ${POSTGRES_DB:-fabbazaar_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf
+    container_name: fabbazaar-redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fabbazaar
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --rename-command FLUSHALL ""
+      --rename-command FLUSHDB ""
+      --rename-command CONFIG ""
+      --rename-command DEBUG ""
+      --rename-command SHUTDOWN ""
+      --rename-command KEYS ""
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    image: fabbazaar-nextjs:${APP_VERSION:-latest}
+    container_name: fabbazaar-nextjs
+    # Exposed on localhost only for local dev/ngrok testing.
+    # Remove this port mapping in production — traffic routes through Caddy.
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Override localhost URLs with Docker service names
+      POSTGRES_URL: postgresql://fabbazaar_app:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fabbazaar_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Override LAN IP with Docker-appropriate URL (set NEXTAUTH_URL in .env)
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # Internal URL for MCP tool → API calls (always localhost inside container)
+      MCP_API_BASE_URL: http://localhost:3000
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - fabbazaar
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+networks:
+  fabbazaar:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    external: true
+    name: fab-bazaar-re-main_postgres_data
+  redis_data:
+  caddy_data:
+  caddy_config:

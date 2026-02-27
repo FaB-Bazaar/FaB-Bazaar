@@ -1,0 +1,29 @@
+.git
+.gitignore
+.github
+
+# Dependencies (reinstalled in Docker)
+node_modules
+
+# Build output (rebuilt in Docker)
+.next
+
+# Exclude real env files — secrets must never enter the build context.
+# .env.example is intentionally NOT excluded; it's used as a build-time stub.
+.env
+.env.local
+.env.production
+.env.production.local
+
+# Dev / editor artifacts
+.DS_Store
+*.log
+.vscode
+.idea
+
+# Test output
+coverage
+
+# Docs / scripts not needed at runtime
+*.md
+scripts/

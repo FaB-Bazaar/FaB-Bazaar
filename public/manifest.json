@@ -1,0 +1,26 @@
+{
+  "name": "FaB Bazaar - Flesh and Blood Trading Platform",
+  "short_name": "FaB Bazaar",
+  "description": "Trade Flesh and Blood cards with other collectors. Manage your collection and find others with your wants.",
+  "start_url": "https://fabbazaar.app/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["games", "entertainment", "shopping"],
+  "lang": "en",
+  "dir": "ltr"
+} 
