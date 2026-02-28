@@ -562,12 +562,18 @@ export class PostgresPrintingsService implements IPrintingsService {
         const terms = normalizedName.split(/\s+/).filter(t => t.length > 0);
         const termConditions = terms.map(term => sql`${cards.name} ILIKE ${`%${term}%`}`);
 
-        conditions.push(
-          or(
-            and(...termConditions),
-            sql`word_similarity(${normalizedName}, ${cards.name}) > 0.4`
-          )
+        const nameSearch = or(
+          and(...termConditions),
+          sql`word_similarity(${normalizedName}, ${cards.name}) > 0.4`
         );
+
+        // Collector number support: if the query looks like a collector number (e.g., arc123, wtr333, her001),
+        // also match against printings.collectorNumber (stored as uppercase, e.g., ARC123)
+        if (/^[a-zA-Z0-9]{2,5}\d{2,4}$/.test(normalizedName)) {
+          conditions.push(or(nameSearch, sql`LOWER(${printings.collectorNumber}) = ${normalizedName}`));
+        } else {
+          conditions.push(nameSearch);
+        }
       }
     }
 
@@ -606,6 +612,11 @@ export class PostgresPrintingsService implements IPrintingsService {
         }
         if (knownKeywords.includes(term)) {
           overlapConditions.push(sql`${cards.keywords} && ARRAY[${term}]::text[]`);
+        }
+
+        // Collector number support: e.g., arc123, wtr333, her001
+        if (/^[a-zA-Z0-9]{2,5}\d{2,4}$/.test(term)) {
+          overlapConditions.push(sql`LOWER(${printings.collectorNumber}) = ${term}`);
         }
 
         return or(...overlapConditions);

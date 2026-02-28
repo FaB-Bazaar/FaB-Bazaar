@@ -19,7 +19,7 @@ echo "[$(date)] Starting backup: ${BACKUP_FILE}"
 
 # Dump from running container and compress
 docker exec fabbazaar-postgres \
-  pg_dump -U "${POSTGRES_USER:-fabbazaar}" "${POSTGRES_DB:-fabbazaar_dev}" \
+  pg_dump -U "${POSTGRES_USER:-fabbazaar}" "${POSTGRES_DB:-fabbazaar}" \
   | gzip > "${TMP_PATH}"
 
 # Upload to R2 (S3-compatible)
