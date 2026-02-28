@@ -1,10 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# Load env from .env.local (project root)
+# Load env from .env or .env.local (project root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 set -a
-source "${SCRIPT_DIR}/../.env.local"
+if [ -f "${SCRIPT_DIR}/../.env" ]; then
+  source "${SCRIPT_DIR}/../.env"
+elif [ -f "${SCRIPT_DIR}/../.env.local" ]; then
+  source "${SCRIPT_DIR}/../.env.local"
+fi
 set +a
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
