@@ -63,3 +63,6 @@ next-env.d.ts
 
 # Backup logs
 logs/
+
+# TLS certificates (private keys must never be committed)
+certs/

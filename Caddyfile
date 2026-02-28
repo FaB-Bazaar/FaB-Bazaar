@@ -1,25 +1,13 @@
-# =============================================================
-# LOCAL TESTING
-# Caddy will serve on http://localhost (no SSL needed locally)
-# =============================================================
-http://localhost {
-	reverse_proxy nextjs:3000
-}
+fabbazaar.app {
+	tls /certs/fabbazaar.app.pem /certs/fabbazaar.app.key
 
-# =============================================================
-# PRODUCTION (VPS)
-# When you're ready, replace the block above with this one.
-# Swap yourdomain.com for your real domain.
-# Caddy will automatically provision a Let's Encrypt SSL cert.
-# =============================================================
-# yourdomain.com {
-# 	reverse_proxy nextjs:3000
-#
-# 	header {
-# 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-# 		X-Content-Type-Options "nosniff"
-# 		X-Frame-Options "SAMEORIGIN"
-# 		Referrer-Policy "strict-origin-when-cross-origin"
-# 		-Server
-# 	}
-# }
+	reverse_proxy nextjs:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
