@@ -139,7 +139,7 @@ function applySideboardSwap(
  *
  * Authentication:
  * - Requires Talishar API key (x-api-key header or api_key query param)
- * - For private decks, also requires user authentication (optional)
+ * - Valid API key grants access to all decks (public and private)
  * - Rate limited to 100 requests/minute per API key
  *
  * Talishar Format:
@@ -193,14 +193,6 @@ export async function GET(
       return NextResponse.json({
         success: false,
         error: 'Deck not found'
-      }, { status: 404 });
-    }
-
-    // Check access permissions for private decks
-    if (!deck.isPublic && (!authResult.success || deck.userId?.toString() !== authResult.userId)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Deck not found or access denied'
       }, { status: 404 });
     }
 

@@ -4,7 +4,7 @@
 # Daily Automated Pipeline for FAB Card Data Processing
 #
 # Pipeline order:
-#   01 → 02 → 03 → 04 → 05 (PG) → 08 (PG) → 11 (analysis) → 12 (discord)
+#   01 → 02 → 03 → 04 → 08 (PG, price diff vs old DB) → 05 (PG, full upsert) → 11 (analysis) → 12 (discord)
 #
 # Database: PostgreSQL (local Docker staging by default)
 #   Staging    = POSTGRES_URL_STAGING  (local Docker, fabbazaar_dev)
@@ -243,6 +243,19 @@ else
 fi
 
 ################################################################################
+# Step 08: Daily Price Updater → PostgreSQL (compare new snapshot vs old DB prices)
+# Runs BEFORE Step 05 so it sees yesterday's prices still in the DB
+################################################################################
+
+if [ "${DRY_RUN}" = true ]; then
+    run_script "08" "Daily Price Updater - Update all price fields in PostgreSQL (DRY RUN)" \
+        "python3 006_daily_price_updater.py ${PRICE_SNAPSHOT} --dry-run ${DB_FLAG}"
+else
+    run_script "08" "Daily Price Updater - Update all price fields in PostgreSQL" \
+        "python3 006_daily_price_updater.py ${PRICE_SNAPSHOT} --auto-confirm ${DB_FLAG}"
+fi
+
+################################################################################
 # Step 05: Weekly Printings Updater → PostgreSQL (cards + printings upsert)
 ################################################################################
 
@@ -252,18 +265,6 @@ if [ "${DRY_RUN}" = true ]; then
 else
     run_script "05" "Weekly Printings Updater - Upsert cards + printings to PostgreSQL" \
         "python3 005_weekly_printings_updater.py --file ${PRINTINGS_SEED} ${DB_FLAG}"
-fi
-
-################################################################################
-# Step 08: Daily Price Updater → PostgreSQL (all printings, price fields only)
-################################################################################
-
-if [ "${DRY_RUN}" = true ]; then
-    run_script "08" "Daily Price Updater - Update all price fields in PostgreSQL (DRY RUN)" \
-        "python3 006_daily_price_updater.py ${PRICE_SNAPSHOT} --dry-run ${DB_FLAG}"
-else
-    run_script "08" "Daily Price Updater - Update all price fields in PostgreSQL" \
-        "python3 006_daily_price_updater.py ${PRICE_SNAPSHOT} --auto-confirm ${DB_FLAG}"
 fi
 
 ################################################################################
