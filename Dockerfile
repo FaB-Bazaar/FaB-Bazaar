@@ -19,9 +19,8 @@ COPY .env.example .env.local
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-ENV NODE_OPTIONS="--max_old_space_size=1536"
 
-RUN npm run build
+RUN NODE_OPTIONS="--max_old_space_size=1536" npm run build
 
 # Stage 3: Lean production runtime using Next.js standalone output
 FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS runner
