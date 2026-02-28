@@ -1,0 +1,3 @@
+# FAB Bazaar daily data pipeline
+# Run at 22:00 UTC (10PM GMT) daily
+0 22 * * * root cd /app/scripts && ./daily_pipeline.sh --production >> /app/scripts/logs/cron.log 2>&1

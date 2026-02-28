@@ -100,6 +100,26 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  python-pipeline:
+    build:
+      context: ./pipeline
+    container_name: fabbazaar-pipeline
+    env_file:
+      - .env
+    environment:
+      # Override DB URLs with Docker service name (localhost won't resolve inside a container)
+      POSTGRES_URL_STAGING: postgresql://${POSTGRES_USER:-fabbazaar}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-fabbazaar_dev}
+      POSTGRES_URL_PROD: postgresql://${POSTGRES_USER:-fabbazaar}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-fabbazaar_dev}
+    volumes:
+      - pipeline_price_history:/app/scripts/price_history
+      - pipeline_logs:/app/scripts/logs
+    networks:
+      - fabbazaar
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 networks:
   fabbazaar:
     driver: bridge
@@ -111,3 +131,5 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  pipeline_price_history:
+  pipeline_logs:

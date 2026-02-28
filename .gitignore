@@ -66,3 +66,16 @@ logs/
 
 # TLS certificates (private keys must never be committed)
 certs/
+
+# Pipeline — generated data files (runtime artifacts, not source)
+pipeline/scripts/cards.enhanced.json
+pipeline/scripts/cards.enhanced.report.json
+pipeline/scripts/cards.enhanced.summary.txt
+pipeline/scripts/cards_with_prices.json
+pipeline/scripts/cards_with_prices.price_report.json
+pipeline/scripts/cards_with_prices.price_summary.txt
+pipeline/scripts/printings_collection_seed.json
+pipeline/scripts/price_snapshot.json
+pipeline/scripts/market_analysis_export.json
+pipeline/scripts/price_history/
+pipeline/scripts/logs/
