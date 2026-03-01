@@ -147,9 +147,14 @@ export async function POST(
     const userId = authResult.userId!;
 
     // Find or create binder if needed (for slug-based access)
+    // A binder ID can be a MongoDB ObjectId OR a PostgreSQL UUID — both are treated as IDs.
+    // Only non-ID strings (slugs) use getOrCreateBinderBySlug.
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isId = Types.ObjectId.isValid(binderId) || UUID_REGEX.test(binderId);
+
     let binderToUse: BinderDTO;
-    if (!Types.ObjectId.isValid(binderId)) {
-      // Use getOrCreateBinderBySlug from service layer
+    if (!isId) {
+      // It's a slug — get or create
       const binderResult = await binderService.getOrCreateBinderBySlug(userId, binderId);
       if (!binderResult.success) {
         return NextResponse.json({
@@ -159,7 +164,7 @@ export async function POST(
       }
       binderToUse = binderResult.data;
     } else {
-      // Get existing binder
+      // It's an ID (MongoDB ObjectId or PostgreSQL UUID)
       const binderResult = await binderService.findBinderByIdOrSlug(binderId, userId);
       if (!binderResult.success || !binderResult.data) {
         return NextResponse.json({

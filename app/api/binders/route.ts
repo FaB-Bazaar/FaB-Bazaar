@@ -265,7 +265,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      binder: result.data
+      data: result.data,
+      binder: result.data, // backward compat for direct fetch callers
     });
 
   } catch (error: any) {
