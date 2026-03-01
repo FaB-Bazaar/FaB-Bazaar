@@ -278,13 +278,14 @@ export async function addPrintings(
 export async function removePrinting(
   publicId: string,
   printingId: string,
-  category: DeckCategory
+  category: DeckCategory,
+  quantity?: number
 ): Promise<ApiResponse<{ success: boolean }>> {
   try {
     const response = await fetch(`/api/decks/${publicId}/printings/remove`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ printingId, category }),
+      body: JSON.stringify({ printingId, category, quantity }),
     });
     return await handleResponse<{ success: boolean }>(response);
   } catch (error) {
