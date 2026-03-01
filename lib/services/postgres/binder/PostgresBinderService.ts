@@ -283,6 +283,21 @@ export class PostgresBinderService implements IBinderService {
 
       for (const card of cards) {
         try {
+          // Verify the printing exists before inserting (FK constraint guard)
+          const printingExists = await db.query.printings.findFirst({
+            where: eq(printings.printingId, card.printingId),
+            columns: { printingId: true },
+          });
+          if (!printingExists) {
+            failed++;
+            results.push({
+              printingId: card.printingId,
+              success: false,
+              error: `Printing not found in database: ${card.printingId}`,
+            });
+            continue;
+          }
+
           // Check if card already exists (same printing, condition, language)
           const existing = await db.query.inventoryItems.findFirst({
             where: and(
@@ -337,10 +352,14 @@ export class PostgresBinderService implements IBinderService {
           }
         } catch (error) {
           failed++;
+          // Expose the real DB error from error.cause (Drizzle wraps PG errors)
+          const cause = (error as any)?.cause;
+          const dbMessage = cause?.message || cause?.detail || cause?.code;
+          const message = error instanceof Error ? error.message : 'Failed to add card';
           results.push({
             printingId: card.printingId,
             success: false,
-            error: error instanceof Error ? error.message : 'Failed to add card',
+            error: dbMessage ? `${message} | DB: ${dbMessage}` : message,
           });
         }
       }
