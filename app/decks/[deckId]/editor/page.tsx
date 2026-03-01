@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -30,6 +30,9 @@ export default function DeckEditorPage() {
   // Tab state
   const [activeTab, setActiveTab] = useState<"search" | "deck">("search");
 
+  // Search form collapse state
+  const [searchFormOpen, setSearchFormOpen] = useState(true);
+
   // Dialog state: for staged card printing swap
   const [activeDialogInstanceId, setActiveDialogInstanceId] = useState<string | null>(null);
 
@@ -37,6 +40,11 @@ export default function DeckEditorPage() {
   const [deckSwapTarget, setDeckSwapTarget] = useState<SwapTarget | null>(null);
 
   const stagedCards = state.bulkResults.filter(c => c.isStaged);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    await handlers.handleBulkSearch(e);
+    setSearchFormOpen(false);
+  };
   const activeInstance = state.bulkResults.find(c => c.instanceId === activeDialogInstanceId);
 
   // Redirect non-owners once both deck and auth are loaded
@@ -89,6 +97,54 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
+  // Move 1 copy of a printing from one category to another.
+  // To avoid stacking issues: remove all, re-add (qty-1) to source, add 1 to destination.
+  const handleMoveSinglePrinting = async (
+    printingId: string,
+    fromCategory: DeckCategory,
+    toCategory: DeckCategory,
+    currentQty: number
+  ) => {
+    const removeResult = await decksClient.removePrinting(deckId, printingId, fromCategory, 999999);
+    if (!removeResult.success) {
+      toast({ title: "Move failed", description: removeResult.error, variant: "destructive" });
+      return;
+    }
+    if (currentQty - 1 > 0) {
+      const readdResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: currentQty - 1, category: fromCategory }]);
+      if (!readdResult.success) {
+        toast({ title: "Move failed", description: readdResult.error, variant: "destructive" });
+        return;
+      }
+    }
+    const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: 1, category: toCategory }]);
+    if (!addResult.success) {
+      toast({ title: "Move failed", description: addResult.error, variant: "destructive" });
+      return;
+    }
+    await handlers.refreshDeck();
+  };
+
+  // Move a card from one category to another (remove + re-add)
+  const handleMoveDeckCard = async (
+    printingId: string,
+    fromCategory: DeckCategory,
+    toCategory: DeckCategory,
+    quantity: number
+  ) => {
+    const removeResult = await decksClient.removePrinting(deckId, printingId, fromCategory, 999999);
+    if (!removeResult.success) {
+      toast({ title: "Move failed", description: removeResult.error, variant: "destructive" });
+      return;
+    }
+    const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: toCategory }]);
+    if (!addResult.success) {
+      toast({ title: "Move failed", description: addResult.error, variant: "destructive" });
+      return;
+    }
+    await handlers.refreshDeck();
+  };
+
   // Swap a printing in the saved deck (called after user selects new printing in dialog)
   const handleSwapDeckPrinting = async (newPrinting: any) => {
     if (!deckSwapTarget) return;
@@ -126,6 +182,7 @@ export default function DeckEditorPage() {
         onRemoveDeckCard={handleRemoveDeckCard}
         onRemoveGroupFromDeck={handleRemoveGroupFromDeck}
         onUpdateDeckCardQty={handleUpdateDeckCardQty}
+        onMovePrinting={handleMoveSinglePrinting}
         onRefreshDeck={handlers.refreshDeck}
       />
 
@@ -178,9 +235,9 @@ export default function DeckEditorPage() {
               >
                 <List className="h-4 w-4" />
                 Deck
-                {state.deckCounts.maindeck > 0 && (
+                {(state.deckCounts.equipment + state.deckCounts.maindeck) > 0 && (
                   <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded-full">
-                    {state.deckCounts.hero + state.deckCounts.equipment + state.deckCounts.maindeck}
+                    {state.deckCounts.equipment + state.deckCounts.maindeck}
                   </span>
                 )}
               </button>
@@ -189,12 +246,35 @@ export default function DeckEditorPage() {
             {/* Search tab content */}
             {activeTab === "search" && (
               <>
-                <BulkImportForm
-                  bulkInput={state.bulkInput}
-                  onInputChange={handlers.setBulkInput}
-                  onSearch={handlers.handleBulkSearch}
-                  loading={state.loading}
-                />
+                {searchFormOpen ? (
+                  <BulkImportForm
+                    bulkInput={state.bulkInput}
+                    onInputChange={handlers.setBulkInput}
+                    onSearch={handleSearch}
+                    loading={state.loading}
+                  />
+                ) : (
+                  <div className="flex items-center gap-3 mb-6 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <Search className="h-4 w-4 text-gray-400 shrink-0" />
+                    <span className="flex-1 text-sm text-gray-600 dark:text-gray-300">
+                      {state.bulkResults.length} result{state.bulkResults.length !== 1 ? "s" : ""}
+                    </span>
+                    <button
+                      onClick={() => { handlers.clearBulkResults(); setSearchFormOpen(true); }}
+                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear
+                    </button>
+                    <button
+                      onClick={() => setSearchFormOpen(true)}
+                      className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      New Search
+                    </button>
+                  </div>
+                )}
 
                 {state.error && (
                   <Alert variant="destructive" className="mb-8">
@@ -207,6 +287,7 @@ export default function DeckEditorPage() {
                 <BulkResultsGrid
                   cards={state.bulkResults}
                   loading={state.loading}
+                  hideStaged={false}
                   onUpdatePrinting={handlers.updateCardPrinting}
                   onQuantityChange={handlers.updateCardQuantity}
                   onToggleTrade={() => {}}
@@ -231,6 +312,7 @@ export default function DeckEditorPage() {
                     ownershipMap={state.ownershipMap}
                     onSwap={target => setDeckSwapTarget(target)}
                     onRemove={handleRemoveDeckCard}
+                    onMove={handleMoveDeckCard}
                   />
                 ) : null}
               </>

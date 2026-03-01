@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ArrowLeftRight, Loader2 } from "lucide-react";
+import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -29,6 +29,12 @@ function OwnershipBadge({ owned, needed }: OwnershipEntry) {
   );
 }
 
+interface MoveAction {
+  title: string;
+  icon: "archive" | "archive-restore" | "sofa";
+  onClick: () => void;
+}
+
 interface DeckCardRowProps {
   printing: DeckPrintingDTO;
   category: DeckCategory;
@@ -37,9 +43,10 @@ interface DeckCardRowProps {
   onSwap: () => void;
   onRemove: () => void;
   isRemoving: boolean;
+  moves?: MoveAction[];
 }
 
-function DeckCardRow({ printing, category, showPitchDot, ownershipInfo, onSwap, onRemove, isRemoving }: DeckCardRowProps) {
+function DeckCardRow({ printing, category, showPitchDot, ownershipInfo, onSwap, onRemove, isRemoving, moves }: DeckCardRowProps) {
   const p = printing.printingDetails;
   const name = p?.display_name || p?.name || printing.printingId;
   const qty = printing.quantity ?? 1;
@@ -71,6 +78,20 @@ function DeckCardRow({ printing, category, showPitchDot, ownershipInfo, onSwap, 
         >
           <ArrowLeftRight className="h-3 w-3" />
         </Button>
+        {moves?.map((m, i) => (
+          <Button
+            key={i}
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-gray-400 hover:text-indigo-500"
+            onClick={m.onClick}
+            title={m.title}
+          >
+            {m.icon === "archive-restore" ? <ArchiveRestore className="h-3 w-3" /> :
+             m.icon === "sofa" ? <Sofa className="h-3 w-3" /> :
+             <Archive className="h-3 w-3" />}
+          </Button>
+        ))}
         <Button
           variant="ghost"
           size="icon"
@@ -118,9 +139,35 @@ interface DeckEditorListViewProps {
   ownershipMap: Map<string, OwnershipEntry>;
   onSwap: (target: SwapTarget) => void;
   onRemove: (printingId: string, category: DeckCategory) => Promise<void>;
+  onMove?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, quantity: number) => Promise<void>;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove }: DeckEditorListViewProps) {
+function buildMoves(
+  card: DeckPrintingDTO,
+  fromCategory: DeckCategory,
+  onMove?: DeckEditorListViewProps["onMove"]
+): MoveAction[] {
+  if (!onMove) return [];
+  const qty = card.quantity ?? 1;
+  if (fromCategory === "maindeck") return [
+    { title: "Move to Inventory", icon: "archive", onClick: () => onMove(card.printingId, "maindeck", "inventory", qty) },
+    { title: "Move to Bench", icon: "sofa", onClick: () => onMove(card.printingId, "maindeck", "benched", qty) },
+  ];
+  if (fromCategory === "equipment") return [
+    { title: "Move to Inventory", icon: "archive", onClick: () => onMove(card.printingId, "equipment", "inventory", qty) },
+  ];
+  if (fromCategory === "inventory") return [
+    { title: "Move to Library", icon: "archive-restore", onClick: () => onMove(card.printingId, "inventory", "maindeck", qty) },
+    { title: "Move to Bench", icon: "sofa", onClick: () => onMove(card.printingId, "inventory", "benched", qty) },
+  ];
+  if (fromCategory === "benched") return [
+    { title: "Move to Library", icon: "archive-restore", onClick: () => onMove(card.printingId, "benched", "maindeck", qty) },
+    { title: "Move to Inventory", icon: "archive", onClick: () => onMove(card.printingId, "benched", "inventory", qty) },
+  ];
+  return [];
+}
+
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const handleRemove = async (printingId: string, category: DeckCategory) => {
@@ -143,7 +190,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     label: string,
     cards: DeckPrintingDTO[],
     category: DeckCategory,
-    limit?: string
+    limit?: string,
   ) => {
     if (cards.length === 0) return null;
     const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
@@ -167,6 +214,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               onSwap={() => onSwap(makeSwapTarget(card, category))}
               onRemove={() => handleRemove(card.printingId, category)}
               isRemoving={removingId === card.printingId}
+              moves={buildMoves(card, category, onMove)}
             />
           ))}
         </div>
@@ -216,6 +264,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     onSwap={() => onSwap(makeSwapTarget(card, "maindeck"))}
                     onRemove={() => handleRemove(card.printingId, "maindeck")}
                     isRemoving={removingId === card.printingId}
+                    moves={buildMoves(card, "maindeck", onMove)}
                   />
                 ))}
               </div>
@@ -229,8 +278,10 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const heroCards = deck.hero || [];
   const equipmentCards = deck.equipment || [];
   const maindeckCards = deck.maindeck || [];
+  const inventoryCards = deck.inventory || [];
+  const benchedCards = deck.benched || [];
 
-  if (heroCards.length === 0 && equipmentCards.length === 0 && maindeckCards.length === 0) {
+  if (heroCards.length === 0 && equipmentCards.length === 0 && maindeckCards.length === 0 && inventoryCards.length === 0 && benchedCards.length === 0) {
     return (
       <div className="text-center py-16 text-gray-500 dark:text-gray-400">
         <p className="font-medium">This deck is empty.</p>
@@ -244,6 +295,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       {renderSection("Hero", heroCards, "hero", "1")}
       {renderSection("Equipment", equipmentCards, "equipment", "5")}
       {renderMaindeck()}
+      {renderSection("Inventory", inventoryCards, "inventory")}
+      {renderSection("Bench", benchedCards, "benched")}
     </div>
   );
 }

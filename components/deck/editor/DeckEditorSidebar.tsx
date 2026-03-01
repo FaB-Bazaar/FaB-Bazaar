@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { X, Plus, Minus, Save, AlertTriangle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Plus, Minus, Save, AlertTriangle, Loader2, ChevronDown, ChevronRight, Archive, ArchiveRestore, Sofa } from "lucide-react";
 import { getFoilingName, getSetName, getVariantBadgeStyles } from "@/lib/fab-formatters";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
@@ -72,9 +72,11 @@ function getPrintingLabel(p: any): string {
   return parts.join(" ");
 }
 
-/** Returns the max copies of this card allowed in a deck based on its subtypes/keywords. */
+/** Returns the max copies of this card allowed in a deck based on its type/subtypes/keywords. */
 function getDeckLimit(printingDetails: any): number {
   if (!printingDetails) return 3;
+  const types = (printingDetails.types || []).map((t: string) => String(t).toLowerCase());
+  if (types.some((t: string) => t === "hero")) return 1;
   const fields = [
     ...(printingDetails.subtypes || []),
     ...(printingDetails.keywords || []),
@@ -109,6 +111,7 @@ function GroupedCardRow({
   onRemoveGroup,
   onSelectCard,
   onUpdateDeckCardQty,
+  onMovePrinting,
   onHoverImage,
   onClearImage,
 }: {
@@ -120,6 +123,7 @@ function GroupedCardRow({
   onRemoveGroup?: (printingIds: string[], category: DeckCategory) => void;
   onSelectCard?: (cardUniqueId: string, cardName: string, category: DeckCategory, currentPrintings: DeckPrintingDTO[]) => void;
   onUpdateDeckCardQty?: (printingId: string, newQty: number, category: DeckCategory) => void;
+  onMovePrinting?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, currentQty: number) => void;
   onHoverImage: (url: string, name: string) => void;
   onClearImage: () => void;
 }) {
@@ -263,6 +267,34 @@ function GroupedCardRow({
                 ) : (
                   <span className="w-4" />
                 )}
+                {onMovePrinting && (() => {
+                  const qty = pr.quantity ?? 1;
+                  const buttons: Array<{ toCategory: DeckCategory; title: string; Icon: React.ComponentType<{ className?: string }> }> = [];
+                  if (category === "maindeck") {
+                    buttons.push({ toCategory: "inventory", title: "Move 1 to Inventory", Icon: Archive });
+                    buttons.push({ toCategory: "benched", title: "Move 1 to Bench", Icon: Sofa });
+                  } else if (category === "equipment") {
+                    buttons.push({ toCategory: "inventory", title: "Move 1 to Inventory", Icon: Archive });
+                  } else if (category === "inventory") {
+                    buttons.push({ toCategory: "maindeck", title: "Move 1 to Library", Icon: ArchiveRestore });
+                    buttons.push({ toCategory: "benched", title: "Move 1 to Bench", Icon: Sofa });
+                  } else if (category === "benched") {
+                    buttons.push({ toCategory: "maindeck", title: "Move 1 to Library", Icon: ArchiveRestore });
+                    buttons.push({ toCategory: "inventory", title: "Move 1 to Inventory", Icon: Archive });
+                  }
+                  return buttons.map(({ toCategory, title, Icon }) => (
+                    <Button
+                      key={toCategory}
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 text-gray-300 hover:text-indigo-500 opacity-0 group-hover/pr:opacity-100 transition-opacity flex-shrink-0"
+                      onClick={() => onMovePrinting(pr.printingId, category, toCategory, qty)}
+                      title={title}
+                    >
+                      <Icon className="h-2.5 w-2.5" />
+                    </Button>
+                  ));
+                })()}
                 {onRemoveCard && (
                   <Button
                     variant="ghost"
@@ -299,6 +331,7 @@ interface SectionAccordionProps {
   onRemoveGroup?: (printingIds: string[], category: DeckCategory) => void;
   onSelectCard?: (cardUniqueId: string, cardName: string, category: DeckCategory, currentPrintings: DeckPrintingDTO[]) => void;
   onUpdateDeckCardQty?: (printingId: string, newQty: number, category: DeckCategory) => void;
+  onMovePrinting?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, currentQty: number) => void;
   onHoverImage: (url: string, name: string) => void;
   onClearImage: () => void;
 }
@@ -317,6 +350,7 @@ function SectionAccordion({
   onRemoveGroup,
   onSelectCard,
   onUpdateDeckCardQty,
+  onMovePrinting,
   onHoverImage,
   onClearImage,
 }: SectionAccordionProps) {
@@ -360,6 +394,7 @@ function SectionAccordion({
                 onRemoveGroup={onRemoveGroup}
                 onSelectCard={onSelectCard}
                 onUpdateDeckCardQty={onUpdateDeckCardQty}
+                onMovePrinting={onMovePrinting}
                 onHoverImage={onHoverImage}
                 onClearImage={onClearImage}
               />
@@ -377,7 +412,7 @@ interface DeckEditorSidebarProps {
   deck: DeckDTO | null;
   deckLoading: boolean;
   stagedCards: any[];
-  deckCounts: { hero: number; equipment: number; maindeck: number; sideboard: number };
+  deckCounts: { hero: number; equipment: number; maindeck: number; inventory: number; benched: number };
   isSaving: boolean;
   ownershipMap: Map<string, OwnershipEntry>;
   deckId: string;
@@ -390,6 +425,7 @@ interface DeckEditorSidebarProps {
   onRemoveDeckCard?: (printingId: string, category: DeckCategory) => void;
   onRemoveGroupFromDeck?: (printingIds: string[], category: DeckCategory) => void;
   onUpdateDeckCardQty?: (printingId: string, newQty: number, category: DeckCategory) => void;
+  onMovePrinting?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, currentQty: number) => void;
   onRefreshDeck: () => Promise<void>;
 }
 
@@ -397,7 +433,8 @@ const SECTION_LABEL: Record<string, string> = {
   hero: "Hero",
   equipment: "Equipment",
   maindeck: "Main Deck",
-  sideboard: "Sideboard",
+  inventory: "Inventory",
+  benched: "Bench",
 };
 
 interface SelectedCard {
@@ -424,6 +461,7 @@ export default function DeckEditorSidebar({
   onRemoveDeckCard,
   onRemoveGroupFromDeck,
   onUpdateDeckCardQty,
+  onMovePrinting,
   onRefreshDeck,
 }: DeckEditorSidebarProps) {
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
@@ -457,6 +495,7 @@ export default function DeckEditorSidebar({
     onSelectCard: handleSelectCard,
     onUpdateDeckCardQty,
     onRemoveGroup: onRemoveGroupFromDeck,
+    onMovePrinting,
   };
 
   return (
@@ -529,10 +568,20 @@ export default function DeckEditorSidebar({
               {...sharedHoverProps}
             />
             <SectionAccordion
-              label="Sideboard"
-              count={deckCounts.sideboard + (pendingCounts.sideboard || 0)}
-              cards={(deck as any)?.sideboard || []}
-              category={"maybeboard" as DeckCategory}
+              label="Inventory"
+              count={deckCounts.inventory + (pendingCounts.inventory || 0)}
+              cards={deck?.inventory || []}
+              category="inventory"
+              ownershipMap={ownershipMap}
+              onSwapCard={onSwapDeckCard}
+              onRemoveCard={onRemoveDeckCard}
+              {...sharedHoverProps}
+            />
+            <SectionAccordion
+              label="Bench"
+              count={deckCounts.benched + (pendingCounts.benched || 0)}
+              cards={deck?.benched || []}
+              category="benched"
               ownershipMap={ownershipMap}
               onSwapCard={onSwapDeckCard}
               onRemoveCard={onRemoveDeckCard}

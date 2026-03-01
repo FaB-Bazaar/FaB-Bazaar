@@ -49,8 +49,9 @@ export const deckCategoryEnum = pgEnum('deck_category', [
   'hero',
   'equipment',
   'maindeck',
-  'sideboard',
-  'inventory'
+  'inventory',
+  'benched',
+  'tokens',
 ]);
 
 // ============================================================================

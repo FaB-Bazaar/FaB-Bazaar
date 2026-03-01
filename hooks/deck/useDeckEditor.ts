@@ -22,6 +22,7 @@ const FORMAT_TO_SEARCH: Record<string, string> = {
 function inferCategory(printing: any): DeckCategory {
   const types: string[] = (printing.types || []).map((t: string) => t.toLowerCase());
   if (types.some(t => t === "hero")) return "hero";
+  if (types.some(t => t === "action")) return "maindeck";
   if (types.some(t => t === "equipment" || t === "weapon")) return "equipment";
   return "maindeck";
 }
@@ -277,6 +278,8 @@ export function useDeckEditor(deckId: string) {
     toast({ title: "Cleared" });
   };
 
+  const clearBulkResults = () => setBulkResults([]);
+
   const updateCardQuantity = (instanceId: string, newQuantity: number) => {
     setBulkResults(current =>
       current.map(card => (card.instanceId === instanceId ? { ...card, quantity: Math.max(1, newQuantity) } : card))
@@ -325,7 +328,8 @@ export function useDeckEditor(deckId: string) {
     hero: deck?.hero?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
     equipment: deck?.equipment?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
     maindeck: deck?.maindeck?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
-    sideboard: (deck as any)?.sideboard?.reduce((s: number, c: any) => s + (c.quantity || 1), 0) ?? 0,
+    inventory: deck?.inventory?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
+    benched: deck?.benched?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
   };
 
   return {
@@ -346,6 +350,7 @@ export function useDeckEditor(deckId: string) {
       handleSaveToDeck,
       toggleStagedStatus,
       clearStaged,
+      clearBulkResults,
       updateCardQuantity,
       updateCardPrinting,
       removeCard,

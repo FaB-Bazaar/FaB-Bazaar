@@ -139,7 +139,7 @@ export class PostgresDeckService implements IDeckService {
       equipment: categorizeCards('equipment'),
       maindeck: categorizeCards('maindeck'),
       inventory: categorizeCards('inventory'),
-      maybeboard: categorizeCards('maybeboard' as DeckCategory),
+      benched: categorizeCards('benched'),
       tokens: categorizeCards('tokens' as DeckCategory),
 
       // Calculated stats (not cached)
@@ -149,7 +149,7 @@ export class PostgresDeckService implements IDeckService {
       equipmentCount: categorizeCards('equipment').length,
       maindeckCount: categorizeCards('maindeck').length,
       inventoryCount: categorizeCards('inventory').length,
-      maybeboardCount: categorizeCards('maybeboard' as DeckCategory).length,
+      benchedCount: categorizeCards('benched').length,
       tokensCount: categorizeCards('tokens' as DeckCategory).length,
       cardPoolCount: totalCards,
 
@@ -1099,7 +1099,7 @@ export class PostgresDeckService implements IDeckService {
       const printings: AddPrintingDTO[] = [];
 
       const categories: (keyof AllocationDTO)[] = [
-        'hero', 'equipment', 'maindeck', 'inventory', 'maybeboard', 'tokens'
+        'hero', 'equipment', 'maindeck', 'inventory', 'benched', 'tokens'
       ];
 
       for (const category of categories) {
@@ -1397,7 +1397,7 @@ export class PostgresDeckService implements IDeckService {
           equipmentCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'equipment' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           maindeckCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'maindeck' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           inventoryCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'inventory' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
-          maybeboardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'maybeboard' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          benchedCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'benched' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           tokensCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'tokens' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
         })
         .from(deckCards)
@@ -1415,7 +1415,7 @@ export class PostgresDeckService implements IDeckService {
             equipment: stats.equipmentCount,
             maindeck: stats.maindeckCount,
             inventory: stats.inventoryCount,
-            maybeboard: stats.maybeboardCount,
+            benched: stats.benchedCount,
             tokens: stats.tokensCount,
           },
         },

@@ -19,7 +19,7 @@ export type DeckCategory =
   | 'equipment'
   | 'maindeck'
   | 'inventory'
-  | 'maybeboard'
+  | 'benched'
   | 'tokens';
 
 /**
@@ -83,7 +83,7 @@ export interface DeckDTO {
   equipment: DeckPrintingDTO[];
   maindeck: DeckPrintingDTO[];
   inventory: DeckPrintingDTO[];
-  maybeboard?: DeckPrintingDTO[];
+  benched?: DeckPrintingDTO[];
   tokens?: DeckPrintingDTO[];
 
   // Cached stats
@@ -93,7 +93,7 @@ export interface DeckDTO {
   equipmentCount?: number;
   maindeckCount?: number;
   inventoryCount?: number;
-  maybeboardCount?: number;
+  benchedCount?: number;
   tokensCount?: number;
   cardPoolCount?: number;
 
