@@ -240,6 +240,9 @@ class WeeklyPrintingsUpdater:
             'cards_after': 0,
             'printings_before': 0,
             'printings_after': 0,
+            'printings_deleted': 0,
+            'printings_skipped_user_ref': 0,
+            'cards_deleted': 0,
         }
 
     # ── Data loading ──────────────────────────────────────────────────────────
@@ -276,11 +279,26 @@ class WeeklyPrintingsUpdater:
     # ── DB helpers ────────────────────────────────────────────────────────────
 
     def _get_row_counts(self) -> Tuple[int, int]:
-        with self.conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM cards")
-            card_count = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM printings")
-            printing_count = cur.fetchone()[0]
+        # Use separate try/catch per table so a missing extension on one table
+        # (e.g. pgvector not installed locally) doesn't prevent counting the other.
+        card_count = 0
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM cards")
+                card_count = cur.fetchone()[0]
+        except Exception as e:
+            self.conn.rollback()
+            print(f"   ⚠️  Could not count cards table (skipping): {e}")
+
+        printing_count = 0
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM printings")
+                printing_count = cur.fetchone()[0]
+        except Exception as e:
+            self.conn.rollback()
+            print(f"   ⚠️  Could not count printings table (skipping): {e}")
+
         return card_count, printing_count
 
     # ── Batch upserts ─────────────────────────────────────────────────────────
@@ -341,6 +359,89 @@ class WeeklyPrintingsUpdater:
                 print(f"   ❌ Printings batch {batch_num} failed: {e}")
                 self.stats['failed_batches'] += 1
 
+    # ── Deletion of stale rows ────────────────────────────────────────────────
+
+    def _delete_stale_printings(self, source_ids: set, dry_run: bool):
+        """Delete printings no longer in the source, unless a user still holds them."""
+        print("\n🧹 Checking for stale printings to remove...")
+        try:
+            with self.conn.cursor() as cur:
+                # Count stale printings referenced by user data (keep these)
+                cur.execute("""
+                    SELECT COUNT(*) FROM printings
+                    WHERE printing_id != ALL(%s)
+                      AND (
+                        printing_id IN (SELECT printing_id FROM inventory_items)
+                        OR printing_id IN (SELECT printing_id FROM wants_items)
+                        OR printing_id IN (SELECT printing_id FROM deck_cards)
+                      )
+                """, (list(source_ids),))
+                skipped = cur.fetchone()[0]
+                self.stats['printings_skipped_user_ref'] = skipped
+
+                if dry_run:
+                    cur.execute("""
+                        SELECT COUNT(*) FROM printings
+                        WHERE printing_id != ALL(%s)
+                          AND printing_id NOT IN (SELECT printing_id FROM inventory_items)
+                          AND printing_id NOT IN (SELECT printing_id FROM wants_items)
+                          AND printing_id NOT IN (SELECT printing_id FROM deck_cards)
+                    """, (list(source_ids),))
+                    would_delete = cur.fetchone()[0]
+                    print(f"   Would delete {would_delete:,} stale printings "
+                          f"({skipped:,} skipped — referenced by user data)")
+                    self.stats['printings_deleted'] = would_delete
+                    return
+
+                cur.execute("""
+                    DELETE FROM printings
+                    WHERE printing_id != ALL(%s)
+                      AND printing_id NOT IN (SELECT printing_id FROM inventory_items)
+                      AND printing_id NOT IN (SELECT printing_id FROM wants_items)
+                      AND printing_id NOT IN (SELECT printing_id FROM deck_cards)
+                """, (list(source_ids),))
+                deleted = cur.rowcount
+            self.conn.commit()
+            self.stats['printings_deleted'] = deleted
+            print(f"   Deleted {deleted:,} stale printings "
+                  f"({skipped:,} kept — referenced by user data)")
+        except Exception as e:
+            self.conn.rollback()
+            print(f"   ❌ Stale printing deletion failed: {e}")
+
+    def _delete_stale_cards(self, source_ids: set, dry_run: bool):
+        """Delete cards no longer in the source that have no remaining printings."""
+        print("\n🧹 Checking for stale cards to remove...")
+        try:
+            with self.conn.cursor() as cur:
+                if dry_run:
+                    cur.execute("""
+                        SELECT COUNT(*) FROM cards
+                        WHERE card_unique_id != ALL(%s)
+                          AND card_unique_id NOT IN (
+                            SELECT DISTINCT card_unique_id FROM printings
+                          )
+                    """, (list(source_ids),))
+                    would_delete = cur.fetchone()[0]
+                    print(f"   Would delete {would_delete:,} stale cards")
+                    self.stats['cards_deleted'] = would_delete
+                    return
+
+                cur.execute("""
+                    DELETE FROM cards
+                    WHERE card_unique_id != ALL(%s)
+                      AND card_unique_id NOT IN (
+                        SELECT DISTINCT card_unique_id FROM printings
+                      )
+                """, (list(source_ids),))
+                deleted = cur.rowcount
+            self.conn.commit()
+            self.stats['cards_deleted'] = deleted
+            print(f"   Deleted {deleted:,} stale cards")
+        except Exception as e:
+            self.conn.rollback()
+            print(f"   ❌ Stale card deletion failed: {e}")
+
     # ── Main entry ────────────────────────────────────────────────────────────
 
     def process_updates(
@@ -366,8 +467,30 @@ class WeeklyPrintingsUpdater:
         card_list = list(cards_map.values())
         printing_list = list(printings_map.values())
 
+        # ── Absolute minimum check ─────────────────────────────────────────────
+        # Abort if the source file looks truncated or corrupt. This is a last
+        # line of defense — step 01 already checks the GitHub download count,
+        # but this catches a corrupted seed file on disk.
+        MIN_EXPECTED_PRINTINGS = 10_000
+        if len(printing_list) < MIN_EXPECTED_PRINTINGS:
+            print(f"\n{'=' * 60}")
+            print(" SAFETY ABORT ".center(60, "!"))
+            print(f"{'=' * 60}")
+            print(f"  Source printings : {len(printing_list):,}")
+            print(f"  Minimum expected : {MIN_EXPECTED_PRINTINGS:,}")
+            print(f"  The source file appears incomplete or corrupt.")
+            print(f"{'=' * 60}\n")
+            self.conn.close()
+            import sys; sys.exit(1)
+        # ──────────────────────────────────────────────────────────────────────
+
         self._upsert_cards(card_list, batch_size, dry_run)
         self._upsert_printings(printing_list, batch_size, dry_run)
+
+        # ── Sync: remove rows no longer in the source ──────────────────────────
+        self._delete_stale_printings(set(printings_map.keys()), dry_run)
+        self._delete_stale_cards(set(cards_map.keys()), dry_run)
+        # ──────────────────────────────────────────────────────────────────────
 
         if not dry_run:
             self.stats['cards_after'], self.stats['printings_after'] = self._get_row_counts()
@@ -385,15 +508,18 @@ class WeeklyPrintingsUpdater:
         print(f"Total printings in source file:".ljust(45) + f"{self.stats['total_from_file']:,}")
         print(f"Skipped (invalid / missing IDs):".ljust(45) + f"{self.stats['skipped_invalid']:,}")
 
-        if not dry_run:
+        if dry_run:
+            print(f"Printings would delete (stale):".ljust(45) + f"{self.stats['printings_deleted']:,}")
+            print(f"Printings kept (user-referenced):".ljust(45) + f"{self.stats['printings_skipped_user_ref']:,}")
+            print(f"Cards would delete (stale):".ljust(45) + f"{self.stats['cards_deleted']:,}")
+        else:
             cards_inserted = self.stats['cards_after'] - self.stats['cards_before']
             printings_inserted = self.stats['printings_after'] - self.stats['printings_before']
-            # Total processed - net new = updated
-            total_cards = self.stats['total_from_file']  # unique cards ≤ printings
             print(f"Cards inserted (new):".ljust(45) + f"{max(0, cards_inserted):,}")
-            print(f"Cards updated (existing):".ljust(45) + f"{max(0, self.stats['cards_before'] - max(0, self.stats['cards_before'] - self.stats['cards_after'])):,}")
+            print(f"Cards deleted (stale):".ljust(45) + f"{self.stats['cards_deleted']:,}")
             print(f"Printings inserted (new):".ljust(45) + f"{max(0, printings_inserted):,}")
-            print(f"Printings updated (existing):".ljust(45) + f"{max(0, self.stats['printings_before'] - max(0, self.stats['printings_before'] - self.stats['printings_after'])):,}")
+            print(f"Printings deleted (stale):".ljust(45) + f"{self.stats['printings_deleted']:,}")
+            print(f"Printings kept (user-referenced):".ljust(45) + f"{self.stats['printings_skipped_user_ref']:,}")
             print(f"Failed batches:".ljust(45) + f"{self.stats['failed_batches']:,}")
             print(f"DB after:  {self.stats['cards_after']:,} cards, {self.stats['printings_after']:,} printings")
         print("=" * 60)

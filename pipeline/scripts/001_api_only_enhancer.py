@@ -796,7 +796,23 @@ class APIOnlyEnhancer:
         if cards_data is None:
             print("❌ Failed to download cards JSON")
             return False
-        
+
+        # Safety check: verify the download returned a reasonable card count.
+        # A partial download (network timeout, CDN error, empty branch) would
+        # propagate silently through the pipeline and wipe printings from the DB.
+        MIN_EXPECTED_CARDS = 1500
+        if isinstance(cards_data, list):
+            card_count = len(cards_data)
+        else:
+            card_count = len(cards_data.get('cards', cards_data.get('data', [])))
+        if card_count < MIN_EXPECTED_CARDS:
+            print(f"❌ SAFETY ABORT: Source returned only {card_count} cards "
+                  f"(expected at least {MIN_EXPECTED_CARDS}).")
+            print(f"   Source: {self.cards_url}")
+            print(f"   The branch may be empty, incomplete, or unreachable.")
+            return False
+        print(f"   Source card count: {card_count:,} — OK")
+
         print()
         
         # Step 3: Fetch API data
