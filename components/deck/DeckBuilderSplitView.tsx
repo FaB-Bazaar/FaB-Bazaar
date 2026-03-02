@@ -4,7 +4,9 @@ import { useState } from "react"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import CardCatalogPanel from "./CardCatalogPanel"
 import DeckListPanel from "./DeckListPanel"
+import DeckMatchupsDialog from "./DeckMatchupsDialog"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface DeckBuilderSplitViewProps {
   deckId: string
@@ -23,6 +25,7 @@ export default function DeckBuilderSplitView({
 }: DeckBuilderSplitViewProps) {
   const { toast } = useToast()
   const [isAddingCard, setIsAddingCard] = useState(false)
+  const [activeRightPanel, setActiveRightPanel] = useState<"list" | "matchups">("list")
 
   // Extract hero information for filtering
   const heroPrinting = deck.hero?.[0]
@@ -139,15 +142,55 @@ export default function DeckBuilderSplitView({
 
         <ResizableHandle withHandle />
 
-        {/* Right Panel - Deck List */}
+        {/* Right Panel - Deck List / Matchups */}
         <ResizablePanel defaultSize={25} minSize={15}>
-          <DeckListPanel
-            deckId={deckId}
-            deck={deck}
-            onDeckUpdate={onDeckUpdate}
-            setDeck={setDeck}
-            onAddCard={handleAddCard}
-          />
+          <div className="flex flex-col h-full">
+            {/* Tab bar */}
+            <div className="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <button
+                className={cn(
+                  "px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors",
+                  activeRightPanel === "list" && "border-b-2 border-primary text-gray-900 dark:text-gray-100"
+                )}
+                onClick={() => setActiveRightPanel("list")}
+              >
+                Deck List
+              </button>
+              <button
+                className={cn(
+                  "px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors",
+                  activeRightPanel === "matchups" && "border-b-2 border-primary text-gray-900 dark:text-gray-100"
+                )}
+                onClick={() => setActiveRightPanel("matchups")}
+              >
+                Matchups
+              </button>
+            </div>
+
+            {/* Panel content */}
+            <div className="flex-1 min-h-0 overflow-auto">
+              {activeRightPanel === "list" ? (
+                <DeckListPanel
+                  deckId={deckId}
+                  deck={deck}
+                  onDeckUpdate={onDeckUpdate}
+                  setDeck={setDeck}
+                  onAddCard={handleAddCard}
+                />
+              ) : (
+                <div className="p-3">
+                  <DeckMatchupsDialog
+                    open={true}
+                    onOpenChange={() => {}}
+                    deckId={deckId}
+                    deck={deck}
+                    inline={true}
+                    compact={true}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

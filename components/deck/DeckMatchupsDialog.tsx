@@ -21,7 +21,7 @@ import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, 
 import { useToast } from "@/hooks/use-toast";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
-import { getBannedCardIds } from '@/lib/fab-banned-cards';
+import { getBannedCardIds, getLivingLegendHeroIds } from '@/lib/fab-banned-cards';
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
 
 interface DeckMatchup {
@@ -40,35 +40,46 @@ interface DeckMatchupsDialogProps {
   deckId: string;
   deck: any; // Full deck object with hero, equipment, maindeck, inventory arrays
   inline?: boolean; // If true, renders content directly instead of in a dialog
+  compact?: boolean; // If true (with inline), suppresses the title/description header
+}
+
+// Convert a lowercase hero key to a display name, e.g. 'bravo, showstopper' → 'Bravo, Showstopper'
+function toHeroDisplayName(key: string): string {
+  return key.replace(/\b\w/g, c => c.toUpperCase());
 }
 
 // Helper function to get appropriate hero list based on deck format,
 // filtered to only include heroes legal in that format.
 function getHeroOptionsForFormat(format?: string) {
   const bannedIds = getBannedCardIds(format || '');
+  const livingLegendIds = getLivingLegendHeroIds(format || '');
+
+  const isExcluded = (cardUniqueId?: string) =>
+    cardUniqueId && (bannedIds.has(cardUniqueId) || livingLegendIds.has(cardUniqueId));
 
   // Silver Age and Blitz use young heroes
   if (format === 'Silver Age' || format === 'Blitz') {
     return Object.entries(YOUNG_HERO_INFO)
-      .filter(([_, info]) => !info.cardUniqueId || !bannedIds.has(info.cardUniqueId))
-      .map(([name, info]) => ({
-        name,
-        talisharId: toTalisharIdentifier(name),
+      .filter(([_, info]) => !isExcluded(info.cardUniqueId))
+      .map(([key, info]) => ({
+        name: key,
+        displayName: toHeroDisplayName(key),
+        talisharId: toTalisharIdentifier(key),
         classes: info.classes,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
-  // Classic Constructed, Living Legend, and others use adult heroes
-  // Filter out Living Legend (banned) heroes
+  // Classic Constructed and others use adult heroes; filter out Living Legend heroes
   return Object.entries(HERO_INFO)
-    .filter(([_, info]) => !info.cardUniqueId || !bannedIds.has(info.cardUniqueId))
-    .map(([name, info]) => ({
-      name,
-      talisharId: toTalisharIdentifier(name),
+    .filter(([_, info]) => !isExcluded(info.cardUniqueId))
+    .map(([key, info]) => ({
+      name: key,
+      displayName: toHeroDisplayName(key),
+      talisharId: toTalisharIdentifier(key),
       classes: info.classes,
     }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 const TURN_ORDER_OPTIONS = [
@@ -96,15 +107,20 @@ function ConfigPanel({
   formNotes: string;
   setFormNotes: (v: string) => void;
   editingHeroId: string | null;
-  heroOptions: { name: string; talisharId: string; classes: string[] }[];
+  heroOptions: { name: string; displayName: string; talisharId: string; classes: string[] }[];
   deckFormat?: string;
   loading: boolean;
   onSave: () => void;
   onCancel?: () => void;
 }) {
-  const [collapsed, setCollapsed] = React.useState(true);
+  const [collapsed, setCollapsed] = React.useState(editingHeroId !== null);
 
-  const heroLabel = heroOptions.find(h => h.talisharId === formHeroId)?.name || formHeroId;
+  const heroLabel = heroOptions.find(h => h.talisharId === formHeroId)?.displayName || formHeroId;
+
+  // Auto-expand when switching to "add new" mode (editingHeroId cleared after cancel/save)
+  React.useEffect(() => {
+    if (!editingHeroId) setCollapsed(false);
+  }, [editingHeroId]);
 
   return (
     <div>
@@ -141,6 +157,15 @@ function ConfigPanel({
               <Save className="h-3 w-3" />{editingHeroId ? 'Update' : 'Save'}
             </span>
           )}
+          {/* Cancel link in collapsed bar when editing */}
+          {collapsed && editingHeroId && onCancel && (
+            <span
+              onClick={(e) => { e.stopPropagation(); onCancel(); }}
+              className="text-[10px] font-medium text-gray-400 hover:text-gray-200 flex items-center gap-0.5"
+            >
+              <X className="h-3 w-3" />Cancel
+            </span>
+          )}
           {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
         </div>
       </button>
@@ -170,7 +195,7 @@ function ConfigPanel({
                 <SelectContent className="max-h-[300px]">
                   {heroOptions.map((hero) => (
                     <SelectItem key={hero.talisharId} value={hero.talisharId}>
-                      {hero.name}
+                      {hero.displayName}
                       <span className="text-xs text-gray-500 ml-1">
                         ({hero.classes.join(', ')})
                       </span>
@@ -248,6 +273,7 @@ export default function DeckMatchupsDialog({
   deckId,
   deck,
   inline = false,
+  compact = false,
 }: DeckMatchupsDialogProps) {
   const { toast } = useToast();
   const [matchups, setMatchups] = useState<DeckMatchup[]>([]);
@@ -504,22 +530,22 @@ export default function DeckMatchupsDialog({
   const getHeroDisplayName = (heroId: string) => {
     // First try current format's hero options
     let hero = HERO_OPTIONS.find(h => h.talisharId === heroId);
-    if (hero) return hero.name;
+    if (hero) return hero.displayName;
 
     // Fallback: check both adult and young heroes (for legacy matchups)
     const allHeroes = [
-      ...Object.keys(HERO_INFO).map(name => ({
-        name,
-        talisharId: toTalisharIdentifier(name),
+      ...Object.keys(HERO_INFO).map(key => ({
+        displayName: toHeroDisplayName(key),
+        talisharId: toTalisharIdentifier(key),
       })),
-      ...Object.keys(YOUNG_HERO_INFO).map(name => ({
-        name,
-        talisharId: toTalisharIdentifier(name),
+      ...Object.keys(YOUNG_HERO_INFO).map(key => ({
+        displayName: toHeroDisplayName(key),
+        talisharId: toTalisharIdentifier(key),
       }))
     ];
 
-    hero = allHeroes.find(h => h.talisharId === heroId);
-    return hero?.name || heroId;
+    const match = allHeroes.find(h => h.talisharId === heroId);
+    return match?.displayName || heroId;
   };
 
   const addCardToSideboard = (cardId: string, target: 'in' | 'out') => {
@@ -541,7 +567,7 @@ export default function DeckMatchupsDialog({
   // Main content component (used both in dialog and inline)
   const matchupsContent = (
     <div className={inline ? "w-full" : ""}>
-      {inline && (
+      {inline && !compact && (
         <div className="mb-2">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Swords className="h-5 w-5" />
@@ -553,7 +579,11 @@ export default function DeckMatchupsDialog({
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={(val) => {
+          // Switching back to the list always resets edit state so "Add New" is available
+          if (val === "matchups" && editingHeroId) resetForm();
+          setActiveTab(val);
+        }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="matchups">
               Matchups ({matchups.length})
@@ -565,11 +595,20 @@ export default function DeckMatchupsDialog({
 
           {/* Existing Matchups List */}
           <TabsContent value="matchups" className="space-y-3">
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { resetForm(); setActiveTab("add"); }}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />Add Matchup
+              </Button>
+            </div>
             {loading && matchups.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
             ) : matchups.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No matchups configured. Add one to get started!
+              <p className="text-sm text-gray-500 text-center py-4">
+                No matchups configured yet.
               </p>
             ) : (
               matchups.map((matchup) => {

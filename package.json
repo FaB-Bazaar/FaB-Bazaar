@@ -10,6 +10,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
+    "sync:banned-cards": "tsx scripts/sync-banned-cards.ts",
     "migrate:publicids": "tsx scripts/add-public-ids-to-articles.ts",
     "seo:check": "node scripts/seo-cli.js check",
     "seo:report": "node scripts/seo-cli.js report",

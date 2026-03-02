@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { RotateCcw, AlertCircle, List, LayoutGrid } from "lucide-react";
 import { toTalisharIdentifier } from "@/lib/utils";
 
@@ -14,19 +13,17 @@ import { toTalisharIdentifier } from "@/lib/utils";
 type SectionKey = 'hero' | 'equipment' | 'weapon' | 'red' | 'yellow' | 'blue' | 'unpitched';
 type ViewMode = 'list' | 'tile';
 
-/** One copy of a card — each physical printing gets its own entry */
-interface CardCopy {
-  imageUrl?: string;
-}
+interface CardCopy { imageUrl?: string; }
 
 interface GroupedCard {
   talisharId: string;
   name: string;
   pitch?: number | null;
-  available: number;
+  available: number;          // total copies: deck + inventory
+  originalDeckCount: number;  // how many start in deck (before any matchup edits)
   section: SectionKey;
-  copies: CardCopy[];        // one per physical copy, preserving individual images
-  imageUrl?: string;         // first image, used for hover preview in list view
+  copies: CardCopy[];
+  imageUrl?: string;
 }
 
 interface Section {
@@ -93,8 +90,7 @@ function getPitch(printing: any): number | null {
 }
 
 function getSection(printing: any, defaultCat: string): SectionKey {
-  const types: string[] = (printing.printingDetails?.types || [])
-    .map((t: string) => t.toLowerCase());
+  const types: string[] = (printing.printingDetails?.types || []).map((t: string) => t.toLowerCase());
   if (defaultCat === 'hero') return 'hero';
   if (types.some(t => t === 'weapon')) return 'weapon';
   if (defaultCat === 'equipment') return 'equipment';
@@ -105,29 +101,46 @@ function getSection(printing: any, defaultCat: string): SectionKey {
   return 'unpitched';
 }
 
-function buildSections(
-  printings: Array<{ printing: any; cat: string }>,
-  labels: typeof DECK_LABELS
+/**
+ * Build unified sections from both deck and inventory printings.
+ * Each card appears once with `available` = total copies and
+ * `originalDeckCount` = how many start in the deck.
+ */
+function buildUnifiedSections(
+  deckPrintings: Array<{ printing: any; cat: string }>,
+  invPrintings: Array<{ printing: any; cat: string }>,
+  labels: typeof DECK_LABELS,
 ): Section[] {
   const groups = new Map<string, GroupedCard>();
 
-  for (const { printing, cat } of printings) {
-    const talisharId = buildTalisharId(printing);
-    const name = printing.printingDetails?.display_name || printing.printingDetails?.name || 'Unknown';
-    const pitch = getPitch(printing);
-    const section = getSection(printing, cat);
-    const qty = printing.quantity || 1;
-    const imageUrl = printing.printingDetails?.image_url;
+  const absorb = (printings: Array<{ printing: any; cat: string }>, isDeck: boolean) => {
+    for (const { printing, cat } of printings) {
+      const talisharId = buildTalisharId(printing);
+      const name = printing.printingDetails?.display_name || printing.printingDetails?.name || 'Unknown';
+      const pitch = getPitch(printing);
+      const section = getSection(printing, cat);
+      const qty = printing.quantity || 1;
+      const imageUrl = printing.printingDetails?.image_url;
 
-    if (groups.has(talisharId)) {
-      const g = groups.get(talisharId)!;
-      for (let q = 0; q < qty; q++) g.copies.push({ imageUrl });
-      g.available += qty;
-    } else {
-      const copies = Array.from({ length: qty }, () => ({ imageUrl }));
-      groups.set(talisharId, { talisharId, name, pitch, available: qty, section, copies, imageUrl });
+      if (groups.has(talisharId)) {
+        const g = groups.get(talisharId)!;
+        for (let q = 0; q < qty; q++) g.copies.push({ imageUrl });
+        g.available += qty;
+        if (isDeck) g.originalDeckCount += qty;
+      } else {
+        const copies = Array.from({ length: qty }, () => ({ imageUrl }));
+        groups.set(talisharId, {
+          talisharId, name, pitch,
+          available: qty,
+          originalDeckCount: isDeck ? qty : 0,
+          section, copies, imageUrl,
+        });
+      }
     }
-  }
+  };
+
+  absorb(deckPrintings, true);
+  absorb(invPrintings, false);
 
   const sectionMap = new Map<SectionKey, GroupedCard[]>();
   for (const card of groups.values()) {
@@ -137,28 +150,14 @@ function buildSections(
 
   const sections: Section[] = [];
   for (const [key, cards] of sectionMap) {
-    cards.sort((a, b) => {
-      const n = a.name.localeCompare(b.name);
-      return n !== 0 ? n : (a.pitch ?? 99) - (b.pitch ?? 99);
-    });
-    sections.push({
-      key,
-      title: labels[key]?.title ?? key,
-      pitchColor: labels[key]?.pitchColor,
-      cards,
-    });
+    cards.sort((a, b) => a.name.localeCompare(b.name) || (a.pitch ?? 99) - (b.pitch ?? 99));
+    sections.push({ key, title: labels[key]?.title ?? key, pitchColor: labels[key]?.pitchColor, cards });
   }
-
   return sections.sort((a, b) => SECTION_ORDER[a.key] - SECTION_ORDER[b.key]);
 }
 
-/** Count active (true) entries in a boolean array */
-function countActive(arr: boolean[]): number {
-  return arr.filter(v => v).length;
-}
-
 // ─────────────────────────────────────────────────────────
-// Quantity buttons  [0][1][2]  (list view)
+// Quantity buttons  [0][1][2][3]
 // ─────────────────────────────────────────────────────────
 
 function QuantityButtons({
@@ -198,7 +197,7 @@ function PitchDot({ pitch }: { pitch?: number | null }) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Card hover preview (fixed position, list view only)
+// Card hover preview
 // ─────────────────────────────────────────────────────────
 
 interface HoverState { imageUrl: string; x: number; y: number }
@@ -208,32 +207,24 @@ function CardHoverPreview({ hover }: { hover: HoverState | null }) {
   const left = Math.min(hover.x + 16, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 210);
   const top = Math.max(8, Math.min(hover.y - 80, (typeof window !== 'undefined' ? window.innerHeight : 800) - 320));
   return (
-    <div
-      className="fixed z-[9999] pointer-events-none"
-      style={{ left, top }}
-    >
+    <div className="fixed z-[9999] pointer-events-none" style={{ left, top }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={hover.imageUrl}
-        alt="Card preview"
-        className="w-48 rounded-xl shadow-2xl border-2 border-gray-600"
-      />
+      <img src={hover.imageUrl} alt="Card preview" className="w-48 rounded-xl shadow-2xl border-2 border-gray-600" />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────
-// Section block — list view
+// List section — shared by both columns
 // ─────────────────────────────────────────────────────────
 
 function ListSection({
-  section, sel, onSetCount, activeClass, isIncoming, onHover, onLeave,
+  section, deckCounts, isRight, onSetCount, onHover, onLeave,
 }: {
   section: Section;
-  sel: Map<string, boolean[]>;
-  onSetCount: (id: string, count: number) => void;
-  activeClass: string;
-  isIncoming: boolean;
+  deckCounts: Map<string, number>;
+  isRight: boolean;
+  onSetCount: (id: string, newDeckCount: number) => void;
   onHover: (card: GroupedCard, e: React.MouseEvent) => void;
   onLeave: () => void;
 }) {
@@ -241,7 +232,6 @@ function ListSection({
 
   return (
     <div>
-      {/* Section header */}
       <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700">
         {section.pitchColor && (
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
@@ -251,25 +241,33 @@ function ListSection({
       </div>
 
       {section.cards.map(card => {
-        const arr = sel.get(card.talisharId);
-        const value = arr ? countActive(arr) : (isIncoming ? 0 : card.available);
-        const isDefault = value === (isIncoming ? 0 : card.available);
+        const dc = deckCounts.get(card.talisharId) ?? card.originalDeckCount;
+        const invCount = card.available - dc;
+
+        // value displayed in this column
+        const value = isRight ? invCount : dc;
+        // default value for this column (no swaps applied)
+        const defaultValue = isRight ? (card.available - card.originalDeckCount) : card.originalDeckCount;
+        const isChanged = value !== defaultValue;
+
+        // green = gaining cards in this column, amber = losing cards
+        const rowClass = isChanged
+          ? (value > defaultValue
+            ? 'bg-green-50 dark:bg-green-950/20'
+            : 'bg-amber-50 dark:bg-amber-950/20')
+          : '';
+
+        const activeClass = isRight ? 'bg-green-600' : 'bg-gray-800 dark:bg-gray-200 dark:text-gray-900';
 
         return (
           <div
             key={card.talisharId}
-            className={`flex items-center gap-2 px-2 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${
-              !isDefault
-                ? isIncoming
-                  ? 'bg-green-50 dark:bg-green-950/20'
-                  : 'bg-amber-50 dark:bg-amber-950/20'
-                : ''
-            }`}
+            className={`flex items-center gap-2 px-2 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${rowClass}`}
           >
             <QuantityButtons
               max={card.available}
               value={value}
-              onChange={v => onSetCount(card.talisharId, v)}
+              onChange={n => onSetCount(card.talisharId, isRight ? card.available - n : n)}
               activeClass={activeClass}
             />
             <div
@@ -278,7 +276,7 @@ function ListSection({
               onMouseLeave={onLeave}
             >
               <PitchDot pitch={card.pitch} />
-              <span className={`text-sm truncate ${!isDefault ? 'font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+              <span className={`text-sm truncate ${isChanged ? 'font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
                 {card.name}
               </span>
             </div>
@@ -290,26 +288,22 @@ function ListSection({
 }
 
 // ─────────────────────────────────────────────────────────
-// Section block — tile view
+// Tile section — shared by both columns
 // ─────────────────────────────────────────────────────────
 
 function TileSection({
-  section, sel, onToggle, isIncoming,
+  section, deckCounts, isRight, onToggle,
 }: {
   section: Section;
-  sel: Map<string, boolean[]>;
-  onToggle: (id: string, copyIndex: number) => void;
-  isIncoming: boolean;
+  deckCounts: Map<string, number>;
+  isRight: boolean;
+  onToggle: (id: string, copyIndex: number, isRight: boolean) => void;
 }) {
   const total = section.cards.reduce((s, c) => s + c.available, 0);
-
-  const activeBorderClass = isIncoming
-    ? 'ring-[1.5px] ring-green-400'
-    : 'ring-[1.5px] ring-amber-400';
+  const activeBorderClass = isRight ? 'ring-[1.5px] ring-green-400' : 'ring-[1.5px] ring-amber-400';
 
   return (
     <div className="mb-1.5">
-      {/* Section header — compact inline */}
       <div className="flex items-center gap-1 px-0.5 mb-0.5">
         {section.pitchColor && (
           <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${section.pitchColor}`} />
@@ -318,20 +312,19 @@ function TileSection({
         <span className="text-[10px] text-gray-400">({total})</span>
       </div>
 
-      {/* Tiles — tight grid */}
       <div className="flex flex-wrap gap-[3px]">
         {section.cards.map(card => {
-          const arr = sel.get(card.talisharId);
-          // Default: deck cards all active, inventory all inactive
-          const defaultActive = !isIncoming;
+          const dc = deckCounts.get(card.talisharId) ?? card.originalDeckCount;
 
           return card.copies.map((copy, i) => {
-            const isActive = arr ? arr[i] ?? defaultActive : defaultActive;
+            // LEFT: bright if tile is in deck (i < dc)
+            // RIGHT: bright if tile is in inventory (i >= dc)
+            const isActive = isRight ? i >= dc : i < dc;
 
             return (
               <div
                 key={`${card.talisharId}-${i}`}
-                onClick={() => onToggle(card.talisharId, i)}
+                onClick={() => onToggle(card.talisharId, i, isRight)}
                 title={card.name}
                 className={`
                   relative rounded cursor-pointer transition-all select-none
@@ -386,9 +379,7 @@ export default function MatchupSideboardEditor({
   onChange,
   readOnly = false,
 }: MatchupSideboardEditorProps) {
-  // Selection: per-copy boolean arrays.  true = active (playing/bringing in)
-  const [deckSel, setDeckSel] = useState<Map<string, boolean[]>>(new Map());
-  const [sideSel, setSideSel] = useState<Map<string, boolean[]>>(new Map());
+  const [deckCounts, setDeckCounts] = useState<Map<string, number>>(new Map());
   const [viewMode, setViewMode] = useState<ViewMode>('tile');
   const [hovered, setHovered] = useState<HoverState | null>(null);
   const hasInit = useRef(false);
@@ -396,162 +387,131 @@ export default function MatchupSideboardEditor({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
+  // Unified sections (same cards in both columns)
   const deckSections = useMemo(() => {
     if (!deck) return [];
-    return buildSections([
-      ...(deck.hero || []).map((p: any) => ({ printing: p, cat: 'hero' })),
-      ...(deck.equipment || []).map((p: any) => ({ printing: p, cat: 'equipment' })),
-      ...(deck.maindeck || []).map((p: any) => ({ printing: p, cat: 'maindeck' })),
-    ], DECK_LABELS);
-  }, [deck]);
-
-  const invSections = useMemo(() => {
-    if (!deck) return [];
-    return buildSections(
+    return buildUnifiedSections(
+      [
+        ...(deck.hero || []).map((p: any) => ({ printing: p, cat: 'hero' })),
+        ...(deck.equipment || []).map((p: any) => ({ printing: p, cat: 'equipment' })),
+        ...(deck.maindeck || []).map((p: any) => ({ printing: p, cat: 'maindeck' })),
+      ],
       (deck.inventory || []).map((p: any) => ({ printing: p, cat: 'inventory' })),
-      INV_LABELS
+      DECK_LABELS,
     );
   }, [deck]);
 
-  const allDeckCards = useMemo(() => deckSections.flatMap(s => s.cards), [deckSections]);
-  const allInvCards = useMemo(() => invSections.flatMap(s => s.cards), [invSections]);
+  // Same cards, but with inventory section labels for the right column
+  const invSections = useMemo(() => {
+    if (!deck) return [];
+    return buildUnifiedSections(
+      [
+        ...(deck.hero || []).map((p: any) => ({ printing: p, cat: 'hero' })),
+        ...(deck.equipment || []).map((p: any) => ({ printing: p, cat: 'equipment' })),
+        ...(deck.maindeck || []).map((p: any) => ({ printing: p, cat: 'maindeck' })),
+      ],
+      (deck.inventory || []).map((p: any) => ({ printing: p, cat: 'inventory' })),
+      INV_LABELS,
+    );
+  }, [deck]);
 
-  // Initialize selection arrays
+  const allCards = useMemo(() => deckSections.flatMap(s => s.cards), [deckSections]);
+
+  // Initialize deckCounts from the deck's actual quantities, then apply saved swaps
   useEffect(() => {
     if (!deck || hasInit.current) return;
     hasInit.current = true;
 
-    // Deck: all copies start active (playing)
-    const initDeck = new Map<string, boolean[]>();
-    for (const c of allDeckCards) initDeck.set(c.talisharId, Array(c.available).fill(true));
+    const init = new Map<string, number>();
+    for (const c of allCards) init.set(c.talisharId, c.originalDeckCount);
 
-    // Inventory: all copies start inactive (not bringing in)
-    const initSide = new Map<string, boolean[]>();
-    for (const c of allInvCards) initSide.set(c.talisharId, Array(c.available).fill(false));
-
-    // Apply initial swaps
     if (initialSwaps && (initialSwaps.out.length > 0 || initialSwaps.in.length > 0)) {
-      // Mark N copies as inactive in deck (from the end)
-      const outCounts = new Map<string, number>();
-      initialSwaps.out.forEach(id => outCounts.set(id, (outCounts.get(id) || 0) + 1));
-      for (const c of allDeckCards) {
-        const arr = initDeck.get(c.talisharId)!;
-        let remaining = outCounts.get(c.talisharId) || 0;
-        for (let i = arr.length - 1; i >= 0 && remaining > 0; i--) {
-          arr[i] = false;
-          remaining--;
-        }
-      }
+      const outC = new Map<string, number>();
+      initialSwaps.out.forEach(id => outC.set(id, (outC.get(id) || 0) + 1));
+      const inC = new Map<string, number>();
+      initialSwaps.in.forEach(id => inC.set(id, (inC.get(id) || 0) + 1));
 
-      // Mark N copies as active in inventory (from the start)
-      const inCounts = new Map<string, number>();
-      initialSwaps.in.forEach(id => inCounts.set(id, (inCounts.get(id) || 0) + 1));
-      for (const c of allInvCards) {
-        const arr = initSide.get(c.talisharId)!;
-        let remaining = Math.min(c.available, inCounts.get(c.talisharId) || 0);
-        for (let i = 0; i < arr.length && remaining > 0; i++) {
-          arr[i] = true;
-          remaining--;
-        }
+      for (const c of allCards) {
+        let v = init.get(c.talisharId)!;
+        v = Math.max(0, v - (outC.get(c.talisharId) || 0));
+        v = Math.min(c.available, v + (inC.get(c.talisharId) || 0));
+        init.set(c.talisharId, v);
       }
     }
 
-    setDeckSel(initDeck);
-    setSideSel(initSide);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setDeckCounts(init);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck]);
 
-  // Emit changes
+  // Emit changes whenever deckCounts updates
   useEffect(() => {
     if (!didInteract.current) return;
     const out: string[] = [];
-    for (const c of allDeckCards) {
-      const arr = deckSel.get(c.talisharId);
-      if (!arr) continue;
-      const inactive = c.available - countActive(arr);
-      for (let i = 0; i < inactive; i++) out.push(c.talisharId);
-    }
     const inList: string[] = [];
-    for (const c of allInvCards) {
-      const arr = sideSel.get(c.talisharId);
-      if (!arr) continue;
-      const active = countActive(arr);
-      for (let i = 0; i < active; i++) inList.push(c.talisharId);
+    for (const c of allCards) {
+      const dc = deckCounts.get(c.talisharId) ?? c.originalDeckCount;
+      const delta = dc - c.originalDeckCount;
+      if (delta < 0) for (let i = 0; i < -delta; i++) out.push(c.talisharId);
+      else if (delta > 0) for (let i = 0; i < delta; i++) inList.push(c.talisharId);
     }
     onChangeRef.current({ in: inList, out });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckSel, sideSel]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckCounts]);
 
-  // Toggle a specific copy by index
-  const toggleDeckCopy = (id: string, copyIndex: number) => {
+  // Set deck count for a card (clamped to valid range)
+  const setCount = (id: string, newDeckCount: number) => {
     if (readOnly) return;
     didInteract.current = true;
-    setDeckSel(prev => {
+    setDeckCounts(prev => {
+      const card = allCards.find(c => c.talisharId === id);
+      const max = card?.available ?? 0;
       const next = new Map(prev);
-      const arr = [...(next.get(id) || [])];
-      arr[copyIndex] = !arr[copyIndex];
-      next.set(id, arr);
+      next.set(id, Math.max(0, Math.min(max, newDeckCount)));
       return next;
     });
   };
 
-  const toggleInvCopy = (id: string, copyIndex: number) => {
+  // Toggle a tile copy between deck and inventory
+  const toggleTile = (id: string, copyIndex: number, isRight: boolean) => {
     if (readOnly) return;
     didInteract.current = true;
-    setSideSel(prev => {
-      const next = new Map(prev);
-      const arr = [...(next.get(id) || [])];
-      arr[copyIndex] = !arr[copyIndex];
-      next.set(id, arr);
-      return next;
-    });
-  };
-
-  // Set count for list view (activates first N copies)
-  const setDeckCount = (id: string, count: number) => {
-    didInteract.current = true;
-    setDeckSel(prev => {
-      const next = new Map(prev);
-      const old = next.get(id) || [];
-      const arr = Array(old.length).fill(false);
-      for (let i = 0; i < Math.min(count, arr.length); i++) arr[i] = true;
-      next.set(id, arr);
-      return next;
-    });
-  };
-
-  const setInvCount = (id: string, count: number) => {
-    didInteract.current = true;
-    setSideSel(prev => {
-      const next = new Map(prev);
-      const old = next.get(id) || [];
-      const arr = Array(old.length).fill(false);
-      for (let i = 0; i < Math.min(count, arr.length); i++) arr[i] = true;
-      next.set(id, arr);
-      return next;
+    setDeckCounts(prev => {
+      const card = allCards.find(c => c.talisharId === id);
+      if (!card) return prev;
+      const current = prev.get(id) ?? card.originalDeckCount;
+      let next: number;
+      if (isRight) {
+        // RIGHT: bright tile = in inventory (i >= current) → clicking adds to deck
+        //        dim tile = in deck (i < current) → clicking removes from deck
+        next = copyIndex >= current ? current + 1 : current - 1;
+      } else {
+        // LEFT: bright tile = in deck (i < current) → clicking removes from deck
+        //       dim tile = in inventory (i >= current) → clicking adds to deck
+        next = copyIndex < current ? current - 1 : current + 1;
+      }
+      const map = new Map(prev);
+      map.set(id, Math.max(0, Math.min(card.available, next)));
+      return map;
     });
   };
 
   const handleReset = () => {
     didInteract.current = true;
-    const d = new Map<string, boolean[]>();
-    for (const c of allDeckCards) d.set(c.talisharId, Array(c.available).fill(true));
-    const s = new Map<string, boolean[]>();
-    for (const c of allInvCards) s.set(c.talisharId, Array(c.available).fill(false));
-    setDeckSel(d);
-    setSideSel(s);
+    const d = new Map<string, number>();
+    for (const c of allCards) d.set(c.talisharId, c.originalDeckCount);
+    setDeckCounts(d);
   };
 
   // Stats
-  const totalOut = allDeckCards.reduce((sum, c) => {
-    const arr = deckSel.get(c.talisharId);
-    return sum + (arr ? c.available - countActive(arr) : 0);
+  const totalOut = allCards.reduce((sum, c) => {
+    const dc = deckCounts.get(c.talisharId) ?? c.originalDeckCount;
+    return sum + Math.max(0, c.originalDeckCount - dc);
   }, 0);
-  const totalIn = allInvCards.reduce((sum, c) => {
-    const arr = sideSel.get(c.talisharId);
-    return sum + (arr ? countActive(arr) : 0);
+  const totalIn = allCards.reduce((sum, c) => {
+    const dc = deckCounts.get(c.talisharId) ?? c.originalDeckCount;
+    return sum + Math.max(0, dc - c.originalDeckCount);
   }, 0);
-  const mainTotal = allDeckCards.reduce((s, c) => s + c.available, 0);
+  const mainTotal = allCards.reduce((s, c) => s + c.originalDeckCount, 0);
   const postSwap = mainTotal - totalOut + totalIn;
   const maxSize = format === 'Silver Age' ? 40 : null;
   const isOverLimit = maxSize !== null && postSwap > maxSize;
@@ -563,11 +523,11 @@ export default function MatchupSideboardEditor({
 
   return (
     <div className="space-y-1.5">
-      {/* Stats bar — compact single line */}
+      {/* Stats bar */}
       <div className="flex items-center justify-between flex-wrap gap-1">
         <div className="flex items-center gap-1.5 flex-wrap text-xs">
           <span className="text-gray-500 dark:text-gray-400">
-            {mainTotal}{hasChanges && ` → `}
+            {mainTotal}{hasChanges && ' → '}
             {hasChanges && (
               <span className={`font-medium ${isOverLimit ? 'text-red-600' : 'text-gray-200'}`}>
                 {postSwap}
@@ -598,22 +558,14 @@ export default function MatchupSideboardEditor({
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className={`px-1.5 py-0.5 text-[10px] flex items-center gap-0.5 transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-gray-700 text-white'
-                  : 'text-gray-500 hover:bg-gray-800'
-              }`}
+              className={`px-1.5 py-0.5 text-[10px] flex items-center gap-0.5 transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
             >
               <List className="h-2.5 w-2.5" />List
             </button>
             <button
               type="button"
               onClick={() => setViewMode('tile')}
-              className={`px-1.5 py-0.5 text-[10px] flex items-center gap-0.5 border-l border-gray-700 transition-colors ${
-                viewMode === 'tile'
-                  ? 'bg-gray-700 text-white'
-                  : 'text-gray-500 hover:bg-gray-800'
-              }`}
+              className={`px-1.5 py-0.5 text-[10px] flex items-center gap-0.5 border-l border-gray-700 transition-colors ${viewMode === 'tile' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
             >
               <LayoutGrid className="h-2.5 w-2.5" />Tiles
             </button>
@@ -621,20 +573,17 @@ export default function MatchupSideboardEditor({
         </div>
       </div>
 
-      {/* Two columns — deck takes ~75% in tile view, 50/50 in list */}
+      {/* Two columns — same card pool, inverse quantities */}
       <div className={`grid grid-cols-1 gap-2 ${viewMode === 'tile' ? 'md:grid-cols-[3fr_1fr]' : 'md:grid-cols-2'}`}>
 
-        {/* LEFT — Your Deck */}
+        {/* LEFT — Deck */}
         <div>
           <div className="flex items-center gap-1.5 mb-1 px-0.5">
-            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Deck
-            </span>
+            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deck</span>
             {!readOnly && viewMode === 'list' && (
               <span className="text-[10px] text-gray-500">— set how many you&apos;re playing</span>
             )}
           </div>
-
           {viewMode === 'list' ? (
             <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               {deckSections.length === 0
@@ -643,10 +592,9 @@ export default function MatchupSideboardEditor({
                     <ListSection
                       key={s.key}
                       section={s}
-                      sel={deckSel}
-                      onSetCount={setDeckCount}
-                      activeClass="bg-gray-800 dark:bg-gray-200 dark:text-gray-900"
-                      isIncoming={false}
+                      deckCounts={deckCounts}
+                      isRight={false}
+                      onSetCount={setCount}
                       onHover={handleHover}
                       onLeave={() => setHovered(null)}
                     />
@@ -658,42 +606,32 @@ export default function MatchupSideboardEditor({
               {deckSections.length === 0
                 ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
                 : deckSections.map(s => (
-                    <TileSection
-                      key={s.key}
-                      section={s}
-                      sel={deckSel}
-                      onToggle={toggleDeckCopy}
-                      isIncoming={false}
-                    />
+                    <TileSection key={s.key} section={s} deckCounts={deckCounts} isRight={false} onToggle={toggleTile} />
                   ))
               }
             </div>
           )}
         </div>
 
-        {/* RIGHT — Inventory */}
+        {/* RIGHT — Inventory (inverse of deck) */}
         <div>
           <div className="flex items-center gap-1.5 mb-1 px-0.5">
-            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Inventory
-            </span>
+            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inventory</span>
             {!readOnly && viewMode === 'list' && (
               <span className="text-[10px] text-gray-500">— set how many to bring in</span>
             )}
           </div>
-
           {viewMode === 'list' ? (
             <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               {invSections.length === 0
-                ? <p className="text-xs text-gray-500 p-3 text-center">No cards in inventory</p>
+                ? <p className="text-xs text-gray-500 p-3 text-center">No cards</p>
                 : invSections.map(s => (
                     <ListSection
                       key={s.key}
                       section={s}
-                      sel={sideSel}
-                      onSetCount={setInvCount}
-                      activeClass="bg-green-600"
-                      isIncoming={true}
+                      deckCounts={deckCounts}
+                      isRight={true}
+                      onSetCount={setCount}
                       onHover={handleHover}
                       onLeave={() => setHovered(null)}
                     />
@@ -703,15 +641,9 @@ export default function MatchupSideboardEditor({
           ) : (
             <div className="rounded border border-gray-700/50 p-1">
               {invSections.length === 0
-                ? <p className="text-xs text-gray-500 p-2 text-center">No inventory cards</p>
+                ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
                 : invSections.map(s => (
-                    <TileSection
-                      key={s.key}
-                      section={s}
-                      sel={sideSel}
-                      onToggle={toggleInvCopy}
-                      isIncoming={true}
-                    />
+                    <TileSection key={s.key} section={s} deckCounts={deckCounts} isRight={true} onToggle={toggleTile} />
                   ))
               }
             </div>
@@ -719,7 +651,6 @@ export default function MatchupSideboardEditor({
         </div>
       </div>
 
-      {/* Hover card preview (list view only) */}
       {viewMode === 'list' && <CardHoverPreview hover={hovered} />}
     </div>
   );

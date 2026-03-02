@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, RotateCcw } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, RotateCcw, Swords } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -12,6 +12,7 @@ import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { decksClient } from "@/lib/client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
+import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,7 +29,7 @@ export default function DeckEditorPage() {
   const { state, handlers } = useDeckEditor(deckId);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<"search" | "deck">("search");
+  const [activeTab, setActiveTab] = useState<"search" | "deck" | "matchups">("search");
 
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
@@ -241,6 +242,18 @@ export default function DeckEditorPage() {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setActiveTab("matchups")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === "matchups"
+                    ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                )}
+              >
+                <Swords className="h-4 w-4" />
+                Matchups
+              </button>
             </div>
 
             {/* Search tab content */}
@@ -316,6 +329,18 @@ export default function DeckEditorPage() {
                   />
                 ) : null}
               </>
+            )}
+
+            {/* Matchups tab content */}
+            {activeTab === "matchups" && state.deck && (
+              <DeckMatchupsDialog
+                open={true}
+                onOpenChange={() => {}}
+                deckId={deckId}
+                deck={state.deck}
+                inline={true}
+                compact={true}
+              />
             )}
           </div>
         </div>

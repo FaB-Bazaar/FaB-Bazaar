@@ -8,37 +8,36 @@ import BulkResultCard from '@/components/browse/BulkResultCard';
 interface BulkResultsGridProps {
   cards: any[];
   loading: boolean;
+  hideStaged?: boolean;
   onUpdatePrinting: (instanceId: string, newPrinting: any) => void;
   onQuantityChange: (instanceId: string, newQuantity: number) => void;
   onToggleTrade: (instanceId: string) => void;
-  onDuplicate: (instanceId: string) => void; 
+  onDuplicate: (instanceId: string) => void;
   onRemove: (instanceId: string) => void;
   onToggleStaged: (instanceId: string) => void;
   onPrintingView: (instanceId: string) => void;
 }
 
-export default function BulkResultsGrid({ 
-  cards, 
-  loading, 
-  onUpdatePrinting, 
-  onQuantityChange, 
-  onToggleTrade, 
-  onDuplicate, 
+export default function BulkResultsGrid({
+  cards,
+  loading,
+  hideStaged = true,
+  onUpdatePrinting,
+  onQuantityChange,
+  onToggleTrade,
+  onDuplicate,
   onRemove,
   onToggleStaged,
   onPrintingView
 }: BulkResultsGridProps) {
-  
-
-
   if (loading) {
     return <div className="text-center text-gray-400 py-8">Loading search results...</div>;
   }
-  
-  const gridCards = cards.filter(c => !c.isStaged);
+
+  const gridCards = hideStaged ? cards.filter(c => !c.isStaged) : cards;
 
   if (gridCards.length === 0) {
-    if (cards.length > 0) {
+    if (hideStaged && cards.length > 0) {
        return (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <p>All found cards have been staged.</p>
