@@ -92,10 +92,8 @@ export class DiscordWebhooks {
         console.log('[Discord] Adding notable cards section...');
         console.log('[Discord] Notable cards data:', data.notableCards);
         
-        const resolvedBaseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-                          process.env.AUTH_URL ||
-                          process.env.NEXTAUTH_URL ||
-                          'http://localhost:3000';
+        const resolvedBaseUrl = 'https://fabbazaar.app';
+
         const notableCardsText = data.notableCards.slice(0, 5).map(card => {
           const baseUrl = resolvedBaseUrl;
 
@@ -201,10 +199,7 @@ export class DiscordWebhooks {
       if (data.cardsAdded && data.cardsAdded.length > 0 && data.cardsAdded.length <= 5) {
         console.log('[Discord] Adding wants cards section...');
         
-        const wantsBaseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-                          process.env.AUTH_URL ||
-                          process.env.NEXTAUTH_URL ||
-                          'http://localhost:3000';
+        const wantsBaseUrl = const resolvedBaseUrl = 'https://fabbazaar.app';
         const wantsCardsText = data.cardsAdded.map(card => {
           const baseUrl = wantsBaseUrl;
 
