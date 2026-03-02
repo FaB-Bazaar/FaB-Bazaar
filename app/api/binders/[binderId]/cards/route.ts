@@ -289,7 +289,6 @@ function calculateDiscordNotificationData(auth: AuthResult, results: any[], bind
     c.rarity?.toUpperCase() === 'V'
   );
 
-  // Get the base URL from environment variable or fallback to localhost
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
                 process.env.AUTH_URL ||
                 process.env.NEXTAUTH_URL ||

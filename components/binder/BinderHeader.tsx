@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, UserCircle, Download, ArrowLeft, BookOpen } from 'lucide-react';
+import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check } from 'lucide-react';
 
 import { PricingStatus } from './PricingStatus';
 
@@ -45,6 +45,15 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
   cardsCount = 0,
   priceUpdatedAt
 }) => {
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+
   return (
     <div className="mb-3 sm:mb-6">
       {binder?.username && (
@@ -131,6 +140,18 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
             Export
           </Button>
         )}
+        <Button
+          variant="outline"
+          onClick={handleCopyLink}
+          className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 flex-1 sm:flex-initial"
+        >
+          {linkCopied ? (
+            <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 text-green-500" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+          )}
+          {linkCopied ? 'Copied!' : 'Copy Link'}
+        </Button>
       </div>
     </div>
   );

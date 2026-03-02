@@ -92,11 +92,12 @@ export class DiscordWebhooks {
         console.log('[Discord] Adding notable cards section...');
         console.log('[Discord] Notable cards data:', data.notableCards);
         
-        const notableCardsText = data.notableCards.slice(0, 5).map(card => {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+        const resolvedBaseUrl = process.env.NEXT_PUBLIC_APP_URL ||
                           process.env.AUTH_URL ||
                           process.env.NEXTAUTH_URL ||
                           'http://localhost:3000';
+        const notableCardsText = data.notableCards.slice(0, 5).map(card => {
+          const baseUrl = resolvedBaseUrl;
 
           const cardUrl = `${baseUrl}/printing/${card.printingId}`;
           const foilingAbbr = this.getFoilingAbbreviation(card.foiling);
@@ -200,11 +201,12 @@ export class DiscordWebhooks {
       if (data.cardsAdded && data.cardsAdded.length > 0 && data.cardsAdded.length <= 5) {
         console.log('[Discord] Adding wants cards section...');
         
-        const wantsCardsText = data.cardsAdded.map(card => {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+        const wantsBaseUrl = process.env.NEXT_PUBLIC_APP_URL ||
                           process.env.AUTH_URL ||
                           process.env.NEXTAUTH_URL ||
                           'http://localhost:3000';
+        const wantsCardsText = data.cardsAdded.map(card => {
+          const baseUrl = wantsBaseUrl;
 
           const cardUrl = `${baseUrl}/printing/${card.printingId}`;
           const foilingAbbr = this.getFoilingAbbreviation(card.foiling);
