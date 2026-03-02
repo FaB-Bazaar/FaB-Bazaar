@@ -90,10 +90,10 @@ export function GoogleAdsense({ adSlot, adFormat = "auto", className = "", style
         ref={adRef}
         className="adsbygoogle"
         style={{
-          ...(style || { display: "block" }),
+          ...(style || {}),
+          display: "block",
           margin: "0 auto",
           padding: 0,
-          lineHeight: style?.lineHeight || "normal"
         }}
         data-ad-client="ca-pub-8256117741560128"
         data-ad-slot={adSlot}

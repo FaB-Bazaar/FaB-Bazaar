@@ -23,8 +23,7 @@ export function DesktopAnchorAd({ className = "" }: DesktopAnchorAdProps) {
           <GoogleAdsense
             adSlot="5669921819"
             adFormat="horizontal"
-            style={{ display: "flex", justifyContent: "center", alignItems: "center", margin: "0 auto", width: "100%" }}
-            className="flex items-center justify-center w-full"
+            className="w-full"
           />
         </div>
       </div>
