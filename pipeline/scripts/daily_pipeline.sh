@@ -18,8 +18,9 @@
 #   ./daily_pipeline.sh --help       # Show this help
 ################################################################################
 
-set -e  # Exit on error
-set -u  # Exit on undefined variable
+set -e          # Exit on error
+set -u          # Exit on undefined variable
+set -o pipefail # Pipe returns exit code of first failing command
 
 # Colors for output
 RED='\033[0;31m'
