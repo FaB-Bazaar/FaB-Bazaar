@@ -199,7 +199,7 @@ export class DiscordWebhooks {
       if (data.cardsAdded && data.cardsAdded.length > 0 && data.cardsAdded.length <= 5) {
         console.log('[Discord] Adding wants cards section...');
         
-        const wantsBaseUrl = const resolvedBaseUrl = 'https://fabbazaar.app';
+        const wantsBaseUrl = 'https://fabbazaar.app';
         const wantsCardsText = data.cardsAdded.map(card => {
           const baseUrl = wantsBaseUrl;
 

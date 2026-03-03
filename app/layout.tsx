@@ -22,12 +22,12 @@ export const metadata: Metadata = {
     default: "FaB Bazaar - The Ultimate Flesh and Blood Trading Platform",
     template: "%s | FaB Bazaar"
   },
-  description: "Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners. Import from Fabrary, Cardlist, or FaBTCG. Join the FaB trading community with Discord OAuth authentication.",
+  description: "Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners. Fully integrated with Discord and Claude MCP. Join the FaB trading community with Discord OAuth authentication.",
   keywords: [
     "Flesh and Blood", "FaB", "trading cards", "card trading", "TCG",
     "trading platform", "card collection", "local trading", "Legend Story Studios",
     "card game", "trading community", "binder management", "wants list",
-    "Fabrary import", "Discord OAuth", "cold foil cards", "legendary cards",
+    "MCP", "Claude", "Discord OAuth", "cold foil cards", "legendary cards",
     "card database", "trade matching", "local stores"
   ],
   authors: [{ name: "FaB Bazaar Team" }],
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://fabbazaar.app',
     title: 'FaB Bazaar - The Ultimate Flesh and Blood Trading Platform',
-    description: 'Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners. Import from Fabrary, Cardlist, or FaBTCG.',
+    description: 'Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners. Fully integrated with Discord and Claude MCP.',
     siteName: 'FaB Bazaar',
     images: [
       {
