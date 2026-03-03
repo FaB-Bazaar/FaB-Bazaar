@@ -289,8 +289,7 @@ function calculateDiscordNotificationData(auth: AuthResult, results: any[], bind
     c.rarity?.toUpperCase() === 'V'
   );
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-                process.env.AUTH_URL ||
+  const baseUrl = process.env.AUTH_URL ||
                 process.env.NEXTAUTH_URL ||
                 'https://fabbazaar.app';
 
