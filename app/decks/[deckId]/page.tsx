@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ArrowLeft, Plus, Search, RefreshCw, Share2, Eye, EyeOff, Settings, BarChart3, BookOpen, Upload, Swords } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Plus, Search, RefreshCw, Share2, Eye, EyeOff, Settings, BarChart3, BookOpen, Upload, Swords, Pencil } from "lucide-react";
 
 // DND-KIT imports
 import { DndContext, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -279,6 +280,13 @@ export default function DeckDetailPage() {
             {/* View Controls Row */}
             <div className="flex items-center gap-3 mb-4">
               <div className="flex gap-1">
+                {canEdit && (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/decks/${deckId}/editor`}>
+                      <Pencil className="h-4 w-4 mr-2" />Edit
+                    </Link>
+                  </Button>
+                )}
                 {displayDeck?.hero?.length > 0 && (
                   <Button variant={viewMode === "catalog" ? "default" : "outline"} size="sm" onClick={() => setViewMode("catalog")}>
                     Catalog

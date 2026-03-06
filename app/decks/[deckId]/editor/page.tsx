@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, RotateCcw, Swords } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -236,9 +236,9 @@ export default function DeckEditorPage() {
               >
                 <List className="h-4 w-4" />
                 Deck
-                {(state.deckCounts.equipment + state.deckCounts.maindeck) > 0 && (
+                {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (
                   <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded-full">
-                    {state.deckCounts.equipment + state.deckCounts.maindeck}
+                    {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}/80
                   </span>
                 )}
               </button>
@@ -267,24 +267,20 @@ export default function DeckEditorPage() {
                     loading={state.loading}
                   />
                 ) : (
-                  <div className="flex items-center gap-3 mb-6 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <div
+                    onClick={() => setSearchFormOpen(true)}
+                    className="flex items-center gap-3 mb-6 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
                     <Search className="h-4 w-4 text-gray-400 shrink-0" />
                     <span className="flex-1 text-sm text-gray-600 dark:text-gray-300">
-                      {state.bulkResults.length} result{state.bulkResults.length !== 1 ? "s" : ""}
+                      {state.bulkResults.length} result{state.bulkResults.length !== 1 ? "s" : ""} — click to search again
                     </span>
                     <button
-                      onClick={() => { handlers.clearBulkResults(); setSearchFormOpen(true); }}
+                      onClick={(e) => { e.stopPropagation(); handlers.clearBulkResults(); setSearchFormOpen(true); }}
                       className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                     >
                       <X className="h-3.5 w-3.5" />
                       Clear
-                    </button>
-                    <button
-                      onClick={() => setSearchFormOpen(true)}
-                      className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      New Search
                     </button>
                   </div>
                 )}

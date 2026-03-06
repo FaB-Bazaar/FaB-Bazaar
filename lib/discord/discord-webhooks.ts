@@ -31,6 +31,7 @@ export interface WantsUpdateData {
   highPriorityCount: number;
   totalEstimatedValue: number;
   userId: string;
+  wantsUrl: string;
 }
 
 export class DiscordWebhooks {
@@ -186,6 +187,11 @@ export class DiscordWebhooks {
           {
             name: '💰 Est. Total Value',
             value: `$${data.totalEstimatedValue.toFixed(2)}`,
+            inline: true
+          },
+          {
+            name: '🔗 View Wants',
+            value: `[Open Wants List](${data.wantsUrl})`,
             inline: true
           }
         ],

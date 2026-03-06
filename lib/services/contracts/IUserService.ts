@@ -125,6 +125,7 @@ export interface UserProfileStatsDTO {
   username: string;
   discordUsername?: string;
   discordId?: string;
+  discordAvatar?: string;
   createdAt: Date;
   binderStats: {
     public: number;

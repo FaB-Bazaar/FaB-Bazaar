@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { wantsService } from "@/lib/services";
 import { authenticateRequest } from "@/lib/auth/multi-auth";
-import { DiscordWebhooks } from "@/lib/discord-webhooks";
+import { DiscordWebhooks } from "@/lib/discord/discord-webhooks";
 
 /**
  * Calculate Discord notification data from wants update results
@@ -53,6 +53,10 @@ async function calculateWantsNotificationData(
           totalEstimatedValue: 0,
         };
 
+    const baseUrl = process.env.AUTH_URL ||
+                    process.env.NEXTAUTH_URL ||
+                    'https://fabbazaar.app';
+
     return {
       username: auth.username || "Unknown User",
       cardsAdded,
@@ -63,6 +67,7 @@ async function calculateWantsNotificationData(
       highPriorityUniqueCount: stats.highPriorityUniqueCount,
       totalEstimatedValue: stats.totalEstimatedValue,
       userId,
+      wantsUrl: `${baseUrl}/wants/${userId}`,
     };
   } catch (error) {
     console.error("[Discord] Error calculating wants notification data:", error);

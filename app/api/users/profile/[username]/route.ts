@@ -186,6 +186,7 @@ export async function GET(
         username: result.data.username,
         discordUsername: result.data.discordUsername,
         discordId: result.data.discordId,
+        discordAvatar: result.data.discordAvatar,
         createdAt: result.data.createdAt,
         binderStats: result.data.binderStats,
         wantsCount: result.data.wantsCount
@@ -201,6 +202,7 @@ export async function GET(
       username: cachedData.username,
       discordUsername: cachedData.discordUsername,
       discordId: cachedData.discordId,
+      discordAvatar: cachedData.discordAvatar,
       createdAt: cachedData.createdAt
     };
 

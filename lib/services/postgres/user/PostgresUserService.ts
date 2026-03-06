@@ -497,6 +497,7 @@ export class PostgresUserService implements IUserService {
           username: users.username,
           discordUsername: users.discordUsername,
           discordId: users.discordId,
+          discordAvatar: users.discordAvatar,
           createdAt: users.createdAt,
         })
         .from(users)
@@ -544,6 +545,7 @@ export class PostgresUserService implements IUserService {
           username: user.username || '',
           discordUsername: user.discordUsername || undefined,
           discordId: user.discordId || undefined,
+          discordAvatar: user.discordAvatar || undefined,
           createdAt: user.createdAt || new Date(),
           binderStats: stats,
           wantsCount: wantsResult?.count || 0,

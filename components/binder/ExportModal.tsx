@@ -30,6 +30,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [includeNotes, setIncludeNotes] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [isCopying, setIsCopying] = useState(false);
+  const [isCopyingToClipboard, setIsCopyingToClipboard] = useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -47,6 +48,29 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     const exportUrl = `/api/binders/${binderId}/export?${params.toString()}`;
     window.open(exportUrl, '_blank');
     onOpenChange(false);
+  };
+
+  const handleCopyToClipboard = async () => {
+    setIsCopyingToClipboard(true);
+    const params = new URLSearchParams({
+      format,
+      includePrice: includePrice.toString(),
+      priceField,
+      includeCondition: includeCondition.toString(),
+      includeNotes: includeNotes.toString(),
+      sortBy
+    });
+    try {
+      const res = await fetch(`/api/binders/${binderId}/export?${params.toString()}`);
+      const text = await res.text();
+      await navigator.clipboard.writeText(text);
+      toast({ title: 'Copied to clipboard!' });
+      onOpenChange(false);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to copy to clipboard.', variant: 'destructive' });
+    } finally {
+      setIsCopyingToClipboard(false);
+    }
   };
 
   const handleCopyBinder = async () => {
@@ -258,6 +282,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           <div className="flex justify-end gap-2 pt-4">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleCopyToClipboard}
+              disabled={isCopyingToClipboard || format === 'csv'}
+              title={format === 'csv' ? 'Clipboard not available for CSV format' : undefined}
+            >
+              {isCopyingToClipboard ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Copy className="h-4 w-4 mr-2" />
+              )}
+              Copy to Clipboard
             </Button>
             <Button onClick={handleExport} className="bg-blue-600 hover:bg-blue-700">
               <Download className="h-4 w-4 mr-2" />
