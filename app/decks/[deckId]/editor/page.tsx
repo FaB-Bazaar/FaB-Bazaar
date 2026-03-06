@@ -188,31 +188,29 @@ export default function DeckEditorPage() {
       />
 
       <div className="lg:ml-96">
-        <div className="container mx-auto py-8 px-4">
-          <div className="mb-6">
-            <Link
-              href={`/decks/${deckId}`}
-              className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Deck
-            </Link>
-          </div>
-
+        <div className="container mx-auto pt-3 pb-0 px-4">
           <div className="max-w-6xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {/* Compact header: back arrow + title + subtitle in one row */}
+            <div className="flex items-center gap-2 mb-2">
+              <Link
+                href={`/decks/${deckId}`}
+                className="flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0"
+                title="Back to Deck"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
                 {state.deckLoading ? "Loading..." : state.deck ? `Edit: ${state.deck.name}` : "Deck Editor"}
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
                 {state.deck?.heroName
-                  ? `Results filtered for ${state.deck.heroName}.`
-                  : "Search for cards to add to your deck."}
-              </p>
+                  ? `Filtered for ${state.deck.heroName}`
+                  : "Search for cards to add"}
+              </span>
             </div>
 
             {/* Tab bar */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
               <button
                 onClick={() => setActiveTab("search")}
                 className={cn(

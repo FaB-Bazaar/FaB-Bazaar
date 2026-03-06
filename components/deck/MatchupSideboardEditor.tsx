@@ -49,8 +49,8 @@ const SECTION_ORDER: Record<SectionKey, number> = {
 
 const DECK_LABELS: Record<SectionKey, { title: string; pitchColor?: string }> = {
   hero:      { title: 'Hero' },
-  equipment: { title: 'Equipment' },
-  weapon:    { title: 'Weapons' },
+  equipment: { title: 'Equipment & Weapons' },
+  weapon:    { title: 'Equipment & Weapons' }, // merged into equipment section
   red:       { title: 'Library — Red',    pitchColor: 'bg-red-500' },
   yellow:    { title: 'Library — Yellow', pitchColor: 'bg-yellow-400' },
   blue:      { title: 'Library — Blue',   pitchColor: 'bg-blue-500' },
@@ -59,8 +59,8 @@ const DECK_LABELS: Record<SectionKey, { title: string; pitchColor?: string }> = 
 
 const INV_LABELS: Record<SectionKey, { title: string; pitchColor?: string }> = {
   hero:      { title: 'Hero' },
-  equipment: { title: 'Equipment' },
-  weapon:    { title: 'Weapons' },
+  equipment: { title: 'Equipment & Weapons' }, // merged into equipment section
+  weapon:    { title: 'Equipment & Weapons' },
   red:       { title: 'Inventory — Red',    pitchColor: 'bg-red-500' },
   yellow:    { title: 'Inventory — Yellow', pitchColor: 'bg-yellow-400' },
   blue:      { title: 'Inventory — Blue',   pitchColor: 'bg-blue-500' },
@@ -92,8 +92,13 @@ function getPitch(printing: any): number | null {
 function getSection(printing: any, defaultCat: string): SectionKey {
   const types: string[] = (printing.printingDetails?.types || []).map((t: string) => t.toLowerCase());
   if (defaultCat === 'hero') return 'hero';
-  if (types.some(t => t === 'weapon')) return 'weapon';
-  if (defaultCat === 'equipment') return 'equipment';
+  // Weapons and non-evo equipment go into the equipment section.
+  // Evo cards have the equipment type but are played as library cards — keep them in pitch sections.
+  const isEvo = types.some(t => t === 'evo');
+  if (
+    types.some(t => t === 'weapon') ||
+    (!isEvo && (types.some(t => t === 'equipment') || defaultCat === 'equipment'))
+  ) return 'equipment';
   const pitch = getPitch(printing);
   if (pitch === 1) return 'red';
   if (pitch === 2) return 'yellow';
@@ -288,52 +293,81 @@ function ListSection({
 }
 
 // ─────────────────────────────────────────────────────────
-// Tile section — shared by both columns
+// Tile hover preview — large card shown on the left side of screen
 // ─────────────────────────────────────────────────────────
 
-function TileSection({
-  section, deckCounts, isRight, onToggle,
+function TileHoverPreview({ imageUrl }: { imageUrl: string | null }) {
+  if (!imageUrl) return null;
+  return (
+    <div
+      className="fixed z-[9999] pointer-events-none"
+      style={{ left: 16, top: '50%', transform: 'translateY(-50%)' }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt="Card preview"
+        className="w-56 rounded-xl shadow-2xl border border-gray-600"
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Unified tile section — single column, top-60% crop, simple toggle
+// ─────────────────────────────────────────────────────────
+
+function TileSectionUnified({
+  section, deckCounts, readOnly, onToggle, onHover, onLeave,
 }: {
   section: Section;
   deckCounts: Map<string, number>;
-  isRight: boolean;
-  onToggle: (id: string, copyIndex: number, isRight: boolean) => void;
+  readOnly: boolean;
+  onToggle: (id: string, copyIndex: number) => void;
+  onHover: (imageUrl: string) => void;
+  onLeave: () => void;
 }) {
   const total = section.cards.reduce((s, c) => s + c.available, 0);
-  const activeBorderClass = isRight ? 'ring-[1.5px] ring-green-400' : 'ring-[1.5px] ring-amber-400';
 
   return (
-    <div className="mb-1.5">
-      <div className="flex items-center gap-1 px-0.5 mb-0.5">
+    <div className="mb-3">
+      <div className="flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40">
         {section.pitchColor && (
-          <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${section.pitchColor}`} />
+          <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
         )}
-        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{section.title}</span>
-        <span className="text-[10px] text-gray-400">({total})</span>
+        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {section.title}
+        </span>
+        <span className="text-[10px] text-gray-500">({total})</span>
       </div>
 
-      <div className="flex flex-wrap gap-[3px]">
+      <div className="flex flex-wrap gap-1">
         {section.cards.map(card => {
           const dc = deckCounts.get(card.talisharId) ?? card.originalDeckCount;
+          const isHero = section.key === 'hero';
+          const interactive = !readOnly && !isHero;
 
           return card.copies.map((copy, i) => {
-            // LEFT: bright if tile is in deck (i < dc)
-            // RIGHT: bright if tile is in inventory (i >= dc)
-            const isActive = isRight ? i >= dc : i < dc;
+            const inDeck = i < dc;
+
+            const ringClass = isHero
+              ? 'ring-2 ring-white/60'
+              : inDeck ? 'ring-[1.5px] ring-gray-400 dark:ring-gray-500'
+              : '';
+            const opacityClass = (!isHero && !inDeck) ? 'opacity-25 hover:opacity-50' : '';
 
             return (
               <div
                 key={`${card.talisharId}-${i}`}
-                onClick={() => onToggle(card.talisharId, i, isRight)}
+                onClick={() => interactive && onToggle(card.talisharId, i)}
+                onMouseEnter={() => copy.imageUrl && onHover(copy.imageUrl)}
+                onMouseLeave={onLeave}
                 title={card.name}
-                className={`
-                  relative rounded cursor-pointer transition-all select-none
-                  ${isActive ? activeBorderClass : 'opacity-30 hover:opacity-50'}
-                `}
-                style={{ width: '60px' }}
+                className={`relative rounded transition-all select-none ${interactive ? 'cursor-pointer' : 'cursor-default'} ${ringClass} ${opacityClass}`}
+                style={{ width: '72px' }}
               >
                 {copy.imageUrl ? (
-                  <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/48' }}>
+                  <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={copy.imageUrl}
@@ -345,8 +379,8 @@ function TileSection({
                   </div>
                 ) : (
                   <div
-                    className="w-full bg-gray-700 dark:bg-gray-800 rounded flex items-center justify-center p-0.5"
-                    style={{ aspectRatio: '63/48' }}
+                    className="w-full bg-gray-700 dark:bg-gray-800 rounded flex items-center justify-center p-1"
+                    style={{ aspectRatio: '63/53' }}
                   >
                     <span className="text-[7px] text-center text-gray-300 leading-tight">{card.name}</span>
                   </div>
@@ -382,6 +416,7 @@ export default function MatchupSideboardEditor({
   const [deckCounts, setDeckCounts] = useState<Map<string, number>>(new Map());
   const [viewMode, setViewMode] = useState<ViewMode>('tile');
   const [hovered, setHovered] = useState<HoverState | null>(null);
+  const [tileHovered, setTileHovered] = useState<string | null>(null);
   const hasInit = useRef(false);
   const didInteract = useRef(false);
   const onChangeRef = useRef(onChange);
@@ -471,24 +506,16 @@ export default function MatchupSideboardEditor({
     });
   };
 
-  // Toggle a tile copy between deck and inventory
-  const toggleTile = (id: string, copyIndex: number, isRight: boolean) => {
+  // Toggle a tile copy between deck and inventory (unified view)
+  const toggleTile = (id: string, copyIndex: number) => {
     if (readOnly) return;
     didInteract.current = true;
     setDeckCounts(prev => {
       const card = allCards.find(c => c.talisharId === id);
       if (!card) return prev;
       const current = prev.get(id) ?? card.originalDeckCount;
-      let next: number;
-      if (isRight) {
-        // RIGHT: bright tile = in inventory (i >= current) → clicking adds to deck
-        //        dim tile = in deck (i < current) → clicking removes from deck
-        next = copyIndex >= current ? current + 1 : current - 1;
-      } else {
-        // LEFT: bright tile = in deck (i < current) → clicking removes from deck
-        //       dim tile = in inventory (i >= current) → clicking adds to deck
-        next = copyIndex < current ? current - 1 : current + 1;
-      }
+      // i < current = in deck → click removes; i >= current = not in deck → click adds
+      const next = copyIndex < current ? current - 1 : current + 1;
       const map = new Map(prev);
       map.set(id, Math.max(0, Math.min(card.available, next)));
       return map;
@@ -573,18 +600,16 @@ export default function MatchupSideboardEditor({
         </div>
       </div>
 
-      {/* Two columns — same card pool, inverse quantities */}
-      <div className={`grid grid-cols-1 gap-2 ${viewMode === 'tile' ? 'md:grid-cols-[3fr_1fr]' : 'md:grid-cols-2'}`}>
-
-        {/* LEFT — Deck */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-1 px-0.5">
-            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deck</span>
-            {!readOnly && viewMode === 'list' && (
-              <span className="text-[10px] text-gray-500">— set how many you&apos;re playing</span>
-            )}
-          </div>
-          {viewMode === 'list' ? (
+      {viewMode === 'list' ? (
+        /* List mode — two columns: Deck | Inventory */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1 px-0.5">
+              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deck</span>
+              {!readOnly && (
+                <span className="text-[10px] text-gray-500">— set how many you&apos;re playing</span>
+              )}
+            </div>
             <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               {deckSections.length === 0
                 ? <p className="text-xs text-gray-500 p-3 text-center">No cards</p>
@@ -601,27 +626,14 @@ export default function MatchupSideboardEditor({
                   ))
               }
             </div>
-          ) : (
-            <div className="rounded border border-gray-700/50 p-1">
-              {deckSections.length === 0
-                ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
-                : deckSections.map(s => (
-                    <TileSection key={s.key} section={s} deckCounts={deckCounts} isRight={false} onToggle={toggleTile} />
-                  ))
-              }
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT — Inventory (inverse of deck) */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-1 px-0.5">
-            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inventory</span>
-            {!readOnly && viewMode === 'list' && (
-              <span className="text-[10px] text-gray-500">— set how many to bring in</span>
-            )}
           </div>
-          {viewMode === 'list' ? (
+          <div>
+            <div className="flex items-center gap-1.5 mb-1 px-0.5">
+              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inventory</span>
+              {!readOnly && (
+                <span className="text-[10px] text-gray-500">— set how many to bring in</span>
+              )}
+            </div>
             <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               {invSections.length === 0
                 ? <p className="text-xs text-gray-500 p-3 text-center">No cards</p>
@@ -638,20 +650,54 @@ export default function MatchupSideboardEditor({
                   ))
               }
             </div>
-          ) : (
-            <div className="rounded border border-gray-700/50 p-1">
-              {invSections.length === 0
-                ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
-                : invSections.map(s => (
-                    <TileSection key={s.key} section={s} deckCounts={deckCounts} isRight={true} onToggle={toggleTile} />
-                  ))
-              }
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Tile mode — single unified card grid, Talishar-style */
+        <div className="rounded border border-gray-700/50 p-2">
+          {deckSections.length === 0
+            ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
+            : (() => {
+                const topSections = deckSections.filter(s => s.key === 'hero' || s.key === 'equipment');
+                const restSections = deckSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
+                return (
+                  <>
+                    {topSections.length > 0 && (
+                      <div className="flex gap-4 mb-1">
+                        {topSections.map(s => (
+                          <div key={s.key} className="shrink-0">
+                            <TileSectionUnified
+                              section={s}
+                              deckCounts={deckCounts}
+                              readOnly={readOnly}
+                              onToggle={toggleTile}
+                              onHover={setTileHovered}
+                              onLeave={() => setTileHovered(null)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {restSections.map(s => (
+                      <TileSectionUnified
+                        key={s.key}
+                        section={s}
+                        deckCounts={deckCounts}
+                        readOnly={readOnly}
+                        onToggle={toggleTile}
+                        onHover={setTileHovered}
+                        onLeave={() => setTileHovered(null)}
+                      />
+                    ))}
+                  </>
+                );
+              })()
+          }
+        </div>
+      )}
 
       {viewMode === 'list' && <CardHoverPreview hover={hovered} />}
+      {viewMode === 'tile' && <TileHoverPreview imageUrl={tileHovered} />}
     </div>
   );
 }
