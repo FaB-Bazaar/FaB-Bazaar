@@ -320,6 +320,7 @@ export default function DeckEditorPage() {
                     onSwap={target => setDeckSwapTarget(target)}
                     onRemove={handleRemoveDeckCard}
                     onMove={handleMoveDeckCard}
+                    canEdit={true}
                   />
                 ) : null}
               </>

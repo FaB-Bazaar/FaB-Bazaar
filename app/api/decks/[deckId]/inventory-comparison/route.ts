@@ -45,14 +45,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      comparison: result.data,
-      deck: deckResult.success && deckResult.data ? {
-        _id: deckResult.data._id?.toString(),
-        name: deckResult.data.name,
-        format: deckResult.data.format
-      } : undefined,
-      authMethod: authResult.authMethod,
-      authenticatedUser: authResult.username
+      data: result.data,
     });
 
   } catch (error) {

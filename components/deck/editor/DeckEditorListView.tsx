@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown } from "lucide-react";
+import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -270,6 +270,178 @@ function GroupedCardRow({
   );
 }
 
+// ─── Tile view ────────────────────────────────────────────────────────────────
+
+type TileSectionKey = 'hero' | 'equipment' | 'red' | 'yellow' | 'blue' | 'unpitched' | 'inventory' | 'bench';
+
+const TILE_SECTION_ORDER: Record<TileSectionKey, number> = {
+  hero: 0, equipment: 1, red: 2, yellow: 3, blue: 4, unpitched: 5, inventory: 6, bench: 7,
+};
+
+const TILE_SECTION_LABELS: Record<TileSectionKey, { title: string; pitchColor?: string }> = {
+  hero:      { title: 'Hero' },
+  equipment: { title: 'Equipment & Weapons' },
+  red:       { title: 'Library — Red',    pitchColor: 'bg-red-500' },
+  yellow:    { title: 'Library — Yellow', pitchColor: 'bg-yellow-400' },
+  blue:      { title: 'Library — Blue',   pitchColor: 'bg-blue-500' },
+  unpitched: { title: 'Library' },
+  inventory: { title: 'Inventory' },
+  bench:     { title: 'Bench' },
+};
+
+interface DeckTileCard {
+  key: string;
+  name: string;
+  imageUrl?: string;
+  sectionKey: TileSectionKey;
+  printingId: string;
+  cardUniqueId: string;
+  category: DeckCategory;
+  copyIndex: number;
+}
+
+interface DeckTileSectionData {
+  key: TileSectionKey;
+  title: string;
+  pitchColor?: string;
+  tiles: DeckTileCard[];
+}
+
+function classifyTileCard(printing: DeckPrintingDTO, category: DeckCategory): TileSectionKey {
+  const types = ((printing.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
+  if (category === 'hero') return 'hero';
+  if (category === 'inventory') return 'inventory';
+  if (category === 'benched') return 'bench';
+  const isEvo = types.some(t => t === 'evo');
+  if (types.some(t => t === 'weapon') || (!isEvo && (types.some(t => t === 'equipment') || category === 'equipment'))) return 'equipment';
+  const pitch = (printing.printingDetails?.pitch as number | undefined) ?? null;
+  if (pitch === 1) return 'red';
+  if (pitch === 2) return 'yellow';
+  if (pitch === 3) return 'blue';
+  return 'unpitched';
+}
+
+function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
+  const sectionMap = new Map<TileSectionKey, DeckTileCard[]>();
+
+  const addCards = (cards: DeckPrintingDTO[], category: DeckCategory) => {
+    for (const printing of cards) {
+      const sectionKey = classifyTileCard(printing, category);
+      const qty = printing.quantity ?? 1;
+      if (!sectionMap.has(sectionKey)) sectionMap.set(sectionKey, []);
+      const tiles = sectionMap.get(sectionKey)!;
+      for (let i = 0; i < qty; i++) {
+        tiles.push({
+          key: `${printing.printingId}-${i}`,
+          name: (printing.printingDetails?.display_name || printing.printingDetails?.name || printing.printingId) as string,
+          imageUrl: printing.printingDetails?.image_url as string | undefined,
+          sectionKey,
+          printingId: printing.printingId,
+          cardUniqueId: (printing.printingDetails?.card_unique_id as string | undefined) || '',
+          category,
+          copyIndex: i,
+        });
+      }
+    }
+  };
+
+  addCards(deck.hero || [], 'hero');
+  addCards(deck.equipment || [], 'equipment');
+  addCards(deck.maindeck || [], 'maindeck');
+  addCards(deck.inventory || [], 'inventory');
+  addCards(deck.benched || [], 'benched');
+
+  const sections: DeckTileSectionData[] = [];
+  for (const [key, tiles] of sectionMap) {
+    // Sort alphabetically by name for stable ordering across refreshes
+    tiles.sort((a, b) => a.name.localeCompare(b.name));
+    const label = TILE_SECTION_LABELS[key];
+    sections.push({ key, title: label.title, pitchColor: label.pitchColor, tiles });
+  }
+  return sections.sort((a, b) => TILE_SECTION_ORDER[a.key] - TILE_SECTION_ORDER[b.key]);
+}
+
+function DeckTileSection({
+  section, onHover, onLeave, onSwap, ownershipMap,
+}: {
+  section: DeckTileSectionData;
+  onHover: (url: string, name: string) => void;
+  onLeave: () => void;
+  onSwap?: (target: SwapTarget) => void;
+  ownershipMap: Map<string, OwnershipEntry>;
+}) {
+  const isHeroSection = section.key === 'hero';
+  return (
+    <div className="mb-3">
+      <div className="flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40">
+        {section.pitchColor && (
+          <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
+        )}
+        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {section.title}
+        </span>
+        <span className="text-[10px] text-gray-500">({section.tiles.length})</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {section.tiles.map(tile => {
+          const own = ownershipMap.get(tile.printingId);
+          // Per-copy: this specific tile is owned if copyIndex < owned count
+          const ownershipState = !own ? null
+            : tile.copyIndex < own.owned ? 'full'
+            : 'missing';
+          return (
+            <div
+              key={tile.key}
+              title={onSwap ? `${tile.name} — click to swap printing` : tile.name}
+              onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name)}
+              onMouseLeave={onLeave}
+              onClick={() => onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category })}
+              className={`relative rounded select-none group ${isHeroSection ? 'ring-2 ring-white/60' : 'ring-[1.5px] ring-gray-400 dark:ring-gray-500'} ${onSwap ? 'cursor-pointer' : 'cursor-default'}`}
+              style={{ width: '72px' }}
+            >
+              {tile.imageUrl ? (
+                <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={tile.imageUrl}
+                    alt={tile.name}
+                    className="w-full block"
+                    style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                    draggable={false}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="w-full bg-gray-700 dark:bg-gray-800 rounded flex items-center justify-center p-1"
+                  style={{ aspectRatio: '63/53' }}
+                >
+                  <span className="text-[7px] text-center text-gray-300 leading-tight">{tile.name}</span>
+                </div>
+              )}
+
+              {/* Ownership dot */}
+              {ownershipState !== null && (
+                <div className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20 ${
+                  ownershipState === 'full'    ? 'bg-green-400' :
+                  ownershipState === 'partial' ? 'bg-amber-400' :
+                  'bg-red-500'
+                }`} />
+              )}
+
+              {/* Swap hint on hover */}
+              {onSwap && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded transition-opacity pointer-events-none">
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-white" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Section ──────────────────────────────────────────────────────────────────
 
 interface DeckEditorListViewProps {
@@ -278,11 +450,13 @@ interface DeckEditorListViewProps {
   onSwap: (target: SwapTarget) => void;
   onRemove: (printingId: string, category: DeckCategory) => Promise<void>;
   onMove?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, quantity: number) => Promise<void>;
+  canEdit?: boolean;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, canEdit }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'tile'>('list');
 
   const handleRemove = async (printingId: string, category: DeckCategory) => {
     setRemovingId(printingId);
@@ -341,17 +515,97 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     );
   }
 
+  const tileSections = buildTileSections(deck);
+  const tileTopSections = tileSections.filter(s => s.key === 'hero' || s.key === 'equipment');
+  const tileRestSections = tileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
+
   return (
     <>
-      <div>
-        {renderSection("Hero", heroCards, "hero", "1")}
-        {renderSection("Equipment", equipmentCards, "equipment", "5")}
-        {renderSection("Main Deck", maindeckCards, "maindeck", "60+")}
-        {renderSection("Inventory", inventoryCards, "inventory")}
-        {renderSection("Bench", benchedCards, "benched")}
+      {/* View toggle + legend */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex rounded border border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`px-2 py-1 text-[10px] flex items-center gap-1 transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
+          >
+            <List className="h-3 w-3" />List
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('tile')}
+            className={`px-2 py-1 text-[10px] flex items-center gap-1 border-l border-gray-700 transition-colors ${viewMode === 'tile' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
+          >
+            <LayoutGrid className="h-3 w-3" />Tiles
+          </button>
+        </div>
+
+        {viewMode === 'tile' && (
+          <div className="flex items-center gap-3 text-[10px] text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20 shrink-0" />
+              owned
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20 shrink-0" />
+              unowned
+            </span>
+            {canEdit && (
+              <span className="flex items-center gap-1">
+                <ArrowLeftRight className="h-2.5 w-2.5" />
+                click to swap printing
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      {hoveredImage && (
+
+      {viewMode === 'list' ? (
+        <div>
+          {renderSection("Hero", heroCards, "hero", "1")}
+          {renderSection("Equipment", equipmentCards, "equipment", "5")}
+          {renderSection("Main Deck", maindeckCards, "maindeck", "60+")}
+          {renderSection("Inventory", inventoryCards, "inventory")}
+          {renderSection("Bench", benchedCards, "benched")}
+        </div>
+      ) : (
+        <div className="rounded border border-gray-700/50 p-2">
+          {tileTopSections.length > 0 && (
+            <div className="flex gap-4 mb-1">
+              {tileTopSections.map(s => (
+                <div key={s.key} className="shrink-0">
+                  <DeckTileSection
+                    section={s}
+                    onHover={(url, name) => setHoveredImage({ url, name })}
+                    onLeave={() => setHoveredImage(null)}
+                    onSwap={canEdit ? onSwap : undefined}
+                    ownershipMap={ownershipMap}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {tileRestSections.map(s => (
+            <DeckTileSection
+              key={s.key}
+              section={s}
+              onHover={(url, name) => setHoveredImage({ url, name })}
+              onLeave={() => setHoveredImage(null)}
+              onSwap={canEdit ? onSwap : undefined}
+              ownershipMap={ownershipMap}
+            />
+          ))}
+        </div>
+      )}
+
+      {viewMode === 'list' && hoveredImage && (
         <HoverImagePreview imageUrl={hoveredImage.url} cardName={hoveredImage.name} />
+      )}
+      {viewMode === 'tile' && hoveredImage && (
+        <div className="fixed z-[9999] pointer-events-none" style={{ left: 16, top: '50%', transform: 'translateY(-50%)' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={hoveredImage.url} alt={hoveredImage.name} className="w-56 rounded-xl shadow-2xl border border-gray-600" />
+        </div>
       )}
     </>
   );

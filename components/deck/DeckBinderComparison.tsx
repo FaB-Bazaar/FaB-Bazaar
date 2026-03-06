@@ -220,7 +220,7 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
         }
 
         // Transform API response to match existing ComparisonResult interface
-        const apiComparison = result.data.comparison;
+        const apiComparison = result.data;
 
         // Convert API format to component format
         const owned: DeckPrintingWithCategory[] = [];
