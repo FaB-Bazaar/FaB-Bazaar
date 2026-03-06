@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid } from "lucide-react";
+import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -298,6 +298,10 @@ interface DeckTileCard {
   cardUniqueId: string;
   category: DeckCategory;
   copyIndex: number;
+  /** Total quantity of this printing in this category (needed for moveSingle) */
+  totalQty: number;
+  /** Card types in lowercase (e.g. ['action'], ['weapon'], ['equipment']) */
+  types: string[];
 }
 
 interface DeckTileSectionData {
@@ -309,7 +313,8 @@ interface DeckTileSectionData {
 
 function classifyTileCard(printing: DeckPrintingDTO, category: DeckCategory): TileSectionKey {
   const types = ((printing.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
-  if (category === 'hero') return 'hero';
+  // Detect hero by DB category or by card type (guards against hero stored under maindeck)
+  if (category === 'hero' || types.includes('hero')) return 'hero';
   if (category === 'inventory') return 'inventory';
   if (category === 'benched') return 'bench';
   const isEvo = types.some(t => t === 'evo');
@@ -328,6 +333,7 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
     for (const printing of cards) {
       const sectionKey = classifyTileCard(printing, category);
       const qty = printing.quantity ?? 1;
+      const types = ((printing.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
       if (!sectionMap.has(sectionKey)) sectionMap.set(sectionKey, []);
       const tiles = sectionMap.get(sectionKey)!;
       for (let i = 0; i < qty; i++) {
@@ -340,6 +346,8 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
           cardUniqueId: (printing.printingDetails?.card_unique_id as string | undefined) || '',
           category,
           copyIndex: i,
+          totalQty: qty,
+          types,
         });
       }
     }
@@ -353,7 +361,6 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
 
   const sections: DeckTileSectionData[] = [];
   for (const [key, tiles] of sectionMap) {
-    // Sort alphabetically by name for stable ordering across refreshes
     tiles.sort((a, b) => a.name.localeCompare(b.name));
     const label = TILE_SECTION_LABELS[key];
     sections.push({ key, title: label.title, pitchColor: label.pitchColor, tiles });
@@ -361,19 +368,146 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
   return sections.sort((a, b) => TILE_SECTION_ORDER[a.key] - TILE_SECTION_ORDER[b.key]);
 }
 
+// ─── Drag-and-drop validation ─────────────────────────────────────────────────
+
+function isEquipmentCompatible(types: string[]): boolean {
+  const isEvo = types.includes('evo');
+  return types.includes('weapon') || (!isEvo && types.includes('equipment'));
+}
+
+function isLibraryCompatible(types: string[]): boolean {
+  const isEvo = types.includes('evo');
+  if (types.includes('weapon')) return false;
+  if (!isEvo && types.includes('equipment')) return false;
+  return true;
+}
+
+function sectionToCategory(sectionKey: TileSectionKey): DeckCategory | null {
+  if (sectionKey === 'equipment') return 'equipment';
+  if (sectionKey === 'inventory') return 'inventory';
+  if (sectionKey === 'red' || sectionKey === 'yellow' || sectionKey === 'blue' || sectionKey === 'unpitched') return 'maindeck';
+  return null; // hero, bench — not droppable
+}
+
+function sectionToPitch(sectionKey: TileSectionKey): 1 | 2 | 3 | undefined {
+  if (sectionKey === 'red') return 1;
+  if (sectionKey === 'yellow') return 2;
+  if (sectionKey === 'blue') return 3;
+  return undefined;
+}
+
+function canDropOnSection(tile: DeckTileCard, targetSectionKey: TileSectionKey): boolean {
+  const targetCategory = sectionToCategory(targetSectionKey);
+  if (!targetCategory) return false;
+  // Already in this category (covers same-section and cross-pitch-section drags within library)
+  if (tile.category === targetCategory) return false;
+  if (targetCategory === 'equipment') return isEquipmentCompatible(tile.types);
+  if (targetCategory === 'maindeck') return isLibraryCompatible(tile.types);
+  if (targetCategory === 'inventory') return tile.category !== 'hero';
+  return false;
+}
+
+// ─── Tile section (with drag-and-drop) ───────────────────────────────────────
+
 function DeckTileSection({
-  section, onHover, onLeave, onSwap, ownershipMap,
+  section,
+  onHover,
+  onLeave,
+  onSwap,
+  ownershipMap,
+  isTileDraggable,
+  activeDragTile,
+  onTileDragStart,
+  onTileDragEnd,
+  onSectionDrop,
+  heroPortrait,
+  onAddCard,
+  onRemoveTile,
+  onEnlargeImage,
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string) => void;
   onLeave: () => void;
   onSwap?: (target: SwapTarget) => void;
   ownershipMap: Map<string, OwnershipEntry>;
+  isTileDraggable?: boolean;
+  activeDragTile?: DeckTileCard | null;
+  onTileDragStart?: (tile: DeckTileCard) => void;
+  onTileDragEnd?: () => void;
+  onSectionDrop?: (tile: DeckTileCard, targetSectionKey: TileSectionKey) => void;
+  /** Hero portrait shown inline in the section header — no extra vertical space */
+  heroPortrait?: DeckTileCard | null;
+  /** Called when the user clicks "+ Add" in a zone header */
+  onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
+  /** Remove 1 copy of a tile (X button on hover) */
+  onRemoveTile?: (tile: DeckTileCard) => void;
+  /** Open enlarged image lightbox */
+  onEnlargeImage?: (url: string, name: string) => void;
 }) {
+  const [isDragOver, setIsDragOver] = useState(false);
   const isHeroSection = section.key === 'hero';
+  const isDragActive = !!activeDragTile;
+  const isValidDropTarget = activeDragTile ? canDropOnSection(activeDragTile, section.key) : false;
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isValidDropTarget) return;
+    e.preventDefault();
+    setIsDragOver(true);
+  }, [isValidDropTarget]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (activeDragTile && isValidDropTarget && onSectionDrop) {
+      onSectionDrop(activeDragTile, section.key);
+    }
+  }, [activeDragTile, isValidDropTarget, onSectionDrop, section.key]);
+
   return (
-    <div className="mb-3">
+    <div
+      className={cn(
+        "mb-3 rounded-lg p-1 transition-all",
+        isDragActive && isValidDropTarget && !isDragOver && "ring-1 ring-inset ring-indigo-400/50 bg-indigo-500/5",
+        isDragActive && isValidDropTarget && isDragOver && "ring-2 ring-inset ring-indigo-400 bg-indigo-500/20",
+        isDragActive && !isValidDropTarget && activeDragTile?.sectionKey !== section.key && "opacity-40",
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40">
+        {/* Hero portrait inline — no extra row, zero additional height cost */}
+        {heroPortrait && (
+          <>
+            <div
+              className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
+              style={{ width: 28 }}
+              title={heroPortrait.name}
+              onMouseEnter={() => heroPortrait.imageUrl && onHover(heroPortrait.imageUrl, heroPortrait.name)}
+              onMouseLeave={onLeave}
+              onClick={() => !isDragActive && onSwap?.({ printingId: heroPortrait.printingId, cardUniqueId: heroPortrait.cardUniqueId, cardName: heroPortrait.name, category: heroPortrait.category })}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroPortrait.imageUrl || '/cardback.webp'}
+                alt={heroPortrait.name}
+                className="w-full block"
+                style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                draggable={false}
+              />
+              <div className="absolute bottom-0 left-0 right-0 text-[5px] text-center bg-black/50 text-yellow-300 uppercase tracking-widest leading-3 py-px">
+                hero
+              </div>
+            </div>
+            <div className="w-px self-stretch bg-gray-600/50 mx-0.5 flex-shrink-0" />
+          </>
+        )}
         {section.pitchColor && (
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
         )}
@@ -381,22 +515,49 @@ function DeckTileSection({
           {section.title}
         </span>
         <span className="text-[10px] text-gray-500">({section.tiles.length})</span>
+        {isDragActive && isValidDropTarget && (
+          <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
+        )}
+        {!isDragActive && onAddCard && sectionToCategory(section.key) && (
+          <button
+            type="button"
+            onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
+            className="ml-auto flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-blue-400 transition-colors px-1 py-0.5 rounded hover:bg-blue-500/10"
+            title={`Add card to ${section.title}`}
+          >
+            <Plus className="h-2.5 w-2.5" />Add
+          </button>
+        )}
       </div>
       <div className="flex flex-wrap gap-1">
         {section.tiles.map(tile => {
           const own = ownershipMap.get(tile.printingId);
-          // Per-copy: this specific tile is owned if copyIndex < owned count
           const ownershipState = !own ? null
             : tile.copyIndex < own.owned ? 'full'
             : 'missing';
+          const isBeingDragged = activeDragTile?.key === tile.key;
+          // Hero and demi-hero are special permanent slots — never draggable
+          const thisTileDraggable = isTileDraggable && tile.category !== 'hero' && !tile.types.includes('demi-hero');
           return (
             <div
               key={tile.key}
-              title={onSwap ? `${tile.name} — click to swap printing` : tile.name}
-              onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name)}
+              title={thisTileDraggable ? `${tile.name} — drag to move, click to swap printing` : (onSwap ? `${tile.name} — click to swap printing` : tile.name)}
+              draggable={thisTileDraggable}
+              onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name)}
               onMouseLeave={onLeave}
-              onClick={() => onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category })}
-              className={`relative rounded select-none group ${isHeroSection ? 'ring-2 ring-white/60' : 'ring-[1.5px] ring-gray-400 dark:ring-gray-500'} ${onSwap ? 'cursor-pointer' : 'cursor-default'}`}
+              onDragStart={thisTileDraggable ? (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                onTileDragStart?.(tile);
+              } : undefined}
+              onDragEnd={thisTileDraggable ? () => onTileDragEnd?.() : undefined}
+              onClick={() => !isDragActive && onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category })}
+              className={cn(
+                "relative rounded select-none group",
+                isHeroSection ? "ring-2 ring-white/60" : "ring-[1.5px] ring-gray-400 dark:ring-gray-500",
+                thisTileDraggable && "cursor-grab active:cursor-grabbing",
+                !thisTileDraggable && onSwap && "cursor-pointer",
+                isBeingDragged && "opacity-30 scale-95",
+              )}
               style={{ width: '72px' }}
             >
               {tile.imageUrl ? (
@@ -421,17 +582,44 @@ function DeckTileSection({
 
               {/* Ownership dot */}
               {ownershipState !== null && (
-                <div className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20 ${
-                  ownershipState === 'full'    ? 'bg-green-400' :
-                  ownershipState === 'partial' ? 'bg-amber-400' :
-                  'bg-red-500'
-                }`} />
+                <div className={cn(
+                  "absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20",
+                  ownershipState === 'full' ? "bg-green-400" : "bg-red-500",
+                )} />
               )}
 
-              {/* Swap hint on hover */}
-              {onSwap && (
+              {/* Remove button (X) — shown on hover, hidden for hero/demi-hero */}
+              {!isDragActive && onRemoveTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
+                <button
+                  className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  title="Remove 1 copy"
+                  onClick={e => { e.stopPropagation(); onRemoveTile(tile); }}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+
+              {/* Magnify button — shown on hover when tile has an image */}
+              {!isDragActive && onEnlargeImage && tile.imageUrl && (
+                <button
+                  className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-gray-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  title="Enlarge image"
+                  onClick={e => { e.stopPropagation(); onEnlargeImage(tile.imageUrl!, tile.name); }}
+                >
+                  <ZoomIn className="h-2.5 w-2.5" />
+                </button>
+              )}
+
+              {/* Hover overlay: drag hint when draggable, swap hint otherwise */}
+              {!isDragActive && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded transition-opacity pointer-events-none">
-                  <ArrowLeftRight className="h-3.5 w-3.5 text-white" />
+                  {thisTileDraggable ? (
+                    <svg className="h-4 w-4 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                      <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
+                    </svg>
+                  ) : onSwap ? (
+                    <ArrowLeftRight className="h-3.5 w-3.5 text-white" />
+                  ) : null}
                 </div>
               )}
             </div>
@@ -442,7 +630,53 @@ function DeckTileSection({
   );
 }
 
-// ─── Section ──────────────────────────────────────────────────────────────────
+// ─── Optimistic helpers ───────────────────────────────────────────────────────
+
+function applyOptimisticRemoveOne(deck: DeckDTO, printingId: string, category: DeckCategory): DeckDTO {
+  const cards = [...((deck[category as keyof DeckDTO] as DeckPrintingDTO[] | undefined) || [])];
+  const idx = cards.findIndex(c => c.printingId === printingId);
+  if (idx === -1) return deck;
+  const qty = cards[idx].quantity ?? 1;
+  if (qty <= 1) cards.splice(idx, 1);
+  else cards[idx] = { ...cards[idx], quantity: qty - 1 };
+  return { ...deck, [category]: cards };
+}
+
+function applyOptimisticMove(
+  deck: DeckDTO,
+  printingId: string,
+  fromCategory: DeckCategory,
+  toCategory: DeckCategory,
+): DeckDTO {
+  const getCategoryCards = (d: DeckDTO, cat: DeckCategory): DeckPrintingDTO[] =>
+    [...((d[cat as keyof DeckDTO] as DeckPrintingDTO[] | undefined) || [])];
+
+  const fromCards = getCategoryCards(deck, fromCategory);
+  const toCards = getCategoryCards(deck, toCategory);
+
+  const fromIdx = fromCards.findIndex(c => c.printingId === printingId);
+  if (fromIdx === -1) return deck;
+
+  const printing = fromCards[fromIdx];
+  const currentQty = printing.quantity ?? 1;
+
+  if (currentQty <= 1) {
+    fromCards.splice(fromIdx, 1);
+  } else {
+    fromCards[fromIdx] = { ...printing, quantity: currentQty - 1 };
+  }
+
+  const toIdx = toCards.findIndex(c => c.printingId === printingId);
+  if (toIdx >= 0) {
+    toCards[toIdx] = { ...toCards[toIdx], quantity: (toCards[toIdx].quantity ?? 1) + 1 };
+  } else {
+    toCards.push({ ...printing, quantity: 1, category: toCategory });
+  }
+
+  return { ...deck, [fromCategory]: fromCards, [toCategory]: toCards };
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 interface DeckEditorListViewProps {
   deck: DeckDTO;
@@ -450,13 +684,27 @@ interface DeckEditorListViewProps {
   onSwap: (target: SwapTarget) => void;
   onRemove: (printingId: string, category: DeckCategory) => Promise<void>;
   onMove?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, quantity: number) => Promise<void>;
+  /** Move exactly 1 copy of a printing between categories (used by tile drag-and-drop) */
+  onMoveSingle?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, currentQty: number) => Promise<void>;
+  /** Remove 1 copy of a tile printing (tile view X button) */
+  onRemoveTile?: (printingId: string, category: DeckCategory, currentQty: number) => Promise<void>;
+  /** Called when the user clicks "+ Add" on a tile zone — receives the target category and optional pitch filter */
+  onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   canEdit?: boolean;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, canEdit }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddCard, canEdit }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'tile'>('list');
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'tile'>('tile');
+  const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
+  const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
+
+  // Clear optimistic state whenever the real deck prop updates (after backend refresh)
+  useEffect(() => { setOptimisticDeck(null); }, [deck]);
+
+  const displayDeck = optimisticDeck ?? deck;
 
   const handleRemove = async (printingId: string, category: DeckCategory) => {
     setRemovingId(printingId);
@@ -466,6 +714,20 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       setRemovingId(null);
     }
   };
+
+  const handleTileRemoveOne = useCallback(async (tile: DeckTileCard) => {
+    setOptimisticDeck(prev => applyOptimisticRemoveOne(prev ?? deck, tile.printingId, tile.category));
+    await onRemoveTile?.(tile.printingId, tile.category, tile.totalQty);
+  }, [onRemoveTile, deck]);
+
+  const handleSectionDrop = useCallback(async (tile: DeckTileCard, targetSectionKey: TileSectionKey) => {
+    const targetCategory = sectionToCategory(targetSectionKey);
+    if (!targetCategory || !onMoveSingle) return;
+    setDragTile(null);
+    // Apply optimistic update immediately so the UI doesn't wait for 3+ API round-trips
+    setOptimisticDeck(prev => applyOptimisticMove(prev ?? deck, tile.printingId, tile.category, targetCategory));
+    await onMoveSingle(tile.printingId, tile.category, targetCategory, tile.totalQty);
+  }, [onMoveSingle, deck]);
 
   const renderSection = (label: string, cards: DeckPrintingDTO[], category: DeckCategory, limit?: string) => {
     if (cards.length === 0) return null;
@@ -500,11 +762,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     );
   };
 
-  const heroCards = deck.hero || [];
-  const equipmentCards = deck.equipment || [];
-  const maindeckCards = deck.maindeck || [];
-  const inventoryCards = deck.inventory || [];
-  const benchedCards = deck.benched || [];
+  const heroCards = displayDeck.hero || [];
+  const equipmentCards = displayDeck.equipment || [];
+  const maindeckCards = displayDeck.maindeck || [];
+  const inventoryCards = displayDeck.inventory || [];
+  const benchedCards = displayDeck.benched || [];
 
   if (!heroCards.length && !equipmentCards.length && !maindeckCards.length && !inventoryCards.length && !benchedCards.length) {
     return (
@@ -515,9 +777,26 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     );
   }
 
-  const tileSections = buildTileSections(deck);
-  const tileTopSections = tileSections.filter(s => s.key === 'hero' || s.key === 'equipment');
+  const tileSections = buildTileSections(displayDeck);
+  // Hero is embedded in the equipment section header — not a standalone section
+  const heroPortrait = tileSections.find(s => s.key === 'hero')?.tiles[0] ?? null;
+  const tileTopSections = tileSections.filter(s => s.key === 'equipment');
   const tileRestSections = tileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
+
+  const tileSharedProps = {
+    onHover: (url: string, name: string) => setHoveredImage({ url, name }),
+    onLeave: () => setHoveredImage(null),
+    onSwap: canEdit ? onSwap : undefined,
+    ownershipMap,
+    isTileDraggable: canEdit && !!onMoveSingle,
+    activeDragTile: dragTile,
+    onTileDragStart: (tile: DeckTileCard) => setDragTile(tile),
+    onTileDragEnd: () => setDragTile(null),
+    onSectionDrop: handleSectionDrop,
+    onAddCard: canEdit ? onAddCard : undefined,
+    onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
+    onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
+  };
 
   return (
     <>
@@ -527,21 +806,27 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <button
             type="button"
             onClick={() => setViewMode('list')}
-            className={`px-2 py-1 text-[10px] flex items-center gap-1 transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
+            className={cn(
+              "px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors",
+              viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800',
+            )}
           >
-            <List className="h-3 w-3" />List
+            <List className="h-3.5 w-3.5" />List
           </button>
           <button
             type="button"
             onClick={() => setViewMode('tile')}
-            className={`px-2 py-1 text-[10px] flex items-center gap-1 border-l border-gray-700 transition-colors ${viewMode === 'tile' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
+            className={cn(
+              "px-3 py-1.5 text-xs flex items-center gap-1.5 border-l border-gray-700 transition-colors",
+              viewMode === 'tile' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800',
+            )}
           >
-            <LayoutGrid className="h-3 w-3" />Tiles
+            <LayoutGrid className="h-3.5 w-3.5" />Tiles
           </button>
         </div>
 
         {viewMode === 'tile' && (
-          <div className="flex items-center gap-3 text-[10px] text-gray-500">
+          <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-500">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20 shrink-0" />
               owned
@@ -550,10 +835,24 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20 shrink-0" />
               unowned
             </span>
+            {canEdit && onMoveSingle && (
+              <span className="flex items-center gap-1">
+                <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
+                </svg>
+                drag to move
+              </span>
+            )}
             {canEdit && (
               <span className="flex items-center gap-1">
-                <ArrowLeftRight className="h-2.5 w-2.5" />
-                click to swap printing
+                <ArrowLeftRight className="h-2.5 w-2.5 shrink-0" />
+                click to swap
+              </span>
+            )}
+            {canEdit && onRemoveTile && (
+              <span className="flex items-center gap-1">
+                <X className="h-2.5 w-2.5 shrink-0" />
+                hover to remove
               </span>
             )}
           </div>
@@ -570,30 +869,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         </div>
       ) : (
         <div className="rounded border border-gray-700/50 p-2">
-          {tileTopSections.length > 0 && (
-            <div className="flex gap-4 mb-1">
-              {tileTopSections.map(s => (
-                <div key={s.key} className="shrink-0">
-                  <DeckTileSection
-                    section={s}
-                    onHover={(url, name) => setHoveredImage({ url, name })}
-                    onLeave={() => setHoveredImage(null)}
-                    onSwap={canEdit ? onSwap : undefined}
-                    ownershipMap={ownershipMap}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-          {tileRestSections.map(s => (
+          {tileTopSections.map(s => (
             <DeckTileSection
               key={s.key}
               section={s}
-              onHover={(url, name) => setHoveredImage({ url, name })}
-              onLeave={() => setHoveredImage(null)}
-              onSwap={canEdit ? onSwap : undefined}
-              ownershipMap={ownershipMap}
+              {...tileSharedProps}
+              heroPortrait={heroPortrait}
             />
+          ))}
+          {tileRestSections.map(s => (
+            <DeckTileSection key={s.key} section={s} {...tileSharedProps} />
           ))}
         </div>
       )}
@@ -601,10 +886,27 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       {viewMode === 'list' && hoveredImage && (
         <HoverImagePreview imageUrl={hoveredImage.url} cardName={hoveredImage.name} />
       )}
-      {viewMode === 'tile' && hoveredImage && (
+      {viewMode === 'tile' && hoveredImage && !dragTile && !enlargedImage && (
         <div className="fixed z-[9999] pointer-events-none" style={{ left: 16, top: '50%', transform: 'translateY(-50%)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={hoveredImage.url} alt={hoveredImage.name} className="w-56 rounded-xl shadow-2xl border border-gray-600" />
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {enlargedImage && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
+          onClick={() => setEnlargedImage(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={enlargedImage.url}
+            alt={enlargedImage.name}
+            className="max-h-[90vh] max-w-[min(90vw,400px)] rounded-xl shadow-2xl border border-gray-600"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </>

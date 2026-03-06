@@ -627,38 +627,39 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     // ===== ARRAYS (types, traits, keywords, classes, talents) =====
+    // Use ARRAY[...] construction with explicit ::text[] cast to avoid pg type inference issues
     if (filters.types && filters.types.length > 0) {
-      conditions.push(sql`${cards.types} && ${filters.types}`);
+      conditions.push(sql`${cards.types} && ARRAY[${sql.join(filters.types.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.traits && filters.traits.length > 0) {
-      conditions.push(sql`${cards.traits} && ${filters.traits}`);
+      conditions.push(sql`${cards.traits} && ARRAY[${sql.join(filters.traits.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.keywords && filters.keywords.length > 0) {
-      conditions.push(sql`${cards.keywords} && ${filters.keywords}`);
+      conditions.push(sql`${cards.keywords} && ARRAY[${sql.join(filters.keywords.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.classes && filters.classes.length > 0) {
-      conditions.push(sql`${cards.classes} && ${filters.classes}`);
+      conditions.push(sql`${cards.classes} && ARRAY[${sql.join(filters.classes.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.classesNot && filters.classesNot.length > 0) {
-      conditions.push(sql`NOT (${cards.classes} && ${filters.classesNot})`);
+      conditions.push(sql`NOT (${cards.classes} && ARRAY[${sql.join(filters.classesNot.map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
     if (filters.talents && filters.talents.length > 0) {
-      conditions.push(sql`${cards.talents} && ${filters.talents}`);
+      conditions.push(sql`${cards.talents} && ARRAY[${sql.join(filters.talents.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.talentsAll && filters.talentsAll.length > 0) {
       // All talents must be present (contains operator @>)
-      conditions.push(sql`${cards.talents} @> ${filters.talentsAll}`);
+      conditions.push(sql`${cards.talents} @> ARRAY[${sql.join(filters.talentsAll.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.talentsNot && filters.talentsNot.length > 0) {
       // Exclude cards with these talents
-      conditions.push(sql`NOT (${cards.talents} && ${filters.talentsNot})`);
+      conditions.push(sql`NOT (${cards.talents} && ARRAY[${sql.join(filters.talentsNot.map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
     if (filters.color) {
@@ -1001,7 +1002,7 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.typesNot && filters.typesNot.length > 0) {
-      conditions.push(sql`NOT (${cards.types} && ${filters.typesNot})`);
+      conditions.push(sql`NOT (${cards.types} && ARRAY[${sql.join(filters.typesNot.map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
     if (filters.keywordsNot && filters.keywordsNot.length > 0) {

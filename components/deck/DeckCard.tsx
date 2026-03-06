@@ -209,26 +209,28 @@ export default function DeckCard({
       {/* Actions */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onView}
-            className="flex-1 mr-2"
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            View
-          </Button>
-          
           <div className="flex gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={onEdit}
               className="h-8 w-8 p-0"
-              title="Edit deck settings"
+              title="Edit deck"
             >
               <Edit3 className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onView}
+              className="h-8 w-8 p-0"
+              title="Analyze deck"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex gap-1">
             
             <Button
               variant="ghost"

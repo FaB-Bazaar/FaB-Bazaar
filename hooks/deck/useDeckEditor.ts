@@ -6,9 +6,41 @@ import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from "@/lib/browse/parsers/bulk-input-parser";
 import { selectDefaultPrinting } from "@/lib/browse/utils";
 import { getSetName } from "@/lib/fab-formatters";
-import { HERO_INFO } from "@/lib/fab-constants/heroes";
+import { getHeroInfo } from "@/lib/fab-constants/heroes";
+import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import { decksClient, searchClient } from "@/lib/client";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
+
+const TALENT_SET = new Set<string>(OFFICIAL_TALENTS);
+const NON_CLASS_TYPES = new Set(['hero', 'young', 'adult', 'token', 'equipment', 'weapon',
+  'action', 'attack', 'instant', 'defense reaction', 'attack reaction', 'demi-hero']);
+
+export function resolveHeroFilter(deck: DeckDTO | null): { heroClasses: string[]; heroTalents: string[] } | null {
+  if (!deck) return null;
+  // Strategy 1: derive from hero card in deck
+  if (deck.hero?.length) {
+    const h = deck.hero[0]?.printingDetails as any;
+    if (h) {
+      const directClasses = ((h.classes as string[] | undefined) || []).map((c: string) => c.toLowerCase()).filter(Boolean);
+      const directTalents = ((h.talents as string[] | undefined) || []).map((t: string) => t.toLowerCase()).filter(Boolean);
+      if (directClasses.length > 0 || directTalents.length > 0) return { heroClasses: directClasses, heroTalents: directTalents };
+      // Derive from types array
+      const heroTypes = ((h.types as string[] | undefined) || []).map((t: string) => t.toLowerCase());
+      const classesFromTypes = heroTypes.filter(t => !TALENT_SET.has(t) && !NON_CLASS_TYPES.has(t));
+      const talentsFromTypes = heroTypes.filter(t => TALENT_SET.has(t));
+      if (classesFromTypes.length > 0 || talentsFromTypes.length > 0) return { heroClasses: classesFromTypes, heroTalents: talentsFromTypes };
+    }
+  }
+  // Strategy 2: heroName lookup
+  if (deck.heroName) {
+    const info = getHeroInfo(deck.heroName);
+    if (info) return { heroClasses: info.classes, heroTalents: info.talents };
+    // Strategy 3: treat heroName as a class name directly
+    const nameLower = deck.heroName.toLowerCase();
+    if (!TALENT_SET.has(nameLower) && !NON_CLASS_TYPES.has(nameLower)) return { heroClasses: [nameLower], heroTalents: [] };
+  }
+  return null;
+}
 
 // Maps deck format strings to search API format codes
 const FORMAT_TO_SEARCH: Record<string, string> = {
@@ -124,7 +156,7 @@ export function useDeckEditor(deckId: string) {
       if (parsedCards.length === 0) throw new Error("Input is empty or could not be parsed.");
 
       // Build hero + format constraints from the loaded deck
-      const heroInfo = deck?.heroName ? HERO_INFO[deck.heroName.toLowerCase()] : undefined;
+      const heroFilter = resolveHeroFilter(deck);
       const formatCode = deck?.format ? FORMAT_TO_SEARCH[deck.format] : undefined;
 
       const apiCallPromises = parsedCards.map(card => {
@@ -137,9 +169,9 @@ export function useDeckEditor(deckId: string) {
         if (card.edition) filters.editions = [card.edition];
 
         // Deck-building constraints
-        if (heroInfo) {
-          filters.heroClasses = heroInfo.classes;
-          filters.heroTalents = heroInfo.talents;
+        if (heroFilter) {
+          filters.heroClasses = heroFilter.heroClasses;
+          filters.heroTalents = heroFilter.heroTalents;
         }
         if (formatCode) filters.format = formatCode;
 

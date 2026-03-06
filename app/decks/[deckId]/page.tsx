@@ -1,477 +1,469 @@
-// app/decks/[deckId]/page.tsx
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import Link from "next/link";
-import { ArrowLeft, Plus, Search, RefreshCw, Share2, Eye, EyeOff, Settings, BarChart3, BookOpen, Upload, Swords, Pencil } from "lucide-react";
-
-// DND-KIT imports
-import { DndContext, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
-// Deck components
-import DeckAnalysis from "@/components/deck/DeckAnalysis";
-import DeckExport from "@/components/deck/DeckExport";
-import DeckPrintingCard from "@/components/deck/DeckPrintingCard";
-import DeckBinderComparison from "@/components/deck/DeckBinderComparison";
-import DeckPrintingsGrid from "@/components/deck/DeckPrintingsGrid";
-import DeckListView from "@/components/deck/DeckListView";
-import DeckBuilderSplitView from "@/components/deck/DeckBuilderSplitView";
-import PlaymatView from "@/components/deck/PlaymatView";
-import DeckSimulator from "@/components/deck/DeckSimulator";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
+import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
+import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
+import { decksClient } from "@/lib/client";
+import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
+import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
-import MobileDeckLayout from "@/components/deck/mobile/MobileDeckLayout";
-import DeckPageDialogs from "@/components/deck/DeckPageDialogs";
+import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
+import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
+import BulkImportForm from "@/components/browse/BulkImportForm";
+import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
+import { cn } from "@/lib/utils";
 
-// Hook and types
-import { useDeckPage, groupCardsByCardAndCategory } from "@/hooks/deck/useDeckPage";
-import type { DeckPrinting } from "@/hooks/deck/useDeckPage";
-
-function SortablePrintingCard({ printing, children }: { printing: DeckPrinting & { category: string }; children: React.ReactNode }) {
-  const uniqueId = printing._id || `${printing.printingId}-${printing.category}-${Date.now()}`;
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: uniqueId,
-    data: { printing },
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 100 : "auto",
-  };
-
-  const childWithProps = React.cloneElement(children as React.ReactElement<any>, {
-    dragAttributes: attributes,
-    dragListeners: listeners,
-    isDragging,
-  });
-
-  return (
-    <div ref={setNodeRef} style={style} className={isDragging ? "opacity-50 shadow-2xl" : ""}>
-      {childWithProps}
-    </div>
-  );
-}
-
-export default function DeckDetailPage() {
+export default function DeckEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const deckId = params.deckId as string;
 
-  const { authLoading, isMobile, state, handlers } = useDeckPage(deckId);
+  const { state, handlers } = useDeckEditor(deckId);
 
-  const {
-    loading,
-    error,
-    saving,
-    removingCards,
-    movingCards,
-    binders,
-    selectedBinderId,
-    ownershipStatus,
-    wantsMap,
-    binderMap,
-    activeTab,
-    searchQuery,
-    activeCategory,
-    viewMode,
-    stackGrouping,
-    displayDeck,
-    printings,
-    canEdit,
-    groupedCards,
-    filteredPrintings,
-    filteredGroupedCards,
-    deckStats,
-    deckForAnalysis,
-    deckCardCounts,
-    ownershipRefreshKey,
-  } = state;
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"search" | "deck" | "matchups">("deck");
 
-  const {
-    setActiveTab,
-    setSearchQuery,
-    setActiveCategory,
-    setViewMode,
-    setStackGrouping,
-    setIsCardSearchOpen,
-    setSettingsOpen,
-    setBulkImportOpen,
-    setSwappingPrinting,
-    setPrintingSwapOpen,
-    setSelectedBinderId,
-    setDeck,
-    setOptimisticDeck,
-    setOwnershipRefreshKey,
-    fetchDeck,
-    handleDragEnd,
-    handleAddPrintingToDeck,
-    handleAddAnother,
-    handleRemovePrinting,
-    handleMovePrinting,
-    handleMoveMultiple,
-    handleOpenPrintingSwap,
-    handleOpenOwnershipComparison,
-    handleAddToWants,
-    handleAddToBinder,
-    handleRemoveFromBinder,
-    handleRemoveFromWants,
-    handleToggleForTrade,
-    handleUpdateTags,
-  } = handlers;
+  // Quick-add dialog state
+  const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
 
-  // DND sensors
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  // Search form collapse state
+  const [searchFormOpen, setSearchFormOpen] = useState(true);
 
-  // Conditional renders
-  if (authLoading || loading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
-  if (error) return <div className="flex justify-center items-center min-h-screen">{error}</div>;
-  if (!displayDeck) return <div className="flex justify-center items-center min-h-screen">Deck not found</div>;
+  // Dialog state: for staged card printing swap
+  const [activeDialogInstanceId, setActiveDialogInstanceId] = useState<string | null>(null);
 
-  // Shared dialogs appear once, before the mobile/desktop split
-  const dialogs = (
-    <DeckPageDialogs
-      deckId={deckId}
-      displayDeck={displayDeck}
-      state={state}
-      handlers={handlers}
-    />
-  );
+  // Dialog state: for deck card printing swap
+  const [deckSwapTarget, setDeckSwapTarget] = useState<SwapTarget | null>(null);
 
-  // MOBILE RENDER
-  if (isMobile) {
-    return (
-      <>
-        {dialogs}
-        <MobileDeckLayout
-          deck={displayDeck as any}
-          printings={printings}
-          groupedCards={groupedCards}
-          filteredPrintings={filteredPrintings}
-          filteredGroupedCards={filteredGroupedCards}
-          canEdit={!!canEdit}
-          activeCategory={activeCategory}
-          setActiveCategory={setActiveCategory}
-          ownershipStatus={ownershipStatus}
-          wantsMap={wantsMap}
-          binderMap={binderMap}
-          deckCardCounts={deckCardCounts}
-          removingCards={removingCards}
-          movingCards={movingCards}
-          binders={binders}
-          selectedBinderId={selectedBinderId}
-          setSelectedBinderId={setSelectedBinderId}
-          onRemove={handleRemovePrinting}
-          onAddAnother={handleAddAnother}
-          onMove={handleMovePrinting}
-          onMoveMultiple={handleMoveMultiple}
-          onOpenPrintingSwap={handleOpenPrintingSwap}
-          onOpenOwnershipComparison={handleOpenOwnershipComparison}
-          onAddCard={(category) => {
-            setActiveCategory(category);
-            setIsCardSearchOpen(true);
-          }}
-          onAddToWants={handleAddToWants}
-          onAddToBinder={handleAddToBinder}
-          onSelectCard={handleAddPrintingToDeck}
-          onOpenSearch={() => setIsCardSearchOpen(true)}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenBulkImport={() => setBulkImportOpen(true)}
-        />
-      </>
+  const stagedCards = state.bulkResults.filter(c => c.isStaged);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    await handlers.handleBulkSearch(e);
+    setSearchFormOpen(false);
+  };
+  const activeInstance = state.bulkResults.find(c => c.instanceId === activeDialogInstanceId);
+
+  const handleQuickAddCard = async (printing: any, quantity: number) => {
+    if (!quickAddTarget) return;
+    const result = await decksClient.addPrintings(deckId, [{ printingId: printing.printing_id, quantity, category: quickAddTarget.category }]);
+    if (result.success) {
+      await handlers.refreshDeck();
+      // Keep dialog open so user can add more cards
+    } else {
+      toast({ title: "Add failed", description: result.error, variant: "destructive" });
+    }
+  };
+
+  // Redirect non-owners once both deck and auth are loaded
+  useEffect(() => {
+    if (authLoading || state.deckLoading) return;
+    if (!user) {
+      router.replace(`/decks/${deckId}/analyze`);
+      return;
+    }
+    if (state.deck && state.deck.userId !== user.id) {
+      router.replace(`/decks/${deckId}/analyze`);
+    }
+  }, [authLoading, state.deckLoading, user, state.deck, deckId, router]);
+
+  // Remove a card from the saved deck — passes a large quantity so the service
+  // always deletes the row entirely regardless of how many copies are stored.
+  const handleRemoveDeckCard = async (printingId: string, category: DeckCategory) => {
+    const result = await decksClient.removePrinting(deckId, printingId, category, 999999);
+    if (result.success) {
+      await handlers.refreshDeck();
+    } else {
+      toast({ title: "Remove failed", description: result.error, variant: "destructive" });
+    }
+  };
+
+  // Remove every printing of a card group from the deck at once
+  const handleRemoveGroupFromDeck = async (printingIds: string[], category: DeckCategory) => {
+    await Promise.all(
+      printingIds.map(printingId => decksClient.removePrinting(deckId, printingId, category, 999999))
     );
-  }
+    await handlers.refreshDeck();
+  };
 
-  // DESKTOP RENDER
+  // Update quantity of a specific printing in the saved deck.
+  // addPrintings STACKS (adds to existing), so we always remove first then re-add
+  // with the exact desired quantity to get a true set/replace behavior.
+  const handleUpdateDeckCardQty = async (printingId: string, newQty: number, category: DeckCategory) => {
+    const removeResult = await decksClient.removePrinting(deckId, printingId, category, 999999);
+    if (!removeResult.success) {
+      toast({ title: "Update failed", description: removeResult.error, variant: "destructive" });
+      return;
+    }
+    if (newQty > 0) {
+      const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: newQty, category }]);
+      if (!addResult.success) {
+        toast({ title: "Update failed", description: addResult.error, variant: "destructive" });
+        return;
+      }
+    }
+    await handlers.refreshDeck();
+  };
+
+  // Move 1 copy of a printing from one category to another.
+  // To avoid stacking issues: remove all, re-add (qty-1) to source, add 1 to destination.
+  const handleMoveSinglePrinting = async (
+    printingId: string,
+    fromCategory: DeckCategory,
+    toCategory: DeckCategory,
+    currentQty: number
+  ) => {
+    const removeResult = await decksClient.removePrinting(deckId, printingId, fromCategory, 999999);
+    if (!removeResult.success) {
+      toast({ title: "Move failed", description: removeResult.error, variant: "destructive" });
+      return;
+    }
+    if (currentQty - 1 > 0) {
+      const readdResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: currentQty - 1, category: fromCategory }]);
+      if (!readdResult.success) {
+        toast({ title: "Move failed", description: readdResult.error, variant: "destructive" });
+        return;
+      }
+    }
+    const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: 1, category: toCategory }]);
+    if (!addResult.success) {
+      toast({ title: "Move failed", description: addResult.error, variant: "destructive" });
+      return;
+    }
+    await handlers.refreshDeck();
+  };
+
+  // Move a card from one category to another (remove + re-add)
+  const handleMoveDeckCard = async (
+    printingId: string,
+    fromCategory: DeckCategory,
+    toCategory: DeckCategory,
+    quantity: number
+  ) => {
+    const removeResult = await decksClient.removePrinting(deckId, printingId, fromCategory, 999999);
+    if (!removeResult.success) {
+      toast({ title: "Move failed", description: removeResult.error, variant: "destructive" });
+      return;
+    }
+    const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: toCategory }]);
+    if (!addResult.success) {
+      toast({ title: "Move failed", description: addResult.error, variant: "destructive" });
+      return;
+    }
+    await handlers.refreshDeck();
+  };
+
+  // Swap a printing in the saved deck (called after user selects new printing in dialog)
+  const handleSwapDeckPrinting = async (newPrinting: any) => {
+    if (!deckSwapTarget) return;
+    const result = await decksClient.swapPrinting(
+      deckId,
+      deckSwapTarget.printingId,
+      newPrinting.printing_id,
+      deckSwapTarget.category
+    );
+    if (result.success) {
+      toast({ title: "Printing swapped" });
+      await handlers.refreshDeck();
+    } else {
+      toast({ title: "Swap failed", description: result.error, variant: "destructive" });
+    }
+    setDeckSwapTarget(null);
+  };
+
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      {dialogs}
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="container mx-auto px-4 py-2">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-2">
-            <Button variant="ghost" onClick={() => router.push("/decks")} className="p-2">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold">{displayDeck.name}</h1>
-              <Badge>{displayDeck.format}</Badge>
-              <Badge>{displayDeck.isPublic ? "Public" : "Private"}</Badge>
-              {displayDeck.heroName && <Badge variant="outline">Hero: {displayDeck.heroName}</Badge>}
-              <span className="text-sm text-gray-400">{deckStats.totalCards} cards</span>
-              {deckStats.estimatedValue > 0 && (
-                <span className="text-sm text-gray-400">~${deckStats.estimatedValue.toFixed(2)}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {canEdit && binders.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Default binder:</span>
-                  <Select value={selectedBinderId} onValueChange={setSelectedBinderId}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Select binder..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {binders.map((binder) => (
-                        <SelectItem key={binder._id} value={binder._id}>
-                          {binder.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {canEdit && (
-                <>
-                  <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)}>
-                    <Upload className="h-4 w-4 mr-2" />Import Decklist
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
-                    <Settings className="h-4 w-4 mr-2" />Settings
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
+    <div className="bg-white dark:bg-gray-900 min-h-screen">
+      <DeckEditorSidebar
+        deck={state.deck}
+        deckLoading={state.deckLoading}
+        stagedCards={stagedCards}
+        deckCounts={state.deckCounts}
+        isSaving={state.isSaving}
+        ownershipMap={state.ownershipMap}
+        deckId={deckId}
+        onUpdateQuantity={handlers.updateCardQuantity}
+        onUnstage={handlers.toggleStagedStatus}
+        onClear={handlers.clearStaged}
+        onSave={handlers.handleSaveToDeck}
+        onPrintingView={id => setActiveDialogInstanceId(id)}
+        onSwapDeckCard={target => setDeckSwapTarget(target)}
+        onRemoveDeckCard={handleRemoveDeckCard}
+        onRemoveGroupFromDeck={handleRemoveGroupFromDeck}
+        onUpdateDeckCardQty={handleUpdateDeckCardQty}
+        onMovePrinting={handleMoveSinglePrinting}
+        onRefreshDeck={handlers.refreshDeck}
+      />
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Tabs Row */}
-            <div className="flex items-center gap-3 mb-2">
-              <TabsList className="flex-shrink-0">
-                <TabsTrigger value="builder">Builder</TabsTrigger>
-                <TabsTrigger value="simulator">Simulator</TabsTrigger>
-                <TabsTrigger value="matchups" className="relative">
-                  <Swords className="h-4 w-4 mr-2" />
-                  Matchups
-                  <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-blue-500 text-white rounded-full">
-                    NEW
+      <div className="lg:ml-96">
+        <div className="container mx-auto pt-3 pb-20 sm:pb-0 px-4">
+          <div className="max-w-6xl mx-auto">
+            {/* Compact header: back arrow + title + view link */}
+            <div className="flex items-center gap-2 mb-2">
+              <Link
+                href="/decks"
+                className="flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0"
+                title="Back to Decks"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                {state.deckLoading ? "Loading..." : state.deck ? state.deck.name : "Deck Editor"}
+              </h1>
+              <Link
+                href={`/decks/${deckId}/analyze`}
+                className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1"
+                title="Analyze deck"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Analyze</span>
+              </Link>
+              <span className="text-xs text-muted-foreground shrink-0 hidden sm:block ml-auto">
+                {state.deck?.heroName
+                  ? `Filtered for ${state.deck.heroName}`
+                  : "Search for cards to add"}
+              </span>
+            </div>
+
+            {/* Tab bar — desktop only */}
+            <div className="hidden sm:flex border-b border-gray-200 dark:border-gray-700 mb-4">
+              <button
+                onClick={() => setActiveTab("search")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === "search"
+                    ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                )}
+              >
+                <Search className="h-4 w-4" />
+                Search
+              </button>
+              <button
+                onClick={() => setActiveTab("deck")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === "deck"
+                    ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                )}
+              >
+                <List className="h-4 w-4" />
+                Deck
+                {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (
+                  <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded-full">
+                    {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}/80
                   </span>
-                </TabsTrigger>
-                <TabsTrigger value="analysis">
-                  <BarChart3 className="h-4 w-4 mr-2" />Analysis
-                </TabsTrigger>
-                <TabsTrigger value="collection">
-                  <BookOpen className="h-4 w-4 mr-2" />Collection
-                </TabsTrigger>
-                <TabsTrigger value="export">Export</TabsTrigger>
-              </TabsList>
-
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search cards..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("matchups")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  activeTab === "matchups"
+                    ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                )}
+              >
+                <Swords className="h-4 w-4" />
+                Matchups
+              </button>
             </div>
 
-            {/* View Controls Row */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex gap-1">
-                {canEdit && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/decks/${deckId}/editor`}>
-                      <Pencil className="h-4 w-4 mr-2" />Edit
-                    </Link>
-                  </Button>
+            {/* Search tab content */}
+            {activeTab === "search" && (
+              <>
+                {/* Mobile: card grid with direct +/- controls */}
+                {state.deck && (
+                  <div className="sm:hidden -mx-4">
+                    <MobileCardSearch
+                      deck={state.deck}
+                      deckId={deckId}
+                      onDeckChange={handlers.refreshDeck}
+                    />
+                  </div>
                 )}
-                {displayDeck?.hero?.length > 0 && (
-                  <Button variant={viewMode === "catalog" ? "default" : "outline"} size="sm" onClick={() => setViewMode("catalog")}>
-                    Catalog
-                  </Button>
-                )}
-                <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-                  List
-                </Button>
-                <Button variant={viewMode === "compact" ? "default" : "outline"} size="sm" onClick={() => setViewMode("compact")}>
-                  Compact
-                </Button>
-                <Button variant={viewMode === "grouped" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grouped")}>
-                  Grouped
-                </Button>
-                <Button variant={viewMode === "individual" ? "default" : "outline"} size="sm" onClick={() => setViewMode("individual")}>
-                  Individual
-                </Button>
-                <Button variant={viewMode === "playmat" ? "default" : "outline"} size="sm" onClick={() => setViewMode("playmat")}>
-                  Playmat
-                </Button>
-              </div>
 
-              {viewMode === "compact" && (
-                <div className="flex items-center gap-2 border-l border-gray-300 dark:border-gray-700 pl-3">
-                  <span className="text-sm text-gray-500">Stack by:</span>
-                  <ToggleGroup
-                    type="single"
-                    value={stackGrouping}
-                    onValueChange={(value) => value && setStackGrouping(value as "by-name" | "by-printing")}
+                {/* Desktop: existing bulk import form */}
+                <div className="hidden sm:block">
+                {searchFormOpen ? (
+                  <BulkImportForm
+                    bulkInput={state.bulkInput}
+                    onInputChange={handlers.setBulkInput}
+                    onSearch={handleSearch}
+                    loading={state.loading}
+                  />
+                ) : (
+                  <div
+                    onClick={() => setSearchFormOpen(true)}
+                    className="flex items-center gap-3 mb-6 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   >
-                    <ToggleGroupItem value="by-name" aria-label="Group by card name" size="sm">
-                      Card Name
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="by-printing" aria-label="Group by printing" size="sm">
-                      Printing
-                    </ToggleGroupItem>
-                  </ToggleGroup>
+                    <Search className="h-4 w-4 text-gray-400 shrink-0" />
+                    <span className="flex-1 text-sm text-gray-600 dark:text-gray-300">
+                      {state.bulkResults.length} result{state.bulkResults.length !== 1 ? "s" : ""} — click to search again
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handlers.clearBulkResults(); setSearchFormOpen(true); }}
+                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                {state.error && (
+                  <Alert variant="destructive" className="mb-8">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Search Failed</AlertTitle>
+                    <AlertDescription>{state.error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <BulkResultsGrid
+                  cards={state.bulkResults}
+                  loading={state.loading}
+                  hideStaged={false}
+                  onUpdatePrinting={handlers.updateCardPrinting}
+                  onQuantityChange={handlers.updateCardQuantity}
+                  onToggleTrade={() => {}}
+                  onDuplicate={handlers.duplicateCard}
+                  onRemove={handlers.removeCard}
+                  onToggleStaged={handlers.toggleStagedStatus}
+                  onPrintingView={id => setActiveDialogInstanceId(id)}
+                />
                 </div>
-              )}
-            </div>
+              </>
+            )}
 
-            <TabsContent value="builder" className="space-y-0">
-              {viewMode === "catalog" ? (
-                <DeckBuilderSplitView
-                  deckId={deckId}
-                  deck={displayDeck}
-                  deckFormat={displayDeck.format}
-                  onDeckUpdate={fetchDeck}
-                  setDeck={(updater) => {
-                    setDeck(updater);
-                    setOptimisticDeck(updater);
-                  }}
-                />
-              ) : viewMode === "playmat" ? (
-                <PlaymatView
-                  deck={displayDeck}
-                  editable={!!canEdit}
-                  ownershipRefreshKey={ownershipRefreshKey}
-                  wantsMap={wantsMap}
-                  deckCardCounts={deckCardCounts}
-                  binderMap={binderMap}
-                  onZoneClick={(zone) => {
-                    const zoneMap: Record<string, typeof activeCategory> = {
-                      hero: "hero",
-                      equipment: "equipment",
-                      maindeck: "maindeck",
-                      inventory: "inventory",
-                    };
-                    if (zoneMap[zone]) {
-                      setActiveCategory(zoneMap[zone]);
-                      setViewMode("individual");
+            {/* Deck tab content */}
+            {activeTab === "deck" && (
+              <>
+                {state.deckLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  </div>
+                ) : state.deck ? (
+                  <DeckEditorListView
+                    deck={state.deck}
+                    ownershipMap={state.ownershipMap}
+                    onSwap={target => setDeckSwapTarget(target)}
+                    onRemove={handleRemoveDeckCard}
+                    onMove={handleMoveDeckCard}
+                    onMoveSingle={handleMoveSinglePrinting}
+                    onRemoveTile={(printingId, category, currentQty) =>
+                      handleUpdateDeckCardQty(printingId, Math.max(0, currentQty - 1), category)
                     }
-                  }}
-                  onShuffle={() => {}}
-                  onSwap={(card) => {
-                    setSwappingPrinting(card);
-                    setPrintingSwapOpen(true);
-                  }}
-                  onMove={handleMovePrinting}
-                  onRemove={handleRemovePrinting}
-                  onAddCard={(category) => {
-                    const categoryMap: Record<string, typeof activeCategory> = {
-                      hero: "hero",
-                      equipment: "equipment",
-                      maindeck: "maindeck",
-                      inventory: "inventory",
-                    };
-                    if (categoryMap[category]) {
-                      setActiveCategory(categoryMap[category]);
-                      setIsCardSearchOpen(true);
-                    }
-                  }}
-                  onAddToWants={handleAddToWants}
-                  onAddToBinder={handleAddToBinder}
-                  onRemoveFromBinder={handleRemoveFromBinder}
-                  onRemoveFromWants={handleRemoveFromWants}
-                  onToggleForTrade={handleToggleForTrade}
-                  onUpdateTags={handleUpdateTags}
-                />
-              ) : viewMode === "list" ? (
-                (["hero", "equipment", "maindeck", "inventory"] as const).map((category) => (
-                  <DeckListView
-                    key={category}
-                    printings={filteredPrintings}
-                    groupedCards={filteredGroupedCards}
-                    category={category}
-                    editable={!!canEdit}
-                    ownershipStatus={ownershipStatus}
-                    wantsMap={wantsMap}
-                    binderMap={binderMap}
-                    deckCardCounts={deckCardCounts}
-                    onRemove={handleRemovePrinting}
-                    onAddAnother={handleAddAnother}
-                    onMove={handleMovePrinting}
-                    onOpenPrintingSwap={handleOpenPrintingSwap}
-                    onOpenOwnershipComparison={handleOpenOwnershipComparison}
-                    onAddCard={() => {
-                      setActiveCategory(category);
-                      setIsCardSearchOpen(true);
-                    }}
-                    removingCards={removingCards}
+                    onAddCard={(category, pitch) => setQuickAddTarget({ category, pitch })}
+                    canEdit={true}
                   />
-                ))
-              ) : (
-                (["maindeck", "equipment", "inventory"] as const).map((category) => (
-                  <DeckPrintingsGrid
-                    key={category}
-                    printings={filteredPrintings}
-                    groupedCards={filteredGroupedCards}
-                    category={category}
-                    editable={!!canEdit}
-                    viewMode={viewMode}
-                    stackGrouping={stackGrouping}
-                    ownershipStatus={ownershipStatus}
-                    onRemove={handleRemovePrinting}
-                    onAddAnother={handleAddAnother}
-                    onMove={handleMovePrinting}
-                    onOpenPrintingSwap={handleOpenPrintingSwap}
-                    onAddCard={() => {
-                      setActiveCategory(category);
-                      setIsCardSearchOpen(true);
-                    }}
-                    SortablePrintingCard={SortablePrintingCard}
-                    removingCards={removingCards}
-                    movingCards={movingCards}
-                    onAddToWants={handleAddToWants}
-                    onAddToBinder={handleAddToBinder}
-                    wantsMap={wantsMap}
-                    binderMap={binderMap}
-                    deckCardCounts={deckCardCounts}
-                  />
-                ))
-              )}
-            </TabsContent>
+                ) : null}
+              </>
+            )}
 
-            <TabsContent value="simulator">
-              <DeckSimulator deck={displayDeck} />
-            </TabsContent>
-
-            <TabsContent value="matchups">
-              {displayDeck && (
-                <DeckMatchupsDialog
-                  open={true}
-                  onOpenChange={() => {}}
-                  deckId={deckId}
-                  deck={displayDeck}
-                  inline={true}
-                />
-              )}
-            </TabsContent>
-
-            <TabsContent value="analysis">
-              <DeckAnalysis deck={deckForAnalysis} stats={deckStats} loading={loading} />
-            </TabsContent>
-
-            <TabsContent value="collection">
-              <DeckBinderComparison deck={displayDeck} />
-            </TabsContent>
-
-            <TabsContent value="export">
-              <DeckExport deck={displayDeck} onCopyList={() => {}} />
-            </TabsContent>
-          </Tabs>
+            {/* Matchups tab content */}
+            {activeTab === "matchups" && state.deck && (
+              <DeckMatchupsDialog
+                open={true}
+                onOpenChange={() => {}}
+                deckId={deckId}
+                deck={state.deck}
+                inline={true}
+                compact={true}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </DndContext>
+
+      {/* Dialog: swap printing for staged (search tab) cards */}
+      <ViewPrintingsDialog
+        open={!!activeDialogInstanceId}
+        onOpenChange={isOpen => !isOpen && setActiveDialogInstanceId(null)}
+        cardName={activeInstance?.selectedPrinting?.display_name || ""}
+        cardUniqueId={activeInstance?.card_unique_id || ""}
+        onSelectPrinting={printing => {
+          if (activeInstance) {
+            handlers.updateCardPrinting(activeInstance.instanceId, printing);
+          }
+          setActiveDialogInstanceId(null);
+        }}
+      />
+
+      {/* Dialog: swap printing for existing deck cards */}
+      <ViewPrintingsDialog
+        open={!!deckSwapTarget}
+        onOpenChange={isOpen => !isOpen && setDeckSwapTarget(null)}
+        cardName={deckSwapTarget?.cardName || ""}
+        cardUniqueId={deckSwapTarget?.cardUniqueId || ""}
+        onSelectPrinting={handleSwapDeckPrinting}
+      />
+
+      {/* Mobile bottom tab bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 flex sm:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <button
+          onClick={() => setActiveTab("search")}
+          className={cn(
+            "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
+            activeTab === "search"
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-gray-500 dark:text-gray-400"
+          )}
+        >
+          <LayoutGrid className="h-5 w-5" />
+          Cards
+        </button>
+        <button
+          onClick={() => setActiveTab("deck")}
+          className={cn(
+            "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors relative",
+            activeTab === "deck"
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-gray-500 dark:text-gray-400"
+          )}
+        >
+          <div className="relative">
+            <List className="h-5 w-5" />
+            {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 bg-blue-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold leading-none">
+                {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}
+              </span>
+            )}
+          </div>
+          Deck
+        </button>
+        <button
+          onClick={() => setActiveTab("matchups")}
+          className={cn(
+            "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
+            activeTab === "matchups"
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-gray-500 dark:text-gray-400"
+          )}
+        >
+          <Swords className="h-5 w-5" />
+          Matchups
+        </button>
+      </div>
+
+      {/* Dialog: quick-add a single card to a specific zone */}
+      <QuickAddCardDialog
+        open={!!quickAddTarget}
+        onOpenChange={isOpen => !isOpen && setQuickAddTarget(null)}
+        onAdd={handleQuickAddCard}
+        targetCategory={quickAddTarget?.category ?? "maindeck"}
+        pitchFilter={quickAddTarget?.pitch}
+        deckFormat={state.deck?.format}
+        currentDeck={state.deck ?? undefined}
+      />
+    </div>
   );
 }

@@ -7,10 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Plus, 
-  Search, 
-  BookOpen, 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Plus,
+  Search,
+  BookOpen,
   Filter
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,6 +89,7 @@ export default function DecksPage() {
   const [sortBy, setSortBy] = useState("updated"); // updated, created, name, value
   const [activeTab, setActiveTab] = useState("decks");
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
+  const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
 
   // Fetch user's decks
   useEffect(() => {
@@ -153,8 +164,14 @@ export default function DecksPage() {
   };
 
   // Handle deck deletion
-  const handleDeleteDeck = async (deckId: string) => {
-    if (!confirm('Are you sure you want to delete this deck? This action cannot be undone.')) return;
+  const handleDeleteDeck = (deckId: string) => {
+    setDeletingDeckId(deckId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingDeckId) return;
+    const deckId = deletingDeckId;
+    setDeletingDeckId(null);
 
     try {
       console.log('[Decks] Deleting deck:', deckId);
@@ -366,6 +383,27 @@ export default function DecksPage() {
         onCreateDeck={handleCreateDeck}
       />
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingDeckId} onOpenChange={open => !open && setDeletingDeckId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this deck?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the deck and all its cards. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -507,7 +545,7 @@ export default function DecksPage() {
                     onEdit={() => router.push(`/decks/${deck.publicId}`)}
                     onDelete={() => handleDeleteDeck(deck.publicId)}
                     onDuplicate={() => handleDuplicateDeck(deck)}
-                    onView={() => router.push(`/decks/${deck.publicId}`)}
+                    onView={() => router.push(`/decks/${deck.publicId}/analyze`)}
                   />
                 ))}
               </div>

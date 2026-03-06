@@ -165,8 +165,17 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('isUnder100')) filters.isUnder100 = searchParams.get('isUnder100') === 'true';
     if (searchParams.get('isExpensive')) filters.isExpensive = searchParams.get('isExpensive') === 'true';
     
-    // Hero-based filtering
+    // Hero-based filtering (precise mode — card.classes ⊆ heroClasses AND card.talents ⊆ heroTalents)
+    if (searchParams.get('heroClasses')) filters.heroClasses = searchParams.get('heroClasses')!.split(',').map(s => s.trim()).filter(Boolean);
+    if (searchParams.get('heroTalents')) filters.heroTalents = searchParams.get('heroTalents')!.split(',').map(s => s.trim()).filter(Boolean);
+    // Legacy hero filtering (single hero name string — less precise, kept for backwards compat)
     if (searchParams.get('heroLegal')) filters.heroLegal = searchParams.get('heroLegal')!;
+
+    // Pitch filter (1 = red, 2 = yellow, 3 = blue, null = unpitched)
+    if (searchParams.get('pitch')) {
+      const p = searchParams.get('pitch')!;
+      filters.pitch = p === 'null' ? null : parseInt(p, 10);
+    }
     
     // Format legality
     if (searchParams.get('format')) filters.format = searchParams.get('format') as any;

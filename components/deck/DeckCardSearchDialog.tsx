@@ -298,9 +298,9 @@ export default function DeckCardSearchDialog({
     params.append('sortOrder', 'asc');
     params.append('show', 'all');
 
-    // When selecting a hero, restrict to hero type cards
-    if (targetCategory === 'hero' && !params.has('types')) {
-      params.append('types', 'hero');
+    // When selecting a hero, restrict to hero cards using the boolean flag (avoids array &&  SQL issues)
+    if (targetCategory === 'hero') {
+      params.append('isHero', 'true');
     }
 
     // Hero-based class/talent filtering (server-side)

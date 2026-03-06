@@ -220,7 +220,17 @@ export default function RootLayout({
           </li>
           <li>
             <Link href="/browse" className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-500 transition-colors">
-              Add to your Collection
+              Bulk Import
+            </Link>
+          </li>
+          <li>
+            <Link href="/decks" className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-500 transition-colors">
+              Decks
+            </Link>
+          </li>
+          <li>
+            <Link href="/guides" className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-500 transition-colors">
+              Articles
             </Link>
           </li>
         </ul>
@@ -275,6 +285,33 @@ export default function RootLayout({
             </AuthSessionProvider>
           </CookieConsentProvider>
         </DarkModeProvider>
+
+        {/* Google Analytics 4 */}
+        {process.env.NEXT_PUBLIC_GA_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script
+              id="ga4-config"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}', {
+                    page_path: window.location.pathname,
+                    anonymize_ip: true,
+                    allow_google_signals: false,
+                    allow_ad_personalization_signals: false,
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
 
         {/* Web Components - Load after DOM is ready */}
         <Script
