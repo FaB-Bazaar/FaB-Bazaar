@@ -10,6 +10,7 @@ import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
 import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
 import { decksClient, bindersClient } from "@/lib/client";
+import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
@@ -203,6 +204,23 @@ export default function DeckEditorPage() {
       return;
     }
     await handlers.refreshDeck();
+  };
+
+  const handleUpgradePrintings = async () => {
+    const result = await upgradeToOwnedPrintings(deckId);
+    if (result.success) {
+      if (result.data.total === 0) {
+        toast({ title: "All printings up to date", description: "No unowned printings found with owned alternatives." });
+      } else {
+        toast({
+          title: "Printings updated",
+          description: `${result.data.swapped} of ${result.data.total} printing${result.data.total !== 1 ? "s" : ""} swapped to owned copies.`,
+        });
+        await handlers.refreshDeck();
+      }
+    } else {
+      toast({ title: "Update failed", description: result.error, variant: "destructive" });
+    }
   };
 
   const handleBinderChange = (binderId: string) => {
@@ -450,6 +468,7 @@ export default function DeckEditorPage() {
                     selectedBinderId={selectedBinderId}
                     onBinderChange={handleBinderChange}
                     onAddToBinder={handleAddToBinder}
+                    onUpgradePrintings={handleUpgradePrintings}
                   />
                 ) : null}
               </>
@@ -476,6 +495,7 @@ export default function DeckEditorPage() {
         onOpenChange={isOpen => !isOpen && setActiveDialogInstanceId(null)}
         cardName={activeInstance?.selectedPrinting?.display_name || ""}
         cardUniqueId={activeInstance?.card_unique_id || ""}
+        currentPrintingId={activeInstance?.selectedPrinting?.printing_id}
         onSelectPrinting={printing => {
           if (activeInstance) {
             handlers.updateCardPrinting(activeInstance.instanceId, printing);
@@ -490,6 +510,7 @@ export default function DeckEditorPage() {
         onOpenChange={isOpen => !isOpen && setDeckSwapTarget(null)}
         cardName={deckSwapTarget?.cardName || ""}
         cardUniqueId={deckSwapTarget?.cardUniqueId || ""}
+        currentPrintingId={deckSwapTarget?.printingId}
         onSelectPrinting={handleSwapDeckPrinting}
       />
 

@@ -33,14 +33,15 @@ const sortPrintings = (printings: any[]) => {
   });
 };
 
-export default function ViewPrintingsDialog({ 
-  open, onOpenChange, cardName, cardUniqueId, onSelectPrinting 
+export default function ViewPrintingsDialog({
+  open, onOpenChange, cardName, cardUniqueId, onSelectPrinting, currentPrintingId
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cardName: string;
   cardUniqueId: string;
-  onSelectPrinting: (printing: any) => void; 
+  onSelectPrinting: (printing: any) => void;
+  currentPrintingId?: string;
 }) {
   const [printings, setPrintings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,6 +71,73 @@ export default function ViewPrintingsDialog({
     onOpenChange(false);
   };
 
+  const currentPrinting = currentPrintingId
+    ? printings.find(p => p.printing_id === currentPrintingId)
+    : null;
+  const restPrintings = currentPrinting
+    ? printings.filter(p => p.printing_id !== currentPrintingId)
+    : printings;
+
+  const renderPrintingRow = (p: any, isCurrent = false) => (
+    <div
+      key={p.printing_id}
+      className={cn(
+        "p-3 rounded-lg border flex items-center justify-between gap-4 cursor-pointer transition-colors",
+        isCurrent
+          ? "border-blue-500 bg-blue-950/40 hover:bg-blue-900/40 ring-1 ring-blue-500/50"
+          : "border-gray-700 bg-gray-900/50 hover:bg-gray-700"
+      )}
+      onClick={() => handlePrintingClick(p)}
+    >
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-1.5">
+          <RarityIcon rarityCode={p.rarity} size="sm" />
+          <span className="font-semibold text-sm text-gray-200">{p.set.toUpperCase()}</span>
+          {isCurrent && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-600 text-white leading-none">
+              Current
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            {getEditionName(p.edition) || 'Normal'}
+          </Badge>
+          <div className={cn(
+            "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+            getVariantBadgeStyles(p.rarity, p.foiling)
+          )}>
+            {getFoilingName(p.foiling, p.is_extended_art)}
+          </div>
+        </div>
+      </div>
+
+      {p.tcg_low != null && p.tcg_low > 0 && (
+        <div className="flex flex-col items-end gap-1">
+          <div className="text-lg font-semibold text-green-400">
+            ${p.tcg_low.toFixed(2)}
+          </div>
+          {p.tcgplayer_url && (
+            <TcgAffiliateLink
+              tcgplayerUrl={p.tcgplayer_url}
+              feature="PrintingsDialogPurchase"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors py-1 px-2 rounded hover:bg-blue-900/20 border border-blue-800/50"
+              title="Purchase on TCGPlayer"
+            >
+              <img
+                src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+                alt="TCGPlayer"
+                className="h-3 w-auto"
+              />
+              <span>Buy</span>
+            </TcgAffiliateLink>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col bg-gray-800 border-gray-700">
@@ -86,70 +154,36 @@ export default function ViewPrintingsDialog({
           ) : error ? (
             <p className="text-red-400 text-center py-8">{error}</p>
           ) : (
-            printings.map((p, index) => {
-              const showSetHeader = index === 0 || p.set !== printings[index - 1].set;
-              
-              return (
-                <React.Fragment key={p.printing_id}>
-                  {showSetHeader && (
+            <>
+              {/* Current printing pinned at top */}
+              {currentPrinting && (
+                <div className="mb-3">
+                  {renderPrintingRow(currentPrinting, true)}
+                  {restPrintings.length > 0 && (
                     <div className="font-bold text-lg pt-4 pb-1 border-b border-gray-700 text-gray-200">
-                      {getSetName(p.set)}
+                      {getSetName(restPrintings[0].set)}
                     </div>
                   )}
-                  <div 
-                    className="p-3 rounded-lg border border-gray-700 bg-gray-900/50 flex items-center justify-between gap-4 cursor-pointer hover:bg-gray-700 transition-colors"
-                    onClick={() => handlePrintingClick(p)}
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <RarityIcon rarityCode={p.rarity} size="sm" />
-                        <span className="font-semibold text-sm text-gray-200">{p.set.toUpperCase()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {getEditionName(p.edition) || 'Normal'}
-                        </Badge>
-                        
-                        <div className={cn(
-                         "text-xs font-semibold px-2.5 py-0.5 rounded-full",
-                          getVariantBadgeStyles(p.rarity, p.foiling)
-                        )}>
-                          {getFoilingName(p.foiling, p.is_extended_art)}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Price section with affiliate link */}
-                    {p.tcg_low != null && p.tcg_low > 0 && (
-                      <div className="flex flex-col items-end gap-1">
-                        {/* Price display */}
-                        <div className="text-lg font-semibold text-green-400">
-                          ${p.tcg_low.toFixed(2)}
-                        </div>
-                        
-                        {/* Affiliate buy button */}
-                        {p.tcgplayer_url && (
-                          <TcgAffiliateLink
-                            tcgplayerUrl={p.tcgplayer_url}
-                            feature="PrintingsDialogPurchase"
-                            onClick={(e) => e.stopPropagation()} // Prevent dialog from closing
-                            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors py-1 px-2 rounded hover:bg-blue-900/20 border border-blue-800/50"
-                            title="Purchase on TCGPlayer"
-                          >
-                            <img 
-                              src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-                              alt="TCGPlayer"
-                              className="h-3 w-auto"
-                            />
-                            <span>Buy</span>
-                          </TcgAffiliateLink>
-                        )}
+                </div>
+              )}
+
+              {/* Remaining printings grouped by set */}
+              {restPrintings.map((p, index) => {
+                const showSetHeader = !currentPrinting
+                  ? (index === 0 || p.set !== restPrintings[index - 1].set)
+                  : (index > 0 && p.set !== restPrintings[index - 1].set);
+                return (
+                  <React.Fragment key={p.printing_id}>
+                    {showSetHeader && (
+                      <div className="font-bold text-lg pt-4 pb-1 border-b border-gray-700 text-gray-200">
+                        {getSetName(p.set)}
                       </div>
                     )}
-                  </div>
-                </React.Fragment>
-              );
-            })
+                    {renderPrintingRow(p, false)}
+                  </React.Fragment>
+                );
+              })}
+            </>
           )}
         </div>
       </DialogContent>

@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2 } from "lucide-react";
+import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
@@ -89,6 +89,8 @@ const TURN_ORDER_OPTIONS = [
   { value: "NoPreference", label: "No Preference" },
 ];
 
+const CORE_HERO_ID = "core";
+
 // ─────────────────────────────────────────────────────────
 // Config panel — collapsible sidebar on all breakpoints
 // ─────────────────────────────────────────────────────────
@@ -115,7 +117,8 @@ function ConfigPanel({
 }) {
   const [collapsed, setCollapsed] = React.useState(editingHeroId !== null);
 
-  const heroLabel = heroOptions.find(h => h.talisharId === formHeroId)?.displayName || formHeroId;
+  const isCore = formHeroId === CORE_HERO_ID;
+  const heroLabel = isCore ? "Core" : (heroOptions.find(h => h.talisharId === formHeroId)?.displayName || formHeroId);
 
   // Auto-expand when switching to "add new" mode (editingHeroId cleared after cancel/save)
   React.useEffect(() => {
@@ -135,7 +138,7 @@ function ConfigPanel({
           Settings
           {formHeroId && (
             <Badge variant="outline" className="text-[10px] font-normal h-4 px-1.5">
-              vs {heroLabel}
+              {isCore ? "Core list" : `vs ${heroLabel}`}
             </Badge>
           )}
           {formTurnOrder && formTurnOrder !== 'NoPreference' && (
@@ -193,6 +196,13 @@ function ConfigPanel({
                   <SelectValue placeholder="Select hero..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
+                  <SelectItem value={CORE_HERO_ID}>
+                    <span className="flex items-center gap-1.5">
+                      <Bookmark className="h-3.5 w-3.5 text-blue-400" />
+                      Core — Baseline List
+                    </span>
+                  </SelectItem>
+                  <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
                   {heroOptions.map((hero) => (
                     <SelectItem key={hero.talisharId} value={hero.talisharId}>
                       {hero.displayName}
@@ -205,7 +215,7 @@ function ConfigPanel({
               </Select>
               {editingHeroId && (
                 <p className="text-[10px] text-gray-500 leading-tight">
-                  Hero locked. Delete &amp; recreate to change.
+                  {editingHeroId === CORE_HERO_ID ? "Core matchup locked." : "Hero locked."} Delete &amp; recreate to change.
                 </p>
               )}
             </div>
@@ -528,6 +538,8 @@ export default function DeckMatchupsDialog({
   };
 
   const getHeroDisplayName = (heroId: string) => {
+    if (heroId === CORE_HERO_ID) return "Core";
+
     // First try current format's hero options
     let hero = HERO_OPTIONS.find(h => h.talisharId === heroId);
     if (hero) return hero.displayName;
@@ -611,15 +623,26 @@ export default function DeckMatchupsDialog({
                 No matchups configured yet.
               </p>
             ) : (
-              matchups.map((matchup) => {
-                const heroImg = heroImageMap.get(matchup.heroId);
+              [...matchups]
+                .sort((a, b) => {
+                  if (a.heroId === CORE_HERO_ID) return -1;
+                  if (b.heroId === CORE_HERO_ID) return 1;
+                  return getHeroDisplayName(a.heroId).localeCompare(getHeroDisplayName(b.heroId));
+                })
+                .map((matchup) => {
+                const isCore = matchup.heroId === CORE_HERO_ID;
+                const heroImg = !isCore ? heroImageMap.get(matchup.heroId) : undefined;
                 return (
                   <Card key={matchup.heroId}>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                          {/* Hero card art thumbnail (cropped to top) */}
-                          {heroImg ? (
+                          {/* Hero card art thumbnail (cropped to top) — or Bookmark for Core */}
+                          {isCore ? (
+                            <div className="w-10 h-12 flex-shrink-0 rounded bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center border border-blue-200 dark:border-blue-800">
+                              <Bookmark className="h-5 w-5 text-blue-400" />
+                            </div>
+                          ) : heroImg ? (
                             <div className="w-10 h-12 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
@@ -636,6 +659,9 @@ export default function DeckMatchupsDialog({
                           <div className="min-w-0">
                             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                               {getHeroDisplayName(matchup.heroId)}
+                              {isCore && (
+                                <Badge variant="secondary" className="text-xs">Baseline</Badge>
+                              )}
                               {matchup.preferredTurnOrder && matchup.preferredTurnOrder !== 'NoPreference' && (
                                 <Badge variant="outline" className="text-xs">
                                   {matchup.preferredTurnOrder === 'First' ? 'Go First' : 'Go Second'}

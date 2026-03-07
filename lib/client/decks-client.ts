@@ -457,6 +457,42 @@ export async function copyDeck(
 }
 
 /**
+ * Find unowned deck printings that can be swapped to owned alternatives,
+ * then execute all swaps in one call. Prefers the highest tcg_low owned printing.
+ *
+ * @param publicId - The deck's public ID
+ * @returns Number of swaps applied and any per-swap errors
+ */
+export async function upgradeToOwnedPrintings(
+  publicId: string
+): Promise<ApiResponse<{ swapped: number; errors: string[]; total: number }>> {
+  try {
+    // Step 1: get suggestions
+    const suggestRes = await fetch(`/api/decks/${publicId}/upgrade-printings`);
+    const suggestions = await handleResponse<{ swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: string }> }>(suggestRes);
+    if (!suggestions.success) return suggestions;
+
+    const swaps = suggestions.data.swaps;
+    if (!swaps.length) {
+      return { success: true, data: { swapped: 0, errors: [], total: 0 } };
+    }
+
+    // Step 2: execute
+    const execRes = await fetch(`/api/decks/${publicId}/upgrade-printings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ swaps }),
+    });
+    const execResult = await handleResponse<{ swapped: number; errors: string[] }>(execRes);
+    if (!execResult.success) return execResult;
+
+    return { success: true, data: { ...execResult.data, total: swaps.length } };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Duplicate a deck (creates a copy with "Copy of" prefix)
  *
  * @param publicId - The source deck's public ID
