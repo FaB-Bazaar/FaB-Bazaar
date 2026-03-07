@@ -228,11 +228,18 @@ export default function DeckEditorPage() {
                 <Eye className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Analyze</span>
               </Link>
-              <span className="text-xs text-muted-foreground shrink-0 hidden sm:block ml-auto">
-                {state.deck?.heroName
-                  ? `Filtered for ${state.deck.heroName}`
-                  : "Search for cards to add"}
-              </span>
+              <div className="hidden sm:flex items-center gap-2 ml-auto shrink-0">
+                {state.deck?.format && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    {state.deck.format}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {state.deck?.heroName
+                    ? `Filtered for ${state.deck.heroName}`
+                    : "Search for cards to add"}
+                </span>
+              </div>
             </div>
 
             {/* Tab bar — desktop only */}

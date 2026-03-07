@@ -150,7 +150,7 @@ function GroupedCardRow({
     <div>
       {/* Group header row */}
       <div
-        className="flex items-center gap-1.5 py-1 px-1 hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded group text-sm cursor-default"
+        className="flex items-center gap-1.5 py-1 px-1 hover:bg-gray-100 dark:hover:bg-gray-800/40 rounded group text-sm cursor-default"
         onMouseEnter={() => groupImageUrl && onHoverImage(groupImageUrl, group.displayName)}
         onMouseLeave={onClearImage}
       >
@@ -209,7 +209,7 @@ function GroupedCardRow({
             return (
               <div
                 key={pr.printingId}
-                className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded group/pr text-xs cursor-default"
+                className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-gray-100 dark:hover:bg-gray-800/40 rounded group/pr text-xs cursor-default"
                 onMouseEnter={() => prImageUrl && onHoverImage(prImageUrl, group.displayName)}
                 onMouseLeave={onClearImage}
               >
@@ -315,6 +315,68 @@ function GroupedCardRow({
   );
 }
 
+// ─── Pitch sub-section (collapsible by color inside Main Deck) ───────────────
+
+interface PitchGroupProps {
+  pitch: number | null;
+  cards: DeckPrintingDTO[];
+  category: DeckCategory;
+  ownershipMap: Map<string, OwnershipEntry>;
+  onSwapCard?: (target: SwapTarget) => void;
+  onRemoveCard?: (printingId: string, category: DeckCategory) => void;
+  onRemoveGroup?: (printingIds: string[], category: DeckCategory) => void;
+  onSelectCard?: (cardUniqueId: string, cardName: string, category: DeckCategory, currentPrintings: DeckPrintingDTO[]) => void;
+  onUpdateDeckCardQty?: (printingId: string, newQty: number, category: DeckCategory) => void;
+  onMovePrinting?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, currentQty: number) => void;
+  onHoverImage: (url: string, name: string) => void;
+  onClearImage: () => void;
+}
+
+const PITCH_META: Record<number, { label: string; dotClass: string }> = {
+  1: { label: "Red",    dotClass: "bg-red-500" },
+  2: { label: "Yellow", dotClass: "bg-yellow-400" },
+  3: { label: "Blue",   dotClass: "bg-blue-500" },
+};
+
+function PitchGroup({ pitch, cards, category, ownershipMap, onSwapCard, onRemoveCard, onRemoveGroup, onSelectCard, onUpdateDeckCardQty, onMovePrinting, onHoverImage, onClearImage }: PitchGroupProps) {
+  const [open, setOpen] = useState(true);
+  const groups = groupAndSortCards(cards);
+  if (groups.length === 0) return null;
+  const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
+  const meta = pitch !== null ? PITCH_META[pitch] : { label: "Other", dotClass: "bg-gray-400 dark:bg-gray-500" };
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="w-full flex items-center gap-1.5 py-1 px-1 -mx-1 hover:bg-gray-100 dark:hover:bg-gray-800/30 rounded text-xs">
+        {open ? <ChevronDown className="h-3 w-3 text-gray-400 flex-shrink-0" /> : <ChevronRight className="h-3 w-3 text-gray-400 flex-shrink-0" />}
+        <span className={cn("w-2 h-2 rounded-full flex-shrink-0", meta.dotClass)} />
+        <span className="text-gray-500 dark:text-gray-400 font-medium">{meta.label}</span>
+        <span className="ml-auto tabular-nums text-gray-400">{total}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-0.5 mb-1 pl-2">
+          {groups.map(group => (
+            <GroupedCardRow
+              key={group.key}
+              group={group}
+              category={category}
+              ownershipMap={ownershipMap}
+              onSwapCard={onSwapCard}
+              onRemoveCard={onRemoveCard}
+              onRemoveGroup={onRemoveGroup}
+              onSelectCard={onSelectCard}
+              onUpdateDeckCardQty={onUpdateDeckCardQty}
+              onMovePrinting={onMovePrinting}
+              onHoverImage={onHoverImage}
+              onClearImage={onClearImage}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 // ─── Section accordion ────────────────────────────────────────────────────────
 
 interface SectionAccordionProps {
@@ -325,6 +387,7 @@ interface SectionAccordionProps {
   defaultOpen?: boolean;
   cards: DeckPrintingDTO[];
   category: DeckCategory;
+  splitByPitch?: boolean;
   ownershipMap: Map<string, OwnershipEntry>;
   onSwapCard?: (target: SwapTarget) => void;
   onRemoveCard?: (printingId: string, category: DeckCategory) => void;
@@ -344,6 +407,7 @@ function SectionAccordion({
   defaultOpen = false,
   cards,
   category,
+  splitByPitch = false,
   ownershipMap,
   onSwapCard,
   onRemoveCard,
@@ -357,9 +421,16 @@ function SectionAccordion({
   const [open, setOpen] = useState(defaultOpen);
   const groups = groupAndSortCards(cards);
 
+  const pitchGroupProps = { category, ownershipMap, onSwapCard, onRemoveCard, onRemoveGroup, onSelectCard, onUpdateDeckCardQty, onMovePrinting, onHoverImage, onClearImage };
+
+  const pitchBuckets = splitByPitch ? [1, 2, 3, null].map(p => ({
+    pitch: p,
+    cards: cards.filter(c => ((c.printingDetails?.pitch as number | undefined) ?? null) === p),
+  })).filter(b => b.cards.length > 0) : [];
+
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="w-full flex justify-between items-center text-sm py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded px-1 -mx-1">
+      <CollapsibleTrigger className="w-full flex justify-between items-center text-sm py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800/30 rounded px-1 -mx-1">
         <div className="flex items-center gap-1.5">
           {open ? (
             <ChevronDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
@@ -379,8 +450,14 @@ function SectionAccordion({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        {groups.length === 0 ? (
+        {cards.length === 0 ? (
           <p className="text-xs text-gray-400 py-1 px-2 italic">Empty</p>
+        ) : splitByPitch ? (
+          <div className="mt-0.5 mb-1 pl-2 space-y-0.5">
+            {pitchBuckets.map(b => (
+              <PitchGroup key={String(b.pitch)} pitch={b.pitch} cards={b.cards} {...pitchGroupProps} />
+            ))}
+          </div>
         ) : (
           <div className="mt-0.5 mb-1 pl-2">
             {groups.map(group => (
@@ -500,33 +577,9 @@ export default function DeckEditorSidebar({
 
   return (
     <>
-      <div className="hidden lg:flex fixed left-0 top-16 w-96 h-[calc(100vh-4rem)] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex-col z-20">
-        {/* Deck header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          {deckLoading ? (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Loading deck...</span>
-            </div>
-          ) : deck ? (
-            <>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{deck.name}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                {deck.heroName && (
-                  <Badge variant="outline" className="text-xs">{deck.heroName}</Badge>
-                )}
-                {deck.format && (
-                  <Badge variant="secondary" className="text-xs">{deck.format}</Badge>
-                )}
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">Deck not found</p>
-          )}
-        </div>
-
-        {/* Deck contents */}
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 overflow-y-auto max-h-[45%]">
+      <div className="hidden lg:flex fixed left-0 top-16 w-96 h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex-col z-20">
+        {/* Deck contents — takes all available space */}
+        <div className="flex-1 min-h-0 px-4 py-3 overflow-y-auto border-b border-gray-200 dark:border-gray-700">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
             Deck Contents
           </p>
@@ -560,6 +613,7 @@ export default function DeckEditorSidebar({
               limit="60+"
               warn={maindeckShort && totalMaindeck > 0}
               defaultOpen={true}
+              splitByPitch={true}
               cards={deck?.maindeck || []}
               category="maindeck"
               ownershipMap={ownershipMap}
@@ -629,7 +683,7 @@ export default function DeckEditorSidebar({
                 return (
                   <div
                     key={instance.instanceId}
-                    className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                    className="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
                   >
                     <img
                       src={p?.image_url || "/cardback.webp"}
