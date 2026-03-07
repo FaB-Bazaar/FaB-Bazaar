@@ -84,8 +84,8 @@ export function validateMatchup(
 ): ValidationResult {
   const errors: string[] = [];
 
-  // 1. Hero ID validation
-  if (!matchup.heroId || !VALID_HERO_IDS.has(matchup.heroId)) {
+  // 1. Hero ID validation ("core" is a special reserved ID for baseline list)
+  if (!matchup.heroId || (matchup.heroId !== 'core' && !VALID_HERO_IDS.has(matchup.heroId))) {
     errors.push(`Invalid hero ID: ${matchup.heroId}`);
   }
 

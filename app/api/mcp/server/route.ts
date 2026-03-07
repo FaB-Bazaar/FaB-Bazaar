@@ -16,9 +16,13 @@ import { getWantsTool } from '../tool/getWants';
 import { updateWantsTool } from '../tool/updateWants';
 import { whoHasTool } from '../tool/whoHas';
 
-// Import article tools
+// Import deck tools
 import { listDecksTool } from '../tool/listDecks';
 import { getDeckTool } from '../tool/getDeck';
+import { addCardsToDeckTool } from '../tool/addCardsToDeck';
+import { removeCardsFromDeckTool } from '../tool/removeCardsFromDeck';
+import { updateDeckTool } from '../tool/updateDeck';
+import { saveDeckMatchupTool } from '../tool/saveDeckMatchup';
 import { getArticleTool } from '../tool/articles/getArticle';
 import { addArticleSectionTool } from '../tool/articles/addArticleSection';
 import { updateArticleSectionTool } from '../tool/articles/updateArticleSection';
@@ -524,6 +528,26 @@ Step 5: get_binder (verify additions)
                 inputSchema: getDeckTool.parameters
               },
               {
+                name: addCardsToDeckTool.name,
+                description: addCardsToDeckTool.description,
+                inputSchema: addCardsToDeckTool.parameters
+              },
+              {
+                name: removeCardsFromDeckTool.name,
+                description: removeCardsFromDeckTool.description,
+                inputSchema: removeCardsFromDeckTool.parameters
+              },
+              {
+                name: updateDeckTool.name,
+                description: updateDeckTool.description,
+                inputSchema: updateDeckTool.parameters
+              },
+              {
+                name: saveDeckMatchupTool.name,
+                description: saveDeckMatchupTool.description,
+                inputSchema: saveDeckMatchupTool.parameters
+              },
+              {
                 name: getWantsTool.name,
                 description: `📋 WANTS LIST RETRIEVAL TOOL (Works independently)
               
@@ -913,6 +937,110 @@ The new tool provides the same functionality with better guidance for proper wor
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: { content: [{ type: 'text', text: `💥 Error getting deck: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'add_cards_to_deck') {
+          if (DEBUG_MCP) console.log('🃏 Executing add_cards_to_deck');
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authMethod === 'oauth2'
+              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
+              : extractMCPToken(req);
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await addCardsToDeckTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Cards added.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in add_cards_to_deck:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error adding cards: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'remove_cards_from_deck') {
+          if (DEBUG_MCP) console.log('🃏 Executing remove_cards_from_deck');
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authMethod === 'oauth2'
+              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
+              : extractMCPToken(req);
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await removeCardsFromDeckTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Cards removed.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in remove_cards_from_deck:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error removing cards: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'update_deck') {
+          if (DEBUG_MCP) console.log('✏️ Executing update_deck');
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authMethod === 'oauth2'
+              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
+              : extractMCPToken(req);
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await updateDeckTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Deck updated.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in update_deck:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error updating deck: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'save_deck_matchup') {
+          if (DEBUG_MCP) console.log('⚔️ Executing save_deck_matchup');
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authMethod === 'oauth2'
+              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
+              : extractMCPToken(req);
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await saveDeckMatchupTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Matchup saved.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in save_deck_matchup:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error saving matchup: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }
