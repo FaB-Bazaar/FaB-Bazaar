@@ -310,6 +310,11 @@ interface DeckTileCard {
   totalQty: number;
   /** Card types in lowercase (e.g. ['action'], ['weapon'], ['equipment']) */
   types: string[];
+  /** Card stats for highlight filtering */
+  cost: number | null;
+  defense: number | null;
+  power: number | null;
+  pitch: number | null;
 }
 
 interface DeckTileSectionData {
@@ -344,6 +349,7 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
       const types = ((printing.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
       if (!sectionMap.has(sectionKey)) sectionMap.set(sectionKey, []);
       const tiles = sectionMap.get(sectionKey)!;
+      const pd = printing.printingDetails as any;
       for (let i = 0; i < qty; i++) {
         tiles.push({
           key: `${printing.printingId}-${i}`,
@@ -356,6 +362,10 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
           copyIndex: i,
           totalQty: qty,
           types,
+          cost: pd?.cost ?? null,
+          defense: pd?.defense ?? null,
+          power: pd?.power ?? null,
+          pitch: pd?.pitch ?? null,
         });
       }
     }
@@ -436,6 +446,7 @@ function DeckTileSection({
   onRemoveTile,
   onEnlargeImage,
   onAddToBinder,
+  highlightMatchIds,
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string) => void;
@@ -457,6 +468,8 @@ function DeckTileSection({
   onEnlargeImage?: (url: string, name: string) => void;
   /** Add a card to the selected binder */
   onAddToBinder?: (printingId: string, cardName: string) => void;
+  /** Set of printingIds that match the active highlight filter (null = no filter) */
+  highlightMatchIds?: Set<string> | null;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -555,6 +568,7 @@ function DeckTileSection({
           const isBeingDragged = activeDragTile?.key === tile.key;
           // Hero and demi-hero are special permanent slots — never draggable
           const thisTileDraggable = isTileDraggable && tile.category !== 'hero' && !tile.types.includes('demi-hero');
+          const isHighlighted = highlightMatchIds ? highlightMatchIds.has(tile.printingId) : null;
           return (
             <div
               key={tile.key}
@@ -569,11 +583,13 @@ function DeckTileSection({
               onDragEnd={thisTileDraggable ? () => onTileDragEnd?.() : undefined}
               onClick={() => !isDragActive && onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category })}
               className={cn(
-                "relative rounded select-none group",
+                "relative rounded select-none group transition-all duration-150",
                 isHeroSection ? "ring-2 ring-white/60" : "ring-[1.5px] ring-gray-400 dark:ring-gray-500",
                 thisTileDraggable && "cursor-grab active:cursor-grabbing",
                 !thisTileDraggable && onSwap && "cursor-pointer",
                 isBeingDragged && "opacity-30 scale-95",
+                isHighlighted === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
+                isHighlighted === false && "opacity-25 scale-95 grayscale",
               )}
               style={{ width: '72px' }}
             >
@@ -725,6 +741,9 @@ interface GameViewCard {
   blueQty: number;
   noPitchQty: number;
   totalQty: number;
+  cost: number | null;
+  defense: number | null;
+  power: number | null;
 }
 
 interface GameViewSection {
@@ -744,8 +763,15 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
     const qty = printing.quantity ?? 1;
     const imageUrl = printing.printingDetails?.image_url as string | undefined;
 
+    const pd = printing.printingDetails as any;
     if (!map.has(name)) {
-      map.set(name, { name, imageUrl, redQty: 0, yellowQty: 0, blueQty: 0, noPitchQty: 0, totalQty: 0 });
+      map.set(name, {
+        name, imageUrl,
+        redQty: 0, yellowQty: 0, blueQty: 0, noPitchQty: 0, totalQty: 0,
+        cost: pd?.cost ?? null,
+        defense: pd?.defense ?? null,
+        power: pd?.power ?? null,
+      });
       bestPitch.set(name, pitch ?? 99);
     }
     const card = map.get(name)!;
@@ -869,6 +895,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     await onMoveSingle(tile.printingId, tile.category, targetCategory, tile.totalQty);
   }, [onMoveSingle, deck]);
 
+  const [highlightFilter, setHighlightFilter] = useState<{ stat: string; value: number | string } | null>(null);
+
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const toggleSection = (key: string) => setCollapsedSections(prev => {
     const next = new Set(prev);
@@ -976,6 +1004,56 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     );
   };
 
+  // ─── Highlight filter helpers ───────────────────────────────────────────────
+
+  const getStatCount = (stat: string, value: number | string): number => {
+    const allCards = [...(displayDeck.maindeck || []), ...(displayDeck.equipment || [])];
+    return allCards.reduce((sum, c) => {
+      const v = (c.printingDetails as any)?.[stat] as number | undefined;
+      if (v == null) return sum;
+      if (value === '5+' || value === '7+') return v >= 5 ? sum + (c.quantity ?? 1) : sum;
+      return v === value ? sum + (c.quantity ?? 1) : sum;
+    }, 0);
+  };
+
+  const matchingPrintingIds: Set<string> | null = highlightFilter
+    ? (() => {
+        const ids = new Set<string>();
+        const allCards = [
+          ...(displayDeck.maindeck || []),
+          ...(displayDeck.equipment || []),
+          ...(displayDeck.inventory || []),
+          ...(displayDeck.benched || []),
+        ];
+        for (const c of allCards) {
+          const v = (c.printingDetails as any)?.[highlightFilter.stat] as number | undefined;
+          if (v == null) continue;
+          const target = highlightFilter.value;
+          if ((target === '5+' || target === '7+') ? v >= 5 : v === target) {
+            ids.add(c.printingId);
+          }
+        }
+        return ids;
+      })()
+    : null;
+
+  const matchesGameCard = (card: GameViewCard): boolean | null => {
+    if (!highlightFilter) return null;
+    const v = (card as any)[highlightFilter.stat] as number | undefined;
+    if (v == null) return false;
+    const target = highlightFilter.value;
+    if (target === '5+' || target === '7+') return v >= 5;
+    return v === target;
+  };
+
+  const toggleHighlight = (stat: string, value: number | string) => {
+    if (highlightFilter?.stat === stat && highlightFilter.value === value) {
+      setHighlightFilter(null);
+    } else {
+      setHighlightFilter({ stat, value });
+    }
+  };
+
   const heroCards = displayDeck.hero || [];
   const equipmentCards = displayDeck.equipment || [];
   const maindeckCards = displayDeck.maindeck || [];
@@ -1011,6 +1089,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
     onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
     onAddToBinder: onAddToBinder,
+    highlightMatchIds: matchingPrintingIds,
   };
 
   return (
@@ -1117,6 +1196,58 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         )}
       </div>
 
+      {/* Highlight filter bar */}
+      {(viewMode === 'tile' || viewMode === 'game') && (() => {
+        const filterGroups: Array<{ stat: string; label: string; values: Array<number | string> }> = [
+          { stat: 'cost',    label: 'Cost',  values: [0, 1, 2, 3, 4, '5+'] },
+          { stat: 'defense', label: 'Block', values: [0, 2, 3, 4] },
+          { stat: 'power',   label: 'Power', values: [3, 4, 5, 6, '7+'] },
+        ];
+        return (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 px-2 py-1.5 bg-gray-800/40 rounded-lg border border-gray-700/50 text-[10px]">
+            <span className="font-semibold text-gray-400 uppercase tracking-wide shrink-0">Highlight</span>
+            {filterGroups.map(group => (
+              <div key={group.stat} className="flex items-center gap-1">
+                <span className="text-gray-500 shrink-0">{group.label}</span>
+                {group.values.map(v => {
+                  const count = getStatCount(group.stat, v);
+                  const isActive = highlightFilter?.stat === group.stat && highlightFilter.value === v;
+                  return (
+                    <button
+                      key={String(v)}
+                      onClick={() => count > 0 && toggleHighlight(group.stat, v)}
+                      className={cn(
+                        "min-w-[20px] px-1.5 py-0.5 rounded font-medium transition-all",
+                        isActive
+                          ? "bg-amber-500 text-white ring-1 ring-amber-400/80"
+                          : count > 0
+                          ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
+                          : "text-gray-600 cursor-default",
+                      )}
+                    >
+                      {String(v)}
+                      {count > 0 && (
+                        <span className={cn("ml-0.5 opacity-60", isActive && "opacity-100")}>
+                          ·{count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+            {highlightFilter && (
+              <button
+                onClick={() => setHighlightFilter(null)}
+                className="ml-auto flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="h-3 w-3" />clear
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       {viewMode === 'list' ? (
         <div>
           {renderSection("Hero", heroCards, "hero", "hero", "1")}
@@ -1177,10 +1308,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                   <span className="text-[10px] text-gray-500">({sectionTotal})</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {section.cards.map(card => (
+                  {section.cards.map(card => {
+                    const gameHighlight = matchesGameCard(card);
+                    return (
                     <div
                       key={card.name}
-                      className="relative rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500"
+                      className={cn(
+                        "relative rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 transition-all duration-150",
+                        gameHighlight === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
+                        gameHighlight === false && "opacity-25 scale-95 grayscale",
+                      )}
                       style={{ width: 72 }}
                       onMouseEnter={() => card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
                       onMouseLeave={() => setHoveredImage(null)}
@@ -1220,7 +1357,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         )}
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             );

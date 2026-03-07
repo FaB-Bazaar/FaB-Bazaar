@@ -394,7 +394,7 @@ export default function MCPIntegrationPage() {
                               <div>
                                 <strong className="text-blue-900 dark:text-blue-100">URL:</strong>
                                 <code className="ml-2 bg-blue-100 dark:bg-blue-900/50 px-1 rounded text-blue-900 dark:text-blue-100">
-                                  {window.location.origin}/api/mcp/server
+                                  {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/mcp/server
                                 </code>
                               </div>
                               <div>
@@ -546,7 +546,7 @@ export default function MCPIntegrationPage() {
                                 <div>
                                   <strong className="text-purple-900 dark:text-purple-100">Server URL:</strong>
                                   <code className="ml-2 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                    {window.location.origin}/api/mcp/server
+                                    {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/mcp/server
                                   </code>
                                 </div>
                                 <div>
@@ -555,13 +555,13 @@ export default function MCPIntegrationPage() {
                                     <div>
                                       <span className="text-purple-800 dark:text-purple-300">Authorization:</span>
                                       <code className="ml-1 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                        {window.location.origin}/oauth/authorize
+                                        {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/oauth/authorize
                                       </code>
                                     </div>
                                     <div>
                                       <span className="text-purple-800 dark:text-purple-300">Token:</span>
                                       <code className="ml-1 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                        {window.location.origin}/oauth/token
+                                        {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/oauth/token
                                       </code>
                                     </div>
                                   </div>
