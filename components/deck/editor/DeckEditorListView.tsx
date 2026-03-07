@@ -1008,10 +1008,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
   const getStatCount = (stat: string, value: number | string): number => {
     const allCards = [...(displayDeck.maindeck || []), ...(displayDeck.equipment || [])];
+    const threshold = typeof value === 'string' && value.endsWith('+') ? parseInt(value) : null;
     return allCards.reduce((sum, c) => {
       const v = (c.printingDetails as any)?.[stat] as number | undefined;
       if (v == null) return sum;
-      if (value === '5+' || value === '7+') return v >= 5 ? sum + (c.quantity ?? 1) : sum;
+      if (threshold !== null) return v >= threshold ? sum + (c.quantity ?? 1) : sum;
       return v === value ? sum + (c.quantity ?? 1) : sum;
     }, 0);
   };
@@ -1025,11 +1026,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           ...(displayDeck.inventory || []),
           ...(displayDeck.benched || []),
         ];
+        const target = highlightFilter.value;
+        const threshold = typeof target === 'string' && target.endsWith('+') ? parseInt(target) : null;
         for (const c of allCards) {
           const v = (c.printingDetails as any)?.[highlightFilter.stat] as number | undefined;
           if (v == null) continue;
-          const target = highlightFilter.value;
-          if ((target === '5+' || target === '7+') ? v >= 5 : v === target) {
+          if (threshold !== null ? v >= threshold : v === target) {
             ids.add(c.printingId);
           }
         }
@@ -1039,11 +1041,13 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
   const matchesGameCard = (card: GameViewCard): boolean | null => {
     if (!highlightFilter) return null;
+    // Pitch not applicable in game view (cards grouped by name across all pitch variants)
+    if (highlightFilter.stat === 'pitch') return null;
     const v = (card as any)[highlightFilter.stat] as number | undefined;
     if (v == null) return false;
     const target = highlightFilter.value;
-    if (target === '5+' || target === '7+') return v >= 5;
-    return v === target;
+    const threshold = typeof target === 'string' && target.endsWith('+') ? parseInt(target) : null;
+    return threshold !== null ? v >= threshold : v === target;
   };
 
   const toggleHighlight = (stat: string, value: number | string) => {
@@ -1197,56 +1201,111 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       </div>
 
       {/* Highlight filter bar */}
-      {(viewMode === 'tile' || viewMode === 'game') && (() => {
-        const filterGroups: Array<{ stat: string; label: string; values: Array<number | string> }> = [
-          { stat: 'cost',    label: 'Cost',  values: [0, 1, 2, 3, 4, '5+'] },
-          { stat: 'defense', label: 'Block', values: [0, 2, 3, 4] },
-          { stat: 'power',   label: 'Power', values: [3, 4, 5, 6, '7+'] },
-        ];
-        return (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 px-2 py-1.5 bg-gray-800/40 rounded-lg border border-gray-700/50 text-[10px]">
-            <span className="font-semibold text-gray-400 uppercase tracking-wide shrink-0">Highlight</span>
-            {filterGroups.map(group => (
-              <div key={group.stat} className="flex items-center gap-1">
-                <span className="text-gray-500 shrink-0">{group.label}</span>
-                {group.values.map(v => {
-                  const count = getStatCount(group.stat, v);
-                  const isActive = highlightFilter?.stat === group.stat && highlightFilter.value === v;
-                  return (
-                    <button
-                      key={String(v)}
-                      onClick={() => count > 0 && toggleHighlight(group.stat, v)}
-                      className={cn(
-                        "min-w-[20px] px-1.5 py-0.5 rounded font-medium transition-all",
-                        isActive
-                          ? "bg-amber-500 text-white ring-1 ring-amber-400/80"
-                          : count > 0
-                          ? "bg-gray-700 text-gray-200 hover:bg-gray-600"
-                          : "text-gray-600 cursor-default",
-                      )}
-                    >
-                      {String(v)}
-                      {count > 0 && (
-                        <span className={cn("ml-0.5 opacity-60", isActive && "opacity-100")}>
-                          ·{count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-            {highlightFilter && (
-              <button
-                onClick={() => setHighlightFilter(null)}
-                className="ml-auto flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="h-3 w-3" />clear
-              </button>
-            )}
+      {(viewMode === 'tile' || viewMode === 'game') && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 px-2 py-1.5 bg-gray-800/40 rounded-lg border border-gray-700/50 text-[10px]">
+          <span className="font-semibold text-gray-400 uppercase tracking-wide shrink-0">Highlight</span>
+
+          {/* Pitch filter — icon conveys value (1/2/3 red dots) */}
+          <div className="flex items-center gap-1">
+            {([1, 2, 3] as const).map(v => {
+              const count = getStatCount('pitch', v);
+              const isActive = highlightFilter?.stat === 'pitch' && highlightFilter.value === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => count > 0 && toggleHighlight('pitch', v)}
+                  className={cn(
+                    "flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
+                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-700 hover:bg-gray-600" : "opacity-30 cursor-default",
+                  )}
+                >
+                  <img src={`/fab/symbols/pitch${v}.png`} alt={`Pitch ${v}`} className="w-5 h-5 object-contain" />
+                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
+                </button>
+              );
+            })}
           </div>
-        );
-      })()}
+
+          {/* Cost filter — number overlaid in center of swirl icon */}
+          <div className="flex items-center gap-1">
+            {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
+              const count = getStatCount('cost', v);
+              const isActive = highlightFilter?.stat === 'cost' && highlightFilter.value === v;
+              return (
+                <button
+                  key={String(v)}
+                  onClick={() => count > 0 && toggleHighlight('cost', v)}
+                  className={cn(
+                    "flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
+                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-700 hover:bg-gray-600" : "opacity-30 cursor-default",
+                  )}
+                >
+                  <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+                    <img src="/fab/symbols/cost.png" alt="Cost" className="w-5 h-5 object-contain" />
+                    <span className="absolute font-bold text-[8px] leading-none text-white drop-shadow-[0_0_2px_rgba(0,0,0,1)]">
+                      {String(v)}
+                    </span>
+                  </div>
+                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Power filter — number to left of symbol */}
+          <div className="flex items-center gap-1">
+            {([3, 4, 5, 6, '7+'] as const).map(v => {
+              const count = getStatCount('power', v);
+              const isActive = highlightFilter?.stat === 'power' && highlightFilter.value === v;
+              return (
+                <button
+                  key={String(v)}
+                  onClick={() => count > 0 && toggleHighlight('power', v)}
+                  className={cn(
+                    "flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
+                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-700 hover:bg-gray-600" : "opacity-30 cursor-default",
+                  )}
+                >
+                  <span className={cn("font-medium", isActive ? "text-white" : "text-gray-200")}>{String(v)}</span>
+                  <img src="/fab/symbols/power.png" alt="Power" className="w-4 h-4 object-contain" />
+                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Block filter — number to left of symbol */}
+          <div className="flex items-center gap-1">
+            {([0, 2, 3, 4] as const).map(v => {
+              const count = getStatCount('defense', v);
+              const isActive = highlightFilter?.stat === 'defense' && highlightFilter.value === v;
+              return (
+                <button
+                  key={String(v)}
+                  onClick={() => count > 0 && toggleHighlight('defense', v)}
+                  className={cn(
+                    "flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
+                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-700 hover:bg-gray-600" : "opacity-30 cursor-default",
+                  )}
+                >
+                  <span className={cn("font-medium", isActive ? "text-white" : "text-gray-200")}>{String(v)}</span>
+                  <img src="/fab/symbols/block.png" alt="Block" className="w-4 h-4 object-contain" />
+                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {highlightFilter && (
+            <button
+              onClick={() => setHighlightFilter(null)}
+              className="ml-auto flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="h-3 w-3" />clear
+            </button>
+          )}
+        </div>
+      )}
 
       {viewMode === 'list' ? (
         <div>

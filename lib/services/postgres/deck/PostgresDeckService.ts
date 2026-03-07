@@ -61,6 +61,9 @@ export class PostgresDeckService implements IDeckService {
         classes: cards.classes,
         talents: cards.talents,
         pitch: cards.pitch,
+        cost: cards.cost,
+        defense: cards.defense,
+        power: cards.power,
         // printing fields
         set: printings.set,
         edition: printings.edition,
@@ -107,6 +110,9 @@ export class PostgresDeckService implements IDeckService {
               classes: dc.classes || undefined,
               talents: dc.talents || undefined,
               pitch: dc.pitch || undefined,  // ✅ Also include pitch for color grouping
+              cost: dc.cost ?? undefined,
+              defense: dc.defense ?? undefined,
+              power: dc.power ?? undefined,
             },
           };
 
