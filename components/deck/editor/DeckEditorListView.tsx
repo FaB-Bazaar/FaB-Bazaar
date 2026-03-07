@@ -530,17 +530,6 @@ function DeckTileSection({
         )}
       </div>
       <div className="flex flex-wrap gap-1">
-        {!isDragActive && onAddCard && sectionToCategory(section.key) && (
-          <button
-            type="button"
-            onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
-            title={`Add card to ${section.title}`}
-            className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
-            style={{ width: 72, aspectRatio: '63/53' }}
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-        )}
         {section.tiles.map(tile => {
           const own = ownershipMap.get(tile.printingId);
           const ownershipState = !own ? null
@@ -636,6 +625,17 @@ function DeckTileSection({
             </div>
           );
         })}
+        {onAddCard && sectionToCategory(section.key) && (
+          <button
+            type="button"
+            onClick={() => !isDragActive && onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
+            title={`Add card to ${section.title}`}
+            className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
+            style={{ width: 72, aspectRatio: '63/53' }}
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        )}
       </div>
     </div>
   );
