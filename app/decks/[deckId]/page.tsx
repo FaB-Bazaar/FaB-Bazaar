@@ -182,28 +182,30 @@ export default function DeckEditorPage() {
 
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
-      <DeckEditorSidebar
-        deck={state.deck}
-        deckLoading={state.deckLoading}
-        stagedCards={stagedCards}
-        deckCounts={state.deckCounts}
-        isSaving={state.isSaving}
-        ownershipMap={state.ownershipMap}
-        deckId={deckId}
-        onUpdateQuantity={handlers.updateCardQuantity}
-        onUnstage={handlers.toggleStagedStatus}
-        onClear={handlers.clearStaged}
-        onSave={handlers.handleSaveToDeck}
-        onPrintingView={id => setActiveDialogInstanceId(id)}
-        onSwapDeckCard={target => setDeckSwapTarget(target)}
-        onRemoveDeckCard={handleRemoveDeckCard}
-        onRemoveGroupFromDeck={handleRemoveGroupFromDeck}
-        onUpdateDeckCardQty={handleUpdateDeckCardQty}
-        onMovePrinting={handleMoveSinglePrinting}
-        onRefreshDeck={handlers.refreshDeck}
-      />
+      {activeTab === "search" && (
+        <DeckEditorSidebar
+          deck={state.deck}
+          deckLoading={state.deckLoading}
+          stagedCards={stagedCards}
+          deckCounts={state.deckCounts}
+          isSaving={state.isSaving}
+          ownershipMap={state.ownershipMap}
+          deckId={deckId}
+          onUpdateQuantity={handlers.updateCardQuantity}
+          onUnstage={handlers.toggleStagedStatus}
+          onClear={handlers.clearStaged}
+          onSave={handlers.handleSaveToDeck}
+          onPrintingView={id => setActiveDialogInstanceId(id)}
+          onSwapDeckCard={target => setDeckSwapTarget(target)}
+          onRemoveDeckCard={handleRemoveDeckCard}
+          onRemoveGroupFromDeck={handleRemoveGroupFromDeck}
+          onUpdateDeckCardQty={handleUpdateDeckCardQty}
+          onMovePrinting={handleMoveSinglePrinting}
+          onRefreshDeck={handlers.refreshDeck}
+        />
+      )}
 
-      <div className="lg:ml-96">
+      <div className={activeTab === "search" ? "lg:ml-96" : ""}>
         <div className="container mx-auto pt-3 pb-20 sm:pb-0 px-4">
           <div className="max-w-6xl mx-auto">
             {/* Compact header: back arrow + title + view link */}

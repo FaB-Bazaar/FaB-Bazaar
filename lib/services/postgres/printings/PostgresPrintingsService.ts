@@ -947,9 +947,11 @@ export class PostgresPrintingsService implements IPrintingsService {
       const heroTalents = (filters.heroTalents || []).map(t => t.toLowerCase());
 
       // card.classes must be ⊆ hero's classes (empty card classes = no class restriction = always ok)
+      // 'generic' is always implicitly allowed — generic cards (classes = ['generic']) are playable by any hero
+      const allowedClasses = [...new Set(['generic', ...heroClasses])];
       const classCheck = heroClasses.length > 0
-        ? sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY[${sql.join(heroClasses.map(c => sql`${c}`), sql`, `)}]::text[])`
-        : sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}')`;
+        ? sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY[${sql.join(allowedClasses.map(c => sql`${c}`), sql`, `)}]::text[])`
+        : sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY['generic']::text[])`;
 
       // card.talents must be ⊆ hero's talents (empty card talents = no talent restriction = always ok)
       const talentCheck = heroTalents.length > 0

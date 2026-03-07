@@ -522,14 +522,25 @@ function DeckTileSection({
           <button
             type="button"
             onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
-            className="ml-auto flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-blue-400 transition-colors px-1 py-0.5 rounded hover:bg-blue-500/10"
+            className="ml-auto flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors px-1.5 py-0.5 rounded hover:bg-blue-500/10"
             title={`Add card to ${section.title}`}
           >
-            <Plus className="h-2.5 w-2.5" />Add
+            <Plus className="h-3 w-3" />Add
           </button>
         )}
       </div>
       <div className="flex flex-wrap gap-1">
+        {!isDragActive && onAddCard && sectionToCategory(section.key) && (
+          <button
+            type="button"
+            onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
+            title={`Add card to ${section.title}`}
+            className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
+            style={{ width: 72, aspectRatio: '63/53' }}
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        )}
         {section.tiles.map(tile => {
           const own = ownershipMap.get(tile.printingId);
           const ownershipState = !own ? null
