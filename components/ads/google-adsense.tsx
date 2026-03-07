@@ -92,6 +92,7 @@ export function GoogleAdsense({ adSlot, adFormat = "auto", className = "", style
         style={{
           ...(style || {}),
           display: "block",
+          width: "100%",
           margin: "0 auto",
           padding: 0,
         }}

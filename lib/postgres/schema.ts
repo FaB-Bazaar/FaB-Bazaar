@@ -15,7 +15,8 @@ import {
   uniqueIndex,
   index,
   pgEnum,
-  jsonb
+  jsonb,
+  primaryKey
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
@@ -52,6 +53,32 @@ export const deckCategoryEnum = pgEnum('deck_category', [
   'inventory',
   'benched',
   'tokens',
+]);
+
+export const locationCategoryEnum = pgEnum('location_category', ['store', 'venue']);
+
+export const eventTypeEnum = pgEnum('event_type', [
+  'calling',
+  'pro_tour',
+  'national',
+  'open',
+  'store_champ',
+  'other',
+]);
+
+export const submissionStatusEnum = pgEnum('submission_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'needs_review',
+]);
+
+export const submitterRelationshipEnum = pgEnum('submitter_relationship', [
+  'owner',
+  'manager',
+  'employee',
+  'customer',
+  'other',
 ]);
 
 // ============================================================================
@@ -616,6 +643,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   wantsItems: many(wantsItems),
   decks: many(decks),
   oauthClients: many(oauthClients),
+  followedStores: many(userFollowedStores),
+  managedLocations: many(locationManagers),
+  eventAttendances: many(eventAttendance),
 }));
 
 export const articlesRelations = relations(articles, ({ one }) => ({
@@ -708,3 +738,271 @@ export const siteSettings = pgTable('site_settings', {
   value: jsonb('value').notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ============================================================================
+// GEO REFERENCE TABLES (read-only, seeded once)
+// ============================================================================
+
+export const countries = pgTable('countries', {
+  id: integer('id').primaryKey(),
+  name: text('name').notNull(),
+  iso2: text('iso2').notNull().unique(),
+  iso3: text('iso3'),
+  phoneCode: text('phone_code'),
+});
+
+export const states = pgTable('states', {
+  id: integer('id').primaryKey(),
+  name: text('name').notNull(),
+  stateCode: text('state_code').notNull(),
+  countryId: integer('country_id').notNull().references(() => countries.id),
+}, (table) => ({
+  uniqueStateCountry: uniqueIndex('unique_states_state_country').on(table.stateCode, table.countryId),
+}));
+
+// ============================================================================
+// LOCATIONS (stores, venues — all physical FaB gathering places)
+// ============================================================================
+
+export const locations = pgTable('locations', {
+  id: text('id').primaryKey(),
+  category: locationCategoryEnum('category').notNull().default('store'),
+  name: text('name').notNull(),
+
+  // Address
+  addressLine1: text('address_line1').notNull(),
+  addressCity: text('address_city').notNull(),
+  addressState: text('address_state'),
+  addressPostalCode: text('address_postal_code'),
+  addressCountry: text('address_country').notNull(),
+  addressCountryId: integer('address_country_id').references(() => countries.id),
+  addressStateId: integer('address_state_id').references(() => states.id),
+
+  // Contact (emails stored AES-256-CBC encrypted)
+  contactPhone: text('contact_phone'),
+  contactEmail: text('contact_email'),
+  contactEmailIv: text('contact_email_iv'),
+  contactWebsite: text('contact_website'),
+
+  // External IDs
+  tcgplayerId: text('tcgplayer_id'),
+  googlePlaceId: text('google_place_id'),
+  facebookId: text('facebook_id'),
+  tcgplayerStorefrontUrl: text('tcgplayer_storefront_url'),
+  discordInviteUrl: text('discord_invite_url'),
+
+  // Meta
+  tags: text('tags').array().default([]),
+  active: boolean('active').default(true).notNull(),
+  geoLat: text('geo_lat'),
+  geoLng: text('geo_lng'),
+  images: text('images').array().default([]),
+
+  // Manager contact (email encrypted)
+  managerName: text('manager_name'),
+  managerEmail: text('manager_email'),
+  managerEmailIv: text('manager_email_iv'),
+  managerPhone: text('manager_phone'),
+
+  notes: text('notes'),
+  followerCount: integer('follower_count').default(0).notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  categoryIdx: index('idx_locations_category').on(table.category),
+  countryIdx: index('idx_locations_country').on(table.addressCountry),
+  stateIdx: index('idx_locations_state').on(table.addressState),
+  countryIdIdx: index('idx_locations_country_id').on(table.addressCountryId),
+  stateIdIdx: index('idx_locations_state_id').on(table.addressStateId),
+  activeIdx: index('idx_locations_active').on(table.active),
+  // GIN full-text index defined in SQL migration (expression index, not expressible in Drizzle)
+}));
+
+// ============================================================================
+// EVENTS (one-time gatherings at a location)
+// ============================================================================
+
+export const events = pgTable('events', {
+  id: text('id').primaryKey(),
+  locationId: text('location_id').notNull().references(() => locations.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  type: eventTypeEnum('type').notNull().default('other'),
+  format: text('format'),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  registrationUrl: text('registration_url'),
+  discordInviteUrl: text('discord_invite_url'),
+  notes: text('notes'),
+  active: boolean('active').default(true).notNull(),
+  createdBy: text('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  locationIdIdx: index('idx_events_location_id').on(table.locationId),
+  datesIdx: index('idx_events_dates').on(table.startDate, table.endDate),
+  typeIdx: index('idx_events_type').on(table.type),
+  activeStartIdx: index('idx_events_active_start').on(table.active, table.startDate),
+}));
+
+// ============================================================================
+// EVENT ATTENDANCE
+// ============================================================================
+
+export const eventAttendance = pgTable('event_attendance', {
+  eventId: text('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  bringingTrades: boolean('bringing_trades').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.eventId, table.userId] }),
+  userIdIdx: index('idx_event_attendance_user_id').on(table.userId),
+}));
+
+// ============================================================================
+// USER FOLLOWED STORES (permanent, explicit follow)
+// ============================================================================
+
+export const userFollowedStores = pgTable('user_followed_stores', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  locationId: text('location_id').notNull().references(() => locations.id, { onDelete: 'cascade' }),
+  followedAt: timestamp('followed_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.locationId] }),
+  locationIdIdx: index('idx_user_followed_stores_location_id').on(table.locationId),
+}));
+
+// ============================================================================
+// LOCATION MANAGERS
+// ============================================================================
+
+export const locationManagers = pgTable('location_managers', {
+  locationId: text('location_id').notNull().references(() => locations.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.locationId, table.userId] }),
+  userIdIdx: index('idx_location_managers_user_id').on(table.userId),
+}));
+
+// ============================================================================
+// LOCATION SUBMISSIONS (community requests to add a location)
+// ============================================================================
+
+export const locationSubmissions = pgTable('location_submissions', {
+  id: text('id').primaryKey(),
+
+  // Submitter info
+  submitterName: text('submitter_name').notNull(),
+  submitterEmail: text('submitter_email').notNull(),
+  submitterPhone: text('submitter_phone'),
+  submitterRelationship: submitterRelationshipEnum('submitter_relationship').notNull(),
+
+  // Store info
+  storeName: text('store_name').notNull(),
+  storeAddressLine1: text('store_address_line1').notNull(),
+  storeAddressCity: text('store_address_city').notNull(),
+  storeAddressState: text('store_address_state').notNull(),
+  storeAddressPostalCode: text('store_address_postal_code').notNull(),
+  storeAddressCountry: text('store_address_country').notNull(),
+  storeContactPhone: text('store_contact_phone'),
+  storeContactEmail: text('store_contact_email'),
+  storeContactWebsite: text('store_contact_website'),
+  storeManagerName: text('store_manager_name'),
+  storeManagerEmail: text('store_manager_email'),
+  storeManagerPhone: text('store_manager_phone'),
+  tcgplayerStorefrontUrl: text('tcgplayer_storefront_url'),
+  discordInviteUrl: text('discord_invite_url'),
+  notes: text('notes'),
+
+  // Admin review
+  status: submissionStatusEnum('status').notNull().default('pending'),
+  adminNotes: text('admin_notes'),
+  approvedBy: text('approved_by').references(() => users.id),
+  approvedAt: timestamp('approved_at'),
+  rejectedBy: text('rejected_by').references(() => users.id),
+  rejectedAt: timestamp('rejected_at'),
+  rejectionReason: text('rejection_reason'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  statusCreatedIdx: index('idx_location_submissions_status').on(table.status, table.createdAt),
+  emailIdx: index('idx_location_submissions_email').on(table.submitterEmail),
+}));
+
+// ============================================================================
+// RELATIONS — Locations & Events
+// ============================================================================
+
+export const countriesRelations = relations(countries, ({ many }) => ({
+  states: many(states),
+  locations: many(locations),
+}));
+
+export const statesRelations = relations(states, ({ one, many }) => ({
+  country: one(countries, {
+    fields: [states.countryId],
+    references: [countries.id],
+  }),
+  locations: many(locations),
+}));
+
+export const locationsRelations = relations(locations, ({ one, many }) => ({
+  country: one(countries, {
+    fields: [locations.addressCountryId],
+    references: [countries.id],
+  }),
+  state: one(states, {
+    fields: [locations.addressStateId],
+    references: [states.id],
+  }),
+  events: many(events),
+  followers: many(userFollowedStores),
+  managers: many(locationManagers),
+}));
+
+export const eventsRelations = relations(events, ({ one, many }) => ({
+  location: one(locations, {
+    fields: [events.locationId],
+    references: [locations.id],
+  }),
+  createdByUser: one(users, {
+    fields: [events.createdBy],
+    references: [users.id],
+  }),
+  attendees: many(eventAttendance),
+}));
+
+export const eventAttendanceRelations = relations(eventAttendance, ({ one }) => ({
+  event: one(events, {
+    fields: [eventAttendance.eventId],
+    references: [events.id],
+  }),
+  user: one(users, {
+    fields: [eventAttendance.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userFollowedStoresRelations = relations(userFollowedStores, ({ one }) => ({
+  user: one(users, {
+    fields: [userFollowedStores.userId],
+    references: [users.id],
+  }),
+  location: one(locations, {
+    fields: [userFollowedStores.locationId],
+    references: [locations.id],
+  }),
+}));
+
+export const locationManagersRelations = relations(locationManagers, ({ one }) => ({
+  location: one(locations, {
+    fields: [locationManagers.locationId],
+    references: [locations.id],
+  }),
+  user: one(users, {
+    fields: [locationManagers.userId],
+    references: [users.id],
+  }),
+}));

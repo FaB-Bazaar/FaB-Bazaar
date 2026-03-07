@@ -23,6 +23,7 @@ export * as decksClient from './decks-client';
 export * as searchClient from './search-client';
 export * as usersClient from './users-client';
 export * as articlesClient from './articles-client';
+export * as locationsClient from './locations-client';
 
 // Re-export specific types from search-client for convenience
 export type {

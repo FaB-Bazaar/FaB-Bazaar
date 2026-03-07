@@ -318,6 +318,7 @@ export default function RootLayout({
           src="/wc/fabbazaar-ui.js"
           strategy="afterInteractive"
           type="module"
+          crossOrigin="anonymous"
         />
       </body>
     </html>

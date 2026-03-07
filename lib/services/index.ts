@@ -19,6 +19,8 @@ import type { IInventoryService } from './contracts/IInventoryService';
 import type { IAuthService } from './contracts/IAuthService';
 
 // New service contracts (Phase 0)
+import type { ILocationService } from './contracts/ILocationService';
+import type { IEventService } from './contracts/IEventService';
 import type { IDeckService } from './contracts/IDeckService';
 import type { IDenormalizationService } from './contracts/IDenormalizationService';
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -49,6 +51,8 @@ import { PostgresBinderService } from './postgres/binder/PostgresBinderService';
 import { PostgresPrintingsService } from './postgres/printings/PostgresPrintingsService';
 import { PostgresWantsService } from './postgres/wants/PostgresWantsService';
 import { PostgresInventoryService } from './postgres/inventory/PostgresInventoryService';
+import { PostgresLocationService } from './postgres/location/PostgresLocationService';
+import { PostgresEventService } from './postgres/event/PostgresEventService';
 import { PostgresDeckService } from './postgres/deck/PostgresDeckService';
 import { PostgresArticleService } from './postgres/article/PostgresArticleService';
 import { PostgresOAuthService } from './postgres/oauth/PostgresOAuthService';
@@ -87,6 +91,10 @@ class ServiceFactory {
   private static _wantsService: IWantsService | null = null;
   private static _inventoryService: IInventoryService | null = null;
   private static _authService: IAuthService | null = null;
+
+  // Location & Event services
+  private static _locationService: ILocationService | null = null;
+  private static _eventService: IEventService | null = null;
 
   // New services (Phase 0) - implementations will be added as they are created
   private static _deckService: IDeckService | null = null;
@@ -301,6 +309,10 @@ class ServiceFactory {
     this._inventoryService = null;
     this._authService = null;
 
+    // Location & Event services
+    this._locationService = null;
+    this._eventService = null;
+
     // New services
     this._deckService = null;
     this._denormalizationService = null;
@@ -313,6 +325,32 @@ class ServiceFactory {
     this._featuredCardsService = null;
     this._systemStatsService = null;
     this._authTokenService = null;
+  }
+
+  // ====================================
+  // Location & Event Services
+  // ====================================
+
+  static get locationService(): ILocationService {
+    if (!this._locationService) {
+      this._locationService = new PostgresLocationService();
+    }
+    return this._locationService;
+  }
+
+  static setLocationService(service: ILocationService): void {
+    this._locationService = service;
+  }
+
+  static get eventService(): IEventService {
+    if (!this._eventService) {
+      this._eventService = new PostgresEventService();
+    }
+    return this._eventService;
+  }
+
+  static setEventService(service: IEventService): void {
+    this._eventService = service;
   }
 
   // ====================================
@@ -533,6 +571,10 @@ export const printingsService = ServiceFactory.printingsService;
 export const wantsService = ServiceFactory.wantsService;
 export const inventoryService = ServiceFactory.inventoryService;
 export const authService = ServiceFactory.authService;
+
+// Location & Event services
+export const locationService = ServiceFactory.locationService;
+export const eventService = ServiceFactory.eventService;
 
 // New services (PostgreSQL implementations)
 export const deckService = ServiceFactory.deckService;
