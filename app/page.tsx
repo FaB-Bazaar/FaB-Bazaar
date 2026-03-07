@@ -336,7 +336,7 @@ export default function HomePage() {
       </div>
       
       {/* Background overlay for better readability */}
-      <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/80 backdrop-blur-sm z-0"></div>
+      <div className="absolute inset-0 bg-white/40 dark:bg-gray-900/80 backdrop-blur-[2px] z-0"></div>
       
       
       {/* Card Showcase as Primary Hero - Above the Fold */}
@@ -362,7 +362,7 @@ export default function HomePage() {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search cards by name or collector number..."
-                  className="w-full pl-10 pr-4 py-6 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  className="w-full pl-10 pr-4 py-6 border-2 border-slate-400 dark:border-gray-600 rounded-lg text-lg bg-white/95 dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-2xl shadow-black/20 dark:shadow-none"
                 />
               </div>
             </form>
@@ -406,7 +406,7 @@ export default function HomePage() {
       </section>
 
       {/* Final CTA */}
-      <section className="py-16 px-6 bg-white/70 dark:bg-gray-900/80 backdrop-blur-sm relative z-10">
+      <section className="py-16 px-6 bg-white/40 dark:bg-gray-900/80 backdrop-blur-[2px] relative z-10">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           {/* Hide text and button on mobile */}
           <p className="hidden sm:block text-xl text-gray-700 dark:text-gray-300">Find the cards you need from players near you</p>

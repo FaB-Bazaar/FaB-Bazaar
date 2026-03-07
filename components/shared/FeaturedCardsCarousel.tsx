@@ -13,7 +13,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200 h-full flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl shadow-black/25 dark:shadow-xl dark:shadow-black/50 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:shadow-black/30 transition-shadow duration-200 h-full flex flex-col">
       {/* Card Image */}
       <div className="relative aspect-[63/88] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-t-lg overflow-hidden">
         {!imageError && card.image_url ? (
