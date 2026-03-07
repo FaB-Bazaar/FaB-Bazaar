@@ -8,8 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
 import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
-import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
-import { decksClient } from "@/lib/client";
+import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
+import { decksClient, bindersClient } from "@/lib/client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
@@ -35,6 +35,13 @@ export default function DeckEditorPage() {
 
   // Quick-add dialog state
   const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
+
+  // Optimistic deck state for instant qty feedback in sidebar
+  const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
+
+  // Binder state
+  const [binders, setBinders] = useState<Array<{ _id: string; name: string }>>([]);
+  const [selectedBinderId, setSelectedBinderId] = useState<string>("");
 
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
@@ -63,6 +70,26 @@ export default function DeckEditorPage() {
       toast({ title: "Add failed", description: result.error, variant: "destructive" });
     }
   };
+
+  // Clear optimistic deck once the real deck refreshes from the server
+  useEffect(() => { setOptimisticDeck(null); }, [state.deck]);
+
+  // Fetch binders when user is available
+  useEffect(() => {
+    if (!user) return;
+    bindersClient.getUserBinders().then(result => {
+      if (result.success) {
+        const list = result.data.binders || [];
+        setBinders(list);
+        const stored = localStorage.getItem("selectedBinderId");
+        if (stored && list.some((b: any) => b._id === stored)) {
+          setSelectedBinderId(stored);
+        } else if (list.length > 0) {
+          setSelectedBinderId(list[0]._id);
+        }
+      }
+    });
+  }, [user]);
 
   // Redirect non-owners once both deck and auth are loaded
   useEffect(() => {
@@ -95,18 +122,34 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
+  // Applies an optimistic qty change to the deck for instant UI feedback
+  const applyOptimisticQty = (deck: DeckDTO, printingId: string, newQty: number, category: DeckCategory): DeckDTO => {
+    const cards = [...((deck[category as keyof DeckDTO] as DeckPrintingDTO[] | undefined) ?? [])];
+    const idx = cards.findIndex(c => c.printingId === printingId);
+    if (idx === -1) return deck;
+    if (newQty <= 0) cards.splice(idx, 1);
+    else cards[idx] = { ...cards[idx], quantity: newQty };
+    return { ...deck, [category]: cards };
+  };
+
   // Update quantity of a specific printing in the saved deck.
   // addPrintings STACKS (adds to existing), so we always remove first then re-add
   // with the exact desired quantity to get a true set/replace behavior.
   const handleUpdateDeckCardQty = async (printingId: string, newQty: number, category: DeckCategory) => {
+    // Optimistic update — instant feedback, no waiting for API
+    const base = optimisticDeck ?? state.deck;
+    if (base) setOptimisticDeck(applyOptimisticQty(base, printingId, newQty, category));
+
     const removeResult = await decksClient.removePrinting(deckId, printingId, category, 999999);
     if (!removeResult.success) {
+      setOptimisticDeck(null); // revert
       toast({ title: "Update failed", description: removeResult.error, variant: "destructive" });
       return;
     }
     if (newQty > 0) {
       const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: newQty, category }]);
       if (!addResult.success) {
+        setOptimisticDeck(null); // revert
         toast({ title: "Update failed", description: addResult.error, variant: "destructive" });
         return;
       }
@@ -162,6 +205,26 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
+  const handleBinderChange = (binderId: string) => {
+    setSelectedBinderId(binderId);
+    localStorage.setItem("selectedBinderId", binderId);
+  };
+
+  const handleAddToBinder = async (printingId: string, cardName: string) => {
+    if (!selectedBinderId) {
+      toast({ title: "No binder selected", description: "Select a binder in the deck legend first.", variant: "destructive" });
+      return;
+    }
+    const result = await bindersClient.addCardsToBinder(selectedBinderId, [{ printingId, quantity: 1, condition: "NM" }]);
+    if (result.success) {
+      const binderName = binders.find(b => b._id === selectedBinderId)?.name || "binder";
+      toast({ title: "Added to binder", description: `${cardName} → ${binderName}` });
+      await handlers.refreshDeck();
+    } else {
+      toast({ title: "Failed to add to binder", description: result.error, variant: "destructive" });
+    }
+  };
+
   // Swap a printing in the saved deck (called after user selects new printing in dialog)
   const handleSwapDeckPrinting = async (newPrinting: any) => {
     if (!deckSwapTarget) return;
@@ -184,10 +247,20 @@ export default function DeckEditorPage() {
     <div className="bg-white dark:bg-gray-900 min-h-screen">
       {activeTab === "search" && (
         <DeckEditorSidebar
-          deck={state.deck}
+          deck={optimisticDeck ?? state.deck}
           deckLoading={state.deckLoading}
           stagedCards={stagedCards}
-          deckCounts={state.deckCounts}
+          deckCounts={(() => {
+            const d = optimisticDeck ?? state.deck;
+            if (!d) return state.deckCounts;
+            return {
+              hero: d.hero?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
+              equipment: d.equipment?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
+              maindeck: d.maindeck?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
+              inventory: d.inventory?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
+              benched: d.benched?.reduce((s, c) => s + (c.quantity || 1), 0) ?? 0,
+            };
+          })()}
           isSaving={state.isSaving}
           ownershipMap={state.ownershipMap}
           deckId={deckId}
@@ -373,6 +446,10 @@ export default function DeckEditorPage() {
                     }
                     onAddCard={(category, pitch) => setQuickAddTarget({ category, pitch })}
                     canEdit={true}
+                    binders={binders}
+                    selectedBinderId={selectedBinderId}
+                    onBinderChange={handleBinderChange}
+                    onAddToBinder={handleAddToBinder}
                   />
                 ) : null}
               </>

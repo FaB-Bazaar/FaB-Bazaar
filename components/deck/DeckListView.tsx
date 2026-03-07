@@ -51,10 +51,17 @@ const CATEGORY_LABELS = {
 };
 
 const PITCH_LABELS = {
-  'pitch-3-blue': 'Pitch 3 - Blue',
-  'pitch-2-yellow': 'Pitch 2 - Yellow',
-  'pitch-1-red': 'Pitch 1 - Red',
-  'no-pitch': 'No Pitch'
+  'pitch-3-blue': 'Blue (3)',
+  'pitch-2-yellow': 'Yellow (2)',
+  'pitch-1-red': 'Red (1)',
+  'no-pitch': 'Non-pitch'
+};
+
+const PITCH_ROW_BORDER = {
+  'pitch-3-blue': 'border-l-[3px] border-blue-500',
+  'pitch-2-yellow': 'border-l-[3px] border-yellow-400',
+  'pitch-1-red': 'border-l-[3px] border-red-500',
+  'no-pitch': 'border-l-[3px] border-gray-300 dark:border-gray-600'
 };
 
 // Helper function to group cards by name
@@ -80,6 +87,7 @@ interface CompactCardRowProps {
   ownershipInfo?: any;
   wantsCount?: number;
   editable: boolean;
+  pitchKey: keyof typeof PITCH_ROW_BORDER;
   onRemove: () => void;
   onAddAnother: () => void;
   onMove?: () => void;
@@ -98,6 +106,7 @@ const CompactCardRow = ({
   ownershipInfo,
   wantsCount,
   editable,
+  pitchKey,
   onRemove,
   onAddAnother,
   onMove,
@@ -109,7 +118,7 @@ const CompactCardRow = ({
   const alternatives = ownershipInfo?.alternative ?? 0;
 
   return (
-    <div className={cn("group py-1 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm relative items-center gap-3", editable ? ROW_GRID_EDITABLE : ROW_GRID)}>
+    <div className={cn("group py-1 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm relative items-center gap-3", PITCH_ROW_BORDER[pitchKey], editable ? ROW_GRID_EDITABLE : ROW_GRID)}>
       {/* Quantity */}
       <span className="text-gray-500 dark:text-gray-400 text-right font-mono text-xs">{quantity}×</span>
 
@@ -326,16 +335,14 @@ export default function DeckListView({
               <div key={pitch} className="mb-4">
                 {/* Pitch Header */}
                 <div className={cn(
-                  "px-3 py-1.5 rounded-t-md text-sm font-semibold flex items-center justify-between",
-                  pitch === 'pitch-3-blue' && "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100",
-                  pitch === 'pitch-2-yellow' && "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-100",
-                  pitch === 'pitch-1-red' && "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-100",
-                  pitch === 'no-pitch' && "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                  "px-3 py-1.5 rounded-t-md text-sm font-semibold flex items-center justify-between border-l-4",
+                  pitch === 'pitch-3-blue' && "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100 border-blue-500",
+                  pitch === 'pitch-2-yellow' && "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-100 border-yellow-400",
+                  pitch === 'pitch-1-red' && "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-100 border-red-500",
+                  pitch === 'no-pitch' && "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 border-gray-400 dark:border-gray-600"
                 )}>
-                  <span>
-                    {PITCH_LABELS[pitch as keyof typeof PITCH_LABELS]}
-                  </span>
-                  <span className="text-xs opacity-75">
+                  <span>{PITCH_LABELS[pitch as keyof typeof PITCH_LABELS]}</span>
+                  <span className="text-xs opacity-75 font-normal">
                     {pitchCardCount} {pitchCardCount === 1 ? 'card' : 'cards'}
                   </span>
                 </div>
@@ -391,6 +398,7 @@ export default function DeckListView({
                         ownershipInfo={ownershipStatus?.get(printingId)}
                         wantsCount={wantsMap?.get(printingId) || 0}
                         editable={editable}
+                        pitchKey={pitch as keyof typeof PITCH_ROW_BORDER}
                         onRemove={() => onRemove(firstPrinting)}
                         onAddAnother={() => onAddAnother(firstPrinting)}
                         onMove={onMove ? () => onMove(firstPrinting) : undefined}

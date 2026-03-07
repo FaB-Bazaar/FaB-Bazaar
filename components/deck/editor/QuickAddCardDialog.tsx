@@ -495,13 +495,6 @@ export default function QuickAddCardDialog({
       }
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[QuickAdd] Could not resolve hero classes — no hero filter applied.', {
-        heroCardCount: currentDeck?.hero?.length ?? 0,
-        heroName: currentDeck?.heroName,
-        heroPrintingDetails: currentDeck?.hero?.[0]?.printingDetails,
-      });
-    }
     return { heroClasses: [] as string[], heroTalents: [] as string[] };
   })();
 

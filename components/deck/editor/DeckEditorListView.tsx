@@ -2,7 +2,8 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -424,6 +425,7 @@ function DeckTileSection({
   onAddCard,
   onRemoveTile,
   onEnlargeImage,
+  onAddToBinder,
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string) => void;
@@ -443,9 +445,13 @@ function DeckTileSection({
   onRemoveTile?: (tile: DeckTileCard) => void;
   /** Open enlarged image lightbox */
   onEnlargeImage?: (url: string, name: string) => void;
+  /** Add a card to the selected binder */
+  onAddToBinder?: (printingId: string, cardName: string) => void;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const isHeroSection = section.key === 'hero';
+  const isCollapsible = !!heroPortrait; // only the equipment section (which hosts the hero portrait)
   const isDragActive = !!activeDragTile;
   const isValidDropTarget = activeDragTile ? canDropOnSection(activeDragTile, section.key) : false;
 
@@ -518,18 +524,19 @@ function DeckTileSection({
         {isDragActive && isValidDropTarget && (
           <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
         )}
-        {!isDragActive && onAddCard && sectionToCategory(section.key) && (
+        {isCollapsible && !isDragActive && (
           <button
             type="button"
-            onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
-            className="ml-auto flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors px-1.5 py-0.5 rounded hover:bg-blue-500/10"
-            title={`Add card to ${section.title}`}
+            className="ml-auto flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors px-1 py-0.5 rounded hover:bg-gray-700/50"
+            onClick={() => setIsCollapsed(v => !v)}
+            title={isCollapsed ? "Show equipment & weapons" : "Collapse equipment & weapons"}
           >
-            <Plus className="h-3 w-3" />Add
+            {isCollapsed ? "show" : "collapse"}
+            <ChevronDown className={cn("h-3 w-3 transition-transform", isCollapsed && "-rotate-90")} />
           </button>
         )}
       </div>
-      <div className="flex flex-wrap gap-1">
+      {!isCollapsed && <div className="flex flex-wrap gap-1">
         {section.tiles.map(tile => {
           const own = ownershipMap.get(tile.printingId);
           const ownershipState = !own ? null
@@ -599,6 +606,17 @@ function DeckTileSection({
                 </button>
               )}
 
+              {/* Binder button — shown on hover */}
+              {!isDragActive && onAddToBinder && (
+                <button
+                  className="absolute bottom-0.5 left-0.5 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  title="Add to binder"
+                  onClick={e => { e.stopPropagation(); onAddToBinder(tile.printingId, tile.name); }}
+                >
+                  <BookmarkPlus className="h-2.5 w-2.5" />
+                </button>
+              )}
+
               {/* Magnify button — shown on hover when tile has an image */}
               {!isDragActive && onEnlargeImage && tile.imageUrl && (
                 <button
@@ -625,18 +643,7 @@ function DeckTileSection({
             </div>
           );
         })}
-        {onAddCard && sectionToCategory(section.key) && (
-          <button
-            type="button"
-            onClick={() => !isDragActive && onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
-            title={`Add card to ${section.title}`}
-            className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
-            style={{ width: 72, aspectRatio: '63/53' }}
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-        )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -702,9 +709,17 @@ interface DeckEditorListViewProps {
   /** Called when the user clicks "+ Add" on a tile zone — receives the target category and optional pitch filter */
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   canEdit?: boolean;
+  /** Binder list for the selector */
+  binders?: Array<{ _id: string; name: string }>;
+  /** Currently selected binder ID */
+  selectedBinderId?: string;
+  /** Called when the user changes the binder selection */
+  onBinderChange?: (binderId: string) => void;
+  /** Called when the user clicks the binder button on a tile */
+  onAddToBinder?: (printingId: string, cardName: string) => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddCard, canEdit }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string } | null>(null);
@@ -807,6 +822,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onAddCard: canEdit ? onAddCard : undefined,
     onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
     onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
+    onAddToBinder: onAddToBinder,
   };
 
   return (
@@ -837,7 +853,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         </div>
 
         {viewMode === 'tile' && (
-          <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-500">
+          <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-500 flex-wrap">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20 shrink-0" />
               owned
@@ -864,6 +880,24 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               <span className="flex items-center gap-1">
                 <X className="h-2.5 w-2.5 shrink-0" />
                 hover to remove
+              </span>
+            )}
+            {onAddToBinder && binders && binders.length > 0 && (
+              <span className="flex items-center gap-1.5 border-l border-gray-700 pl-3 ml-1">
+                <BookmarkPlus className="h-2.5 w-2.5 shrink-0" />
+                add to:
+                <Select value={selectedBinderId} onValueChange={onBinderChange}>
+                  <SelectTrigger className="h-5 text-[10px] px-1.5 py-0 border-gray-600 bg-transparent min-w-[90px] gap-1">
+                    <SelectValue placeholder="Select binder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {binders.map(b => (
+                      <SelectItem key={b._id} value={b._id} className="text-xs">
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </span>
             )}
           </div>

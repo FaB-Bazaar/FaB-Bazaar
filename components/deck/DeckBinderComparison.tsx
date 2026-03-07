@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { 
-  BookOpen, 
-  Search, 
-  CheckCircle, 
-  XCircle, 
+import {
+  BookOpen,
+  Search,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   TrendingUp,
   Loader2,
-  Heart // For wants indication
+  Heart,
+  BookmarkPlus
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +26,7 @@ import { WantsCard } from '@/components/wants';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TcgAffiliateLink } from '@/components/tracking';
 import { wantsClient, bindersClient, decksClient } from "@/lib/client";
+import { FOILING_MAP, EDITION_MAP } from "@/lib/fab-constants";
 
 // Updated interface to match new data model
 interface DeckPrinting {
@@ -111,8 +113,9 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "owned" | "missing" | "partial">("all");
   const [showDebug, setShowDebug] = useState(false);
-  const [selectedMissing, setSelectedMissing] = useState<Set<string>>(new Set());
-  const [addingToWants, setAddingToWants] = useState(false);
+  const [addTargetBinderId, setAddTargetBinderId] = useState<string>("");
+  // Tiles removed optimistically after user adds them to binder/wants
+  const [removedTileKeys, setRemovedTileKeys] = useState<Set<string>>(new Set());
   
   // New state for wants checking
   const [wantsList, setWantsList] = useState<Set<string>>(new Set());
@@ -185,6 +188,12 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
           if (selectedMode === "specific" && !selectedBinder) {
             setSelectedBinder(result.data.binders[0]);
           }
+          const stored = localStorage.getItem("selectedBinderId");
+          if (stored && result.data.binders.some((b: any) => b._id === stored)) {
+            setAddTargetBinderId(stored);
+          } else {
+            setAddTargetBinderId(result.data.binders[0]._id);
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load binders');
@@ -241,26 +250,29 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
           owned.push(...deckCards.slice(0, item.neededQuantity));
         });
 
-        // Process missing cards
+        // Process missing cards — explode into one instance per copy needed
         apiComparison.missing.forEach((item: any) => {
-          const deckCards = printingMap.get(item.printingId) || [];
-          missing.push(...deckCards);
+          const base = printingMap.get(item.printingId)?.[0];
+          if (base) {
+            for (let i = 0; i < item.neededQuantity; i++) {
+              missing.push({ ...base, _instanceKey: `${item.printingId}-m-${i}` } as any);
+            }
+          }
         });
 
-        // Process partial cards
+        // Process partial cards — explode the shortfall into individual missing instances
         apiComparison.partial.forEach((item: any) => {
           const deckCards = printingMap.get(item.printingId) || [];
           if (deckCards.length > 0) {
-            // Add owned cards to owned array
-            owned.push(...deckCards.slice(0, item.ownedQuantity));
-            // Add missing cards to missing array
-            missing.push(...deckCards.slice(item.ownedQuantity));
-            // Add to partial array
             partial.push({
               card: deckCards[0],
               owned: item.ownedQuantity,
               needed: item.neededQuantity
             });
+            const shortage = item.neededQuantity - item.ownedQuantity;
+            for (let i = 0; i < shortage; i++) {
+              missing.push({ ...deckCards[0], _instanceKey: `${item.printingId}-p-${i}` } as any);
+            }
           }
         });
 
@@ -285,6 +297,7 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
             matches
           }
         });
+        setRemovedTileKeys(new Set());
 
         console.log(`[DeckBinderComparison] Updated comparison using inventory_items API`);
         console.log(`[DeckBinderComparison] Summary:`, apiComparison.summary);
@@ -378,85 +391,54 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
     }
   };
 
-  // Enhanced add to wants function
-  const handleAddToWants = async () => {
-    if (selectedMissing.size === 0) return;
-
-    setAddingToWants(true);
+  // Per-tile: add one copy to binder, optimistically remove tile
+  const handleTileAddToBinder = async (printing: DeckPrintingWithCategory, instanceKey: string) => {
+    if (!addTargetBinderId) {
+      toast({ title: "Select a binder", description: "Please select a binder first.", variant: "destructive" });
+      return;
+    }
+    setRemovedTileKeys(prev => new Set([...prev, instanceKey]));
     try {
-      const missingPrintings = comparison?.missing.filter(p =>
-        selectedMissing.has(p._id || p.printingId)
-      ) || [];
-
-      // Filter out cards that are already in wants
-      const newPrintings = missingPrintings.filter(p =>
-        !wantsList.has(p.printingId)
-      );
-
-      if (newPrintings.length === 0) {
-        toast({
-          title: "No new cards to add",
-          description: "All selected cards are already in your wants list.",
-        });
-        setAddingToWants(false);
-        return;
-      }
-
-      // Group by printingId and sum quantities
-      const printingGroups = new Map<string, number>();
-      newPrintings.forEach(printing => {
-        const current = printingGroups.get(printing.printingId) || 0;
-        printingGroups.set(printing.printingId, current + 1);
-      });
-
-      // Convert to API format
-      const printings = Array.from(printingGroups.entries()).map(([printingId, quantity]) => ({
-        printingId,
-        quantity,
-        priority: 'medium' as const,
-        notes: `For deck: ${deck.name}`
-      }));
-
-      const result = await wantsClient.bulkAddWants(printings);
-
+      const result = await bindersClient.addCardsToBinder(addTargetBinderId, [{
+        printingId: printing.printingId,
+        quantity: 1,
+        condition: 'NM' as const,
+        notes: `For deck: ${deck.name}`,
+      }]);
       if (result.success) {
-        const successCount = result.data.summary?.added + result.data.summary?.updated || printings.length;
-        const skippedCount = missingPrintings.length - newPrintings.length;
-
-        // Update local wants list with the newly added printing IDs
-        const updatedWants = new Set(wantsList);
-        printings.forEach(p => updatedWants.add(p.printingId));
-        setWantsList(updatedWants);
-
-        // REFRESH THE WANTS CARDS DATA
-        const wantsResult = await wantsClient.getUserWants({}, { limit: 1000 });
-        if (wantsResult.success) {
-          setWantsCards(wantsResult.data.cards || []);
-        }
-
-        toast({
-          title: "Added to wants list!",
-          description: `Successfully added ${successCount} card${successCount !== 1 ? 's' : ''}${skippedCount > 0 ? ` (${skippedCount} already in wants)` : ''}.`,
-        });
-
-        setSelectedMissing(new Set());
+        const binderName = binders.find(b => b._id === addTargetBinderId)?.name || 'binder';
+        toast({ title: "Added to binder!", description: `Added to ${binderName}.` });
       } else {
-        throw new Error('Failed to add cards to wants list');
+        throw new Error(result.error || 'Failed to add to binder');
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add cards to wants list. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setAddingToWants(false);
+    } catch {
+      setRemovedTileKeys(prev => { const next = new Set(prev); next.delete(instanceKey); return next; });
+      toast({ title: "Error", description: "Failed to add card to binder.", variant: "destructive" });
     }
   };
 
-  // Clear selection
-  const clearSelection = () => {
-    setSelectedMissing(new Set());
+  // Per-tile: add one copy to wants, optimistically remove tile
+  const handleTileAddToWants = async (printing: DeckPrintingWithCategory, instanceKey: string) => {
+    setRemovedTileKeys(prev => new Set([...prev, instanceKey]));
+    try {
+      const result = await wantsClient.bulkAddWants([{
+        printingId: printing.printingId,
+        quantity: 1,
+        priority: 'medium' as const,
+        notes: `For deck: ${deck.name}`,
+      }]);
+      if (result.success) {
+        const updatedWants = new Set(wantsList);
+        updatedWants.add(printing.printingId);
+        setWantsList(updatedWants);
+        toast({ title: "Added to wants!", description: "Card added to your wants list." });
+      } else {
+        throw new Error('Failed to add to wants');
+      }
+    } catch {
+      setRemovedTileKeys(prev => { const next = new Set(prev); next.delete(instanceKey); return next; });
+      toast({ title: "Error", description: "Failed to add card to wants list.", variant: "destructive" });
+    }
   };
 
   // Filter cards based on search and status
@@ -465,15 +447,19 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
 
     const filterBySearch = (cards: DeckPrintingWithCategory[]) => {
       if (!searchQuery) return cards;
-      return cards.filter(card => 
+      return cards.filter(card =>
         fuzzySearch(searchQuery, card.printingDetails?.display_name || card.printingDetails?.name || "Unknown")
       );
     };
 
+    const visibleMissing = comparison.missing.filter(p =>
+      !removedTileKeys.has((p as any)._instanceKey || '')
+    );
+
     const filtered = {
       owned: filterBySearch(comparison.owned),
-      missing: filterBySearch(comparison.missing),
-      partial: comparison.partial.filter(p => 
+      missing: filterBySearch(visibleMissing),
+      partial: comparison.partial.filter(p =>
         !searchQuery || fuzzySearch(searchQuery, p.card.printingDetails?.display_name || p.card.printingDetails?.name || "Unknown")
       )
     };
@@ -486,37 +472,6 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
     }
   };
 
-  // Toggle selection
-  const toggleSelection = (id: string) => {
-    const newSelected = new Set(selectedMissing);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedMissing(newSelected);
-  };
-
-  // Select all missing
-  const selectAllMissing = () => {
-    const allMissingIds = new Set(
-      comparison?.missing.map(p => p._id || p.printingId) || []
-    );
-    setSelectedMissing(allMissingIds);
-  };
-
-  // Helper function to get counts excluding wants
-  const getAvailableToAddCount = () => {
-    if (!comparison) return 0;
-    return comparison.missing.filter(p => !wantsList.has(p.printingId)).length;
-  };
-
-  const selectedNotInWants = Array.from(selectedMissing).filter(id => {
-    const printing = comparison?.missing.find(p => (p._id || p.printingId) === id);
-    return printing && !wantsList.has(printing.printingId);
-  }).length;
-
-  // Clear selection
   const filteredCards = getFilteredCards();
   
   // UPDATED: Calculate stats using new data structure
@@ -528,53 +483,22 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
     completion: Math.round((comparison.owned.length / getAllPrintingsWithCategories(deck).length) * 100)
   } : null;
 
-  // Enhanced missing card item component
+  // Per-tile missing card component
   function MissingCardItem({
     printing,
-    selected,
-    onToggle
+    onAddToBinder,
+    onAddToWants,
   }: {
     printing: DeckPrintingWithCategory;
-    selected: boolean;
-    onToggle: () => void;
+    onAddToBinder: () => void;
+    onAddToWants: () => void;
   }) {
     const imageUrl = printing.printingDetails?.image_url || "/cardback.webp";
     const cardName = printing.printingDetails?.display_name || printing.printingDetails?.name || "Unknown Card";
     const isInWants = wantsList.has(printing.printingId);
 
-    const renderPurchaseLink = () => {
-      if (!printing.printingDetails?.tcgplayer_url) return null;
-
-      return (
-        <div className="text-xs mt-1 pt-1 border-t border-gray-100 dark:border-gray-600">
-          <TcgAffiliateLink
-            tcgplayerUrl={printing.printingDetails.tcgplayer_url}
-            feature="DeckMissingPurchaseLink"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-            title="Purchase on TCGPlayer"
-          >
-            <span className="text-xs">Buy on</span>
-            <img
-              src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-              alt="TCGPlayer"
-              className="h-3 w-auto"
-            />
-          </TcgAffiliateLink>
-        </div>
-      );
-    };
-
     return (
-      <div
-        className={`
-          border rounded-lg overflow-hidden transition-all cursor-pointer
-          hover:shadow-md relative flex flex-col
-          ${selected ? 'ring-2 ring-blue-500' : 'hover:shadow-sm'}
-          ${isInWants ? 'border-pink-300' : ''}
-        `}
-        onClick={onToggle}
-      >
+      <div className="border rounded-lg overflow-hidden transition-all hover:shadow-md relative flex flex-col group">
         <div className="relative w-full h-[230px] sm:h-[322px] bg-gray-100 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
           <img
             src={imageUrl}
@@ -584,13 +508,6 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
               e.currentTarget.src = "/cardback.webp";
             }}
           />
-
-          {/* Selection checkbox */}
-          <div className="absolute top-2 right-2">
-            <div className={`w-5 h-5 rounded border-2 ${selected ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
-              {selected && <div className="w-full h-full flex items-center justify-center text-white text-xs">✓</div>}
-            </div>
-          </div>
 
           {/* Wants indicator */}
           {isInWants && (
@@ -604,6 +521,24 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
           <Badge variant="destructive" className="absolute bottom-2 left-2 text-xs">
             Missing
           </Badge>
+
+          {/* Per-tile action buttons — visible on hover */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              className="w-7 h-7 rounded-full bg-gray-900/80 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center transition-colors"
+              title="Add to binder"
+              onClick={(e) => { e.stopPropagation(); onAddToBinder(); }}
+            >
+              <BookmarkPlus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              className="w-7 h-7 rounded-full bg-gray-900/80 text-gray-300 hover:text-white hover:bg-pink-600 flex items-center justify-center transition-colors"
+              title="Add to wants"
+              onClick={(e) => { e.stopPropagation(); onAddToWants(); }}
+            >
+              <Heart className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
         <div className="p-2 flex-1 flex flex-col">
           <p className="text-sm font-medium truncate">{cardName}</p>
@@ -612,18 +547,31 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
               {printing.printingDetails.set_name}
             </p>
           )}
-          {isInWants && (
-            <p className="text-xs text-pink-600 font-medium">
-              Already in wants
-            </p>
-          )}
+          <PrintingInfoLine details={printing.printingDetails} />
           <div className="flex-1"></div>
-          {printing.printingDetails?.tcg_market && (
+          {printing.printingDetails?.tcg_low && (
             <p className="text-xs text-green-600 font-medium">
-              ${Number(printing.printingDetails.tcg_market).toFixed(2)}
+              ${Number(printing.printingDetails.tcg_low).toFixed(2)}
             </p>
           )}
-          {renderPurchaseLink()}
+          {printing.printingDetails?.tcgplayer_url && (
+            <div className="text-xs mt-1 pt-1 border-t border-gray-100 dark:border-gray-600">
+              <TcgAffiliateLink
+                tcgplayerUrl={printing.printingDetails.tcgplayer_url}
+                feature="DeckMissingPurchaseLink"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                title="Purchase on TCGPlayer"
+              >
+                <span className="text-xs">Buy on</span>
+                <img
+                  src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+                  alt="TCGPlayer"
+                  className="h-3 w-auto"
+                />
+              </TcgAffiliateLink>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -637,18 +585,6 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
             <p className="text-muted-foreground">Sign in to compare this deck with your collection.</p>
           </div>
 
-          {comparison?.missing.length && comparison.missing.length > 0 && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex gap-2 items-center">
-                <Button variant="outline" size="sm" onClick={selectAllMissing}>
-                  Select All Missing
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Click cards to select them for your wants list
-                </span>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     );
@@ -911,28 +847,23 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
               </SelectContent>
             </Select>
 
-            {selectedMissing.size > 0 && (
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={clearSelection}>
-                  Clear ({selectedMissing.size})
-                </Button>
-                <Button 
-                  size="sm" 
-                  onClick={handleAddToWants}
-                  disabled={addingToWants || selectedNotInWants === 0}
+            {binders.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <BookmarkPlus className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Add to:</span>
+                <Select
+                  value={addTargetBinderId}
+                  onValueChange={v => { setAddTargetBinderId(v); localStorage.setItem("selectedBinderId", v); }}
                 >
-                  {addingToWants ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : (
-                    <span className="mr-1">+</span>
-                  )}
-                  Add to Wants
-                  {selectedNotInWants !== selectedMissing.size && (
-                    <span className="ml-1 text-xs">
-                      ({selectedNotInWants}/{selectedMissing.size})
-                    </span>
-                  )}
-                </Button>
+                  <SelectTrigger className="h-8 text-xs w-[140px]">
+                    <SelectValue placeholder="Select binder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {binders.map(b => (
+                      <SelectItem key={b._id} value={b._id} className="text-xs">{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -943,19 +874,12 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
               </div>
             )}
           </div>
-          
+
           {/* Helper text */}
           {comparison && (
-            <div className="mt-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Heart className="h-3 w-3 text-pink-500" />
-                <span>Pink heart indicates card is already in your wants list</span>
-              </div>
-              {getAvailableToAddCount() < comparison.missing.length && (
-                <p className="mt-1">
-                  {getAvailableToAddCount()} of {comparison.missing.length} missing cards can be added to wants
-                </p>
-              )}
+            <div className="mt-2 text-sm text-muted-foreground flex items-center gap-1">
+              <Heart className="h-3 w-3 text-pink-500 shrink-0" />
+              <span>Pink heart = already in your wants list. Hover a missing card to add it to your binder or wants.</span>
             </div>
           )}
         </CardContent>
@@ -985,27 +909,19 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
         <TabsContent value="missing" className="mt-4">
           <Card>
             <CardContent className="pt-4">
-              {comparison?.missing.length && comparison.missing.length > 0 && (
-                <div className="mb-4 flex gap-2 items-center">
-                  <Button variant="outline" size="sm" onClick={selectAllMissing}>
-                    Select All Missing
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Click cards to select them for your wants list
-                  </span>
-                </div>
-              )}
-              
               {filteredCards.missing.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-1.5">
-                  {filteredCards.missing.map((printing) => (
-                    <MissingCardItem 
-                      key={printing._id || printing.printingId}
-                      printing={printing}
-                      selected={selectedMissing.has(printing._id || printing.printingId)}
-                      onToggle={() => toggleSelection(printing._id || printing.printingId)}
-                    />
-                  ))}
+                  {filteredCards.missing.map((printing) => {
+                    const instanceKey = (printing as any)._instanceKey || printing._id || printing.printingId;
+                    return (
+                      <MissingCardItem
+                        key={instanceKey}
+                        printing={printing}
+                        onAddToBinder={() => handleTileAddToBinder(printing, instanceKey)}
+                        onAddToWants={() => handleTileAddToWants(printing, instanceKey)}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -1138,6 +1054,31 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
 }
 
 
+// Shared printing info line: foiling · edition · collector number
+function PrintingInfoLine({ details }: { details?: Record<string, any> | null }) {
+  if (!details) return null;
+
+  const foilingName = FOILING_MAP[details.foiling as keyof typeof FOILING_MAP];
+  const editionName = EDITION_MAP[details.edition as keyof typeof EDITION_MAP];
+  const showFoiling = foilingName && foilingName !== 'Standard';
+  const showEdition = editionName && editionName !== 'Normal';
+  const collectorNum = details.collector_number;
+
+  if (!showFoiling && !showEdition && !collectorNum) return null;
+
+  const parts = [
+    showFoiling ? foilingName : null,
+    showEdition ? editionName : null,
+    collectorNum ? `#${collectorNum}` : null,
+  ].filter(Boolean);
+
+  return (
+    <p className="text-xs text-muted-foreground truncate">
+      {parts.join(' · ')}
+    </p>
+  );
+}
+
 // Card item components placed outside the main component
 function OwnedCardItem({ printing }: { printing: DeckPrintingWithCategory }) {
   const imageUrl = printing.printingDetails?.image_url || "/cardback.webp";
@@ -1165,9 +1106,10 @@ function OwnedCardItem({ printing }: { printing: DeckPrintingWithCategory }) {
             {printing.printingDetails.set_name}
           </p>
         )}
-        {printing.printingDetails?.tcg_market && (
+        <PrintingInfoLine details={printing.printingDetails} />
+        {printing.printingDetails?.tcg_low && (
           <p className="text-xs text-green-600 font-medium">
-            ${Number(printing.printingDetails.tcg_market).toFixed(2)}
+            ${Number(printing.printingDetails.tcg_low).toFixed(2)}
           </p>
         )}
       </div>
@@ -1214,9 +1156,10 @@ function PartialCardItem({ item }: { item: { card: DeckPrintingWithCategory; own
               <span className="font-medium text-red-600">{needed - owned}</span>
             </div>
           </div>
-          {card.printingDetails?.tcg_market && (
-            <p className="text-xs text-green-600 font-medium mt-2">
-              ${Number(card.printingDetails.tcg_market).toFixed(2)} each
+          <PrintingInfoLine details={card.printingDetails} />
+          {card.printingDetails?.tcg_low && (
+            <p className="text-xs text-green-600 font-medium mt-1">
+              ${Number(card.printingDetails.tcg_low).toFixed(2)} each
             </p>
           )}
         </div>
