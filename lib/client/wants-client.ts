@@ -227,10 +227,10 @@ export async function bulkAddWants(
   items: CreateWantsItemDTO[]
 ): Promise<ApiResponse<BulkAddWantsResultDTO>> {
   try {
-    const response = await fetch('/api/wants/bulk-add', {
+    const response = await fetch('/api/wants/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ printings: items }),
     });
     return await handleResponse<BulkAddWantsResultDTO>(response);
   } catch (error) {

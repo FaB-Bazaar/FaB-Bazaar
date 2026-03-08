@@ -535,6 +535,27 @@ function DeckTileSection({
               </div>
             </div>
             <div className="w-px self-stretch bg-gray-600/50 mx-0.5 flex-shrink-0" />
+            {isCollapsed && section.tiles
+              .filter((t, i, arr) => arr.findIndex(x => x.printingId === t.printingId) === i)
+              .map(tile => (
+                <div
+                  key={tile.printingId}
+                  className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
+                  style={{ width: 28 }}
+                  title={tile.name}
+                  onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name)}
+                  onMouseLeave={onLeave}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={tile.imageUrl || '/cardback.webp'}
+                    alt={tile.name}
+                    className="w-full block"
+                    style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                    draggable={false}
+                  />
+                </div>
+              ))}
           </>
         )}
         {section.pitchColor && (
@@ -895,7 +916,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     await onMoveSingle(tile.printingId, tile.category, targetCategory, tile.totalQty);
   }, [onMoveSingle, deck]);
 
-  const [highlightFilter, setHighlightFilter] = useState<{ stat: string; value: number | string } | null>(null);
+  const [highlightFilters, setHighlightFilters] = useState<Array<{ stat: string; value: number | string }>>([]);
 
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const toggleSection = (key: string) => setCollapsedSections(prev => {
@@ -1017,7 +1038,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     }, 0);
   };
 
-  const matchingPrintingIds: Set<string> | null = highlightFilter
+  const matchingPrintingIds: Set<string> | null = highlightFilters.length > 0
     ? (() => {
         const ids = new Set<string>();
         const allCards = [
@@ -1026,36 +1047,48 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           ...(displayDeck.inventory || []),
           ...(displayDeck.benched || []),
         ];
-        const target = highlightFilter.value;
-        const threshold = typeof target === 'string' && target.endsWith('+') ? parseInt(target) : null;
         for (const c of allCards) {
-          const v = (c.printingDetails as any)?.[highlightFilter.stat] as number | undefined;
-          if (v == null) continue;
-          if (threshold !== null ? v >= threshold : v === target) {
-            ids.add(c.printingId);
-          }
+          const details = c.printingDetails as any;
+          const passes = highlightFilters.every(f => {
+            const v = details?.[f.stat] as number | undefined;
+            if (v == null) return false;
+            const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
+            return threshold !== null ? v >= threshold : v === f.value;
+          });
+          if (passes) ids.add(c.printingId);
         }
         return ids;
       })()
     : null;
 
   const matchesGameCard = (card: GameViewCard): boolean | null => {
-    if (!highlightFilter) return null;
+    if (highlightFilters.length === 0) return null;
     // Pitch not applicable in game view (cards grouped by name across all pitch variants)
-    if (highlightFilter.stat === 'pitch') return null;
-    const v = (card as any)[highlightFilter.stat] as number | undefined;
-    if (v == null) return false;
-    const target = highlightFilter.value;
-    const threshold = typeof target === 'string' && target.endsWith('+') ? parseInt(target) : null;
-    return threshold !== null ? v >= threshold : v === target;
+    const nonPitchFilters = highlightFilters.filter(f => f.stat !== 'pitch');
+    if (nonPitchFilters.length === 0) return null;
+    return nonPitchFilters.every(f => {
+      const v = (card as any)[f.stat] as number | undefined;
+      if (v == null) return false;
+      const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
+      return threshold !== null ? v >= threshold : v === f.value;
+    });
   };
 
   const toggleHighlight = (stat: string, value: number | string) => {
-    if (highlightFilter?.stat === stat && highlightFilter.value === value) {
-      setHighlightFilter(null);
-    } else {
-      setHighlightFilter({ stat, value });
-    }
+    setHighlightFilters(prev => {
+      const exact = prev.find(f => f.stat === stat && f.value === value);
+      if (exact) {
+        // Same button clicked again — remove it
+        return prev.filter(f => !(f.stat === stat && f.value === value));
+      }
+      const sameStat = prev.find(f => f.stat === stat);
+      if (sameStat) {
+        // Different value for same stat — replace it
+        return prev.map(f => f.stat === stat ? { stat, value } : f);
+      }
+      // New stat — AND it in
+      return [...prev, { stat, value }];
+    });
   };
 
   const heroCards = displayDeck.hero || [];
@@ -1209,7 +1242,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <div className="flex items-center gap-1">
             {([1, 2, 3] as const).map(v => {
               const count = getStatCount('pitch', v);
-              const isActive = highlightFilter?.stat === 'pitch' && highlightFilter.value === v;
+              const isActive = highlightFilters.some(f => f.stat === 'pitch' && f.value === v);
               return (
                 <button
                   key={v}
@@ -1230,7 +1263,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <div className="flex items-center gap-1">
             {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
               const count = getStatCount('cost', v);
-              const isActive = highlightFilter?.stat === 'cost' && highlightFilter.value === v;
+              const isActive = highlightFilters.some(f => f.stat === 'cost' && f.value === v);
               return (
                 <button
                   key={String(v)}
@@ -1256,7 +1289,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <div className="flex items-center gap-1">
             {([3, 4, 5, 6, '7+'] as const).map(v => {
               const count = getStatCount('power', v);
-              const isActive = highlightFilter?.stat === 'power' && highlightFilter.value === v;
+              const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
               return (
                 <button
                   key={String(v)}
@@ -1278,7 +1311,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <div className="flex items-center gap-1">
             {([0, 2, 3, 4] as const).map(v => {
               const count = getStatCount('defense', v);
-              const isActive = highlightFilter?.stat === 'defense' && highlightFilter.value === v;
+              const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
               return (
                 <button
                   key={String(v)}
@@ -1296,9 +1329,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             })}
           </div>
 
-          {highlightFilter && (
+          {highlightFilters.length > 0 && (
             <button
-              onClick={() => setHighlightFilter(null)}
+              onClick={() => setHighlightFilters([])}
               className="ml-auto flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
             >
               <X className="h-3 w-3" />clear
@@ -1334,17 +1367,24 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         <div className="rounded border border-gray-700/50 p-2">
           {buildGameViewSections(displayDeck).map(section => {
             const sectionTotal = section.cards.reduce((s, c) => s + c.totalQty, 0);
+            const sectionCollapseKey = `game-${section.key}`;
+            const isSectionCollapsed = collapsedSections.has(sectionCollapseKey);
             return (
               <div key={section.key} className="mb-3">
-                <div className="flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(sectionCollapseKey)}
+                  className="w-full flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40 text-left"
+                >
                   {section.key === 'equipment' && heroPortrait && (
                     <>
                       <div
                         className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
                         style={{ width: 28 }}
                         title={heroPortrait.name}
-                        onMouseEnter={() => heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name })}
+                        onMouseEnter={(e) => { e.stopPropagation(); heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name }); }}
                         onMouseLeave={() => setHoveredImage(null)}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -1359,14 +1399,35 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         </div>
                       </div>
                       <div className="w-px self-stretch bg-gray-600/50 mx-0.5 flex-shrink-0" />
+                      {isSectionCollapsed && section.cards.map(card => (
+                        <div
+                          key={card.name}
+                          className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
+                          style={{ width: 28 }}
+                          title={card.name}
+                          onMouseEnter={(e) => { e.stopPropagation(); card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name }); }}
+                          onMouseLeave={() => setHoveredImage(null)}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={card.imageUrl || '/cardback.webp'}
+                            alt={card.name}
+                            className="w-full block"
+                            style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                            draggable={false}
+                          />
+                        </div>
+                      ))}
                     </>
                   )}
                   <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     {section.title}
                   </span>
                   <span className="text-[10px] text-gray-500">({sectionTotal})</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
+                  <ChevronDown className={cn("h-3 w-3 text-gray-500 ml-auto transition-transform shrink-0", isSectionCollapsed && "-rotate-90")} />
+                </button>
+                {!isSectionCollapsed && <div className="flex flex-wrap gap-1">
                   {section.cards.map(card => {
                     const gameHighlight = matchesGameCard(card);
                     return (
@@ -1418,7 +1479,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     </div>
                   );
                   })}
-                </div>
+                </div>}
               </div>
             );
           })}
