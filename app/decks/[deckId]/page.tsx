@@ -53,6 +53,8 @@ export default function DeckEditorPage() {
   // Dialog state: for deck card printing swap
   const [deckSwapTarget, setDeckSwapTarget] = useState<SwapTarget | null>(null);
 
+  const isOwner = !!(user && state.deck && state.deck.userId === user.id);
+
   const stagedCards = state.bulkResults.filter(c => c.isStaged);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -92,14 +94,12 @@ export default function DeckEditorPage() {
     });
   }, [user]);
 
-  // Redirect non-owners once both deck and auth are loaded
+  // Redirect only when the deck is private and the viewer isn't the owner
   useEffect(() => {
     if (authLoading || state.deckLoading) return;
-    if (!user) {
-      router.replace(`/decks/${deckId}/analyze`);
-      return;
-    }
-    if (state.deck && state.deck.userId !== user.id) {
+    if (!state.deck) return;
+    const ownerViewing = user && state.deck.userId === user.id;
+    if (!ownerViewing && !state.deck.isPublic) {
       router.replace(`/decks/${deckId}/analyze`);
     }
   }, [authLoading, state.deckLoading, user, state.deck, deckId, router]);
@@ -263,7 +263,7 @@ export default function DeckEditorPage() {
 
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
-      {activeTab === "search" && (
+      {isOwner && activeTab === "search" && (
         <DeckEditorSidebar
           deck={optimisticDeck ?? state.deck}
           deckLoading={state.deckLoading}
@@ -296,7 +296,7 @@ export default function DeckEditorPage() {
         />
       )}
 
-      <div className={activeTab === "search" ? "lg:ml-96" : ""}>
+      <div className={isOwner && activeTab === "search" ? "lg:ml-96" : ""}>
         <div className="container mx-auto pt-3 pb-20 sm:pb-0 px-4">
           <div className="max-w-6xl mx-auto">
             {/* Compact header: back arrow + title + view link */}
@@ -326,7 +326,9 @@ export default function DeckEditorPage() {
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground">
-                  {state.deck?.heroName
+                  {!isOwner
+                    ? "Read only"
+                    : state.deck?.heroName
                     ? `Filtered for ${state.deck.heroName}`
                     : "Search for cards to add"}
                 </span>
@@ -335,18 +337,20 @@ export default function DeckEditorPage() {
 
             {/* Tab bar — desktop only */}
             <div className="hidden sm:flex border-b border-gray-200 dark:border-gray-700 mb-4">
-              <button
-                onClick={() => setActiveTab("search")}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                  activeTab === "search"
-                    ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                )}
-              >
-                <Search className="h-4 w-4" />
-                Search
-              </button>
+              {isOwner && (
+                <button
+                  onClick={() => setActiveTab("search")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                    activeTab === "search"
+                      ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  )}
+                >
+                  <Search className="h-4 w-4" />
+                  Search
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab("deck")}
                 className={cn(
@@ -379,7 +383,7 @@ export default function DeckEditorPage() {
             </div>
 
             {/* Search tab content */}
-            {activeTab === "search" && (
+            {isOwner && activeTab === "search" && (
               <>
                 {/* Mobile: card grid with direct +/- controls */}
                 {state.deck && (
@@ -463,7 +467,7 @@ export default function DeckEditorPage() {
                       handleUpdateDeckCardQty(printingId, Math.max(0, currentQty - 1), category)
                     }
                     onAddCard={(category, pitch) => setQuickAddTarget({ category, pitch })}
-                    canEdit={true}
+                    canEdit={isOwner}
                     binders={binders}
                     selectedBinderId={selectedBinderId}
                     onBinderChange={handleBinderChange}
@@ -516,18 +520,20 @@ export default function DeckEditorPage() {
 
       {/* Mobile bottom tab bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 flex sm:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <button
-          onClick={() => setActiveTab("search")}
-          className={cn(
-            "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
-            activeTab === "search"
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-500 dark:text-gray-400"
-          )}
-        >
-          <LayoutGrid className="h-5 w-5" />
-          Cards
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => setActiveTab("search")}
+            className={cn(
+              "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
+              activeTab === "search"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400"
+            )}
+          >
+            <LayoutGrid className="h-5 w-5" />
+            Cards
+          </button>
+        )}
         <button
           onClick={() => setActiveTab("deck")}
           className={cn(
