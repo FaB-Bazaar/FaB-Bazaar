@@ -663,9 +663,9 @@ export default function MatchupSideboardEditor({
                 return (
                   <>
                     {topSections.length > 0 && (
-                      <div className="flex gap-4 mb-1">
+                      <div className="flex flex-col sm:flex-row gap-4 mb-1">
                         {topSections.map(s => (
-                          <div key={s.key} className="shrink-0">
+                          <div key={s.key} className="min-w-0">
                             <TileSectionUnified
                               section={s}
                               deckCounts={deckCounts}

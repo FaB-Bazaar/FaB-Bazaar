@@ -478,16 +478,18 @@ export default function DeckEditorPage() {
               </>
             )}
 
-            {/* Matchups tab content */}
-            {activeTab === "matchups" && state.deck && (
-              <DeckMatchupsDialog
-                open={true}
-                onOpenChange={() => {}}
-                deckId={deckId}
-                deck={state.deck}
-                inline={true}
-                compact={true}
-              />
+            {/* Matchups tab content — always mounted once deck loads to avoid refetch on tab switch */}
+            {state.deck && (
+              <div className={activeTab === "matchups" ? undefined : "hidden"}>
+                <DeckMatchupsDialog
+                  open={true}
+                  onOpenChange={() => {}}
+                  deckId={deckId}
+                  deck={state.deck}
+                  inline={true}
+                  compact={true}
+                />
+              </div>
             )}
           </div>
         </div>
