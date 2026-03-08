@@ -58,7 +58,6 @@ async function handleAuthorizationCodeGrant(body: FormData) {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*'
     }
   });
 }
@@ -94,7 +93,6 @@ async function handleClientCredentialsGrant(body: FormData) {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*'
     }
   });
 }
@@ -129,7 +127,6 @@ async function handleRefreshTokenGrant(body: FormData) {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*'
     }
   });
 }

@@ -2,14 +2,17 @@
 
 > **Note for Claude Code**: This file references subdirectory CLAUDE.md files (e.g., `lib/auth/CLAUDE.md`, `lib/services/CLAUDE.md`) for detailed documentation. **Do not proactively read these files** unless the user explicitly asks about those specific areas or you're actively working in those directories. They are context references, not required reading.
 
+## Open Source Documentation Policy
+
+This repo is **publicly open-sourced** — all CLAUDE.md files are visible to anyone. Keep docs at the architecture/pattern level. Do not include internal error message strings, security-critical schema field names, token payload structures, or anything that maps the security implementation in detail. Link to TypeScript contracts instead of reproducing specifics inline.
+
 ## Project Overview
 **FaB Bazaar** is a Next.js-based trading card platform for Flesh and Blood (FaB) trading cards. Users can manage collections, create want lists, find trading partners, and facilitate secure trades.
 
 ## Technology Stack
 - **Framework**: Next.js 15 with App Router
 - **Database**: PostgreSQL with Drizzle ORM
-  - **Migration Status**: 7/10 services migrated (user, binder, inventory, wants, printings, deck, article)
-  - **Remaining**: 2 services pending migration, 7 deprecated services (2 removed on 2026-02-16)
+  - **Migration Status**: 10/10 services migrated (100% complete as of 2026-02-16)
   - **MongoDB**: Fully deprecated - service files kept as reference only, not functional
 - **Authentication**: NextAuth.js with Discord OAuth + custom JWT
 - **Styling**: Tailwind CSS with shadcn/ui components
@@ -119,17 +122,17 @@ See `lib/auth/CLAUDE.md` for authentication details and `lib/services/CLAUDE.md`
 ## Important Notes
 - **File Locking**: Many core files are locked and cannot be modified
 - **Authentication**: Working correctly, don't modify auth middleware
-- **Database**: MongoDB with encrypted email storage
+- **Database**: PostgreSQL (primary); MongoDB deprecated and non-functional
 - **Responsive Design**: All components should be mobile-friendly
 - **Type Safety**: Use TypeScript interfaces for all data structures
 - **Error Handling**: Always include proper error boundaries
 
 ## Environment Setup
-Key environment variables are configured:
-- `MONGODB_URI`, `MONGODB_DB` - Database connection
+Key environment variables are configured (see `.env.example` for full list):
+- `POSTGRES_URL` - PostgreSQL connection string
 - `JWT_SECRET` - Token signing
-- `NEXTAUTH_SECRET`, `NEXTAUTH_URL` - NextAuth config
-- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` - OAuth
+- `NEXTAUTH_SECRET`, `AUTH_URL` - NextAuth config
+- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` - Discord OAuth
 
 ## Common Components
 - `CardDisplay` - Shows card information with metadata

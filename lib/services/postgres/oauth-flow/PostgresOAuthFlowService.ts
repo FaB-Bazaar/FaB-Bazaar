@@ -203,19 +203,19 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
         };
       }
 
-      // Mark as used IMMEDIATELY (atomic operation)
-      await db
-        .update(oauthAuthorizationCodes)
-        .set({ used: true, usedAt: new Date() })
-        .where(eq(oauthAuthorizationCodes.id, authCode.id));
-
-      // Check expiration
+      // Check expiration before consuming the code
       if (new Date() > authCode.expiresAt) {
         return {
           success: false,
           error: 'Authorization code expired',
         };
       }
+
+      // Mark as used IMMEDIATELY (atomic operation)
+      await db
+        .update(oauthAuthorizationCodes)
+        .set({ used: true, usedAt: new Date() })
+        .where(eq(oauthAuthorizationCodes.id, authCode.id));
 
       // Validate redirect URI matches
       if (authCode.redirectUri !== input.redirectUri) {

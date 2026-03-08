@@ -55,7 +55,15 @@ export async function GET(req: Request) {
   }
 
   const client = clientResult.data;
-  
+
+  // OAuth 2.1 requires PKCE for public clients (token_endpoint_auth_method = 'none')
+  if (client.token_endpoint_auth_method === 'none' && !params.code_challenge) {
+    const error = new URL('/oauth/error', req.url);
+    error.searchParams.set('error', 'invalid_request');
+    error.searchParams.set('error_description', 'PKCE required for public clients');
+    return NextResponse.redirect(error);
+  }
+
   // Check if user is authenticated with NextAuth
   const session = await auth();
   if (!session?.user?.id) {
