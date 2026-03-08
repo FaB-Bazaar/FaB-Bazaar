@@ -555,8 +555,17 @@ export class PostgresPrintingsService implements IPrintingsService {
 
       if (filters.exact) {
         conditions.push(eq(cards.name, normalizedName));
+      } else if (options?.searchMode === 'strict') {
+        // Strict mode: whole-phrase substring match only, no word splitting, no fuzzy matching.
+        // Prevents "mangle" from matching "Entangle", "widow claw" matches "Widow Claw Tarsus" as a phrase.
+        const phraseCondition = sql`${cards.name} ILIKE ${'%' + normalizedName + '%'}`;
+        if (/^[a-zA-Z0-9]{2,5}\d{2,4}$/.test(normalizedName)) {
+          conditions.push(or(phraseCondition, sql`LOWER(${printings.collectorNumber}) = ${normalizedName}`));
+        } else {
+          conditions.push(phraseCondition);
+        }
       } else {
-        // Typo-tolerant name matching:
+        // Broad mode (default): typo-tolerant name matching:
         // 1. ILIKE per term handles out-of-order words (e.g., "skeleta bloodsheath")
         // 2. word_similarity handles typos (e.g., "bloodsheat" → "bloodsheath")
         const terms = normalizedName.split(/\s+/).filter(t => t.length > 0);

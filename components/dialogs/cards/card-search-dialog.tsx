@@ -154,7 +154,19 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
             acc[cardKey].printings.push({ ...printing, unique_id: printing.printing_id, tcgMarket: printing.tcg_market, tcgLow: printing.tcg_low, tcgMid: printing.tcg_mid, tcgHigh: printing.tcg_high });
             return acc;
           }, {});
-          const cardsArray = Object.values(groupedByCard).sort((a: any, b: any) => a.name.localeCompare(b.name));
+          const query = debouncedQuery.toLowerCase().trim();
+          const getRelevanceScore = (name: string): number => {
+            const n = name.toLowerCase();
+            if (n === query) return 100;
+            if (n.startsWith(query)) return 90;
+            if (n.includes(query)) return 80;
+            if (query.split(/\s+/).every((w: string) => n.includes(w))) return 60;
+            return 10;
+          };
+          const cardsArray = Object.values(groupedByCard).sort((a: any, b: any) => {
+            const scoreDiff = getRelevanceScore(b.name) - getRelevanceScore(a.name);
+            return scoreDiff !== 0 ? scoreDiff : a.name.localeCompare(b.name);
+          });
           setCards(cardsArray);
         } else {
           setError(data.error || "Failed to search printings. Please try again.");
