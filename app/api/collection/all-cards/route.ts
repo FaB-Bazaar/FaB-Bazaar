@@ -1,7 +1,5 @@
 // app/api/collection/all-cards/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import mongoose from "mongoose";
 import { binderService } from "@/lib/services";
 import type { UserCollectionFilters, UserCollectionOptions } from "@/lib/services/contracts/IBinderService";
 import { authenticateRequest } from '@/lib/auth/multi-auth';
@@ -53,10 +51,7 @@ export async function GET(request: NextRequest) {
     const condition = searchParams.get("condition");
     const forTrade = searchParams.get("forTrade");
 
-    // Convert to ObjectId string if needed
-    const userIdString = mongoose.Types.ObjectId.isValid(currentUserId)
-      ? currentUserId
-      : currentUserId;
+    const userIdString = currentUserId;
 
     // Build filters for service
     const filters: UserCollectionFilters = {};

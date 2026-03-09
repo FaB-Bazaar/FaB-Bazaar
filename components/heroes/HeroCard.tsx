@@ -1,20 +1,11 @@
-import connectToDatabase from '@/lib/mongodb';
-import Printing from '@/models/Printing';
-import type { IPrinting } from '@/models/Printing';
-import { transformPrintingToPublicCard } from '@/types';
-
-// We will create this new component in the next step.
-import PublicHeroCardDisplay from './PublicHeroCardDisplay'; 
+import { printingsService } from '@/lib/services';
+import PublicHeroCardDisplay from './PublicHeroCardDisplay';
 
 export default async function HeroCard({ printingId }: { printingId: string }) {
   try {
-    await connectToDatabase();
+    const result = await printingsService.getPrintingById(printingId);
 
-    const printing: IPrinting | null = await Printing.findOne({
-      printing_id: printingId,
-    }).lean();
-
-    if (!printing) {
+    if (!result.success || !result.data) {
       return (
         <div className="w-full aspect-[63/88] flex items-center justify-center bg-muted rounded-lg border">
           <span className="text-xs text-muted-foreground">Card not found: {printingId}</span>
@@ -22,11 +13,7 @@ export default async function HeroCard({ printingId }: { printingId: string }) {
       );
     }
 
-    // Use the new, more powerful transformer
-    const cardData = transformPrintingToPublicCard(printing);
-
-    // Render the new, display-only client component
-    return <PublicHeroCardDisplay card={cardData} />;
+    return <PublicHeroCardDisplay card={result.data} />;
 
   } catch (error) {
     console.error(`[HeroCard Error] Failed to fetch printingId ${printingId}:`, error);
