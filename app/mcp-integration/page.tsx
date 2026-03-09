@@ -45,9 +45,11 @@ export default function MCPIntegrationPage() {
   const [showSecrets, setShowSecrets] = useState<Set<string>>(new Set());
   const [copiedCredentials, setCopiedCredentials] = useState<Set<string>>(new Set());
   
+  const [copiedServerUrl, setCopiedServerUrl] = useState(false);
   const [error, setError] = useState<string>('');
 
-  const mcpUrl = mcpToken ? `https://fabbazaar.app/api/mcp/server?mcp_token=${mcpToken}` : '';
+  const mcpServerUrl = 'https://fabbazaar.app/api/mcp/server';
+  const mcpUrl = mcpToken ? `${mcpServerUrl}?mcp_token=${mcpToken}` : '';
 
   useEffect(() => {
     if (session?.user) {
@@ -215,7 +217,10 @@ export default function MCPIntegrationPage() {
     try {
       await navigator.clipboard.writeText(text);
       
-      if (type === 'token') {
+      if (type === 'serverUrl') {
+        setCopiedServerUrl(true);
+        setTimeout(() => setCopiedServerUrl(false), 2000);
+      } else if (type === 'token') {
         setCopiedToken(true);
         setTimeout(() => setCopiedToken(false), 2000);
       } else if (type === 'url') {
@@ -394,7 +399,7 @@ export default function MCPIntegrationPage() {
                               <div>
                                 <strong className="text-blue-900 dark:text-blue-100">URL:</strong>
                                 <code className="ml-2 bg-blue-100 dark:bg-blue-900/50 px-1 rounded text-blue-900 dark:text-blue-100">
-                                  {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/mcp/server
+                                  {mcpServerUrl}
                                 </code>
                               </div>
                               <div>
@@ -545,9 +550,20 @@ export default function MCPIntegrationPage() {
                               <div className="space-y-2 text-xs">
                                 <div>
                                   <strong className="text-purple-900 dark:text-purple-100">Server URL:</strong>
-                                  <code className="ml-2 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                    {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/api/mcp/server
-                                  </code>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <code className="bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100 flex-1 break-all">
+                                      {mcpServerUrl}
+                                    </code>
+                                    <Button
+                                      onClick={() => copyToClipboard(mcpServerUrl, 'serverUrl')}
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200 shrink-0"
+                                    >
+                                      <Copy className="w-3 h-3 mr-1" />
+                                      {copiedServerUrl ? 'Copied!' : 'Copy'}
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div>
                                   <strong className="text-purple-900 dark:text-purple-100">OAuth Endpoints:</strong>
@@ -555,13 +571,13 @@ export default function MCPIntegrationPage() {
                                     <div>
                                       <span className="text-purple-800 dark:text-purple-300">Authorization:</span>
                                       <code className="ml-1 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                        {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/oauth/authorize
+                                        https://fabbazaar.app/oauth/authorize
                                       </code>
                                     </div>
                                     <div>
                                       <span className="text-purple-800 dark:text-purple-300">Token:</span>
                                       <code className="ml-1 bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-100">
-                                        {process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/oauth/token
+                                        https://fabbazaar.app/oauth/token
                                       </code>
                                     </div>
                                   </div>
