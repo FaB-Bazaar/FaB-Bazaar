@@ -13,12 +13,12 @@ This repo is **publicly open-sourced** — all CLAUDE.md files are visible to an
 - **Framework**: Next.js 15 with App Router
 - **Database**: PostgreSQL with Drizzle ORM
   - **Migration Status**: 10/10 services migrated (100% complete as of 2026-02-16)
-  - **MongoDB**: Fully deprecated - service files kept as reference only, not functional
+  - **MongoDB**: Fully removed (2026-03-08) - no connection, no models, no services
 - **Authentication**: NextAuth.js with Discord OAuth + custom JWT
 - **Styling**: Tailwind CSS with shadcn/ui components
 - **Language**: TypeScript
 - **Testing**: Vitest
-- **Deployment**: Vercel
+- **Deployment**: Self-hosted VPS (Docker)
 
 ## Development Commands
 ```bash
@@ -122,7 +122,7 @@ See `lib/auth/CLAUDE.md` for authentication details and `lib/services/CLAUDE.md`
 ## Important Notes
 - **File Locking**: Many core files are locked and cannot be modified
 - **Authentication**: Working correctly, don't modify auth middleware
-- **Database**: PostgreSQL (primary); MongoDB deprecated and non-functional
+- **Database**: PostgreSQL only; MongoDB fully removed
 - **Responsive Design**: All components should be mobile-friendly
 - **Type Safety**: Use TypeScript interfaces for all data structures
 - **Error Handling**: Always include proper error boundaries
@@ -225,8 +225,6 @@ All routes should return consistent response shapes:
 | Next.js | 15.x | App Router, Server Components |
 | PostgreSQL | 16.x | Primary database (migrating from MongoDB) |
 | Drizzle ORM | Latest | PostgreSQL ORM with type-safe queries |
-| MongoDB | 6.x | Legacy database (being phased out) |
-| Mongoose | 8.x | ODM for MongoDB (legacy) |
 | NextAuth | 5.0 (v5 beta) | Authentication |
 | shadcn/ui | Latest | UI component library |
 | Radix UI | Latest | Headless UI primitives |
