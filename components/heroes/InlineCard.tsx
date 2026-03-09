@@ -12,6 +12,9 @@ interface MiniCard {
   image_url: string;
 }
 
+// Module-level cache — survives remounts, cleared on page navigation
+const cardCache = new Map<string, MiniCard>();
+
 interface InlineCardProps {
   printingId: string;
   children?: React.ReactNode;
@@ -31,6 +34,10 @@ export default function InlineCard({ printingId, children, thumbnail = false, si
   const thumbnailWidth = 14;   // Maintains aspect ratio
 
   React.useEffect(() => {
+    if (cardCache.has(printingId)) {
+      setCard(cardCache.get(printingId)!);
+      return;
+    }
     async function fetchCardData() {
       try {
         const response = await fetch(`/api/printings/search?printingIds=${encodeURIComponent(printingId)}&show=all&limit=1`);
@@ -40,6 +47,7 @@ export default function InlineCard({ printingId, children, thumbnail = false, si
           const cardData = jsonResponse?.data?.printings?.[0];
 
           if (cardData) {
+            cardCache.set(printingId, cardData);
             setCard(cardData);
           } else {
             setCard(null);

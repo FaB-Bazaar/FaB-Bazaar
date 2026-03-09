@@ -189,27 +189,6 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('show')) options.show = searchParams.get('show') as any;
     if (searchParams.get('searchMode')) options.searchMode = searchParams.get('searchMode') as any;
     
-    // ✅ ADD DEBUG LOGGING for talent conversion
-    if (searchParams.get('talents') || searchParams.get('talentsNot')) {
-      console.log('Talent conversion debug:', {
-        originalTalents: searchParams.get('talents'),
-        originalTalentsNot: searchParams.get('talentsNot'),
-        convertedFilters: {
-          hasLight: filters.hasLight,
-          hasIce: filters.hasIce,
-          hasEarth: filters.hasEarth,
-          hasShadow: filters.hasShadow,
-          hasDraconic: filters.hasDraconic,
-          hasRoyal: filters.hasRoyal,
-          hasPirate: filters.hasPirate,
-          hasElemental: filters.hasElemental,
-          hasLightning: filters.hasLightning,
-          hasChaos: filters.hasChaos,
-          hasMystic: filters.hasMystic
-        }
-      });
-    }
-
     // In your API route, add this after the existing printingIds handling:
     if (searchParams.get('printingId')) {
       // Handle singular printing ID
@@ -221,13 +200,6 @@ export async function GET(request: NextRequest) {
       filters.printingIds = searchParams.get('printingIds')!.split(',');
     }
     
-    // 🔍 LOG BEFORE SEARCH
-    console.log('🔍 API ROUTE - Before Search:', {
-      nameFilter: filters.name,
-      textFilter: filters.text,
-      allFilters: JSON.stringify(filters, null, 2)
-    });
-
     // Execute search using service layer
     const result = await printingsService.searchPrintings(filters, options);
 
@@ -238,13 +210,6 @@ export async function GET(request: NextRequest) {
         error: result.error
       }, { status: 500 });
     }
-
-    // 🔍 LOG AFTER SEARCH (server-side only)
-    console.log('🔍 API ROUTE - After Search:', {
-      mongoQuery: JSON.stringify(result.data.queryInfo?.query, null, 2),
-      executionTime: result.data.queryInfo?.executionTime,
-      totalResults: result.data.total
-    });
 
     // Return results - only include debug info in development
     const isDev = process.env.NODE_ENV === 'development';

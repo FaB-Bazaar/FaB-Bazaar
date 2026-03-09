@@ -34,6 +34,7 @@ import { FeaturedCardsCarousel } from '@/components/shared/FeaturedCardsCarousel
 // Add ad components
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
 import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
+import { ShareButton } from "@/components/shared/ShareButton";
 
 // Add it to your components object:
 const components = {
@@ -47,42 +48,39 @@ export const revalidate = 3600;
 
 // Helper function to fetch carousel card data
 async function fetchCarouselCards(cards: any[]) {
-  const cardDataPromises = cards.map(async (card) => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL}/api/printings/search?printingIds=${card.printingId}`,
-        { cache: 'no-store' }
-      );
-      const data = await response.json();
+  const printingIds = cards.map((c) => c.printingId).filter(Boolean);
+  if (printingIds.length === 0) return [];
 
-      if (data.success && data.data?.printings?.length > 0) {
-        const printing = data.data.printings[0];
-        return {
-          printing_id: printing.printing_id,
-          card_unique_id: printing.card_unique_id,
-          name: card.name || printing.display_name || printing.name,
-          set: printing.set,
-          collector_number: printing.printing_card_id || printing.collector_number,
-          edition: printing.edition,
-          foiling: printing.foiling,
-          rarity: printing.rarity,
-          is_extended_art: printing.is_extended_art,
-          tcgplayer_url: printing.tcgplayer_url,
-          tcg_low: printing.tcg_low,
-          tcg_market: printing.tcg_low || printing.tcg_market,
-          image_url: printing.image_url,
-          caption: card.caption, // Preserve caption from database
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error(`Failed to fetch card ${card.printingId}:`, error);
-      return null;
-    }
-  });
+  const { printingsService } = await import('@/lib/services');
+  const result = await printingsService.searchPrintings({ printingIds }, {});
+  if (!result.success) return [];
 
-  const results = await Promise.all(cardDataPromises);
-  return results.filter(card => card !== null);
+  const printingMap = new Map(
+    result.data.printings.map((p: any) => [p.printing_id, p])
+  );
+
+  return cards
+    .map((card) => {
+      const printing = printingMap.get(card.printingId);
+      if (!printing) return null;
+      return {
+        printing_id: printing.printing_id,
+        card_unique_id: printing.card_unique_id,
+        name: card.name || printing.display_name || printing.name,
+        set: printing.set,
+        collector_number: printing.printing_card_id || printing.collector_number,
+        edition: printing.edition,
+        foiling: printing.foiling,
+        rarity: printing.rarity,
+        is_extended_art: printing.is_extended_art,
+        tcgplayer_url: printing.tcgplayer_url,
+        tcg_low: printing.tcg_low,
+        tcg_market: printing.tcg_low || printing.tcg_market,
+        image_url: printing.image_url,
+        caption: card.caption,
+      };
+    })
+    .filter(Boolean);
 }
 
 // ============================================================================
@@ -161,6 +159,9 @@ export default async function HeroArticlePage({ params }: { params: { publicId: 
           {articleDoc.subtitle && (
             <p className="lead text-lg text-slate-600 dark:text-slate-400">{articleDoc.subtitle}</p>
           )}
+          <div className="not-prose flex items-center gap-2 mb-4">
+            <ShareButton url={`https://fabbazaar.app/heroes/${publicId}`} />
+          </div>
           <hr />
 
           {/* --- THE NEW RENDER LOGIC for structured content --- */}

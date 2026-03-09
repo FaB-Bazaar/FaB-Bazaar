@@ -12,6 +12,9 @@ interface MiniCard {
   image_url: string;
 }
 
+// Module-level cache — survives remounts, cleared on page navigation
+const cardCache = new Map<string, MiniCard>();
+
 interface InlineCardThumbnailProps {
   printingId: string;
   size?: 'sm' | 'md'; // sm=32px, md=48px height
@@ -33,6 +36,11 @@ export default function InlineCardThumbnail({
   const width = Math.round(height * (63 / 88));
 
   React.useEffect(() => {
+    if (cardCache.has(printingId)) {
+      setCard(cardCache.get(printingId)!);
+      setIsLoading(false);
+      return;
+    }
     async function fetchCardData() {
       try {
         setIsLoading(true);
@@ -45,6 +53,7 @@ export default function InlineCardThumbnail({
           const cardData = jsonResponse?.data?.printings?.[0];
 
           if (cardData) {
+            cardCache.set(printingId, cardData);
             setCard(cardData);
           } else {
             setCard(null);

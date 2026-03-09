@@ -34,6 +34,7 @@ import { FeaturedCardsCarousel } from '@/components/shared/FeaturedCardsCarousel
 // Add ad components
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
 import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
+import { ShareButton } from "@/components/shared/ShareButton";
 
 const components = {
   HeroCard, InlineCard, CardGrid, CardCarousel, CardRow, Callout,
@@ -153,6 +154,9 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
           {articleDoc.subtitle && (
             <p className="lead text-lg text-slate-600 dark:text-slate-400">{articleDoc.subtitle}</p>
           )}
+          <div className="not-prose flex items-center gap-2 mb-4">
+            <ShareButton url={`https://fabbazaar.app/articles/${publicId}`} />
+          </div>
           <hr />
 
           {/* Section renderer with all section types */}

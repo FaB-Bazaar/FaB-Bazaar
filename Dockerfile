@@ -20,6 +20,9 @@ COPY .env.example .env.local
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+ARG NEXT_PUBLIC_APP_URL=https://fabbazaar.app
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 RUN NODE_OPTIONS="--max_old_space_size=1536" npm run build
 
 # Stage 3: Lean production runtime using Next.js standalone output
