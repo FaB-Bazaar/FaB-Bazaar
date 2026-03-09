@@ -9,16 +9,14 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
 
     // For GET requests, check query params for auth
-    const authResult = await authenticateRequest(request, {
-      mcp_token: url.searchParams.get('mcp_token')
-    });
+    const authResult = await authenticateRequest(request, {});
 
     if (!authResult.success) {
       console.log(`[DeckAPI] GET Authentication failed: ${authResult.error}`);
       return NextResponse.json({
         success: false,
         error: authResult.error || 'Authentication required',
-        hint: 'Provide either a valid session (web), X-Discord-User-Id header, or mcp_token parameter'
+        hint: 'Provide either a valid session (web), X-Discord-User-Id header, or Authorization: Bearer <mcp_token> header'
       }, { status: 401 });
     }
 
@@ -65,7 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: authResult.error || 'Authentication required',
-        hint: 'Provide either a valid session (web), discordId, or mcp_token parameter'
+        hint: 'Provide either a valid session (web), discordId, or Authorization: Bearer <mcp_token> header'
       }, { status: 401 });
     }
 

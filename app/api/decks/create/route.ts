@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: authResult.error || 'Authentication required',
-        hint: 'Provide either a valid session (web), discordId, or mcp_token parameter'
+        hint: 'Provide either a valid session (web), discordId, or Authorization: Bearer <mcp_token> header'
       }, { status: 401 });
     }
 

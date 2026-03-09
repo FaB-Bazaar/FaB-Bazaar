@@ -41,14 +41,12 @@ const RATE_LIMIT_CONFIG = {
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const DEBUG_MCP = !IS_PRODUCTION;
 
-// Helper to extract MCP token from request
+// Helper to extract MCP token from Authorization header only
 function extractMCPToken(req: Request): string | null {
-  const url = new URL(req.url);
-  
-  // Check for mcp_token parameter: ?mcp_token=abc123
-  const mcpToken = url.searchParams.get('mcp_token');
-  if (mcpToken) return mcpToken;
-  
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer mcp_')) {
+    return authHeader.substring(7);
+  }
   return null;
 }
 
@@ -229,7 +227,31 @@ export async function POST(req: Request) {
   let authenticatedUser = null;
   let authMethod = 'none';
 
-  if (authHeader?.startsWith('Bearer ')) {
+  if (authHeader?.startsWith('Bearer mcp_')) {
+    // Legacy MCP token via Authorization header (checked first to avoid OAuth validator confusion)
+    const mcpToken = extractMCPToken(req);
+    const tokenValidation = await isValidMCPToken(mcpToken);
+
+    if (!tokenValidation.isValid) {
+      if (DEBUG_MCP) console.log(`❌ MCP token authentication failed: ${tokenValidation.error} from IP: ${clientIP}`);
+      return NextResponse.json({
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32001,
+          message: `Authentication failed: ${tokenValidation.error}. Provide a valid MCP token via Authorization: Bearer <mcp_token>.`,
+          data: {
+            hint: "Generate a new token from your FabBazaar account settings, or use OAuth client credentials",
+            error: tokenValidation.error
+          }
+        }
+      }, { status: 401, headers: corsHeaders() });
+    }
+
+    authenticatedUser = tokenValidation.user;
+    authMethod = 'mcp_token';
+    if (DEBUG_MCP) console.log(`✅ MCP token validated for user: ${authenticatedUser.username} from IP: ${clientIP}`);
+  } else if (authHeader?.startsWith('Bearer ')) {
     // OAuth 2.1 Bearer Token Authentication
     const token = authHeader.substring(7);
     const oauthValidation = await validateOAuth2Token(token);
@@ -250,29 +272,19 @@ export async function POST(req: Request) {
       }, { status: 401, headers: corsHeaders() });
     }
   } else {
-    // Fallback to Legacy MCP Token Authentication
-    const mcpToken = extractMCPToken(req);
-    const tokenValidation = await isValidMCPToken(mcpToken);
-
-    if (!tokenValidation.isValid) {
-      if (DEBUG_MCP) console.log(`❌ Authentication failed: ${tokenValidation.error} from IP: ${clientIP}`);
-      return NextResponse.json({
-        jsonrpc: "2.0",
-        id: null,
-        error: {
-          code: -32001,
-          message: `Authentication failed: ${tokenValidation.error}. Use either OAuth Bearer token or MCP token.`,
-          data: {
-            hint: "Generate a new token from your FabBazaar account settings, or use OAuth client credentials",
-            error: tokenValidation.error
-          }
+    // No valid Authorization header
+    if (DEBUG_MCP) console.log(`❌ Authentication failed: No Authorization header from IP: ${clientIP}`);
+    return NextResponse.json({
+      jsonrpc: "2.0",
+      id: null,
+      error: {
+        code: -32001,
+        message: "Authentication required. Provide Authorization: Bearer <mcp_token> or Authorization: Bearer <oauth_token>.",
+        data: {
+          hint: "Generate a token from your FabBazaar account settings and send it as an Authorization header"
         }
-      }, { status: 401, headers: corsHeaders() });
-    }
-
-    authenticatedUser = tokenValidation.user;
-    authMethod = 'mcp_token';
-    if (DEBUG_MCP) console.log(`✅ MCP token validated for user: ${authenticatedUser.username} from IP: ${clientIP}`);
+      }
+    }, { status: 401, headers: corsHeaders() });
   }
 
   // Rate limiting check (with higher limits for authenticated users)
@@ -1841,7 +1853,7 @@ export async function GET(req: Request) {
     capabilities: ["OAuth 2.1 Bearer tokens", "Legacy MCP tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "update_binder", "get_wants", "update_wants", "get_article", "add_article_section", "update_article_section", "list_decks", "get_deck"],
     hint: "Use POST with method/params structure. Always start with 'read_mandatory_constants_first' tool!",
     mode: "OAUTH_AND_LEGACY_SUPPORT",
-    authMethods: ["Bearer <oauth_token>", "?mcp_token=<legacy_token>"],
+    authMethods: ["Bearer <oauth_token>", "Bearer <mcp_token>"],
     workflow: "🚨 MANDATORY: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → update_binder",
     setup_sequence: [
       "1️⃣ read_mandatory_constants_first({\"uri\": \"fab://constants\"})",

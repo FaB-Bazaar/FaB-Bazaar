@@ -138,9 +138,7 @@ Update an existing section in an article by its index. Replaces the entire secti
       // Build query parameters
       const queryParams = new URLSearchParams();
       const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      if (tokenToUse) {
-        queryParams.append('mcp_token', tokenToUse);
-      } else if (authParams.discordId) {
+      if (authParams.discordId) {
         queryParams.append('discordId', authParams.discordId);
       }
 
@@ -182,7 +180,7 @@ Update an existing section in an article by its index. Replaces the entire secti
         'Content-Type': 'application/json',
       };
 
-      if (tokenToUse && tokenToUse.includes('.')) {
+      if (tokenToUse) {
         headers['Authorization'] = `Bearer ${tokenToUse}`;
       }
 

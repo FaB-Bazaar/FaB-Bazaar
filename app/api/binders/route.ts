@@ -7,24 +7,22 @@ import mongoose from 'mongoose';
 
 /**
  * GET /api/binders
- * 
+ *
  * Returns binders based on query parameters:
  * - No params: Returns current user's own binders
  * - ?userId=xyz: Returns public binders for specified user
  * - ?summary=true: Returns minimal data (name, slug, _id only)
- * - ?mcp_token=xyz: Authenticates with MCP token and returns only mcp-binder
- * 
+ *
  * Authentication methods supported:
  * - Session auth (web interface)
  * - Discord bot token (X-Discord-Bot-Token header + discordId param)
- * - MCP token (mcp_token query parameter)
+ * - MCP token (Authorization: Bearer <mcp_token> header)
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const requestedUserId = searchParams.get('userId'); // For public binders
     const isSummary = searchParams.get('summary') === 'true';
-    const mcpToken = searchParams.get('mcp_token'); // For filtering mcp-binder
 
     console.log('[API TRACK] /api/binders called', {
       time: new Date().toISOString(),
@@ -78,7 +76,7 @@ export async function GET(req: NextRequest) {
 
       let bindersWithStats = statsResult.data;
 
-      if (authMethod === 'mcpToken' || mcpToken) {
+      if (authMethod === 'mcpToken') {
         bindersWithStats = bindersWithStats.filter(b => b.slug === 'mcp-binder');
       }
 

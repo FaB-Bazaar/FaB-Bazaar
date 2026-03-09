@@ -10,14 +10,14 @@ import { binderService, userService } from '@/lib/services';
  *
  * Authentication methods:
  * - Session auth (web interface): Returns user's own complete collection
- * - MCP token (?mcp_token=xyz): Returns user's own complete collection
+ * - MCP token (Authorization: Bearer <mcp_token> header)
  * - Discord bot token + discordId: Returns user's own complete collection
  * - Public access (?userId=xyz): Returns summary stats
  *
  * Query parameters:
  * - userId: View another user's collection (public data only)
  * - view: 'complete' | 'summary' (defaults to 'complete' for own data, 'summary' for others)
- * - mcp_token: MCP token authentication
+ * - MCP token: Authorization: Bearer <mcp_token> header
  * - discordId: For Discord bot authentication
  * - discord_bot_token: Bot token (also accepts X-Discord-Bot-Token header)
  *

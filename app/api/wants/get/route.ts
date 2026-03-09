@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
         {
           success: false,
           error: authResult.error || "Authentication required",
-          hint: "Provide either a valid session (web), discordId query parameter, mcp_token query parameter, or OAuth Bearer token (Authorization: Bearer <token>)",
+          hint: "Provide either a valid session (web), discordId query parameter, or OAuth/MCP Bearer token (Authorization: Bearer <token>)",
         },
         { status: 401 }
       );

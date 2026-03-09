@@ -49,7 +49,7 @@ export default function MCPIntegrationPage() {
   const [error, setError] = useState<string>('');
 
   const mcpServerUrl = 'https://fabbazaar.app/api/mcp/server';
-  const mcpUrl = mcpToken ? `${mcpServerUrl}?mcp_token=${mcpToken}` : '';
+  const mcpUrl = mcpServerUrl; // Token must be sent as Authorization: Bearer <token> header, not in URL
 
   useEffect(() => {
     if (session?.user) {
@@ -607,16 +607,16 @@ export default function MCPIntegrationPage() {
               <TabsContent value="legacy" className="space-y-6">
                 <Alert className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/50">
                   <AlertDescription className="text-orange-800 dark:text-orange-200">
-                    <strong>Quick Setup (Not Recommended):</strong> This method uses query parameters for authentication.
-                    While it works, we recommend using OAuth for Claude Desktop/Web as it provides better security with token refresh and expiry.
+                    <strong>Legacy Token (Not Recommended):</strong> Send this token as an <code className="bg-orange-100 dark:bg-orange-900/50 px-1 rounded">Authorization: Bearer &lt;token&gt;</code> header.
+                    We recommend using OAuth for Claude Desktop/Web as it provides better security with token refresh and expiry.
                   </AlertDescription>
                 </Alert>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="token" className="text-gray-900 dark:text-gray-100">MCP Token</Label>
-                    <Button 
-                      onClick={generateToken} 
+                    <Button
+                      onClick={generateToken}
                       disabled={isGeneratingToken}
                       variant="outline"
                       size="sm"
@@ -632,35 +632,12 @@ export default function MCPIntegrationPage() {
                       )}
                     </Button>
                   </div>
-                  
+
                   {mcpToken && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="url" className="text-sm font-semibold text-green-700 dark:text-green-400">
-                          Complete URL (Copy this for Claude Desktop)
-                        </Label>
-                        <div className="flex space-x-2">
-                          <Input
-                            id="url"
-                            value={mcpUrl}
-                            readOnly
-                            className="font-mono text-sm bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800 text-gray-900 dark:text-gray-100"
-                          />
-                          <Button
-                            onClick={() => copyToClipboard(mcpUrl, 'url')}
-                            variant="default"
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
-                          >
-                            <Copy className="w-4 h-4" />
-                            {copiedUrl ? 'Copied!' : 'Copy URL'}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                         <Label htmlFor="token" className="text-sm text-gray-600 dark:text-gray-400">
-                          Token Only (if needed separately)
+                          Token
                         </Label>
                         <div className="flex space-x-2">
                           <Input
@@ -678,6 +655,26 @@ export default function MCPIntegrationPage() {
                             <Copy className="w-4 h-4" />
                             {copiedToken ? 'Copied!' : 'Copy Token'}
                           </Button>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-orange-50 dark:bg-orange-950/50 rounded-md border border-orange-200 dark:border-orange-800">
+                        <h5 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
+                          MCP Client Configuration:
+                        </h5>
+                        <div className="space-y-2 text-xs">
+                          <div>
+                            <strong className="text-orange-900 dark:text-orange-100">Server URL:</strong>
+                            <code className="ml-2 bg-orange-100 dark:bg-orange-900/50 px-1 rounded text-orange-900 dark:text-orange-100">
+                              {mcpServerUrl}
+                            </code>
+                          </div>
+                          <div>
+                            <strong className="text-orange-900 dark:text-orange-100">Authorization Header:</strong>
+                            <code className="ml-2 bg-orange-100 dark:bg-orange-900/50 px-1 rounded text-orange-900 dark:text-orange-100">
+                              Bearer {mcpToken.substring(0, 20)}...
+                            </code>
+                          </div>
                         </div>
                       </div>
                     </>
@@ -698,7 +695,7 @@ export default function MCPIntegrationPage() {
                 <li>Generate your credentials using one of the methods above</li>
                 <li>Configure your MCP client with the appropriate authentication method</li>
                 <li><strong>For Claude Desktop/Web (Recommended):</strong> Use OAuth Credentials tab with redirect URI <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">https://claude.ai/api/mcp/auth_callback</code></li>
-                <li><strong>For quick setup:</strong> Use Bearer Token (simple) or Legacy Token (query params)</li>
+                <li><strong>For quick setup:</strong> Use Bearer Token (simple) or Legacy Token (Authorization header)</li>
                 <li>Add the remote MCP server in Claude via Settings → Connectors</li>
                 <li>Verify FabBazaar appears in your available tools</li>
               </ol>

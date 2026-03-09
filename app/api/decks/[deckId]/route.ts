@@ -63,10 +63,7 @@ export async function GET(
     const articleSlug = url.searchParams.get('articleSlug');
     const heroSlug = url.searchParams.get('heroSlug');
 
-    // For GET requests, check query params for auth
-    const authResult = await authenticateRequest(request, {
-      mcp_token: url.searchParams.get('mcp_token')
-    }, { allowOAuth: true });
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
 
     // Use service layer to fetch deck
     const result = await deckService.findByPublicId(
@@ -192,9 +189,7 @@ export async function DELETE(
     const url = new URL(request.url);
 
     // Authentication required for deletion
-    const authResult = await authenticateRequest(request, {
-      mcp_token: url.searchParams.get('mcp_token')
-    });
+    const authResult = await authenticateRequest(request, {});
 
     if (!authResult.success) {
       return NextResponse.json({

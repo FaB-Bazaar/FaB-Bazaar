@@ -22,7 +22,7 @@ import type { ArticleStatus, ArticleContentType, ArticleListFilters } from '@/li
  * - slug: Get single article by slug
  * - limit: Number of results (default: 50, max: 100)
  * - skip: Offset for pagination (default: 0)
- * - mcp_token: MCP token for authentication
+ * - MCP token: Authorization: Bearer <mcp_token> header
  * - discordId: Discord ID (with X-Discord-Bot-Token header)
  */
 export async function GET(req: NextRequest) {

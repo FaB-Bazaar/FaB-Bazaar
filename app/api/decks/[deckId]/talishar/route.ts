@@ -170,9 +170,7 @@ export async function GET(
     const url = new URL(request.url);
 
     // Check authentication (optional for public decks)
-    const authResult = await authenticateRequest(request, {
-      mcp_token: url.searchParams.get('mcp_token')
-    });
+    const authResult = await authenticateRequest(request, {});
 
     // Fetch deck using service layer
     const result = await deckService.findByPublicId(

@@ -150,9 +150,7 @@ Append new sections to the end of an article. Supports all section types includi
       // Build query parameters
       const queryParams = new URLSearchParams();
       const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      if (tokenToUse) {
-        queryParams.append('mcp_token', tokenToUse);
-      } else if (authParams.discordId) {
+      if (authParams.discordId) {
         queryParams.append('discordId', authParams.discordId);
       }
 
@@ -186,7 +184,7 @@ Append new sections to the end of an article. Supports all section types includi
         'Content-Type': 'application/json',
       };
 
-      if (tokenToUse && tokenToUse.includes('.')) {
+      if (tokenToUse) {
         headers['Authorization'] = `Bearer ${tokenToUse}`;
       }
 

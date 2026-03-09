@@ -44,9 +44,8 @@ export function extractAuthParams(req: NextRequest, body: any = {}): AuthParams 
   const authHeader = req.headers.get('Authorization') || '';
 
   return {
-    // MCP token can come from body or Bearer header (query params removed for security - URL leak risk)
+    // MCP token must come from Authorization: Bearer mcp_... header only
     mcpToken:
-      body.mcp_token ||
       (authHeader.startsWith('Bearer mcp_') ? authHeader.substring(7) : null),
 
     // Discord ID from header (preferred for Discord bot) or body
@@ -273,7 +272,7 @@ export function hasAuthParams(req: NextRequest, body: any = {}): boolean {
                            cookieHeader.includes('__Secure-authjs.session-token');
 
   // Check for other auth params (query params removed for security - URL leak risk)
-  const hasMcpToken = !!(body.mcp_token || authHeader.startsWith('Bearer mcp_'));
+  const hasMcpToken = !!(authHeader.startsWith('Bearer mcp_'));
   const hasDiscordId = !!body.discordId;
   const hasDiscordBotToken = !!(req.headers.get('X-Discord-Bot-Token') || body.discordBotToken);
   const hasOAuthToken = authHeader.startsWith('Bearer ') && !authHeader.startsWith('Bearer mcp_');

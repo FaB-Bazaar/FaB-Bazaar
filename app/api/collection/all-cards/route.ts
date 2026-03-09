@@ -11,7 +11,7 @@ import { authenticateRequest } from '@/lib/auth/multi-auth';
  *
  * Authentication methods supported:
  * - Session auth (web interface)
- * - MCP token (mcp_token query parameter)
+ * - MCP token (Authorization: Bearer <mcp_token> header)
  * - Discord bot token (X-Discord-Bot-Token header + discordId param)
  *
  * Query parameters:

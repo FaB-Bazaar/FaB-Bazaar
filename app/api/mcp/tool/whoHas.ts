@@ -126,12 +126,13 @@ export const whoHasTool = {
         'User-Agent': 'FabBazaar-MCP-WhoHas/1.0'
       };
 
-      // Add MCP token to URL if available (matches your other tools)
       const tokenToUse = authenticatedUser?.mcpToken || token;
-      const urlWithAuth = tokenToUse ? `${whohasUrl}&mcp_token=${tokenToUse}` : whohasUrl;
+      if (tokenToUse) {
+        headers['Authorization'] = `Bearer ${tokenToUse}`;
+      }
 
       // Make the API call
-      const response = await mcpFetch(urlWithAuth, {
+      const response = await mcpFetch(whohasUrl, {
         method: 'GET',
         headers
       });

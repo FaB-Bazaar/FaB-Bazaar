@@ -94,10 +94,7 @@ Retrieve a full article by its slug, including all sections and metadata.
 
       // Add authentication
       const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      if (tokenToUse) {
-        queryParams.append('mcp_token', tokenToUse);
-        console.log(`[GetArticle] Using MCP token for authentication`);
-      } else if (authParams.discordId) {
+      if (authParams.discordId) {
         queryParams.append('discordId', authParams.discordId);
         console.log(`[GetArticle] Using Discord ID: ${authParams.discordId}`);
       }
@@ -112,10 +109,8 @@ Retrieve a full article by its slug, including all sections and metadata.
         'Content-Type': 'application/json',
       };
 
-      // Add OAuth Bearer token if available
-      if (tokenToUse && tokenToUse.includes('.')) {
+      if (tokenToUse) {
         headers['Authorization'] = `Bearer ${tokenToUse}`;
-        console.log(`[GetArticle] Added OAuth Bearer header`);
       }
 
       const response = await fetch(url, {
