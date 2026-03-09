@@ -255,8 +255,8 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
 
   function getCheapestPrinting(printings: any[]) {
     if (!printings || printings.length === 0) return null;
-    return printings.filter((p) => p.tcgMarket && !isNaN(Number(p.tcgMarket)))
-      .reduce((min, p) => (min === null || Number(p.tcgMarket) < Number(min.tcgMarket) ? p : min), null)
+    return printings.filter((p) => p.tcgLow && !isNaN(Number(p.tcgLow)))
+      .reduce((min, p) => (min === null || Number(p.tcgLow) < Number(min.tcgLow) ? p : min), null)
   }
 
   function getColorBorderClass(color: string | undefined): string {
@@ -407,9 +407,9 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm md:text-base truncate">{card.name}</p>
                             <div className="flex flex-wrap gap-1 mt-1">{card.types?.slice(0, 2).map((type: string) => (<Badge key={`${card.unique_id}-${type}`} variant="secondary" className="text-xs">{type}</Badge>))}{card.pitch && (<Badge className={`text-xs text-white ${card.pitch === 1 || card.pitch === "1" ? "bg-red-500 hover:bg-red-600" : card.pitch === 2 || card.pitch === "2" ? "bg-yellow-500 hover:bg-yellow-600 text-black" : card.pitch === 3 || card.pitch === "3" ? "bg-blue-500 hover:bg-blue-600" : "bg-gray-500 hover:bg-gray-600"}`}>Pitch {card.pitch}</Badge>)}</div>
-                            {card.printings && card.printings.length > 0 && (<div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{card.printings.length} printing{card.printings.length !== 1 ? 's' : ''}{(() => { const cheapest = getCheapestPrinting(card.printings); if (cheapest?.tcgMarket) { const displayName = getPrintingShortDisplay(cheapest); return ` • Cheapest: ${displayName} ($${Number(cheapest.tcgMarket).toFixed(2)})`; } return ''; })()}</div>)}
+                            {card.printings && card.printings.length > 0 && (<div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{card.printings.length} printing{card.printings.length !== 1 ? 's' : ''}{(() => { const cheapest = getCheapestPrinting(card.printings); if (cheapest?.tcgLow) { const displayName = getPrintingShortDisplay(cheapest); return ` • Cheapest: ${displayName} ($${Number(cheapest.tcgLow).toFixed(2)})`; } return ''; })()}</div>)}
                           </div>
-                          {card.printings && card.printings.length > 0 && (() => { const cheapest = getCheapestPrinting(card.printings); if (cheapest) { return (<div className="flex-shrink-0 text-right space-y-0.5"><div className="text-xs font-medium text-gray-600 dark:text-gray-400">Cheapest:</div>{renderPriceLine(cheapest, 'tcgMarket', 'Market')}<div className="hidden md:block">{renderPriceLine(cheapest, 'tcgLow', 'Low', true)}</div></div>); } return null; })()}
+                          {card.printings && card.printings.length > 0 && (() => { const cheapest = getCheapestPrinting(card.printings); if (cheapest?.tcgLow) { return (<div className="flex-shrink-0 text-right">{renderPriceLine(cheapest, 'tcgLow', 'Low', true)}</div>); } return null; })()}
                         </div></CardContent>
                     </Card>
                   ))}</div>
@@ -439,9 +439,9 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                         <Select value={selectedPrinting?.unique_id || selectedPrinting?.printing_id || ""} onValueChange={(value) => { if (value === "cheapest") { setSelectedPrinting(getCheapestPrinting(selectedCard.printings || [])) } else { const found = (selectedCard.printings || []).find((p: any) => p.unique_id === value || p.printing_id === value); setSelectedPrinting(found || null) }}}>
                           <SelectTrigger className="w-full text-sm"><SelectValue placeholder="Choose a printing..." /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="cheapest">Cheapest option {(() => { const cheapest = getCheapestPrinting(selectedCard.printings || []); return cheapest?.tcgMarket ? `($${Number(cheapest.tcgMarket).toFixed(2)})` : ''; })()}</SelectItem>
+                            <SelectItem value="cheapest">Cheapest option {(() => { const cheapest = getCheapestPrinting(selectedCard.printings || []); return cheapest?.tcgLow ? `($${Number(cheapest.tcgLow).toFixed(2)})` : ''; })()}</SelectItem>
                             {(selectedCard.printings || []).map((printing: any) => {
-                              const price = printing.tcgMarket ? `$${Number(printing.tcgMarket).toFixed(2)}` : '';
+                              const price = printing.tcgLow ? `$${Number(printing.tcgLow).toFixed(2)}` : '';
                               const displayName = getPrintingShortDisplay(printing);
                               const rarityDisplay = getRarityDisplayName(printing.rarity);
                               const cardIdDisplay = printing.printing_card_id ? `(${printing.printing_card_id})` : '';
@@ -455,11 +455,8 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                           <p className="text-xs md:text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">{getPrintingDisplayName(selectedPrinting)}</p>
 
                           <div className="space-y-0.5 md:space-y-1">
-                            {renderPriceLine(selectedPrinting, 'tcgMarket', 'TCG Market')}
-                            <div className="hidden md:block">{renderPriceLine(selectedPrinting, 'tcgHigh', 'TCG High')}</div>
-                            <div className="hidden md:block">{renderPriceLine(selectedPrinting, 'tcgMid', 'TCG Mid')}</div>
                             {renderPriceLine(selectedPrinting, 'tcgLow', 'TCG Low', true)}
-                            {!selectedPrinting.tcgLow && !selectedPrinting.tcgMid && !selectedPrinting.tcgHigh && !selectedPrinting.tcgMarket && (<div className="text-xs text-gray-500 dark:text-gray-400 italic">No pricing information available</div>)}
+                            {!selectedPrinting.tcgLow && (<div className="text-xs text-gray-500 dark:text-gray-400 italic">No pricing information available</div>)}
                           </div>
                         </div>
                       )}

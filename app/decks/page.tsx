@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,7 @@ interface Deck {
 
 export default function DecksPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
@@ -97,6 +98,16 @@ export default function DecksPage() {
       fetchDecks();
     }
   }, [user]);
+
+  // Auto-open create dialog from URL param
+  useEffect(() => {
+    if (searchParams.get('create') === 'true' && user) {
+      setCreateDeckOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('create');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, user]);
 
   const fetchDecks = async () => {
     try {

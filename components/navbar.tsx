@@ -59,6 +59,7 @@ export default function Navbar() {
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const [decksLoaded, setDecksLoaded] = useState(false) // DECKS-FEATURE
   const [bindersLoaded, setBindersLoaded] = useState(false)
+  const [navDeckSort, setNavDeckSort] = useState<'updated' | 'name' | 'created'>('updated')
 
   // Check for URL parameters to auto-open search
   useEffect(() => {
@@ -495,8 +496,31 @@ export default function Navbar() {
               View All Decks
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/decks?create=true" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Plus className="h-4 w-4 mr-2" />
+              New Deck
+            </Link>
+          </DropdownMenuItem>
 
-          {decks.length > 0 && <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />}
+          {decks.length > 0 && (
+            <>
+              <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
+              <div className="px-2 py-1 flex items-center justify-between">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Recent decks</span>
+                <select
+                  value={navDeckSort}
+                  onChange={(e) => setNavDeckSort(e.target.value as typeof navDeckSort)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs text-gray-500 dark:text-gray-400 bg-transparent border-none outline-none cursor-pointer"
+                >
+                  <option value="updated">Last updated</option>
+                  <option value="created">Date created</option>
+                  <option value="name">Name</option>
+                </select>
+              </div>
+            </>
+          )}
 
           {decksLoading ? (
             <DropdownMenuItem disabled>
@@ -507,32 +531,38 @@ export default function Navbar() {
               <span className="text-sm text-gray-500 dark:text-gray-400">No decks yet</span>
             </DropdownMenuItem>
           ) : (
-            decks.slice(0, 5).map((deck) => {
-              // Extract hero name from the hero array
-              const heroName = deck.hero && Array.isArray(deck.hero) && deck.hero.length > 0
-                ? deck.hero[0]?.printingDetails?.display_name || deck.hero[0]?.printingId
-                : null
+            [...decks]
+              .sort((a, b) => {
+                if (navDeckSort === 'name') return a.name.localeCompare(b.name)
+                if (navDeckSort === 'created') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+              })
+              .slice(0, 5)
+              .map((deck) => {
+                const heroName = deck.hero && Array.isArray(deck.hero) && deck.hero.length > 0
+                  ? deck.hero[0]?.printingDetails?.display_name || deck.hero[0]?.printingId
+                  : null
 
-              return (
-                <DropdownMenuItem key={deck._id || deck.publicId} asChild>
-                  <Link
-                    href={`/decks/${deck.publicId}`}
-                    className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                        {deck.name}
-                      </span>
-                      {heroName && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {heroName}
+                return (
+                  <DropdownMenuItem key={deck._id || deck.publicId} asChild>
+                    <Link
+                      href={`/decks/${deck.publicId}`}
+                      className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                          {deck.name}
                         </span>
-                      )}
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
-              )
-            })
+                        {heroName && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {heroName}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                )
+              })
           )}
         </DropdownMenuContent>
       </DropdownMenu>
