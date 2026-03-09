@@ -10,6 +10,7 @@ import { authTokenService } from '@/lib/services';
 import { searchPrintingsTool } from '../tool/searchPrintings';
 import { extractPrintingIdsTool } from '../tool/extractPrintingIds';
 import { updateBinderTool } from '../tool/updateBinder';
+import { removeFromBinderTool } from '../tool/removeFromBinder';
 import { getBinderTool } from '../tool/getBinder';
 import { listBindersTool } from '../tool/listBinders';
 import { getWantsTool } from '../tool/getWants';
@@ -26,6 +27,7 @@ import { saveDeckMatchupTool } from '../tool/saveDeckMatchup';
 import { getArticleTool } from '../tool/articles/getArticle';
 import { addArticleSectionTool } from '../tool/articles/addArticleSection';
 import { updateArticleSectionTool } from '../tool/articles/updateArticleSection';
+import { scanPrintingTool } from '../tool/scanPrinting';
 
 // Import the prompts
 import { mcpPrompts, getPromptByName } from '../prompt';
@@ -488,6 +490,16 @@ REQUIRED SEQUENCE:
                 name: updateBinderTool.name,
                 description: updateBinderTool.description,
                 inputSchema: updateBinderTool.parameters
+              },
+              {
+                name: removeFromBinderTool.name,
+                description: removeFromBinderTool.description,
+                inputSchema: removeFromBinderTool.parameters
+              },
+              {
+                name: scanPrintingTool.name,
+                description: scanPrintingTool.description,
+                inputSchema: scanPrintingTool.parameters
               },
               {
                 name: updateWantsTool.name,
@@ -1202,6 +1214,85 @@ The new tool provides the same functionality with better guidance for proper wor
   }
 }
 
+        if (toolName === 'remove_from_binder') {
+          if (DEBUG_MCP) console.log('🗑️ Executing remove from binder');
+
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await removeFromBinderTool.handler(toolInput, userWithToken, tokenToPass);
+
+            let responseText = '';
+            if (result.success) {
+              responseText = `✅ ${result.message}\n`;
+              responseText += `📊 Summary: ${result.summary.removed} removed of ${result.summary.total} requested\n`;
+            } else {
+              responseText = `❌ Remove Failed\n`;
+              responseText += `🚨 Error: ${result.error}\n`;
+              if (result.step) responseText += `📍 Failed at: ${result.step}\n`;
+              if (result.failures?.length) {
+                responseText += `\n⚠️ Failed cards:\n`;
+                result.failures.forEach((f: any) => {
+                  responseText += `  - ${f.cardId}: ${f.error}\n`;
+                });
+              }
+            }
+
+            return NextResponse.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [{ type: 'text', text: responseText }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+
+          } catch (err) {
+            console.error('💥 Error in remove_from_binder:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [{ type: 'text', text: `💥 Unexpected Error: ${err instanceof Error ? err.message : 'Unknown error'}` }],
+                isError: true,
+                error: err instanceof Error ? err.message : 'Unknown error'
+              }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'scan_printing') {
+          if (DEBUG_MCP) console.log('🔍 Executing scan_printing');
+
+          try {
+            const result = await scanPrintingTool.handler(toolInput);
+
+            return NextResponse.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+
+          } catch (err) {
+            console.error('💥 Error in scan_printing:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [{ type: 'text', text: `💥 Unexpected Error: ${err instanceof Error ? err.message : 'Unknown error'}` }],
+                isError: true,
+                error: err instanceof Error ? err.message : 'Unknown error'
+              }
+            }, { headers: corsHeaders() });
+          }
+        }
+
         if (toolName === 'who_has') {
           if (DEBUG_MCP) console.log('🔍 Executing who has search');
 
@@ -1850,7 +1941,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "Legacy MCP tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "update_binder", "get_wants", "update_wants", "get_article", "add_article_section", "update_article_section", "list_decks", "get_deck"],
+    capabilities: ["OAuth 2.1 Bearer tokens", "Legacy MCP tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "update_binder", "remove_from_binder", "scan_printing", "get_wants", "update_wants", "get_article", "add_article_section", "update_article_section", "list_decks", "get_deck"],
     hint: "Use POST with method/params structure. Always start with 'read_mandatory_constants_first' tool!",
     mode: "OAUTH_AND_LEGACY_SUPPORT",
     authMethods: ["Bearer <oauth_token>", "Bearer <mcp_token>"],

@@ -1,6 +1,7 @@
 //app/api/binders/[binderId]/cards/[cardId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { Types } from 'mongoose';
 import { binderService } from '@/lib/services';
 import type { UpdateCardDTO } from '@/lib/services/contracts/IBinderService';
@@ -52,12 +53,12 @@ export async function PUT(
     const { binderId, cardId } = await params;
     const body = await request.json();
 
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    const authResult = await authenticateRequest(request, body);
+    if (!authResult.success) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = authResult.userId!;
 
     // Check if this is a printing swap action
     if (body.action === "swapPrinting") {
@@ -104,12 +105,12 @@ export async function DELETE(
   try {
     const { binderId, cardId } = await params;
 
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    const authResult = await authenticateRequest(request, {});
+    if (!authResult.success) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = authResult.userId!;
 
     // Use service layer to delete card
     const result = await binderService.deleteBinderCard(binderId, cardId, userId);
