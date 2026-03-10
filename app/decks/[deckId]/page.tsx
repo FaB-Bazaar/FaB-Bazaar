@@ -432,6 +432,23 @@ export default function DeckEditorPage() {
                   </Alert>
                 )}
 
+                {state.bulkResults.length > 0 && !state.loading && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={() => handlers.stageAll()}
+                      className="text-sm px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
+                    >
+                      Stage All
+                    </button>
+                    <button
+                      onClick={() => { handlers.clearBulkResults(); setSearchFormOpen(true); }}
+                      className="text-sm px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      Clear Results
+                    </button>
+                  </div>
+                )}
+
                 <BulkResultsGrid
                   cards={state.bulkResults}
                   loading={state.loading}

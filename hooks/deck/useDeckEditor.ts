@@ -312,6 +312,10 @@ export function useDeckEditor(deckId: string) {
 
   const clearBulkResults = () => setBulkResults([]);
 
+  const stageAll = () => {
+    setBulkResults(current => current.map(card => ({ ...card, isStaged: true })));
+  };
+
   const updateCardQuantity = (instanceId: string, newQuantity: number) => {
     setBulkResults(current =>
       current.map(card => (card.instanceId === instanceId ? { ...card, quantity: Math.max(1, newQuantity) } : card))
@@ -383,6 +387,7 @@ export function useDeckEditor(deckId: string) {
       toggleStagedStatus,
       clearStaged,
       clearBulkResults,
+      stageAll,
       updateCardQuantity,
       updateCardPrinting,
       removeCard,
