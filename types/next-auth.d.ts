@@ -12,7 +12,8 @@ interface UserRoles {
   canImportCardCollections?: boolean
   // Add the previously missing top-level booleans here
   isLocalGamingStore?: boolean
-  isPatreon?: boolean
+  isMetafySupporter?: boolean
+  isCurator?: boolean
   isShop?: boolean
   isTcgSeller?: boolean
 }

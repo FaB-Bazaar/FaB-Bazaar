@@ -35,6 +35,7 @@ import type { IHeroService } from './contracts/IHeroService';
 import type { ISystemStatsService } from './contracts/ISystemStatsService';
 import type { IAuthTokenService } from './contracts/IAuthTokenService';
 import type { IOAuthFlowService } from './contracts/IOAuthFlowService';
+import type { ICuratedListService } from './contracts/ICuratedListService';
 
 // ❌ MongoDB implementations - DEPRECATED (commented out to prevent loading)
 // These are kept in the codebase as reference only, not functional
@@ -58,6 +59,7 @@ import { PostgresArticleService } from './postgres/article/PostgresArticleServic
 import { PostgresOAuthService } from './postgres/oauth/PostgresOAuthService';
 import { PostgresAuthTokenService } from './postgres/auth-token/PostgresAuthTokenService';
 import { PostgresOAuthFlowService } from './postgres/oauth-flow/PostgresOAuthFlowService';
+import { PostgresCuratedListService } from './postgres/curated-lists/PostgresCuratedListService';
 
 // ❌ MongoDB implementations - DEPRECATED (commented out to prevent loading)
 // These are kept in the codebase as reference only, not functional
@@ -109,6 +111,7 @@ class ServiceFactory {
   private static _systemStatsService: ISystemStatsService | null = null;
   private static _authTokenService: IAuthTokenService | null = null;
   private static _oauthFlowService: IOAuthFlowService | null = null;
+  private static _curatedListService: ICuratedListService | null = null;
 
   /**
    * Get the User Service instance
@@ -548,6 +551,17 @@ class ServiceFactory {
   static setOAuthFlowService(service: IOAuthFlowService): void {
     this._oauthFlowService = service;
   }
+
+  static get curatedListService(): ICuratedListService {
+    if (!this._curatedListService) {
+      this._curatedListService = new PostgresCuratedListService();
+    }
+    return this._curatedListService;
+  }
+
+  static setCuratedListService(service: ICuratedListService): void {
+    this._curatedListService = service;
+  }
 }
 
 /**
@@ -582,6 +596,7 @@ export const articleService = ServiceFactory.articleService;
 export const oauthService = ServiceFactory.oauthService;
 export const authTokenService = ServiceFactory.authTokenService;
 export const oauthFlowService = ServiceFactory.oauthFlowService;
+export const curatedListService = ServiceFactory.curatedListService;
 
 // ❌ Deprecated services - DO NOT USE (commented out to prevent module loading errors)
 // export const denormalizationService = ServiceFactory.denormalizationService; // Use JOINs instead

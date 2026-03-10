@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -44,6 +45,17 @@ export default function DeckEditorPage() {
   const [binders, setBinders] = useState<Array<{ _id: string; name: string }>>([]);
   const [selectedBinderId, setSelectedBinderId] = useState<string>("");
 
+  // Curated builds for this hero
+  const [curatedBuilds, setCuratedBuilds] = useState<Array<{
+    id: string;
+    name: string;
+    cards: Array<{ printingId: string; displayName?: string }>;
+    children?: Array<{ id: string; name: string; cards: Array<{ printingId: string; displayName?: string }> }>;
+  }>>([]);
+
+  // Active popover for build buttons
+  const [activeBuildPopover, setActiveBuildPopover] = useState<string | null>(null);
+
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
 
@@ -76,6 +88,23 @@ export default function DeckEditorPage() {
 
   // Clear optimistic deck once the real deck refreshes from the server
   useEffect(() => { setOptimisticDeck(null); }, [state.deck]);
+
+  // Fetch curated builds for this hero (or generic lists if no hero set)
+  useEffect(() => {
+    if (!state.deck) return;
+    const heroName = state.deck.heroName || state.deck.hero?.[0]?.printingDetails?.display_name?.toLowerCase();
+    const url = heroName
+      ? `/api/curated-lists?heroName=${encodeURIComponent(heroName)}&view=public`
+      : `/api/curated-lists?view=public`;
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setCuratedBuilds(data.data ?? []);
+        }
+      })
+      .catch(() => {});
+  }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
   // Fetch binders when user is available
   useEffect(() => {
@@ -223,6 +252,35 @@ export default function DeckEditorPage() {
     }
   };
 
+  const [applyingBuild, setApplyingBuild] = useState(false);
+
+  const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
+    if (!cardList?.length || !isOwner) return;
+    setApplyingBuild(true);
+    setActiveBuildPopover(null);
+    try {
+      // Group by printingId to calculate quantities
+      const quantities = new Map<string, number>();
+      for (const card of cardList) {
+        quantities.set(card.printingId, (quantities.get(card.printingId) ?? 0) + 1);
+      }
+      const printings = Array.from(quantities.entries()).map(([printingId, quantity]) => ({
+        printingId,
+        quantity,
+        category: 'maindeck' as DeckCategory,
+      }));
+      const result = await decksClient.addPrintings(deckId, printings);
+      if (result.success) {
+        toast({ title: 'Cards added', description: `${cardList.length} card(s) added to your deck.` });
+        await handlers.refreshDeck();
+      } else {
+        toast({ title: 'Error', description: result.error, variant: 'destructive' });
+      }
+    } finally {
+      setApplyingBuild(false);
+    }
+  };
+
   const handleBinderChange = (binderId: string) => {
     setSelectedBinderId(binderId);
     localStorage.setItem("selectedBinderId", binderId);
@@ -334,6 +392,47 @@ export default function DeckEditorPage() {
                 </span>
               </div>
             </div>
+
+            {/* Curated build buttons — visible on all tabs */}
+            {isOwner && curatedBuilds.length > 0 && (
+              <div className="hidden sm:flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-xs text-muted-foreground font-medium shrink-0">Builds:</span>
+                {curatedBuilds.map(build => (
+                  build.children && build.children.length > 1 ? (
+                    <Popover key={build.id} open={activeBuildPopover === build.id} onOpenChange={open => setActiveBuildPopover(open ? build.id : null)}>
+                      <PopoverTrigger asChild>
+                        <button disabled={applyingBuild} className="text-xs px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors font-medium flex items-center gap-1 disabled:opacity-50">
+                          {build.name}
+                          <span className="text-[10px] opacity-60">▾</span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-1" align="start">
+                        <div className="space-y-0.5">
+                          {build.children.map(child => (
+                            <button
+                              key={child.id}
+                              onClick={() => applyBuild(child.cards)}
+                              className="w-full text-left text-sm px-3 py-2 rounded hover:bg-muted transition-colors"
+                            >
+                              {child.name}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <button
+                      key={build.id}
+                      disabled={applyingBuild}
+                      onClick={() => applyBuild(build.children?.length === 1 ? build.children[0].cards : build.cards)}
+                      className="text-xs px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors font-medium disabled:opacity-50"
+                    >
+                      {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
+                    </button>
+                  )
+                ))}
+              </div>
+            )}
 
             {/* Tab bar — desktop only */}
             <div className="hidden sm:flex border-b border-gray-200 dark:border-gray-700 mb-4">

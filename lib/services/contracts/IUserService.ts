@@ -30,7 +30,7 @@ export interface UserDTO {
   isAdmin?: boolean;
   isSuperAdmin?: boolean;
   isLocalGamingStore?: boolean;
-  isPatreon?: boolean;
+  isMetafySupporter?: boolean;
   isShop?: boolean;
   isTcgSeller?: boolean;
 }
@@ -68,7 +68,8 @@ export interface UserProfileDTO {
   discordId?: string;
   createdAt: Date;
   roles: UserRolesDTO;
-  isPatreon: boolean;
+  isMetafySupporter: boolean;
+  isCurator: boolean;
   isShop: boolean;
   isTcgSeller: boolean;
 }
@@ -590,7 +591,7 @@ export interface IUserService {
    * // Update a user type flag
    * const result2 = await userService.updateUserField(
    *   userId,
-   *   'isPatreon',
+   *   'isMetafySupporter',
    *   false
    * );
    * ```

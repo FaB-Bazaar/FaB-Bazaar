@@ -12,7 +12,7 @@ export function DesktopAnchorAd({ className = "" }: DesktopAnchorAdProps) {
   const authContext = useContext(AuthContext)
 
   // Don't show ads to premium Patreon supporters
-  if (authContext?.user?.isPatreon) {
+  if (authContext?.user?.isMetafySupporter) {
     return null
   }
 

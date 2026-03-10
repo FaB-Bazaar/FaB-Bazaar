@@ -11,7 +11,7 @@ interface User {
   city?: string
   country?: string
   state?: string
-  isPatreon?: boolean
+  isMetafySupporter?: boolean
 }
 
 interface AuthContextType {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         country: session.user.country,
         city: session.user.city,
         state: session.user.state,
-        isPatreon: session.user.roles?.isPatreon || false,
+        isMetafySupporter: session.user.roles?.isMetafySupporter || false,
       })
     } else {
       setUser(null)

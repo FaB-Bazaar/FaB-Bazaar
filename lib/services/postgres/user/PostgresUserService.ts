@@ -406,7 +406,8 @@ export class PostgresUserService implements IUserService {
           discordId: user.discordId || undefined,
           createdAt: user.createdAt,
           roles,
-          isPatreon: user.isPatreon || false,
+          isMetafySupporter: user.isMetafySupporter || false,
+          isCurator: user.isCurator || false,
           isShop: user.isShop || false,
           isTcgSeller: user.isTcgSeller || false,
         },
@@ -800,7 +801,7 @@ export class PostgresUserService implements IUserService {
       isAdmin: user.isAdmin || false,
       isSuperAdmin: user.isSuperAdmin || false,
       isLocalGamingStore: user.isLocalGamingStore || false,
-      isPatreon: user.isPatreon || false,
+      isMetafySupporter: user.isMetafySupporter || false,
       isShop: user.isShop || false,
       isTcgSeller: user.isTcgSeller || false,
     };

@@ -89,7 +89,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const rolesForToken = {
                 ...(user.roles || {}),
                 isLocalGamingStore: user.isLocalGamingStore,
-                isPatreon: user.isPatreon,
+                isMetafySupporter: user.isMetafySupporter,
                 isShop: user.isShop,
                 isTcgSeller: user.isTcgSeller,
               };
@@ -117,7 +117,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               const rolesForToken = {
                 ...(user.roles || {}),
                 isLocalGamingStore: user.isLocalGamingStore,
-                isPatreon: user.isPatreon,
+                isMetafySupporter: user.isMetafySupporter,
                 isShop: user.isShop,
                 isTcgSeller: user.isTcgSeller,
               };

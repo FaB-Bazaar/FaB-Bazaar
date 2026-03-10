@@ -9,7 +9,7 @@ import { auth } from "@/auth";
  * This action can only be performed by a logged-in Super Administrator.
  * 
  * @param userId The ID of the user to update.
- * @param field The dot-notation path to the flag to update (e.g., 'roles.isAdmin' or 'isPatreon').
+ * @param field The dot-notation path to the flag to update (e.g., 'roles.isAdmin' or 'isMetafySupporter').
  * @param value The new boolean value (true or false).
  */
 export async function updateUserFlag(userId: string, field: string, value: boolean) {

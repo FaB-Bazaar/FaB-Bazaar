@@ -55,7 +55,7 @@ export function GoogleAdsense({ adSlot, adFormat = "auto", className = "", style
   }, [consentGiven])
 
   // Don't show ads to premium Patreon supporters (check after all hooks)
-  if (authContext?.user?.isPatreon) {
+  if (authContext?.user?.isMetafySupporter) {
     return null
   }
 

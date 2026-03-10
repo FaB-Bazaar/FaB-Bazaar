@@ -10,18 +10,22 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HERO_INFO, YOUNG_HERO_INFO, type HeroInfo } from '@/lib/fab-constants';
 
+const toDisplayName = (name: string) => name.replace(/\b\w/g, c => c.toUpperCase());
+
 interface SearchableHeroSelectProps {
   heroes: Record<string, string[]>; // Grouped by class
   format: string;
   onSelect: (heroName: string) => void;
   value?: string;
+  showGeneric?: boolean; // Adds a "Generic — all heroes" option at the top
 }
 
 export function SearchableHeroSelect({
   heroes,
   format,
   onSelect,
-  value
+  value,
+  showGeneric = false,
 }: SearchableHeroSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -105,9 +109,11 @@ export function SearchableHeroSelect({
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {selectedHero ? (
+          {showGeneric && !value ? (
+            <span className="text-foreground">Generic — all heroes</span>
+          ) : selectedHero ? (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="truncate">{selectedHero.name}</span>
+              <span className="truncate">{toDisplayName(selectedHero.name)}</span>
               {selectedHero.talents.length > 0 && (
                 <div className="flex gap-1 shrink-0">
                   {selectedHero.talents.map((talent: string) => (
@@ -133,6 +139,14 @@ export function SearchableHeroSelect({
           />
           <CommandList>
             <CommandEmpty>No heroes found.</CommandEmpty>
+            {showGeneric && (
+              <CommandGroup>
+                <CommandItem value="__generic__" onSelect={() => handleSelect('')}>
+                  <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
+                  <span className="text-muted-foreground italic">Generic — applies to all heroes</span>
+                </CommandItem>
+              </CommandGroup>
+            )}
             {Object.entries(groupedFiltered).map(([className, classHeroes]) => (
               <CommandGroup key={className} heading={className}>
                 {classHeroes.map((hero) => (
@@ -148,7 +162,7 @@ export function SearchableHeroSelect({
                       )}
                     />
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="truncate">{hero.name}</span>
+                      <span className="truncate">{toDisplayName(hero.name)}</span>
                       {hero.talents.length > 0 && (
                         <div className="flex gap-1 shrink-0">
                           {hero.talents.map((talent: string) => (

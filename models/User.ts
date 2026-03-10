@@ -28,7 +28,7 @@ export interface IUser extends Document {
     canModerateForums: boolean
   },
   isLocalGamingStore?: boolean
-  isPatreon?: boolean
+  isMetafySupporter?: boolean
   isShop?: boolean
   isTcgSeller?: boolean
 }
@@ -99,7 +99,7 @@ const UserSchema = new Schema<IUser>(
       canModerateForums: { type: Boolean, default: false },
     },
     isLocalGamingStore: { type: Boolean, default: false },
-    isPatreon: { type: Boolean, default: false },
+    isMetafySupporter: { type: Boolean, default: false },
     isShop: { type: Boolean, default: false },
     isTcgSeller: { type: Boolean, default: false },
   },

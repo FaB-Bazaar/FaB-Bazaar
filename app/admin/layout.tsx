@@ -36,7 +36,8 @@ export default async function AdminLayout({
   // The nested articles/layout.tsx will do more specific checking
   const isSuperAdmin = currentUser?.roles?.isSuperAdmin;
   const isContentCreator = currentUser?.roles?.isContentCreator;
-  const hasAnyAdminRole = isSuperAdmin || isContentCreator;
+  const isCurator = currentUser?.isCurator;
+  const hasAnyAdminRole = isSuperAdmin || isContentCreator || isCurator;
 
   // 5. If they don't have any admin role, redirect.
   if (!hasAnyAdminRole) {

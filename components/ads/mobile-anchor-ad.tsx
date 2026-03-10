@@ -42,7 +42,7 @@ export function MobileAnchorAd() {
   const isDevelopment = process.env.NODE_ENV === 'development'
 
   // Don't show ads to premium Patreon supporters (check after all hooks)
-  if (authContext?.user?.isPatreon) {
+  if (authContext?.user?.isMetafySupporter) {
     return null
   }
 

@@ -16,7 +16,8 @@ import {
   index,
   pgEnum,
   jsonb,
-  primaryKey
+  primaryKey,
+  type AnyPGColumn,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
@@ -121,7 +122,8 @@ export const users = pgTable('users', {
   isStore: boolean('is_store').default(false),
   storeId: text('store_id'),
   isLocalGamingStore: boolean('is_local_gaming_store').default(false).notNull(),
-  isPatreon: boolean('is_patreon').default(false).notNull(),
+  isMetafySupporter: boolean('is_metafy_supporter').default(false).notNull(),
+  isCurator: boolean('is_curator').default(false).notNull(),
   isShop: boolean('is_shop').default(false).notNull(),
   isTcgSeller: boolean('is_tcg_seller').default(false).notNull(),
 
@@ -1004,5 +1006,53 @@ export const locationManagersRelations = relations(locationManagers, ({ one }) =
   user: one(users, {
     fields: [locationManagers.userId],
     references: [users.id],
+  }),
+}));
+
+// ============================================================================
+// CURATED LISTS
+// ============================================================================
+
+export const curatedLists = pgTable('curated_lists', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  heroName: text('hero_name'),
+  format: text('format'),
+  tags: text('tags').array().default([]).notNull(),
+  isPublished: boolean('is_published').default(false).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  parentId: text('parent_id').references((): AnyPGColumn => curatedLists.id, { onDelete: 'cascade' }),
+  variantType: text('variant_type'),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  heroNameIdx: index('idx_curated_lists_hero_name').on(table.heroName),
+  isPublishedIdx: index('idx_curated_lists_is_published').on(table.isPublished),
+  parentIdIdx: index('idx_curated_lists_parent_id').on(table.parentId),
+}));
+
+export const curatedListCards = pgTable('curated_list_cards', {
+  id: text('id').primaryKey(),
+  listId: text('list_id').notNull().references(() => curatedLists.id, { onDelete: 'cascade' }),
+  printingId: text('printing_id').notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+}, (table) => ({
+  listIdIdx: index('idx_curated_list_cards_list_id').on(table.listId),
+}));
+
+export const curatedListsRelations = relations(curatedLists, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [curatedLists.createdBy],
+    references: [users.id],
+  }),
+  cards: many(curatedListCards),
+}));
+
+export const curatedListCardsRelations = relations(curatedListCards, ({ one }) => ({
+  list: one(curatedLists, {
+    fields: [curatedListCards.listId],
+    references: [curatedLists.id],
   }),
 }));

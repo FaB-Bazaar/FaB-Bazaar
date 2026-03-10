@@ -206,7 +206,7 @@ export async function getAuthMe(): Promise<
       createdAt?: Date;
       roles?: any;
       isLocalGamingStore?: boolean;
-      isPatreon?: boolean;
+      isMetafySupporter?: boolean;
       isShop?: boolean;
       isTcgSeller?: boolean;
     };

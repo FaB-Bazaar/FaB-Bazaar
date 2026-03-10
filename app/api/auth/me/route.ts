@@ -31,7 +31,7 @@ export async function GET() {
         createdAt: profile.createdAt,
         roles: profile.roles,
         isLocalGamingStore: profile.isLocalGamingStore,
-        isPatreon: profile.isPatreon,
+        isMetafySupporter: profile.isMetafySupporter,
         isShop: profile.isShop,
         isTcgSeller: profile.isTcgSeller,
       },

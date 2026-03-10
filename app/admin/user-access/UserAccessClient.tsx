@@ -21,9 +21,11 @@ type UserType = {
     canManageLocations?: boolean;
     canImportCardCollections?: boolean;
     isSuperAdmin?: boolean;
+    isContentCreator?: boolean;
+    isCurator?: boolean;
   };
   isLocalGamingStore?: boolean;
-  isPatreon?: boolean;
+  isMetafySupporter?: boolean;
   isShop?: boolean;
   isTcgSeller?: boolean;
 };
@@ -154,7 +156,7 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
 
   const getActiveRolesCount = (user: UserType) => {
     const roleCount = Object.values(user.roles || {}).filter(Boolean).length;
-    const flagCount = [user.isPatreon, user.isShop, user.isTcgSeller, user.isLocalGamingStore]
+    const flagCount = [user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore]
       .filter(Boolean).length;
     return roleCount + flagCount;
   };
@@ -314,7 +316,7 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
                   <SectionHeader 
                     icon={Settings} 
                     title="Permissions"
-                    count={[user.roles?.canManageLocations, user.roles?.canImportCardCollections, user.roles?.isContentCreator].filter(Boolean).length}
+                    count={[user.roles?.canManageLocations, user.roles?.canImportCardCollections, user.roles?.isContentCreator, user.roles?.isCurator].filter(Boolean).length}
                   />
                   <div className="space-y-3">
                   <RoleSwitch 
@@ -333,13 +335,21 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
                       disabled={!!saving}
                       onCheckedChange={(v) => handleFlagChange(user._id, 'roles.canManageLocations', v)} 
                     />
-                    <RoleSwitch 
-                      id={`${user._id}-canImport`} 
-                      label="Import Collections" 
+                    <RoleSwitch
+                      id={`${user._id}-canImport`}
+                      label="Import Collections"
                       description="Can import card collection data"
-                      checked={!!user.roles?.canImportCardCollections} 
+                      checked={!!user.roles?.canImportCardCollections}
                       disabled={!!saving}
-                      onCheckedChange={(v) => handleFlagChange(user._id, 'roles.canImportCardCollections', v)} 
+                      onCheckedChange={(v) => handleFlagChange(user._id, 'roles.canImportCardCollections', v)}
+                    />
+                    <RoleSwitch
+                      id={`${user._id}-isCurator`}
+                      label="Curator"
+                      description="Can manage curated card lists for the deck editor"
+                      checked={!!user.roles?.isCurator}
+                      disabled={!!saving}
+                      onCheckedChange={(v) => handleFlagChange(user._id, 'roles.isCurator', v)}
                     />
                   </div>
                 </div>
@@ -349,16 +359,16 @@ export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] })
                   <SectionHeader 
                     icon={Store} 
                     title="User Types"
-                    count={[user.isPatreon, user.isShop, user.isTcgSeller, user.isLocalGamingStore].filter(Boolean).length}
+                    count={[user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore].filter(Boolean).length}
                   />
                   <div className="space-y-3">
-                    <RoleSwitch 
-                      id={`${user._id}-isPatreon`} 
-                      label="Patreon Supporter" 
-                      description="Has active Patreon subscription"
-                      checked={!!user.isPatreon} 
+                    <RoleSwitch
+                      id={`${user._id}-isMetafySupporter`}
+                      label="Metafy Supporter"
+                      description="Has active Metafy supporter status"
+                      checked={!!user.isMetafySupporter}
                       disabled={!!saving}
-                      onCheckedChange={(v) => handleFlagChange(user._id, 'isPatreon', v)} 
+                      onCheckedChange={(v) => handleFlagChange(user._id, 'isMetafySupporter', v)}
                     />
                     <RoleSwitch 
                       id={`${user._id}-isShop`} 
