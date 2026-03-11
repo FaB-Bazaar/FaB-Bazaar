@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -395,13 +395,17 @@ export default function DeckEditorPage() {
 
             {/* Curated build buttons — visible on all tabs */}
             {isOwner && curatedBuilds.length > 0 && (
-              <div className="hidden sm:flex items-center gap-2 mb-3 flex-wrap">
-                <span className="text-xs text-muted-foreground font-medium shrink-0">Builds:</span>
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex-wrap">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Suggested Builds
+                </span>
+                <div className="w-px h-4 bg-blue-200 dark:bg-blue-700 shrink-0" />
                 {curatedBuilds.map(build => (
                   build.children && build.children.length > 1 ? (
                     <Popover key={build.id} open={activeBuildPopover === build.id} onOpenChange={open => setActiveBuildPopover(open ? build.id : null)}>
                       <PopoverTrigger asChild>
-                        <button disabled={applyingBuild} className="text-xs px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors font-medium flex items-center gap-1 disabled:opacity-50">
+                        <button disabled={applyingBuild} className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium flex items-center gap-1 shadow-sm disabled:opacity-50">
                           {build.name}
                           <span className="text-[10px] opacity-60">▾</span>
                         </button>
@@ -425,7 +429,7 @@ export default function DeckEditorPage() {
                       key={build.id}
                       disabled={applyingBuild}
                       onClick={() => applyBuild(build.children?.length === 1 ? build.children[0].cards : build.cards)}
-                      className="text-xs px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors font-medium disabled:opacity-50"
+                      className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm disabled:opacity-50"
                     >
                       {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
                     </button>

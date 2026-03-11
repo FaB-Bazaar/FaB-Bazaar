@@ -107,10 +107,8 @@ export async function generateMetadata({ params }: { params: { publicId: string 
       title: title,
       description: subtitle,
       url: url,
-      siteName: 'FaB Bazaar',
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
-      locale: 'en_US',
-      type: 'article',
+      images: [{ url: ogImageUrl, alt: title }],
+      type: 'website',
     },
     twitter: {
       card: 'summary',
