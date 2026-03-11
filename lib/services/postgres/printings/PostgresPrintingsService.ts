@@ -568,8 +568,14 @@ export class PostgresPrintingsService implements IPrintingsService {
         // Broad mode (default): typo-tolerant name matching:
         // 1. ILIKE per term handles out-of-order words (e.g., "skeleta bloodsheath")
         // 2. word_similarity handles typos (e.g., "bloodsheat" → "bloodsheath")
-        const terms = normalizedName.split(/\s+/).filter(t => t.length > 0);
-        const termConditions = terms.map(term => sql`${cards.name} ILIKE ${`%${term}%`}`);
+        // Note: "//" is filtered out as it's a split-card separator, not a search term
+        const terms = normalizedName.split(/\s+/).filter(t => t.length > 0 && t !== '//');
+        // Check both name and displayName so that searching "Comet Storm // Shock"
+        // finds cards where the secondary face name lives in displayName
+        const termConditions = terms.map(term => or(
+          sql`${cards.name} ILIKE ${`%${term}%`}`,
+          sql`${cards.displayName} ILIKE ${`%${term}%`}`
+        ));
 
         const nameSearch = or(
           and(...termConditions),
@@ -601,13 +607,15 @@ export class PostgresPrintingsService implements IPrintingsService {
       const knownTalents = OFFICIAL_TALENTS as readonly string[];
       const knownKeywords = KEYWORDS as readonly string[];
 
-      const terms = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+      // Filter out "//" — it's a split-card name separator, not a search token
+      const terms = normalizedQuery.split(/\s+/).filter(t => t.length > 0 && t !== '//');
 
       const termConditions = terms.map(term => {
-        // Base: the word must appear in name, rule text, or searchable text
+        // Base: the word must appear in name, displayName, rule text, or searchable text
         const overlapConditions: any[] = [
           sql`${cards.searchableText} ILIKE ${`%${term}%`}`,
           sql`${cards.name} ILIKE ${`%${term}%`}`,
+          sql`${cards.displayName} ILIKE ${`%${term}%`}`,
           sql`${cards.text} ILIKE ${`%${term}%`}`,
         ];
 
@@ -631,8 +639,11 @@ export class PostgresPrintingsService implements IPrintingsService {
         return or(...overlapConditions);
       });
 
-      // Card must satisfy ALL typed words (AND logic)
-      conditions.push(and(...termConditions));
+      // Card must satisfy ALL typed words (AND logic), with a word_similarity fallback
+      // so single-character typos mid-word (e.g. "graves" → "greaves") still find results.
+      const strictMatch = and(...termConditions);
+      const fuzzyMatch = sql`word_similarity(${normalizedQuery}, ${cards.name}) > 0.4`;
+      conditions.push(or(strictMatch, fuzzyMatch));
     }
 
     // ===== ARRAYS (types, traits, keywords, classes, talents) =====
@@ -1038,27 +1049,27 @@ export class PostgresPrintingsService implements IPrintingsService {
 
     switch (sortBy) {
       case 'name': {
-        // When doing a fuzzy name search, sort by trigram distance so best matches come first
+        // Use word_similarity for sorting so split cards (e.g. "Comet Storm // Shock") rank
+        // correctly when searching a single face name (e.g. "shock"). word_similarity finds the
+        // best word-level match within the full name, unlike <-> which compares full strings.
         if (filters?.name && !filters.exact) {
           const normalizedName = filters.name.replace(/[\u2018\u2019\u0027\u0060]/g, "'").toLowerCase().trim();
-          return [asc(sql`${cards.name} <-> ${normalizedName}`), orderFn(cards.name)];
+          return [desc(sql`word_similarity(${normalizedName}, ${cards.name})`), orderFn(cards.name)];
         }
-        // When doing a broad text search, sort by trigram distance against searchableText
         if (filters?.searchableText) {
           const normalizedQuery = filters.searchableText.replace(/[\u2018\u2019\u0027\u0060]/g, "'").toLowerCase().trim();
-          return [asc(sql`${cards.name} <-> ${normalizedQuery}`), orderFn(cards.name)];
+          return [desc(sql`word_similarity(${normalizedQuery}, ${cards.name})`), orderFn(cards.name)];
         }
         return [orderFn(cards.name)];
       }
       case 'relevance': {
-        // Explicit relevance sorting
         if (filters?.name && !filters.exact) {
           const normalizedName = filters.name.replace(/[\u2018\u2019\u0027\u0060]/g, "'").toLowerCase().trim();
-          return [asc(sql`${cards.name} <-> ${normalizedName}`)];
+          return [desc(sql`word_similarity(${normalizedName}, ${cards.name})`)];
         }
         if (filters?.searchableText) {
           const normalizedQuery = filters.searchableText.replace(/[\u2018\u2019\u0027\u0060]/g, "'").toLowerCase().trim();
-          return [asc(sql`${cards.name} <-> ${normalizedQuery}`)];
+          return [desc(sql`word_similarity(${normalizedQuery}, ${cards.name})`)];
         }
         return [orderFn(cards.name)];
       }

@@ -377,6 +377,11 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
   addCards(deck.inventory || [], 'inventory');
   addCards(deck.benched || [], 'benched');
 
+  // Always show these zones even when empty so users know where to add cards
+  for (const key of ['equipment', 'red', 'yellow', 'blue', 'inventory'] as TileSectionKey[]) {
+    if (!sectionMap.has(key)) sectionMap.set(key, []);
+  }
+
   const sections: DeckTileSectionData[] = [];
   for (const [key, tiles] of sectionMap) {
     tiles.sort((a, b) => a.name.localeCompare(b.name));
@@ -947,8 +952,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     );
   };
 
-  const renderSection = (label: string, cards: DeckPrintingDTO[], category: DeckCategory, sectionKey: string, limit?: string) => {
-    if (cards.length === 0) return null;
+  const renderSection = (label: string, cards: DeckPrintingDTO[], category: DeckCategory, sectionKey: string, limit?: string, alwaysShow?: boolean) => {
+    if (cards.length === 0 && !alwaysShow) return null;
     const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
     const isCollapsed = collapsedSections.has(sectionKey);
     return (
@@ -964,13 +969,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           </span>
           <ChevronDown className={cn("h-3.5 w-3.5 text-gray-400 ml-auto transition-transform shrink-0", isCollapsed && "-rotate-90")} />
         </button>
-        {!isCollapsed && renderCardRows(cards, category)}
+        {!isCollapsed && (
+          cards.length > 0
+            ? renderCardRows(cards, category)
+            : <p className="text-xs text-gray-400 dark:text-gray-600 py-1">No cards yet</p>
+        )}
       </div>
     );
   };
 
   const renderMaindeckSection = (cards: DeckPrintingDTO[], limit?: string) => {
-    if (cards.length === 0) return null;
     const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
     const isCollapsed = collapsedSections.has('maindeck');
 
@@ -979,10 +987,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const blue     = cards.filter(c => (c.printingDetails?.pitch as number | undefined) === 3);
     const unpitched = cards.filter(c => !(c.printingDetails?.pitch as number | undefined));
 
+    // Always show red/yellow/blue so users can see which zones to add cards to
     const pitchGroups: Array<{ key: string; label: string; dot: string; cards: DeckPrintingDTO[] }> = [];
-    if (red.length)      pitchGroups.push({ key: 'maindeck-red',      label: 'Red',      dot: 'bg-red-500',    cards: red });
-    if (yellow.length)   pitchGroups.push({ key: 'maindeck-yellow',   label: 'Yellow',   dot: 'bg-yellow-400', cards: yellow });
-    if (blue.length)     pitchGroups.push({ key: 'maindeck-blue',     label: 'Blue',     dot: 'bg-blue-500',   cards: blue });
+    pitchGroups.push({ key: 'maindeck-red',    label: 'Red',    dot: 'bg-red-500',    cards: red });
+    pitchGroups.push({ key: 'maindeck-yellow', label: 'Yellow', dot: 'bg-yellow-400', cards: yellow });
+    pitchGroups.push({ key: 'maindeck-blue',   label: 'Blue',   dot: 'bg-blue-500',   cards: blue });
     if (unpitched.length) pitchGroups.push({ key: 'maindeck-unpitched', label: 'Unpitched', dot: 'bg-gray-400', cards: unpitched });
 
     return (
@@ -1015,7 +1024,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     <span className="text-xs text-gray-400">({pgTotal})</span>
                     <ChevronDown className={cn("h-3 w-3 text-gray-500 ml-auto transition-transform shrink-0", pgCollapsed && "-rotate-90")} />
                   </button>
-                  {!pgCollapsed && renderCardRows(pg.cards, 'maindeck')}
+                  {!pgCollapsed && (
+                    pg.cards.length > 0
+                      ? renderCardRows(pg.cards, 'maindeck')
+                      : <p className="text-xs text-gray-400 dark:text-gray-600 py-1">No cards yet</p>
+                  )}
                 </div>
               );
             })}
@@ -1343,9 +1356,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       {viewMode === 'list' ? (
         <div>
           {renderSection("Hero", heroCards, "hero", "hero", "1")}
-          {renderSection("Equipment", equipmentCards, "equipment", "equipment", "5")}
+          {renderSection("Equipment", equipmentCards, "equipment", "equipment", "5", true)}
           {renderMaindeckSection(maindeckCards, "60+")}
-          {renderSection("Inventory", inventoryCards, "inventory", "inventory")}
+          {renderSection("Inventory", inventoryCards, "inventory", "inventory", undefined, true)}
           {renderSection("Bench", benchedCards, "benched", "bench")}
         </div>
       ) : viewMode === 'tile' ? (
