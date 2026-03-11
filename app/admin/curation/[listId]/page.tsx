@@ -365,6 +365,7 @@ export default function CurationListEditorPage() {
         onAdd={handleAddCard}
         targetCategory="inventory"
         deckFormat={format || undefined}
+        currentDeck={heroName ? { heroName, hero: [] } : undefined}
       />
     </div>
   );

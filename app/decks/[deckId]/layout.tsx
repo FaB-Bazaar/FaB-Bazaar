@@ -25,9 +25,14 @@ export async function generateMetadata({
         // owner name is optional
       }
 
-      const heroImageUrl = deck.hero?.[0]?.printingDetails?.image_url
+      const heroCard = deck.hero?.[0]?.printingDetails
+      const heroImageUrl = heroCard?.image_url
       const format = deck.format?.toUpperCase() ?? "CC"
-      const heroName = deck.heroName ?? "No Hero"
+      const heroName =
+        deck.heroName ||
+        heroCard?.display_name ||
+        heroCard?.name ||
+        null
       const cardCount = deck.totalCards ?? 0
 
       const title = ownerName
@@ -36,7 +41,7 @@ export async function generateMetadata({
 
       const description = [
         format,
-        heroName,
+        heroName ?? "No Hero",
         `${cardCount} cards`,
       ].join(" · ")
 
