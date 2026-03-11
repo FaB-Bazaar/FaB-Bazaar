@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'FaB Bazaar - The Ultimate Flesh and Blood Trading Platform',
     description: 'Trade Flesh and Blood cards with other collectors. Browse cards, manage binders, create wants lists, and find local trading partners.',
     images: ['/icon-512x512.png'], // Optimal size for social media

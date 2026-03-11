@@ -116,7 +116,7 @@ export async function generateMetadata({ params }: { params: { publicId: string 
       type: 'article',
     },
     twitter: {
-      card: 'summary_large_image',
+      card: 'summary',
       title: title,
       description: subtitle,
       images: [ogImageUrl],

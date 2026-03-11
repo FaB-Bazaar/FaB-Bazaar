@@ -47,6 +47,12 @@ export async function generateMetadata({
               }
             ] : undefined,
           },
+          twitter: {
+            card: 'summary',
+            title: `${cardName} (${setName}) | FaB Bazaar`,
+            description: `Detailed card information for ${cardName} including pricing, stats, and ownership data.`,
+            images: printing.image_url ? [printing.image_url] : undefined,
+          },
           alternates: {
             canonical: `/printing/${resolvedParams.printing_id}`,
           },

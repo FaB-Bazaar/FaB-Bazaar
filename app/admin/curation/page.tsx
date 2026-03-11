@@ -5,6 +5,75 @@ import { curatedListService, userService } from '@/lib/services';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit } from 'lucide-react';
+import type { CuratedListDTO } from '@/lib/services/contracts/ICuratedListService';
+
+function toDisplayName(heroName: string | null): string {
+  if (!heroName) return 'General';
+  return heroName.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type Row = { list: CuratedListDTO; isChild: boolean };
+
+function buildRows(lists: CuratedListDTO[]): Row[] {
+  const rows: Row[] = [];
+  for (const list of lists) {
+    rows.push({ list, isChild: false });
+    if (list.children && list.children.length > 0) {
+      for (const child of list.children) {
+        rows.push({ list: child as CuratedListDTO, isChild: true });
+      }
+    }
+  }
+  return rows;
+}
+
+function HeroTable({ rows }: { rows: Row[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="pb-3 font-medium text-muted-foreground">Name</th>
+            <th className="pb-3 font-medium text-muted-foreground">Format</th>
+            <th className="pb-3 font-medium text-muted-foreground">Status</th>
+            <th className="pb-3 font-medium text-muted-foreground text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ list, isChild }) => (
+            <tr key={list.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+              <td className="py-3 font-medium">
+                {isChild ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs pl-4">↳</span>
+                    <span className="text-muted-foreground">{list.name}</span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">variant</Badge>
+                  </span>
+                ) : (
+                  list.name
+                )}
+              </td>
+              <td className="py-3 text-muted-foreground">{list.format ?? '—'}</td>
+              <td className="py-3">
+                <Badge variant={list.isPublished ? 'default' : 'secondary'}>
+                  {list.isPublished ? 'Published' : 'Draft'}
+                </Badge>
+              </td>
+              <td className="py-3 text-right">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/admin/curation/${list.id}`}>
+                    <Edit className="h-3.5 w-3.5 mr-1.5" />
+                    Edit
+                  </Link>
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default async function CurationAdminPage() {
   const session = await auth();
@@ -22,15 +91,16 @@ export default async function CurationAdminPage() {
   const listsResult = await curatedListService.getAllLists();
   const lists = listsResult.success ? listsResult.data : [];
 
-  // Flatten into rows: parents first, then their children indented
-  const rows: Array<{ list: (typeof lists)[0]; isChild: boolean }> = [];
+  // Group top-level lists by heroName, preserving order of first appearance
+  const heroOrder: string[] = [];
+  const heroMap = new Map<string, CuratedListDTO[]>();
   for (const list of lists) {
-    rows.push({ list, isChild: false });
-    if (list.children && list.children.length > 0) {
-      for (const child of list.children) {
-        rows.push({ list: child as any, isChild: true });
-      }
+    const key = list.heroName ?? '';
+    if (!heroMap.has(key)) {
+      heroOrder.push(key);
+      heroMap.set(key, []);
     }
+    heroMap.get(key)!.push(list);
   }
 
   return (
@@ -50,53 +120,22 @@ export default async function CurationAdminPage() {
         </Button>
       </div>
 
-      {rows.length === 0 ? (
+      {lists.length === 0 ? (
         <p className="text-muted-foreground text-center py-16">No curated lists yet. Create one to get started.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="pb-3 font-medium text-muted-foreground">Name</th>
-                <th className="pb-3 font-medium text-muted-foreground">Hero</th>
-                <th className="pb-3 font-medium text-muted-foreground">Format</th>
-                <th className="pb-3 font-medium text-muted-foreground">Status</th>
-                <th className="pb-3 font-medium text-muted-foreground text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ list, isChild }) => (
-                <tr key={list.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                  <td className="py-3 font-medium">
-                    {isChild ? (
-                      <span className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs pl-4">↳</span>
-                        <span className="text-muted-foreground">{list.name}</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">variant</Badge>
-                      </span>
-                    ) : (
-                      list.name
-                    )}
-                  </td>
-                  <td className="py-3 text-muted-foreground">{list.heroName ?? '—'}</td>
-                  <td className="py-3 text-muted-foreground">{list.format ?? '—'}</td>
-                  <td className="py-3">
-                    <Badge variant={list.isPublished ? 'default' : 'secondary'}>
-                      {list.isPublished ? 'Published' : 'Draft'}
-                    </Badge>
-                  </td>
-                  <td className="py-3 text-right">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/admin/curation/${list.id}`}>
-                        <Edit className="h-3.5 w-3.5 mr-1.5" />
-                        Edit
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-10">
+          {heroOrder.map((heroKey) => {
+            const heroLists = heroMap.get(heroKey)!;
+            const rows = buildRows(heroLists);
+            return (
+              <section key={heroKey || '__general__'}>
+                <h2 className="text-lg font-semibold mb-3">
+                  {toDisplayName(heroKey || null)}
+                </h2>
+                <HeroTable rows={rows} />
+              </section>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1,30 +1,81 @@
 import type { Metadata } from "next"
+import { deckService, userService } from "@/lib/services"
 
-export const metadata: Metadata = {
-  title: "Deck Builder - Advanced FaB Deck Construction",
-  description: "Advanced deck building interface for Flesh and Blood. Add cards, analyze deck composition, compare with collection, and export decklists with drag-and-drop functionality.",
-  keywords: [
-    "FaB deck builder",
-    "deck construction",
-    "deck editor",
-    "card selection",
-    "deck analysis",
-    "deck statistics",
-    "collection comparison",
-    "deck export",
-    "sideboard management"
-  ],
-  openGraph: {
-    title: "Deck Builder - Advanced FaB Deck Construction | FaB Bazaar",
-    description: "Advanced deck building interface with drag-and-drop, analysis, and collection integration.",
-    url: "/decks/builder",
-  },
-  alternates: {
-    canonical: "/decks/builder",
-  },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ deckId: string }>
+}): Promise<Metadata> {
+  const { deckId } = await params
+
+  try {
+    const result = await deckService.findByPublicId(deckId)
+
+    if (result.success && result.data && result.data.isPublic) {
+      const deck = result.data
+
+      // Fetch owner username
+      let ownerName: string | undefined
+      try {
+        const userResult = await userService.findById(deck.userId)
+        if (userResult.success && userResult.data) {
+          ownerName = userResult.data.username
+        }
+      } catch {
+        // owner name is optional
+      }
+
+      const heroImageUrl = deck.hero?.[0]?.printingDetails?.image_url
+      const format = deck.format?.toUpperCase() ?? "CC"
+      const heroName = deck.heroName ?? "No Hero"
+      const cardCount = deck.totalCards ?? 0
+
+      const title = ownerName
+        ? `${deck.name} by ${ownerName} | FaB Bazaar`
+        : `${deck.name} | FaB Bazaar`
+
+      const description = [
+        format,
+        heroName,
+        `${cardCount} cards`,
+      ].join(" · ")
+
+      return {
+        title,
+        description,
+        openGraph: {
+          title: ownerName ? `${deck.name} by ${ownerName}` : deck.name,
+          description,
+          url: `/decks/${deckId}`,
+          images: heroImageUrl
+            ? [{ url: heroImageUrl, width: 400, height: 560, alt: heroName }]
+            : undefined,
+        },
+        twitter: {
+          card: "summary",
+          title: ownerName ? `${deck.name} by ${ownerName}` : deck.name,
+          description,
+          images: heroImageUrl ? [heroImageUrl] : undefined,
+        },
+        alternates: {
+          canonical: `/decks/${deckId}`,
+        },
+      }
+    }
+  } catch {
+    // fall through to default
+  }
+
+  return {
+    title: "Deck | FaB Bazaar",
+    description: "View this Flesh and Blood deck on FaB Bazaar.",
+    twitter: {
+      card: "summary",
+    },
+  }
 }
 
-export default function DeckBuilderLayout({
+export default function DeckLayout({
   children,
 }: {
   children: React.ReactNode

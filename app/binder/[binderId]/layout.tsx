@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ binderId:
         type: "website",
       },
       twitter: {
-        card: binder.thumbnailPrintingId ? "summary" : "summary_large_image",
+        card: "summary",
         title: `${binderName} - ${ownerName}'s Trade Binder`,
         description,
         images: [ogImage],
