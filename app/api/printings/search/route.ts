@@ -168,6 +168,7 @@ export async function GET(request: NextRequest) {
     // Hero-based filtering (precise mode — card.classes ⊆ heroClasses AND card.talents ⊆ heroTalents)
     if (searchParams.get('heroClasses')) filters.heroClasses = searchParams.get('heroClasses')!.split(',').map(s => s.trim()).filter(Boolean);
     if (searchParams.get('heroTalents')) filters.heroTalents = searchParams.get('heroTalents')!.split(',').map(s => s.trim()).filter(Boolean);
+    if (searchParams.get('heroEssences')) filters.heroEssences = searchParams.get('heroEssences')!.split(',').map(s => s.trim()).filter(Boolean);
     // Legacy hero filtering (single hero name string — less precise, kept for backwards compat)
     if (searchParams.get('heroLegal')) filters.heroLegal = searchParams.get('heroLegal')!;
 

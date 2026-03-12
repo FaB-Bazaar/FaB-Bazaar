@@ -968,14 +968,21 @@ export class PostgresPrintingsService implements IPrintingsService {
 
       // card.classes must be ⊆ hero's classes (empty card classes = no class restriction = always ok)
       // 'generic' is always implicitly allowed — generic cards (classes = ['generic']) are playable by any hero
-      const allowedClasses = [...new Set(['generic', ...heroClasses])];
+      // heroTalents and heroEssences are also included because some cards store their talent/essence element
+      // in the classes column (e.g. classes=['lightning'] for an essence-of-lightning card)
+      const heroEssences = (filters.heroEssences || []).map(e => e.toLowerCase());
+      const allowedClasses = [...new Set(['generic', ...heroClasses, ...heroTalents, ...heroEssences])];
       const classCheck = heroClasses.length > 0
         ? sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY[${sql.join(allowedClasses.map(c => sql`${c}`), sql`, `)}]::text[])`
         : sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY['generic']::text[])`;
 
       // card.talents must be ⊆ hero's talents (empty card talents = no talent restriction = always ok)
-      const talentCheck = heroTalents.length > 0
-        ? sql`(${cards.talents} IS NULL OR ${cards.talents} = '{}' OR ${cards.talents} <@ ARRAY[${sql.join(heroTalents.map(t => sql`${t}`), sql`, `)}]::text[])`
+      // heroEssences are included so that elemental heroes (whose lightning/earth/ice access comes from
+      // "essence of X" keywords rather than a standard talent field) can play talent-tagged cards like
+      // Channel Lightning Valley which has talents=['lightning'] but is legal for any lightning-essence hero.
+      const allowedTalents = [...new Set([...heroTalents, ...heroEssences])];
+      const talentCheck = allowedTalents.length > 0
+        ? sql`(${cards.talents} IS NULL OR ${cards.talents} = '{}' OR ${cards.talents} <@ ARRAY[${sql.join(allowedTalents.map(t => sql`${t}`), sql`, `)}]::text[])`
         : sql`(${cards.talents} IS NULL OR ${cards.talents} = '{}')`;
 
       conditions.push(and(classCheck, talentCheck));

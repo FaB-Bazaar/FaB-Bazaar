@@ -463,6 +463,16 @@ export default function QuickAddCardDialog({
   const NON_CLASS_TYPES = new Set(['hero', 'young', 'adult', 'token', 'equipment', 'weapon',
     'action', 'attack', 'instant', 'defense reaction', 'attack reaction', 'demi-hero']);
 
+  // Essence elements are stored in the hero's keywords as "essence of X" (elemental heroes).
+  // Join all keyword strings and scan for known element names after "essence".
+  const ESSENCE_ELEMENTS = ['lightning', 'earth', 'ice', 'fire', 'shadow', 'light', 'draconic', 'water'] as const;
+  const heroEssences = (() => {
+    const keywords = ((currentDeck?.hero?.[0]?.printingDetails as any)?.keywords as string[] | undefined) || [];
+    const combined = keywords.join(' ').toLowerCase();
+    if (!combined.includes('essence')) return [] as string[];
+    return ESSENCE_ELEMENTS.filter(el => combined.includes(el));
+  })();
+
   const { heroClasses, heroTalents } = (() => {
     if (currentDeck?.hero?.length) {
       const h = currentDeck.hero[0]?.printingDetails;
@@ -537,6 +547,7 @@ export default function QuickAddCardDialog({
       // Hero legal filtering — precise mode (class/talent subset logic)
       if (heroClasses.length > 0) params.set("heroClasses", heroClasses.join(","));
       if (heroTalents.length > 0) params.set("heroTalents", heroTalents.join(","));
+      if (heroEssences.length > 0) params.set("heroEssences", heroEssences.join(","));
 
       // Zone-specific type filters
       if (targetCategory === "equipment") {
@@ -569,7 +580,7 @@ export default function QuickAddCardDialog({
       })
       .catch(() => setError("Search failed. Please try again."))
       .finally(() => setLoading(false));
-  }, [debouncedQuery, targetCategory, pitchFilter, heroClasses.join(","), heroTalents.join(","), deckFormat]);
+  }, [debouncedQuery, targetCategory, pitchFilter, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
 
   const zoneLabel = ZONE_LABELS[targetCategory] ?? targetCategory;
 

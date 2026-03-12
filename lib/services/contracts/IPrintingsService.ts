@@ -336,6 +336,9 @@ export interface PrintingsSearchFilters {
   //      but NOT light-warrior cards for a pure-warrior hero (Dorinthea)
   heroClasses?: string[];
   heroTalents?: string[];
+  // Elemental essence elements the hero has (extracted from hero keywords, e.g. "essence of lightning" → ["lightning"])
+  // These are added to allowedClasses so cards with classes=['lightning'] etc. are correctly shown.
+  heroEssences?: string[];
   excludeClasses?: string[];
   excludeTalents?: string[];
 
