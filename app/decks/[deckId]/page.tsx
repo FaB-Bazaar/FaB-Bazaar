@@ -388,7 +388,7 @@ export default function DeckEditorPage() {
                     ? "Read only"
                     : state.deck?.heroName
                     ? `Filtered for ${state.deck.heroName}`
-                    : "Search for cards to add"}
+                    : ""}
                 </span>
               </div>
             </div>

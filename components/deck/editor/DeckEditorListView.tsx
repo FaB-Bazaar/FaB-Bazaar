@@ -503,10 +503,18 @@ function DeckTileSection({
     }
   }, [activeDragTile, isValidDropTarget, onSectionDrop, section.key]);
 
+  const zoneAccent: Record<string, { bg: string; border: string; headerBorder: string }> = {
+    red:    { bg: "bg-red-500/10 dark:bg-red-500/[0.06]",    border: "border-l-[3px] border-l-red-500 rounded-r-lg",    headerBorder: "border-red-500/30" },
+    yellow: { bg: "bg-yellow-400/10 dark:bg-yellow-400/[0.05]", border: "border-l-[3px] border-l-yellow-400 rounded-r-lg", headerBorder: "border-yellow-400/30" },
+    blue:   { bg: "bg-blue-500/10 dark:bg-blue-500/[0.05]",   border: "border-l-[3px] border-l-blue-500 rounded-r-lg",   headerBorder: "border-blue-500/30" },
+  };
+  const accent = zoneAccent[section.key] ?? null;
+
   return (
     <div
       className={cn(
-        "mb-3 rounded-lg p-1 transition-all",
+        "mb-3 p-1 transition-all",
+        accent ? [accent.bg, accent.border] : "rounded-lg",
         isDragActive && isValidDropTarget && !isDragOver && "ring-1 ring-inset ring-indigo-400/50 bg-indigo-500/5",
         isDragActive && isValidDropTarget && isDragOver && "ring-2 ring-inset ring-indigo-400 bg-indigo-500/20",
         isDragActive && !isValidDropTarget && activeDragTile?.sectionKey !== section.key && "opacity-40",
@@ -515,7 +523,7 @@ function DeckTileSection({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40">
+      <div className={cn("flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b", accent ? accent.headerBorder : "border-gray-700/40")}>
         {/* Hero portrait inline — no extra row, zero additional height cost */}
         {heroPortrait && (
           <>
@@ -566,10 +574,22 @@ function DeckTileSection({
         {section.pitchColor && (
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
         )}
-        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <span className={cn(
+          "text-[10px] uppercase tracking-wider font-bold",
+          section.key === 'red'    ? "text-red-600 dark:text-red-400" :
+          section.key === 'yellow' ? "text-yellow-600 dark:text-yellow-400" :
+          section.key === 'blue'   ? "text-blue-600 dark:text-blue-400" :
+          "text-gray-600 dark:text-gray-300"
+        )}>
           {section.title}
         </span>
-        <span className="text-[10px] text-gray-500">({section.tiles.length})</span>
+        <span className={cn(
+          "text-[10px]",
+          section.key === 'red'    ? "text-red-500/70 dark:text-red-400/60" :
+          section.key === 'yellow' ? "text-yellow-500/70 dark:text-yellow-400/60" :
+          section.key === 'blue'   ? "text-blue-500/70 dark:text-blue-400/60" :
+          "text-gray-500"
+        )}>({section.tiles.length})</span>
         {isDragActive && isValidDropTarget && (
           <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
         )}
@@ -1382,12 +1402,19 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             const sectionTotal = section.cards.reduce((s, c) => s + c.totalQty, 0);
             const sectionCollapseKey = `game-${section.key}`;
             const isSectionCollapsed = collapsedSections.has(sectionCollapseKey);
+            const gameZoneAccent: Record<string, { bg: string; border: string; headerBorder: string; labelColor: string }> = {
+              library:   { bg: "bg-gray-500/5 dark:bg-gray-400/[0.04]",  border: "border-l-[3px] border-l-gray-400 rounded-r-lg",  headerBorder: "border-gray-500/40", labelColor: "text-gray-600 dark:text-gray-300" },
+              equipment: { bg: "",                                          border: "rounded-lg",                                        headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
+              inventory: { bg: "",                                          border: "rounded-lg",                                        headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
+              bench:     { bg: "",                                          border: "rounded-lg",                                        headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
+            };
+            const gameAccent = gameZoneAccent[section.key] ?? gameZoneAccent.library;
             return (
-              <div key={section.key} className="mb-3">
+              <div key={section.key} className={cn("mb-3 p-1 transition-all", gameAccent.bg, gameAccent.border)}>
                 <button
                   type="button"
                   onClick={() => toggleSection(sectionCollapseKey)}
-                  className="w-full flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b border-gray-700/40 text-left"
+                  className={cn("w-full flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b text-left", gameAccent.headerBorder)}
                 >
                   {section.key === 'equipment' && heroPortrait && (
                     <>
@@ -1434,7 +1461,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       ))}
                     </>
                   )}
-                  <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <span className={cn("text-[10px] font-bold uppercase tracking-wider", gameAccent.labelColor)}>
                     {section.title}
                   </span>
                   <span className="text-[10px] text-gray-500">({sectionTotal})</span>
