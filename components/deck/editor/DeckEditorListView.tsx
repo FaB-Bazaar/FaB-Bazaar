@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, Layers } from "lucide-react";
+import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, Layers, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -451,7 +451,9 @@ function DeckTileSection({
   onRemoveTile,
   onEnlargeImage,
   onAddToBinder,
+  onAddToWants,
   highlightMatchIds,
+  tileWidth = 72,
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string) => void;
@@ -473,8 +475,12 @@ function DeckTileSection({
   onEnlargeImage?: (url: string, name: string) => void;
   /** Add a card to the selected binder */
   onAddToBinder?: (printingId: string, cardName: string) => void;
+  /** Add an unowned card to the wants list */
+  onAddToWants?: (printingId: string, cardName: string) => void;
   /** Set of printingIds that match the active highlight filter (null = no filter) */
   highlightMatchIds?: Set<string> | null;
+  /** Width of each card tile in px — default 72 */
+  tileWidth?: number;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -637,7 +643,7 @@ function DeckTileSection({
                 isHighlighted === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
                 isHighlighted === false && "opacity-25 scale-95 grayscale",
               )}
-              style={{ width: '72px' }}
+              style={{ width: tileWidth }}
             >
               {tile.imageUrl ? (
                 <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
@@ -659,44 +665,56 @@ function DeckTileSection({
                 </div>
               )}
 
-              {/* Ownership dot */}
+              {/* Ownership dot — fades on hover when missing (wants button takes over) */}
               {ownershipState !== null && (
                 <div className={cn(
-                  "absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20",
+                  "absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20 transition-opacity",
                   ownershipState === 'full' ? "bg-green-400" : "bg-red-500",
+                  ownershipState === 'missing' && onAddToWants ? "group-hover:opacity-0" : "",
                 )} />
+              )}
+
+              {/* Wants button — shown on hover for unowned cards */}
+              {!isDragActive && onAddToWants && ownershipState === 'missing' && (
+                <button
+                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-pink-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  title="Add to wants list"
+                  onClick={e => { e.stopPropagation(); onAddToWants(tile.printingId, tile.name); }}
+                >
+                  <Heart className="h-3 w-3" />
+                </button>
               )}
 
               {/* Remove button (X) — shown on hover, hidden for hero/demi-hero */}
               {!isDragActive && onRemoveTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-red-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Remove 1 copy"
                   onClick={e => { e.stopPropagation(); onRemoveTile(tile); }}
                 >
-                  <X className="h-2.5 w-2.5" />
+                  <X className="h-3 w-3" />
                 </button>
               )}
 
               {/* Binder button — shown on hover */}
               {!isDragActive && onAddToBinder && (
                 <button
-                  className="absolute bottom-0.5 left-0.5 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Add to binder"
                   onClick={e => { e.stopPropagation(); onAddToBinder(tile.printingId, tile.name); }}
                 >
-                  <BookmarkPlus className="h-2.5 w-2.5" />
+                  <BookmarkPlus className="h-3 w-3" />
                 </button>
               )}
 
               {/* Magnify button — shown on hover when tile has an image */}
               {!isDragActive && onEnlargeImage && tile.imageUrl && (
                 <button
-                  className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-gray-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-gray-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Enlarge image"
                   onClick={e => { e.stopPropagation(); onEnlargeImage(tile.imageUrl!, tile.name); }}
                 >
-                  <ZoomIn className="h-2.5 w-2.5" />
+                  <ZoomIn className="h-3 w-3" />
                 </button>
               )}
 
@@ -721,7 +739,7 @@ function DeckTileSection({
             onClick={() => !isDragActive && onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
             title={`Add card to ${section.title}`}
             className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
-            style={{ width: 72, aspectRatio: '63/53' }}
+            style={{ width: tileWidth, aspectRatio: '63/53' }}
           >
             <Plus className="h-5 w-5" />
           </button>
@@ -795,6 +813,7 @@ interface GameViewCard {
 interface GameViewSection {
   key: string;
   title: string;
+  pitchColor?: string;
   cards: GameViewCard[];
 }
 
@@ -853,8 +872,16 @@ function buildGameViewSections(deck: DeckDTO): GameViewSection[] {
   const benchCards = buildGameCards(deck.benched || []);
   // Always include equipment section so the hero portrait is always visible
   sections.push({ key: 'equipment', title: 'Equipment & Weapons', cards: eqCards });
-  if (libCards.length > 0) sections.push({ key: 'library', title: 'Library', cards: libCards });
-  if (invCards.length > 0) sections.push({ key: 'inventory', title: 'Inventory', cards: invCards });
+  // Split library by pitch — same visual grouping as tile view
+  const redCards      = libCards.filter(c => c.redQty > 0);
+  const yellowCards   = libCards.filter(c => c.yellowQty > 0);
+  const blueCards     = libCards.filter(c => c.blueQty > 0);
+  const unpitchedCards = libCards.filter(c => c.noPitchQty > 0);
+  if (redCards.length > 0)      sections.push({ key: 'red',      title: 'Library — Red',    pitchColor: 'bg-red-500',    cards: redCards });
+  if (yellowCards.length > 0)   sections.push({ key: 'yellow',   title: 'Library — Yellow', pitchColor: 'bg-yellow-400', cards: yellowCards });
+  if (blueCards.length > 0)     sections.push({ key: 'blue',     title: 'Library — Blue',   pitchColor: 'bg-blue-500',   cards: blueCards });
+  if (unpitchedCards.length > 0) sections.push({ key: 'unpitched', title: 'Library',          cards: unpitchedCards });
+  if (invCards.length > 0)  sections.push({ key: 'inventory', title: 'Inventory', cards: invCards });
   if (benchCards.length > 0) sections.push({ key: 'bench', title: 'Bench', cards: benchCards });
   return sections;
 }
@@ -882,15 +909,26 @@ interface DeckEditorListViewProps {
   onBinderChange?: (binderId: string) => void;
   /** Called when the user clicks the binder button on a tile */
   onAddToBinder?: (printingId: string, cardName: string) => void;
+  /** Called when the user clicks the wants button on an unowned tile */
+  onAddToWants?: (printingId: string, cardName: string) => void;
   /** Swap all unowned deck printings to best-value owned alternatives */
   onUpgradePrintings?: () => Promise<void>;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onUpgradePrintings }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
+  const TILE_SIZES = [
+    { key: 'compact', label: 'Compact', width: 72 },
+    { key: 'normal',  label: 'Normal',  width: 108 },
+    { key: 'large',   label: 'Large',   width: 150 },
+  ] as const;
+  type TileSizeKey = typeof TILE_SIZES[number]['key'];
+  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('normal');
+  const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
+  const tileWidth = TILE_SIZES[tileSizeIdx].width;
   const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
   const mouseXRef = useRef(0);
@@ -1159,13 +1197,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
     onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
     onAddToBinder: onAddToBinder,
+    onAddToWants: onAddToWants,
     highlightMatchIds: matchingPrintingIds,
+    tileWidth,
   };
 
   return (
     <>
       {/* View toggle + legend */}
       <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
         <div className="flex rounded border border-gray-700 overflow-hidden">
           <button
             type="button"
@@ -1197,6 +1238,29 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           >
             <Layers className="h-3.5 w-3.5" />Game
           </button>
+        </div>
+
+        {/* Tile size stepper — only for tile/game views */}
+        {(viewMode === 'tile' || viewMode === 'game') && (
+          <div className="flex items-center gap-1 rounded border border-gray-700 overflow-hidden text-xs">
+            <span className="px-2 text-gray-500 hidden sm:inline border-r border-gray-700 py-1.5">Tile Size</span>
+            <button
+              type="button"
+              disabled={tileSizeIdx === 0}
+              onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx - 1].key)}
+              className="px-2 py-1.5 text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Smaller tiles"
+            >−</button>
+            <span className="px-2 py-1.5 text-gray-300 min-w-[52px] text-center">{TILE_SIZES[tileSizeIdx].label}</span>
+            <button
+              type="button"
+              disabled={tileSizeIdx === TILE_SIZES.length - 1}
+              onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx + 1].key)}
+              className="px-2 py-1.5 text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Larger tiles"
+            >+</button>
+          </div>
+        )}
         </div>
 
         {(viewMode === 'tile' || viewMode === 'game') && (
@@ -1403,12 +1467,15 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             const sectionCollapseKey = `game-${section.key}`;
             const isSectionCollapsed = collapsedSections.has(sectionCollapseKey);
             const gameZoneAccent: Record<string, { bg: string; border: string; headerBorder: string; labelColor: string }> = {
-              library:   { bg: "bg-gray-500/5 dark:bg-gray-400/[0.04]",  border: "border-l-[3px] border-l-gray-400 rounded-r-lg",  headerBorder: "border-gray-500/40", labelColor: "text-gray-600 dark:text-gray-300" },
-              equipment: { bg: "",                                          border: "rounded-lg",                                        headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
-              inventory: { bg: "",                                          border: "rounded-lg",                                        headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
-              bench:     { bg: "",                                          border: "rounded-lg",                                        headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
+              red:       { bg: "bg-red-500/10 dark:bg-red-500/[0.06]",       border: "border-l-[3px] border-l-red-500 rounded-r-lg",    headerBorder: "border-red-500/30",    labelColor: "text-red-600 dark:text-red-400" },
+              yellow:    { bg: "bg-yellow-400/10 dark:bg-yellow-400/[0.05]", border: "border-l-[3px] border-l-yellow-400 rounded-r-lg", headerBorder: "border-yellow-400/30", labelColor: "text-yellow-600 dark:text-yellow-400" },
+              blue:      { bg: "bg-blue-500/10 dark:bg-blue-500/[0.05]",     border: "border-l-[3px] border-l-blue-500 rounded-r-lg",   headerBorder: "border-blue-500/30",   labelColor: "text-blue-600 dark:text-blue-400" },
+              unpitched: { bg: "bg-gray-500/5 dark:bg-gray-400/[0.04]",     border: "border-l-[3px] border-l-gray-400 rounded-r-lg",   headerBorder: "border-gray-500/40",   labelColor: "text-gray-600 dark:text-gray-300" },
+              equipment: { bg: "",  border: "rounded-lg", headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
+              inventory: { bg: "",  border: "rounded-lg", headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
+              bench:     { bg: "",  border: "rounded-lg", headerBorder: "border-gray-700/40", labelColor: "text-gray-600 dark:text-gray-300" },
             };
-            const gameAccent = gameZoneAccent[section.key] ?? gameZoneAccent.library;
+            const gameAccent = gameZoneAccent[section.key] ?? gameZoneAccent.unpitched;
             return (
               <div key={section.key} className={cn("mb-3 p-1 transition-all", gameAccent.bg, gameAccent.border)}>
                 <button
@@ -1461,10 +1528,19 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       ))}
                     </>
                   )}
+                  {section.pitchColor && (
+                    <span className={cn("inline-block w-2 h-2 rounded-full flex-shrink-0", section.pitchColor)} />
+                  )}
                   <span className={cn("text-[10px] font-bold uppercase tracking-wider", gameAccent.labelColor)}>
                     {section.title}
                   </span>
-                  <span className="text-[10px] text-gray-500">({sectionTotal})</span>
+                  <span className={cn(
+                    "text-[10px]",
+                    section.key === 'red'    ? "text-red-500/70 dark:text-red-400/60" :
+                    section.key === 'yellow' ? "text-yellow-500/70 dark:text-yellow-400/60" :
+                    section.key === 'blue'   ? "text-blue-500/70 dark:text-blue-400/60" :
+                    "text-gray-500"
+                  )}>({sectionTotal})</span>
                   <ChevronDown className={cn("h-3 w-3 text-gray-500 ml-auto transition-transform shrink-0", isSectionCollapsed && "-rotate-90")} />
                 </button>
                 {!isSectionCollapsed && <div className="flex flex-wrap gap-1">
@@ -1478,7 +1554,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         gameHighlight === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
                         gameHighlight === false && "opacity-25 scale-95 grayscale",
                       )}
-                      style={{ width: 72 }}
+                      style={{ width: tileWidth }}
                       onMouseEnter={() => card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
                       onMouseLeave={() => setHoveredImage(null)}
                     >
@@ -1501,19 +1577,19 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                           <span className="text-[7px] text-center text-gray-300 leading-tight">{card.name}</span>
                         </div>
                       )}
-                      {/* Pitch count bubbles overlaid at bottom */}
+                      {/* Qty badge — show only the relevant pitch for library sections */}
                       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 pb-0.5 px-0.5">
-                        {card.redQty > 0 && (
-                          <span className="bg-red-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.redQty}</span>
-                        )}
-                        {card.yellowQty > 0 && (
-                          <span className="bg-yellow-400 text-gray-900 text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.yellowQty}</span>
-                        )}
-                        {card.blueQty > 0 && (
-                          <span className="bg-blue-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.blueQty}</span>
-                        )}
-                        {card.noPitchQty > 0 && (
-                          <span className="bg-gray-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.noPitchQty}</span>
+                        {section.key === 'red'      && card.redQty > 0      && <span className="bg-red-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.redQty}</span>}
+                        {section.key === 'yellow'   && card.yellowQty > 0   && <span className="bg-yellow-400 text-gray-900 text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.yellowQty}</span>}
+                        {section.key === 'blue'     && card.blueQty > 0     && <span className="bg-blue-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.blueQty}</span>}
+                        {section.key === 'unpitched' && card.noPitchQty > 0 && <span className="bg-gray-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.noPitchQty}</span>}
+                        {(section.key === 'equipment' || section.key === 'inventory' || section.key === 'bench') && (
+                          <>
+                            {card.redQty > 0    && <span className="bg-red-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.redQty}</span>}
+                            {card.yellowQty > 0 && <span className="bg-yellow-400 text-gray-900 text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.yellowQty}</span>}
+                            {card.blueQty > 0   && <span className="bg-blue-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.blueQty}</span>}
+                            {card.noPitchQty > 0 && <span className="bg-gray-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.noPitchQty}</span>}
+                          </>
                         )}
                       </div>
                     </div>

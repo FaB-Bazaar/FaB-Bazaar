@@ -314,7 +314,7 @@ function CardRow({
       <div className="flex items-center gap-3 px-3 py-2.5">
         {/* Thumbnail — 56px wide, full card aspect */}
         <div
-          className="flex-shrink-0 rounded overflow-hidden ring-1 ring-gray-600"
+          className="relative flex-shrink-0 rounded overflow-hidden ring-1 ring-gray-600 group/thumb"
           style={{ width: 56, aspectRatio: "63/88" }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -324,6 +324,15 @@ function CardRow({
             className="w-full h-full object-cover object-top"
             draggable={false}
           />
+          {selectedPrinting?.image_url && (
+            <button
+              className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover/thumb:bg-black/40 transition-all z-10"
+              title="Enlarge image"
+              onClick={e => { e.stopPropagation(); onEnlarge(selectedPrinting.image_url!); }}
+            >
+              <ZoomIn className="h-4 w-4 text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity drop-shadow" />
+            </button>
+          )}
         </div>
 
         {/* Info */}

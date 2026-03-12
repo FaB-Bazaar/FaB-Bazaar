@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
 import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
-import { decksClient, bindersClient } from "@/lib/client";
+import { decksClient, bindersClient, wantsClient } from "@/lib/client";
 import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
@@ -298,6 +298,15 @@ export default function DeckEditorPage() {
       await handlers.refreshDeck();
     } else {
       toast({ title: "Failed to add to binder", description: result.error, variant: "destructive" });
+    }
+  };
+
+  const handleAddToWants = async (printingId: string, cardName: string) => {
+    const result = await wantsClient.addWantsItem(printingId, 1, 'medium');
+    if (result.success) {
+      toast({ title: "Added to wants", description: cardName });
+    } else {
+      toast({ title: "Failed to add to wants", description: result.error, variant: "destructive" });
     }
   };
 
@@ -592,6 +601,7 @@ export default function DeckEditorPage() {
                     selectedBinderId={selectedBinderId}
                     onBinderChange={handleBinderChange}
                     onAddToBinder={handleAddToBinder}
+                    onAddToWants={handleAddToWants}
                     onUpgradePrintings={handleUpgradePrintings}
                   />
                 ) : null}
