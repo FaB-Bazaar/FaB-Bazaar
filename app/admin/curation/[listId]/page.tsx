@@ -12,10 +12,12 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { SearchableHeroSelect } from '@/components/deck/SearchableHeroSelect';
-import { getHeroesGroupedByClass } from '@/lib/fab-constants';
+import { getHeroesGroupedByClass, getAllClasses } from '@/lib/fab-constants';
 import QuickAddCardDialog from '@/components/deck/editor/QuickAddCardDialog';
 
 const FORMATS = ['Classic Constructed', 'Silver Age', 'Blitz', 'Limited', 'Commoner', 'Living Legend'];
+
+type Scope = 'general' | 'class' | 'hero';
 
 interface CuratedListCard {
   id: string;
@@ -31,6 +33,7 @@ interface CuratedList {
   name: string;
   description: string | null;
   heroName: string | null;
+  className: string | null;
   format: string | null;
   tags: string[];
   isPublished: boolean;
@@ -38,6 +41,12 @@ interface CuratedList {
   parentId: string | null;
   variantType: 'budget' | 'mid' | 'premium' | null;
   cards?: CuratedListCard[];
+}
+
+function deriveScope(list: CuratedList): Scope {
+  if (list.heroName) return 'hero';
+  if (list.className) return 'class';
+  return 'general';
 }
 
 export default function CurationListEditorPage() {
@@ -52,32 +61,19 @@ export default function CurationListEditorPage() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [scope, setScope] = useState<Scope>('general');
   const [heroName, setHeroName] = useState('');
+  const [className, setClassName] = useState('');
   const [format, setFormat] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [isPublished, setIsPublished] = useState(false);
-  const [parentId, setParentId] = useState('');
-  const [variantType, setVariantType] = useState<'budget' | 'mid' | 'premium' | ''>('');
   const [cards, setCards] = useState<CuratedListCard[]>([]);
   const [addingCard, setAddingCard] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
   const [removingCardId, setRemovingCardId] = useState<string | null>(null);
-  const [topLevelLists, setTopLevelLists] = useState<Array<{ id: string; name: string }>>([]);
 
   const allHeroes = useMemo(() => getHeroesGroupedByClass(), []);
-
-  // Load top-level lists for parent selector
-  useEffect(() => {
-    fetch('/api/curated-lists')
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          const lists = (data.data ?? []).filter((l: any) => !l.parentId && l.id !== listId);
-          setTopLevelLists(lists);
-        }
-      })
-      .catch(() => {});
-  }, [listId]);
+  const allClasses = useMemo(() => getAllClasses(), []);
 
   useEffect(() => {
     if (isNew) return;
@@ -89,12 +85,12 @@ export default function CurationListEditorPage() {
           const list: CuratedList = data.data;
           setName(list.name);
           setDescription(list.description ?? '');
+          setScope(deriveScope(list));
           setHeroName(list.heroName ?? '');
+          setClassName(list.className ?? '');
           setFormat(list.format ?? '');
           setTagsInput((list.tags ?? []).join(', '));
           setIsPublished(list.isPublished);
-          setParentId(list.parentId ?? '');
-          setVariantType(list.variantType ?? '');
           setCards(list.cards ?? []);
         } else {
           toast({ title: 'Error', description: data.error, variant: 'destructive' });
@@ -110,12 +106,11 @@ export default function CurationListEditorPage() {
       const body = {
         name,
         description: description || null,
-        heroName: heroName || null,
+        heroName: scope === 'hero' ? (heroName || null) : null,
+        className: scope === 'class' ? (className || null) : null,
         format: format || null,
         tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
         isPublished,
-        parentId: parentId || null,
-        variantType: variantType || null,
       };
 
       if (isNew) {
@@ -214,7 +209,41 @@ export default function CurationListEditorPage() {
           <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional description" rows={3} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Scope selector */}
+        <div className="space-y-1.5">
+          <Label>Scope</Label>
+          <Select value={scope} onValueChange={v => setScope(v as Scope)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">General (all heroes)</SelectItem>
+              <SelectItem value="class">Class</SelectItem>
+              <SelectItem value="hero">Hero</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {scope === 'class' && (
+          <div className="space-y-1.5">
+            <Label>Class</Label>
+            <Select value={className || '__none__'} onValueChange={v => setClassName(v === '__none__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Select a class</SelectItem>
+                {allClasses.map(cls => (
+                  <SelectItem key={cls} value={cls}>
+                    {cls.charAt(0).toUpperCase() + cls.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {scope === 'hero' && (
           <div className="space-y-1.5">
             <Label>Hero</Label>
             <SearchableHeroSelect
@@ -225,6 +254,9 @@ export default function CurationListEditorPage() {
               showGeneric
             />
           </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Format</Label>
             <Select
@@ -242,47 +274,11 @@ export default function CurationListEditorPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label>Group under (optional)</Label>
-            <Select value={parentId || '__none__'} onValueChange={v => setParentId(v === '__none__' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="No parent (top-level)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No parent (top-level)</SelectItem>
-                {topLevelLists.map(l => (
-                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="tags">Tags (comma-separated)</Label>
+            <Input id="tags" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="e.g. aggro, stealth" />
           </div>
-          <div className="space-y-1.5">
-            <Label>Variant</Label>
-            <Select
-              value={variantType || '__none__'}
-              onValueChange={v => setVariantType(v === '__none__' ? '' : v as 'budget' | 'mid' | 'premium')}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None</SelectItem>
-                <SelectItem value="budget">Budget</SelectItem>
-                <SelectItem value="mid">Mid</SelectItem>
-                <SelectItem value="premium">Premium</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <p className="text-xs text-muted-foreground -mt-3">Top-level lists appear as buttons. Child lists appear as variants within a popover.</p>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="tags">Tags (comma-separated)</Label>
-          <Input id="tags" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="e.g. aggro, stealth, budget" />
         </div>
 
         <div className="flex items-center gap-3">
@@ -365,7 +361,7 @@ export default function CurationListEditorPage() {
         onAdd={handleAddCard}
         targetCategory="inventory"
         deckFormat={format || undefined}
-        currentDeck={heroName ? { heroName, hero: [] } : undefined}
+        currentDeck={undefined}
       />
     </div>
   );

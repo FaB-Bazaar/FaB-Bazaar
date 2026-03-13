@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -50,11 +49,7 @@ export default function DeckEditorPage() {
     id: string;
     name: string;
     cards: Array<{ printingId: string; displayName?: string }>;
-    children?: Array<{ id: string; name: string; cards: Array<{ printingId: string; displayName?: string }> }>;
   }>>([]);
-
-  // Active popover for build buttons
-  const [activeBuildPopover, setActiveBuildPopover] = useState<string | null>(null);
 
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
@@ -257,7 +252,6 @@ export default function DeckEditorPage() {
   const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
     if (!cardList?.length || !isOwner) return;
     setApplyingBuild(true);
-    setActiveBuildPopover(null);
     try {
       // Group by printingId to calculate quantities
       const quantities = new Map<string, number>();
@@ -411,38 +405,14 @@ export default function DeckEditorPage() {
                 </span>
                 <div className="w-px h-4 bg-blue-200 dark:bg-blue-700 shrink-0" />
                 {curatedBuilds.map(build => (
-                  build.children && build.children.length > 1 ? (
-                    <Popover key={build.id} open={activeBuildPopover === build.id} onOpenChange={open => setActiveBuildPopover(open ? build.id : null)}>
-                      <PopoverTrigger asChild>
-                        <button disabled={applyingBuild} className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium flex items-center gap-1 shadow-sm disabled:opacity-50">
-                          {build.name}
-                          <span className="text-[10px] opacity-60">▾</span>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-48 p-1" align="start">
-                        <div className="space-y-0.5">
-                          {build.children.map(child => (
-                            <button
-                              key={child.id}
-                              onClick={() => applyBuild(child.cards)}
-                              className="w-full text-left text-sm px-3 py-2 rounded hover:bg-muted transition-colors"
-                            >
-                              {child.name}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <button
-                      key={build.id}
-                      disabled={applyingBuild}
-                      onClick={() => applyBuild(build.children?.length === 1 ? build.children[0].cards : build.cards)}
-                      className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm disabled:opacity-50"
-                    >
-                      {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
-                    </button>
-                  )
+                  <button
+                    key={build.id}
+                    disabled={applyingBuild}
+                    onClick={() => applyBuild(build.cards)}
+                    className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm disabled:opacity-50"
+                  >
+                    {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
+                  </button>
                 ))}
               </div>
             )}

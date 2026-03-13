@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Curator or Super Admin role required' }, { status: 403 });
     }
 
-    const { name, description, heroName, format, tags, sortOrder, parentId, variantType } = body;
+    const { name, description, heroName, className, format, tags, sortOrder, parentId, variantType } = body;
 
     if (!name) {
       return NextResponse.json({ success: false, error: 'name is required' }, { status: 400 });
@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       name,
       description,
       heroName,
+      className,
       format,
       tags,
       sortOrder,

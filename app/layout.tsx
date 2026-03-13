@@ -205,7 +205,7 @@ export default function RootLayout({
         <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">FaB Bazaar</h3>
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
           The ultimate fan-made trading platform for the Flesh and Blood TCG community.
-          Find cards, manage your collection, and connect with local traders.
+          Find cards, manage your collection, and connect with local traders. 
         </p>
       </div>
 
@@ -267,7 +267,7 @@ export default function RootLayout({
     {/* Bottom Bar for Copyright */}
     <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 text-center">
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">
-        &copy; {new Date().getFullYear()} FaB Bazaar. is in no way affiliated with Legend Story Studios. Legend Story Studios®, Flesh and Blood™, and set names are trademarks of Legend Story Studios. Flesh and Blood characters, cards, logos, and art are property of Legend Story Studios.
+        &copy; {new Date().getFullYear()} FaB Bazaar is in no way affiliated with Legend Story Studios. Legend Story Studios®, Flesh and Blood™, and set names are trademarks of Legend Story Studios. Flesh and Blood characters, cards, logos, and art are property of Legend Story Studios.
       </p>
       <p className="text-xs text-slate-400 dark:text-slate-500">
         Some card links may earn us a commission at no extra cost to you.

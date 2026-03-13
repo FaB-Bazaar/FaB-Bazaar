@@ -17,6 +17,7 @@ export interface CuratedListDTO {
   name: string;
   description: string | null;
   heroName: string | null;
+  className: string | null;
   format: string | null;
   tags: string[];
   isPublished: boolean;
@@ -34,6 +35,7 @@ export interface CreateCuratedListInput {
   name: string;
   description?: string;
   heroName?: string;
+  className?: string;
   format?: string;
   tags?: string[];
   sortOrder?: number;
@@ -45,6 +47,7 @@ export interface UpdateCuratedListInput {
   name?: string;
   description?: string;
   heroName?: string;
+  className?: string | null;
   format?: string;
   tags?: string[];
   isPublished?: boolean;

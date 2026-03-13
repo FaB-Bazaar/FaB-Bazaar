@@ -96,6 +96,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
     if (heroFilter) {
       filters.heroClasses = heroFilter.heroClasses;
       filters.heroTalents = heroFilter.heroTalents;
+      if (heroFilter.heroEssences.length > 0) filters.heroEssences = heroFilter.heroEssences;
     }
     if (formatCode) filters.format = formatCode;
     filters.isHero = false;

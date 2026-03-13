@@ -1018,6 +1018,7 @@ export const curatedLists = pgTable('curated_lists', {
   name: text('name').notNull(),
   description: text('description'),
   heroName: text('hero_name'),
+  className: text('class_name'),
   format: text('format'),
   tags: text('tags').array().default([]).notNull(),
   isPublished: boolean('is_published').default(false).notNull(),
@@ -1029,6 +1030,7 @@ export const curatedLists = pgTable('curated_lists', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   heroNameIdx: index('idx_curated_lists_hero_name').on(table.heroName),
+  classNameIdx: index('idx_curated_lists_class_name').on(table.className),
   isPublishedIdx: index('idx_curated_lists_is_published').on(table.isPublished),
   parentIdIdx: index('idx_curated_lists_parent_id').on(table.parentId),
 }));

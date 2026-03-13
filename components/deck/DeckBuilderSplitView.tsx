@@ -30,8 +30,15 @@ export default function DeckBuilderSplitView({
   // Extract hero information for filtering
   const heroPrinting = deck.hero?.[0]
   const heroDetails = heroPrinting?.printingDetails
-  // Use the full hero name for heroLegal filter (API will handle lookup via getHeroInfo)
   const heroName = heroDetails?.name || heroDetails?.display_name
+  // Parse "essence of X" keywords so elemental heroes get access to sub-talent cards
+  const heroEssences = (() => {
+    const ESSENCE_ELEMENTS = ['lightning', 'earth', 'ice', 'fire', 'shadow', 'light', 'draconic', 'water'];
+    const keywords: string[] = heroDetails?.keywords || [];
+    const combined = keywords.join(' ').toLowerCase();
+    if (!combined.includes('essence')) return [] as string[];
+    return ESSENCE_ELEMENTS.filter(el => combined.includes(el));
+  })()
 
   // Handle adding a card from the catalog
   const handleAddCard = async (cardUniqueId: string, cardName: string) => {
@@ -134,6 +141,7 @@ export default function DeckBuilderSplitView({
             deckFormat={deckFormat}
             heroClasses={heroDetails?.classes || []}
             heroTalents={heroDetails?.talents || []}
+            heroEssences={heroEssences}
             heroName={heroName}
             onAddCard={handleAddCard}
             isAddingCard={isAddingCard}

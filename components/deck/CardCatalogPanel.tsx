@@ -12,6 +12,7 @@ interface CardCatalogPanelProps {
   deckFormat?: string // Deck format (e.g., "Silver Age", "Blitz", "Classic Constructed")
   heroClasses: string[]
   heroTalents: string[]
+  heroEssences?: string[]
   heroName?: string // Add hero name for heroLegal filter
   onAddCard: (cardUniqueId: string, cardName: string) => Promise<void>
   isAddingCard: boolean
@@ -39,6 +40,7 @@ export default function CardCatalogPanel({
   deckFormat,
   heroClasses,
   heroTalents,
+  heroEssences = [],
   onAddCard,
   isAddingCard
 }: CardCatalogPanelProps) {
@@ -84,6 +86,7 @@ export default function CardCatalogPanel({
       if (heroClasses.length > 0 || heroTalents.length > 0) {
         searchFilters.heroClasses = heroClasses.map(c => c.toLowerCase())
         searchFilters.heroTalents = heroTalents.map(t => t.toLowerCase())
+        if (heroEssences.length > 0) searchFilters.heroEssences = heroEssences.map(e => e.toLowerCase())
       }
 
       // Add format filter for format legality (e.g., "Classic Constructed" → "cc")
@@ -217,7 +220,7 @@ export default function CardCatalogPanel({
       setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroClassesKey, heroTalentsKey, debouncedSearchQuery, filters.pitchValues, filters.types, filters.rarities, filters.foilings, filters.costs, filters.powerMin, filters.powerMax, filters.defenseMin, filters.defenseMax, filters.priceMin, filters.priceMax, limit])
+  }, [heroClassesKey, heroTalentsKey, heroEssences.join(','), debouncedSearchQuery, filters.pitchValues, filters.types, filters.rarities, filters.foilings, filters.costs, filters.powerMin, filters.powerMax, filters.defenseMin, filters.defenseMax, filters.priceMin, filters.priceMax, limit])
 
   // Fetch cards when filters or page changes
   useEffect(() => {

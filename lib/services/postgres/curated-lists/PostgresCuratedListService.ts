@@ -1,6 +1,7 @@
 import { db } from '@/lib/postgres/db';
 import { curatedLists, curatedListCards, printings, cards } from '@/lib/postgres/schema';
 import { eq, asc, or, isNull, and, sql } from 'drizzle-orm';
+import { getHeroInfo } from '@/lib/fab-constants/heroes';
 import { nanoid } from 'nanoid';
 import type {
   ICuratedListService,
@@ -13,12 +14,13 @@ import type {
 import type { AsyncResult } from '../../contracts/common';
 
 export class PostgresCuratedListService implements ICuratedListService {
-  private toDTO(row: typeof curatedLists.$inferSelect, cardList?: CuratedListCardDTO[], children?: CuratedListDTO[]): CuratedListDTO {
+  private toDTO(row: typeof curatedLists.$inferSelect, cardList?: CuratedListCardDTO[]): CuratedListDTO {
     return {
       id: row.id,
       name: row.name,
       description: row.description ?? null,
       heroName: row.heroName ?? null,
+      className: row.className ?? null,
       format: row.format ?? null,
       tags: row.tags ?? [],
       isPublished: row.isPublished,
@@ -29,7 +31,6 @@ export class PostgresCuratedListService implements ICuratedListService {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       cards: cardList,
-      children,
     };
   }
 
@@ -63,29 +64,35 @@ export class PostgresCuratedListService implements ICuratedListService {
 
   async getPublishedListsForHero(heroName?: string): AsyncResult<CuratedListDTO[]> {
     try {
-      const heroFilter = heroName
-        ? or(eq(sql`lower(${curatedLists.heroName})`, heroName.toLowerCase()), isNull(curatedLists.heroName))
-        : isNull(curatedLists.heroName);
+      // Resolve the hero's class to also include class-level lists
+      const heroClass = heroName ? (getHeroInfo(heroName)?.classes?.[0] ?? null) : null;
+
+      let heroFilter;
+      if (heroName) {
+        // Include: this specific hero OR general (no hero, no class) OR this hero's class
+        const conditions = [
+          eq(sql`lower(${curatedLists.heroName})`, heroName.toLowerCase()),
+          and(isNull(curatedLists.heroName), isNull(curatedLists.className)),
+        ];
+        if (heroClass) {
+          conditions.push(eq(sql`lower(${curatedLists.className})`, heroClass.toLowerCase()) as any);
+        }
+        heroFilter = or(...conditions);
+      } else {
+        // No hero specified: only general lists
+        heroFilter = and(isNull(curatedLists.heroName), isNull(curatedLists.className));
+      }
+
       const rows = await db
         .select()
         .from(curatedLists)
         .where(and(heroFilter, eq(curatedLists.isPublished, true)))
         .orderBy(asc(curatedLists.sortOrder));
 
-      const parents = rows.filter(r => r.parentId === null);
-      const children = rows.filter(r => r.parentId !== null);
-
       const result: CuratedListDTO[] = await Promise.all(
-        parents.map(async parent => {
-          const parentCards = await this.fetchCardsForList(parent.id);
-          const parentChildren = children.filter(c => c.parentId === parent.id);
-          const childDTOs = await Promise.all(
-            parentChildren.map(async child => {
-              const childCards = await this.fetchCardsForList(child.id);
-              return this.toDTO(child, childCards);
-            })
-          );
-          return { ...this.toDTO(parent, parentCards), children: childDTOs };
+        rows.map(async row => {
+          const cardList = await this.fetchCardsForList(row.id);
+          return this.toDTO(row, cardList);
         })
       );
 
@@ -105,23 +112,7 @@ export class PostgresCuratedListService implements ICuratedListService {
         .from(curatedLists)
         .orderBy(asc(curatedLists.sortOrder));
 
-      const parents = rows.filter(r => r.parentId === null);
-      const children = rows.filter(r => r.parentId !== null);
-
-      const result: CuratedListDTO[] = await Promise.all(
-        parents.map(async parent => {
-          const parentChildren = children.filter(c => c.parentId === parent.id);
-          const childDTOs = parentChildren.map(child => this.toDTO(child));
-          return { ...this.toDTO(parent), children: childDTOs };
-        })
-      );
-
-      // Also include any orphaned children (parent not in current result set)
-      const parentIds = new Set(parents.map(p => p.id));
-      const orphans = children.filter(c => !parentIds.has(c.parentId!));
-      orphans.forEach(orphan => result.push(this.toDTO(orphan)));
-
-      return { success: true, data: result };
+      return { success: true, data: rows.map(row => this.toDTO(row)) };
     } catch (error) {
       return {
         success: false,
@@ -163,6 +154,7 @@ export class PostgresCuratedListService implements ICuratedListService {
           name: input.name,
           description: input.description ?? null,
           heroName: input.heroName ?? null,
+          className: input.className ?? null,
           format: input.format ?? null,
           tags: input.tags ?? [],
           isPublished: false,
@@ -193,6 +185,7 @@ export class PostgresCuratedListService implements ICuratedListService {
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined) updateData.description = input.description;
       if (input.heroName !== undefined) updateData.heroName = input.heroName;
+      if (input.className !== undefined) updateData.className = input.className ?? null;
       if (input.format !== undefined) updateData.format = input.format;
       if (input.tags !== undefined) updateData.tags = input.tags;
       if (input.isPublished !== undefined) updateData.isPublished = input.isPublished;

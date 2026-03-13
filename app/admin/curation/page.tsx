@@ -7,27 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit } from 'lucide-react';
 import type { CuratedListDTO } from '@/lib/services/contracts/ICuratedListService';
 
-function toDisplayName(heroName: string | null): string {
-  if (!heroName) return 'General';
-  return heroName.replace(/\b\w/g, (c) => c.toUpperCase());
+function toDisplayName(name: string): string {
+  return name.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-type Row = { list: CuratedListDTO; isChild: boolean };
-
-function buildRows(lists: CuratedListDTO[]): Row[] {
-  const rows: Row[] = [];
-  for (const list of lists) {
-    rows.push({ list, isChild: false });
-    if (list.children && list.children.length > 0) {
-      for (const child of list.children) {
-        rows.push({ list: child as CuratedListDTO, isChild: true });
-      }
-    }
-  }
-  return rows;
-}
-
-function HeroTable({ rows }: { rows: Row[] }) {
+function ListTable({ lists }: { lists: CuratedListDTO[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -40,19 +24,9 @@ function HeroTable({ rows }: { rows: Row[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ list, isChild }) => (
+          {lists.map((list) => (
             <tr key={list.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-              <td className="py-3 font-medium">
-                {isChild ? (
-                  <span className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-xs pl-4">↳</span>
-                    <span className="text-muted-foreground">{list.name}</span>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">variant</Badge>
-                  </span>
-                ) : (
-                  list.name
-                )}
-              </td>
+              <td className="py-3 font-medium">{list.name}</td>
               <td className="py-3 text-muted-foreground">{list.format ?? '—'}</td>
               <td className="py-3">
                 <Badge variant={list.isPublished ? 'default' : 'secondary'}>
@@ -91,17 +65,33 @@ export default async function CurationAdminPage() {
   const listsResult = await curatedListService.getAllLists();
   const lists = listsResult.success ? listsResult.data : [];
 
-  // Group top-level lists by heroName, preserving order of first appearance
+  const general = lists.filter(l => !l.heroName && !l.className);
+
+  // Group by className
+  const classOrder: string[] = [];
+  const classMap = new Map<string, CuratedListDTO[]>();
+  for (const list of lists.filter(l => l.className)) {
+    const key = list.className!;
+    if (!classMap.has(key)) {
+      classOrder.push(key);
+      classMap.set(key, []);
+    }
+    classMap.get(key)!.push(list);
+  }
+  classOrder.sort();
+
+  // Group by heroName
   const heroOrder: string[] = [];
   const heroMap = new Map<string, CuratedListDTO[]>();
-  for (const list of lists) {
-    const key = list.heroName ?? '';
+  for (const list of lists.filter(l => l.heroName)) {
+    const key = list.heroName!;
     if (!heroMap.has(key)) {
       heroOrder.push(key);
       heroMap.set(key, []);
     }
     heroMap.get(key)!.push(list);
   }
+  heroOrder.sort();
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8">
@@ -124,18 +114,47 @@ export default async function CurationAdminPage() {
         <p className="text-muted-foreground text-center py-16">No curated lists yet. Create one to get started.</p>
       ) : (
         <div className="space-y-10">
-          {heroOrder.map((heroKey) => {
-            const heroLists = heroMap.get(heroKey)!;
-            const rows = buildRows(heroLists);
-            return (
-              <section key={heroKey || '__general__'}>
-                <h2 className="text-lg font-semibold mb-3">
-                  {toDisplayName(heroKey || null)}
-                </h2>
-                <HeroTable rows={rows} />
-              </section>
-            );
-          })}
+          {/* General */}
+          {general.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold mb-3">General</h2>
+              <ListTable lists={general} />
+            </section>
+          )}
+
+          {/* By Class */}
+          {classOrder.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold mb-4">By Class</h2>
+              <div className="space-y-8">
+                {classOrder.map(cls => (
+                  <div key={cls}>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      {toDisplayName(cls)}
+                    </h3>
+                    <ListTable lists={classMap.get(cls)!} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* By Hero */}
+          {heroOrder.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold mb-4">By Hero</h2>
+              <div className="space-y-8">
+                {heroOrder.map(hero => (
+                  <div key={hero}>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      {toDisplayName(hero)}
+                    </h3>
+                    <ListTable lists={heroMap.get(hero)!} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>
