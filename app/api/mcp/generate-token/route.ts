@@ -15,7 +15,7 @@ export async function POST() {
     const rawToken = `mcp_${crypto.randomBytes(32).toString('hex')}`;
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const mcpTokenExpiry = new Date();
-    mcpTokenExpiry.setDate(mcpTokenExpiry.getDate() + 30); // 30 days
+    mcpTokenExpiry.setDate(mcpTokenExpiry.getDate() + 7); // 7 days
 
     // Store the hash, not the raw token
     const result = await userService.updateMcpToken(

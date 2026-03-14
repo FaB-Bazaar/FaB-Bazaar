@@ -147,7 +147,7 @@ export class PostgresAuthTokenService implements IAuthTokenService {
 
       // Generate bearer token
       const bearerToken = `fab_${randomBytes(32).toString('hex')}`;
-      const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000); // 30 days
+      const expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000); // 7 days
 
       // Store in oauth_access_tokens
       await db.insert(oauthAccessTokens).values({

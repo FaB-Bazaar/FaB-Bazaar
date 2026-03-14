@@ -1,7 +1,7 @@
 // app/api/decks/[deckId]/talishar/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService } from '@/lib/services';
+import { deckService, gameResultsService } from '@/lib/services';
 import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
 import { toTalisharIdentifier } from '@/lib/utils';
 import { HERO_INFO } from '@/lib/fab-constants';
@@ -155,6 +155,57 @@ function applySideboardSwap(
  *   ]
  * }
  */
+/**
+ * POST /api/decks/[deckId]/talishar
+ *
+ * Receives game result stats from Talishar after a completed game.
+ * Mirrors the FaBInsights payload shape. No auth required (data is public/open-source).
+ *
+ * Expected payload:
+ * {
+ *   gameID, gameName, player1Name, player2Name, format, gameGUID, conceded,
+ *   countWinnerDeck, countLoserDeck,
+ *   deck1: { deckId, turns, result, winner, firstPlayer, playerHero, opposingHero,
+ *             deckbuilderID, cardResults, character, tokenResults, arenaCardResults,
+ *             turnResults, totalDamageDealt, ... },
+ *   deck2: { ...same shape... }
+ * }
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { deckId: string } }
+) {
+  try {
+    const validation = await validateTalisharRequest(request);
+    if (!validation.valid) {
+      return validation.response;
+    }
+
+    const resolvedParams = await params;
+    const deckId = resolvedParams.deckId;
+    const body = await request.json();
+
+    // Find which deck entry (deck1 or deck2) belongs to this FaB Bazaar deck
+    const deckEntry = body.deck1?.deckbuilderID === deckId || body.deck1?.deckbuilderID?.endsWith(`/${deckId}`)
+      ? body.deck1
+      : body.deck2?.deckbuilderID === deckId || body.deck2?.deckbuilderID?.endsWith(`/${deckId}`)
+        ? body.deck2
+        : body.deck1; // fallback to deck1 if we can't match
+
+    const result = await gameResultsService.createGameResult(deckId, body, deckEntry);
+
+    if (!result.success) {
+      console.error(`[Talishar Stats] Failed to save game result for deck ${deckId}:`, result.error);
+      return NextResponse.json({ error: 'Failed to save game result' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, received: true });
+  } catch (error) {
+    console.error('[Talishar Stats] Error receiving game result:', error);
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { deckId: string } }

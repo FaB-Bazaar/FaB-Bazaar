@@ -60,6 +60,7 @@ import { PostgresOAuthService } from './postgres/oauth/PostgresOAuthService';
 import { PostgresAuthTokenService } from './postgres/auth-token/PostgresAuthTokenService';
 import { PostgresOAuthFlowService } from './postgres/oauth-flow/PostgresOAuthFlowService';
 import { PostgresCuratedListService } from './postgres/curated-lists/PostgresCuratedListService';
+import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 
 // ❌ MongoDB implementations - DEPRECATED (commented out to prevent loading)
 // These are kept in the codebase as reference only, not functional
@@ -597,6 +598,7 @@ export const oauthService = ServiceFactory.oauthService;
 export const authTokenService = ServiceFactory.authTokenService;
 export const oauthFlowService = ServiceFactory.oauthFlowService;
 export const curatedListService = ServiceFactory.curatedListService;
+export const gameResultsService = new PostgresGameResultsService();
 
 // ❌ Deprecated services - DO NOT USE (commented out to prevent module loading errors)
 // export const denormalizationService = ServiceFactory.denormalizationService; // Use JOINs instead

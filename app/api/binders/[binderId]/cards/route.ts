@@ -262,14 +262,14 @@ function calculateDiscordNotificationData(auth: AuthResult, results: any[], bind
   for (const result of results) {
     if (!result.success || !result.printingDoc) continue;
     const printing = result.printingDoc;
-    const price = printing.tcgLow || 0;
+    const price = printing.tcg_low || 0;
     const quantityChange = result.quantityAdded || 0;
     const cardValueChange = price * quantityChange;
     totalValueAdded += cardValueChange;
 
     const cardInfo = {
-      name: printing.displayName || printing.name,
-      printingId: printing.printingId,
+      name: printing.name,
+      printingId: printing.printing_id,
       quantity: quantityChange,
       value: cardValueChange,
       foiling: printing.foiling,
