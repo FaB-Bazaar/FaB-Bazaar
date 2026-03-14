@@ -211,7 +211,7 @@ export async function POST(
     const result = await gameResultsService.createGameResult(internalDeckId, body, deckEntry);
 
     if (!result.success) {
-      console.error(`[Talishar Stats] Failed to save game result for deck ${deckId}:`, result.error);
+      console.error(`[Talishar Stats] Failed to save game result for deck ${publicId}:`, result.error);
       return NextResponse.json({ error: 'Failed to save game result' }, { status: 500 });
     }
 
