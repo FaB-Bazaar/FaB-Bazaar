@@ -176,6 +176,13 @@ export async function POST(
   { params }: { params: { deckId: string } }
 ) {
   try {
+    const resolvedParamsDebug = await params;
+    console.warn('[Talishar Webhook] Incoming POST', {
+      deckId: resolvedParamsDebug.deckId,
+      userAgent: request.headers.get('user-agent'),
+      hasApiKey: !!(request.headers.get('x-api-key') || request.headers.get('x-talishar-key') || new URL(request.url).searchParams.get('api_key')),
+    });
+
     const validation = await validateTalisharRequest(request);
     if (!validation.valid) {
       return validation.response;
@@ -188,9 +195,10 @@ export async function POST(
     // Resolve publicId → internal deck id (game_results.deck_id is a FK to decks.id)
     const deckLookup = await deckService.findByPublicId(publicId, undefined);
     if (!deckLookup.success || !deckLookup.data) {
-      // Deck doesn't exist in FaB Bazaar — acknowledge so Talishar doesn't retry
+      console.warn('[Talishar Webhook] Unknown deck, discarding', { publicId });
       return NextResponse.json({ success: true, received: true });
     }
+    console.warn('[Talishar Webhook] Matched deck', { publicId, internalId: deckLookup.data._id });
     const internalDeckId = deckLookup.data._id;
 
     // Find which deck entry (deck1 or deck2) belongs to this FaB Bazaar deck
