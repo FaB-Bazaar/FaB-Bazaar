@@ -182,17 +182,25 @@ export async function POST(
     }
 
     const resolvedParams = await params;
-    const deckId = resolvedParams.deckId;
+    const publicId = resolvedParams.deckId;
     const body = await request.json();
 
+    // Resolve publicId → internal deck id (game_results.deck_id is a FK to decks.id)
+    const deckLookup = await deckService.findByPublicId(publicId, undefined);
+    if (!deckLookup.success || !deckLookup.data) {
+      // Deck doesn't exist in FaB Bazaar — acknowledge so Talishar doesn't retry
+      return NextResponse.json({ success: true, received: true });
+    }
+    const internalDeckId = deckLookup.data._id;
+
     // Find which deck entry (deck1 or deck2) belongs to this FaB Bazaar deck
-    const deckEntry = body.deck1?.deckbuilderID === deckId || body.deck1?.deckbuilderID?.endsWith(`/${deckId}`)
+    const deckEntry = body.deck1?.deckbuilderID === publicId || body.deck1?.deckbuilderID?.endsWith(`/${publicId}`)
       ? body.deck1
-      : body.deck2?.deckbuilderID === deckId || body.deck2?.deckbuilderID?.endsWith(`/${deckId}`)
+      : body.deck2?.deckbuilderID === publicId || body.deck2?.deckbuilderID?.endsWith(`/${publicId}`)
         ? body.deck2
         : body.deck1; // fallback to deck1 if we can't match
 
-    const result = await gameResultsService.createGameResult(deckId, body, deckEntry);
+    const result = await gameResultsService.createGameResult(internalDeckId, body, deckEntry);
 
     if (!result.success) {
       console.error(`[Talishar Stats] Failed to save game result for deck ${deckId}:`, result.error);

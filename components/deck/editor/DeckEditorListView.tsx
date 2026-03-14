@@ -449,6 +449,7 @@ function DeckTileSection({
   heroPortrait,
   onAddCard,
   onRemoveTile,
+  onAddTile,
   onEnlargeImage,
   onAddToBinder,
   onAddToWants,
@@ -471,6 +472,8 @@ function DeckTileSection({
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   /** Remove 1 copy of a tile (X button on hover) */
   onRemoveTile?: (tile: DeckTileCard) => void;
+  /** Add 1 more copy of a tile (+1 button on hover) */
+  onAddTile?: (tile: DeckTileCard) => void;
   /** Open enlarged image lightbox */
   onEnlargeImage?: (url: string, name: string) => void;
   /** Add a card to the selected binder */
@@ -696,6 +699,17 @@ function DeckTileSection({
                 </button>
               )}
 
+              {/* Add +1 button — shown on hover, hidden for hero/demi-hero */}
+              {!isDragActive && onAddTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
+                <button
+                  className="absolute top-0.5 left-6 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[10px] font-bold leading-none"
+                  title="Add 1 copy"
+                  onClick={e => { e.stopPropagation(); onAddTile(tile); }}
+                >
+                  +1
+                </button>
+              )}
+
               {/* Binder button — shown on hover */}
               {!isDragActive && onAddToBinder && (
                 <button
@@ -758,6 +772,14 @@ function applyOptimisticRemoveOne(deck: DeckDTO, printingId: string, category: D
   const qty = cards[idx].quantity ?? 1;
   if (qty <= 1) cards.splice(idx, 1);
   else cards[idx] = { ...cards[idx], quantity: qty - 1 };
+  return { ...deck, [category]: cards };
+}
+
+function applyOptimisticAddOne(deck: DeckDTO, printingId: string, category: DeckCategory): DeckDTO {
+  const cards = [...((deck[category as keyof DeckDTO] as DeckPrintingDTO[] | undefined) || [])];
+  const idx = cards.findIndex(c => c.printingId === printingId);
+  if (idx === -1) return deck;
+  cards[idx] = { ...cards[idx], quantity: (cards[idx].quantity ?? 1) + 1 };
   return { ...deck, [category]: cards };
 }
 
@@ -898,6 +920,8 @@ interface DeckEditorListViewProps {
   onMoveSingle?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, currentQty: number) => Promise<void>;
   /** Remove 1 copy of a tile printing (tile view X button) */
   onRemoveTile?: (printingId: string, category: DeckCategory, currentQty: number) => Promise<void>;
+  /** Add 1 copy of a tile printing (+1 button on hover) */
+  onAddOneTile?: (printingId: string, category: DeckCategory, currentQty: number) => Promise<void>;
   /** Called when the user clicks "+ Add" on a tile zone — receives the target category and optional pitch filter */
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   canEdit?: boolean;
@@ -915,7 +939,7 @@ interface DeckEditorListViewProps {
   onUpgradePrintings?: () => Promise<void>;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string } | null>(null);
@@ -969,6 +993,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     setOptimisticDeck(prev => applyOptimisticRemoveOne(prev ?? deck, tile.printingId, tile.category));
     await onRemoveTile?.(tile.printingId, tile.category, tile.totalQty);
   }, [onRemoveTile, deck]);
+
+  const handleTileAddOne = useCallback(async (tile: DeckTileCard) => {
+    setOptimisticDeck(prev => applyOptimisticAddOne(prev ?? deck, tile.printingId, tile.category));
+    await onAddOneTile?.(tile.printingId, tile.category, tile.totalQty);
+  }, [onAddOneTile, deck]);
 
   const handleSectionDrop = useCallback(async (tile: DeckTileCard, targetSectionKey: TileSectionKey) => {
     const targetCategory = sectionToCategory(targetSectionKey);
@@ -1195,6 +1224,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onSectionDrop: handleSectionDrop,
     onAddCard: canEdit ? onAddCard : undefined,
     onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
+    onAddTile: canEdit ? handleTileAddOne : undefined,
     onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
     onAddToBinder: onAddToBinder,
     onAddToWants: onAddToWants,

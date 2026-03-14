@@ -565,6 +565,9 @@ export default function DeckEditorPage() {
                     onRemoveTile={(printingId, category, currentQty) =>
                       handleUpdateDeckCardQty(printingId, Math.max(0, currentQty - 1), category)
                     }
+                    onAddOneTile={(printingId, category, currentQty) =>
+                      handleUpdateDeckCardQty(printingId, currentQty + 1, category)
+                    }
                     onAddCard={(category, pitch) => setQuickAddTarget({ category, pitch })}
                     canEdit={isOwner}
                     binders={binders}
