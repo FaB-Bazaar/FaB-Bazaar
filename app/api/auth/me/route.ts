@@ -34,6 +34,8 @@ export async function GET() {
         isMetafySupporter: profile.isMetafySupporter,
         isShop: profile.isShop,
         isTcgSeller: profile.isTcgSeller,
+        metafyLinked: !!profile.metafyId,
+        metafyUsername: profile.metafyUsername,
       },
       sessionType: "nextauth",
       debug: {

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 export default function EditProfilePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session } = useSession()
   const { user, updateDiscordUsername } = useAuth()
 
@@ -26,6 +27,7 @@ export default function EditProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [isUnlinking, setIsUnlinking] = useState(false)
 
   // Fetch current user data
   useEffect(() => {
@@ -60,6 +62,52 @@ export default function EditProfilePage() {
       router.push("/auth/login")
     }
   }, [isFetching, user, session, router])
+
+  // Handle OAuth return from Metafy
+  useEffect(() => {
+    const metafyParam = searchParams.get("metafy")
+    if (!metafyParam) return
+
+    if (metafyParam === "linked") {
+      toast.success("Metafy account linked successfully")
+      // Refresh profile to show connected state
+      fetch("/api/auth/me").then(r => r.json()).then(data => {
+        if (data.success) setUserProfile(data.user)
+      })
+    } else if (metafyParam === "error") {
+      const reason = searchParams.get("reason") || "unknown"
+      const messages: Record<string, string> = {
+        state_mismatch: "Link failed: security check failed. Please try again.",
+        token_exchange_failed: "Link failed: could not connect to Metafy. Please try again.",
+        no_user_id: "Link failed: could not retrieve your Metafy profile.",
+        save_failed: "Link failed: could not save your account link. Please try again.",
+        not_configured: "Metafy integration is not configured.",
+      }
+      toast.error(messages[reason] || "Failed to link Metafy account. Please try again.")
+    }
+
+    // Remove query params without re-render
+    router.replace("/profile/edit", { scroll: false })
+  }, [searchParams, router])
+
+  const handleMetafyUnlink = async () => {
+    setIsUnlinking(true)
+    try {
+      const response = await fetch("/api/auth/metafy/unlink", { method: "DELETE" })
+      const data = await response.json()
+      if (data.success) {
+        toast.success("Metafy account disconnected")
+        setUserProfile((prev: any) => ({ ...prev, metafyLinked: false, metafyUsername: undefined }))
+      } else {
+        toast.error("Failed to disconnect Metafy account")
+      }
+    } catch {
+      toast.error("Failed to disconnect Metafy account")
+    } finally {
+      setIsUnlinking(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     toast.info("Saving profile...")
@@ -145,7 +193,7 @@ export default function EditProfilePage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md mx-auto space-y-6">
         <Card>
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Edit Profile</CardTitle>
@@ -209,6 +257,58 @@ export default function EditProfilePage() {
               </Button>
             </Link>
           </CardFooter>
+        </Card>
+
+        {/* Connected Accounts */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Connected Accounts</CardTitle>
+            <CardDescription>
+              Link third-party accounts to unlock additional features
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-md bg-[#f5c842] flex items-center justify-center flex-shrink-0">
+                  <span className="text-black font-bold text-sm">M</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Metafy</p>
+                  {userProfile?.metafyLinked ? (
+                    <p className="text-xs text-muted-foreground">
+                      @{userProfile.metafyUsername}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Enables Talishar deck sync and more
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {userProfile?.metafyLinked ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-green-600 font-medium">Connected</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleMetafyUnlink}
+                    disabled={isUnlinking}
+                  >
+                    {isUnlinking ? "Disconnecting..." : "Disconnect"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => { window.location.href = "/api/auth/metafy/authorize" }}
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>

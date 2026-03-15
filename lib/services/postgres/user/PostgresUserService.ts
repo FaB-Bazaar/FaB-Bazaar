@@ -410,6 +410,8 @@ export class PostgresUserService implements IUserService {
           isCurator: user.isCurator || false,
           isShop: user.isShop || false,
           isTcgSeller: user.isTcgSeller || false,
+          metafyId: user.metafyId || undefined,
+          metafyUsername: user.metafyUsername || undefined,
         },
       };
     } catch (error) {
@@ -764,6 +766,72 @@ export class PostgresUserService implements IUserService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update user field',
+      };
+    }
+  }
+
+  /**
+   * Link a Metafy account to a user
+   */
+  async linkMetafyAccount(
+    userId: string,
+    data: {
+      metafyId: string;
+      metafyUsername: string;
+      metafyAccessToken: string;
+      metafyRefreshToken: string;
+      metafyTokenExpiry: Date;
+    }
+  ): AsyncResult<void> {
+    try {
+      const result = await db
+        .update(users)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+
+      if (result.length === 0) {
+        return { success: false, error: 'User not found' };
+      }
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      console.error('[PostgresUserService] linkMetafyAccount error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to link Metafy account',
+      };
+    }
+  }
+
+  /**
+   * Unlink a Metafy account from a user
+   */
+  async unlinkMetafyAccount(userId: string): AsyncResult<void> {
+    try {
+      const result = await db
+        .update(users)
+        .set({
+          metafyId: null,
+          metafyUsername: null,
+          metafyAccessToken: null,
+          metafyRefreshToken: null,
+          metafyTokenExpiry: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      if (result.length === 0) {
+        return { success: false, error: 'User not found' };
+      }
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      console.error('[PostgresUserService] unlinkMetafyAccount error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to unlink Metafy account',
       };
     }
   }

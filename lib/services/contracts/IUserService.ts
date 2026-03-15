@@ -72,6 +72,8 @@ export interface UserProfileDTO {
   isCurator: boolean;
   isShop: boolean;
   isTcgSeller: boolean;
+  metafyId?: string;
+  metafyUsername?: string;
 }
 
 /**
@@ -567,6 +569,25 @@ export interface IUserService {
    * ```
    */
   hasRole(userId: string, role: keyof UserRolesDTO): AsyncResult<boolean>;
+
+  /**
+   * Link a Metafy account to a user
+   */
+  linkMetafyAccount(
+    userId: string,
+    data: {
+      metafyId: string;
+      metafyUsername: string;
+      metafyAccessToken: string;
+      metafyRefreshToken: string;
+      metafyTokenExpiry: Date;
+    }
+  ): AsyncResult<void>;
+
+  /**
+   * Unlink a Metafy account from a user
+   */
+  unlinkMetafyAccount(userId: string): AsyncResult<void>;
 
   /**
    * Update a specific user field (admin operation)

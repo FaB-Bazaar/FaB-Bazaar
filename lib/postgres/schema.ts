@@ -107,6 +107,13 @@ export const users = pgTable('users', {
   mcpTokenExpiry: timestamp('mcp_token_expiry'),
   clientHash: text('client_hash'),
 
+  // Metafy account linking
+  metafyId: text('metafy_id').unique(),
+  metafyUsername: text('metafy_username'),
+  metafyAccessToken: text('metafy_access_token'),
+  metafyRefreshToken: text('metafy_refresh_token'),
+  metafyTokenExpiry: timestamp('metafy_token_expiry'),
+
   // Location
   countryCode: text('country_code'),
 
