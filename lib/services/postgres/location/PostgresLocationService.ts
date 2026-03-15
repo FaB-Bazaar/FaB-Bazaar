@@ -350,7 +350,7 @@ export class PostgresLocationService implements ILocationService {
           .innerJoin(locations, eq(events.locationId, locations.id))
           .where(
             and(
-              sql`${events.locationId} = ANY(${sql.raw(`ARRAY[${followedLocationIds.map((id) => `'${id}'`).join(',')}]`)})`,
+              sql`${events.locationId} = ANY(${followedLocationIds})`,
               gte(events.endDate, now),
               eq(events.active, true)
             )
