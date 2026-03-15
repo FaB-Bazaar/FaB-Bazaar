@@ -118,7 +118,10 @@ export class PostgresGameResultsService {
 
       return { success: true, data: rows.map(toDTO) };
     } catch (error) {
-      return { success: false, error: String(error) };
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = (error as any)?.cause;
+      console.error('[GameResults] Select failed:', message, cause ? `\ncause: ${JSON.stringify(cause)}` : '');
+      return { success: false, error: message };
     }
   }
 }
