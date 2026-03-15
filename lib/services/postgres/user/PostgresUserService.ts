@@ -8,6 +8,7 @@
 import { eq, and, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { users, binders, wantsItems, metafyCommunities } from '@/lib/postgres/schema';
+import { encryptMetafyTokens } from '@/lib/metafy/tokens';
 import type {
   IUserService,
   AsyncResult,
@@ -785,9 +786,19 @@ export class PostgresUserService implements IUserService {
     }
   ): AsyncResult<void> {
     try {
+      const encrypted = encryptMetafyTokens(data.metafyAccessToken, data.metafyRefreshToken);
       const result = await db
         .update(users)
-        .set({ ...data, updatedAt: new Date() })
+        .set({
+          metafyId: data.metafyId,
+          metafyUsername: data.metafyUsername,
+          metafyAccessToken: encrypted.metafyAccessToken,
+          metafyAccessTokenIv: encrypted.metafyAccessTokenIv,
+          metafyRefreshToken: encrypted.metafyRefreshToken,
+          metafyRefreshTokenIv: encrypted.metafyRefreshTokenIv,
+          metafyTokenExpiry: data.metafyTokenExpiry,
+          updatedAt: new Date(),
+        })
         .where(eq(users.id, userId))
         .returning();
 
@@ -816,7 +827,9 @@ export class PostgresUserService implements IUserService {
           metafyId: null,
           metafyUsername: null,
           metafyAccessToken: null,
+          metafyAccessTokenIv: null,
           metafyRefreshToken: null,
+          metafyRefreshTokenIv: null,
           metafyTokenExpiry: null,
           updatedAt: new Date(),
         })
@@ -838,6 +851,55 @@ export class PostgresUserService implements IUserService {
   }
 
   /**
+   * Get raw (encrypted) Metafy tokens + expiry for a user
+   */
+  async getMetafyTokens(userId: string): AsyncResult<{
+    metafyId: string;
+    metafyUsername: string;
+    accessToken: string;
+    accessTokenIv: string;
+    refreshToken: string;
+    refreshTokenIv: string;
+    tokenExpiry: Date | null;
+  } | null> {
+    try {
+      const [user] = await db
+        .select({
+          metafyId: users.metafyId,
+          metafyUsername: users.metafyUsername,
+          metafyAccessToken: users.metafyAccessToken,
+          metafyAccessTokenIv: users.metafyAccessTokenIv,
+          metafyRefreshToken: users.metafyRefreshToken,
+          metafyRefreshTokenIv: users.metafyRefreshTokenIv,
+          metafyTokenExpiry: users.metafyTokenExpiry,
+        })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user || !user.metafyId) return { success: true, data: null };
+
+      return {
+        success: true,
+        data: {
+          metafyId: user.metafyId,
+          metafyUsername: user.metafyUsername ?? '',
+          accessToken: user.metafyAccessToken ?? '',
+          accessTokenIv: user.metafyAccessTokenIv ?? '',
+          refreshToken: user.metafyRefreshToken ?? '',
+          refreshTokenIv: user.metafyRefreshTokenIv ?? '',
+          tokenExpiry: user.metafyTokenExpiry ?? null,
+        },
+      };
+    } catch (error) {
+      console.error('[PostgresUserService] getMetafyTokens error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get Metafy tokens',
+      };
+    }
+  }
+
+  /**
    * Save (replace) the list of Metafy communities a user belongs to
    */
   async saveMetafyCommunities(userId: string, communities: MetafyCommunityDTO[]): AsyncResult<void> {
@@ -850,8 +912,6 @@ export class PostgresUserService implements IUserService {
               userId,
               communityId: c.communityId,
               title: c.title,
-              url: c.url ?? null,
-              logoUrl: c.logoUrl ?? null,
               tiers: c.tiers ?? null,
             }))
           );
@@ -882,8 +942,6 @@ export class PostgresUserService implements IUserService {
         data: rows.map((r) => ({
           communityId: r.communityId,
           title: r.title,
-          url: r.url,
-          logoUrl: r.logoUrl,
           tiers: r.tiers as MetafyCommunityDTO['tiers'],
         })),
       };

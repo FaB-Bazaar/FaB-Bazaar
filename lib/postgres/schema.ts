@@ -111,7 +111,9 @@ export const users = pgTable('users', {
   metafyId: text('metafy_id').unique(),
   metafyUsername: text('metafy_username'),
   metafyAccessToken: text('metafy_access_token'),
+  metafyAccessTokenIv: text('metafy_access_token_iv'),
   metafyRefreshToken: text('metafy_refresh_token'),
+  metafyRefreshTokenIv: text('metafy_refresh_token_iv'),
   metafyTokenExpiry: timestamp('metafy_token_expiry'),
 
   // Location
@@ -153,8 +155,6 @@ export const metafyCommunities = pgTable('metafy_communities', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   communityId: text('community_id').notNull(),
   title: text('title').notNull(),
-  url: text('url'),
-  logoUrl: text('logo_url'),
   tiers: jsonb('tiers'),
   syncedAt: timestamp('synced_at').defaultNow().notNull(),
 }, (table) => ({

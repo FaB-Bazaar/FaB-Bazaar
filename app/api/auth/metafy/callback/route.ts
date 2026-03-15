@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
 
     if (membershipsResponse.ok) {
       const membershipsData = await membershipsResponse.json();
-      const communities: { id: string; title: string; url?: string; logo_url?: string; tiers?: { id: string; name: string; description?: string }[] }[] =
+      const communities: { id: string; title: string; tiers?: { id: string; name: string }[] }[] =
         membershipsData.communities ?? [];
 
       await userService.saveMetafyCommunities(
@@ -135,9 +135,7 @@ export async function GET(request: NextRequest) {
         communities.map((c) => ({
           communityId: c.id,
           title: c.title,
-          url: c.url ?? null,
-          logoUrl: c.logo_url ?? null,
-          tiers: c.tiers ?? null,
+          tiers: c.tiers?.map((t) => ({ id: t.id, name: t.name })) ?? null,
         }))
       );
     } else {

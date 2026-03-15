@@ -311,26 +311,10 @@ export default function EditProfilePage() {
             {userProfile?.metafyLinked && userProfile?.metafyCommunities?.length > 0 && (
               <div className="mt-3 pt-3 border-t space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Communities</p>
-                {userProfile.metafyCommunities.map((community: { communityId: string; title: string; url?: string | null; logoUrl?: string | null; tiers?: { id: string; name: string }[] | null }) => (
+                {userProfile.metafyCommunities.map((community: { communityId: string; title: string; tiers?: { id: string; name: string }[] | null }) => (
                   <div key={community.communityId} className="flex items-center gap-2">
-                    {community.logoUrl ? (
-                      <img src={community.logoUrl} alt="" className="h-5 w-5 rounded object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="h-5 w-5 rounded bg-muted flex-shrink-0" />
-                    )}
                     <div className="min-w-0">
-                      {community.url ? (
-                        <a
-                          href={community.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-medium hover:underline truncate"
-                        >
-                          {community.title}
-                        </a>
-                      ) : (
-                        <span className="text-xs font-medium truncate">{community.title}</span>
-                      )}
+                      <span className="text-xs font-medium truncate">{community.title}</span>
                       {community.tiers && community.tiers.length > 0 && (
                         <p className="text-xs text-muted-foreground truncate">
                           {community.tiers.map((t) => t.name).join(', ')}

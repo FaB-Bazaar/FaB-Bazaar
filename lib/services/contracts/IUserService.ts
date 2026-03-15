@@ -154,9 +154,7 @@ export interface UpdateProfileDTO {
 export interface MetafyCommunityDTO {
   communityId: string;
   title: string;
-  url?: string | null;
-  logoUrl?: string | null;
-  tiers?: { id: string; name: string; description?: string }[] | null;
+  tiers?: { id: string; name: string }[] | null;
 }
 
 /**
@@ -596,6 +594,19 @@ export interface IUserService {
    * Unlink a Metafy account from a user
    */
   unlinkMetafyAccount(userId: string): AsyncResult<void>;
+
+  /**
+   * Get raw (encrypted) Metafy tokens + expiry for a user
+   */
+  getMetafyTokens(userId: string): AsyncResult<{
+    metafyId: string;
+    metafyUsername: string;
+    accessToken: string;
+    accessTokenIv: string;
+    refreshToken: string;
+    refreshTokenIv: string;
+    tokenExpiry: Date | null;
+  } | null>;
 
   /**
    * Save (replace) the list of Metafy communities a user belongs to
