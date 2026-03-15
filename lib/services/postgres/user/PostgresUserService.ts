@@ -414,6 +414,7 @@ export class PostgresUserService implements IUserService {
           isTcgSeller: user.isTcgSeller || false,
           metafyId: user.metafyId || undefined,
           metafyUsername: user.metafyUsername || undefined,
+          metafyPartner: user.metafyPartner ?? false,
         },
       };
     } catch (error) {
@@ -783,22 +784,27 @@ export class PostgresUserService implements IUserService {
       metafyAccessToken: string;
       metafyRefreshToken: string;
       metafyTokenExpiry: Date;
+      metafyPartner?: boolean;
     }
   ): AsyncResult<void> {
     try {
       const encrypted = encryptMetafyTokens(data.metafyAccessToken, data.metafyRefreshToken);
+      const updateData: any = {
+        metafyId: data.metafyId,
+        metafyUsername: data.metafyUsername,
+        metafyAccessToken: encrypted.metafyAccessToken,
+        metafyAccessTokenIv: encrypted.metafyAccessTokenIv,
+        metafyRefreshToken: encrypted.metafyRefreshToken,
+        metafyRefreshTokenIv: encrypted.metafyRefreshTokenIv,
+        metafyTokenExpiry: data.metafyTokenExpiry,
+        updatedAt: new Date(),
+      };
+      if (data.metafyPartner !== undefined) {
+        updateData.metafyPartner = data.metafyPartner;
+      }
       const result = await db
         .update(users)
-        .set({
-          metafyId: data.metafyId,
-          metafyUsername: data.metafyUsername,
-          metafyAccessToken: encrypted.metafyAccessToken,
-          metafyAccessTokenIv: encrypted.metafyAccessTokenIv,
-          metafyRefreshToken: encrypted.metafyRefreshToken,
-          metafyRefreshTokenIv: encrypted.metafyRefreshTokenIv,
-          metafyTokenExpiry: data.metafyTokenExpiry,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(users.id, userId))
         .returning();
 

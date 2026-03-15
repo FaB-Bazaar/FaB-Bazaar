@@ -39,6 +39,7 @@ export async function GET() {
         isTcgSeller: profile.isTcgSeller,
         metafyLinked: !!profile.metafyId,
         metafyUsername: profile.metafyUsername,
+        metafyPartner: profile.metafyPartner ?? false,
         metafyCommunities,
       },
       sessionType: "nextauth",

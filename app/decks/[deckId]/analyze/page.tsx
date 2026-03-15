@@ -1,7 +1,7 @@
 // app/decks/[deckId]/analyze/page.tsx
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import Link from "next/link";
-import { ArrowLeft, Plus, Search, RefreshCw, Share2, Eye, EyeOff, Settings, BarChart3, BookOpen, Upload, Swords, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Search, RefreshCw, Share2, Eye, EyeOff, Settings, BarChart3, BookOpen, Upload, Swords, Pencil, Copy } from "lucide-react";
 
 // DND-KIT imports
 import { DndContext, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -34,6 +34,7 @@ import DeckPageDialogs from "@/components/deck/DeckPageDialogs";
 // Hook and types
 import { useDeckPage, groupCardsByCardAndCategory } from "@/hooks/deck/useDeckPage";
 import type { DeckPrinting } from "@/hooks/deck/useDeckPage";
+import { useAuth } from "@/contexts/AuthContext";
 
 function SortablePrintingCard({ printing, children }: { printing: DeckPrinting & { category: string }; children: React.ReactNode }) {
   const uniqueId = printing._id || `${printing.printingId}-${printing.category}-${Date.now()}`;
@@ -66,7 +67,10 @@ export default function DeckViewPage() {
   const params = useParams();
   const router = useRouter();
   const deckId = params.deckId as string;
+  const [copying, setCopying] = useState(false);
+  const [metafyAccessRequired, setMetafyAccessRequired] = useState<string | null>(null);
 
+  const { user } = useAuth();
   const { authLoading, isMobile, state, handlers } = useDeckPage(deckId);
 
   const {
@@ -132,9 +136,54 @@ export default function DeckViewPage() {
   // DND sensors
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  // Copy deck handler
+  const handleCopyDeck = async () => {
+    if (!displayDeck) return;
+    setCopying(true);
+    try {
+      const response = await fetch('/api/decks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          copyFromDeckId: displayDeck.publicId,
+          name: `${displayDeck.name} (copy)`,
+          format: displayDeck.format,
+          heroName: displayDeck.heroName,
+        }),
+      });
+      const data = await response.json();
+      if (data.success && data.data?.publicId) {
+        router.push(`/decks/${data.data.publicId}/analyze`);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCopying(false);
+    }
+  };
+
   // Conditional renders
   if (authLoading || loading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
-  if (error) return <div className="flex justify-center items-center min-h-screen">{error}</div>;
+  if (error) {
+    if (error.startsWith('metafy_access_required:')) {
+      const guideId = error.split(':')[1];
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-8 text-center">
+          <h2 className="text-xl font-semibold">This deck requires a Metafy guide purchase</h2>
+          <p className="text-muted-foreground max-w-md">
+            The deck owner has linked this deck to a Metafy guide. Purchase the guide to unlock access.
+          </p>
+          <Button asChild>
+            <a href={`https://metafy.gg/guides/${guideId}`} target="_blank" rel="noopener noreferrer">
+              View Guide on Metafy
+            </a>
+          </Button>
+        </div>
+      );
+    }
+    return <div className="flex justify-center items-center min-h-screen">{error}</div>;
+  }
   if (!displayDeck) return <div className="flex justify-center items-center min-h-screen">Deck not found</div>;
 
   // Shared dialogs appear once, before the mobile/desktop split
@@ -229,6 +278,11 @@ export default function DeckViewPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              )}
+              {!canEdit && user && displayDeck.isPublic && (
+                <Button variant="outline" size="sm" onClick={handleCopyDeck} disabled={copying}>
+                  <Copy className="h-4 w-4 mr-2" />{copying ? "Copying..." : "Copy to My Decks"}
+                </Button>
               )}
               {canEdit && (
                 <>

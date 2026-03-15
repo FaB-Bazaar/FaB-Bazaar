@@ -32,6 +32,7 @@ export default function DeckPageDialogs({
     comparingPrinting,
     comparingCardCopies,
     activeCategory,
+    isMetafyPartner,
   } = state;
 
   const {
@@ -65,6 +66,7 @@ export default function DeckPageDialogs({
         onOpenChange={setSettingsOpen}
         onSave={handleSaveSettings}
         loading={saving}
+        isMetafyPartner={isMetafyPartner}
         deckId={deckId}
         fullDeck={displayDeck}
       />

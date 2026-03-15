@@ -60,6 +60,8 @@ interface DeckSettingsProps {
     format: string;
     hero?: string;
     isPublic: boolean;
+    availableOnTalishar?: boolean;
+    metafyGuideId?: string | null;
   };
   onSave: (settings: {
     name: string;
@@ -67,21 +69,26 @@ interface DeckSettingsProps {
     format: string;
     hero?: string;
     isPublic: boolean;
+    availableOnTalishar: boolean;
+    metafyGuideId: string | null;
   }) => Promise<void>;
   loading?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  isMetafyPartner?: boolean;
   // Optional: for matchup sideboards feature
   deckId?: string; // publicId for API calls
   fullDeck?: any; // Full deck object with hero, equipment, maindeck, inventory arrays
 }
 
-export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, deckId, fullDeck }: DeckSettingsProps) {
+export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck }: DeckSettingsProps) {
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description || "");
   const [format, setFormat] = useState(deck.format);
   const [hero, setHero] = useState(deck.hero || "");
   const [isPublic, setIsPublic] = useState(deck.isPublic);
+  const [availableOnTalishar, setAvailableOnTalishar] = useState(deck.availableOnTalishar ?? false);
+  const [metafyGuideId, setMetafyGuideId] = useState(deck.metafyGuideId || "");
   const [saving, setSaving] = useState(false);
   const [matchupsOpen, setMatchupsOpen] = useState(false);
   const [matchupsCount, setMatchupsCount] = useState(0);
@@ -89,12 +96,14 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   // Determine which hero list to show based on format
   const popularHeroes = format === 'Silver Age' ? POPULAR_YOUNG_HEROES : POPULAR_HEROES;
 
-  const hasChanges = 
+  const hasChanges =
     name !== deck.name ||
     description !== (deck.description || "") ||
     format !== deck.format ||
     hero !== (deck.hero || "") ||
-    isPublic !== deck.isPublic;
+    isPublic !== deck.isPublic ||
+    availableOnTalishar !== (deck.availableOnTalishar ?? false) ||
+    metafyGuideId !== (deck.metafyGuideId || "");
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -106,7 +115,9 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         description: description.trim(),
         format,
         hero: hero.trim() || undefined,
-        isPublic
+        isPublic,
+        availableOnTalishar,
+        metafyGuideId: metafyGuideId.trim() || null,
       });
     } catch (error) {
       console.error('Failed to save deck settings:', error);
@@ -121,6 +132,8 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     setFormat(deck.format);
     setHero(deck.hero || "");
     setIsPublic(deck.isPublic);
+    setAvailableOnTalishar(deck.availableOnTalishar ?? false);
+    setMetafyGuideId(deck.metafyGuideId || "");
   };
 
   // Fetch matchups count
@@ -216,6 +229,32 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         </div>
         <Switch id="deck-public" checked={isPublic} onCheckedChange={setIsPublic} />
       </div>
+
+      {/* Available on Talishar */}
+      <div className="flex items-center justify-between py-1">
+        <div>
+          <Label htmlFor="deck-talishar">Available on Talishar</Label>
+          <p className="text-xs text-muted-foreground mt-0.5">Show this deck in Talishar imports</p>
+        </div>
+        <Switch id="deck-talishar" checked={availableOnTalishar} onCheckedChange={setAvailableOnTalishar} />
+      </div>
+
+      {/* Metafy Guide ID (partner-only) */}
+      {isMetafyPartner && (
+        <div className="space-y-1.5">
+          <Label htmlFor="deck-metafy-guide">Metafy Guide ID</Label>
+          <Input
+            id="deck-metafy-guide"
+            value={metafyGuideId}
+            onChange={(e) => setMetafyGuideId(e.target.value)}
+            placeholder="e.g. abc123"
+            maxLength={100}
+          />
+          <p className="text-xs text-muted-foreground">
+            Only users who purchased this guide on Metafy can view this deck.
+          </p>
+        </div>
+      )}
 
       {/* Matchup Sideboards */}
       {deckId && fullDeck && (

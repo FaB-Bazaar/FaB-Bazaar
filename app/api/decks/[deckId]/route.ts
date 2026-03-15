@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { deckService, articleService } from '@/lib/services';
+import { getValidMetafyAccessToken } from '@/lib/metafy/tokens';
 
 /**
  * Validates that a deck is actually embedded in the specified article/hero
@@ -109,6 +110,33 @@ export async function GET(
     // Determine if user can edit
     const canEdit = authResult.success && deck.userId?.toString() === authResult.userId;
 
+    // Check Metafy guide access (if deck is gated to guide purchasers)
+    if (deck.metafyGuideId && !canEdit) {
+      let hasAccess = false;
+      if (authResult.success) {
+        const token = await getValidMetafyAccessToken(authResult.userId);
+        if (token) {
+          try {
+            const purchaseRes = await fetch(
+              `https://metafy.gg/irk/api/v1/me/purchases/guides/${deck.metafyGuideId}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (purchaseRes.ok) {
+              const purchaseData = await purchaseRes.json();
+              hasAccess = purchaseData.has_access === true;
+            }
+          } catch {
+            // Network error — deny access
+          }
+        }
+      }
+      if (!hasAccess) {
+        return NextResponse.json(
+          { success: false, error: `metafy_access_required:${deck.metafyGuideId}` },
+          { status: 403 }
+        );
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -153,6 +181,8 @@ export async function PATCH(
         heroName: body.hero,
         isPublic: body.isPublic,
         fabraryUrl: body.fabraryUrl,
+        metafyGuideId: body.metafyGuideId,
+        availableOnTalishar: body.availableOnTalishar,
       }
     );
 

@@ -141,6 +141,8 @@ export class PostgresDeckService implements IDeckService {
       isPublic: deckRow.isPublic,
       fabraryUrl: deckRow.fabraryUrl || undefined,
       fabraryDeckId: deckRow.fabraryDeckId || undefined,
+      metafyGuideId: deckRow.metafyGuideId || undefined,
+      availableOnTalishar: deckRow.availableOnTalishar ?? false,
 
       // Category arrays (JOINed data, not embedded)
       hero: categorizeCards('hero'),
@@ -561,6 +563,8 @@ export class PostgresDeckService implements IDeckService {
       }
       if (updates.slug !== undefined) updateFields.slug = updates.slug;
       if (updates.metadata !== undefined) updateFields.metadata = updates.metadata;
+      if (updates.metafyGuideId !== undefined) updateFields.metafyGuideId = updates.metafyGuideId;
+      if (updates.availableOnTalishar !== undefined) updateFields.availableOnTalishar = Boolean(updates.availableOnTalishar);
 
       const updatedDeck = await db
         .update(decks)

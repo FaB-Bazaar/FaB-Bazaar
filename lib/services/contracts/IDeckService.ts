@@ -77,6 +77,8 @@ export interface DeckDTO {
   isPublic: boolean;
   fabraryUrl?: string;
   fabraryDeckId?: string;
+  metafyGuideId?: string | null;
+  availableOnTalishar?: boolean;
 
   // Category arrays
   hero: DeckPrintingDTO[];
@@ -153,6 +155,8 @@ export interface UpdateDeckDTO {
   fabraryUrl?: string;
   slug?: string;
   metadata?: Record<string, any>;
+  metafyGuideId?: string | null;
+  availableOnTalishar?: boolean;
 }
 
 /**

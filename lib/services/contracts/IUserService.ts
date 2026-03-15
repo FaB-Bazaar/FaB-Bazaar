@@ -74,6 +74,7 @@ export interface UserProfileDTO {
   isTcgSeller: boolean;
   metafyId?: string;
   metafyUsername?: string;
+  metafyPartner?: boolean;
 }
 
 /**
@@ -587,6 +588,7 @@ export interface IUserService {
       metafyAccessToken: string;
       metafyRefreshToken: string;
       metafyTokenExpiry: Date;
+      metafyPartner?: boolean;
     }
   ): AsyncResult<void>;
 

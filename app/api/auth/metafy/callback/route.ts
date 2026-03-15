@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Fetch Metafy user profile
-  let metafyUser: { id: string; slug?: string; name?: string } | null = null;
+  let metafyUser: { id: string; slug?: string; name?: string; partner?: boolean } | null = null;
   try {
     const profileResponse = await fetch(METAFY_ME_URL, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
     metafyAccessToken: tokenData.access_token,
     metafyRefreshToken: tokenData.refresh_token,
     metafyTokenExpiry: tokenExpiry,
+    metafyPartner: metafyUser.partner ?? false,
   });
 
   if (!linkResult.success) {

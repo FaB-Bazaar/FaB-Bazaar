@@ -124,6 +124,9 @@ export function useDeckPage(deckId: string) {
   const [comparingPrinting, setComparingPrinting] = useState<(DeckPrinting & { category: string }) | null>(null);
   const [comparingCardCopies, setComparingCardCopies] = useState<(DeckPrinting & { category: string })[]>([]);
 
+  // Metafy partner status for the current user
+  const [isMetafyPartner, setIsMetafyPartner] = useState(false);
+
   // Optimistic deck state
   const [optimisticDeck, setOptimisticDeck] = useState<Deck | null>(null);
 
@@ -256,6 +259,17 @@ export function useDeckPage(deckId: string) {
       }
     }
   }, [displayDeck, viewMode]);
+
+  // Fetch Metafy partner status when user is available
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setIsMetafyPartner(data.user?.metafyPartner === true);
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   // Fetch user's binders on user change
   useEffect(() => {
@@ -456,6 +470,8 @@ export function useDeckPage(deckId: string) {
     format: string;
     hero?: string;
     isPublic: boolean;
+    availableOnTalishar: boolean;
+    metafyGuideId: string | null;
   }) => {
     const result = await decksClient.updateDeck(deckId, {
       name: settings.name,
@@ -463,7 +479,9 @@ export function useDeckPage(deckId: string) {
       format: settings.format,
       heroName: settings.hero,
       isPublic: settings.isPublic,
-    });
+      availableOnTalishar: settings.availableOnTalishar,
+      metafyGuideId: settings.metafyGuideId,
+    } as any);
     if (!result.success) {
       toast({ title: "Error", description: result.error, variant: "destructive" });
       throw new Error(result.error);
@@ -1297,6 +1315,7 @@ export function useDeckPage(deckId: string) {
       comparingPrinting,
       comparingCardCopies,
       optimisticDeck,
+      isMetafyPartner,
       // computed
       displayDeck,
       printings,

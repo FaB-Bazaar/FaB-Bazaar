@@ -115,6 +115,7 @@ export const users = pgTable('users', {
   metafyRefreshToken: text('metafy_refresh_token'),
   metafyRefreshTokenIv: text('metafy_refresh_token_iv'),
   metafyTokenExpiry: timestamp('metafy_token_expiry'),
+  metafyPartner: boolean('metafy_partner').default(false),
 
   // Location
   countryCode: text('country_code'),
@@ -526,6 +527,12 @@ export const decks = pgTable('decks', {
   // Fabrary integration
   fabraryUrl: text('fabrary_url'),
   fabraryDeckId: text('fabrary_deck_id'),
+
+  // Metafy guide linking (restricts deck access to guide purchasers)
+  metafyGuideId: text('metafy_guide_id'),
+
+  // Talishar integration (opt-in to appearing in Talishar deck list)
+  availableOnTalishar: boolean('available_on_talishar').notNull().default(false),
 
   // Optional metadata
   tags: text('tags').array(),

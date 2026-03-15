@@ -12,3 +12,5 @@ CREATE TABLE IF NOT EXISTS metafy_communities (
 );
 
 CREATE INDEX IF NOT EXISTS idx_metafy_communities_user_id ON metafy_communities(user_id);
+
+GRANT ALL ON TABLE metafy_communities TO fabbazaar_app;
