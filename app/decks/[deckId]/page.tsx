@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -14,6 +14,7 @@ import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
+import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
 import BulkImportForm from "@/components/browse/BulkImportForm";
@@ -32,7 +33,7 @@ export default function DeckEditorPage() {
   const { state, handlers } = useDeckEditor(deckId);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<"search" | "deck" | "matchups">("deck");
+  const [activeTab, setActiveTab] = useState<"search" | "deck" | "matchups" | "results">("deck");
 
   // Quick-add dialog state
   const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
@@ -462,6 +463,20 @@ export default function DeckEditorPage() {
                 <Swords className="h-4 w-4" />
                 Matchups
               </button>
+              {isOwner && (
+                <button
+                  onClick={() => setActiveTab("results")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                    activeTab === "results"
+                      ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  )}
+                >
+                  <Trophy className="h-4 w-4" />
+                  Results
+                </button>
+              )}
             </div>
 
             {/* Search tab content */}
@@ -581,6 +596,11 @@ export default function DeckEditorPage() {
               </>
             )}
 
+            {/* Results tab content */}
+            {isOwner && activeTab === "results" && (
+              <DeckResultsTab deckId={deckId} />
+            )}
+
             {/* Matchups tab content — always mounted once deck loads to avoid refetch on tab switch */}
             {state.deck && (
               <div className={activeTab === "matchups" ? undefined : "hidden"}>
@@ -670,6 +690,20 @@ export default function DeckEditorPage() {
           <Swords className="h-5 w-5" />
           Matchups
         </button>
+        {isOwner && (
+          <button
+            onClick={() => setActiveTab("results")}
+            className={cn(
+              "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
+              activeTab === "results"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400"
+            )}
+          >
+            <Trophy className="h-5 w-5" />
+            Results
+          </button>
+        )}
       </div>
 
       {/* Dialog: quick-add a single card to a specific zone */}
