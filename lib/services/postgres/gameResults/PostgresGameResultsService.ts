@@ -81,7 +81,7 @@ export class PostgresGameResultsService {
           deckId,
           talisharGameId: payload.gameID ?? null,
           talisharGameGuid: payload.gameGUID ?? null,
-          format: payload.format ?? null,
+          format: payload.format != null ? String(payload.format) : null,
           playerHero: deckEntry.playerHero ?? null,
           opponentHero: deckEntry.opposingHero ?? null,
           result,
@@ -101,7 +101,10 @@ export class PostgresGameResultsService {
 
       return { success: true, data: toDTO(row) };
     } catch (error) {
-      return { success: false, error: String(error) };
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = (error as any)?.cause;
+      console.error('[GameResults] Insert failed:', message, cause ? `\ncause: ${cause}` : '');
+      return { success: false, error: message };
     }
   }
 
