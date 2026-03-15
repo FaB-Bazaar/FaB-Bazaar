@@ -9,6 +9,7 @@ import { eq, and, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { users, binders, wantsItems, metafyCommunities } from '@/lib/postgres/schema';
 import { encryptMetafyTokens } from '@/lib/metafy/tokens';
+import { decryptAddress } from '@/lib/encryption';
 import type {
   IUserService,
   AsyncResult,
@@ -28,6 +29,18 @@ export class PostgresUserService implements IUserService {
   /**
    * Find user by ID
    */
+  async findByMetafyId(metafyId: string): AsyncResult<{ id: string } | null> {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.metafyId, metafyId),
+        columns: { id: true },
+      });
+      return { success: true, data: user ? { id: user.id } : null };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to find user' };
+    }
+  }
+
   async findById(userId: string): AsyncResult<UserDTO | null> {
     try {
       const user = await db.query.users.findFirst({
@@ -403,7 +416,9 @@ export class PostgresUserService implements IUserService {
         data: {
           _id: user.id,
           username: user.username,
-          email: user.email || undefined,
+          email: user.email && user.emailIV
+            ? decryptAddress({ encrypted: user.email, iv: user.emailIV, tag: '' })
+            : undefined,
           discordUsername: user.discordUsername || undefined,
           discordId: user.discordId || undefined,
           createdAt: user.createdAt,

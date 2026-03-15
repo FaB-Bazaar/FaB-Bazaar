@@ -49,6 +49,8 @@ interface Deck {
   description?: string;
   format: string;
   isPublic: boolean;
+  availableOnTalishar?: boolean;
+  metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
   equipment: DeckPrinting[];
@@ -82,6 +84,7 @@ export default function DecksPage() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasMetafyAccount, setHasMetafyAccount] = useState(false);
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,10 +95,14 @@ export default function DecksPage() {
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
   const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
 
-  // Fetch user's decks
+  // Fetch user's decks and Metafy status
   useEffect(() => {
     if (user) {
       fetchDecks();
+      fetch('/api/auth/me')
+        .then(r => r.json())
+        .then(data => { if (data.success) setHasMetafyAccount(!!data.user?.metafyLinked); })
+        .catch(() => {});
     }
   }, [user]);
 
@@ -248,6 +255,25 @@ export default function DecksPage() {
         description: "Failed to duplicate deck.",
         variant: "destructive"
       });
+    }
+  };
+
+  // Handle Talishar toggle
+  const handleToggleTalishar = async (deckId: string, value: boolean) => {
+    setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, availableOnTalishar: value } : d));
+    const result = await decksClient.updateDeck(deckId, { availableOnTalishar: value });
+    if (!result.success) {
+      setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, availableOnTalishar: !value } : d));
+      toast({ title: "Error", description: "Failed to update Talishar setting.", variant: "destructive" });
+    }
+  };
+
+  // Handle Metafy Guide ID update
+  const handleUpdateMetafyGuideId = async (deckId: string, value: string | null) => {
+    setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, metafyGuideId: value } : d));
+    const result = await decksClient.updateDeck(deckId, { metafyGuideId: value });
+    if (!result.success) {
+      toast({ title: "Error", description: "Failed to update Metafy Guide ID.", variant: "destructive" });
     }
   };
 
@@ -557,6 +583,9 @@ export default function DecksPage() {
                     onDelete={() => handleDeleteDeck(deck.publicId)}
                     onDuplicate={() => handleDuplicateDeck(deck)}
                     onView={() => router.push(`/decks/${deck.publicId}/analyze`)}
+                    hasMetafyAccount={hasMetafyAccount}
+                    onToggleTalishar={handleToggleTalishar}
+                    onUpdateMetafyGuideId={handleUpdateMetafyGuideId}
                   />
                 ))}
               </div>

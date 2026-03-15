@@ -269,6 +269,7 @@ export interface IUserService {
    * @returns Result containing user data or null if not found
    */
   findById(userId: string): AsyncResult<UserAuthDTO | null>;
+  findByMetafyId(metafyId: string): AsyncResult<{ id: string } | null>;
 
   /**
    * Find user by MCP token

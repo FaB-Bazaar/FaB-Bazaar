@@ -629,6 +629,7 @@ export class PostgresDeckService implements IDeckService {
       if (filters?.search) {
         conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
       }
+      if (filters?.availableOnTalishar !== undefined) conditions.push(eq(decks.availableOnTalishar, filters.availableOnTalishar));
 
       const whereClause = and(...conditions);
 

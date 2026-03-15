@@ -1,14 +1,16 @@
 // components/deck/DeckCard.tsx - Updated for new deck structure
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Edit3, 
-  Trash2, 
-  Copy, 
-  Eye, 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Edit3,
+  Trash2,
+  Copy,
+  Eye,
   Share2,
   Lock,
   Globe,
@@ -16,6 +18,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TalisharToggle from "@/components/deck/TalisharToggle";
 
 interface DeckPrinting {
   _id?: string;
@@ -34,11 +37,14 @@ interface DeckPrinting {
 
 interface Deck {
   _id: string;
+  publicId?: string;
   userId: string;
   name: string;
   description?: string;
   format: string;
   isPublic: boolean;
+  availableOnTalishar?: boolean;
+  metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
   equipment: DeckPrinting[];
@@ -65,6 +71,9 @@ interface DeckCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onView: () => void;
+  hasMetafyAccount?: boolean;
+  onToggleTalishar?: (deckId: string, value: boolean) => void;
+  onUpdateMetafyGuideId?: (deckId: string, value: string | null) => void;
 }
 
 export default function DeckCard({
@@ -72,8 +81,12 @@ export default function DeckCard({
   onEdit,
   onDelete,
   onDuplicate,
-  onView
+  onView,
+  hasMetafyAccount,
+  onToggleTalishar,
+  onUpdateMetafyGuideId,
 }: DeckCardProps) {
+  const [metafyGuideIdDraft, setMetafyGuideIdDraft] = useState(deck.metafyGuideId ?? '');
   
   // Get format color
   const getFormatColor = (format: string) => {
@@ -198,6 +211,37 @@ export default function DeckCard({
             </div>
           )}
         </div>
+
+        {/* Quick Settings */}
+        {(onToggleTalishar || (hasMetafyAccount && onUpdateMetafyGuideId)) && (
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            {onToggleTalishar && (
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-600 dark:text-gray-400">
+                  Available on Talishar
+                </Label>
+                <TalisharToggle
+                  checked={deck.availableOnTalishar ?? false}
+                  onChange={(val) => onToggleTalishar(deck.publicId ?? deck._id, val)}
+                />
+              </div>
+            )}
+            {hasMetafyAccount && onUpdateMetafyGuideId && (
+              <div>
+                <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
+                  Metafy Guide ID
+                </Label>
+                <Input
+                  value={metafyGuideIdDraft}
+                  onChange={(e) => setMetafyGuideIdDraft(e.target.value)}
+                  onBlur={() => onUpdateMetafyGuideId(deck.publicId ?? deck._id, metafyGuideIdDraft.trim() || null)}
+                  placeholder="Leave blank to disable"
+                  className="h-7 text-xs"
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Last Updated */}
         <div className="flex items-center gap-1 mt-4 text-xs text-gray-500 dark:text-gray-400">

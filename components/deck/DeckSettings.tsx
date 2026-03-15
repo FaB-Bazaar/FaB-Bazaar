@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Settings, Save, Trash2, Swords } from "lucide-react";
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
+import TalisharToggle from "./TalisharToggle";
 
 const FORMATS = [
   'Classic Constructed',
@@ -233,10 +234,10 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
       {/* Available on Talishar */}
       <div className="flex items-center justify-between py-1">
         <div>
-          <Label htmlFor="deck-talishar">Available on Talishar</Label>
+          <Label>Available on Talishar</Label>
           <p className="text-xs text-muted-foreground mt-0.5">Show this deck in Talishar imports</p>
         </div>
-        <Switch id="deck-talishar" checked={availableOnTalishar} onCheckedChange={setAvailableOnTalishar} />
+        <TalisharToggle checked={availableOnTalishar} onChange={setAvailableOnTalishar} />
       </div>
 
       {/* Metafy Guide ID (partner-only) */}
