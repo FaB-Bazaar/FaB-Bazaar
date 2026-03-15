@@ -1,4 +1,4 @@
-import { db } from '@/lib/postgres/db';
+import { db, pool } from '@/lib/postgres/db';
 import { gameResults } from '@/lib/postgres/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -110,16 +110,17 @@ export class PostgresGameResultsService {
 
   async getGameResultsForDeck(deckId: string): Promise<AsyncResult<GameResultDTO[]>> {
     try {
-      const { rows } = await db.execute(
-        sql`SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
-                   player_hero, opponent_hero, result::text, conceded, first_player,
-                   total_turns, card_results, turn_results, played_at, created_at
-            FROM game_results
-            WHERE deck_id = ${deckId}
-            ORDER BY played_at DESC`
+      const result = await pool.query(
+        `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
+                player_hero, opponent_hero, result::text, conceded, first_player,
+                total_turns, card_results, turn_results, played_at, created_at
+         FROM game_results
+         WHERE deck_id = $1
+         ORDER BY played_at DESC`,
+        [deckId]
       );
 
-      const data = rows.map((row: any) => ({
+      const data = result.rows.map((row: any) => ({
         id: row.id,
         deckId: row.deck_id,
         talisharGameId: row.talishar_game_id ?? null,
@@ -139,9 +140,13 @@ export class PostgresGameResultsService {
 
       return { success: true, data };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error('[GameResults] Select failed:', message);
-      return { success: false, error: message };
+      const e = error as any;
+      console.error('[GameResults] Select failed:', e?.message, {
+        code: e?.code,
+        detail: e?.detail,
+        hint: e?.hint,
+      });
+      return { success: false, error: e?.message ?? String(error) };
     }
   }
 }

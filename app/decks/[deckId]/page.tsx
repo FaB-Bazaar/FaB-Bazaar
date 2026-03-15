@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -92,6 +92,7 @@ export default function DeckEditorPage() {
     const url = heroName
       ? `/api/curated-lists?heroName=${encodeURIComponent(heroName)}&view=public`
       : `/api/curated-lists?view=public`;
+    setBuildsLoading(true);
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -99,7 +100,8 @@ export default function DeckEditorPage() {
           setCuratedBuilds(data.data ?? []);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBuildsLoading(false));
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
   // Fetch binders when user is available
@@ -249,6 +251,8 @@ export default function DeckEditorPage() {
   };
 
   const [applyingBuild, setApplyingBuild] = useState(false);
+  const [buildsExpanded, setBuildsExpanded] = useState(false);
+  const [buildsLoading, setBuildsLoading] = useState(false);
 
   const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
     if (!cardList?.length || !isOwner) return;
@@ -397,27 +401,6 @@ export default function DeckEditorPage() {
               </div>
             </div>
 
-            {/* Curated build buttons — visible on all tabs */}
-            {isOwner && curatedBuilds.length > 0 && (
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex-wrap">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 shrink-0">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Suggested Builds
-                </span>
-                <div className="w-px h-4 bg-blue-200 dark:bg-blue-700 shrink-0" />
-                {curatedBuilds.map(build => (
-                  <button
-                    key={build.id}
-                    disabled={applyingBuild}
-                    onClick={() => applyBuild(build.cards)}
-                    className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm disabled:opacity-50"
-                  >
-                    {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* Tab bar — desktop only */}
             <div className="hidden sm:flex border-b border-gray-200 dark:border-gray-700 mb-4">
               {isOwner && (
@@ -478,6 +461,41 @@ export default function DeckEditorPage() {
                 </button>
               )}
             </div>
+
+            {/* Curated build buttons — collapsible, always reserves space while loading */}
+            {isOwner && (buildsLoading || curatedBuilds.length > 0) && (
+              <div className="mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
+                <button
+                  onClick={() => !buildsLoading && setBuildsExpanded(v => !v)}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left"
+                  disabled={buildsLoading}
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-blue-700 dark:text-blue-300 shrink-0" />
+                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex-1">
+                    Suggested Builds
+                    {!buildsLoading && <span className="ml-1.5 font-normal text-blue-500 dark:text-blue-400">({curatedBuilds.length})</span>}
+                  </span>
+                  {buildsLoading
+                    ? <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />
+                    : <ChevronDown className={cn("h-3.5 w-3.5 text-blue-500 dark:text-blue-400 transition-transform", buildsExpanded && "rotate-180")} />
+                  }
+                </button>
+                {buildsExpanded && (
+                  <div className="flex items-center gap-2 px-3 pb-2 flex-wrap border-t border-blue-200 dark:border-blue-800 pt-2">
+                    {curatedBuilds.map(build => (
+                      <button
+                        key={build.id}
+                        disabled={applyingBuild}
+                        onClick={() => applyBuild(build.cards)}
+                        className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm disabled:opacity-50"
+                      >
+                        {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Search tab content */}
             {isOwner && activeTab === "search" && (

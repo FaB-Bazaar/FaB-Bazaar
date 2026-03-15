@@ -449,6 +449,7 @@ function DeckTileSection({
   heroPortrait,
   onAddCard,
   onRemoveTile,
+  onMoveToInventory,
   onAddTile,
   onEnlargeImage,
   onAddToBinder,
@@ -472,6 +473,8 @@ function DeckTileSection({
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   /** Remove 1 copy of a tile (X button on hover) */
   onRemoveTile?: (tile: DeckTileCard) => void;
+  /** Move 1 copy of a tile to inventory */
+  onMoveToInventory?: (tile: DeckTileCard) => void;
   /** Add 1 more copy of a tile (+1 button on hover) */
   onAddTile?: (tile: DeckTileCard) => void;
   /** Open enlarged image lightbox */
@@ -699,6 +702,17 @@ function DeckTileSection({
                 </button>
               )}
 
+              {/* Move to inventory button — shown on hover, only for maindeck/equipment cards */}
+              {!isDragActive && onMoveToInventory && tile.category !== 'hero' && tile.category !== 'inventory' && !tile.types.includes('demi-hero') && (
+                <button
+                  className="absolute top-6 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
+                  title="Move to inventory"
+                  onClick={e => { e.stopPropagation(); onMoveToInventory(tile); }}
+                >
+                  <Archive className="h-3 w-3" />
+                </button>
+              )}
+
               {/* Add +1 button — shown on hover, hidden for hero/demi-hero */}
               {!isDragActive && onAddTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
@@ -724,11 +738,11 @@ function DeckTileSection({
               {/* Magnify button — shown on hover when tile has an image */}
               {!isDragActive && onEnlargeImage && tile.imageUrl && (
                 <button
-                  className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-gray-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
+                  className="absolute bottom-0.5 right-0.5 w-10 h-10 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-gray-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Enlarge image"
                   onClick={e => { e.stopPropagation(); onEnlargeImage(tile.imageUrl!, tile.name); }}
                 >
-                  <ZoomIn className="h-3 w-3" />
+                  <ZoomIn className="h-5 w-5" />
                 </button>
               )}
 
@@ -999,6 +1013,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     await onAddOneTile?.(tile.printingId, tile.category, tile.totalQty);
   }, [onAddOneTile, deck]);
 
+  const handleTileMoveToInventory = useCallback(async (tile: DeckTileCard) => {
+    if (!onMoveSingle) return;
+    setOptimisticDeck(prev => applyOptimisticMove(prev ?? deck, tile.printingId, tile.category, 'inventory'));
+    await onMoveSingle(tile.printingId, tile.category, 'inventory', tile.totalQty);
+  }, [onMoveSingle, deck]);
+
   const handleSectionDrop = useCallback(async (tile: DeckTileCard, targetSectionKey: TileSectionKey) => {
     const targetCategory = sectionToCategory(targetSectionKey);
     if (!targetCategory || !onMoveSingle) return;
@@ -1224,6 +1244,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onSectionDrop: handleSectionDrop,
     onAddCard: canEdit ? onAddCard : undefined,
     onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
+    onMoveToInventory: canEdit && onMoveSingle ? handleTileMoveToInventory : undefined,
     onAddTile: canEdit ? handleTileAddOne : undefined,
     onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
     onAddToBinder: onAddToBinder,
