@@ -129,6 +129,8 @@ export function toTalisharIdentifier(name: string): string {
   if (!name) return '';
 
   return name
+    .normalize('NFD')               // Decompose accented chars (ō → o + combining macron)
+    .replace(/[\u0300-\u036f]/g, '') // Strip combining diacritical marks
     .toLowerCase()
     .replace(/['"]/g, '')           // Remove quotes and apostrophes
     .replace(/[,;:]/g, '')          // Remove punctuation

@@ -616,7 +616,7 @@ export default function DeckEditorPage() {
 
             {/* Results tab content */}
             {isOwner && activeTab === "results" && (
-              <DeckResultsTab deckId={deckId} />
+              <DeckResultsTab deckId={deckId} deck={state.deck ?? undefined} />
             )}
 
             {/* Matchups tab content — always mounted once deck loads to avoid refetch on tab switch */}
