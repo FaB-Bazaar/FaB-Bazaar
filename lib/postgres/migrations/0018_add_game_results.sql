@@ -26,3 +26,5 @@ CREATE TABLE game_results (
 CREATE INDEX idx_game_results_deck_id ON game_results(deck_id);
 CREATE INDEX idx_game_results_deck_played ON game_results(deck_id, played_at DESC);
 CREATE UNIQUE INDEX idx_game_results_guid ON game_results(talishar_game_guid) WHERE talishar_game_guid IS NOT NULL;
+
+GRANT ALL ON TABLE game_results TO fabbazaar_app;

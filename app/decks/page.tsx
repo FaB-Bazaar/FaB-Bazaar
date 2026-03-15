@@ -21,7 +21,8 @@ import {
   Plus,
   Search,
   BookOpen,
-  Filter
+  Filter,
+  CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -462,13 +463,44 @@ export default function DecksPage() {
             )}
           </div>
 
-          <Button 
+          <Button
             onClick={() => setCreateDeckOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             <Plus className="h-4 w-4 mr-2" />
             Create New Deck
           </Button>
+        </div>
+
+        {/* Talishar / Metafy info strip */}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 mb-6 text-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img
+              src="https://talishar.net/assets/CoinLogo-CXy1VyVE.png"
+              alt="Talishar"
+              className="h-5 w-5 object-contain flex-shrink-0"
+            />
+            <span className="text-gray-600 dark:text-gray-400 truncate">
+              Toggle <span className="font-medium text-gray-800 dark:text-gray-200">Available on Talishar</span> on any deck to include it when Talishar imports your decks via Metafy.
+            </span>
+          </div>
+          <div className="flex-shrink-0">
+            {hasMetafyAccount ? (
+              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Metafy connected
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-3"
+                onClick={() => { window.location.href = "/api/auth/metafy/authorize"; }}
+              >
+                Connect Metafy
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search and Filters */}
