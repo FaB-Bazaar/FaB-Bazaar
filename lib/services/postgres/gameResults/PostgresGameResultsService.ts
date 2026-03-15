@@ -1,6 +1,6 @@
 import { db } from '@/lib/postgres/db';
 import { gameResults } from '@/lib/postgres/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { AsyncResult } from '../../contracts/common';
 
@@ -110,25 +110,37 @@ export class PostgresGameResultsService {
 
   async getGameResultsForDeck(deckId: string): Promise<AsyncResult<GameResultDTO[]>> {
     try {
-      const rows = await db
-        .select()
-        .from(gameResults)
-        .where(eq(gameResults.deckId, deckId))
-        .orderBy(desc(gameResults.playedAt));
+      const { rows } = await db.execute(
+        sql`SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
+                   player_hero, opponent_hero, result::text, conceded, first_player,
+                   total_turns, card_results, turn_results, played_at, created_at
+            FROM game_results
+            WHERE deck_id = ${deckId}
+            ORDER BY played_at DESC`
+      );
 
-      return { success: true, data: rows.map(toDTO) };
+      const data = rows.map((row: any) => ({
+        id: row.id,
+        deckId: row.deck_id,
+        talisharGameId: row.talishar_game_id ?? null,
+        talisharGameGuid: row.talishar_game_guid ?? null,
+        format: row.format ?? null,
+        playerHero: row.player_hero ?? null,
+        opponentHero: row.opponent_hero ?? null,
+        result: row.result as 'win' | 'loss',
+        conceded: row.conceded,
+        firstPlayer: row.first_player ?? null,
+        totalTurns: row.total_turns ?? null,
+        cardResults: row.card_results ?? null,
+        turnResults: row.turn_results ?? null,
+        playedAt: row.played_at,
+        createdAt: row.created_at,
+      }));
+
+      return { success: true, data };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const e = error as any;
-      console.error('[GameResults] Select failed:', message, JSON.stringify({
-        cause: e?.cause,
-        code: e?.code,
-        detail: e?.detail,
-        hint: e?.hint,
-        position: e?.position,
-        nativeError: e?.nativeError ? String(e.nativeError) : undefined,
-        query: e?.query,
-      }));
+      console.error('[GameResults] Select failed:', message);
       return { success: false, error: message };
     }
   }
