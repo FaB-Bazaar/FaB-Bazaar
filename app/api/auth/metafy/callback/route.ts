@@ -3,10 +3,17 @@ import { authenticateSession } from '@/lib/auth/multi-auth';
 import { userService } from '@/lib/services';
 
 const METAFY_TOKEN_URL = 'https://metafy.gg/irk/oauth/token';
-const METAFY_API_BASE = 'https://metafy.gg/api/v1';
+const METAFY_ME_URL = 'https://metafy.gg/irk/api/v1/me';
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+
+  // Use forwarded headers so redirects go to the public domain, not the
+  // internal container address (0.0.0.0:3000) when behind a reverse proxy
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'fabbazaar.app';
+  const origin = `${forwardedProto}://${forwardedHost}`;
+
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
@@ -74,16 +81,18 @@ export async function GET(request: NextRequest) {
   }
 
   // Fetch Metafy user profile
-  let metafyUser: { id: string; slug?: string; username?: string } | null = null;
+  let metafyUser: { id: string; slug?: string; name?: string } | null = null;
   try {
-    const profileResponse = await fetch(`${METAFY_API_BASE}/users/me`, {
+    const profileResponse = await fetch(METAFY_ME_URL, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
 
     if (profileResponse.ok) {
-      metafyUser = await profileResponse.json();
+      const data = await profileResponse.json();
+      metafyUser = data.user ?? data;
     } else {
-      console.warn('[MetafyCallback] Could not fetch Metafy profile, proceeding without username');
+      const body = await profileResponse.text();
+      console.warn('[MetafyCallback] Could not fetch Metafy profile:', profileResponse.status, body);
     }
   } catch (err) {
     console.warn('[MetafyCallback] Metafy profile fetch error:', err);
@@ -98,7 +107,7 @@ export async function GET(request: NextRequest) {
 
   const linkResult = await userService.linkMetafyAccount(authResult.userId, {
     metafyId: String(metafyUser.id),
-    metafyUsername: metafyUser.slug || metafyUser.username || String(metafyUser.id),
+    metafyUsername: metafyUser.slug || metafyUser.name || String(metafyUser.id),
     metafyAccessToken: tokenData.access_token,
     metafyRefreshToken: tokenData.refresh_token,
     metafyTokenExpiry: tokenExpiry,
