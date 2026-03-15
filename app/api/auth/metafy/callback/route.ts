@@ -4,6 +4,7 @@ import { userService } from '@/lib/services';
 
 const METAFY_TOKEN_URL = 'https://metafy.gg/irk/oauth/token';
 const METAFY_ME_URL = 'https://metafy.gg/irk/api/v1/me';
+const METAFY_MEMBERSHIPS_URL = 'https://metafy.gg/irk/api/v1/me/community/memberships';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -116,6 +117,34 @@ export async function GET(request: NextRequest) {
   if (!linkResult.success) {
     console.error('[MetafyCallback] Failed to save Metafy link:', linkResult.error);
     return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=save_failed`);
+  }
+
+  // Fetch and store community memberships (non-fatal — don't fail the OAuth flow)
+  try {
+    const membershipsResponse = await fetch(METAFY_MEMBERSHIPS_URL, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    if (membershipsResponse.ok) {
+      const membershipsData = await membershipsResponse.json();
+      const communities: { id: string; title: string; url?: string; logo_url?: string; tiers?: { id: string; name: string; description?: string }[] }[] =
+        membershipsData.communities ?? [];
+
+      await userService.saveMetafyCommunities(
+        authResult.userId,
+        communities.map((c) => ({
+          communityId: c.id,
+          title: c.title,
+          url: c.url ?? null,
+          logoUrl: c.logo_url ?? null,
+          tiers: c.tiers ?? null,
+        }))
+      );
+    } else {
+      console.warn('[MetafyCallback] Could not fetch Metafy memberships:', membershipsResponse.status);
+    }
+  } catch (err) {
+    console.warn('[MetafyCallback] Metafy memberships fetch error:', err);
   }
 
   const response = NextResponse.redirect(`${origin}/profile/edit?metafy=linked`);

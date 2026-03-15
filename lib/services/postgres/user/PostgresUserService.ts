@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { users, binders, wantsItems } from '@/lib/postgres/schema';
+import { users, binders, wantsItems, metafyCommunities } from '@/lib/postgres/schema';
 import type {
   IUserService,
   AsyncResult,
@@ -19,6 +19,7 @@ import type {
   UserRolesDTO,
   UserProfileStatsDTO,
   UpdateProfileDTO,
+  MetafyCommunityDTO,
 } from '@/lib/services/contracts/IUserService';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -832,6 +833,65 @@ export class PostgresUserService implements IUserService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to unlink Metafy account',
+      };
+    }
+  }
+
+  /**
+   * Save (replace) the list of Metafy communities a user belongs to
+   */
+  async saveMetafyCommunities(userId: string, communities: MetafyCommunityDTO[]): AsyncResult<void> {
+    try {
+      await db.transaction(async (tx) => {
+        await tx.delete(metafyCommunities).where(eq(metafyCommunities.userId, userId));
+        if (communities.length > 0) {
+          await tx.insert(metafyCommunities).values(
+            communities.map((c) => ({
+              userId,
+              communityId: c.communityId,
+              title: c.title,
+              url: c.url ?? null,
+              logoUrl: c.logoUrl ?? null,
+              tiers: c.tiers ?? null,
+            }))
+          );
+        }
+      });
+      return { success: true, data: undefined };
+    } catch (error) {
+      console.error('[PostgresUserService] saveMetafyCommunities error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save Metafy communities',
+      };
+    }
+  }
+
+  /**
+   * Get the Metafy communities a user belongs to
+   */
+  async getMetafyCommunities(userId: string): AsyncResult<MetafyCommunityDTO[]> {
+    try {
+      const rows = await db
+        .select()
+        .from(metafyCommunities)
+        .where(eq(metafyCommunities.userId, userId));
+
+      return {
+        success: true,
+        data: rows.map((r) => ({
+          communityId: r.communityId,
+          title: r.title,
+          url: r.url,
+          logoUrl: r.logoUrl,
+          tiers: r.tiers as MetafyCommunityDTO['tiers'],
+        })),
+      };
+    } catch (error) {
+      console.error('[PostgresUserService] getMetafyCommunities error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get Metafy communities',
       };
     }
   }

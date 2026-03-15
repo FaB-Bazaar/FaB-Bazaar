@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'profile',
+    scope: 'profile community',
     state,
   });
 

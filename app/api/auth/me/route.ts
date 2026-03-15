@@ -21,6 +21,9 @@ export async function GET() {
 
     const profile = result.data;
 
+    const communitiesResult = await userService.getMetafyCommunities(session.user.id);
+    const metafyCommunities = communitiesResult.success ? communitiesResult.data : [];
+
     return Response.json({
       success: true,
       user: {
@@ -36,6 +39,7 @@ export async function GET() {
         isTcgSeller: profile.isTcgSeller,
         metafyLinked: !!profile.metafyId,
         metafyUsername: profile.metafyUsername,
+        metafyCommunities,
       },
       sessionType: "nextauth",
       debug: {

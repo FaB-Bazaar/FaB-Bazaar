@@ -151,6 +151,14 @@ export interface UpdateProfileDTO {
   state?: string;
 }
 
+export interface MetafyCommunityDTO {
+  communityId: string;
+  title: string;
+  url?: string | null;
+  logoUrl?: string | null;
+  tiers?: { id: string; name: string; description?: string }[] | null;
+}
+
 /**
  * User Service Interface
  *
@@ -588,6 +596,16 @@ export interface IUserService {
    * Unlink a Metafy account from a user
    */
   unlinkMetafyAccount(userId: string): AsyncResult<void>;
+
+  /**
+   * Save (replace) the list of Metafy communities a user belongs to
+   */
+  saveMetafyCommunities(userId: string, communities: MetafyCommunityDTO[]): AsyncResult<void>;
+
+  /**
+   * Get the Metafy communities a user belongs to
+   */
+  getMetafyCommunities(userId: string): AsyncResult<MetafyCommunityDTO[]>;
 
   /**
    * Update a specific user field (admin operation)

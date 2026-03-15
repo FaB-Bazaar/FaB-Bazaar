@@ -145,6 +145,24 @@ export const users = pgTable('users', {
 }));
 
 // ============================================================================
+// METAFY COMMUNITIES
+// ============================================================================
+
+export const metafyCommunities = pgTable('metafy_communities', {
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  communityId: text('community_id').notNull(),
+  title: text('title').notNull(),
+  url: text('url'),
+  logoUrl: text('logo_url'),
+  tiers: jsonb('tiers'),
+  syncedAt: timestamp('synced_at').defaultNow().notNull(),
+}, (table) => ({
+  userCommunityUnique: uniqueIndex('metafy_communities_user_community_unique').on(table.userId, table.communityId),
+  userIdIdx: index('idx_metafy_communities_user_id').on(table.userId),
+}));
+
+// ============================================================================
 // ARTICLES
 // ============================================================================
 
