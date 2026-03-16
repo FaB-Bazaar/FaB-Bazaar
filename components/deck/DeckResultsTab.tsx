@@ -65,6 +65,8 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
   const [showCardStats, setShowCardStats] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["never-used"]));
   const [hoveredCard, setHoveredCard] = useState<{
     imageUrl: string;
@@ -109,15 +111,26 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   }, [results]);
 
   useEffect(() => {
-    fetch(`/api/decks/${deckId}/results`)
+    fetch(`/api/decks/${deckId}/results?limit=20&offset=0`)
       .then(r => r.json())
       .then(data => {
-        if (data.success) setResults(data.data);
+        if (data.success) { setResults(data.data); setTotal(data.total ?? data.data.length); }
         else setError(data.error);
       })
       .catch(() => setError("Failed to load results"))
       .finally(() => setLoading(false));
   }, [deckId]);
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    fetch(`/api/decks/${deckId}/results?limit=20&offset=${results.length}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) setResults(prev => [...prev, ...data.data]);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  };
 
   if (loading) {
     return (
@@ -181,7 +194,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
             {showCardStats ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
             Card Performance
             <span className="text-xs text-gray-400 font-normal ml-1">
-              ({aggregatedCards.length} cards · {results.length} games)
+              ({aggregatedCards.length} cards · {results.length}{total > results.length ? ` of ${total}` : ""} games)
             </span>
           </button>
           {showCardStats && (() => {
@@ -368,61 +381,70 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
               </button>
 
               {isExpanded && (
-                <div className="px-3 pb-4 pt-3 space-y-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="px-3 pb-4 pt-3 space-y-3 border-t border-gray-100 dark:border-gray-800">
 
-                  {/* Cards played as image tiles */}
-                  {cardResults.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Cards Played</p>
-                      <div className="flex flex-wrap gap-2">
-                        {cardResults.map(cr => {
-                          const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
-                          const imageUrl = deckCard?.printingDetails?.image_url;
-                          const printingId = deckCard?.printingId;
-                          const borderClass = cr.pitchValue != null ? (PITCH_BORDER[cr.pitchValue] ?? "border-transparent") : "border-transparent";
+                  {/* Per-game card sections: PLAYED / PITCHED / BLOCKED */}
+                  {(() => {
+                    const allCards = (r.cardResults as CardResult[] | null) ?? [];
+                    const byKey = new Map<string, CardResult>();
+                    for (const cr of allCards) {
+                      if (!cr.cardName) continue;
+                      byKey.set(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`, cr);
+                    }
 
-                          const tile = (
-                            <div className="relative group">
-                              <div className={cn("w-16 aspect-[63/88] rounded overflow-hidden bg-gray-200 dark:bg-gray-700 border-2", borderClass)}>
-                                <img
-                                  src={imageUrl || "/cardback.webp"}
-                                  alt={cr.cardName}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              </div>
-                              {/* Play count — top-right, only if >1 */}
-                              {cr.played > 1 && (
-                                <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold leading-none">
-                                  {cr.played}
-                                </span>
-                              )}
-                              {/* Hit count — bottom-right, only if >0 */}
-                              {cr.hits > 0 && (
-                                <span className="absolute -bottom-1 -right-1 bg-green-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold leading-none">
-                                  {cr.hits}
-                                </span>
-                              )}
-                              {/* Hover tooltip */}
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-10 pointer-events-none">
-                                <div className="bg-gray-900 text-white text-xs rounded px-2 py-1.5 whitespace-nowrap shadow-lg">
-                                  <div className="font-medium">{cr.cardName}</div>
-                                  <div className="text-gray-300 mt-0.5">
-                                    played {cr.played}× · {cr.hits} hit · {cr.pitched} pitched
-                                    {cr.blocked > 0 && ` · ${cr.blocked} blocked`}
-                                  </div>
-                                </div>
-                              </div>
+                    const GAME_PITCH_BADGE: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400 text-gray-900", 3: "bg-blue-500" };
+
+                    const renderGameTile = (cr: CardResult, statKey: "played" | "pitched" | "blocked") => {
+                      const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
+                      const imageUrl = deckCard?.printingDetails?.image_url;
+                      const printingId = deckCard?.printingId;
+                      const pitchBorder = cr.pitchValue != null && cr.pitchValue > 0 ? (PITCH_BORDER[cr.pitchValue] ?? "border-gray-400 dark:border-gray-600") : "border-gray-400 dark:border-gray-600";
+                      const badgeClass = cr.pitchValue != null && cr.pitchValue > 0 ? (GAME_PITCH_BADGE[cr.pitchValue] ?? "bg-gray-500 text-white") : "bg-gray-500 text-white";
+                      const statValue = cr[statKey];
+                      const isAttack = deckCard?.printingDetails?.types?.some(t => t.toLowerCase() === "attack") ?? false;
+                      const hitPct = statKey === "played" && isAttack && cr.played > 0 ? Math.round((cr.hits / cr.played) * 100) : null;
+
+                      const tile = (
+                        <div
+                          className="shrink-0 flex flex-col items-center gap-1"
+                          style={{ width: 80 }}
+                          onMouseEnter={() => imageUrl && setHoveredCard({ imageUrl, cardName: cr.cardName, statValue, hitPct, badgeClass })}
+                          onMouseLeave={() => setHoveredCard(null)}
+                        >
+                          <div className={cn("relative w-full rounded overflow-hidden border-2", pitchBorder)} style={{ aspectRatio: "63/53" }}>
+                            <img src={imageUrl || "/cardback.webp"} alt={cr.cardName} className="w-full block" loading="lazy" />
+                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
+                              <span className={cn("flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold", badgeClass)}>{statValue}</span>
                             </div>
-                          );
+                            {hitPct !== null && (
+                              <div className="absolute top-1 right-1">
+                                <span className={cn("text-[9px] font-semibold px-1 py-0.5 rounded leading-none", hitPct >= 50 ? "bg-green-600 text-white" : "bg-black/50 text-gray-300")}>{hitPct}%</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center leading-tight w-full truncate">{cr.cardName}</p>
+                        </div>
+                      );
+                      return printingId
+                        ? <a key={`${cr.cardId}-${cr.pitchValue}-${statKey}`} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer">{tile}</a>
+                        : <div key={`${cr.cardId}-${cr.pitchValue}-${statKey}`}>{tile}</div>;
+                    };
 
-                          return printingId
-                            ? <a key={cr.cardId} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer">{tile}</a>
-                            : <div key={cr.cardId}>{tile}</div>;
-                        })}
+                    const gameSections: Array<{ label: string; cards: CardResult[]; statKey: "played" | "pitched" | "blocked" }> = [
+                      { label: "PLAYED", cards: [...byKey.values()].filter(c => c.played > 0).sort((a, b) => (a.cardName ?? "").localeCompare(b.cardName ?? "") || (a.pitchValue ?? 0) - (b.pitchValue ?? 0)), statKey: "played" },
+                      { label: "PITCHED", cards: [...byKey.values()].filter(c => c.pitched > 0).sort((a, b) => (a.cardName ?? "").localeCompare(b.cardName ?? "") || (a.pitchValue ?? 0) - (b.pitchValue ?? 0)), statKey: "pitched" },
+                      { label: "BLOCKED", cards: [...byKey.values()].filter(c => c.blocked > 0).sort((a, b) => (a.cardName ?? "").localeCompare(b.cardName ?? "") || (a.pitchValue ?? 0) - (b.pitchValue ?? 0)), statKey: "blocked" },
+                    ];
+
+                    return gameSections.map(({ label, cards, statKey }) => cards.length === 0 ? null : (
+                      <div key={label}>
+                        <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">{label}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {cards.map(cr => renderGameTile(cr, statKey))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    ));
+                  })()}
 
                   {/* Turn breakdown table */}
                   {turnEntries.length > 0 && (
@@ -467,6 +489,19 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
           );
         })}
       </div>
+
+      {/* Load more */}
+      {results.length < total && (
+        <div className="flex justify-center pt-1">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2 rounded border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : `Load more (${total - results.length} remaining)`}
+          </button>
+        </div>
+      )}
     </div>
 
     {/* Hover card preview */}

@@ -108,19 +108,29 @@ export class PostgresGameResultsService {
     }
   }
 
-  async getGameResultsForDeck(deckId: string): Promise<AsyncResult<GameResultDTO[]>> {
+  async getGameResultsForDeck(
+    deckId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<AsyncResult<{ data: GameResultDTO[]; total: number }>> {
+    const limit = options.limit ?? 20;
+    const offset = options.offset ?? 0;
     try {
-      const result = await pool.query(
-        `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
-                player_hero, opponent_hero, result::text, conceded, first_player,
-                total_turns, card_results, turn_results, played_at, created_at
-         FROM game_results
-         WHERE deck_id = $1
-         ORDER BY played_at DESC`,
-        [deckId]
-      );
+      const [countResult, rowsResult] = await Promise.all([
+        pool.query(`SELECT COUNT(*)::int AS total FROM game_results WHERE deck_id = $1`, [deckId]),
+        pool.query(
+          `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
+                  player_hero, opponent_hero, result::text, conceded, first_player,
+                  total_turns, card_results, turn_results, played_at, created_at
+           FROM game_results
+           WHERE deck_id = $1
+           ORDER BY played_at DESC
+           LIMIT $2 OFFSET $3`,
+          [deckId, limit, offset]
+        ),
+      ]);
 
-      const data = result.rows.map((row: any) => ({
+      const total = countResult.rows[0].total as number;
+      const data = rowsResult.rows.map((row: any) => ({
         id: row.id,
         deckId: row.deck_id,
         talisharGameId: row.talishar_game_id ?? null,
@@ -138,7 +148,7 @@ export class PostgresGameResultsService {
         createdAt: row.created_at,
       }));
 
-      return { success: true, data };
+      return { success: true, data: { data, total } };
     } catch (error) {
       const e = error as any;
       console.error('[GameResults] Select failed:', e?.message, {

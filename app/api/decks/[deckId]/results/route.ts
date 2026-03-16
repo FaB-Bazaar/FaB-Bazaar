@@ -23,13 +23,17 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '20', 10), 100);
+    const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10), 0);
+
     const internalDeckId = deckLookup.data._id;
-    const result = await gameResultsService.getGameResultsForDeck(internalDeckId);
+    const result = await gameResultsService.getGameResultsForDeck(internalDeckId, { limit, offset });
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data: result.data });
+    return NextResponse.json({ success: true, data: result.data.data, total: result.data.total });
   } catch (error) {
     console.error('[Deck Results] Error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
