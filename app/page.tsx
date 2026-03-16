@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { articleService } from '@/lib/services';
 import HomePageClient from '@/components/home/HomePageClient';
 
