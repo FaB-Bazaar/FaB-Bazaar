@@ -216,17 +216,11 @@ function GroupedCardRow({
                 <span
                   className={cn(
                     "flex-1 text-gray-500 dark:text-gray-400 truncate font-mono",
-                    onSwapCard && "cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                    onSelectCard && "cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
                   )}
                   onClick={
-                    onSwapCard
-                      ? () =>
-                          onSwapCard({
-                            printingId: pr.printingId,
-                            cardUniqueId: pr.printingDetails?.card_unique_id || "",
-                            cardName: group.displayName,
-                            category,
-                          })
+                    onSelectCard
+                      ? () => onSelectCard(group.key, group.displayName, category, group.printings)
                       : undefined
                   }
                 >

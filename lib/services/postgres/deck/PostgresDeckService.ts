@@ -155,12 +155,12 @@ export class PostgresDeckService implements IDeckService {
       // Calculated stats (not cached)
       totalCards,
       estimatedValue,
-      heroCount: categorizeCards('hero').length,
-      equipmentCount: categorizeCards('equipment').length,
-      maindeckCount: categorizeCards('maindeck').length,
-      inventoryCount: categorizeCards('inventory').length,
-      benchedCount: categorizeCards('benched').length,
-      tokensCount: categorizeCards('tokens' as DeckCategory).length,
+      heroCount: categorizeCards('hero').reduce((s, c) => s + (c.quantity ?? 1), 0),
+      equipmentCount: categorizeCards('equipment').reduce((s, c) => s + (c.quantity ?? 1), 0),
+      maindeckCount: categorizeCards('maindeck').reduce((s, c) => s + (c.quantity ?? 1), 0),
+      inventoryCount: categorizeCards('inventory').reduce((s, c) => s + (c.quantity ?? 1), 0),
+      benchedCount: categorizeCards('benched').reduce((s, c) => s + (c.quantity ?? 1), 0),
+      tokensCount: categorizeCards('tokens' as DeckCategory).reduce((s, c) => s + (c.quantity ?? 1), 0),
       cardPoolCount: totalCards,
 
       createdAt: deckRow.createdAt,
