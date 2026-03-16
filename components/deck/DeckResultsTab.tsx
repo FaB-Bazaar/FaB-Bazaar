@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Loader2, Sword, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GameResultDTO } from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
@@ -65,6 +65,24 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
   const [showCardStats, setShowCardStats] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["never-used"]));
+  const [hoveredCard, setHoveredCard] = useState<{
+    imageUrl: string;
+    cardName: string;
+    statValue: number;
+    hitPct: number | null;
+    badgeClass: string;
+  } | null>(null);
+  const mouseXRef = useRef(0);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { mouseXRef.current = e.clientX; };
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, []);
+
+  const toggleSection = (id: string) =>
+    setCollapsedSections(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
   const cardLookup = useMemo(() => buildCardLookup(deck), [deck]);
 
@@ -74,6 +92,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       const cards = game.cardResults as CardResult[] | null;
       if (!cards) continue;
       for (const cr of cards) {
+        if (!cr.cardName) continue;
         const key = `${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`;
         const existing = map.get(key);
         if (existing) {
@@ -136,6 +155,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
     : null;
 
   return (
+    <>
     <div className="space-y-4">
       {/* Summary */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
@@ -164,59 +184,140 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
               ({aggregatedCards.length} cards · {results.length} games)
             </span>
           </button>
-          {showCardStats && (
-            <div className="border-t border-gray-200 dark:border-gray-700 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left px-3 py-2 font-medium">Card</th>
-                    <th className="text-center px-3 py-2 font-medium">Played</th>
-                    <th className="text-center px-3 py-2 font-medium">Hits</th>
-                    <th className="text-center px-3 py-2 font-medium">Hit%</th>
-                    <th className="text-center px-3 py-2 font-medium">Pitched</th>
-                    <th className="text-center px-3 py-2 font-medium">Blocked</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {aggregatedCards.map(cr => {
-                    const deckCard = cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`);
-                    const hitPct = cr.played > 0 ? Math.round((cr.hits / cr.played) * 100) : 0;
-                    return (
-                      <tr key={cr.cardId} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                        <td className="px-3 py-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 aspect-[63/88] rounded overflow-hidden bg-gray-200 dark:bg-gray-700 shrink-0">
-                              <img
-                                src={deckCard?.printingDetails?.image_url || "/cardback.webp"}
-                                alt={cr.cardName}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            </div>
-                            <span className="text-xs font-medium text-gray-900 dark:text-white">
-                              {cr.cardName}
-                              {cr.pitchValue != null && cr.pitchValue > 0 && (
-                                <span className={cn("ml-1.5 inline-block w-2 h-2 rounded-full align-middle", PITCH_DOT[cr.pitchValue] ?? "bg-gray-300")} />
-                              )}
-                            </span>
+          {showCardStats && (() => {
+            const PITCH_BADGE: Record<number, string> = {
+              1: "bg-red-500",
+              2: "bg-yellow-400 text-gray-900",
+              3: "bg-blue-500",
+            };
+
+            const sections: Array<{
+              id: string;
+              title: string;
+              cards: CardResult[];
+              statKey: "played" | "pitched" | "blocked";
+            }> = [
+              {
+                id: "played",
+                title: "PLAYED",
+                cards: [...aggregatedCards].filter(cr => cr.played > 0).sort((a, b) => (a.cardName ?? "").localeCompare(b.cardName ?? "") || (a.pitchValue ?? 0) - (b.pitchValue ?? 0)),
+                statKey: "played",
+              },
+              {
+                id: "pitched",
+                title: "PITCHED",
+                cards: [...aggregatedCards].filter(cr => cr.pitched > 0).sort((a, b) => (a.cardName ?? "").localeCompare(b.cardName ?? "") || (a.pitchValue ?? 0) - (b.pitchValue ?? 0)),
+                statKey: "pitched",
+              },
+              {
+                id: "blocked",
+                title: "BLOCKED",
+                cards: [...aggregatedCards].filter(cr => cr.blocked > 0).sort((a, b) => (a.cardName ?? "").localeCompare(b.cardName ?? "") || (a.pitchValue ?? 0) - (b.pitchValue ?? 0)),
+                statKey: "blocked",
+              },
+            ];
+            const neverUsed = aggregatedCards.filter(cr => cr.played === 0 && cr.pitched === 0 && cr.blocked === 0);
+
+            const renderTile = (cr: CardResult, statKey: "played" | "pitched" | "blocked", sectionId: string) => {
+              const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
+              const imageUrl = deckCard?.printingDetails?.image_url;
+              const printingId = deckCard?.printingId;
+              const statValue = cr[statKey];
+              const isAttack = deckCard?.printingDetails?.types?.some(t => t.toLowerCase() === "attack") ?? false;
+              const hitPct = statKey === "played" && isAttack && cr.played > 0 ? Math.round((cr.hits / cr.played) * 100) : null;
+              const pitchBorder = cr.pitchValue != null && cr.pitchValue > 0 ? (PITCH_BORDER[cr.pitchValue] ?? "border-gray-400 dark:border-gray-600") : "border-gray-400 dark:border-gray-600";
+              const badgeClass = cr.pitchValue != null && cr.pitchValue > 0 ? (PITCH_BADGE[cr.pitchValue] ?? "bg-gray-500 text-white") : "bg-gray-500 text-white";
+
+              const tile = (
+                <div
+                  className="shrink-0 flex flex-col items-center gap-1"
+                  style={{ width: 88 }}
+                  onMouseEnter={() => imageUrl && setHoveredCard({ imageUrl, cardName: cr.cardName, statValue, hitPct, badgeClass })}
+                  onMouseLeave={() => setHoveredCard(null)}
+                >
+                  <div className={cn("relative w-full rounded overflow-hidden border-2", pitchBorder)} style={{ aspectRatio: "63/53" }}>
+                    <img
+                      src={imageUrl || "/cardback.webp"}
+                      alt={cr.cardName}
+                      className="w-full block"
+                      loading="lazy"
+                    />
+                    {/* Count badge at bottom center */}
+                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
+                      <span className={cn("flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold", badgeClass)}>
+                        {statValue}
+                      </span>
+                    </div>
+                    {/* Hit% badge — played section only */}
+                    {hitPct !== null && (
+                      <div className="absolute top-1 right-1">
+                        <span className={cn("text-[9px] font-semibold px-1 py-0.5 rounded leading-none", hitPct >= 50 ? "bg-green-600 text-white" : "bg-black/50 text-gray-300")}>
+                          {hitPct}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center leading-tight w-full truncate">{cr.cardName}</p>
+                </div>
+              );
+
+              return printingId
+                ? <a key={`${cr.cardId}-${cr.pitchValue}-${sectionId}`} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer">{tile}</a>
+                : <div key={`${cr.cardId}-${cr.pitchValue}-${sectionId}`}>{tile}</div>;
+            };
+
+            return (
+              <div className="border-t border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                {sections.map(({ id, title, cards, statKey }) => {
+                  if (cards.length === 0) return null;
+                  const collapsed = collapsedSections.has(id);
+                  return (
+                    <div key={id}>
+                      <button
+                        onClick={() => toggleSection(id)}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                      >
+                        <span className="text-xs font-bold tracking-widest text-gray-600 dark:text-gray-300 flex-1">{title}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">({cards.length})</span>
+                        {collapsed
+                          ? <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                          : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
+                      </button>
+                      {!collapsed && (
+                        <div className="px-3 pb-3 pt-1">
+                          <div className="flex flex-wrap gap-2">
+                            {cards.map(cr => renderTile(cr, statKey, id))}
                           </div>
-                        </td>
-                        <td className="text-center px-3 py-1.5 text-gray-700 dark:text-gray-300">{cr.played}</td>
-                        <td className="text-center px-3 py-1.5 text-gray-700 dark:text-gray-300">{cr.hits}</td>
-                        <td className="text-center px-3 py-1.5">
-                          <span className={cn("text-xs font-medium", cr.played > 0 && hitPct >= 50 ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400")}>
-                            {cr.played > 0 ? `${hitPct}%` : "—"}
-                          </span>
-                        </td>
-                        <td className="text-center px-3 py-1.5 text-gray-700 dark:text-gray-300">{cr.pitched}</td>
-                        <td className="text-center px-3 py-1.5 text-gray-700 dark:text-gray-300">{cr.blocked}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {neverUsed.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => toggleSection("never-used")}
+                      className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                    >
+                      <span className="text-xs font-bold tracking-widest text-gray-400 dark:text-gray-500 flex-1">NEVER USED</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">({neverUsed.length})</span>
+                      {collapsedSections.has("never-used")
+                        ? <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                        : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
+                    </button>
+                    {!collapsedSections.has("never-used") && (
+                      <div className="px-3 pb-3 pt-1">
+                        <div className="flex flex-wrap gap-2 opacity-40">
+                          {neverUsed.map(cr => renderTile(cr, "played", "never-used"))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -275,7 +376,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Cards Played</p>
                       <div className="flex flex-wrap gap-2">
                         {cardResults.map(cr => {
-                          const deckCard = cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`);
+                          const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
                           const imageUrl = deckCard?.printingDetails?.image_url;
                           const printingId = deckCard?.printingId;
                           const borderClass = cr.pitchValue != null ? (PITCH_BORDER[cr.pitchValue] ?? "border-transparent") : "border-transparent";
@@ -367,6 +468,38 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
         })}
       </div>
     </div>
+
+    {/* Hover card preview */}
+
+    {hoveredCard && (
+      <div
+        className="fixed z-[9999] pointer-events-none"
+        style={{
+          ...(mouseXRef.current < window.innerWidth / 2 ? { right: 16 } : { left: 16 }),
+          top: "50%",
+          transform: "translateY(-50%)",
+        }}
+      >
+        <div className="relative w-56 rounded-xl overflow-hidden shadow-2xl border border-gray-600">
+          <img src={hoveredCard.imageUrl} alt={hoveredCard.cardName} className="w-full block" />
+          {/* Count badge */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+            <span className={cn("flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold shadow-lg", hoveredCard.badgeClass)}>
+              {hoveredCard.statValue}
+            </span>
+          </div>
+          {/* Hit% badge */}
+          {hoveredCard.hitPct !== null && (
+            <div className="absolute top-2 right-2">
+              <span className={cn("text-xs font-semibold px-1.5 py-0.5 rounded leading-none shadow", hoveredCard.hitPct >= 50 ? "bg-green-600 text-white" : "bg-black/60 text-gray-300")}>
+                {hoveredCard.hitPct}% hit
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
