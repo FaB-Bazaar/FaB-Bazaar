@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input"
 import { ArrowRight, Search, MapPin, BookOpen, MessageCircle } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { FeaturedCardsCarousel } from "@/components/shared/FeaturedCardsCarousel"
-import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad"
-import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad"
 
 interface PublicArticle {
   publicId: string;
@@ -226,8 +224,6 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
 
       </div>
 
-      <DesktopAnchorAd />
-      <MobileAnchorAd />
     </main>
   );
 }

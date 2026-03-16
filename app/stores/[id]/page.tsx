@@ -5,7 +5,7 @@ import Link from "next/link";
 import { use } from "react";
 import {
   MapPin, Phone, Globe, Users, Calendar, ChevronLeft,
-  Check, ExternalLink, Tag, Shield,
+  Check, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -230,7 +230,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
               </div>
               <div className="flex items-center gap-1.5 text-blue-100 text-sm mt-1">
                 <Users className="w-3.5 h-3.5" />
-                {location.followerCount} follower{location.followerCount !== 1 ? "s" : ""}
+                {followerTotal} follower{followerTotal !== 1 ? "s" : ""}
               </div>
             </div>
             <Button
@@ -380,21 +380,6 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
             </dl>
           </section>
 
-          {canManage && (
-            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 text-sm flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5 text-gray-400" />
-                Manager Actions
-              </h2>
-              <div className="flex flex-col gap-2">
-                <Link href={`/admin/location-manager?id=${id}`}>
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    Edit store info
-                  </Button>
-                </Link>
-              </div>
-            </section>
-          )}
         </div>
       </div>
     </div>

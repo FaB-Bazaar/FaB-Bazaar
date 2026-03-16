@@ -10,7 +10,7 @@ import {
   events,
   eventAttendance,
 } from '@/lib/postgres/schema';
-import { eq, and, sql, ilike, or, desc, asc, count, gt, gte } from 'drizzle-orm';
+import { eq, and, sql, ilike, or, desc, asc, count, gt, gte, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { encryptAddress, decryptAddress } from '@/lib/encryption';
 import type { ILocationService } from '../../contracts/ILocationService';
@@ -263,6 +263,8 @@ export class PostgresLocationService implements ILocationService {
             username: users.username,
             displayUsername: users.displayUsername,
             avatarUrl: users.avatarUrl,
+            discordId: users.discordId,
+            discordAvatar: users.discordAvatar,
             followedAt: userFollowedStores.followedAt,
           })
           .from(userFollowedStores)
@@ -284,7 +286,9 @@ export class PostgresLocationService implements ILocationService {
             userId: r.userId,
             username: r.username,
             displayUsername: r.displayUsername,
-            avatarUrl: r.avatarUrl,
+            avatarUrl: r.avatarUrl ?? (r.discordId && r.discordAvatar
+              ? `https://cdn.discordapp.com/avatars/${r.discordId}/${r.discordAvatar}.png`
+              : null),
             followedAt: r.followedAt,
           })),
           total: totalResult[0]?.total ?? 0,
@@ -350,7 +354,7 @@ export class PostgresLocationService implements ILocationService {
           .innerJoin(locations, eq(events.locationId, locations.id))
           .where(
             and(
-              sql`${events.locationId} = ANY(${followedLocationIds})`,
+              inArray(events.locationId, followedLocationIds),
               gte(events.endDate, now),
               eq(events.active, true)
             )
