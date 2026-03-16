@@ -1,6 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
+import { Outfit } from "next/font/google"
+
+const OutfitFont = Outfit({ subsets: ["latin"] })
 import Script from "next/script"
 import "./globals.css"
 import Navbar from "@/components/navbar"
@@ -180,7 +182,7 @@ export default function RootLayout({
       </head>
       <body className={cn(
         "min-h-screen font-sans antialiased bg-page",
-        GeistSans.className
+        OutfitFont.className
       )}>
         <DarkModeProvider>
           <CookieConsentProvider>

@@ -30,7 +30,7 @@ import { BinderHeader } from "@/components/binder/BinderHeader";
 import { ShareBinderButton } from "@/components/binder/ShareBinderButton"; 
 import DeleteSelectedDialog from "@/components/binder/DeleteSelectedDialog";
 import { AccessDeniedScreen } from "@/components/binder/AccessDeniedScreen";
-import { useCookieConsent } from '@/contexts/CookieConsentContext'
+import { AffiliateDisclosure } from '@/components/shared/AffiliateDisclosure'
 import { ExportModal } from '@/components/binder/ExportModal';
 // import { WantsListSidebar } from "@/components/binder/WantsListSidebar";
 import { TradeRequestSidebar } from "@/components/binder/TradeRequestSidebar";
@@ -618,47 +618,6 @@ const handleCardSelect = (card: any) => {
     }]);
   }
 };
-
-  const AffiliateDisclosure = () => {
-  const { consentOptions } = useCookieConsent()
-
-  return (
-    <div className="container mx-auto px-2 sm:px-4 mt-2 sm:mt-4">
-      <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2 sm:p-3">
-        <div className="block sm:flex sm:items-start sm:gap-3">
-          <img
-            src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-            alt="TCGPlayer"
-            className="h-4 w-auto sm:h-5 mb-2 sm:mb-0 sm:mt-0.5 sm:flex-shrink-0"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] sm:text-sm text-gray-500 dark:text-gray-400 leading-snug sm:leading-relaxed">
-              {consentOptions.advertising ? (
-                <>
-                  TCGPlayer links include affiliate tracking to support this site. Adjust in your <button
-                    onClick={() => document.dispatchEvent(new Event('openCookiePreferences'))}
-                    className="underline hover:text-gray-700 dark:hover:text-gray-200 font-medium"
-                  >
-                    cookie preferences
-                  </button>.
-                </>
-              ) : (
-                <>
-                  Help support this site by enabling affiliate tracking. Enable in <button
-                    onClick={() => document.dispatchEvent(new Event('openCookiePreferences'))}
-                    className="underline hover:text-gray-700 dark:hover:text-gray-200 font-medium"
-                  >
-                    cookie preferences
-                  </button> for small commissions at no extra cost.
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 
 const SuperSlamDisclosure = () => {

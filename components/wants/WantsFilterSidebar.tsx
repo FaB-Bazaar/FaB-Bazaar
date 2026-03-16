@@ -1,4 +1,4 @@
-// components/binder/BinderFilterSidebar.tsx
+// components/wants/WantsFilterSidebar.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -6,7 +6,7 @@ import { getSetImageOrFallback } from "@/lib/set-images";
 import { RarityIcon } from "@/components/shared/RarityIcon";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-interface BinderFilterSidebarProps {
+interface WantsFilterSidebarProps {
   activeFilters: Record<string, string | null>;
   activeFilterCount: number;
   setFilter: (type: string, value: string) => void;
@@ -42,15 +42,36 @@ const DISPLAY_FOILINGS: { key: string; label: string; swatch: string }[] = [
   { key: 's', label: 'Non-foil',     swatch: 'bg-gray-300 dark:bg-gray-500' },
 ];
 
+const PRIORITIES: { key: string; label: string; activeClass: string; inactiveClass: string }[] = [
+  {
+    key: 'high',
+    label: 'High',
+    activeClass: 'bg-red-600 text-white border-red-600',
+    inactiveClass: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400',
+  },
+  {
+    key: 'medium',
+    label: 'Medium',
+    activeClass: 'bg-yellow-500 text-white border-yellow-500',
+    inactiveClass: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-yellow-300 dark:hover:border-yellow-700 hover:text-yellow-700 dark:hover:text-yellow-400',
+  },
+  {
+    key: 'low',
+    label: 'Low',
+    activeClass: 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100',
+    inactiveClass: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100',
+  },
+];
+
 const sectionTitle = "text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3";
 
-export function BinderFilterSidebar({
+export function WantsFilterSidebar({
   activeFilters,
   activeFilterCount,
   setFilter,
   clearFilter,
   clearAllFilters,
-}: BinderFilterSidebarProps) {
+}: WantsFilterSidebarProps) {
   const [showAllRarities, setShowAllRarities] = useState(false);
 
   const allRarities = showAllRarities
@@ -58,7 +79,7 @@ export function BinderFilterSidebar({
     : PRIMARY_RARITIES;
 
   return (
-    <aside className="w-52 flex-shrink-0 sticky top-20 self-start hidden md:flex flex-col max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
+    <aside className="w-48 flex-shrink-0 sticky top-20 self-start hidden md:flex flex-col max-h-[calc(100vh-6rem)] overflow-y-auto">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -73,33 +94,24 @@ export function BinderFilterSidebar({
         )}
       </div>
 
-      {/* Trade Status — prominent pill toggles */}
+      {/* Priority */}
       <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => activeFilters.forTrade === 'true' ? clearFilter('forTrade') : setFilter('forTrade', 'true')}
-          className={`flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-            activeFilters.forTrade === 'true'
-              ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
-              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
-        >
-          For Trade
-        </button>
-        <button
-          onClick={() => activeFilters.forTrade === 'false' ? clearFilter('forTrade') : setFilter('forTrade', 'false')}
-          className={`flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-            activeFilters.forTrade === 'false'
-              ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
-              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
-        >
-          Not for Trade
-        </button>
+        {PRIORITIES.map(({ key, label, activeClass, inactiveClass }) => (
+          <button
+            key={key}
+            onClick={() => activeFilters.priority === key ? clearFilter('priority') : setFilter('priority', key)}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              activeFilters.priority === key ? activeClass : inactiveClass
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <hr className="border-gray-200 dark:border-gray-700 mb-4" />
 
-      {/* Rarity — icon + label, expandable */}
+      {/* Rarity */}
       <div className="mb-4">
         <p className={sectionTitle}>Rarity</p>
         {allRarities.map(({ key, label }) => {
@@ -130,7 +142,7 @@ export function BinderFilterSidebar({
 
       <hr className="border-gray-200 dark:border-gray-700 mb-4" />
 
-      {/* Foiling — color swatch + label */}
+      {/* Foiling */}
       <div className="mb-4">
         <p className={sectionTitle}>Foiling</p>
         {DISPLAY_FOILINGS.map(({ key, label, swatch }) => {
@@ -154,7 +166,7 @@ export function BinderFilterSidebar({
 
       <hr className="border-gray-200 dark:border-gray-700 mb-4" />
 
-      {/* Set — icon grid */}
+      {/* Set */}
       <div>
         <p className={sectionTitle}>Set</p>
         <div className="grid grid-cols-3 gap-1.5">

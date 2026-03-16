@@ -20,9 +20,7 @@ import {
   Trash2,
   Copy,
   Check,
-  ExternalLink,
   ChevronRight,
-  Star,
   UserCircle,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -39,10 +37,11 @@ import {
 } from "@/lib/card-metadata";
 import { SharedWantsCard } from '@/components/wants';
 import { DarkModeToggle } from "@/components/DarkModeToggle";
-import { useCookieConsent } from '@/contexts/CookieConsentContext'
-
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad"
 import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad"
+import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure"
+import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar"
+import { SlidersHorizontal } from "lucide-react"
 
 
 const useWindowWidth = () => {
@@ -55,47 +54,6 @@ const useWindowWidth = () => {
   }, []);
   return width;
 };
-
-const AffiliateDisclosure = () => {
-  const { consentOptions } = useCookieConsent()
-  
-  return (
-    <div className="container mx-auto px-4 mt-4">
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
-        <div className="flex items-start gap-2">
-          <img 
-            src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-            alt="TCGPlayer"
-            className="h-5 w-auto mt-0.5 flex-shrink-0"
-          />
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            {consentOptions.advertising ? (
-              <>
-                TCGPlayer links on this page include affiliate tracking to help support this site. 
-                You can adjust this in your <button 
-                  onClick={() => document.dispatchEvent(new Event('openCookiePreferences'))}
-                  className="underline hover:text-blue-900 dark:hover:text-blue-100"
-                >
-                  cookie preferences
-                </button>.
-              </>
-            ) : (
-              <>
-                Help support this site by enabling affiliate tracking in your <button 
-                  onClick={() => document.dispatchEvent(new Event('openCookiePreferences'))}
-                  className="underline hover:text-blue-900 dark:hover:text-blue-100"
-                >
-                  cookie preferences
-                </button>. This allows us to earn a small commission from TCGPlayer purchases at no extra cost to you.
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 
 const FilterChip = ({ label, isActive, onClick, onRemove }: any) => (
   <div
@@ -153,6 +111,8 @@ export default function SharedWantsListPage({
   //     *** FIX #1: HEADER STATE DEFAULTS TO COLLAPSED (false) ***
   // ========================================================================
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
+  const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
+  const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
 
   // --- Logic for fetching data, filtering, sorting, etc. (no changes) ---
   useEffect(() => {
@@ -426,257 +386,59 @@ export default function SharedWantsListPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b shadow-sm dark:border-gray-700">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between py-2">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+
+      {/* Slim affiliate disclosure */}
+      <AffiliateDisclosure />
+
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm shadow-gray-200/80 dark:shadow-none">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            {/* Profile link */}
             {profileUsername ? (
               <Link
                 href={`/profile/${profileUsername}`}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 rounded-lg border border-blue-200 dark:border-blue-700 transition-all duration-200 group"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 transition-all group shrink-0"
               >
                 <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                 <UserCircle className="h-4 w-4" />
-                <span>
-                  <span className="font-medium">{userName}</span>
-                  <span className="text-blue-600 dark:text-blue-400 ml-1">'s Profile</span>
-                </span>
+                <span className="font-medium">{userName}</span>
+                <span className="text-blue-600 dark:text-blue-400">'s Profile</span>
               </Link>
             ) : (
-              <Link
-                href="/"
-                className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-              >
+              <Link href="/" className="flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
               </Link>
             )}
-            <DarkModeToggle />
-          </div>
 
-          <div className="flex items-center justify-between py-2">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 flex-1 min-w-0 truncate">
               {getWantsListTitle()}
             </h1>
-            {/* ======================================================================== */}
-            {/*     *** FIX #2: COLLAPSE BUTTON IS NOW VISIBLE ON ALL SCREENS ***      */}
-            {/* The `sm:hidden` class has been removed.                            */}
-            {/* ======================================================================== */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
-              aria-label={
-                isHeaderExpanded ? "Collapse header" : "Expand header"
-              }
-            >
-              {isHeaderExpanded ? (
-                <ChevronUp className="h-5 w-5" />
-              ) : (
-                <ChevronDown className="h-5 w-5" />
-              )}
-            </Button>
-          </div>
 
-          <div
-            className={cn(
-              "transition-[max-height] duration-300 ease-in-out overflow-hidden",
-              isHeaderExpanded ? "max-h-[500px]" : "max-h-0"
-            )}
-          >
-            <div className="pt-2 pb-4">
-              {!isOwnWantsList && (
-                <p className="text-gray-500 dark:text-gray-400">
-                  Click on cards you're interested in
-                </p>
-              )}
-              <div className="relative my-3">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
-                <Input
-                  placeholder="Search cards..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-2">
-                <button
-                  onClick={() => setFiltersExpanded(!filtersExpanded)}
-                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
+            <div className="flex items-center gap-2 shrink-0">
+              {selectedCards.length > 0 && !sidebarOpen && (
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                  onClick={() => setSidebarOpen(true)}
                 >
-                  <Filter className="w-4 h-4" />
-                  <span>Filters</span>
-                  {activeFilterCount > 0 && (
-                    <Badge
-                      variant="secondary"
-                      className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
-                    >
-                      {activeFilterCount}
-                    </Badge>
-                  )}
-                  {filtersExpanded ? (
-                    <ChevronUp className="w-4 h-4" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" />
-                  )}
-                </button>
-                <select
-                  value={sortBy}
-                  onChange={(e: any) => setSortBy(e.target.value)}
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="default">Sort: Default</option>
-                  <option value="priority">Sort: Priority</option>
-                  <option value="price-high">Sort: Price (High to Low)</option>
-                  <option value="price-low">Sort: Price (Low to High)</option>
-                  <option value="name">Sort: Name</option>
-                </select>
-              </div>
-              {filtersExpanded && (
-                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                        Priority:
-                      </span>
-                      <div className="flex gap-2 flex-wrap">
-                        {["high", "medium", "low"].map((priority) => (
-                          <FilterChip
-                            key={priority}
-                            label={`${
-                              priority.charAt(0).toUpperCase() +
-                              priority.slice(1)
-                            } (${
-                              wantsList?.cards?.filter(
-                                (c: any) => c.priority === priority
-                              ).length || 0
-                            })`}
-                            isActive={activeFilters.priority === priority}
-                            onClick={() => setFilter("priority", priority)}
-                            onRemove={() => clearFilter("priority")}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    {uniqueRarities.length > 0 && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                          Rarity:
-                        </span>
-                        <div className="flex gap-2 flex-wrap">
-                          {uniqueRarities.map((rarity) => (
-                            <FilterChip
-                              key={rarity}
-                              label={`${getRarityDisplayName(rarity)} (${
-                                wantsList?.cards?.filter(
-                                  (c: any) =>
-                                    (c.printingDetails?.rarity || c.rarity) ===
-                                    rarity
-                                ).length || 0
-                              })`}
-                              isActive={activeFilters.rarity === rarity}
-                              onClick={() => setFilter("rarity", rarity)}
-                              onRemove={() => clearFilter("rarity")}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {uniqueFoilings.length > 0 && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                          Foiling:
-                        </span>
-                        <div className="flex gap-2 flex-wrap">
-                          {uniqueFoilings.map((foiling) => (
-                            <FilterChip
-                              key={foiling}
-                              label={`${getFoilingDisplayName(foiling)} (${
-                                wantsList?.cards?.filter(
-                                  (c: any) =>
-                                    (c.printingDetails?.foiling ||
-                                      c.foiling) === foiling
-                                ).length || 0
-                              })`}
-                              isActive={activeFilters.foiling === foiling}
-                              onClick={() => setFilter("foiling", foiling)}
-                              onRemove={() => clearFilter("foiling")}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {uniqueSets.length > 0 && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                          Set:
-                        </span>
-                        <div className="flex gap-2 flex-wrap">
-                          {uniqueSets.map((set) => (
-                            <FilterChip
-                              key={set}
-                              label={`${getSetName(set)} (${
-                                wantsList?.cards?.filter(
-                                  (c: any) =>
-                                    (c.printingDetails?.set || c.set) === set
-                                ).length || 0
-                              })`}
-                              isActive={activeFilters.set === set}
-                              onClick={() => setFilter("set", set)}
-                              onRemove={() => clearFilter("set")}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {activeFilterCount > 0 && (
-                      <button
-                        onClick={clearAllFilters}
-                        className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline"
-                      >
-                        Clear all filters
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  <ShoppingCart className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">View Selected ({selectedCards.reduce((t, c) => t + c.quantity, 0)})</span>
+                  <span className="sm:hidden">{selectedCards.reduce((t, c) => t + c.quantity, 0)}</span>
+                </Button>
               )}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-4 text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  Showing {sortedCards.length} of{" "}
-                  {wantsList?.cards?.length || 0} cards
-                </span>
-                <div className="flex gap-2 flex-wrap">
-                  {selectedCards.length > 0 && !sidebarOpen && (
-                    <Button
-                      size="sm"
-                      className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-                      onClick={() => setSidebarOpen(true)}
-                    >
-                      <ShoppingCart className="w-4 h-4 mr-1" /> View Selected (
-                      {selectedCards.reduce(
-                        (total, card) => total + card.quantity,
-                        0
-                      )}
-                      )
-                    </Button>
-                  )}
-                  {highPriorityCount > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFilter("priority", "high")}
-                      className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                      <Star className="w-4 h-4 mr-1" /> High Priority (
-                      {highPriorityCount})
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <DarkModeToggle />
             </div>
           </div>
+
+          {!isOwnWantsList && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Click on cards you&apos;re interested in
+            </p>
+          )}
         </div>
       </div>
-       <AffiliateDisclosure />
 
       {error && (
         <div className="container mx-auto px-4 py-6">
@@ -686,72 +448,189 @@ export default function SharedWantsListPage({
           </Alert>
         </div>
       )}
+
       {loading ? (
         <div className="container mx-auto px-4 py-12 text-center">
           <div className="animate-spin h-8 w-8 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">
-            Loading wants list...
-          </p>
+          <p className="text-gray-600 dark:text-gray-300">Loading wants list...</p>
         </div>
       ) : wantsList?.cards?.length === 0 ? (
         <div className="container mx-auto px-4 py-12">
           <div className="text-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12">
             <BookOpen className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
-              This wants list is empty
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400">
-              There are no cards in this wants list
-            </p>
+            <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">This wants list is empty</h3>
+            <p className="text-gray-500 dark:text-gray-400">There are no cards in this wants list</p>
           </div>
         </div>
       ) : (
-        <>
-          <div className="container mx-auto px-2 py-6">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex gap-8 items-start">
 
-            {sortedCards.length === 0 ? (
-              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
-                  No cards found
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  Try adjusting your search or filters
-                </p>
-                <Button
-                  onClick={clearAllFilters}
-                  variant="outline"
-                  className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            {/* Left: filter sidebar (desktop only) */}
+            {filterSidebarVisible && (
+              <WantsFilterSidebar
+                activeFilters={activeFilters}
+                activeFilterCount={activeFilterCount}
+                setFilter={setFilter}
+                clearFilter={clearFilter}
+                clearAllFilters={clearAllFilters}
+              />
+            )}
+
+            {/* Right: main content */}
+            <div className="flex-1 min-w-0">
+
+              {/* Mobile: collapsible filters */}
+              <div className="md:hidden mb-4">
+                <button
+                  onClick={() => setMobileFiltersExpanded(v => !v)}
+                  className="flex items-center justify-center gap-2 px-3 py-2 w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-900 dark:text-gray-100 mb-2"
                 >
-                  Clear filters
-                </Button>
+                  <Filter className="w-4 h-4" />
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
+                  )}
+                  {mobileFiltersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+                {mobileFiltersExpanded && (
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                    <div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Priority:</span>
+                      <div className="flex gap-2 flex-wrap">
+                        {["high", "medium", "low"].map((p) => (
+                          <FilterChip key={p} label={`${p.charAt(0).toUpperCase() + p.slice(1)} (${wantsList?.cards?.filter((c: any) => c.priority === p).length || 0})`} isActive={activeFilters.priority === p} onClick={() => setFilter("priority", p)} onRemove={() => clearFilter("priority")} />
+                        ))}
+                      </div>
+                    </div>
+                    {uniqueRarities.length > 0 && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Rarity:</span>
+                        <div className="flex gap-2 flex-wrap">
+                          {uniqueRarities.map((r: any) => (
+                            <FilterChip key={r} label={`${getRarityDisplayName(r)} (${wantsList?.cards?.filter((c: any) => (c.printingDetails?.rarity || c.rarity) === r).length || 0})`} isActive={activeFilters.rarity === r} onClick={() => setFilter("rarity", r)} onRemove={() => clearFilter("rarity")} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {uniqueFoilings.length > 0 && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Foiling:</span>
+                        <div className="flex gap-2 flex-wrap">
+                          {uniqueFoilings.map((f: any) => (
+                            <FilterChip key={f} label={`${getFoilingDisplayName(f)} (${wantsList?.cards?.filter((c: any) => (c.printingDetails?.foiling || c.foiling) === f).length || 0})`} isActive={activeFilters.foiling === f} onClick={() => setFilter("foiling", f)} onRemove={() => clearFilter("foiling")} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {uniqueSets.length > 0 && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Set:</span>
+                        <div className="flex gap-2 flex-wrap">
+                          {uniqueSets.map((s: any) => (
+                            <FilterChip key={s} label={`${getSetName(s)} (${wantsList?.cards?.filter((c: any) => (c.printingDetails?.set || c.set) === s).length || 0})`} isActive={activeFilters.set === s} onClick={() => setFilter("set", s)} onRemove={() => clearFilter("set")} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {activeFilterCount > 0 && (
+                      <button onClick={clearAllFilters} className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline">Clear all filters</button>
+                    )}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div
-                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-1.5 transition-all duration-300"
-                  style={{
-                    paddingRight:
-                      sidebarOpen && windowWidth >= 640 ? "320px" : "0px",
-                  }}
+
+              {/* Desktop: search + hide filters + sort toolbar */}
+              <div className="hidden md:flex items-center gap-3 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
+                  <Input
+                    placeholder="Filter by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                <button
+                  onClick={() => setFilterSidebarVisible(v => !v)}
+                  className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 whitespace-nowrap transition-colors"
                 >
-                {sortedCards.map((card) => {
-                  const isSelected = isCardSelected(card.id);
-                  const selectedQty = getSelectedQuantity(card.id);
-                  const maxQty = card.quantity || 1;
-                  return (
+                  <SlidersHorizontal className="w-4 h-4" />
+                  {filterSidebarVisible ? 'Hide Filters' : 'Show Filters'}
+                </button>
+                <select
+                  value={sortBy}
+                  onChange={(e: any) => setSortBy(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                >
+                  <option value="default">Sort: Default</option>
+                  <option value="priority">Sort: Priority</option>
+                  <option value="price-high">Sort: Price (High to Low)</option>
+                  <option value="price-low">Sort: Price (Low to High)</option>
+                  <option value="name">Sort: Name</option>
+                </select>
+              </div>
+
+              {/* Mobile: search + sort */}
+              <div className="flex gap-2 md:hidden mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
+                  <Input
+                    placeholder="Filter by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+                <select
+                  value={sortBy}
+                  onChange={(e: any) => setSortBy(e.target.value)}
+                  className="px-2 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                >
+                  <option value="default">Default</option>
+                  <option value="priority">Priority</option>
+                  <option value="price-high">Price ↓</option>
+                  <option value="price-low">Price ↑</option>
+                  <option value="name">Name</option>
+                </select>
+              </div>
+
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                Showing {sortedCards.length} of {wantsList?.cards?.length || 0} cards
+              </p>
+
+              {sortedCards.length === 0 ? (
+                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">No cards found</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">Try adjusting your search or filters</p>
+                  <Button onClick={clearAllFilters} variant="outline" className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    Clear filters
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className={`grid gap-3 grid-cols-2 transition-all duration-300 ${
+                    filterSidebarVisible
+                      ? 'md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+                      : 'md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-6'
+                  }`}
+                  style={{ paddingRight: sidebarOpen && windowWidth >= 640 ? "320px" : "0px" }}
+                >
+                  {sortedCards.map((card) => (
                     <SharedWantsCard
                       key={card.id}
                       card={card}
-                      isSelected={isSelected}
-                      selectedQty={selectedQty}
-                      maxQty={maxQty}
+                      isSelected={isCardSelected(card.id)}
+                      selectedQty={getSelectedQuantity(card.id)}
+                      maxQty={card.quantity || 1}
                       onCardSelect={handleCardSelect}
                     />
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
       <div
         ref={sidebarRef}

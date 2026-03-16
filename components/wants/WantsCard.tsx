@@ -61,10 +61,10 @@ const WantsCard: React.FC<WantsCardProps> = ({
   const foilingInfo = getFoilingInfo(printingDetails?.foiling);
 
   return (
-    <div className="w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl dark:hover:shadow-2xl hover:-translate-y-1 flex-shrink-0 flex flex-col shadow-md dark:shadow-lg">
+    <div className="w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:shadow-gray-300/60 dark:hover:shadow-2xl hover:-translate-y-1 flex-shrink-0 flex flex-col shadow-md shadow-gray-300/50 dark:shadow-lg">
 
       {/* Image Section */}
-      <div className="relative w-full h-[230px] sm:h-[322px] bg-gray-100 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
+      <div className="relative w-full h-[230px] sm:h-[322px] bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
         <img src={getCardImageUrl(card)} alt={card.name} className="max-w-full max-h-full object-contain rounded" onError={(e) => (e.currentTarget.src = "/cardback.webp")} loading="lazy" />
         {card.quantity > 1 && <div className="absolute top-2 right-2 bg-blue-600 dark:bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">{card.quantity}x</div>}
         <div className="absolute bottom-2 left-2">
