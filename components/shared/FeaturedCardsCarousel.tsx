@@ -92,7 +92,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
                 cardName={card.name}
                 searchMode="printing"
                 buttonText="Who Has"
-                className="flex items-center justify-center gap-1 h-7 px-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded flex-1 whitespace-nowrap"
+                className="flex items-center justify-center gap-0.5 h-7 px-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded flex-1 whitespace-nowrap"
               />
             )}
             {card.card_unique_id && (
@@ -101,7 +101,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
                 cardName={card.name}
                 searchMode="unique"
                 buttonText="Any Version"
-                className="flex items-center justify-center gap-1 h-7 px-2 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded flex-1 whitespace-nowrap"
+                className="flex items-center justify-center gap-0.5 h-7 px-1 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded flex-1 whitespace-nowrap"
               />
             )}
           </div>
