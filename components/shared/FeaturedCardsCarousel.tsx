@@ -119,7 +119,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
 }
 
 // Featured Cards Carousel Component
-export function FeaturedCardsCarousel({ cards }: { cards: any[] }) {
+export function FeaturedCardsCarousel({ cards, cardWidth = 240 }: { cards: any[], cardWidth?: number }) {
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
 
@@ -262,9 +262,9 @@ export function FeaturedCardsCarousel({ cards }: { cards: any[] }) {
 
   return (
     <div className="not-prose overflow-hidden" ref={emblaRef}>
-      <div className="flex gap-4">
+      <div className="flex gap-6">
         {cards.map((card, index) => (
-          <div key={`${card.printing_id || card.name}-${index}`} className="flex-shrink-0 w-[240px]">
+          <div key={`${card.printing_id || card.name}-${index}`} className="flex-shrink-0" style={{ width: `${cardWidth}px` }}>
             <FeaturedCardSmall card={card} />
           </div>
         ))}
