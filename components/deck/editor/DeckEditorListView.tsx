@@ -1401,7 +1401,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                   )}
                 >
                   <img src={`/fab/symbols/pitch${v}.png`} alt={`Pitch ${v}`} className="w-5 h-5 object-contain" />
-                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
                 </button>
               );
             })}
@@ -1427,7 +1426,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       {String(v)}
                     </span>
                   </div>
-                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
                 </button>
               );
             })}
@@ -1449,7 +1447,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                 >
                   <span className={cn("font-medium", isActive ? "text-white" : "text-gray-200")}>{String(v)}</span>
                   <img src="/fab/symbols/power.png" alt="Power" className="w-4 h-4 object-contain" />
-                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
                 </button>
               );
             })}
@@ -1471,7 +1468,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                 >
                   <span className={cn("font-medium", isActive ? "text-white" : "text-gray-200")}>{String(v)}</span>
                   <img src="/fab/symbols/block.png" alt="Block" className="w-4 h-4 object-contain" />
-                  {count > 0 && <span className={cn("text-gray-300", isActive && "text-white")}>·{count}</span>}
                 </button>
               );
             })}
@@ -1630,16 +1626,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       )}
                       {/* Qty badge — show only the relevant pitch for library sections */}
                       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 pb-0.5 px-0.5">
-                        {section.key === 'red'      && card.redQty > 0      && <span className="bg-red-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.redQty}</span>}
-                        {section.key === 'yellow'   && card.yellowQty > 0   && <span className="bg-yellow-400 text-gray-900 text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.yellowQty}</span>}
-                        {section.key === 'blue'     && card.blueQty > 0     && <span className="bg-blue-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.blueQty}</span>}
-                        {section.key === 'unpitched' && card.noPitchQty > 0 && <span className="bg-gray-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.noPitchQty}</span>}
+                        {section.key === 'red'      && card.redQty > 0      && <span className="bg-red-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.redQty}</span>}
+                        {section.key === 'yellow'   && card.yellowQty > 0   && <span className="bg-yellow-400 text-gray-900 text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.yellowQty}</span>}
+                        {section.key === 'blue'     && card.blueQty > 0     && <span className="bg-blue-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.blueQty}</span>}
+                        {section.key === 'unpitched' && card.noPitchQty > 0 && <span className="bg-gray-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.noPitchQty}</span>}
                         {(section.key === 'equipment' || section.key === 'inventory' || section.key === 'bench') && (
                           <>
-                            {card.redQty > 0    && <span className="bg-red-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.redQty}</span>}
-                            {card.yellowQty > 0 && <span className="bg-yellow-400 text-gray-900 text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.yellowQty}</span>}
-                            {card.blueQty > 0   && <span className="bg-blue-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.blueQty}</span>}
-                            {card.noPitchQty > 0 && <span className="bg-gray-500 text-white text-[7px] min-w-[14px] px-1 py-px rounded-full font-bold leading-none text-center border border-white/80">{card.noPitchQty}</span>}
+                            {card.redQty > 0    && <span className="bg-red-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.redQty}</span>}
+                            {card.yellowQty > 0 && <span className="bg-yellow-400 text-gray-900 text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.yellowQty}</span>}
+                            {card.blueQty > 0   && <span className="bg-blue-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.blueQty}</span>}
+                            {card.noPitchQty > 0 && <span className="bg-gray-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.noPitchQty}</span>}
                           </>
                         )}
                       </div>
