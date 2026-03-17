@@ -398,6 +398,31 @@ export class FabMatchReport extends LitElement {
     :host-context(.dark) .inline-card-placeholder {
       background: #334155;
     }
+
+    /* ===== DARK MODE (Safari/iOS fallback via OS preference) ===== */
+    @media (prefers-color-scheme: dark) {
+      .match {
+        background: #1e293b;
+        border-color: #334155;
+      }
+      .header {
+        border-bottom-color: #334155;
+      }
+      .round { color: #f1f5f9; }
+      .hero { background: #334155; color: #e2e8f0; }
+      .record { color: #94a3b8; }
+      .opponent { color: #94a3b8; }
+      .summary { color: #cbd5e1; }
+      .sideboard { background: #422006; }
+      .sideboard-title { color: #fef3c7; }
+      .sideboard-text { color: #fcd34d; }
+      .card-group-label.in { background: #14532d; color: #86efac; }
+      .card-group-label.out { background: #450a0a; color: #fca5a5; }
+      .card-thumbnail-placeholder,
+      .hero-card-placeholder { background: #334155; }
+      .inline-card-name { color: #f1f5f9; }
+      .inline-card-placeholder { background: #334155; }
+    }
   `;
 
   @property() round = '';
