@@ -18,6 +18,7 @@ export interface GameResultDTO {
   totalTurns?: number | null;
   cardResults?: unknown;
   turnResults?: unknown;
+  turnLog?: [number, string, string][] | null;
   playedAt: Date;
   createdAt: Date;
 }
@@ -33,6 +34,7 @@ export interface TalisharDeckPayload {
   opposingHero?: string;
   cardResults?: unknown;
   turnResults?: unknown;
+  turnLog?: [number, string, string][];
 }
 
 export interface TalisharGamePayload {
@@ -60,6 +62,7 @@ function toDTO(row: typeof gameResults.$inferSelect): GameResultDTO {
     totalTurns: row.totalTurns,
     cardResults: row.cardResults,
     turnResults: row.turnResults,
+    turnLog: row.turnLog as [number, string, string][] | null ?? null,
     playedAt: row.playedAt,
     createdAt: row.createdAt,
   };
@@ -90,6 +93,7 @@ export class PostgresGameResultsService {
           totalTurns: deckEntry.turns ?? null,
           cardResults: deckEntry.cardResults ?? null,
           turnResults: deckEntry.turnResults ?? null,
+          turnLog: deckEntry.turnLog ?? null,
         })
         .onConflictDoNothing()
         .returning();
@@ -120,7 +124,7 @@ export class PostgresGameResultsService {
         pool.query(
           `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
                   player_hero, opponent_hero, result::text, conceded, first_player,
-                  total_turns, card_results, turn_results, played_at, created_at
+                  total_turns, card_results, turn_results, turn_log, played_at, created_at
            FROM game_results
            WHERE deck_id = $1
            ORDER BY played_at DESC
@@ -144,6 +148,7 @@ export class PostgresGameResultsService {
         totalTurns: row.total_turns ?? null,
         cardResults: row.card_results ?? null,
         turnResults: row.turn_results ?? null,
+        turnLog: row.turn_log ?? null,
         playedAt: row.played_at,
         createdAt: row.created_at,
       }));

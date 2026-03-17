@@ -569,6 +569,7 @@ export const gameResults = pgTable('game_results', {
   totalTurns: integer('total_turns'),
   cardResults: jsonb('card_results'),
   turnResults: jsonb('turn_results'),
+  turnLog: jsonb('turn_log').$type<[number, string, string][]>(),
   playedAt: timestamp('played_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
