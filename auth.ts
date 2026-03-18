@@ -3,8 +3,7 @@
 import NextAuth from 'next-auth';
 import Discord from 'next-auth/providers/discord';
 import crypto from 'crypto';
-import { authConfig } from './auth.config'; 
-import { userService } from '@/lib/services';
+import { authConfig } from './auth.config';
 
 // This is the MAIN configuration with SERVER-ONLY logic.
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -26,6 +25,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // All your database logic is safely contained here,
     // as it will only run in the Node.js environment.
     async jwt({ token, account, profile, trigger, session }) {
+        // Dynamic import to avoid circular dependency with services barrel
+        const { userService } = await import('@/lib/services');
+
         if (account && profile && account.provider === 'discord') {
             console.log('[JWT Callback] Discord login detected for:', profile.username);
             let user = null;
