@@ -1,7 +1,9 @@
 // components/deck/DeckCard.tsx - Updated for new deck structure
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -87,6 +89,7 @@ export default function DeckCard({
   onUpdateMetafyGuideId,
 }: DeckCardProps) {
   const [metafyGuideIdDraft, setMetafyGuideIdDraft] = useState(deck.metafyGuideId ?? '');
+  const [heroPreview, setHeroPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   
   // Get format color
   const getFormatColor = (format: string) => {
@@ -123,54 +126,85 @@ export default function DeckCard({
   };
 
   return (
+    <>
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 truncate flex-1 mr-2">
-            {deck.name}
-          </h3>
-          <div className="flex items-center gap-1">
-            {deck.isPublic ? (
-              <Globe className="h-4 w-4 text-green-500" title="Public deck" />
-            ) : (
-              <Lock className="h-4 w-4 text-gray-400" title="Private deck" />
-            )}
-          </div>
-        </div>
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 overflow-visible">
+        <div className="flex items-start gap-3">
+          {/* Hero image with hover expand */}
+          {deck.hero && deck.hero.length > 0 && (() => {
+            const hero = deck.hero[0];
+            const imgUrl = hero.printingDetails?.image_url ||
+              `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${hero.printingId}/public`;
+            return (
+              <div className="flex-shrink-0">
+                <img
+                  src={imgUrl}
+                  alt={hero.printingDetails?.display_name || "Hero"}
+                  className="w-12 h-16 object-cover rounded cursor-pointer"
+                  onMouseEnter={(e) => {
+                    const rect = (e.target as HTMLElement).getBoundingClientRect();
+                    setHeroPreview({ url: imgUrl, x: rect.right + 8, y: rect.top });
+                  }}
+                  onMouseLeave={() => setHeroPreview(null)}
+                />
+              </div>
+            );
+          })()}
 
-        {/* Format */}
-        <div className="flex items-center gap-2 mb-2">
-          <Badge className={cn("text-white text-xs", getFormatColor(deck.format))}>
-            {deck.format}
-          </Badge>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between mb-2">
+              <Link
+                href={`/decks/${deck.publicId ?? deck._id}`}
+                className="font-semibold text-lg text-gray-900 dark:text-gray-100 truncate flex-1 mr-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                {deck.name}
+              </Link>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {deck.isPublic ? (
+                  <Globe className="h-4 w-4 text-green-500" title="Public deck" />
+                ) : (
+                  <Lock className="h-4 w-4 text-gray-400" title="Private deck" />
+                )}
+              </div>
+            </div>
+
+            {/* Format */}
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className={cn("text-white text-xs", getFormatColor(deck.format))}>
+                {deck.format}
+              </Badge>
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span>{totalCards} cards</span>
+              {estimatedValue > 0 && (
+                <span className="text-green-600 dark:text-green-400 font-medium">
+                  ~${estimatedValue.toFixed(2)}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Description */}
         {deck.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
+          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-2">
             {deck.description}
           </p>
         )}
-
-        {/* Stats */}
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>{totalCards} cards</span>
-          {estimatedValue > 0 && (
-            <span className="text-green-600 dark:text-green-400 font-medium">
-              ~${estimatedValue.toFixed(2)}
-            </span>
-          )}
-        </div>
       </div>
 
       {/* Deck Composition */}
       <div className="p-4 flex-1">
         <div className="space-y-2">
-          {deckStats.heroes > 0 && (
+          {deck.hero && deck.hero.length > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Heroes:</span>
-              <span className="font-medium">{deckStats.heroes}</span>
+              <span className="text-gray-600 dark:text-gray-400">Hero:</span>
+              <span className="font-medium truncate ml-2 text-right">
+                {deck.hero[0].printingDetails?.display_name || deck.hero[0].printingDetails?.name || "Unknown"}
+              </span>
             </div>
           )}
           {deckStats.equipment > 0 && (
@@ -203,7 +237,7 @@ export default function DeckCard({
               <span className="font-medium">{deckStats.tokens}</span>
             </div>
           )}
-          
+
           {/* Show empty state if no cards */}
           {totalCards === 0 && (
             <div className="text-sm text-gray-500 dark:text-gray-400 italic">
@@ -211,10 +245,12 @@ export default function DeckCard({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Quick Settings */}
+      {/* Quick Settings + Updated — anchored above action bar */}
+      <div className="px-4 pb-4 space-y-2">
         {(onToggleTalishar || (hasMetafyAccount && onUpdateMetafyGuideId)) && (
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
             {onToggleTalishar && (
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-gray-600 dark:text-gray-400">
@@ -244,7 +280,7 @@ export default function DeckCard({
         )}
 
         {/* Last Updated */}
-        <div className="flex items-center gap-1 mt-4 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-1 pt-2 text-xs text-gray-500 dark:text-gray-400">
           <Calendar className="h-3 w-3" />
           <span>Updated {formatDate(deck.updatedAt)}</span>
         </div>
@@ -299,6 +335,22 @@ export default function DeckCard({
         </div>
       </div>
     </div>
+
+    {/* Hero preview portal — renders outside all overflow containers */}
+    {heroPreview && typeof document !== 'undefined' && createPortal(
+      <div
+        className="fixed z-[9999] pointer-events-none"
+        style={{ left: heroPreview.x, top: heroPreview.y }}
+      >
+        <img
+          src={heroPreview.url}
+          alt="Hero preview"
+          className="w-56 h-auto rounded-lg shadow-2xl border border-gray-300 dark:border-gray-500"
+        />
+      </div>,
+      document.body
+    )}
+    </>
   );
 }
 // // components/deck/DeckCard.tsx - Updated for new printings data model
