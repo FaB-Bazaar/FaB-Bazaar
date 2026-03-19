@@ -160,6 +160,137 @@ SAGE_BAN_LIST = [
 ]
 
 
+# Blitz banned list
+BLITZ_BAN_LIST = [
+    {"card_unique_id": "9bQFfTFGQWJFWrcJnfQgz", "status_active": True,  "date_in_effect": "2021-03-26T00:00:00.000Z"},
+    {"card_unique_id": "Nhmj8MBNCmWFC68JkhkNC", "status_active": True,  "date_in_effect": "2021-03-26T00:00:00.000Z"},
+    {"card_unique_id": "hJt6FwT8mhQbcWQLzgHMT", "status_active": True,  "date_in_effect": "2021-03-26T00:00:00.000Z"},
+    {"card_unique_id": "bkwMDWGMmKTMd9dKQMt76", "status_active": True,  "date_in_effect": "2021-09-24T00:00:00.000Z"},
+    {"card_unique_id": "g9ckPjGmpNNkmbgChTQNR", "status_active": True,  "date_in_effect": "2021-09-24T00:00:00.000Z"},
+    {"card_unique_id": "BnQtggKJtBNmpqKR7NWBH", "status_active": True,  "date_in_effect": "2021-09-24T00:00:00.000Z"},
+    {"card_unique_id": "HkDzFgnhCBGn6K9w7RWtC", "status_active": True,  "date_in_effect": "2022-01-17T00:00:00.000Z"},
+    {"card_unique_id": "TJdbQPDBpnLGpNmmN7fhg", "status_active": True,  "date_in_effect": "2022-01-17T00:00:00.000Z"},
+    {"card_unique_id": "w77m97tB9GPDzK6ccgkjr", "status_active": True,  "date_in_effect": "2022-01-17T00:00:00.000Z"},
+    {"card_unique_id": "QnKbrhtk7HFcckCBbFmkt", "status_active": True,  "date_in_effect": "2022-01-17T00:00:00.000Z"},
+    {"card_unique_id": "phCFwdjG8dKDCmr7d7F7M", "status_active": True,  "date_in_effect": "2022-05-02T00:00:00.000Z"},
+    {"card_unique_id": "666mgFjKrrLQhdkpGzNzf", "status_active": True,  "date_in_effect": "2022-05-02T00:00:00.000Z"},
+    {"card_unique_id": "wj7qpMrzMjDbn8tmtfPL7", "status_active": True,  "date_in_effect": "2022-06-24T00:00:00.000Z"},
+    # Unbanned 2022-06-24
+    {"card_unique_id": "bkwMDWGMmKTMd9dKQMt76", "status_active": False, "date_in_effect": "2022-06-24T00:00:00.000Z"},
+    {"card_unique_id": "g9ckPjGmpNNkmbgChTQNR", "status_active": False, "date_in_effect": "2022-06-24T00:00:00.000Z"},
+    {"card_unique_id": "BnQtggKJtBNmpqKR7NWBH", "status_active": False, "date_in_effect": "2022-06-24T00:00:00.000Z"},
+    {"card_unique_id": "FfHKcc6HWkdkbC76BwgqQ", "status_active": True,  "date_in_effect": "2022-08-30T00:00:00.000Z"},
+    {"card_unique_id": "Tb8rJqp6nH9FhDQgNMgpH", "status_active": True,  "date_in_effect": "2022-08-30T00:00:00.000Z"},
+    {"card_unique_id": "pBLw878jHjmLBLBbtpk6W", "status_active": True,  "date_in_effect": "2022-08-30T00:00:00.000Z"},
+    {"card_unique_id": "fMdnz9D9MRDrzMrBFf7Kr", "status_active": True,  "date_in_effect": "2022-08-30T00:00:00.000Z"},
+    {"card_unique_id": "nPwjcRFWBmzNQWM6BMcgB", "status_active": True,  "date_in_effect": "2022-08-30T00:00:00.000Z"},
+    {"card_unique_id": "k8wMFCFHtGTtTRfnzKGqQ", "status_active": True,  "date_in_effect": "2022-08-30T00:00:00.000Z"},
+    {"card_unique_id": "nGHhHDgKmGgb7gjwWjHJF", "status_active": True,  "date_in_effect": "2022-10-07T00:00:00.000Z"},
+    {"card_unique_id": "GBDFTmjdTmgRCdHngGWNR", "status_active": True,  "date_in_effect": "2022-10-07T00:00:00.000Z"},
+    {"card_unique_id": "CrWjLrqtQtppQhQCMt9LH", "status_active": True,  "date_in_effect": "2022-11-11T00:00:00.000Z"},
+    # Unbanned 2023-05-05
+    {"card_unique_id": "9bQFfTFGQWJFWrcJnfQgz", "status_active": False, "date_in_effect": "2023-05-05T00:00:00.000Z"},
+    {"card_unique_id": "Nhmj8MBNCmWFC68JkhkNC", "status_active": False, "date_in_effect": "2023-05-05T00:00:00.000Z"},
+    {"card_unique_id": "hJt6FwT8mhQbcWQLzgHMT", "status_active": False, "date_in_effect": "2023-05-05T00:00:00.000Z"},
+    # Re-banned 2023-08-16
+    {"card_unique_id": "9bQFfTFGQWJFWrcJnfQgz", "status_active": True,  "date_in_effect": "2023-08-16T00:00:00.000Z"},
+    {"card_unique_id": "Nhmj8MBNCmWFC68JkhkNC", "status_active": True,  "date_in_effect": "2023-08-16T00:00:00.000Z"},
+    {"card_unique_id": "hJt6FwT8mhQbcWQLzgHMT", "status_active": True,  "date_in_effect": "2023-08-16T00:00:00.000Z"},
+    # Unbanned 2023-12-22
+    {"card_unique_id": "CrWjLrqtQtppQhQCMt9LH", "status_active": False, "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "fMdnz9D9MRDrzMrBFf7Kr", "status_active": False, "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "nPwjcRFWBmzNQWM6BMcgB", "status_active": False, "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "k8wMFCFHtGTtTRfnzKGqQ", "status_active": False, "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "mGqzLzjTgNjr7qJGMTjtW", "status_active": True,  "date_in_effect": "2024-03-25T00:00:00.000Z"},
+    {"card_unique_id": "Lbp8pFhph9wMqMHDw8JWq", "status_active": True,  "date_in_effect": "2024-07-08T00:00:00.000Z"},
+    {"card_unique_id": "CrWjLrqtQtppQhQCMt9LH", "status_active": True,  "date_in_effect": "2024-07-08T00:00:00.000Z"},
+    {"card_unique_id": "jJchLwfJKhdhk8Hw7R6KP", "status_active": True,  "date_in_effect": "2024-07-08T00:00:00.000Z"},
+    {"card_unique_id": "zgkKwhBtRQf9zWz6kpPJR", "status_active": True,  "date_in_effect": "2024-07-08T00:00:00.000Z"},
+    {"card_unique_id": "bbGgprKNzmQPQP9P6CQkL", "status_active": True,  "date_in_effect": "2024-07-08T00:00:00.000Z"},
+    {"card_unique_id": "G7bRDqbhCJD76fH77Mfm7", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "RMH9HdzcjCWdzLR7qwgbm", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "dPTR67DTztNrb8wdFHnGW", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "jrHMpbmnF6Hh97PffFzG8", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "Ld6twwNTNGTcWFw9rRWfh", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "bwtjtjCqP6wTHtkR9HtGh", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "cMM8DcmR9zCpcRPwrhbTc", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "RHqhRWwFMkFRF9dLMkPtw", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "MJFjT8CfpnpjtWTPgjPQ9", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "nbKRgzWzF87HzTG8TWMBw", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "CtgLqKpjrGRtLnwbHjd9f", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "8b9Fj6hL8WbNF6zDgzJFp", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "dgBTMrWQ8F7gTCt6m7ngM", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "cjBPdpPNhzkzgdRCtKGPG", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "KGHgthGPrb9MNrPpNKRpP", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "CPgdwbjRGNNfKrgPn6ngL", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "dgBPpWggJ6wkFQG8t9Jqc", "status_active": True,  "date_in_effect": "2025-03-04T00:00:00.000Z"},
+    {"card_unique_id": "DC8RfMDzMnthBkWJgmWpQ", "status_active": True,  "date_in_effect": "2025-03-04T00:00:00.000Z"},
+    # Unbanned 2025-03-04
+    {"card_unique_id": "Lbp8pFhph9wMqMHDw8JWq", "status_active": False, "date_in_effect": "2025-03-04T00:00:00.000Z"},
+    {"card_unique_id": "PWbNdrFrhPDk99CRG7QfM", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "cP6jRNBkfK9L8HzGjgpmw", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "gFm9BtgB7HbP6CkbjG8gC", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "7c9ChFNmpbPDdgD7DNKth", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "wq9TcGTj79nqfWPtJFdkR", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "hpMnhtBmjM7zFBTDMkf87", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "Cqr7rhqq8hQPPhpHQBCHr", "status_active": True,  "date_in_effect": "2025-09-01T00:00:00.000Z"},
+]
+
+# Living Legend restricted list
+LL_RESTRICTED_LIST = [
+    {"card_unique_id": "phCFwdjG8dKDCmr7d7F7M", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "frQkkTNgtwqhkN6Hgq6cj", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "j8jjnw6NmpTpf9cWThfgg", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "HFwjczQFRKCgTFHdbjdzW", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "JfJ7hNnCDL9GDCwfrWBBc", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "zzHRCMBmNTF9KpJMqKWq8", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    {"card_unique_id": "BkpMHRn6L8dpcgjgrPm9H", "status_active": True,  "date_in_effect": "2023-12-22T00:00:00.000Z"},
+    # Unbanned 2024-07-08
+    {"card_unique_id": "frQkkTNgtwqhkN6Hgq6cj", "status_active": False, "date_in_effect": "2024-07-08T00:00:00.000Z"},
+    {"card_unique_id": "RMH9HdzcjCWdzLR7qwgbm", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "dPTR67DTztNrb8wdFHnGW", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "jrHMpbmnF6Hh97PffFzG8", "status_active": True,  "date_in_effect": "2024-09-09T00:00:00.000Z"},
+    {"card_unique_id": "FwtKQ8HK8JLbHFWbFQDPg", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "NHdBTDcjh8hGJBKPpcgQ9", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "jBbnKk8wHjT9GG7fMzkdJ", "status_active": True,  "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    # Unbanned 2024-11-11
+    {"card_unique_id": "zzHRCMBmNTF9KpJMqKWq8", "status_active": False, "date_in_effect": "2024-11-11T00:00:00.000Z"},
+    {"card_unique_id": "BM6cWKkWT7zRBLb7P77pg", "status_active": True,  "date_in_effect": "2025-03-04T00:00:00.000Z"},
+    {"card_unique_id": "dGtzm9PwqTkFGcJwFNzPM", "status_active": True,  "date_in_effect": "2025-03-04T00:00:00.000Z"},
+    {"card_unique_id": "TjdM8c7NpJjpjdLDbt7KG", "status_active": True,  "date_in_effect": "2025-03-04T00:00:00.000Z"},
+    {"card_unique_id": "7RhQ7rthWCfHkgfdHFFJm", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "r7fBPzjnf99MPwFc6F8b6", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "N9QrfGfPbL9NHPcRT6Nd7", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "jMq8ttGz9DCqPMjQRRmdF", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "CNNCgwHGzCBKNMHCWhdTR", "status_active": True,  "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    # Unbanned 2025-05-20
+    {"card_unique_id": "HFwjczQFRKCgTFHdbjdzW", "status_active": False, "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    # Unbanned 2025-09-01
+    {"card_unique_id": "r7fBPzjnf99MPwFc6F8b6", "status_active": False, "date_in_effect": "2025-09-01T00:00:00.000Z"},
+    {"card_unique_id": "N9QrfGfPbL9NHPcRT6Nd7", "status_active": False, "date_in_effect": "2025-09-01T00:00:00.000Z"},
+    {"card_unique_id": "jMq8ttGz9DCqPMjQRRmdF", "status_active": False, "date_in_effect": "2025-09-01T00:00:00.000Z"},
+    {"card_unique_id": "cP6jRNBkfK9L8HzGjgpmw", "status_active": True,  "date_in_effect": "2025-10-06T00:00:00.000Z"},
+    {"card_unique_id": "gFm9BtgB7HbP6CkbjG8gC", "status_active": True,  "date_in_effect": "2025-10-06T00:00:00.000Z"},
+    {"card_unique_id": "7c9ChFNmpbPDdgD7DNKth", "status_active": True,  "date_in_effect": "2025-10-06T00:00:00.000Z"},
+    # Unbanned 2025-10-06
+    {"card_unique_id": "BkpMHRn6L8dpcgjgrPm9H", "status_active": False, "date_in_effect": "2025-10-06T00:00:00.000Z"},
+    # Re-restricted 2025-10-28
+    {"card_unique_id": "r7fBPzjnf99MPwFc6F8b6", "status_active": True,  "date_in_effect": "2025-10-28T00:00:00.000Z"},
+    {"card_unique_id": "N9QrfGfPbL9NHPcRT6Nd7", "status_active": True,  "date_in_effect": "2025-10-28T00:00:00.000Z"},
+    {"card_unique_id": "jMq8ttGz9DCqPMjQRRmdF", "status_active": True,  "date_in_effect": "2025-10-28T00:00:00.000Z"},
+]
+
+
+# Living Legend banned list
+LL_BAN_LIST = [
+    {"card_unique_id": "Cd6PTGH6CqTHmt7LQmBMp", "status_active": True, "date_in_effect": "2024-10-04T00:00:00.000Z"},
+    {"card_unique_id": "KLtwtTdQqjdTJNhcQHJhd", "status_active": True, "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "Lbp8pFhph9wMqMHDw8JWq", "status_active": True, "date_in_effect": "2025-05-20T00:00:00.000Z"},
+    {"card_unique_id": "DC8RfMDzMnthBkWJgmWpQ", "status_active": True, "date_in_effect": "2025-10-06T00:00:00.000Z"},
+    {"card_unique_id": "cbHrfwmLrMjWdhdBtzbff", "status_active": True, "date_in_effect": "2025-10-28T00:00:00.000Z"},
+]
+
+
 def compute_active_bans(ban_list):
     """
     Compute the currently-banned card_unique_ids from a ban list.
@@ -189,3 +320,6 @@ def compute_active_bans(ban_list):
 # Pre-computed sets for fast lookup
 CC_BANNED_CARD_IDS = compute_active_bans(CC_BAN_LIST)
 SAGE_BANNED_CARD_IDS = compute_active_bans(SAGE_BAN_LIST)
+BLITZ_BANNED_CARD_IDS = compute_active_bans(BLITZ_BAN_LIST)
+LL_BANNED_CARD_IDS = compute_active_bans(LL_BAN_LIST)
+LL_RESTRICTED_CARD_IDS = compute_active_bans(LL_RESTRICTED_LIST)

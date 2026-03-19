@@ -16,7 +16,7 @@ import re
 import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
-from fab_banned_cards import CC_BANNED_CARD_IDS, SAGE_BANNED_CARD_IDS
+from fab_banned_cards import CC_BANNED_CARD_IDS, SAGE_BANNED_CARD_IDS, BLITZ_BANNED_CARD_IDS, LL_BANNED_CARD_IDS, LL_RESTRICTED_CARD_IDS
 
 class CardsToPrintingsTransformer:
     def __init__(self):
@@ -358,13 +358,15 @@ class CardsToPrintingsTransformer:
             'created_at': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # MongoDB format
         }
         
-        # Override CC and Silver Age bans from authoritative static list
-        # (replaces whatever the upstream GitHub JSON says for these two formats)
+        # Override all bans/restrictions from authoritative static lists
+        # (replaces whatever the upstream GitHub JSON says)
         card_uid = card.get('unique_id')
         if card_uid:
             base_data['cc_banned'] = card_uid in CC_BANNED_CARD_IDS
             base_data['silver_age_banned'] = card_uid in SAGE_BANNED_CARD_IDS
-            # blitz_banned, ll_banned, ll_restricted remain from source data
+            base_data['blitz_banned'] = card_uid in BLITZ_BANNED_CARD_IDS
+            base_data['ll_banned'] = card_uid in LL_BANNED_CARD_IDS
+            base_data['ll_restricted'] = card_uid in LL_RESTRICTED_CARD_IDS
 
         # Add card type flags
         base_data.update(self.get_card_type_flags(card.get('types', [])))

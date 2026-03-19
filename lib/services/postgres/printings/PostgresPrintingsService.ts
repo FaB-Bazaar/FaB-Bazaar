@@ -503,14 +503,17 @@ export class PostgresPrintingsService implements IPrintingsService {
       ccLegal: cards.ccLegal,
       commonerLegal: cards.commonerLegal,
       llLegal: cards.llLegal,
+      silverAgeLegal: cards.silverAgeLegal,
       blitzBanned: cards.blitzBanned,
       ccBanned: cards.ccBanned,
       commonerBanned: cards.commonerBanned,
       llBanned: cards.llBanned,
+      silverAgeBanned: cards.silverAgeBanned,
       blitzSuspended: cards.blitzSuspended,
       ccSuspended: cards.ccSuspended,
       commonerSuspended: cards.commonerSuspended,
       llRestricted: cards.llRestricted,
+      silverAgeSuspended: cards.silverAgeSuspended,
       cardCreatedAt: cards.createdAt,
     };
   }
@@ -927,9 +930,12 @@ export class PostgresPrintingsService implements IPrintingsService {
         cc: cards.ccLegal,
         commoner: cards.commonerLegal,
         ll: cards.llLegal,
+        silver_age: cards.silverAgeLegal,
       }[filters.format];
 
-      conditions.push(eq(legalField, true));
+      if (legalField) {
+        conditions.push(eq(legalField, true));
+      }
 
       // Exclude banned unless explicitly included
       if (!filters.includeBanned) {
@@ -938,8 +944,11 @@ export class PostgresPrintingsService implements IPrintingsService {
           cc: cards.ccBanned,
           commoner: cards.commonerBanned,
           ll: cards.llBanned,
+          silver_age: cards.silverAgeBanned,
         }[filters.format];
-        conditions.push(eq(bannedField, false));
+        if (bannedField) {
+          conditions.push(eq(bannedField, false));
+        }
       }
 
       // Exclude suspended unless explicitly included
@@ -949,8 +958,11 @@ export class PostgresPrintingsService implements IPrintingsService {
           cc: cards.ccSuspended,
           commoner: cards.commonerSuspended,
           ll: sql`false`, // LL doesn't have suspended
+          silver_age: cards.silverAgeSuspended,
         }[filters.format];
-        conditions.push(eq(suspendedField, false));
+        if (suspendedField) {
+          conditions.push(eq(suspendedField, false));
+        }
       }
     }
 
@@ -1218,14 +1230,17 @@ export class PostgresPrintingsService implements IPrintingsService {
       cc_legal: row.ccLegal || false,
       commoner_legal: row.commonerLegal || false,
       ll_legal: row.llLegal || false,
+      silver_age_legal: row.silverAgeLegal || false,
       blitz_banned: row.blitzBanned || false,
       cc_banned: row.ccBanned || false,
       commoner_banned: row.commonerBanned || false,
       ll_banned: row.llBanned || false,
+      silver_age_banned: row.silverAgeBanned || false,
       blitz_suspended: row.blitzSuspended || false,
       cc_suspended: row.ccSuspended || false,
       commoner_suspended: row.commonerSuspended || false,
       ll_restricted: row.llRestricted || false,
+      silver_age_suspended: row.silverAgeSuspended || false,
       played_horizontally: row.playedHorizontally || false,
       expansion_slot: row.expansionSlot || false,
       flavor_text: row.flavorText || '',

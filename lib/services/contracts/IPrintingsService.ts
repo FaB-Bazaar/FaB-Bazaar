@@ -154,16 +154,19 @@ export interface PrintingDTO {
   cc_legal: boolean;
   commoner_legal: boolean;
   ll_legal: boolean;
+  silver_age_legal: boolean;
 
   // Format restrictions
   blitz_banned: boolean;
   cc_banned: boolean;
   commoner_banned: boolean;
   ll_banned: boolean;
+  silver_age_banned: boolean;
   blitz_suspended: boolean;
   cc_suspended: boolean;
   commoner_suspended: boolean;
   ll_restricted: boolean;
+  silver_age_suspended: boolean;
 
   // Other
   played_horizontally: boolean;
