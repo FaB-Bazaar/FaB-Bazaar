@@ -1,53 +1,64 @@
 // app/api/decks/list/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService } from '@/lib/services';
-import type { DeckFormat } from '@/lib/services/contracts/IDeckService';
+import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
+import { userService, deckService } from '@/lib/services';
+import type { DeckFormat, DeckListFilters } from '@/lib/services/contracts/IDeckService';
 
+/**
+ * GET /api/decks/list?metafy_id=<uuid>
+ *
+ * Returns a list of public decks for a FaB Bazaar user identified by their Metafy ID.
+ * Intended for Talishar integration — requires Talishar API key.
+ *
+ * Query params:
+ *   metafy_id  (required) - Metafy user UUID
+ *   format     (optional) - filter by deck format
+ *   limit      (optional) - default 50
+ *   offset     (optional) - default 0
+ */
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-
-    // Authentication
-    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
-
-    if (!authResult.success) {
-      console.log(`[DeckList] Authentication failed: ${authResult.error}`);
-      return NextResponse.json({
-        success: false,
-        error: authResult.error || 'Authentication required',
-        hint: 'Provide either a valid session (web), discordId, or Authorization: Bearer <mcp_token> header'
-      }, { status: 401 });
+    const validation = await validateTalisharRequest(request);
+    if (!validation.valid) {
+      return validation.response;
     }
 
-    console.log(`[DeckList] Authenticated user: ${authResult.username} via ${authResult.authMethod}`);
+    const url = new URL(request.url);
+    const metafyId = url.searchParams.get('metafy_id');
 
-    // Parse query parameters for filtering/sorting
+    if (!metafyId) {
+      return NextResponse.json(
+        { success: false, error: 'metafy_id query parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    // Look up user by Metafy ID
+    const userResult = await userService.findByMetafyId(metafyId);
+    if (!userResult.success || !userResult.data) {
+      return NextResponse.json(
+        { success: false, error: 'No FaB Bazaar user found for that Metafy ID' },
+        { status: 404 }
+      );
+    }
+
+    const userId = userResult.data.id;
+
+    // Parse optional filters
     const format = url.searchParams.get('format') as DeckFormat | null;
-    const isPublicParam = url.searchParams.get('isPublic');
-    const sortBy = url.searchParams.get('sortBy') || 'updatedAt';
-    const sortOrder = url.searchParams.get('sortOrder') || 'desc';
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    // Build filters
-    const filters: { format?: DeckFormat; isPublic?: boolean } = {};
+    const filters: DeckListFilters = { availableOnTalishar: true };
     if (format) filters.format = format;
-    if (isPublicParam !== null) filters.isPublic = isPublicParam === 'true';
 
-    // Build pagination/sort options
-    const sort: Record<string, 1 | -1> = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    // Use service layer to fetch decks
     const result = await deckService.listUserDecks(
-      authResult.userId!,
+      userId,
       filters,
-      { limit, skip: offset, sort }
+      { limit, skip: offset, sort: { updatedAt: -1 } }
     );
 
     if (!result.success) {
-      console.error('[DeckList] Error fetching decks:', result.error);
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 500 }
@@ -56,39 +67,28 @@ export async function GET(request: NextRequest) {
 
     const { decks, total } = result.data;
 
-    // Calculate collection summary
-    const publicCount = decks.filter(d => d.isPublic).length;
-    const totalCards = decks.reduce((sum, deck) => sum + (deck.totalCards || 0), 0);
-    const totalValue = decks.reduce((sum, deck) => sum + (deck.estimatedValue || 0), 0);
-    const formats = [...new Set(decks.map(deck => deck.format))];
-
-    const collectionSummary = {
-      totalDecks: total,
-      publicDecks: publicCount,
-      totalCards,
-      totalValue,
-      formats,
-    };
-
-    console.log(`[DeckList] Retrieved ${decks.length} decks for user ${authResult.username}`);
-
     return NextResponse.json({
       success: true,
-      decks,
+      decks: decks.map(deck => ({
+        publicId: deck.publicId,
+        name: deck.name,
+        format: deck.format,
+        heroName: deck.heroName,
+        slug: deck.slug,
+        totalCards: deck.totalCards,
+        updatedAt: deck.updatedAt,
+        talisharUrl: `/api/decks/${deck.publicId}/talishar`,
+      })),
       pagination: {
         total,
         limit,
         offset,
-        hasMore: offset + limit < total
+        hasMore: offset + limit < total,
       },
-      summary: collectionSummary,
-      authMethod: authResult.authMethod,
-      authenticatedUser: authResult.username,
-      message: `Retrieved ${decks.length} decks via ${authResult.authMethod} authentication`
     });
 
   } catch (error) {
-    console.error('[DeckList] Error fetching decks:', error);
+    console.error('[DeckList] Error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
