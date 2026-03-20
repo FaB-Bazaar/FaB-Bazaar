@@ -26,7 +26,8 @@ import time
 class APIOnlyEnhancer:
     def __init__(self):
         # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/card.json"
-        self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/compendium-of-rathe/json/english/card.json"
+        # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/compendium-of-rathe/json/english/card.json"
+        self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/omens-of-the-third-age/json/english/card.json"
         self.group_csv_file = "fab_set_with_db.csv"
         
         # Statistics tracking
@@ -68,21 +69,33 @@ class APIOnlyEnhancer:
         print("📋 Loading group ID mappings and set names...")
         
         try:
-            group_mappings = {}
+            group_mappings = {}  # set_code -> list of group_ids
             set_names = {}  # set_code -> set_name mapping
-            
+
             with open(self.group_csv_file, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     set_code = row['printings.set'].strip()
                     group_id = int(row['group_id'])
-                    set_name = row.get('set_name', '').strip()  # Assuming set_name column exists
-                    
-                    group_mappings[set_code] = group_id
+                    set_name = row.get('set_name', '').strip()
+
+                    # Collect all group_ids per set code (handles GEM Pack 1-4, Silver Age, etc.)
+                    if set_code not in group_mappings:
+                        group_mappings[set_code] = []
+                    if group_id not in group_mappings[set_code]:
+                        group_mappings[set_code].append(group_id)
+
+                    # Also add uppercase version for case-insensitive lookup
+                    set_code_upper = set_code.upper()
+                    if set_code_upper not in group_mappings:
+                        group_mappings[set_code_upper] = []
+                    if group_id not in group_mappings[set_code_upper]:
+                        group_mappings[set_code_upper].append(group_id)
+
                     if set_name:
                         set_names[set_code] = set_name
-            
-            print(f"✅ Loaded {len(group_mappings)} group mappings and {len(set_names)} set names")
+
+            print(f"✅ Loaded {len(set(k.lower() for k in group_mappings.keys()))} unique sets and {len(set_names)} set names")
             return group_mappings, set_names
             
         except FileNotFoundError:
@@ -129,62 +142,67 @@ class APIOnlyEnhancer:
         api_products_list = []  # List of all products
         api_products_by_number = {}  # card_number -> list of products
         
-        for set_code, group_id in group_mappings.items():
-            print(f"   📡 Fetching group {group_id} ({set_code})...")
-            
-            try:
-                url = f"https://tcgcsv.com/tcgplayer/62/{group_id}/products"
-                response = requests.get(url, timeout=30)
-                response.raise_for_status()
-                
-                response_data = response.json()
-                self.stats['api_calls_made'] += 1
-                
-                products = response_data.get('results', [])
-                if not isinstance(products, list):
-                    print(f"      ❌ Invalid response structure")
+        seen_group_ids = set()
+        for set_code, group_ids in group_mappings.items():
+            for group_id in group_ids:
+                if group_id in seen_group_ids:
                     continue
-                
-                products_found = 0
-                for product in products:
-                    if not isinstance(product, dict):
+                seen_group_ids.add(group_id)
+                print(f"   📡 Fetching group {group_id} ({set_code})...")
+
+                try:
+                    url = f"https://tcgcsv.com/tcgplayer/62/{group_id}/products"
+                    response = requests.get(url, timeout=30)
+                    response.raise_for_status()
+
+                    response_data = response.json()
+                    self.stats['api_calls_made'] += 1
+
+                    products = response_data.get('results', [])
+                    if not isinstance(products, list):
+                        print(f"      ❌ Invalid response structure")
                         continue
-                    
-                    extended_data = product.get('extendedData', [])
-                    card_number = self.extract_extended_data_value(extended_data, 'Number')
-                    
-                    if card_number:
-                        rarity = self.extract_extended_data_value(extended_data, 'Rarity')
-                        
-                        product_data = {
-                            'productId': product.get('productId'),
-                            'url': product.get('url'),
-                            'name': product.get('name'),
-                            'rarity': rarity,
-                            'set_number': card_number,
-                            'set_code': set_code
-                        }
-                        
-                        # Store ALL products
-                        api_products_list.append(product_data)
-                        
-                        # Group by card number
-                        if card_number not in api_products_by_number:
-                            api_products_by_number[card_number] = []
-                        api_products_by_number[card_number].append(product_data)
-                        
-                        products_found += 1
-                        self.stats['api_products_fetched'] += 1
-                
-                print(f"      ✅ Found {products_found} products")
-                time.sleep(0.5)
-                
-            except requests.exceptions.RequestException as e:
-                print(f"      ❌ API error: {e}")
-                continue
-            except Exception as e:
-                print(f"      ❌ Processing error: {e}")
-                continue
+
+                    products_found = 0
+                    for product in products:
+                        if not isinstance(product, dict):
+                            continue
+
+                        extended_data = product.get('extendedData', [])
+                        card_number = self.extract_extended_data_value(extended_data, 'Number')
+
+                        if card_number:
+                            rarity = self.extract_extended_data_value(extended_data, 'Rarity')
+
+                            product_data = {
+                                'productId': product.get('productId'),
+                                'url': product.get('url'),
+                                'name': product.get('name'),
+                                'rarity': rarity,
+                                'set_number': card_number,
+                                'set_code': set_code
+                            }
+
+                            # Store ALL products
+                            api_products_list.append(product_data)
+
+                            # Group by card number
+                            if card_number not in api_products_by_number:
+                                api_products_by_number[card_number] = []
+                            api_products_by_number[card_number].append(product_data)
+
+                            products_found += 1
+                            self.stats['api_products_fetched'] += 1
+
+                    print(f"      ✅ Found {products_found} products")
+                    time.sleep(0.5)
+
+                except requests.exceptions.RequestException as e:
+                    print(f"      ❌ API error: {e}")
+                    continue
+                except Exception as e:
+                    print(f"      ❌ Processing error: {e}")
+                    continue
         
         # Track cards with multiple products
         multiple_product_cards = {k: v for k, v in api_products_by_number.items() if len(v) > 1}
