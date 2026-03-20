@@ -24,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 
 SNAPSHOT_FIELDS = {
-    'printing_id', 'card_unique_id', 'name', 'display_name', 'image_url',
+    'printing_id', 'card_unique_id', 'set_printing_unique_id', 'name', 'display_name', 'image_url',
     'rarity', 'foiling', 'set', 'edition', 'type_text', 'type_text_display',
     'color', 'is_extended_art', 'has_price',
     'tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market', 'tcgplayer_url',

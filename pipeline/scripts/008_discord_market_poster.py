@@ -76,26 +76,10 @@ class MarketAnalysisPoster:
         """Create market summary embed content."""
         stats = data.get('market_stats', {})
 
-        summary = "## 🏪 Market Pulse Summary\n\n"
-        summary += f"**Cards Analyzed:** {stats.get('total_comparisons', 0):,}\n"
-        summary += f"**Price Increases:** {stats.get('increases', 0):,}\n"
-        summary += f"**Price Decreases:** {stats.get('decreases', 0):,}\n"
+        summary = "## 🏪 Daily Price Report\n\n"
+        summary += f"**Cards Compared:** {stats.get('total_comparisons', 0):,}\n"
         summary += f"**Analysis Date:** {data.get('analysis_date', 'Unknown')}\n\n"
-
-        # Quick market sentiment
-        increases = stats.get('increases', 0)
-        decreases = stats.get('decreases', 0)
-        total = increases + decreases
-
-        if total > 0:
-            increase_pct = (increases / total) * 100
-            if increase_pct > 60:
-                sentiment = "🟢 **Bullish** - More cards gaining value"
-            elif increase_pct > 40:
-                sentiment = "🟡 **Mixed** - Balanced price movements"
-            else:
-                sentiment = "🔴 **Bearish** - More cards losing value"
-            summary += f"**Market Sentiment:** {sentiment}\n"
+        summary += "📊 *TCGPlayer prices compared to previous day. Not financial advice.*\n"
 
         return summary
 
@@ -106,7 +90,7 @@ class MarketAnalysisPoster:
         if not increases:
             return "No significant price increases found."
 
-        message = "## 🔥 Hot Movers (Top Gainers)\n\n"
+        message = "## 🔥 Largest Price Increases\n\n"
 
         for i, card in enumerate(increases[:5], 1):
             old_price = self.format_price(card.get('old_price', 0))
@@ -137,7 +121,7 @@ class MarketAnalysisPoster:
         if not decreases:
             return "No significant price decreases found."
 
-        message = "## 💰 Buying Opportunities (Major Drops)\n\n"
+        message = "## 📉 Largest Price Decreases\n\n"
 
         for i, card in enumerate(decreases[:5], 1):
             old_price = self.format_price(card.get('old_price', 0))
@@ -168,7 +152,7 @@ class MarketAnalysisPoster:
         if not volatile:
             return "No high volatility cards found."
 
-        message = "## ⚡ High Volatility Cards\n\n"
+        message = "## ⚡ Largest % Changes\n\n"
 
         for i, card in enumerate(volatile[:3], 1):
             old_price = self.format_price(card.get('old_price', 0))
@@ -196,8 +180,8 @@ class MarketAnalysisPoster:
         if not opportunities:
             return "No value opportunities identified."
 
-        message = "## 💎 Value Opportunities\n\n"
-        message += "*Cards with favorable risk/reward profiles based on rarity, type, and price movement*\n\n"
+        message = "## 💎 Notable Drops by Rarity\n\n"
+        message += "*Cards with significant price decreases, filtered by rarity and type*\n\n"
 
         for i, card in enumerate(opportunities[:3], 1):
             old_price = self.format_price(card.get('old_price', 0))
@@ -229,6 +213,12 @@ class MarketAnalysisPoster:
         data = self.load_market_data(data_file)
         if not data:
             return False
+
+        # Guard: skip post if no price changes were detected (stale data)
+        stats = data.get('market_stats', {})
+        if stats.get('increases', 0) == 0 and stats.get('decreases', 0) == 0:
+            print("Skipping Discord post — no price changes detected (possible stale data)")
+            return True
 
         try:
             await self.bot.wait_until_ready()
@@ -281,7 +271,7 @@ class MarketAnalysisPoster:
             await channel.send(value_msg)
 
             # Footer message
-            footer = "---\n📊 *Automated market analysis powered by FaB Bazaar data*"
+            footer = "---\n📊 *TCGPlayer prices compared to previous day. Not financial advice.*"
             await channel.send(footer)
 
             print("✅ Market analysis posted successfully to Discord!")

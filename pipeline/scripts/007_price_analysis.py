@@ -29,7 +29,28 @@ def load_printings_data(filepath: Path) -> Optional[Dict]:
         print(f"Error: File not found at {filepath}")
         return None
     print(f" -> Loaded {len(data):,} records.")
-    return data
+
+    # Deduplicate double-sided cards: both faces share set_printing_unique_id
+    # but have different printing_ids. Keep the face with the higher tcg_low.
+    seen = {}
+    deduped = {}
+    for pid, record in data.items():
+        dedup_key = record.get('set_printing_unique_id') or \
+            f"{record.get('card_unique_id')}|{record.get('set')}|{record.get('foiling')}|{record.get('rarity')}"
+        if dedup_key in seen:
+            existing = deduped[seen[dedup_key]]
+            if (record.get('tcg_low') or 0) > (existing.get('tcg_low') or 0):
+                deduped.pop(seen[dedup_key])
+                deduped[pid] = record
+                seen[dedup_key] = pid
+        else:
+            seen[dedup_key] = pid
+            deduped[pid] = record
+
+    dupes = len(data) - len(deduped)
+    if dupes:
+        print(f" -> Removed {dupes} duplicate face(s) of double-sided cards.")
+    return deduped
 
 def analyze_price_changes(old_data: Dict, new_data: Dict) -> Dict:
     """Analyze price changes between two datasets using tcg_low only."""
@@ -78,7 +99,10 @@ def analyze_price_changes(old_data: Dict, new_data: Dict) -> Dict:
     
     # Filter for significant movements
     significant_increases = [c for c in increases if c['net_change'] >= 3.0][:20]
-    significant_decreases = [c for c in decreases if abs(c['net_change']) >= 3.0][:20]
+    significant_decreases = sorted(
+        [c for c in decreases if abs(c['net_change']) >= 3.0],
+        key=lambda x: x['net_change']
+    )[:20]
     
     return {
         'stats': stats,
@@ -106,8 +130,8 @@ def analyze_price_volatility(old_data: Dict, new_data: Dict) -> List[Dict]:
             
         percent_change = abs(((new_price - old_price) / old_price) * 100)
         
-        # Only include cards with significant percentage changes (20%+)
-        if percent_change >= 20.0:
+        # Only include cards with significant percentage changes (20%+) and at least $1 absolute move
+        if percent_change >= 20.0 and abs(new_price - old_price) >= 1.0:
             volatile_cards.append({
                 'printing_id': printing_id,
                 'card_name': new_card.get('display_name', 'Unknown Card'),
