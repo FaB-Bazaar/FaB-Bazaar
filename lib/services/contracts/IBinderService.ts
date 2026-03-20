@@ -172,6 +172,8 @@ export interface BinderCardFilters {
   set?: string;
   condition?: string;
   forTrade?: boolean;
+  class?: string;
+  startsWith?: string;
 }
 
 /**

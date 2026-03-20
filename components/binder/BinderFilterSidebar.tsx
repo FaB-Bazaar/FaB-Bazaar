@@ -5,6 +5,12 @@ import React, { useState } from "react";
 import { getSetImageOrFallback } from "@/lib/set-images";
 import { RarityIcon } from "@/components/shared/RarityIcon";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { HERO_CLASSES } from "@/lib/fab-constants/classes";
+
+const CLASS_LIST = [
+  { key: 'generic', label: 'Generic' },
+  ...HERO_CLASSES.map(c => ({ key: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))
+];
 
 interface BinderFilterSidebarProps {
   activeFilters: Record<string, string | null>;
@@ -186,6 +192,29 @@ export function BinderFilterSidebar({
             );
           })}
         </div>
+      </div>
+
+      <hr className="border-gray-200 dark:border-gray-700 my-4" />
+
+      {/* Class */}
+      <div>
+        <p className={sectionTitle}>Class</p>
+        {CLASS_LIST.map(({ key, label }) => {
+          const isActive = activeFilters.class === key;
+          return (
+            <button
+              key={key}
+              onClick={() => isActive ? clearFilter('class') : setFilter('class', key)}
+              className={`flex items-center gap-2 w-full text-left py-0.5 transition-colors ${
+                isActive
+                  ? 'font-semibold text-gray-900 dark:text-gray-100'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              <span className={`text-sm ${isActive ? 'underline' : ''}`}>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
     </aside>

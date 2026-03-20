@@ -424,6 +424,18 @@ export class PostgresBinderService implements IBinderService {
         conditions.push(eq(inventoryItems.forTrade, filters.forTrade));
       }
 
+      if (filters.class) {
+        if (filters.class === 'generic') {
+          conditions.push(eq(cards.isGeneric, true));
+        } else {
+          conditions.push(sql`${cards.classes} @> ARRAY[${filters.class}]::text[]`);
+        }
+      }
+
+      if (filters.startsWith) {
+        conditions.push(sql`${cards.displayName} ILIKE ${filters.startsWith + '%'}`);
+      }
+
       // Get total count
       const [countResult] = await db
         .select({ count: sql<number>`count(*)::int` })

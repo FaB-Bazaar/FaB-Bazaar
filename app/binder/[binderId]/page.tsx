@@ -857,16 +857,33 @@ const SuperSlamDisclosure = () => {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className={`grid w-full ${editable ? 'grid-cols-3' : 'grid-cols-2'} mb-6`}>
                   <TabsTrigger value="cards" className="text-xs sm:text-sm">
-                    <span className="flex flex-col items-center">
-                      <span>Cards ({pagination?.totalCards || 0})</span>
-                      {pagination.page < pagination.totalPages && <span className="text-[10px] opacity-70">Scroll For More</span>}
-                    </span>
+                    Cards ({pagination?.totalCards || 0})
                   </TabsTrigger>
                   <TabsTrigger value="stats" className="text-xs sm:text-sm">Statistics</TabsTrigger>
                   {editable && <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="cards">
+                  {/* Alphabet filter strip */}
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => {
+                      const isActive = activeFilters.startsWith === letter;
+                      return (
+                        <button
+                          key={letter}
+                          onClick={() => isActive ? clearFilter('startsWith') : setFilter('startsWith', letter)}
+                          className={`w-7 h-7 text-xs font-medium rounded transition-colors ${
+                            isActive
+                              ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   {loading && !cards.length ? <LoadingScreen message="Applying filters..." />
                   : cards.length === 0 ? (
                     <div className="text-center py-12 bg-card rounded-lg border">

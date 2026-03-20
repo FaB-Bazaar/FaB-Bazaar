@@ -8,6 +8,12 @@ import { Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { RarityIcon } from '@/components/shared/RarityIcon'; 
 import { getSetImageOrFallback } from '@/lib/set-images';
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from '@/lib/fab-constants';
+import { HERO_CLASSES } from '@/lib/fab-constants/classes';
+
+const CLASS_LIST = [
+  { key: 'generic', label: 'Generic' },
+  ...HERO_CLASSES.map(c => ({ key: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))
+];
 
 interface BinderSearchAndFiltersProps {
   searchQuery: string;
@@ -284,6 +290,29 @@ export const BinderSearchAndFilters: React.FC<BinderSearchAndFiltersProps> = ({
                 >
                   <span className="text-gray-900 dark:text-gray-100">Not for Trade</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Class Filter */}
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Class:</span>
+              <div className="flex gap-2 flex-wrap">
+                {CLASS_LIST.map(({ key, label }) => {
+                  const isActive = activeFilters.class === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => isActive ? clearFilter('class') : setFilter('class', key)}
+                      className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
+                        isActive
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/50 ring-1 ring-blue-500'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <span className="text-gray-900 dark:text-gray-100">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

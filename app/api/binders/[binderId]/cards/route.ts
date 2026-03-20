@@ -30,6 +30,8 @@ export async function GET(
       forTrade: url.searchParams.get('forTrade')
         ? url.searchParams.get('forTrade') === 'true'
         : undefined,
+      class: url.searchParams.get('class') || undefined,
+      startsWith: url.searchParams.get('startsWith') || undefined,
     };
 
     const options: BinderCardSearchOptions = {
