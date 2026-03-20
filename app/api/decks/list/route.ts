@@ -69,16 +69,22 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      decks: decks.map(deck => ({
-        publicId: deck.publicId,
-        name: deck.name,
-        format: deck.format,
-        heroName: deck.heroName,
-        slug: deck.slug,
-        totalCards: deck.totalCards,
-        updatedAt: deck.updatedAt,
-        talisharUrl: `/api/decks/${deck.publicId}/talishar`,
-      })),
+      decks: decks.map(deck => {
+        // Extract hero collector number for Talishar (e.g. "HVY047", "EVO004")
+        const heroCardId = deck.hero?.[0]?.printingDetails?.collector_number || '';
+
+        return {
+          publicId: deck.publicId,
+          name: deck.name,
+          format: deck.format,
+          heroName: deck.heroName,
+          heroCardId,
+          slug: deck.slug,
+          totalCards: deck.totalCards,
+          updatedAt: deck.updatedAt,
+          talisharUrl: `/api/decks/${deck.publicId}/talishar`,
+        };
+      }),
       pagination: {
         total,
         limit,
