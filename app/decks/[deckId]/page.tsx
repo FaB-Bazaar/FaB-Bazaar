@@ -454,9 +454,27 @@ export default function DeckEditorPage() {
 
   const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
     if (!cardList?.length || !isOwner) return;
+
+    // On the Search tab: populate the bulk import text box so the user can review
+    // and stage cards before adding them, rather than adding directly to the deck.
+    if (activeTab === 'search') {
+      const counts = new Map<string, number>();
+      for (const card of cardList) {
+        const name = card.displayName || card.printingId;
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+      }
+      const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
+      handlers.setBulkInput(lines.join('\n'));
+      setSearchFormOpen(true);
+      autoSearchedRef.current = true; // prevent auto-search from overwriting
+      const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
+      await handleSearch(syntheticEvent);
+      return;
+    }
+
+    // On the Deck tab: add directly to the deck
     setApplyingBuild(true);
     try {
-      // Group by printingId to calculate quantities
       const quantities = new Map<string, number>();
       for (const card of cardList) {
         quantities.set(card.printingId, (quantities.get(card.printingId) ?? 0) + 1);

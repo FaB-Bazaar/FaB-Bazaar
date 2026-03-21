@@ -1,10 +1,10 @@
 // app/api/decks/[deckId]/talishar/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService, gameResultsService } from '@/lib/services';
+import { deckService, gameResultsService, printingsService } from '@/lib/services';
 import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
 import { toTalisharIdentifier } from '@/lib/utils';
-import { HERO_INFO } from '@/lib/fab-constants';
+import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 
 /**
  * Maps FaB Bazaar deck formats to Talishar format codes
@@ -273,6 +273,28 @@ export async function GET(
       existing.total += printing.quantity || 1;
       cardCounts.set(cardId, existing);
     });
+
+    // Fallback: if no hero printing in deck.hero but heroName is set, look up the
+    // earliest printing so Talishar can display the hero image.
+    if (deck.hero.length === 0 && deck.heroName) {
+      const heroKey = deck.heroName.toLowerCase();
+      const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
+        ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
+      if (heroInfo?.cardUniqueId) {
+        const printingResult = await printingsService.searchPrintings(
+          { cardUniqueId: heroInfo.cardUniqueId },
+          { limit: 1, sortBy: 'set', sortOrder: 'asc', show: 'all' }
+        );
+        if (printingResult.success && printingResult.data.printings?.[0]) {
+          const p = printingResult.data.printings[0];
+          const heroCardName = p.name || '';
+          const identifier = toTalisharIdentifier(heroCardName) || heroKey.replace(/\s+/g, '_');
+          const existing = cardCounts.get(identifier) || { total: 0, sideboardTotal: 0 };
+          existing.total += 1;
+          cardCounts.set(identifier, existing);
+        }
+      }
+    }
 
     // Process equipment cards (main deck)
     deck.equipment.forEach(printing => {

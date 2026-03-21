@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
+import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants";
 
 // Import deck-specific components
 import DeckCard from "@/components/deck/DeckCard";
@@ -153,6 +154,26 @@ export default function DecksPage() {
 
       if (result.success) {
         console.log('[Decks] Deck created successfully:', result.data);
+
+        // Auto-add the hero's default printing to the hero slot
+        if (deckData.hero) {
+          const heroKey = deckData.hero.toLowerCase();
+          const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
+            ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
+          if (heroInfo?.cardUniqueId) {
+            try {
+              const params = new URLSearchParams({ cardUniqueId: heroInfo.cardUniqueId, limit: '1', sortBy: 'set', sortOrder: 'asc', show: 'all' });
+              const printingsRes = await fetch(`/api/printings/search?${params}`);
+              const printingsData = await printingsRes.json();
+              const firstPrinting = printingsData.data?.printings?.[0];
+              if (firstPrinting?.printing_id) {
+                await decksClient.addPrintings(result.data.publicId, [{ printingId: firstPrinting.printing_id, quantity: 1, category: 'hero' }]);
+              }
+            } catch {
+              // Non-fatal — hero printing can be set later in the editor
+            }
+          }
+        }
 
         setDecks(prev => [result.data, ...prev]);
         setCreateDeckOpen(false);
