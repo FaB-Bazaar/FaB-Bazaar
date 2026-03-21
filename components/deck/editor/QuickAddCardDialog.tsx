@@ -523,6 +523,7 @@ export default function QuickAddCardDialog({
       setDebouncedQuery("");
       setCards([]);
       setError(null);
+      setEnlargedImage(null);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
