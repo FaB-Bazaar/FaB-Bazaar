@@ -76,6 +76,7 @@ export class PostgresDeckService implements IDeckService {
         tcgLow: printings.tcgLow,
         tcgMid: printings.tcgMid,
         tcgHigh: printings.tcgHigh,
+        tcgplayerUrl: printings.tcgplayerUrl,
       })
       .from(deckCards)
       .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
@@ -107,6 +108,7 @@ export class PostgresDeckService implements IDeckService {
               tcg_low: dc.tcgLow || undefined,
               tcg_mid: dc.tcgMid || undefined,
               tcg_high: dc.tcgHigh || undefined,
+              tcgplayer_url: dc.tcgplayerUrl || undefined,
               types: dc.types || undefined,
               classes: dc.classes || undefined,
               talents: dc.talents || undefined,

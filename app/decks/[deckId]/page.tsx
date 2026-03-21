@@ -179,6 +179,8 @@ export default function DeckEditorPage() {
         else if (e.key.toLowerCase() === 't') { setChordMode('type'); startTimeout(); }
         else if (e.key.toLowerCase() === 'k') { setChordMode('keyword'); setKeywordBuffer(''); startTimeout(); }
         else if (e.key.toLowerCase() === 'f') { setChordMode('clear'); startTimeout(); }
+        else if (e.key.toLowerCase() === 'o') { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); resetChord(); }
+        else if (e.key.toLowerCase() === 'u') { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); resetChord(); }
         else { resetChord(); }
         return;
       }
@@ -522,6 +524,8 @@ export default function DeckEditorPage() {
           'F': () => setChordMode('clear'),
           'S': () => { setActiveTab('search'); setChordMode(null); },
           'M': () => { setActiveTab('matchups'); setChordMode(null); },
+          'O': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); setChordMode(null); },
+          'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense' };
         const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', C: heroClass };
@@ -550,6 +554,8 @@ export default function DeckEditorPage() {
                 { key: 'F', label: 'Filters' },
                 { key: 'S', label: 'Search' },
                 { key: 'M', label: 'Matchups' },
+                { key: 'O', label: 'Owned', color: 'text-green-400' },
+                { key: 'U', label: 'Unowned', color: 'text-red-400' },
               ].map(({ key, label, color }) => (
                 <button key={key} type="button" className={hudBtn} onClick={() => SELECT_ACTIONS[key]?.()}>
                   <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>

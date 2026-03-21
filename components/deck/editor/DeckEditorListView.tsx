@@ -3,7 +3,8 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, ArrowLeftRight, Loader2, Archive, ArchiveRestore, Sofa, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, Layers, Heart } from "lucide-react";
+import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart } from "lucide-react";
+import { TcgAffiliateLink } from "@/components/tracking";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -121,13 +122,13 @@ function GroupedCardRow({
     const types = ((pr.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
     if (category === "maindeck") {
       dests.push({ to: "inventory", label: "Move to Inventory", icon: <Archive className="h-3 w-3" /> });
-      dests.push({ to: "benched", label: "Move to Bench", icon: <Sofa className="h-3 w-3" /> });
+      dests.push({ to: "benched", label: "Move to Bench", icon: <img src="/bench-icon.svg" className="h-3 w-3 dark:invert" alt="Bench" /> });
     } else if (category === "equipment") {
       dests.push({ to: "inventory", label: "Move to Inventory", icon: <Archive className="h-3 w-3" /> });
-      dests.push({ to: "benched", label: "Move to Bench", icon: <Sofa className="h-3 w-3" /> });
+      dests.push({ to: "benched", label: "Move to Bench", icon: <img src="/bench-icon.svg" className="h-3 w-3 dark:invert" alt="Bench" /> });
     } else if (category === "inventory") {
       dests.push({ to: "maindeck", label: "Move to Library", icon: <ArchiveRestore className="h-3 w-3" /> });
-      dests.push({ to: "benched", label: "Move to Bench", icon: <Sofa className="h-3 w-3" /> });
+      dests.push({ to: "benched", label: "Move to Bench", icon: <img src="/bench-icon.svg" className="h-3 w-3 dark:invert" alt="Bench" /> });
     } else if (category === "benched") {
       if (isEquipmentCompatible(types)) {
         dests.push({ to: "equipment", label: "Move to Equipment", icon: <ArchiveRestore className="h-3 w-3" /> });
@@ -315,6 +316,8 @@ interface DeckTileCard {
   defense: number | null;
   power: number | null;
   pitch: number | null;
+  tcgplayerUrl?: string;
+  tcgLow?: number;
 }
 
 interface DeckTileSectionData {
@@ -366,6 +369,8 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
           defense: pd?.defense ?? null,
           power: pd?.power ?? null,
           pitch: pd?.pitch ?? null,
+          tcgplayerUrl: pd?.tcgplayer_url ?? undefined,
+          tcgLow: pd?.tcg_low ?? undefined,
         });
       }
     }
@@ -457,6 +462,7 @@ function DeckTileSection({
   onAddToWants,
   highlightMatchIds,
   tileWidth = 72,
+  ownershipFilter = 'all',
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string) => void;
@@ -490,6 +496,8 @@ function DeckTileSection({
   highlightMatchIds?: Set<string> | null;
   /** Width of each card tile in px — default 72 */
   tileWidth?: number;
+  /** When set, shows a binder link below owned tiles */
+  ownershipFilter?: 'all' | 'owned' | 'unowned';
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -633,9 +641,10 @@ function DeckTileSection({
           // Hero and demi-hero are special permanent slots — never draggable
           const thisTileDraggable = isTileDraggable && tile.category !== 'hero' && !tile.types.includes('demi-hero');
           const isHighlighted = highlightMatchIds ? highlightMatchIds.has(tile.printingId) : null;
+          const showBinderLabel = ownershipState === 'full' && (own?.binderNames?.length ?? 0) > 0;
           return (
+            <div key={tile.key} className="flex flex-col items-center" style={{ width: tileWidth }}>
             <div
-              key={tile.key}
               title={thisTileDraggable ? `${tile.name} — drag to move, click to swap printing` : (onSwap ? `${tile.name} — click to swap printing` : tile.name)}
               draggable={thisTileDraggable}
               onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name)}
@@ -673,7 +682,7 @@ function DeckTileSection({
                 isHighlighted === true && "ring-2 ring-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]",
                 isHighlighted === false && "opacity-25 scale-95 grayscale",
               )}
-              style={{ width: tileWidth }}
+              style={{ width: '100%' }}
             >
               {tile.imageUrl ? (
                 <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
@@ -700,19 +709,8 @@ function DeckTileSection({
                 <div className={cn(
                   "absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20 transition-opacity",
                   ownershipState === 'full' ? "bg-green-400" : "bg-red-500",
-                  ownershipState === 'missing' && onAddToWants ? "group-hover:opacity-0" : "",
+                  onAddTile ? "group-hover:opacity-0" : "",
                 )} />
-              )}
-
-              {/* Wants button — shown on hover for unowned cards */}
-              {!isDragActive && onAddToWants && ownershipState === 'missing' && (
-                <button
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-pink-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
-                  title="Add to wants list"
-                  onClick={e => { e.stopPropagation(); onAddToWants(tile.printingId, tile.name); }}
-                >
-                  <Heart className="h-3 w-3" />
-                </button>
               )}
 
               {/* Remove button (X) — shown on hover, hidden for hero/demi-hero */}
@@ -722,40 +720,40 @@ function DeckTileSection({
                   title="Remove 1 copy"
                   onClick={e => { e.stopPropagation(); onRemoveTile(tile); }}
                 >
-                  <X className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" />
                 </button>
               )}
 
               {/* Move to inventory button — shown on hover, only for maindeck/equipment cards */}
               {!isDragActive && onMoveToInventory && tile.category !== 'hero' && tile.category !== 'inventory' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-6 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
+                  className="absolute top-6 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[8px] font-bold leading-none"
                   title="Move to inventory"
                   onClick={e => { e.stopPropagation(); onMoveToInventory(tile); }}
                 >
-                  <Archive className="h-3 w-3" />
+                  Inv.
+                </button>
+              )}
+
+              {/* Move to bench button — shown on hover, only for non-hero/non-bench cards */}
+              {!isDragActive && onMoveTo && tile.category !== 'hero' && tile.category !== 'benched' && !tile.types.includes('demi-hero') && (
+                <button
+                  className="absolute top-12 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
+                  title="Move to bench"
+                  onClick={e => { e.stopPropagation(); onMoveTo(tile, 'benched'); }}
+                >
+                  <img src="/bench-icon.svg" className="h-3 w-3 invert" alt="Bench" />
                 </button>
               )}
 
               {/* Add +1 button — shown on hover, hidden for hero/demi-hero */}
               {!isDragActive && onAddTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-0.5 left-6 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[10px] font-bold leading-none"
+                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[10px] font-bold leading-none"
                   title="Add 1 copy"
                   onClick={e => { e.stopPropagation(); onAddTile(tile); }}
                 >
                   +1
-                </button>
-              )}
-
-              {/* Binder button — shown on hover */}
-              {!isDragActive && onAddToBinder && (
-                <button
-                  className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
-                  title="Add to binder"
-                  onClick={e => { e.stopPropagation(); onAddToBinder(tile.printingId, tile.name); }}
-                >
-                  <BookmarkPlus className="h-3 w-3" />
                 </button>
               )}
 
@@ -782,6 +780,65 @@ function DeckTileSection({
                   ) : null}
                 </div>
               )}
+            </div>
+            {ownershipFilter === 'owned' && showBinderLabel && (
+              <div className="flex flex-col items-center gap-0.5 w-full px-0.5">
+                <a
+                  href={`/binder/${own!.binderIds![0]}`}
+                  onClick={e => e.stopPropagation()}
+                  className="text-[8px] text-blue-400 hover:text-blue-300 truncate w-full text-center leading-tight"
+                  title={`Go to binder: ${own!.binderNames!.join(', ')}`}
+                >
+                  {own!.binderNames!.length > 1 ? `${own!.binderNames![0]} +${own!.binderNames!.length - 1}` : own!.binderNames![0]}
+                </a>
+              </div>
+            )}
+            {ownershipFilter === 'unowned' && ownershipState !== 'full' && (
+              <div className="flex flex-col items-center gap-0.5 w-full px-0.5 py-0.5">
+                {/* Row 1: binder + heart icons */}
+                <div className="flex items-center justify-center gap-2 w-full">
+                  {onAddToBinder && (
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); onAddToBinder(tile.printingId, tile.name); }}
+                      className="flex items-center justify-center text-gray-400 hover:text-green-400 transition-colors"
+                      title="Add to your binder"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {onAddToWants && (
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); onAddToWants(tile.printingId, tile.name); }}
+                      className="flex items-center justify-center text-gray-400 hover:text-pink-400 transition-colors"
+                      title="Add to your wants list"
+                    >
+                      <Heart className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {/* Row 2: TCGPlayer logo + price */}
+                {tile.tcgplayerUrl && (
+                  <TcgAffiliateLink
+                    tcgplayerUrl={tile.tcgplayerUrl}
+                    feature="DeckTileUnowned"
+                    onClick={e => e.stopPropagation()}
+                    className="flex flex-col items-center gap-0.5 opacity-70 hover:opacity-100 transition-opacity"
+                    title="Buy on TCGPlayer"
+                  >
+                    <img
+                      src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+                      alt="TCGPlayer"
+                      className="h-3.5 w-auto"
+                    />
+                    {tile.tcgLow != null && (
+                      <span className="text-[8px] tabular-nums text-emerald-500 dark:text-emerald-400">${tile.tcgLow.toFixed(2)}</span>
+                    )}
+                  </TcgAffiliateLink>
+                )}
+              </div>
+            )}
             </div>
           );
         })}
@@ -1027,6 +1084,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileWidth = TILE_SIZES[tileSizeIdx].width;
   const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
+  const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
   const mouseXRef = useRef(0);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
@@ -1316,11 +1374,17 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       toggleHighlight(stat, value);
     };
     const handleClear = () => setHighlightFilters([]);
+    const handleOwnershipFilter = (e: Event) => {
+      const { filter } = (e as CustomEvent).detail as { filter: 'all' | 'owned' | 'unowned' };
+      setOwnershipFilter(prev => prev === filter ? 'all' : filter);
+    };
     window.addEventListener('deck-highlight-filter', handleFilter);
     window.addEventListener('deck-highlight-clear', handleClear);
+    window.addEventListener('deck-ownership-filter', handleOwnershipFilter);
     return () => {
       window.removeEventListener('deck-highlight-filter', handleFilter);
       window.removeEventListener('deck-highlight-clear', handleClear);
+      window.removeEventListener('deck-ownership-filter', handleOwnershipFilter);
     };
   }, []);
 
@@ -1340,10 +1404,26 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   }
 
   const tileSections = buildTileSections(displayDeck);
+
+  // Apply ownership filter to tile sections
+  const applyOwnershipFilter = (sections: DeckTileSectionData[]): DeckTileSectionData[] => {
+    if (ownershipFilter === 'all') return sections;
+    return sections.map(section => ({
+      ...section,
+      tiles: section.tiles.filter(tile => {
+        const own = ownershipMap.get(tile.printingId);
+        const isOwned = own ? tile.copyIndex < own.owned : false;
+        return ownershipFilter === 'owned' ? isOwned : !isOwned;
+      }),
+    })).filter(section => section.key === 'hero' || section.tiles.length > 0);
+  };
+
+  const filteredTileSections = applyOwnershipFilter(tileSections);
+
   // Hero is embedded in the equipment section header — not a standalone section
   const heroPortrait = tileSections.find(s => s.key === 'hero')?.tiles[0] ?? null;
-  const tileTopSections = tileSections.filter(s => s.key === 'equipment');
-  const tileRestSections = tileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
+  const tileTopSections = filteredTileSections.filter(s => s.key === 'equipment');
+  const tileRestSections = filteredTileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
 
   const tileSharedProps = {
     onHover: (url: string, name: string) => setHoveredImage({ url, name }),
@@ -1365,6 +1445,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onAddToWants: onAddToWants,
     highlightMatchIds: matchingPrintingIds,
     tileWidth,
+    ownershipFilter,
   };
 
   return (
@@ -1430,14 +1511,34 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
         {(viewMode === 'tile' || viewMode === 'game') && (
           <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-500 flex-wrap">
-            <span className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setOwnershipFilter(f => f === 'owned' ? 'all' : 'owned')}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors",
+                ownershipFilter === 'owned'
+                  ? "bg-green-900/40 text-green-300 ring-1 ring-green-600"
+                  : "hover:bg-gray-800 text-gray-500"
+              )}
+              title="Filter to owned cards only"
+            >
               <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20 shrink-0" />
               owned
-            </span>
-            <span className="flex items-center gap-1">
+            </button>
+            <button
+              type="button"
+              onClick={() => setOwnershipFilter(f => f === 'unowned' ? 'all' : 'unowned')}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors",
+                ownershipFilter === 'unowned'
+                  ? "bg-red-900/40 text-red-300 ring-1 ring-red-600"
+                  : "hover:bg-gray-800 text-gray-500"
+              )}
+              title="Filter to unowned cards only"
+            >
               <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20 shrink-0" />
               unowned
-            </span>
+            </button>
             {canEdit && onMoveSingle && (
               <span className="flex items-center gap-1">
                 <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

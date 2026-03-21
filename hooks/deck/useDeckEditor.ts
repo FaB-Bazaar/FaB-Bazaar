@@ -81,7 +81,7 @@ const groupPrintingsByCard = (printings: any[], key: string) => {
   return cardMap;
 };
 
-export type OwnershipEntry = { owned: number; needed: number };
+export type OwnershipEntry = { owned: number; needed: number; binderNames?: string[]; binderIds?: string[] };
 
 export interface SwapTarget {
   printingId: string;
@@ -104,14 +104,14 @@ export function useDeckEditor(deckId: string) {
   const [isSaving, setIsSaving] = useState(false);
 
   const buildOwnershipMap = (data: {
-    owned: Array<{ printingId: string; owned: number; needed: number }>;
+    owned: Array<{ printingId: string; owned: number; needed: number; binderNames?: string[]; binderIds?: string[] }>;
     missing: Array<{ printingId: string; needed: number }>;
-    partial: Array<{ printingId: string; owned: number; needed: number }>;
+    partial: Array<{ printingId: string; owned: number; needed: number; binderNames?: string[]; binderIds?: string[] }>;
   }) => {
     const map = new Map<string, OwnershipEntry>();
-    data.owned.forEach(item => map.set(item.printingId, { owned: item.owned, needed: item.needed }));
+    data.owned.forEach(item => map.set(item.printingId, { owned: item.owned, needed: item.needed, binderNames: item.binderNames, binderIds: item.binderIds }));
     data.missing.forEach(item => map.set(item.printingId, { owned: 0, needed: item.needed }));
-    data.partial.forEach(item => map.set(item.printingId, { owned: item.owned, needed: item.needed }));
+    data.partial.forEach(item => map.set(item.printingId, { owned: item.owned, needed: item.needed, binderNames: item.binderNames, binderIds: item.binderIds }));
     setOwnershipMap(map);
   };
 
