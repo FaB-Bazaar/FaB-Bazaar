@@ -6,6 +6,7 @@ import { getSetImageOrFallback } from "@/lib/set-images";
 import { RarityIcon } from "@/components/shared/RarityIcon";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { HERO_CLASSES } from "@/lib/fab-constants/classes";
+import { CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
 
 const CLASS_LIST = [
   { key: 'generic', label: 'Generic' },
@@ -20,10 +21,7 @@ interface BinderFilterSidebarProps {
   clearAllFilters: () => void;
 }
 
-const DISPLAY_SETS = [
-  'wtr', 'arc', 'cru', 'mon', 'ele', 'evr', 'upr', '1hp', 'dyn', 'out',
-  'dtd', 'evo', 'hvy', 'mst', 'ros', 'hnt', 'sea', 'mpg', 'sup',
-] as const;
+const DISPLAY_SETS = CARD_FILTER_SETS;
 
 const PRIMARY_RARITIES: { key: string; label: string }[] = [
   { key: 'f', label: 'Fabled' },

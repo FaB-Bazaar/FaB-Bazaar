@@ -112,6 +112,17 @@ export const SET_MAP = {
 
 export type SetCode = keyof typeof SET_MAP;
 
+/**
+ * Ordered list of set codes shown in binder and search filter UIs.
+ * Update this single list when new sets are released — all filter components import from here.
+ */
+export const CARD_FILTER_SETS = [
+  'wtr', 'arc', 'cru', 'mon', 'ele', 'evr', 'upr', '1hp', 'dyn', 'out',
+  'dtd', 'evo', 'hvy', 'mst', 'ros', 'hnt', 'sea', 'mpg', 'sup', 'pen', 'anq',
+] as const;
+
+export type CardFilterSet = typeof CARD_FILTER_SETS[number];
+
 // Set metadata including release dates
 export interface SetMetadata {
   code: string;

@@ -16,6 +16,7 @@ import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetImageUrl, getSetImageOrFallback } from '@/lib/set-images';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { SET_MAP } from '@/lib/fab-constants';
+import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 
 
@@ -864,10 +865,7 @@ const updateSearchWithNewSets = (setQuery: string) => {
   // Visual constants
   const sectionTitle = "text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3"
 
-  const DISPLAY_SETS = [
-    'wtr','arc','cru','mon','ele','evr','upr','1hp','dyn','out',
-    'dtd','evo','hvy','mst','ros','hnt','sea','mpg','sup'
-  ]
+  const DISPLAY_SETS = CARD_FILTER_SETS;
 
   const RARITY_OPTIONS = [
     { value: 'v', label: 'Marvel' },

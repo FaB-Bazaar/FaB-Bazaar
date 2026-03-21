@@ -38,6 +38,11 @@ import { MobileTradeRequestSheet } from "@/components/binder/MobileTradeRequestS
 import { MobileSelectedCardsSheet } from "@/components/binder/MobileSelectedCardsSheet";
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
 import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
+import { getSetImageOrFallback } from "@/lib/set-images";
+import { CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
+
+const CHORD_SETS = CARD_FILTER_SETS;
+const CHORD_CLASSES = ['generic','adjudicator','assassin','bard','brute','guardian','illusionist','mechanologist','merchant','necromancer','ninja','pirate','ranger','runeblade','shapeshifter','thief','warrior','wizard'] as const;
 
   const useWindowWidth = () => {
     const [width, setWidth] = useState(0);
@@ -102,6 +107,8 @@ export default function BinderPage() {
   const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<Date | null>(null);
+  const [chordMode, setChordMode] = useState<null | 'select' | 'rarity' | 'foiling' | 'set' | 'class' | 'clear'>(null);
+  const [setBuffer, setSetBuffer] = useState('');
 
   // Mobile state
   const [isMobileTradeSheetOpen, setIsMobileTradeSheetOpen] = useState(false);
@@ -312,7 +319,129 @@ export default function BinderPage() {
   const clearAllFilters = () => { setSearchQuery(""); setActiveFilters({}); };
 
   const activeFilterCount = Object.values(activeFilters).filter(Boolean).length + (searchQuery ? 1 : 0);
-  
+
+  // --- CMD+K CHORD SHORTCUT (letter · 1→rarity · 2→foiling) ---
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const resetChord = () => { setChordMode(null); setSetBuffer(''); clearTimeout(timeout); };
+    const startTimeout = () => { clearTimeout(timeout); timeout = setTimeout(resetChord, 2000); };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setChordMode('select');
+        startTimeout();
+        return;
+      }
+
+      if (e.key === 'Escape') { resetChord(); return; }
+      if (!chordMode || isTyping) return;
+
+      e.preventDefault();
+
+      if (chordMode === 'select') {
+        if (e.key === '1') { setChordMode('rarity'); startTimeout(); return; }
+        if (e.key === '2') { setChordMode('foiling'); startTimeout(); return; }
+        if (e.key === '3') { setChordMode('set'); setSetBuffer(''); startTimeout(); return; }
+        if (e.key === '4') { setChordMode('class'); setSetBuffer(''); startTimeout(); return; }
+        if (e.key === '0') { setChordMode('clear'); startTimeout(); return; }
+        const letter = e.key.toUpperCase();
+        if (/^[A-Z]$/.test(letter)) {
+          setActiveTab('cards');
+          activeFilters.startsWith === letter ? clearFilter('startsWith') : setFilter('startsWith', letter);
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'rarity') {
+        const RARITY_KEYS: Record<string, string> = { F: 'f', V: 'v', L: 'l', M: 'm', P: 'p', S: 's', R: 'r', C: 'c', B: 'b', T: 't' };
+        const code = RARITY_KEYS[e.key.toUpperCase()];
+        if (code) {
+          setActiveTab('cards');
+          activeFilters.rarity === code ? clearFilter('rarity') : setFilter('rarity', code);
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'foiling') {
+        const FOILING_KEYS: Record<string, string> = { R: 'r', C: 'c', G: 'g', S: 's' };
+        const code = FOILING_KEYS[e.key.toUpperCase()];
+        if (code) {
+          setActiveTab('cards');
+          activeFilters.foiling === code ? clearFilter('foiling') : setFilter('foiling', code);
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'set') {
+        if (e.key === 'Backspace') {
+          setSetBuffer(prev => prev.slice(0, -1));
+          startTimeout();
+          return;
+        }
+        const char = e.key.toLowerCase();
+        if (/^[a-z0-9]$/.test(char)) {
+          const next = setBuffer + char;
+          setSetBuffer(next);
+          if ((CHORD_SETS as readonly string[]).includes(next)) {
+            setActiveTab('cards');
+            activeFilters.set === next ? clearFilter('set') : setFilter('set', next);
+            resetChord();
+          } else if (!(CHORD_SETS as readonly string[]).some(s => s.startsWith(next))) {
+            setSetBuffer(''); // invalid prefix — reset buffer but stay in set mode
+            startTimeout();
+          } else {
+            startTimeout();
+          }
+        }
+        return;
+      }
+
+      if (chordMode === 'class') {
+        if (e.key === 'Backspace') {
+          setSetBuffer(prev => prev.slice(0, -1));
+          startTimeout();
+          return;
+        }
+        const char = e.key.toLowerCase();
+        if (/^[a-z]$/.test(char)) {
+          const next = setBuffer + char;
+          setSetBuffer(next);
+          const matches = (CHORD_CLASSES as readonly string[]).filter(c => c.startsWith(next));
+          if (matches.length === 1) {
+            setActiveTab('cards');
+            activeFilters.class === matches[0] ? clearFilter('class') : setFilter('class', matches[0]);
+            resetChord();
+          } else if (matches.length === 0) {
+            setSetBuffer('');
+            startTimeout();
+          } else {
+            startTimeout();
+          }
+        }
+        return;
+      }
+
+      if (chordMode === 'clear') {
+        if (e.key === '0') {
+          clearAllFilters();
+        }
+        resetChord();
+        return;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => { document.removeEventListener('keydown', handleKeyDown); clearTimeout(timeout); };
+  }, [chordMode, activeFilters, setBuffer]);
+
   // --- ACTION HANDLERS ---
   const refreshCurrentView = () => fetchCards(1, true);
 
@@ -864,8 +993,112 @@ const SuperSlamDisclosure = () => {
                 </TabsList>
 
                 <TabsContent value="cards">
+                  {/* Set picker overlay */}
+                  {chordMode === 'set' && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setChordMode(null); setSetBuffer(''); }}>
+                      <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-2xl w-full max-w-2xl mx-4" onClick={e => e.stopPropagation()}>
+                        <div className="text-center mb-5">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Type set code — Esc to cancel</p>
+                          <div className="text-4xl font-bold font-mono tracking-widest text-blue-500 dark:text-blue-400 min-h-[3rem]">
+                            {setBuffer ? setBuffer.toUpperCase() : <span className="opacity-20">___</span>}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                          {CHORD_SETS.map(setKey => {
+                            const matches = setBuffer === '' || setKey.startsWith(setBuffer);
+                            return (
+                              <button
+                                key={setKey}
+                                onClick={() => {
+                                  setActiveTab('cards');
+                                  activeFilters.set === setKey ? clearFilter('set') : setFilter('set', setKey);
+                                  setChordMode(null); setSetBuffer('');
+                                }}
+                                className={`flex flex-col items-center p-2 rounded-xl border transition-all ${
+                                  activeFilters.set === setKey
+                                    ? 'border-gray-900 dark:border-gray-100 ring-2 ring-gray-900 dark:ring-gray-100'
+                                    : matches
+                                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                                      : 'border-gray-200 dark:border-gray-700 opacity-25'
+                                }`}
+                              >
+                                <img src={getSetImageOrFallback(setKey, setKey.toUpperCase())} alt={setKey.toUpperCase()} className="w-14 h-14 object-contain" />
+                                <span className="text-xs font-semibold mt-1 uppercase tracking-wide">{setKey}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Class picker overlay */}
+                  {chordMode === 'class' && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setChordMode(null); setSetBuffer(''); }}>
+                      <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-2xl w-full max-w-xl mx-4" onClick={e => e.stopPropagation()}>
+                        <div className="text-center mb-5">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Type class name — Esc to cancel</p>
+                          <div className="text-4xl font-bold font-mono tracking-widest text-blue-500 dark:text-blue-400 min-h-[3rem]">
+                            {setBuffer ? setBuffer : <span className="opacity-20">type...</span>}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {CHORD_CLASSES.map(cls => {
+                            const matches = setBuffer === '' || cls.startsWith(setBuffer);
+                            const isActive = activeFilters.class === cls;
+                            return (
+                              <button
+                                key={cls}
+                                onClick={() => {
+                                  setActiveTab('cards');
+                                  isActive ? clearFilter('class') : setFilter('class', cls);
+                                  setChordMode(null); setSetBuffer('');
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all capitalize ${
+                                  isActive
+                                    ? 'border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+                                    : matches
+                                      ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                                      : 'border-gray-200 dark:border-gray-700 opacity-25'
+                                }`}
+                              >
+                                {cls}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chord mode hints for rarity / foiling */}
+                  {chordMode === 'rarity' && (
+                    <div className="flex flex-wrap gap-2 mb-4 p-2 rounded-md ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900">
+                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium">Rarity — press a key:</span>
+                      {[['F','Fabled'],['V','Marvel'],['L','Legendary'],['M','Majestic'],['P','Promo'],['S','Super Rare'],['R','Rare'],['C','Common'],['B','Basic'],['T','Token']].map(([key, label]) => (
+                        <span key={key} className="px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{key} = {label}</span>
+                      ))}
+                    </div>
+                  )}
+                  {chordMode === 'clear' && (
+                    <div className="flex flex-wrap gap-2 mb-4 p-2 rounded-md ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900">
+                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium">Press 0 again to clear all filters</span>
+                    </div>
+                  )}
+                  {chordMode === 'foiling' && (
+                    <div className="flex flex-wrap gap-2 mb-4 p-2 rounded-md ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900">
+                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium">Foiling — press a key:</span>
+                      {[['R','Rainbow'],['C','Cold'],['G','Gold'],['S','Non-foil']].map(([key, label]) => (
+                        <span key={key} className="px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{key} = {label}</span>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Alphabet filter strip */}
-                  <div className="flex flex-wrap gap-1 mb-4">
+                  <div className={`flex flex-wrap gap-1 mb-4 rounded-md transition-all ${chordMode === 'select' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 p-1' : ''}`}>
+                    {chordMode === 'select' && (
+                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium mb-1">1 = Rarity · 2 = Foiling · 3 = Set · 4 = Class · 0 = Clear · or type a letter</span>
+                    )}
                     {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => {
                       const isActive = activeFilters.startsWith === letter;
                       return (
@@ -875,7 +1108,9 @@ const SuperSlamDisclosure = () => {
                           className={`w-7 h-7 text-xs font-medium rounded transition-colors ${
                             isActive
                               ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                              : chordMode === 'select'
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                           }`}
                         >
                           {letter}
