@@ -1,11 +1,11 @@
 // components/binder/BinderHeader.tsx
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check } from 'lucide-react';
+import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check, Keyboard } from 'lucide-react';
 
 import { PricingStatus } from './PricingStatus';
 
@@ -46,6 +46,14 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
   priceUpdatedAt
 }) => {
   const [linkCopied, setLinkCopied] = useState(false);
+  const [shortcutGuideOpen, setShortcutGuideOpen] = useState(false);
+  const [isMac, setIsMac] = useState(true);
+
+  useEffect(() => {
+    setIsMac(navigator.platform.startsWith('Mac') || navigator.userAgent.includes('Mac'));
+  }, []);
+
+  const modKey = isMac ? '⌘' : 'Ctrl';
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -152,6 +160,47 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
           )}
           {linkCopied ? 'Copied!' : 'Copy Link'}
         </Button>
+
+        {/* Keyboard shortcut guide — desktop only */}
+        <div className="relative hidden sm:block">
+          <Button
+            variant="outline"
+            onClick={() => setShortcutGuideOpen(v => !v)}
+            className={`h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 font-medium transition-colors ${
+              shortcutGuideOpen
+                ? 'bg-violet-100 dark:bg-violet-900/40 border-violet-400 dark:border-violet-500 text-violet-700 dark:text-violet-300'
+                : 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-700 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/40 hover:border-violet-400 dark:hover:border-violet-500 hover:text-violet-700 dark:hover:text-violet-300'
+            }`}
+          >
+            <Keyboard className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+            <span className="font-mono">{modKey}K</span>
+          </Button>
+          {shortcutGuideOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShortcutGuideOpen(false)} />
+              <div className="absolute left-0 top-full mt-2 z-50 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Keyboard Shortcuts</p>
+                <div className="space-y-2.5">
+                  {[
+                    { keys: `${modKey}K → letter`, desc: 'Filter by starting letter (A–Z)' },
+                    { keys: `${modKey}K → 1 → key`, desc: 'Rarity — F=Fabled V=Marvel L=Legendary M=Majestic P=Promo S=Super Rare R=Rare C=Common B=Basic T=Token' },
+                    { keys: `${modKey}K → 2 → key`, desc: 'Foiling — R=Rainbow C=Cold G=Gold S=Non-foil' },
+                    { keys: `${modKey}K → 3 → code`, desc: <>Set by code (e.g. <span className="font-mono text-violet-600 dark:text-violet-400">cru</span>, <span className="font-mono text-violet-600 dark:text-violet-400">mst</span>)</> },
+                    { keys: `${modKey}K → 4 → name`, desc: <>Class (e.g. <span className="font-mono text-violet-600 dark:text-violet-400">ninja</span>, <span className="font-mono text-violet-600 dark:text-violet-400">generic</span>)</> },
+                    { keys: `${modKey}K → 9`, desc: 'Open Add Card dialog' },
+                    { keys: `${modKey}K → 0 → 0`, desc: 'Clear all filters' },
+                    { keys: 'Esc', desc: 'Cancel shortcut' },
+                  ].map(({ keys, desc }) => (
+                    <div key={keys} className="flex items-start gap-3">
+                      <kbd className="shrink-0 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs border border-gray-300 dark:border-gray-600 whitespace-nowrap">{keys}</kbd>
+                      <span className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

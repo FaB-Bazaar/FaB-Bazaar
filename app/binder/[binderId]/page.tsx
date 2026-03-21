@@ -349,6 +349,7 @@ export default function BinderPage() {
         if (e.key === '3') { setChordMode('set'); setSetBuffer(''); startTimeout(); return; }
         if (e.key === '4') { setChordMode('class'); setSetBuffer(''); startTimeout(); return; }
         if (e.key === '0') { setChordMode('clear'); startTimeout(); return; }
+        if (e.key === '9') { if (editable) setIsCardSearchOpen(true); resetChord(); return; }
         const letter = e.key.toUpperCase();
         if (/^[A-Z]$/.test(letter)) {
           setActiveTab('cards');
@@ -981,6 +982,7 @@ const SuperSlamDisclosure = () => {
                   <option value="tcg-low-desc">Sort: TCG Low (High to Low)</option>
                   <option value="tcg-low-asc">Sort: TCG Low (Low to High)</option>
                 </select>
+
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1097,7 +1099,7 @@ const SuperSlamDisclosure = () => {
                   {/* Alphabet filter strip */}
                   <div className={`flex flex-wrap gap-1 mb-4 rounded-md transition-all ${chordMode === 'select' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 p-1' : ''}`}>
                     {chordMode === 'select' && (
-                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium mb-1">1 = Rarity · 2 = Foiling · 3 = Set · 4 = Class · 0 = Clear · or type a letter</span>
+                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium mb-1">1 = Rarity · 2 = Foiling · 3 = Set · 4 = Class · 9 = Add Card · 0 = Clear · or type a letter</span>
                     )}
                     {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => {
                       const isActive = activeFilters.startsWith === letter;
