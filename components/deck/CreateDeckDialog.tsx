@@ -44,6 +44,10 @@ const ALL_HERO_CLASSES = mergeHeroClasses(
   getYoungHeroesGroupedByClass()
 );
 
+function toDisplayName(name: string): string {
+  return name.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+}
+
 function deriveFormat(heroName: string): string {
   if (heroName === 'none') return 'Classic Constructed';
   const key = heroName.toLowerCase();
@@ -71,7 +75,7 @@ export default function CreateDeckDialog({
     const abbrev = derivedFormat === 'Silver Age' ? 'Sage'
       : derivedFormat === 'Classic Constructed' ? 'CC'
       : derivedFormat;
-    return hero !== 'none' ? `${abbrev} - ${hero}` : `${abbrev} Deck`;
+    return hero !== 'none' ? `${abbrev} - ${toDisplayName(hero)}` : `${abbrev} Deck`;
   };
 
   const handleHeroSelect = (selectedHero: string) => {
@@ -156,7 +160,7 @@ export default function CreateDeckDialog({
                       return (
                         <CommandItem key={heroName} value={heroName} onSelect={() => handleHeroSelect(heroName)}>
                           <Check className={`mr-2 h-4 w-4 shrink-0 ${hero === heroName ? "opacity-100" : "opacity-0"}`} />
-                          <span className="flex-1 truncate">{heroName}</span>
+                          <span className="flex-1 truncate">{toDisplayName(heroName)}</span>
                           {info?.talents.map((t: string) => (
                             <Badge key={t} variant="secondary" className="text-[10px] py-0 px-1.5 ml-1">{t}</Badge>
                           ))}
@@ -172,12 +176,12 @@ export default function CreateDeckDialog({
 
         {/* Step 2: Name & Create */}
         {step === 2 && (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-1">
             {/* Summary */}
             <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 space-y-1">
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500">Hero:</span>
-                <span className="font-medium">{hero === 'none' ? 'None' : hero}</span>
+                <span className="font-medium">{hero === 'none' ? 'None' : toDisplayName(hero)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500">Format:</span>
