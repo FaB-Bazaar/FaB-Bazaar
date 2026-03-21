@@ -27,7 +27,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
-import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants";
+import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings } from "@/lib/fab-constants";
 
 // Import deck-specific components
 import DeckCard from "@/components/deck/DeckCard";
@@ -162,10 +162,13 @@ export default function DecksPage() {
             ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
           if (heroInfo?.cardUniqueId) {
             try {
-              const params = new URLSearchParams({ cardUniqueId: heroInfo.cardUniqueId, limit: '1', sortBy: 'set', sortOrder: 'asc', show: 'all' });
+              // Fetch printings and sort them the same way the printing dialog does
+              // so the auto-selected printing always matches what's shown first in the dialog
+              const params = new URLSearchParams({ cardUniqueId: heroInfo.cardUniqueId, limit: '50', show: 'browse_bulk' });
               const printingsRes = await fetch(`/api/printings/search?${params}`);
               const printingsData = await printingsRes.json();
-              const firstPrinting = printingsData.data?.printings?.[0];
+              const printings: any[] = printingsData.data?.printings ?? [];
+              const firstPrinting = sortPrintings(printings)[0];
               if (firstPrinting?.printing_id) {
                 await decksClient.addPrintings(result.data.publicId, [{ printingId: firstPrinting.printing_id, quantity: 1, category: 'hero' }]);
               }

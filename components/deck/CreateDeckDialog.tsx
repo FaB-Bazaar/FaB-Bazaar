@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Globe, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { HERO_INFO, getHeroesGroupedByClass, getYoungHeroesGroupedByClass, YOUNG_HERO_INFO } from '@/lib/fab-constants';
@@ -156,7 +155,7 @@ export default function CreateDeckDialog({
                         ?? YOUNG_HERO_INFO[heroName.toLowerCase() as keyof typeof YOUNG_HERO_INFO];
                       return (
                         <CommandItem key={heroName} value={heroName} onSelect={() => handleHeroSelect(heroName)}>
-                          <Check className={cn("mr-2 h-4 w-4 shrink-0", hero === heroName ? "opacity-100" : "opacity-0")} />
+                          <Check className={`mr-2 h-4 w-4 shrink-0 ${hero === heroName ? "opacity-100" : "opacity-0"}`} />
                           <span className="flex-1 truncate">{heroName}</span>
                           {info?.talents.map((t: string) => (
                             <Badge key={t} variant="secondary" className="text-[10px] py-0 px-1.5 ml-1">{t}</Badge>

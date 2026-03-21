@@ -155,13 +155,13 @@ export function useDeckEditor(deckId: string) {
     fetchOwnership();
   };
 
-  const handleBulkSearch = async (e: React.FormEvent) => {
+  const handleBulkSearch = async (e: React.FormEvent, inputOverride?: string) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const parsedCards = parseBulkInput(bulkInput, "cardlist");
+      const parsedCards = parseBulkInput(inputOverride ?? bulkInput, "cardlist");
       if (parsedCards.length === 0) throw new Error("Input is empty or could not be parsed.");
 
       // Build hero + format constraints from the loaded deck

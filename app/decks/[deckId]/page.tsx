@@ -119,21 +119,6 @@ export default function DeckEditorPage() {
       .finally(() => setBuildsLoading(false));
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
-  // Pre-populate search with unique card names from curated builds (first load only)
-  useEffect(() => {
-    if (!curatedBuilds.length || state.bulkInput) return;
-    const seen = new Set<string>();
-    const names: string[] = [];
-    for (const build of curatedBuilds) {
-      for (const card of build.cards) {
-        if (card.displayName && !seen.has(card.displayName)) {
-          seen.add(card.displayName);
-          names.push(card.displayName);
-        }
-      }
-    }
-    if (names.length) handlers.setBulkInput(names.join('\n'));
-  }, [curatedBuilds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch binders when user is available
   useEffect(() => {
@@ -448,52 +433,28 @@ export default function DeckEditorPage() {
     }
   };
 
-  const [applyingBuild, setApplyingBuild] = useState(false);
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
 
   const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
     if (!cardList?.length || !isOwner) return;
-
-    // On the Search tab: populate the bulk import text box so the user can review
-    // and stage cards before adding them, rather than adding directly to the deck.
-    if (activeTab === 'search') {
-      const counts = new Map<string, number>();
-      for (const card of cardList) {
-        const name = card.displayName || card.printingId;
-        counts.set(name, (counts.get(name) ?? 0) + 1);
-      }
-      const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
-      handlers.setBulkInput(lines.join('\n'));
-      setSearchFormOpen(true);
-      autoSearchedRef.current = true; // prevent auto-search from overwriting
-      const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
-      await handleSearch(syntheticEvent);
-      return;
+    // Always populate the bulk import text box and switch to Search tab.
+    // This lets the user review and stage cards before committing to the deck.
+    const counts = new Map<string, number>();
+    for (const card of cardList) {
+      const name = card.displayName || card.printingId;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
     }
-
-    // On the Deck tab: add directly to the deck
-    setApplyingBuild(true);
-    try {
-      const quantities = new Map<string, number>();
-      for (const card of cardList) {
-        quantities.set(card.printingId, (quantities.get(card.printingId) ?? 0) + 1);
-      }
-      const printings = Array.from(quantities.entries()).map(([printingId, quantity]) => ({
-        printingId,
-        quantity,
-        category: 'maindeck' as DeckCategory,
-      }));
-      const result = await decksClient.addPrintings(deckId, printings);
-      if (result.success) {
-        toast({ title: 'Cards added', description: `${cardList.length} card(s) added to your deck.` });
-        await handlers.refreshDeck();
-      } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-      }
-    } finally {
-      setApplyingBuild(false);
-    }
+    const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
+    const inputText = lines.join('\n');
+    handlers.setBulkInput(inputText);
+    autoSearchedRef.current = true; // prevent auto-search from overwriting
+    setActiveTab('search');
+    setSearchFormOpen(true);
+    const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
+    // Pass inputText directly to avoid React state batching (state.bulkInput may be stale)
+    await handlers.handleBulkSearch(syntheticEvent, inputText);
+    setSearchFormOpen(false);
   };
 
   const handleBinderChange = (binderId: string) => {
@@ -869,11 +830,10 @@ export default function DeckEditorPage() {
                     {curatedBuilds.map(build => (
                       <button
                         key={build.id}
-                        disabled={applyingBuild}
                         onClick={() => applyBuild(build.cards)}
-                        className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm disabled:opacity-50"
+                        className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm"
                       >
-                        {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
+                        {build.name}
                       </button>
                     ))}
                   </div>
