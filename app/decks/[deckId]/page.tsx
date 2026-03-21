@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -23,6 +23,7 @@ import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { cn } from "@/lib/utils";
+import { DarkModeToggle } from "@/components/DarkModeToggle";
 
 export default function DeckEditorPage() {
   const params = useParams();
@@ -697,6 +698,7 @@ export default function DeckEditorPage() {
                     {state.deck.format}
                   </span>
                 )}
+                <DarkModeToggle />
                 <span className="text-xs text-muted-foreground">
                   {!isOwner
                     ? "Read only"
@@ -769,11 +771,25 @@ export default function DeckEditorPage() {
             </div>
 
             {/* Curated build buttons — collapsible, always reserves space while loading */}
-            {isOwner && (buildsLoading || curatedBuilds.length > 0) && (
+            {isOwner && (buildsLoading || curatedBuilds.length > 0) && (() => {
+              const FABLAZING_FORMAT_MAP: Record<string, string> = {
+                'Classic Constructed': 'cc',
+                'Blitz': 'blitz',
+                'Living Legend': 'll',
+                'Silver Age': 'sage',
+              };
+              const heroDisplayName = state.deck?.hero?.[0]?.printingDetails?.display_name ?? state.deck?.heroName ?? null;
+              const fablazingFormat = state.deck?.format ? FABLAZING_FORMAT_MAP[state.deck.format] : undefined;
+              const fablazingUrl = heroDisplayName ? (() => {
+                const params: Record<string, string> = { hero_name: heroDisplayName, page: '1' };
+                if (fablazingFormat) params.format = fablazingFormat;
+                return `https://fablazing.com/decklists?${new URLSearchParams(params)}`;
+              })() : null;
+              return (
               <div className="mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
                 <button
                   onClick={() => !buildsLoading && setBuildsExpanded(v => !v)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-left rounded-t-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                   disabled={buildsLoading}
                 >
                   <Sparkles className="h-3.5 w-3.5 text-blue-700 dark:text-blue-300 shrink-0" />
@@ -783,7 +799,10 @@ export default function DeckEditorPage() {
                   </span>
                   {buildsLoading
                     ? <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />
-                    : <ChevronDown className={cn("h-3.5 w-3.5 text-blue-500 dark:text-blue-400 transition-transform", buildsExpanded && "rotate-180")} />
+                    : <span className="flex items-center gap-1 text-xs text-blue-500 dark:text-blue-400">
+                        {buildsExpanded ? 'collapse' : 'expand'}
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", buildsExpanded && "rotate-180")} />
+                      </span>
                   }
                 </button>
                 {buildsExpanded && (
@@ -800,8 +819,23 @@ export default function DeckEditorPage() {
                     ))}
                   </div>
                 )}
+                {fablazingUrl && (
+                  <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5">
+                    <a
+                      href={fablazingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+                    >
+                      <img src="/fablazing-logo.svg" alt="Fablazing" className="h-3.5 w-auto bg-gray-900 rounded px-1" />
+                      <span>View latest {heroDisplayName} decklists</span>
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  </div>
+                )}
               </div>
-            )}
+              );
+            })()}
 
             {/* Search tab content */}
             {isOwner && activeTab === "search" && (
