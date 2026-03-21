@@ -438,23 +438,40 @@ export default function DeckEditorPage() {
 
   const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
     if (!cardList?.length || !isOwner) return;
-    // Always populate the bulk import text box and switch to Search tab.
-    // This lets the user review and stage cards before committing to the deck.
-    const counts = new Map<string, number>();
-    for (const card of cardList) {
-      const name = card.displayName || card.printingId;
-      counts.set(name, (counts.get(name) ?? 0) + 1);
+
+    if (activeTab === 'search') {
+      // Search tab: populate the text input and run the search so user can review/stage
+      const counts = new Map<string, number>();
+      for (const card of cardList) {
+        const name = card.displayName || card.printingId;
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+      }
+      const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
+      const inputText = lines.join('\n');
+      handlers.setBulkInput(inputText);
+      autoSearchedRef.current = true;
+      setSearchFormOpen(true);
+      const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
+      await handlers.handleBulkSearch(syntheticEvent, inputText);
+      setSearchFormOpen(false);
+    } else {
+      // Deck/other tabs: add cards directly to the deck
+      const printingCounts = new Map<string, number>();
+      for (const card of cardList) {
+        printingCounts.set(card.printingId, (printingCounts.get(card.printingId) ?? 0) + 1);
+      }
+      const printingsPayload = Array.from(printingCounts.entries()).map(([printingId, quantity]) => ({
+        printingId,
+        quantity,
+      }));
+      const result = await decksClient.addPrintings(deckId, printingsPayload);
+      if (result.success) {
+        toast({ title: "Build applied", description: `Added ${cardList.length} card(s) to deck.` });
+        await handlers.refreshDeck();
+      } else {
+        toast({ title: "Failed to apply build", description: result.error, variant: "destructive" });
+      }
     }
-    const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
-    const inputText = lines.join('\n');
-    handlers.setBulkInput(inputText);
-    autoSearchedRef.current = true; // prevent auto-search from overwriting
-    setActiveTab('search');
-    setSearchFormOpen(true);
-    const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
-    // Pass inputText directly to avoid React state batching (state.bulkInput may be stale)
-    await handlers.handleBulkSearch(syntheticEvent, inputText);
-    setSearchFormOpen(false);
   };
 
   const handleBinderChange = (binderId: string) => {
