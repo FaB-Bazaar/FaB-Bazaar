@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
 import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
+import { KEYWORDS } from "@/lib/fab-constants/keywords";
 import { decksClient, bindersClient, wantsClient } from "@/lib/client";
 import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
@@ -126,12 +127,13 @@ export default function DeckEditorPage() {
   const heroTypes: string[] = ((state.deck?.hero?.[0]?.printingDetails as any)?.types || []).map((t: string) => t.toLowerCase());
   const heroClass = heroTypes.find(t => !NON_CLASS_TYPES.has(t)) || '';
 
-  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'clear'>(null);
+  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear'>(null);
+  const [keywordBuffer, setKeywordBuffer] = useState('');
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
 
-    const resetChord = () => { setChordMode(null); clearTimeout(timeout); };
+    const resetChord = () => { setChordMode(null); setKeywordBuffer(''); clearTimeout(timeout); };
     const startTimeout = () => { clearTimeout(timeout); timeout = setTimeout(resetChord, 2000); };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -174,12 +176,16 @@ export default function DeckEditorPage() {
         else if (e.key.toLowerCase() === 'c') { setChordMode('cost'); startTimeout(); }
         else if (e.key.toLowerCase() === 'd') { setChordMode('defense'); startTimeout(); }
         else if (e.key.toLowerCase() === 't') { setChordMode('type'); startTimeout(); }
+        else if (e.key.toLowerCase() === 'k') { setChordMode('keyword'); setKeywordBuffer(''); startTimeout(); }
         else if (e.key.toLowerCase() === 'f') { setChordMode('clear'); startTimeout(); }
         else { resetChord(); }
         return;
       }
 
       const scrollToRed = () => document.getElementById('deck-section-red')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+      const EQUIPMENT_KEYWORDS = new Set(['battleworn', 'arcane barrier', 'blade break', 'cloaked', 'modular', 'spellvoid', 'quell', 'temper', 'unity', 'guardwell']);
+      const scrollForKeyword = (kw: string) => EQUIPMENT_KEYWORDS.has(kw) ? scrollToTop() : scrollToRed();
 
       if (chordMode === 'attack') {
         const n = parseInt(e.key);
@@ -233,6 +239,42 @@ export default function DeckEditorPage() {
         return;
       }
 
+      if (chordMode === 'keyword') {
+        if (e.key === 'Backspace') {
+          setKeywordBuffer(prev => prev.slice(0, -1));
+          startTimeout();
+          return;
+        }
+        if (e.key === 'Enter') {
+          const matches = (KEYWORDS as readonly string[]).filter(k => k.startsWith(keywordBuffer));
+          if (matches.length >= 1) {
+            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'keyword', value: matches[0] } }));
+            scrollForKeyword(matches[0]);
+          }
+          resetChord();
+          setKeywordBuffer('');
+          return;
+        }
+        const char = e.key.toLowerCase();
+        if (/^[a-z ]$/.test(char)) {
+          const next = keywordBuffer + char;
+          setKeywordBuffer(next);
+          const matches = (KEYWORDS as readonly string[]).filter(k => k.startsWith(next));
+          if (matches.length === 1) {
+            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'keyword', value: matches[0] } }));
+            scrollForKeyword(matches[0]);
+            resetChord();
+            setKeywordBuffer('');
+          } else if (matches.length === 0) {
+            setKeywordBuffer('');
+            startTimeout();
+          } else {
+            startTimeout();
+          }
+        }
+        return;
+      }
+
       if (chordMode === 'clear') {
         if (e.key === '0') window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
         resetChord();
@@ -242,7 +284,7 @@ export default function DeckEditorPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => { document.removeEventListener('keydown', handleKeyDown); clearTimeout(timeout); };
-  }, [chordMode, activeTab]);
+  }, [chordMode, activeTab, keywordBuffer]);
   // ────────────────────────────────────────────────────────────────────────────
 
   // Redirect only when the deck is private and the viewer isn't the owner
@@ -457,72 +499,141 @@ export default function DeckEditorPage() {
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
       {/* Chord mode HUD — shown when Cmd/Ctrl+K is pressed */}
-      {chordMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
-          <div className="flex items-center gap-4 text-sm text-gray-200">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-              {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', clear: 'F' }[chordMode!]}`}
-            </span>
-            <div className="w-px h-6 bg-gray-700" />
-            {chordMode === 'select' && [
-              { key: '0', label: 'Top' },
-              { key: '1', label: 'Red', color: 'text-red-400' },
-              { key: '2', label: 'Yellow', color: 'text-yellow-400' },
-              { key: '3', label: 'Blue', color: 'text-blue-400' },
-              { key: '4', label: 'Inventory' },
-              { key: '7', label: '+ Bench' },
-              { key: '8', label: '+ Inventory' },
-              { key: '9', label: '+ Library' },
-              { key: 'A', label: 'Attack' },
-              { key: 'C', label: 'Cost' },
-              { key: 'D', label: activeTab === 'deck' ? 'Defense' : 'Deck' },
-              { key: 'T', label: 'Type' },
-              { key: 'F', label: 'Filters' },
-              { key: 'S', label: 'Search' },
-              { key: 'M', label: 'Matchups' },
-            ].map(({ key, label, color }) => (
-              <div key={key} className="flex items-center gap-1.5">
-                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
-                <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
-              </div>
-            ))}
-            {(chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense') && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-400 mr-1">
-                  {chordMode === 'attack' ? 'Attack' : chordMode === 'cost' ? 'Cost' : 'Defense'} =
-                </span>
-                {[0,1,2,3,4,5,6,7,8,9].map(n => (
-                  <kbd key={n} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{n}</kbd>
-                ))}
-              </div>
-            )}
-            {chordMode === 'type' && [
-              { key: 'A', label: 'Attack' },
-              { key: 'N', label: 'Non-Attack' },
-              { key: 'I', label: 'Instant' },
-              { key: 'D', label: 'Def Reaction' },
-              { key: 'R', label: 'Atk Reaction' },
-              { key: 'E', label: 'Equipment' },
-              { key: 'W', label: 'Weapon' },
-              { key: 'G', label: 'Generic' },
-              ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
-            ].map(({ key, label }) => (
-              <div key={key} className="flex items-center gap-1.5">
-                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
-                <span className="text-xs text-gray-400">{label}</span>
-              </div>
-            ))}
-            {chordMode === 'clear' && (
-              <div className="flex items-center gap-1.5">
-                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">0</kbd>
-                <span className="text-xs text-gray-400">Clear all filters</span>
-              </div>
-            )}
-            <div className="w-px h-6 bg-gray-700" />
-            <span className="text-[10px] text-gray-500">Esc to cancel</span>
+      {chordMode && (() => {
+        const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const scrollRed = () => scrollTo('deck-section-red');
+        const EQUIPMENT_KW = new Set(['battleworn', 'arcane barrier', 'blade break', 'cloaked', 'modular', 'spellvoid', 'quell', 'temper', 'unity', 'guardwell']);
+        const scrollForKw = (kw: string) => EQUIPMENT_KW.has(kw) ? window.scrollTo({ top: 0, behavior: 'smooth' }) : scrollRed();
+        const SELECT_ACTIONS: Record<string, () => void> = {
+          '0': () => { window.scrollTo({ top: 0, behavior: 'smooth' }); setChordMode(null); },
+          '1': () => { scrollTo('deck-section-red'); setChordMode(null); },
+          '2': () => { scrollTo('deck-section-yellow'); setChordMode(null); },
+          '3': () => { scrollTo('deck-section-blue'); setChordMode(null); },
+          '4': () => { scrollTo('deck-section-inventory'); setChordMode(null); },
+          '7': () => { setQuickAddTarget({ category: 'benched' as DeckCategory }); setChordMode(null); },
+          '8': () => { setQuickAddTarget({ category: 'inventory' }); setChordMode(null); },
+          '9': () => { setQuickAddTarget({ category: 'maindeck' }); setChordMode(null); },
+          'A': () => setChordMode('attack'),
+          'C': () => setChordMode('cost'),
+          'D': () => { if (activeTab !== 'deck') { setActiveTab('deck'); setChordMode(null); } else setChordMode('defense'); },
+          'T': () => setChordMode('type'),
+          'K': () => { setChordMode('keyword'); setKeywordBuffer(''); },
+          'F': () => setChordMode('clear'),
+          'S': () => { setActiveTab('search'); setChordMode(null); },
+          'M': () => { setActiveTab('matchups'); setChordMode(null); },
+        };
+        const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense' };
+        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', C: heroClass };
+        const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
+        return (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
+            <div className="flex items-center gap-4 text-sm text-gray-200 flex-wrap">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F' }[chordMode!]}`}
+              </span>
+              <div className="w-px h-6 bg-gray-700" />
+              {chordMode === 'select' && [
+                { key: '0', label: 'Top' },
+                { key: '1', label: 'Red', color: 'text-red-400' },
+                { key: '2', label: 'Yellow', color: 'text-yellow-400' },
+                { key: '3', label: 'Blue', color: 'text-blue-400' },
+                { key: '4', label: 'Inventory' },
+                { key: '7', label: '+ Bench' },
+                { key: '8', label: '+ Inventory' },
+                { key: '9', label: '+ Library' },
+                { key: 'A', label: 'Attack' },
+                { key: 'C', label: 'Cost' },
+                { key: 'D', label: activeTab === 'deck' ? 'Defense' : 'Deck' },
+                { key: 'T', label: 'Type' },
+                { key: 'K', label: 'Keyword' },
+                { key: 'F', label: 'Filters' },
+                { key: 'S', label: 'Search' },
+                { key: 'M', label: 'Matchups' },
+              ].map(({ key, label, color }) => (
+                <button key={key} type="button" className={hudBtn} onClick={() => SELECT_ACTIONS[key]?.()}>
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
+                  <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
+                </button>
+              ))}
+              {(chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense') && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400 mr-1">
+                    {chordMode === 'attack' ? 'Attack' : chordMode === 'cost' ? 'Cost' : 'Defense'} =
+                  </span>
+                  {[0,1,2,3,4,5,6,7,8,9].map(n => (
+                    <button key={n} type="button" className={hudBtn} onClick={() => {
+                      window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: STAT_MAP[chordMode!], value: n } }));
+                      scrollRed();
+                      setChordMode(null);
+                    }}>
+                      <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{n}</kbd>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {chordMode === 'type' && [
+                { key: 'A', label: 'Attack' },
+                { key: 'N', label: 'Non-Attack' },
+                { key: 'I', label: 'Instant' },
+                { key: 'D', label: 'Def Reaction' },
+                { key: 'R', label: 'Atk Reaction' },
+                { key: 'E', label: 'Equipment' },
+                { key: 'W', label: 'Weapon' },
+                { key: 'G', label: 'Generic' },
+                ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
+              ].map(({ key, label }) => (
+                <button key={key} type="button" className={hudBtn} onClick={() => {
+                  const val = TYPE_KEYS[key];
+                  if (val) {
+                    window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'type', value: val } }));
+                    scrollRed();
+                  }
+                  setChordMode(null);
+                }}>
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
+                  <span className="text-xs text-gray-400">{label}</span>
+                </button>
+              ))}
+              {chordMode === 'keyword' && (() => {
+                const matches = (KEYWORDS as readonly string[]).filter(k => k.startsWith(keywordBuffer));
+                return (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-400">Type to filter:</span>
+                    <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-100 font-mono text-xs border border-gray-600 min-w-[60px]">
+                      {keywordBuffer || '…'}
+                    </kbd>
+                    <span className="text-[10px] text-gray-500">({matches.length} match{matches.length !== 1 ? 'es' : ''})</span>
+                    <div className="flex gap-1.5 flex-wrap max-w-[500px]">
+                      {matches.slice(0, 12).map(k => (
+                        <button key={k} type="button" className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:text-white cursor-pointer transition-colors" onClick={() => {
+                          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'keyword', value: k } }));
+                          scrollForKw(k);
+                          setChordMode(null);
+                          setKeywordBuffer('');
+                        }}>
+                          {k}
+                        </button>
+                      ))}
+                      {matches.length > 12 && <span className="text-[10px] text-gray-500">+{matches.length - 12}</span>}
+                    </div>
+                  </div>
+                );
+              })()}
+              {chordMode === 'clear' && (
+                <button type="button" className={hudBtn} onClick={() => {
+                  window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
+                  setChordMode(null);
+                }}>
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">0</kbd>
+                  <span className="text-xs text-gray-400">Clear all filters</span>
+                </button>
+              )}
+              <div className="w-px h-6 bg-gray-700" />
+              <button type="button" className="text-[10px] text-gray-500 hover:text-gray-300 cursor-pointer transition-colors" onClick={() => setChordMode(null)}>Esc to cancel</button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {isOwner && activeTab === "search" && (
         <DeckEditorSidebar

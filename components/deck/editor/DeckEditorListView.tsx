@@ -805,6 +805,7 @@ function DeckTileSection({
         if (tile.category !== 'inventory') dests.push({ to: 'inventory', label: 'Move to Inventory' });
         if (tile.category !== 'maindeck' && isLibraryCompatible(tile.types)) dests.push({ to: 'maindeck', label: 'Move to Library' });
         if (tile.category !== 'equipment' && isEquipmentCompatible(tile.types)) dests.push({ to: 'equipment', label: 'Move to Equipment' });
+        if (tile.category !== 'benched') dests.push({ to: 'benched', label: 'Move to Bench' });
         if (dests.length === 0) { setContextMenu(null); return null; }
         return (
           <>
@@ -1234,6 +1235,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         for (const c of allCards) {
           const details = c.printingDetails as any;
           const passes = highlightFilters.every(f => {
+            // Keyword filter — match against the keywords array (startsWith to handle "arcane barrier 1" etc.)
+            if (f.stat === 'keyword') {
+              const kws: string[] = ((details?.keywords as string[] | undefined) || []).map((k: string) => k.toLowerCase());
+              const needle = String(f.value).toLowerCase();
+              return kws.some(k => k === needle || k.startsWith(needle + ' '));
+            }
             // Type filter — match against the types array
             if (f.stat === 'type') {
               const types: string[] = ((details?.types as string[] | undefined) || []).map((t: string) => t.toLowerCase());
@@ -1263,6 +1270,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const nonPitchFilters = highlightFilters.filter(f => f.stat !== 'pitch');
     if (nonPitchFilters.length === 0) return null;
     return nonPitchFilters.every(f => {
+      if (f.stat === 'keyword') {
+        const kws: string[] = ((card as any).keywords || []).map((k: string) => k.toLowerCase());
+        const needle = String(f.value).toLowerCase();
+        return kws.some(k => k === needle || k.startsWith(needle + ' '));
+      }
       if (f.stat === 'type') {
         const types: string[] = ((card as any).types || []).map((t: string) => t.toLowerCase());
         const tv = String(f.value);
