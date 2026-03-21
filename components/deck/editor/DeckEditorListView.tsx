@@ -385,7 +385,7 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
   addCards(deck.benched || [], 'benched');
 
   // Always show these zones even when empty so users know where to add cards
-  for (const key of ['equipment', 'red', 'yellow', 'blue', 'inventory'] as TileSectionKey[]) {
+  for (const key of ['equipment', 'red', 'yellow', 'blue', 'inventory', 'bench'] as TileSectionKey[]) {
     if (!sectionMap.has(key)) sectionMap.set(key, []);
   }
 
@@ -1507,15 +1507,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const maindeckCards = displayDeck.maindeck || [];
   const inventoryCards = displayDeck.inventory || [];
   const benchedCards = displayDeck.benched || [];
-
-  if (!heroCards.length && !equipmentCards.length && !maindeckCards.length && !inventoryCards.length && !benchedCards.length) {
-    return (
-      <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-        <p className="font-medium">This deck is empty.</p>
-        <p className="text-sm mt-1">Use the Search tab to find cards to add.</p>
-      </div>
-    );
-  }
 
   const tileSections = buildTileSections(displayDeck);
 

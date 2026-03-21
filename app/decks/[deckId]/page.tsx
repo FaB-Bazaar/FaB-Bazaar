@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink } from "lucide-react";
@@ -57,6 +57,9 @@ export default function DeckEditorPage() {
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
 
+  // Tracks whether the one-time auto-search from curated builds has fired
+  const autoSearchedRef = useRef(false);
+
   // Dialog state: for staged card printing swap
   const [activeDialogInstanceId, setActiveDialogInstanceId] = useState<string | null>(null);
 
@@ -71,6 +74,16 @@ export default function DeckEditorPage() {
     await handlers.handleBulkSearch(e);
     setSearchFormOpen(false);
   };
+
+  // Auto-trigger search the first time the user opens the Search tab,
+  // if the input was pre-populated from curated builds and no search has run yet.
+  useEffect(() => {
+    if (activeTab !== 'search' || autoSearchedRef.current || !state.bulkInput || state.bulkResults.length > 0) return;
+    autoSearchedRef.current = true;
+    const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
+    handleSearch(syntheticEvent);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   const activeInstance = state.bulkResults.find(c => c.instanceId === activeDialogInstanceId);
 
   const handleQuickAddCard = async (printing: any, quantity: number) => {
@@ -105,6 +118,22 @@ export default function DeckEditorPage() {
       .catch(() => {})
       .finally(() => setBuildsLoading(false));
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
+
+  // Pre-populate search with unique card names from curated builds (first load only)
+  useEffect(() => {
+    if (!curatedBuilds.length || state.bulkInput) return;
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const build of curatedBuilds) {
+      for (const card of build.cards) {
+        if (card.displayName && !seen.has(card.displayName)) {
+          seen.add(card.displayName);
+          names.push(card.displayName);
+        }
+      }
+    }
+    if (names.length) handlers.setBulkInput(names.join('\n'));
+  }, [curatedBuilds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch binders when user is available
   useEffect(() => {
@@ -420,7 +449,7 @@ export default function DeckEditorPage() {
   };
 
   const [applyingBuild, setApplyingBuild] = useState(false);
-  const [buildsExpanded, setBuildsExpanded] = useState(false);
+  const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
 
   const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
@@ -812,7 +841,13 @@ export default function DeckEditorPage() {
                   }
                 </button>
                 {buildsExpanded && (
-                  <div className="flex items-center gap-2 px-3 pb-2 flex-wrap border-t border-blue-200 dark:border-blue-800 pt-2">
+                  <div className="px-3 pb-2 border-t border-blue-200 dark:border-blue-800 pt-2">
+                    {(state.deck?.maindeck?.length ?? 0) === 0 && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
+                        New deck? Click a build below to add the most common cards for this hero.
+                      </p>
+                    )}
+                  <div className="flex items-center gap-2 flex-wrap">
                     {curatedBuilds.map(build => (
                       <button
                         key={build.id}
@@ -823,6 +858,7 @@ export default function DeckEditorPage() {
                         {applyingBuild ? <Loader2 className="h-3 w-3 animate-spin inline" /> : build.name}
                       </button>
                     ))}
+                  </div>
                   </div>
                 )}
                 {fablazingUrl && (

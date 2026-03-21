@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ArrowLeft, Globe, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Globe, Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { HERO_INFO, getHeroesGroupedByClass, getYoungHeroesGroupedByClass, YOUNG_HERO_INFO, type HeroInfo } from '@/lib/fab-constants';
-import DeckCardSearchDialog from "@/components/deck/DeckCardSearchDialog";
-import { SearchableHeroSelect } from "@/components/deck/SearchableHeroSelect";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { HERO_INFO, getHeroesGroupedByClass, getYoungHeroesGroupedByClass, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 
 interface CreateDeckDialogProps {
   open: boolean;
@@ -27,109 +25,77 @@ interface CreateDeckDialogProps {
   }) => Promise<void>;
 }
 
-const FORMATS = [
-  'Classic Constructed',
-  'Silver Age',
-  'Blitz',
-  'Limited',
-  'Commoner',
-  'Living Legend'
-];
+// Merge adult + young hero classes into a single grouped list
+function mergeHeroClasses(
+  adult: Record<string, string[]>,
+  young: Record<string, string[]>
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  const allClasses = new Set([...Object.keys(adult), ...Object.keys(young)]);
+  for (const cls of allClasses) {
+    const combined = [...(adult[cls] ?? []), ...(young[cls] ?? [])];
+    if (combined.length) result[cls] = combined;
+  }
+  return result;
+}
 
-const FORMAT_ABBREVIATIONS: Record<string, string> = {
-  'Classic Constructed': 'CC',
-  'Silver Age': 'SAGE',
-  'Blitz': 'Blitz',
-  'Limited': 'Limited',
-  'Commoner': 'Commoner',
-  'Living Legend': 'LL',
-};
+const ALL_HERO_CLASSES = mergeHeroClasses(
+  getHeroesGroupedByClass(),
+  getYoungHeroesGroupedByClass()
+);
 
-// Get heroes grouped by class from the single source of truth
-const HERO_CLASSES = getHeroesGroupedByClass();
-const YOUNG_HERO_CLASSES = getYoungHeroesGroupedByClass();
+function deriveFormat(heroName: string): string {
+  if (heroName === 'none') return 'Classic Constructed';
+  const key = heroName.toLowerCase();
+  if (!HERO_INFO[key as keyof typeof HERO_INFO] && YOUNG_HERO_INFO[key as keyof typeof YOUNG_HERO_INFO]) {
+    return 'Silver Age';
+  }
+  return 'Classic Constructed';
+}
 
 export default function CreateDeckDialog({
   open,
   onOpenChange,
   onCreateDeck
 }: CreateDeckDialogProps) {
-  const [step, setStep] = useState(1); // 1=format, 2=hero, 3=visibility, 4=name
+  const [step, setStep] = useState(1); // 1=hero, 2=name
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [format, setFormat] = useState("");
   const [hero, setHero] = useState("none");
   const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedHeroPrinting, setSelectedHeroPrinting] = useState<any | null>(null);
-  const [heroPrintingDialogOpen, setHeroPrintingDialogOpen] = useState(false);
 
-  // Get the appropriate hero list based on format
-  const heroClasses = format === 'Silver Age'
-    ? YOUNG_HERO_CLASSES
-    : HERO_CLASSES;
+  const derivedFormat = deriveFormat(hero);
 
-  // Generate default deck name
   const getDefaultDeckName = () => {
-    const abbrev = FORMAT_ABBREVIATIONS[format] || format;
-    if (hero !== 'none') {
-      return `${abbrev} - ${hero}`;
-    }
-    return `${abbrev} Deck`;
-  };
-
-  const STEP_TITLES = ['', 'Select Format', 'Select Hero', 'Visibility', 'Name Your Deck'];
-
-  const handleFormatSelect = (selectedFormat: string) => {
-    setFormat(selectedFormat);
-    setHero('none');
-    setSelectedHeroPrinting(null);
-    setStep(2);
+    const abbrev = derivedFormat === 'Silver Age' ? 'Sage'
+      : derivedFormat === 'Classic Constructed' ? 'CC'
+      : derivedFormat;
+    return hero !== 'none' ? `${abbrev} - ${hero}` : `${abbrev} Deck`;
   };
 
   const handleHeroSelect = (selectedHero: string) => {
     setHero(selectedHero);
-    setSelectedHeroPrinting(null);
-
-    if (selectedHero === 'none') {
-      setStep(3);
-    } else {
-      // Open printing picker for the selected hero
-      setHeroPrintingDialogOpen(true);
-    }
-  };
-
-  const handleVisibilitySelect = (publicChoice: boolean) => {
-    setIsPublic(publicChoice);
-    setStep(4);
+    setStep(2);
   };
 
   const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
+    if (step > 1) setStep(step - 1);
   };
 
   const handleSubmit = async () => {
     const deckName = name.trim();
-
-    // Require deck name
-    if (!deckName) {
-      return;
-    }
+    if (!deckName) return;
 
     try {
       setLoading(true);
       await onCreateDeck({
         name: deckName,
         description: description.trim(),
-        format,
+        format: derivedFormat,
         hero: hero === "none" ? undefined : hero.trim() || undefined,
-        heroPrintingId: selectedHeroPrinting?.printing_id || selectedHeroPrinting?.unique_id,
-        isPublic
+        isPublic,
       });
-
-      // Reset form
       resetForm();
     } catch (error) {
       console.error('Failed to create deck:', error);
@@ -142,16 +108,12 @@ export default function CreateDeckDialog({
     setStep(1);
     setName("");
     setDescription("");
-    setFormat("");
     setHero("none");
     setIsPublic(false);
-    setSelectedHeroPrinting(null);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      resetForm();
-    }
+    if (!newOpen) resetForm();
     onOpenChange(newOpen);
   };
 
@@ -171,132 +133,57 @@ export default function CreateDeckDialog({
               </Button>
             )}
             <DialogTitle className="flex-1">
-              {STEP_TITLES[step]}
+              {step === 1 ? 'Select Hero' : 'Name Your Deck'}
             </DialogTitle>
             <span className="text-xs text-gray-400 shrink-0">
-              Step {step} of 4
+              Step {step} of 2
             </span>
           </div>
         </DialogHeader>
 
-        {/* Step 1: Format Selection */}
+        {/* Step 1: Hero Selection — inline command search */}
         {step === 1 && (
-          <div className="grid grid-cols-2 gap-2">
-            {FORMATS.map((f) => (
-              <button
-                key={f}
-                className={cn(
-                  "p-3 rounded-lg border-2 text-left transition-colors",
-                  "hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20",
-                  "active:bg-blue-100 dark:active:bg-blue-900/30",
-                  "border-gray-200 dark:border-gray-700"
-                )}
-                onClick={() => handleFormatSelect(f)}
-              >
-                <div className="font-medium text-sm">{f}</div>
-                <div className="text-[10px] text-gray-400 mt-0.5">
-                  {FORMAT_ABBREVIATIONS[f]}
-                </div>
-              </button>
-            ))}
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <Command className="flex-1 overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg">
+              <CommandInput placeholder="Search by name, class, or talent..." autoFocus />
+              <CommandList className="flex-1 overflow-y-auto">
+                <CommandEmpty>No heroes found.</CommandEmpty>
+                {Object.entries(ALL_HERO_CLASSES).sort(([a], [b]) => a.localeCompare(b)).map(([className, heroNames]) => (
+                  <CommandGroup key={className} heading={className.charAt(0).toUpperCase() + className.slice(1)}>
+                    {[...heroNames].sort((a, b) => a.localeCompare(b)).map((heroName) => {
+                      const info = HERO_INFO[heroName.toLowerCase() as keyof typeof HERO_INFO]
+                        ?? YOUNG_HERO_INFO[heroName.toLowerCase() as keyof typeof YOUNG_HERO_INFO];
+                      return (
+                        <CommandItem key={heroName} value={heroName} onSelect={() => handleHeroSelect(heroName)}>
+                          <Check className={cn("mr-2 h-4 w-4 shrink-0", hero === heroName ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">{heroName}</span>
+                          {info?.talents.map((t: string) => (
+                            <Badge key={t} variant="secondary" className="text-[10px] py-0 px-1.5 ml-1">{t}</Badge>
+                          ))}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                ))}
+              </CommandList>
+            </Command>
           </div>
         )}
 
-        {/* Step 2: Hero Selection */}
+        {/* Step 2: Name & Create */}
         {step === 2 && (
-          <div className="flex-1 overflow-y-auto -mx-1 px-1">
-            <div className="space-y-3">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Search for your hero by name, class, or talent
-              </div>
-              <SearchableHeroSelect
-                heroes={heroClasses}
-                format={format}
-                onSelect={handleHeroSelect}
-                value={hero !== 'none' ? hero : undefined}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Visibility */}
-        {step === 3 && (
-          <div className="space-y-3">
-            {/* Summary of selections so far */}
-            <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 space-y-1">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">Format:</span>
-                <span className="font-medium">{format}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">Hero:</span>
-                <span className="font-medium">{hero === 'none' ? 'None' : hero}</span>
-              </div>
-              {selectedHeroPrinting && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span>Printing:</span>
-                  <span>{selectedHeroPrinting.set} / {selectedHeroPrinting.edition === 'f' ? '1st Ed' : selectedHeroPrinting.edition === 'u' ? 'Unlimited' : selectedHeroPrinting.edition}</span>
-                </div>
-              )}
-            </div>
-
-            <button
-              className={cn(
-                "w-full p-4 rounded-lg border-2 text-left transition-colors",
-                "hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20",
-                "active:bg-blue-100 dark:active:bg-blue-900/30",
-                "border-gray-200 dark:border-gray-700"
-              )}
-              onClick={() => handleVisibilitySelect(false)}
-            >
-              <div className="flex items-center gap-3">
-                <Lock className="h-5 w-5 text-gray-500 shrink-0" />
-                <div>
-                  <div className="font-medium text-sm">Private</div>
-                  <div className="text-xs text-gray-500">Only you can see this deck</div>
-                </div>
-              </div>
-            </button>
-
-            <button
-              className={cn(
-                "w-full p-4 rounded-lg border-2 text-left transition-colors",
-                "hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20",
-                "active:bg-blue-100 dark:active:bg-blue-900/30",
-                "border-gray-200 dark:border-gray-700"
-              )}
-              onClick={() => handleVisibilitySelect(true)}
-            >
-              <div className="flex items-center gap-3">
-                <Globe className="h-5 w-5 text-blue-500 shrink-0" />
-                <div>
-                  <div className="font-medium text-sm">Public</div>
-                  <div className="text-xs text-gray-500">Anyone can view (required for articles)</div>
-                </div>
-              </div>
-            </button>
-          </div>
-        )}
-
-        {/* Step 4: Name & Create */}
-        {step === 4 && (
           <div className="space-y-4">
             {/* Summary */}
             <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 space-y-1">
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">Format:</span>
-                <span className="font-medium">{format}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-500">Hero:</span>
                 <span className="font-medium">{hero === 'none' ? 'None' : hero}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-500">Visibility:</span>
-                <div className="flex items-center gap-1">
-                  {isPublic ? <Globe className="h-3 w-3 text-blue-500" /> : <Lock className="h-3 w-3 text-gray-500" />}
-                  <span className="font-medium">{isPublic ? 'Public' : 'Private'}</span>
-                </div>
+                <span className="text-gray-500">Format:</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
+                  {derivedFormat}
+                </span>
               </div>
             </div>
 
@@ -310,6 +197,7 @@ export default function CreateDeckDialog({
                 maxLength={100}
                 autoFocus
                 required
+                onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) handleSubmit(); }}
               />
               {!name.trim() && (
                 <p className="text-[10px] text-red-500">
@@ -333,6 +221,19 @@ export default function CreateDeckDialog({
               />
             </div>
 
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5 text-blue-500" />
+                Make public (required for articles)
+              </span>
+            </label>
+
             <Button
               className="w-full h-11"
               onClick={handleSubmit}
@@ -343,35 +244,6 @@ export default function CreateDeckDialog({
           </div>
         )}
       </DialogContent>
-
-      {/* Hero Printing Search Dialog */}
-      <DeckCardSearchDialog
-        open={heroPrintingDialogOpen}
-        onOpenChange={(dialogOpen) => {
-          setHeroPrintingDialogOpen(dialogOpen);
-          // If user cancelled without picking a printing, reset hero
-          if (!dialogOpen && !selectedHeroPrinting) {
-            setHero('none');
-          }
-        }}
-        onSelectCard={(card, printing, quantity) => {
-          setSelectedHeroPrinting(printing);
-          setHeroPrintingDialogOpen(false);
-          setStep(3); // Advance to visibility step
-        }}
-        targetCategory="hero"
-        deckFormat={format}
-        heroNameFilter={hero !== "none" ? hero : undefined}
-        heroCardUniqueId={(() => {
-          if (hero === "none") return undefined;
-          const key = hero.toLowerCase();
-          const info = HERO_INFO[key as keyof typeof HERO_INFO];
-          if (info?.cardUniqueId) return info.cardUniqueId;
-          const youngInfo = YOUNG_HERO_INFO[key as keyof typeof YOUNG_HERO_INFO];
-          return youngInfo?.cardUniqueId;
-        })()}
-        currentDeck={undefined}
-      />
     </Dialog>
   );
 }
