@@ -51,7 +51,7 @@ export default function DeckEditorPage() {
   const [curatedBuilds, setCuratedBuilds] = useState<Array<{
     id: string;
     name: string;
-    cards: Array<{ printingId: string; displayName?: string }>;
+    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string }>;
   }>>([]);
 
   // Search form collapse state
@@ -443,8 +443,10 @@ export default function DeckEditorPage() {
       // Search tab: populate the text input and run the search so user can review/stage
       const counts = new Map<string, number>();
       for (const card of cardList) {
-        const name = card.displayName || card.printingId;
-        counts.set(name, (counts.get(name) ?? 0) + 1);
+        const baseName = card.displayName || card.printingId;
+        const colorSuffix = card.color ? ` (${card.color.charAt(0).toUpperCase() + card.color.slice(1)})` : '';
+        const key = baseName + colorSuffix;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
       }
       const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
       const inputText = lines.join('\n');

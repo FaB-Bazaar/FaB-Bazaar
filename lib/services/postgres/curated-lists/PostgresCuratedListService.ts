@@ -44,6 +44,7 @@ export class PostgresCuratedListService implements ICuratedListService {
         displayName: cards.displayName,
         imageUrl: printings.imageUrl,
         setCode: printings.set,
+        color: cards.color,
       })
       .from(curatedListCards)
       .leftJoin(printings, eq(curatedListCards.printingId, printings.printingId))
@@ -59,6 +60,7 @@ export class PostgresCuratedListService implements ICuratedListService {
       displayName: row.displayName ?? undefined,
       imageUrl: row.imageUrl ?? undefined,
       setCode: row.setCode ?? undefined,
+      color: row.color ?? undefined,
     }));
   }
 

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from "@/lib/browse/parsers/bulk-input-parser";
 import { selectDefaultPrinting } from "@/lib/browse/utils";
+import { sortPrintings } from "@/lib/fab-constants";
 import { getSetName } from "@/lib/fab-formatters";
 import { getHeroInfo } from "@/lib/fab-constants/heroes";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
@@ -205,7 +206,8 @@ export function useDeckEditor(deckId: string) {
       const groupedByCard = groupPrintingsByCard(allPrintings, "card_unique_id");
 
       const newCardInstances = Array.from(groupedByCard.entries()).map(([cardUniqueId, printings]) => {
-        const defaultPrinting = selectDefaultPrinting({ printings });
+        const sorted = sortPrintings(printings);
+        const defaultPrinting = sorted[0] ?? selectDefaultPrinting({ printings });
         return {
           instanceId: `${cardUniqueId}-${Date.now()}-${Math.random()}`,
           card_unique_id: cardUniqueId,

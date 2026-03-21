@@ -281,8 +281,20 @@ const NON_STANDARD_ORDER = ['tcc', 'mpg', 'smp', 'sup', 'gem', 'fab'];
  */
 const TIER_DISPLAY_POSITION: Record<number, number> = { 1: 0, 2: 1, 5: 2, 3: 3, 4: 4 };
 
-/** Edition priority within a set: older/rarer editions first */
-const EDITION_SORT_PRIORITY: Record<string, number> = { a: 0, f: 1, u: 2, n: 3 };
+/**
+ * Sets where unlimited should appear before first edition.
+ * WTR/ARC/CRU/MON had both, but unlimited is the common accessible printing.
+ * EVR was the last set with editions; from HP1 onwards only normal edition exists.
+ */
+const UNLIMITED_BEFORE_FIRST_EDITION_SETS = new Set(['wtr', 'arc', 'cru', 'mon']);
+
+/** Returns edition sort priority for a given set code */
+function getEditionPriority(setCode: string): Record<string, number> {
+  if (UNLIMITED_BEFORE_FIRST_EDITION_SETS.has(setCode)) {
+    return { u: 0, a: 1, f: 2, n: 3 };
+  }
+  return { a: 0, f: 1, u: 2, n: 3 };
+}
 
 /**
  * Sort a printing array into a consistent, user-friendly order.
@@ -318,9 +330,10 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
     const bFoil = bMarvel ? 3 : (FOIL_PRIORITY[(b.foiling || 's').toLowerCase()] ?? 0);
     if (aFoil !== bFoil) return aFoil - bFoil;
 
-    // 4. Edition
-    const aEd = EDITION_SORT_PRIORITY[a.edition ?? 'n'] ?? 3;
-    const bEd = EDITION_SORT_PRIORITY[b.edition ?? 'n'] ?? 3;
+    // 4. Edition — priority varies by set (unlimited before 1st for WTR/ARC/CRU/MON)
+    const editionPriority = getEditionPriority(aCode || bCode);
+    const aEd = editionPriority[a.edition ?? 'n'] ?? 3;
+    const bEd = editionPriority[b.edition ?? 'n'] ?? 3;
     return aEd - bEd;
   });
 }

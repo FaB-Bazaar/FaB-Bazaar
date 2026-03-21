@@ -10,6 +10,7 @@ export interface CuratedListCardDTO {
   displayName?: string;
   imageUrl?: string;
   setCode?: string;
+  color?: string;
 }
 
 export interface CuratedListDTO {
