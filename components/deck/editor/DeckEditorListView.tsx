@@ -450,6 +450,7 @@ function DeckTileSection({
   onAddCard,
   onRemoveTile,
   onMoveToInventory,
+  onMoveTo,
   onAddTile,
   onEnlargeImage,
   onAddToBinder,
@@ -475,6 +476,8 @@ function DeckTileSection({
   onRemoveTile?: (tile: DeckTileCard) => void;
   /** Move 1 copy of a tile to inventory */
   onMoveToInventory?: (tile: DeckTileCard) => void;
+  /** Move 1 copy of a tile to any target category (context menu) */
+  onMoveTo?: (tile: DeckTileCard, to: DeckCategory) => void;
   /** Add 1 more copy of a tile (+1 button on hover) */
   onAddTile?: (tile: DeckTileCard) => void;
   /** Open enlarged image lightbox */
@@ -490,6 +493,8 @@ function DeckTileSection({
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ tile: DeckTileCard; x: number; y: number } | null>(null);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHeroSection = section.key === 'hero';
   const isCollapsible = !!heroPortrait; // only the equipment section (which hosts the hero portrait)
   const isDragActive = !!activeDragTile;
@@ -524,8 +529,9 @@ function DeckTileSection({
 
   return (
     <div
+      id={`deck-section-${section.key}`}
       className={cn(
-        "mb-3 p-1 transition-all",
+        "mb-3 p-1 transition-all scroll-mt-16",
         accent ? [accent.bg, accent.border] : "rounded-lg",
         isDragActive && isValidDropTarget && !isDragOver && "ring-1 ring-inset ring-indigo-400/50 bg-indigo-500/5",
         isDragActive && isValidDropTarget && isDragOver && "ring-2 ring-inset ring-indigo-400 bg-indigo-500/20",
@@ -636,10 +642,28 @@ function DeckTileSection({
               onMouseLeave={onLeave}
               onDragStart={thisTileDraggable ? (e) => {
                 e.dataTransfer.effectAllowed = 'move';
+                if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
                 onTileDragStart?.(tile);
               } : undefined}
               onDragEnd={thisTileDraggable ? () => onTileDragEnd?.() : undefined}
-              onClick={() => !isDragActive && onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category })}
+              onClick={(e) => {
+                if (isDragActive) return;
+                if ((e.metaKey || e.ctrlKey) && onMoveTo && tile.category !== 'hero') {
+                  e.preventDefault();
+                  setContextMenu({ tile, x: e.clientX, y: e.clientY });
+                } else {
+                  onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category });
+                }
+              }}
+              onTouchStart={onMoveTo && tile.category !== 'hero' && !tile.types.includes('demi-hero') ? (e) => {
+                const touch = e.touches[0];
+                longPressRef.current = setTimeout(() => {
+                  const el = e.currentTarget.getBoundingClientRect();
+                  setContextMenu({ tile, x: el.left + el.width / 2, y: el.top });
+                }, 500);
+              } : undefined}
+              onTouchEnd={() => { if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; } }}
+              onTouchMove={() => { if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; } }}
               className={cn(
                 "relative rounded select-none group transition-all duration-150",
                 isHeroSection ? "ring-2 ring-white/60" : "ring-[1.5px] ring-gray-400 dark:ring-gray-500",
@@ -773,6 +797,39 @@ function DeckTileSection({
           </button>
         )}
       </div>}
+
+      {/* Context menu — Cmd/Ctrl+click or long-press */}
+      {contextMenu && onMoveTo && (() => {
+        const { tile, x, y } = contextMenu;
+        const dests: Array<{ to: DeckCategory; label: string }> = [];
+        if (tile.category !== 'inventory') dests.push({ to: 'inventory', label: 'Move to Inventory' });
+        if (tile.category !== 'maindeck' && isLibraryCompatible(tile.types)) dests.push({ to: 'maindeck', label: 'Move to Library' });
+        if (tile.category !== 'equipment' && isEquipmentCompatible(tile.types)) dests.push({ to: 'equipment', label: 'Move to Equipment' });
+        if (dests.length === 0) { setContextMenu(null); return null; }
+        return (
+          <>
+            <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)} />
+            <div
+              className="fixed z-50 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl py-1 min-w-[160px]"
+              style={{ left: Math.min(x, window.innerWidth - 170), top: Math.min(y, window.innerHeight - (dests.length * 36 + 8)) }}
+            >
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-700 mb-1">
+                {tile.name}
+              </div>
+              {dests.map(({ to, label }) => (
+                <button
+                  key={to}
+                  type="button"
+                  className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 hover:text-white transition-colors"
+                  onClick={() => { onMoveTo(tile, to); setContextMenu(null); }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -1019,6 +1076,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     await onMoveSingle(tile.printingId, tile.category, 'inventory', tile.totalQty);
   }, [onMoveSingle, deck]);
 
+  const handleTileMoveTo = useCallback(async (tile: DeckTileCard, targetCategory: DeckCategory) => {
+    if (!onMoveSingle) return;
+    setOptimisticDeck(prev => applyOptimisticMove(prev ?? deck, tile.printingId, tile.category, targetCategory));
+    await onMoveSingle(tile.printingId, tile.category, targetCategory, tile.totalQty);
+  }, [onMoveSingle, deck]);
+
   const handleSectionDrop = useCallback(async (tile: DeckTileCard, targetSectionKey: TileSectionKey) => {
     const targetCategory = sectionToCategory(targetSectionKey);
     if (!targetCategory || !onMoveSingle) return;
@@ -1151,7 +1214,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const allCards = [...(displayDeck.maindeck || []), ...(displayDeck.equipment || [])];
     const threshold = typeof value === 'string' && value.endsWith('+') ? parseInt(value) : null;
     return allCards.reduce((sum, c) => {
-      const v = (c.printingDetails as any)?.[stat] as number | undefined;
+      let v = (c.printingDetails as any)?.[stat] as number | undefined;
+      if (v == null && stat === 'defense') v = 0;
       if (v == null) return sum;
       if (threshold !== null) return v >= threshold ? sum + (c.quantity ?? 1) : sum;
       return v === value ? sum + (c.quantity ?? 1) : sum;
@@ -1170,7 +1234,19 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         for (const c of allCards) {
           const details = c.printingDetails as any;
           const passes = highlightFilters.every(f => {
-            const v = details?.[f.stat] as number | undefined;
+            // Type filter — match against the types array
+            if (f.stat === 'type') {
+              const types: string[] = ((details?.types as string[] | undefined) || []).map((t: string) => t.toLowerCase());
+              const tv = String(f.value);
+              if (tv === 'attack') return types.includes('attack') && types.includes('action');
+              if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
+              if (tv === 'defense-reaction') return types.includes('defense') && types.includes('reaction');
+              if (tv === 'attack-reaction') return types.includes('attack') && types.includes('reaction');
+              return types.includes(tv);
+            }
+            let v = details?.[f.stat] as number | undefined;
+            // Cards with no defense field (items, etc.) are treated as defense 0
+            if (v == null && f.stat === 'defense') v = 0;
             if (v == null) return false;
             const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
             return threshold !== null ? v >= threshold : v === f.value;
@@ -1187,7 +1263,17 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const nonPitchFilters = highlightFilters.filter(f => f.stat !== 'pitch');
     if (nonPitchFilters.length === 0) return null;
     return nonPitchFilters.every(f => {
-      const v = (card as any)[f.stat] as number | undefined;
+      if (f.stat === 'type') {
+        const types: string[] = ((card as any).types || []).map((t: string) => t.toLowerCase());
+        const tv = String(f.value);
+        if (tv === 'attack') return types.includes('attack') && types.includes('action');
+        if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
+        if (tv === 'defense-reaction') return types.includes('defense') && types.includes('reaction');
+        if (tv === 'attack-reaction') return types.includes('attack') && types.includes('reaction');
+        return types.includes(tv);
+      }
+      let v = (card as any)[f.stat] as number | undefined;
+      if (v == null && f.stat === 'defense') v = 0;
       if (v == null) return false;
       const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
       return threshold !== null ? v >= threshold : v === f.value;
@@ -1210,6 +1296,21 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       return [...prev, { stat, value }];
     });
   };
+
+  // Listen for chord-triggered highlight filter events from the deck page
+  useEffect(() => {
+    const handleFilter = (e: Event) => {
+      const { stat, value } = (e as CustomEvent).detail;
+      toggleHighlight(stat, value);
+    };
+    const handleClear = () => setHighlightFilters([]);
+    window.addEventListener('deck-highlight-filter', handleFilter);
+    window.addEventListener('deck-highlight-clear', handleClear);
+    return () => {
+      window.removeEventListener('deck-highlight-filter', handleFilter);
+      window.removeEventListener('deck-highlight-clear', handleClear);
+    };
+  }, []);
 
   const heroCards = displayDeck.hero || [];
   const equipmentCards = displayDeck.equipment || [];
@@ -1245,6 +1346,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onAddCard: canEdit ? onAddCard : undefined,
     onRemoveTile: canEdit ? handleTileRemoveOne : undefined,
     onMoveToInventory: canEdit && onMoveSingle ? handleTileMoveToInventory : undefined,
+    onMoveTo: canEdit && onMoveSingle ? handleTileMoveTo : undefined,
     onAddTile: canEdit ? handleTileAddOne : undefined,
     onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
     onAddToBinder: onAddToBinder,

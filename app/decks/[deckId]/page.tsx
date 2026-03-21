@@ -121,6 +121,130 @@ export default function DeckEditorPage() {
     });
   }, [user]);
 
+  // ─── Chord keyboard shortcuts (Cmd/Ctrl+K → ...) ───────────────────────────
+  const NON_CLASS_TYPES = new Set(['hero', 'young', 'adult', 'action', 'attack', 'defense', 'reaction', 'instant', 'equipment', 'weapon', 'token', 'mentor', 'demi-hero', 'evo']);
+  const heroTypes: string[] = ((state.deck?.hero?.[0]?.printingDetails as any)?.types || []).map((t: string) => t.toLowerCase());
+  const heroClass = heroTypes.find(t => !NON_CLASS_TYPES.has(t)) || '';
+
+  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'clear'>(null);
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const resetChord = () => { setChordMode(null); clearTimeout(timeout); };
+    const startTimeout = () => { clearTimeout(timeout); timeout = setTimeout(resetChord, 2000); };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setChordMode('select');
+        startTimeout();
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (chordMode) { resetChord(); return; }
+        // Double-Escape: if no chord active, clear all highlight filters
+        window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
+        return;
+      }
+      if (!chordMode || isTyping) return;
+
+      e.preventDefault();
+
+      if (chordMode === 'select') {
+        // Navigation & actions
+        if (e.key === '9') { setQuickAddTarget({ category: 'maindeck' }); resetChord(); }
+        else if (e.key === '8') { setQuickAddTarget({ category: 'inventory' }); resetChord(); }
+        else if (e.key === '7') { setQuickAddTarget({ category: 'benched' as DeckCategory }); resetChord(); }
+        else if (e.key.toLowerCase() === 's') { setActiveTab('search'); resetChord(); }
+        else if (e.key.toLowerCase() === 'm') { setActiveTab('matchups'); resetChord(); }
+        // Scroll
+        else if (e.key === '0') { window.scrollTo({ top: 0, behavior: 'smooth' }); resetChord(); }
+        else if (e.key === '1') { document.getElementById('deck-section-red')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); resetChord(); }
+        else if (e.key === '2') { document.getElementById('deck-section-yellow')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); resetChord(); }
+        else if (e.key === '3') { document.getElementById('deck-section-blue')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); resetChord(); }
+        else if (e.key === '4') { document.getElementById('deck-section-inventory')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); resetChord(); }
+        // Filter sub-modes (only on deck tab — otherwise D switches to deck tab)
+        else if (e.key.toLowerCase() === 'd' && activeTab !== 'deck') { setActiveTab('deck'); resetChord(); }
+        else if (e.key.toLowerCase() === 'a') { setChordMode('attack'); startTimeout(); }
+        else if (e.key.toLowerCase() === 'c') { setChordMode('cost'); startTimeout(); }
+        else if (e.key.toLowerCase() === 'd') { setChordMode('defense'); startTimeout(); }
+        else if (e.key.toLowerCase() === 't') { setChordMode('type'); startTimeout(); }
+        else if (e.key.toLowerCase() === 'f') { setChordMode('clear'); startTimeout(); }
+        else { resetChord(); }
+        return;
+      }
+
+      const scrollToRed = () => document.getElementById('deck-section-red')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      if (chordMode === 'attack') {
+        const n = parseInt(e.key);
+        if (!isNaN(n) && n >= 0 && n <= 9) {
+          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'power', value: n } }));
+          scrollToRed();
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'cost') {
+        const n = parseInt(e.key);
+        if (!isNaN(n) && n >= 0 && n <= 9) {
+          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'cost', value: n } }));
+          scrollToRed();
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'defense') {
+        const n = parseInt(e.key);
+        if (!isNaN(n) && n >= 0 && n <= 9) {
+          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'defense', value: n } }));
+          scrollToRed();
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'type') {
+        const TYPE_KEYS: Record<string, string> = {
+          'a': 'attack',
+          'n': 'non-attack',
+          'i': 'instant',
+          'd': 'defense-reaction',
+          'r': 'attack-reaction',
+          'e': 'equipment',
+          'w': 'weapon',
+          'g': 'generic',
+          'h': 'hero',
+          'c': heroClass || '',
+        };
+        const val = TYPE_KEYS[e.key.toLowerCase()];
+        if (val) {
+          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'type', value: val } }));
+          scrollToRed();
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'clear') {
+        if (e.key === '0') window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
+        resetChord();
+        return;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => { document.removeEventListener('keydown', handleKeyDown); clearTimeout(timeout); };
+  }, [chordMode, activeTab]);
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Redirect only when the deck is private and the viewer isn't the owner
   useEffect(() => {
     if (authLoading || state.deckLoading) return;
@@ -327,8 +451,79 @@ export default function DeckEditorPage() {
     setDeckSwapTarget(null);
   };
 
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+  const modKey = isMac ? '⌘' : 'Ctrl';
+
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
+      {/* Chord mode HUD — shown when Cmd/Ctrl+K is pressed */}
+      {chordMode && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
+          <div className="flex items-center gap-4 text-sm text-gray-200">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', clear: 'F' }[chordMode!]}`}
+            </span>
+            <div className="w-px h-6 bg-gray-700" />
+            {chordMode === 'select' && [
+              { key: '0', label: 'Top' },
+              { key: '1', label: 'Red', color: 'text-red-400' },
+              { key: '2', label: 'Yellow', color: 'text-yellow-400' },
+              { key: '3', label: 'Blue', color: 'text-blue-400' },
+              { key: '4', label: 'Inventory' },
+              { key: '7', label: '+ Bench' },
+              { key: '8', label: '+ Inventory' },
+              { key: '9', label: '+ Library' },
+              { key: 'A', label: 'Attack' },
+              { key: 'C', label: 'Cost' },
+              { key: 'D', label: activeTab === 'deck' ? 'Defense' : 'Deck' },
+              { key: 'T', label: 'Type' },
+              { key: 'F', label: 'Filters' },
+              { key: 'S', label: 'Search' },
+              { key: 'M', label: 'Matchups' },
+            ].map(({ key, label, color }) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
+                <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
+              </div>
+            ))}
+            {(chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense') && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-400 mr-1">
+                  {chordMode === 'attack' ? 'Attack' : chordMode === 'cost' ? 'Cost' : 'Defense'} =
+                </span>
+                {[0,1,2,3,4,5,6,7,8,9].map(n => (
+                  <kbd key={n} className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{n}</kbd>
+                ))}
+              </div>
+            )}
+            {chordMode === 'type' && [
+              { key: 'A', label: 'Attack' },
+              { key: 'N', label: 'Non-Attack' },
+              { key: 'I', label: 'Instant' },
+              { key: 'D', label: 'Def Reaction' },
+              { key: 'R', label: 'Atk Reaction' },
+              { key: 'E', label: 'Equipment' },
+              { key: 'W', label: 'Weapon' },
+              { key: 'G', label: 'Generic' },
+              ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
+                <span className="text-xs text-gray-400">{label}</span>
+              </div>
+            ))}
+            {chordMode === 'clear' && (
+              <div className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">0</kbd>
+                <span className="text-xs text-gray-400">Clear all filters</span>
+              </div>
+            )}
+            <div className="w-px h-6 bg-gray-700" />
+            <span className="text-[10px] text-gray-500">Esc to cancel</span>
+          </div>
+        </div>
+      )}
+
       {isOwner && activeTab === "search" && (
         <DeckEditorSidebar
           deck={optimisticDeck ?? state.deck}
