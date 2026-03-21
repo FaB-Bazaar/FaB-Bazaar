@@ -16,11 +16,12 @@ import { fetchMetadata } from "@/lib/metadata-service"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { 
-  SET_MAP, 
-  FOILING_MAP, 
-  EDITION_MAP, 
+import {
+  SET_MAP,
+  FOILING_MAP,
+  EDITION_MAP,
   RARITY_MAP,
+  sortPrintings,
   type SetCode,
   type FoilingCode,
   type EditionCode,
@@ -163,10 +164,16 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
             if (query.split(/\s+/).every((w: string) => n.includes(w))) return 60;
             return 10;
           };
-          const cardsArray = Object.values(groupedByCard).sort((a: any, b: any) => {
-            const scoreDiff = getRelevanceScore(b.name) - getRelevanceScore(a.name);
-            return scoreDiff !== 0 ? scoreDiff : a.name.localeCompare(b.name);
-          });
+          const pitchOrder = (p: any) => p.pitch == null ? 0 : Number(p.pitch);
+          const cardsArray = Object.values(groupedByCard)
+            .sort((a: any, b: any) => {
+              const scoreDiff = getRelevanceScore(b.name) - getRelevanceScore(a.name);
+              if (scoreDiff !== 0) return scoreDiff;
+              const nameDiff = a.name.localeCompare(b.name);
+              if (nameDiff !== 0) return nameDiff;
+              return pitchOrder(a) - pitchOrder(b);
+            })
+            .map((card: any) => ({ ...card, printings: sortPrintings(card.printings) }));
           setCards(cardsArray);
         } else {
           setError(data.error || "Failed to search printings. Please try again.");

@@ -70,9 +70,9 @@ function getPrintingLabel(p: any): string {
 
 // ─── Hover image preview ──────────────────────────────────────────────────────
 
-function HoverImagePreview({ imageUrl, cardName }: { imageUrl: string; cardName: string }) {
+function HoverImagePreview({ imageUrl, cardName, onDismiss }: { imageUrl: string; cardName: string; onDismiss?: () => void }) {
   return (
-    <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] pointer-events-none">
+    <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100]" onClick={onDismiss}>
       <img
         src={imageUrl}
         alt={cardName}
@@ -94,6 +94,7 @@ interface GroupedCardRowProps {
   onMove?: (printingId: string, from: DeckCategory, to: DeckCategory, qty: number) => Promise<void>;
   onHoverImage: (url: string, name: string) => void;
   onClearImage: () => void;
+  isTouchDevice: boolean;
 }
 
 function GroupedCardRow({
@@ -106,6 +107,7 @@ function GroupedCardRow({
   onMove,
   onHoverImage,
   onClearImage,
+  isTouchDevice,
 }: GroupedCardRowProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -161,8 +163,8 @@ function GroupedCardRow({
         {/* Thumbnail */}
         <div
           className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
-          onMouseEnter={() => group.imageUrl && onHoverImage(group.imageUrl, group.displayName)}
-          onMouseLeave={onClearImage}
+          onMouseEnter={isTouchDevice ? undefined : () => group.imageUrl && onHoverImage(group.imageUrl, group.displayName)}
+          onMouseLeave={isTouchDevice ? undefined : onClearImage}
         >
           <img
             src={group.imageUrl || "/cardback.webp"}
@@ -216,8 +218,8 @@ function GroupedCardRow({
                 {/* Printing thumbnail */}
                 <div
                   className="w-5 h-7 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
-                  onMouseEnter={() => prImageUrl && onHoverImage(prImageUrl, group.displayName)}
-                  onMouseLeave={onClearImage}
+                  onMouseEnter={isTouchDevice ? undefined : () => prImageUrl && onHoverImage(prImageUrl, group.displayName)}
+                  onMouseLeave={isTouchDevice ? undefined : onClearImage}
                 >
                   <img
                     src={prImageUrl || "/cardback.webp"}
@@ -463,6 +465,7 @@ function DeckTileSection({
   highlightMatchIds,
   tileWidth = 72,
   ownershipFilter = 'all',
+  isTouchDevice = false,
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string) => void;
@@ -498,10 +501,12 @@ function DeckTileSection({
   tileWidth?: number;
   /** When set, shows a binder link below owned tiles */
   ownershipFilter?: 'all' | 'owned' | 'unowned';
+  isTouchDevice?: boolean;
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ tile: DeckTileCard; x: number; y: number } | null>(null);
+  const [bottomSheet, setBottomSheet] = useState<{ tile: DeckTileCard } | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHeroSection = section.key === 'hero';
   const isCollapsible = !!heroPortrait; // only the equipment section (which hosts the hero portrait)
@@ -657,14 +662,16 @@ function DeckTileSection({
               onDragEnd={thisTileDraggable ? () => onTileDragEnd?.() : undefined}
               onClick={(e) => {
                 if (isDragActive) return;
-                if ((e.metaKey || e.ctrlKey) && onMoveTo && tile.category !== 'hero') {
+                if (isTouchDevice) {
+                  setBottomSheet({ tile });
+                } else if ((e.metaKey || e.ctrlKey) && onMoveTo && tile.category !== 'hero') {
                   e.preventDefault();
                   setContextMenu({ tile, x: e.clientX, y: e.clientY });
                 } else {
                   onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category });
                 }
               }}
-              onTouchStart={onMoveTo && tile.category !== 'hero' && !tile.types.includes('demi-hero') ? (e) => {
+              onTouchStart={!isTouchDevice && onMoveTo && tile.category !== 'hero' && !tile.types.includes('demi-hero') ? (e) => {
                 const touch = e.touches[0];
                 longPressRef.current = setTimeout(() => {
                   const el = e.currentTarget.getBoundingClientRect();
@@ -714,7 +721,7 @@ function DeckTileSection({
               )}
 
               {/* Remove button (X) — shown on hover, hidden for hero/demi-hero */}
-              {!isDragActive && onRemoveTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
+              {!isTouchDevice && !isDragActive && onRemoveTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
                   className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-red-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Remove 1 copy"
@@ -725,7 +732,7 @@ function DeckTileSection({
               )}
 
               {/* Move to inventory button — shown on hover, only for maindeck/equipment cards */}
-              {!isDragActive && onMoveToInventory && tile.category !== 'hero' && tile.category !== 'inventory' && !tile.types.includes('demi-hero') && (
+              {!isTouchDevice && !isDragActive && onMoveToInventory && tile.category !== 'hero' && tile.category !== 'inventory' && !tile.types.includes('demi-hero') && (
                 <button
                   className="absolute top-6 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[8px] font-bold leading-none"
                   title="Move to inventory"
@@ -736,7 +743,7 @@ function DeckTileSection({
               )}
 
               {/* Move to bench button — shown on hover, only for non-hero/non-bench cards */}
-              {!isDragActive && onMoveTo && tile.category !== 'hero' && tile.category !== 'benched' && !tile.types.includes('demi-hero') && (
+              {!isTouchDevice && !isDragActive && onMoveTo && tile.category !== 'hero' && tile.category !== 'benched' && !tile.types.includes('demi-hero') && (
                 <button
                   className="absolute top-12 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Move to bench"
@@ -747,7 +754,7 @@ function DeckTileSection({
               )}
 
               {/* Add +1 button — shown on hover, hidden for hero/demi-hero */}
-              {!isDragActive && onAddTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
+              {!isTouchDevice && !isDragActive && onAddTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
                   className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[10px] font-bold leading-none"
                   title="Add 1 copy"
@@ -758,7 +765,7 @@ function DeckTileSection({
               )}
 
               {/* Magnify button — shown on hover when tile has an image */}
-              {!isDragActive && onEnlargeImage && tile.imageUrl && (
+              {!isTouchDevice && !isDragActive && onEnlargeImage && tile.imageUrl && (
                 <button
                   className="absolute bottom-0.5 right-0.5 w-10 h-10 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-gray-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
                   title="Enlarge image"
@@ -769,7 +776,7 @@ function DeckTileSection({
               )}
 
               {/* Hover overlay: drag hint when draggable, swap hint otherwise */}
-              {!isDragActive && (
+              {!isTouchDevice && !isDragActive && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded transition-opacity pointer-events-none">
                   {thisTileDraggable ? (
                     <svg className="h-4 w-4 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -793,7 +800,7 @@ function DeckTileSection({
                 </a>
               </div>
             )}
-            {ownershipFilter === 'unowned' && ownershipState !== 'full' && (
+            {!isTouchDevice && ownershipFilter === 'unowned' && ownershipState !== 'full' && (
               <div className="flex flex-col items-center gap-0.5 w-full px-0.5 py-0.5">
                 {/* Row 1: binder + heart icons */}
                 <div className="flex items-center justify-center gap-2 w-full">
@@ -884,6 +891,111 @@ function DeckTileSection({
                   {label}
                 </button>
               ))}
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Mobile bottom sheet — shown on tile tap when isTouchDevice */}
+      {bottomSheet && (() => {
+        const { tile } = bottomSheet;
+        const isSpecial = tile.category === 'hero' || tile.types.includes('demi-hero');
+        const moveDests: Array<{ to: DeckCategory; label: string }> = [];
+        if (!isSpecial && onMoveTo) {
+          if (tile.category !== 'inventory') moveDests.push({ to: 'inventory', label: 'Move to Inventory' });
+          if (tile.category !== 'maindeck' && isLibraryCompatible(tile.types)) moveDests.push({ to: 'maindeck', label: 'Move to Library' });
+          if (tile.category !== 'equipment' && isEquipmentCompatible(tile.types)) moveDests.push({ to: 'equipment', label: 'Move to Equipment' });
+          if (tile.category !== 'benched') moveDests.push({ to: 'benched', label: 'Move to Bench' });
+        }
+        const dismiss = () => setBottomSheet(null);
+        return (
+          <>
+            <div className="fixed inset-0 z-50 bg-black/50" onClick={dismiss} />
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl">
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+              </div>
+              {/* Card header */}
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+                {tile.imageUrl && (
+                  <img
+                    src={tile.imageUrl}
+                    alt={tile.name}
+                    className="w-10 rounded-lg border border-gray-200 dark:border-gray-700 flex-shrink-0"
+                    style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{tile.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{tile.category}</p>
+                </div>
+              </div>
+              {/* Qty controls */}
+              {!isSpecial && (onRemoveTile || onAddTile) && (
+                <div className="flex items-center justify-center gap-6 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                  <button
+                    type="button"
+                    disabled={!onRemoveTile}
+                    onClick={() => { onRemoveTile?.(tile); dismiss(); }}
+                    className="w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-700 text-xl font-light"
+                  >−</button>
+                  <span className="text-base font-bold text-gray-900 dark:text-white w-8 text-center tabular-nums">
+                    {section.tiles.filter(t => t.cardUniqueId === tile.cardUniqueId).length}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!onAddTile}
+                    onClick={() => { onAddTile?.(tile); dismiss(); }}
+                    className="w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-700 text-xl font-light"
+                  >+</button>
+                </div>
+              )}
+              {/* Action rows */}
+              <div className="py-1">
+                {!isSpecial && onSwap && (
+                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category }); dismiss(); }}>
+                    Swap printing
+                  </button>
+                )}
+                {moveDests.map(({ to, label }) => (
+                  <button key={to} type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onMoveTo!(tile, to); dismiss(); }}>
+                    {label}
+                  </button>
+                ))}
+                {onEnlargeImage && tile.imageUrl && (
+                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlargeImage(tile.imageUrl!, tile.name); dismiss(); }}>
+                    Enlarge image
+                  </button>
+                )}
+                {onAddToBinder && (
+                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onAddToBinder(tile.printingId, tile.name); dismiss(); }}>
+                    Add to binder
+                  </button>
+                )}
+                {onAddToWants && (
+                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onAddToWants(tile.printingId, tile.name); dismiss(); }}>
+                    Add to wants
+                  </button>
+                )}
+                {tile.tcgplayerUrl && (
+                  <TcgAffiliateLink
+                    tcgplayerUrl={tile.tcgplayerUrl}
+                    feature="DeckTileBottomSheet"
+                    onClick={dismiss}
+                    className="block w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors"
+                  >
+                    View on TCGPlayer{tile.tcgLow != null ? ` · $${tile.tcgLow.toFixed(2)}` : ''}
+                  </TcgAffiliateLink>
+                )}
+              </div>
+              <div className="border-t border-gray-100 dark:border-gray-800">
+                <button type="button" className="w-full py-4 text-sm font-semibold text-gray-500 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={dismiss}>
+                  Cancel
+                </button>
+              </div>
+              {/* Safe area */}
+              <div className="h-safe-bottom" style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
             </div>
           </>
         );
@@ -1071,6 +1183,7 @@ interface DeckEditorListViewProps {
 export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
+  const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
   const TILE_SIZES = [
@@ -1175,6 +1288,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             onMove={onMove}
             onHoverImage={(url, name) => setHoveredImage({ url, name })}
             onClearImage={() => setHoveredImage(null)}
+            isTouchDevice={isTouchDevice}
           />
         ))}
       </div>
@@ -1426,8 +1540,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileRestSections = filteredTileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
 
   const tileSharedProps = {
-    onHover: (url: string, name: string) => setHoveredImage({ url, name }),
-    onLeave: () => setHoveredImage(null),
+    onHover: isTouchDevice ? (_url: string, _name: string) => {} : (url: string, name: string) => setHoveredImage({ url, name }),
+    onLeave: isTouchDevice ? () => {} : () => setHoveredImage(null),
     onSwap: canEdit ? onSwap : undefined,
     ownershipMap,
     isTileDraggable: canEdit && !!onMoveSingle,
@@ -1446,6 +1560,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     highlightMatchIds: matchingPrintingIds,
     tileWidth,
     ownershipFilter,
+    isTouchDevice,
   };
 
   return (
@@ -1751,8 +1866,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
                         style={{ width: 28 }}
                         title={heroPortrait.name}
-                        onMouseEnter={(e) => { e.stopPropagation(); heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name }); }}
-                        onMouseLeave={() => setHoveredImage(null)}
+                        onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name }); }}
+                        onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1774,8 +1889,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                           className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
                           style={{ width: 28 }}
                           title={card.name}
-                          onMouseEnter={(e) => { e.stopPropagation(); card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name }); }}
-                          onMouseLeave={() => setHoveredImage(null)}
+                          onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name }); }}
+                          onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1817,8 +1932,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         gameHighlight === false && "opacity-25 scale-95 grayscale",
                       )}
                       style={{ width: tileWidth }}
-                      onMouseEnter={() => card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
-                      onMouseLeave={() => setHoveredImage(null)}
+                      onMouseEnter={isTouchDevice ? undefined : () => card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
+                      onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                     >
                       {card.imageUrl ? (
                         <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
@@ -1865,11 +1980,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       )}
 
       {viewMode === 'list' && hoveredImage && (
-        <HoverImagePreview imageUrl={hoveredImage.url} cardName={hoveredImage.name} />
+        <HoverImagePreview imageUrl={hoveredImage.url} cardName={hoveredImage.name} onDismiss={() => setHoveredImage(null)} />
       )}
       {(viewMode === 'tile' || viewMode === 'game') && hoveredImage && !dragTile && !enlargedImage && (
         <div
-          className="fixed z-[9999] pointer-events-none"
+          className="fixed z-[9999]"
+          onClick={() => setHoveredImage(null)}
           style={{
             ...(mouseXRef.current < window.innerWidth / 2 ? { right: 16 } : { left: 16 }),
             top: '50%',

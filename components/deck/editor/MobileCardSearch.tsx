@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Search, X, Loader2, ChevronDown } from "lucide-react";
 import { searchClient, decksClient } from "@/lib/client";
+import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
 import { useToast } from "@/hooks/use-toast";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
@@ -113,7 +114,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
         }
         const grouped = Array.from(groups.values()).map(g => ({
           ...g.base,
-          allPrintings: g.all,
+          allPrintings: sortPrintings(g.all),
         }));
         setResults(grouped);
         // Reset selected printings to defaults on new search

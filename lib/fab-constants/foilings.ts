@@ -89,3 +89,19 @@ export const ART_VARIATIONS_MAP = {
 
 export type FoilingCode = keyof typeof FOILING_MAP;
 export type ArtVariationCode = keyof typeof ART_VARIATIONS_MAP;
+
+/**
+ * Sort priority for foiling types within the same set tier.
+ * Lower number = shown first. Marvel is identified by rarity='v', not foiling code.
+ * Order: Non-foil → RF → CF → Marvel (rarity check) → GF
+ */
+export const FOILING_SORT_PRIORITY: Record<string, number> = {
+  's': 0, // Standard / Non-foil
+  'n': 0, // Non-foil (alternate code)
+  'r': 1, // Rainbow Foil
+  'c': 2, // Cold Foil (non-Marvel)
+  // Marvel (rarity='v') is handled separately → priority 3
+  'g': 4, // Gold Foil
+};
+
+export const MARVEL_FOIL_SORT_PRIORITY = 3;

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decksClient } from "@/lib/client";
+import { sortPrintings } from "@/lib/fab-constants";
 import { useToast } from "@/hooks/use-toast";
 import type { DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
@@ -31,21 +32,6 @@ function getPrintingLabel(p: any): string {
   return parts.join(" ");
 }
 
-function sortPrintings(printings: any[]): any[] {
-  const editionOrder: Record<string, number> = { a: 0, f: 1, u: 2, n: 3 };
-  const variantOrder: Record<string, number> = { v: 0, ea: 1, c: 2, r: 3, s: 4 };
-  const variantKey = (p: any) =>
-    p.rarity === "v" ? 0 : p.is_extended_art ? 1 : variantOrder[p.foiling] ?? 99;
-
-  return [...printings].sort((a, b) => {
-    if ((a.set || "") < (b.set || "")) return -1;
-    if ((a.set || "") > (b.set || "")) return 1;
-    const edA = editionOrder[a.edition] ?? 99;
-    const edB = editionOrder[b.edition] ?? 99;
-    if (edA !== edB) return edA - edB;
-    return variantKey(a) - variantKey(b);
-  });
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

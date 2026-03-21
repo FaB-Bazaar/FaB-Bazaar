@@ -20,6 +20,7 @@ import {
   SET_MAP,
   FOILING_MAP,
   EDITION_MAP,
+  sortPrintings,
   type SetCode,
   type FoilingCode,
   type EditionCode,
@@ -165,7 +166,19 @@ export default function MobileDeckSearchOverlay({
             {}
           );
 
-          setCards(Object.values(grouped));
+          const pitchOrder = (c: any) => c.pitch == null ? 0 : Number(c.pitch);
+          setCards(
+            Object.values(grouped)
+              .sort((a: any, b: any) => {
+                const nameDiff = a.name.localeCompare(b.name);
+                if (nameDiff !== 0) return nameDiff;
+                return pitchOrder(a) - pitchOrder(b);
+              })
+              .map((card: any) => ({
+                ...card,
+                printings: sortPrintings(card.printings),
+              }))
+          );
         }
       })
       .catch(() => {})

@@ -11,6 +11,7 @@ export {
   getSetsInDisplayOrder,
   getSetCodesInDisplayOrder,
   getOrderedSets,
+  sortPrintings,
   type SetCode,
   type SetMetadata,
 } from './sets';

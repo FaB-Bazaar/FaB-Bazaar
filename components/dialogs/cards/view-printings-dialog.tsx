@@ -5,29 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Loader2, Check } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetName, getFoilingName, getEditionName, getVariantBadgeStyles } from "@/lib/fab-formatters";
+import { sortPrintings } from "@/lib/fab-constants";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { TcgAffiliateLink } from '@/components/tracking';
-
-const sortPrintings = (printings: any[]) => {
-  const editionOrder: Record<string, number> = { 'a': 0, 'f': 1, 'u': 2, 'n': 3 };
-  const variantOrder: Record<string, number> = { 'v': 0, 'ea': 1, 'c': 2, 'r': 3, 's': 4 };
-  const getVariantSortKey = (p: any): number => {
-    if (p.rarity === 'v') return variantOrder['v'];
-    if (p.is_extended_art) return variantOrder['ea'];
-    return variantOrder[p.foiling] ?? 99;
-  };
-  return [...printings].sort((a, b) => {
-    const setNameA = getSetName(a.set);
-    const setNameB = getSetName(b.set);
-    if (setNameA < setNameB) return -1;
-    if (setNameA > setNameB) return 1;
-    const editionA = editionOrder[a.edition] ?? 99;
-    const editionB = editionOrder[b.edition] ?? 99;
-    if (editionA !== editionB) return editionA - editionB;
-    return getVariantSortKey(a) - getVariantSortKey(b);
-  });
-};
 
 export default function ViewPrintingsDialog({
   open, onOpenChange, cardName, cardUniqueId, onSelectPrinting, currentPrintingId

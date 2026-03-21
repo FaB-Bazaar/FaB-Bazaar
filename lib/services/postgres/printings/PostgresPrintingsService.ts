@@ -984,9 +984,11 @@ export class PostgresPrintingsService implements IPrintingsService {
       // in the classes column (e.g. classes=['lightning'] for an essence-of-lightning card)
       const heroEssences = (filters.heroEssences || []).map(e => e.toLowerCase());
       const allowedClasses = [...new Set(['generic', ...heroClasses, ...heroTalents, ...heroEssences])];
+      // Use && (overlap) not <@ (subset): a multi-class card like ['ranger','assassin'] is legal
+      // for an assassin hero because at least one class matches — not because all classes match.
       const classCheck = heroClasses.length > 0
-        ? sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY[${sql.join(allowedClasses.map(c => sql`${c}`), sql`, `)}]::text[])`
-        : sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} <@ ARRAY['generic']::text[])`;
+        ? sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} && ARRAY[${sql.join(allowedClasses.map(c => sql`${c}`), sql`, `)}]::text[])`
+        : sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} && ARRAY['generic']::text[])`;
 
       // card.talents must be ⊆ hero's talents (empty card talents = no talent restriction = always ok)
       // heroEssences are included so that elemental heroes (whose lightning/earth/ice access comes from

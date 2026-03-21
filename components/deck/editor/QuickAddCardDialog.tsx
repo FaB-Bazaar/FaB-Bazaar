@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { getApiFormatCode } from "@/lib/format-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
-import { getHeroInfo } from "@/lib/fab-constants";
+import { getHeroInfo, sortPrintings } from "@/lib/fab-constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +82,14 @@ function groupPrintings(printingsData: any[]): CardResult[] {
     }
     map.get(id)!.printings.push(p);
   }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const pitchOrder = (c: CardResult) => c.pitch == null ? 0 : c.pitch;
+  return Array.from(map.values())
+    .sort((a, b) => {
+      const nameDiff = a.name.localeCompare(b.name);
+      if (nameDiff !== 0) return nameDiff;
+      return pitchOrder(a) - pitchOrder(b);
+    })
+    .map(card => ({ ...card, printings: sortPrintings(card.printings) }));
 }
 
 // ─── Foil / edition badges ────────────────────────────────────────────────────
