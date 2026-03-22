@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate payload
-    const { name, format, isPublic = false, cards, debug } = body;
+    const { name, format, isPublic, visibility, cards, debug } = body;
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json({
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       {
         name: name.trim(),
         format: format as DeckFormat,
-        isPublic,
+        visibility: visibility || (isPublic ? 'public' : undefined),
       },
       printings
     );
@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
         publicId: deck.publicId,
         name: deck.name,
         format: deck.format,
+        visibility: deck.visibility,
         isPublic: deck.isPublic,
         totalCards: deck.totalCards,
         heroCount: deck.heroCount,

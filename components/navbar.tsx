@@ -503,6 +503,12 @@ export default function Navbar() {
               New Deck
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/decks/community" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Users className="h-4 w-4 mr-2" />
+              Community Decks
+            </Link>
+          </DropdownMenuItem>
 
           {decks.length > 0 && (
             <>
@@ -858,6 +864,9 @@ export default function Navbar() {
                     <div className="bg-gray-50 dark:bg-gray-700/50 py-1">
                       <Link href="/decks" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">View All Decks</div>
+                      </Link>
+                      <Link href="/decks/community" onClick={() => setIsMenuOpen(false)}>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Community Decks</div>
                       </Link>
                       {decksLoading ? (
                         <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>

@@ -36,6 +36,11 @@ export type DeckFormat =
   | 'Casual';
 
 /**
+ * Deck visibility levels
+ */
+export type DeckVisibility = 'private' | 'unlisted' | 'public';
+
+/**
  * Printing within a deck category
  */
 export interface DeckPrintingDTO {
@@ -74,7 +79,8 @@ export interface DeckDTO {
   description?: string;
   format: DeckFormat;
   heroName?: string;
-  isPublic: boolean;
+  visibility: DeckVisibility;
+  isPublic: boolean;  // Computed: visibility !== 'private' (backward compat)
   fabraryUrl?: string;
   fabraryDeckId?: string;
   metafyGuideId?: string | null;
@@ -122,7 +128,8 @@ export interface DeckSummaryDTO {
   slug?: string;
   format: DeckFormat;
   heroName?: string;
-  isPublic: boolean;
+  visibility: DeckVisibility;
+  isPublic: boolean;  // Computed: visibility !== 'private'
   totalCards?: number;
   estimatedValue?: number;
   updatedAt?: Date;
@@ -137,7 +144,8 @@ export interface CreateDeckDTO {
   format: DeckFormat;
   heroName?: string;
   heroPrintingId?: string;
-  isPublic?: boolean;
+  visibility?: DeckVisibility;
+  isPublic?: boolean;  // Backward compat: maps to visibility
   fabraryUrl?: string;
   slug?: string;
   copyFromDeckId?: string;
@@ -151,7 +159,8 @@ export interface UpdateDeckDTO {
   description?: string;
   format?: DeckFormat;
   heroName?: string;
-  isPublic?: boolean;
+  visibility?: DeckVisibility;
+  isPublic?: boolean;  // Backward compat: maps to visibility
   fabraryUrl?: string;
   slug?: string;
   metadata?: Record<string, any>;
@@ -250,10 +259,29 @@ export interface BulkImportResultDTO {
  */
 export interface DeckListFilters {
   format?: DeckFormat;
-  isPublic?: boolean;
+  visibility?: DeckVisibility;
+  isPublic?: boolean;  // Backward compat
   heroName?: string;
   search?: string;
   availableOnTalishar?: boolean;
+}
+
+/**
+ * Public deck list filters (no userId needed)
+ */
+export interface PublicDeckFilters {
+  format?: DeckFormat;
+  heroName?: string;
+  search?: string;
+}
+
+/**
+ * Public deck summary with creator info
+ */
+export interface PublicDeckSummaryDTO extends DeckSummaryDTO {
+  description?: string;
+  creatorUsername?: string;
+  creatorDisplayUsername?: string;
 }
 
 /**
@@ -519,6 +547,18 @@ export interface IDeckService {
     userId: string,
     filters?: DeckListFilters
   ): AsyncResult<number>;
+
+  /**
+   * List public decks from all users
+   *
+   * @param filters - Optional filters (format, heroName, search)
+   * @param pagination - Optional pagination options
+   * @returns Paginated list of public deck summaries with creator info
+   */
+  listPublicDecks(
+    filters?: PublicDeckFilters,
+    pagination?: PaginationOptions
+  ): AsyncResult<{ decks: PublicDeckSummaryDTO[]; total: number }>;
 
   // ====================================
   // Card Management

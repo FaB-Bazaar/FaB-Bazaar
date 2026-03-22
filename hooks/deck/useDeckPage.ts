@@ -469,6 +469,7 @@ export function useDeckPage(deckId: string) {
     description: string;
     format: string;
     hero?: string;
+    visibility: 'private' | 'unlisted' | 'public';
     isPublic: boolean;
     availableOnTalishar: boolean;
     metafyGuideId: string | null;
@@ -478,7 +479,7 @@ export function useDeckPage(deckId: string) {
       description: settings.description,
       format: settings.format,
       heroName: settings.hero,
-      isPublic: settings.isPublic,
+      visibility: settings.visibility,
       availableOnTalishar: settings.availableOnTalishar,
       metafyGuideId: settings.metafyGuideId,
     } as any);

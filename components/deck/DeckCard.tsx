@@ -44,6 +44,7 @@ interface Deck {
   name: string;
   description?: string;
   format: string;
+  visibility?: 'private' | 'unlisted' | 'public';
   isPublic: boolean;
   availableOnTalishar?: boolean;
   metafyGuideId?: string | null;
@@ -75,6 +76,7 @@ interface DeckCardProps {
   onView: () => void;
   hasMetafyAccount?: boolean;
   onToggleTalishar?: (deckId: string, value: boolean) => void;
+  onChangeVisibility?: (deckId: string, value: 'private' | 'unlisted' | 'public') => void;
   onUpdateMetafyGuideId?: (deckId: string, value: string | null) => void;
 }
 
@@ -86,6 +88,7 @@ export default function DeckCard({
   onView,
   hasMetafyAccount,
   onToggleTalishar,
+  onChangeVisibility,
   onUpdateMetafyGuideId,
 }: DeckCardProps) {
   const [metafyGuideIdDraft, setMetafyGuideIdDraft] = useState(deck.metafyGuideId ?? '');
@@ -161,10 +164,12 @@ export default function DeckCard({
                 {deck.name}
               </Link>
               <div className="flex items-center gap-1 flex-shrink-0">
-                {deck.isPublic ? (
-                  <Globe className="h-4 w-4 text-green-500" title="Public deck" />
+                {deck.visibility === 'public' ? (
+                  <Globe className="h-4 w-4 text-green-500" title="Public — listed in Community Decks" />
+                ) : deck.visibility === 'unlisted' ? (
+                  <Eye className="h-4 w-4 text-blue-400" title="Unlisted — accessible via link" />
                 ) : (
-                  <Lock className="h-4 w-4 text-gray-400" title="Private deck" />
+                  <Lock className="h-4 w-4 text-gray-400" title="Private — only you can see this" />
                 )}
               </div>
             </div>
@@ -249,8 +254,24 @@ export default function DeckCard({
 
       {/* Quick Settings + Updated — anchored above action bar */}
       <div className="px-4 pb-4 space-y-2">
-        {(onToggleTalishar || (hasMetafyAccount && onUpdateMetafyGuideId)) && (
+        {(onChangeVisibility || onToggleTalishar || (hasMetafyAccount && onUpdateMetafyGuideId)) && (
           <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            {onChangeVisibility && (
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-600 dark:text-gray-400">
+                  Visibility
+                </Label>
+                <select
+                  value={deck.visibility || 'unlisted'}
+                  onChange={(e) => onChangeVisibility(deck.publicId ?? deck._id, e.target.value as 'private' | 'unlisted' | 'public')}
+                  className="text-xs h-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2"
+                >
+                  <option value="private">Private</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="public">Public</option>
+                </select>
+              </div>
+            )}
             {onToggleTalishar && (
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-gray-600 dark:text-gray-400">

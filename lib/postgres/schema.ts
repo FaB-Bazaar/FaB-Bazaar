@@ -522,7 +522,7 @@ export const decks = pgTable('decks', {
   description: text('description'),
   format: text('format'),  // Classic Constructed, Blitz, etc.
   heroName: text('hero_name'),  // Name of the hero
-  isPublic: boolean('is_public').default(false).notNull(),
+  visibility: visibilityLevelEnum('visibility').default('unlisted').notNull(),
 
   // Fabrary integration
   fabraryUrl: text('fabrary_url'),
@@ -532,7 +532,7 @@ export const decks = pgTable('decks', {
   metafyGuideId: text('metafy_guide_id'),
 
   // Talishar integration (opt-in to appearing in Talishar deck list)
-  availableOnTalishar: boolean('available_on_talishar').notNull().default(false),
+  availableOnTalishar: boolean('available_on_talishar').notNull().default(true),
 
   // Optional metadata
   tags: text('tags').array(),
@@ -544,7 +544,7 @@ export const decks = pgTable('decks', {
 }, (table) => ({
   userIdIdx: index('idx_decks_user_id').on(table.userId),
   publicIdIdx: index('idx_decks_public_id').on(table.publicId),
-  isPublicIdx: index('idx_decks_public').on(table.isPublic).where(sql`${table.isPublic} = true`),
+  visibilityIdx: index('idx_decks_visibility_public').on(table.visibility).where(sql`${table.visibility} = 'public'`),
   uniqueUserName: uniqueIndex('unique_decks_user_name').on(table.userId, table.name),
   uniqueUserSlug: index('idx_decks_user_slug').on(table.userId, table.slug),
 }));

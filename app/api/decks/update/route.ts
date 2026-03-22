@@ -30,6 +30,7 @@ export async function PATCH(request: NextRequest) {
       format,
       hero,
       isPublic,
+      visibility,
       fabraryUrl,
       newSlug
     } = body;
@@ -49,6 +50,7 @@ export async function PATCH(request: NextRequest) {
       description,
       format,
       heroName: hero,
+      visibility,
       isPublic,
       fabraryUrl,
       slug: newSlug,

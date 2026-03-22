@@ -779,6 +779,27 @@ export default function DeckEditorPage() {
                     ? `Filtered for ${state.deck.heroName}`
                     : ""}
                 </span>
+                {!isOwner && state.deck && (
+                  <button
+                    onClick={async () => {
+                      if (!user) {
+                        router.push(`/auth/signin?callbackUrl=/decks/${deckId}`);
+                        return;
+                      }
+                      const result = await decksClient.copyDeck(deckId, `Copy of ${state.deck!.name}`);
+                      if (result.success) {
+                        toast({ title: "Deck copied", description: `Copied to your decks.` });
+                        router.push(`/decks/${result.data.publicId}`);
+                      } else {
+                        toast({ title: "Error", description: result.error || "Failed to copy deck.", variant: "destructive" });
+                      }
+                    }}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    Copy to My Decks
+                  </button>
+                )}
               </div>
             </div>
 

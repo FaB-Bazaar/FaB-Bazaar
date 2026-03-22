@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[DeckAPI] POST Authenticated user: ${authResult.username} via ${authResult.authMethod}`);
 
-    const { name, description, format, hero, heroPrintingId, isPublic, fabraryUrl, slug } = body;
+    const { name, description, format, hero, heroPrintingId, isPublic, visibility, fabraryUrl, slug } = body;
 
     // Validate required fields
     if (!name?.trim()) {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       format: format.trim(),
       heroName: hero?.trim(),
       heroPrintingId,
-      isPublic: Boolean(isPublic),
+      visibility: visibility || (isPublic ? 'public' : undefined),
       fabraryUrl: fabraryUrl?.trim(),
       slug,
     });

@@ -50,6 +50,7 @@ interface Deck {
   name: string;
   description?: string;
   format: string;
+  visibility?: 'private' | 'unlisted' | 'public';
   isPublic: boolean;
   availableOnTalishar?: boolean;
   metafyGuideId?: string | null;
@@ -283,6 +284,19 @@ export default function DecksPage() {
     }
   };
 
+  // Handle visibility change
+  const handleChangeVisibility = async (deckId: string, value: 'private' | 'unlisted' | 'public') => {
+    const prevDeck = decks.find(d => d.publicId === deckId);
+    setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, visibility: value, isPublic: value !== 'private' } : d));
+    const result = await decksClient.updateDeck(deckId, { visibility: value });
+    if (!result.success) {
+      if (prevDeck) {
+        setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, visibility: prevDeck.visibility, isPublic: prevDeck.isPublic } : d));
+      }
+      toast({ title: "Error", description: "Failed to update visibility.", variant: "destructive" });
+    }
+  };
+
   // Handle Talishar toggle
   const handleToggleTalishar = async (deckId: string, value: boolean) => {
     setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, availableOnTalishar: value } : d));
@@ -334,8 +348,7 @@ export default function DecksPage() {
       const matchesFormat = filterFormat === "all" || deck.format === filterFormat;
       
       const matchesVisibility = filterVisibility === "all" ||
-        (filterVisibility === "public" && deck.isPublic) ||
-        (filterVisibility === "private" && !deck.isPublic);
+        (deck.visibility || 'unlisted') === filterVisibility;
 
       return matchesSearch && matchesFormat && matchesVisibility;
     })
@@ -559,9 +572,10 @@ export default function DecksPage() {
                 onChange={(e) => setFilterVisibility(e.target.value)}
                 className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
               >
-                <option value="all">All Decks</option>
-                <option value="public">Public Only</option>
-                <option value="private">Private Only</option>
+                <option value="all">All Visibility</option>
+                <option value="public">Public</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="private">Private</option>
               </select>
 
               <select
@@ -640,6 +654,7 @@ export default function DecksPage() {
                     onDuplicate={() => handleDuplicateDeck(deck)}
                     onView={() => router.push(`/decks/${deck.publicId}/analyze`)}
                     hasMetafyAccount={hasMetafyAccount}
+                    onChangeVisibility={handleChangeVisibility}
                     onToggleTalishar={handleToggleTalishar}
                     onUpdateMetafyGuideId={handleUpdateMetafyGuideId}
                   />

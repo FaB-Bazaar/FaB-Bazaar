@@ -91,7 +91,7 @@ export async function GET(
 
     // Check if deck is embedded in the provided article/hero context
     let isEmbedded = false;
-    if ((articleSlug || heroSlug) && !deck.isPublic) {
+    if ((articleSlug || heroSlug) && deck.visibility === 'private') {
       isEmbedded = await isDeckEmbeddedInContent(
         resolvedParams.deckId,
         articleSlug,
@@ -100,7 +100,7 @@ export async function GET(
     }
 
     // Check access for private decks (allow if embedded in article/hero)
-    if (!deck.isPublic && !isEmbedded && (!authResult.success || deck.userId?.toString() !== authResult.userId)) {
+    if (deck.visibility === 'private' && !isEmbedded && (!authResult.success || deck.userId?.toString() !== authResult.userId)) {
       return NextResponse.json({
         success: false,
         error: 'Deck not found or access denied'
@@ -179,6 +179,7 @@ export async function PATCH(
         description: body.description,
         format: body.format,
         heroName: body.hero,
+        visibility: body.visibility,
         isPublic: body.isPublic,
         fabraryUrl: body.fabraryUrl,
         metafyGuideId: body.metafyGuideId,

@@ -8,7 +8,7 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { decks, deckCards, printings, cards, inventoryItems, binders } from '@/lib/postgres/schema';
+import { decks, deckCards, printings, cards, inventoryItems, binders, users } from '@/lib/postgres/schema';
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { getBannedCardIds } from '@/lib/fab-banned-cards';
 import { nanoid } from 'nanoid';
@@ -16,6 +16,7 @@ import type {
   IDeckService,
   DeckDTO,
   DeckSummaryDTO,
+  PublicDeckSummaryDTO,
   DeckPrintingDTO,
   DeckCategory,
   CreateDeckDTO,
@@ -27,6 +28,7 @@ import type {
   UpdatePrintingResultDTO,
   BulkImportResultDTO,
   DeckListFilters,
+  PublicDeckFilters,
   DeckStatsDTO,
   OwnershipStatusDTO,
   InventoryComparisonDTO,
@@ -142,7 +144,8 @@ export class PostgresDeckService implements IDeckService {
       description: deckRow.description || undefined,
       format: deckRow.format,
       heroName: deckRow.heroName || undefined,
-      isPublic: deckRow.isPublic,
+      visibility: deckRow.visibility || 'unlisted',
+      isPublic: deckRow.visibility !== 'private',
       fabraryUrl: deckRow.fabraryUrl || undefined,
       fabraryDeckId: deckRow.fabraryDeckId || undefined,
       metafyGuideId: deckRow.metafyGuideId || undefined,
@@ -185,7 +188,8 @@ export class PostgresDeckService implements IDeckService {
       slug: deckRow.slug || undefined,
       format: deckRow.format,
       heroName: deckRow.heroName || undefined,
-      isPublic: deckRow.isPublic,
+      visibility: deckRow.visibility || 'unlisted',
+      isPublic: deckRow.visibility !== 'private',
       totalCards: deckRow.totalCards || 0,
       estimatedValue: deckRow.estimatedValue || 0,
       updatedAt: deckRow.updatedAt,
@@ -406,7 +410,7 @@ export class PostgresDeckService implements IDeckService {
           description: data.description?.trim() || '',
           format: data.format,
           heroName: data.heroName?.trim(),
-          isPublic: Boolean(data.isPublic),
+          visibility: data.visibility || (data.isPublic ? 'public' : 'unlisted'),
           fabraryUrl: data.fabraryUrl?.trim(),
           fabraryDeckId,
           createdAt: new Date(),
@@ -449,7 +453,7 @@ export class PostgresDeckService implements IDeckService {
           .where(
             or(
               and(eq(decks.publicId, data.copyFromDeckId), eq(decks.userId, userId)),
-              and(eq(decks.publicId, data.copyFromDeckId), eq(decks.isPublic, true))
+              and(eq(decks.publicId, data.copyFromDeckId), sql`${decks.visibility} != 'private'`)
             )
           )
           .limit(1);
@@ -560,7 +564,8 @@ export class PostgresDeckService implements IDeckService {
       if (updates.description !== undefined) updateFields.description = updates.description.trim();
       if (updates.format !== undefined) updateFields.format = updates.format;
       if (updates.heroName !== undefined) updateFields.heroName = updates.heroName?.trim();
-      if (updates.isPublic !== undefined) updateFields.isPublic = Boolean(updates.isPublic);
+      if (updates.visibility !== undefined) updateFields.visibility = updates.visibility;
+      else if (updates.isPublic !== undefined) updateFields.visibility = updates.isPublic ? 'public' : 'unlisted';
       if (updates.fabraryUrl !== undefined) {
         updateFields.fabraryUrl = updates.fabraryUrl?.trim();
         updateFields.fabraryDeckId = fabraryDeckId;
@@ -628,7 +633,8 @@ export class PostgresDeckService implements IDeckService {
       let conditions = [eq(decks.userId, userId)];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
-      if (filters?.isPublic !== undefined) conditions.push(eq(decks.isPublic, filters.isPublic));
+      if (filters?.visibility) conditions.push(eq(decks.visibility, filters.visibility));
+      else if (filters?.isPublic !== undefined) conditions.push(eq(decks.visibility, filters.isPublic ? 'public' : 'private'));
       if (filters?.heroName) conditions.push(eq(decks.heroName, filters.heroName));
       if (filters?.search) {
         conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
@@ -725,7 +731,7 @@ export class PostgresDeckService implements IDeckService {
       let conditions = [eq(decks.userId, userId)];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
-      if (filters?.isPublic !== undefined) conditions.push(eq(decks.isPublic, filters.isPublic));
+      if (filters?.visibility) conditions.push(eq(decks.visibility, filters.visibility));
 
       const [{ count }] = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -738,6 +744,87 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to count decks',
+      };
+    }
+  }
+
+  async listPublicDecks(
+    filters?: PublicDeckFilters,
+    pagination?: PaginationOptions
+  ): AsyncResult<{ decks: PublicDeckSummaryDTO[]; total: number }> {
+    try {
+      let conditions: any[] = [eq(decks.visibility, 'public')];
+
+      if (filters?.format) conditions.push(eq(decks.format, filters.format));
+      if (filters?.heroName) conditions.push(eq(decks.heroName, filters.heroName));
+      if (filters?.search) {
+        conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
+      }
+
+      const whereClause = and(...conditions);
+
+      // Get total count
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(decks)
+        .where(whereClause);
+
+      // Get decks with creator info and card stats in a single query
+      const limit = pagination?.limit || 20;
+      const offset = pagination?.skip || 0;
+
+      const rows = await db
+        .select({
+          id: decks.id,
+          publicId: decks.publicId,
+          name: decks.name,
+          slug: decks.slug,
+          description: decks.description,
+          format: decks.format,
+          heroName: decks.heroName,
+          visibility: decks.visibility,
+          updatedAt: decks.updatedAt,
+          creatorUsername: users.username,
+          creatorDisplayUsername: users.displayUsername,
+          cardCount: sql<number>`COALESCE(SUM(${deckCards.quantity}), 0)::int`,
+          totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
+        })
+        .from(decks)
+        .leftJoin(users, eq(decks.userId, users.id))
+        .leftJoin(deckCards, eq(decks.id, deckCards.deckId))
+        .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .where(whereClause)
+        .groupBy(decks.id, users.username, users.displayUsername)
+        .orderBy(desc(decks.updatedAt))
+        .limit(limit)
+        .offset(offset);
+
+      const summaries: PublicDeckSummaryDTO[] = rows.map((row) => ({
+        _id: row.id,
+        publicId: row.publicId,
+        name: row.name,
+        slug: row.slug ?? undefined,
+        description: row.description ?? undefined,
+        format: row.format as any,
+        heroName: row.heroName ?? undefined,
+        visibility: 'public' as const,
+        isPublic: true,
+        totalCards: row.cardCount,
+        estimatedValue: row.totalValue,
+        updatedAt: row.updatedAt ?? undefined,
+        creatorUsername: row.creatorUsername ?? undefined,
+        creatorDisplayUsername: row.creatorDisplayUsername ?? undefined,
+      }));
+
+      return {
+        success: true,
+        data: { decks: summaries, total: count },
+      };
+    } catch (error) {
+      console.error('[PostgresDeckService.listPublicDecks] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to list public decks',
       };
     }
   }

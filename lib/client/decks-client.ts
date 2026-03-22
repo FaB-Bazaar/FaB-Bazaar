@@ -12,9 +12,11 @@ import { buildQueryParams, handleResponse, handleError } from './utils';
 import type {
   DeckDTO,
   DeckSummaryDTO,
+  PublicDeckSummaryDTO,
   CreateDeckDTO,
   UpdateDeckDTO,
   DeckListFilters,
+  PublicDeckFilters,
   AddPrintingDTO,
   AddPrintingResultDTO,
   BulkImportResultDTO,
@@ -451,6 +453,33 @@ export async function copyDeck(
       body: JSON.stringify({ name: newName }),
     });
     return await handleResponse<DeckDTO>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ====================================
+// Community Deck Operations
+// ====================================
+
+/**
+ * Get community (public) decks with filtering and pagination
+ *
+ * No authentication required to browse.
+ */
+export async function getCommunityDecks(
+  filters?: PublicDeckFilters,
+  pagination?: { page?: number; limit?: number }
+): Promise<ApiResponse<{ decks: PublicDeckSummaryDTO[]; total: number; pagination: { page: number; limit: number; total: number; hasMore: boolean } }>> {
+  try {
+    const params = buildQueryParams({
+      page: pagination?.page || 1,
+      limit: pagination?.limit || 20,
+      ...filters,
+    });
+
+    const response = await fetch(`/api/decks/community?${params.toString()}`);
+    return await handleResponse(response);
   } catch (error) {
     return handleError(error);
   }

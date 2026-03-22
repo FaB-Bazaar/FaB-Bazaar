@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Settings, Save, Trash2, Swords } from "lucide-react";
@@ -60,6 +60,7 @@ interface DeckSettingsProps {
     description?: string;
     format: string;
     hero?: string;
+    visibility?: 'private' | 'unlisted' | 'public';
     isPublic: boolean;
     availableOnTalishar?: boolean;
     metafyGuideId?: string | null;
@@ -69,6 +70,7 @@ interface DeckSettingsProps {
     description: string;
     format: string;
     hero?: string;
+    visibility: 'private' | 'unlisted' | 'public';
     isPublic: boolean;
     availableOnTalishar: boolean;
     metafyGuideId: string | null;
@@ -87,7 +89,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [description, setDescription] = useState(deck.description || "");
   const [format, setFormat] = useState(deck.format);
   const [hero, setHero] = useState(deck.hero || "");
-  const [isPublic, setIsPublic] = useState(deck.isPublic);
+  const [visibility, setVisibility] = useState<'private' | 'unlisted' | 'public'>(deck.visibility || 'unlisted');
   const [availableOnTalishar, setAvailableOnTalishar] = useState(deck.availableOnTalishar ?? false);
   const [metafyGuideId, setMetafyGuideId] = useState(deck.metafyGuideId || "");
   const [saving, setSaving] = useState(false);
@@ -102,7 +104,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     description !== (deck.description || "") ||
     format !== deck.format ||
     hero !== (deck.hero || "") ||
-    isPublic !== deck.isPublic ||
+    visibility !== (deck.visibility || 'unlisted') ||
     availableOnTalishar !== (deck.availableOnTalishar ?? false) ||
     metafyGuideId !== (deck.metafyGuideId || "");
 
@@ -116,7 +118,8 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         description: description.trim(),
         format,
         hero: hero.trim() || undefined,
-        isPublic,
+        visibility,
+        isPublic: visibility !== 'private',
         availableOnTalishar,
         metafyGuideId: metafyGuideId.trim() || null,
       });
@@ -132,7 +135,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     setDescription(deck.description || "");
     setFormat(deck.format);
     setHero(deck.hero || "");
-    setIsPublic(deck.isPublic);
+    setVisibility(deck.visibility || 'unlisted');
     setAvailableOnTalishar(deck.availableOnTalishar ?? false);
     setMetafyGuideId(deck.metafyGuideId || "");
   };
@@ -222,13 +225,24 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         </div>
       </div>
 
-      {/* Public Toggle */}
+      {/* Visibility */}
       <div className="flex items-center justify-between py-1">
         <div>
-          <Label htmlFor="deck-public">Public Deck</Label>
-          <p className="text-xs text-muted-foreground mt-0.5">Allow others to view this deck</p>
+          <Label htmlFor="deck-visibility">Visibility</Label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {visibility === 'public' ? 'Listed in Community Decks' : visibility === 'unlisted' ? 'Accessible via link' : 'Only you can see this'}
+          </p>
         </div>
-        <Switch id="deck-public" checked={isPublic} onCheckedChange={setIsPublic} />
+        <select
+          id="deck-visibility"
+          value={visibility}
+          onChange={(e) => setVisibility(e.target.value as 'private' | 'unlisted' | 'public')}
+          className="text-sm h-8 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2"
+        >
+          <option value="private">Private</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="public">Public</option>
+        </select>
       </div>
 
       {/* Available on Talishar */}
