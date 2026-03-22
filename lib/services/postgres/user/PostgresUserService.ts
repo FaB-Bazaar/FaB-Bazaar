@@ -765,8 +765,9 @@ export class PostgresUserService implements IUserService {
    */
   async updateUserField(userId: string, field: string, value: any): AsyncResult<void> {
     try {
-      // Build dynamic update object
-      const updateData: any = { [field]: value, updatedAt: new Date() };
+      // Strip MongoDB-style dot notation (e.g. 'roles.isCurator' → 'isCurator')
+      const columnKey = field.includes('.') ? field.split('.')[1] : field;
+      const updateData: any = { [columnKey]: value, updatedAt: new Date() };
 
       const result = await db
         .update(users)
