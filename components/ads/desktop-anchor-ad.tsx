@@ -3,6 +3,7 @@
 import { useContext } from "react"
 import { GoogleAdsense } from "@/components/ads/google-adsense"
 import { AuthContext } from "@/contexts/AuthContext"
+import { useAdsConfig } from "@/contexts/AdsConfigContext"
 
 interface DesktopAnchorAdProps {
   className?: string  // Optional: additional classes for container
@@ -10,6 +11,9 @@ interface DesktopAnchorAdProps {
 
 export function DesktopAnchorAd({ className = "" }: DesktopAnchorAdProps) {
   const authContext = useContext(AuthContext)
+  const { adsEnabled } = useAdsConfig()
+
+  if (!adsEnabled) return null
 
   // Don't show ads to premium Patreon supporters
   if (authContext?.user?.isMetafySupporter) {

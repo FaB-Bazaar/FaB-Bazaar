@@ -15,6 +15,8 @@ import { DarkModeProvider } from '@/contexts/DarkModeContext'
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { Toaster } from "@/components/ui/toaster"
+import { AdsConfigProvider } from "@/contexts/AdsConfigContext"
+import { getAdsEnabled } from "@/app/actions/siteSettingsActions"
 
 
 
@@ -95,11 +97,13 @@ export const metadata: Metadata = {
   generator: 'Next.js'
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const adsEnabled = await getAdsEnabled();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -184,6 +188,7 @@ export default function RootLayout({
         "min-h-screen font-sans antialiased bg-page",
         OutfitFont.className
       )}>
+        <AdsConfigProvider adsEnabled={adsEnabled}>
         <DarkModeProvider>
           <CookieConsentProvider>
             <AuthSessionProvider>
@@ -287,6 +292,7 @@ export default function RootLayout({
             </AuthSessionProvider>
           </CookieConsentProvider>
         </DarkModeProvider>
+        </AdsConfigProvider>
 
         {/* Google Analytics 4 */}
         {process.env.NEXT_PUBLIC_GA_ID && (

@@ -21,6 +21,7 @@ import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { cn } from "@/lib/utils";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
@@ -446,9 +447,21 @@ export default function DeckEditorPage() {
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
+  const [pendingBuild, setPendingBuild] = useState<Array<{ printingId: string; displayName?: string; color?: string }> | null>(null);
 
-  const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string }> | undefined) => {
+  const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string; color?: string }> | undefined) => {
     if (!cardList?.length || !isOwner) return;
+
+    const hasCards = (state.deck?.maindeck?.length ?? 0) > 0;
+    if (hasCards) {
+      setPendingBuild(cardList);
+      return;
+    }
+
+    await executeBuild(cardList);
+  };
+
+  const executeBuild = async (cardList: Array<{ printingId: string; displayName?: string; color?: string }>) => {
 
     if (activeTab === 'search') {
       // Search tab: populate the text input and run the search so user can review/stage
@@ -1140,6 +1153,23 @@ export default function DeckEditorPage() {
         deckFormat={state.deck?.format}
         currentDeck={state.deck ?? undefined}
       />
+
+      <AlertDialog open={!!pendingBuild} onOpenChange={open => !open && setPendingBuild(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deck already has cards</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deck already has {state.deck?.maindeck?.length ?? 0} card{(state.deck?.maindeck?.length ?? 0) !== 1 ? "s" : ""} in it. The suggested build will be added on top of the existing cards. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingBuild(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { const build = pendingBuild; setPendingBuild(null); if (build) await executeBuild(build); }}>
+              Add anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

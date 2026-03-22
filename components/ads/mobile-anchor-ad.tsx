@@ -4,9 +4,11 @@ import { useEffect, useRef, useState, useContext } from "react"
 import { usePathname } from "next/navigation"
 import { useCookieConsent } from "@/contexts/CookieConsentContext"
 import { AuthContext } from "@/contexts/AuthContext"
+import { useAdsConfig } from "@/contexts/AdsConfigContext"
 
 export function MobileAnchorAd() {
   const authContext = useContext(AuthContext)
+  const { adsEnabled } = useAdsConfig()
   const { consentGiven, consentOptions } = useCookieConsent()
   const adRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
@@ -41,8 +43,8 @@ export function MobileAnchorAd() {
   // Development debug display
   const isDevelopment = process.env.NODE_ENV === 'development'
 
-  // Don't show ads to premium Patreon supporters (check after all hooks)
-  if (authContext?.user?.isMetafySupporter) {
+  // Don't show ads if disabled site-wide or to premium Patreon supporters
+  if (!adsEnabled || authContext?.user?.isMetafySupporter) {
     return null
   }
 
