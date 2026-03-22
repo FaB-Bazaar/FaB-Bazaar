@@ -8,7 +8,7 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { decks, deckCards, printings, cards, inventoryItems, binders, users } from '@/lib/postgres/schema';
+import { decks, deckCards, printings, cards, inventoryItems, binders, users, articles } from '@/lib/postgres/schema';
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { getBannedCardIds } from '@/lib/fab-banned-cards';
 import { nanoid } from 'nanoid';
@@ -822,6 +822,51 @@ export class PostgresDeckService implements IDeckService {
         creatorDisplayUsername: row.creatorDisplayUsername ?? undefined,
         heroPrintingId: row.heroPrintingId ?? undefined,
       }));
+
+      // Batch-fetch article references for these decks
+      if (summaries.length > 0) {
+        const deckPublicIds = summaries.map((d) => d.publicId);
+        const articleRows = await db
+          .select({
+            publicId: articles.publicId,
+            title: articles.title,
+            sections: articles.sections,
+          })
+          .from(articles)
+          .where(
+            and(
+              eq(articles.status, 'published'),
+              sql`EXISTS (
+                SELECT 1 FROM jsonb_array_elements(${articles.sections}) AS s
+                WHERE s->>'type' = 'decklist-block'
+                AND s->>'deckId' = ANY(${deckPublicIds})
+              )`
+            )
+          );
+
+        // Build a map: deckPublicId -> [{publicId, title}]
+        const articleMap = new Map<string, { publicId: string; title: string }[]>();
+        for (const row of articleRows) {
+          const secs = (row.sections as any[]) || [];
+          for (const sec of secs) {
+            if (sec.type === 'decklist-block' && sec.deckId && deckPublicIds.includes(sec.deckId)) {
+              if (!articleMap.has(sec.deckId)) articleMap.set(sec.deckId, []);
+              const refs = articleMap.get(sec.deckId)!;
+              // Avoid duplicates (same article referencing same deck in multiple sections)
+              if (!refs.some((r) => r.publicId === row.publicId)) {
+                refs.push({ publicId: row.publicId, title: row.title });
+              }
+            }
+          }
+        }
+
+        for (const summary of summaries) {
+          const refs = articleMap.get(summary.publicId);
+          if (refs && refs.length > 0) {
+            summary.articleReferences = refs;
+          }
+        }
+      }
 
       return {
         success: true,

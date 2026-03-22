@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Calendar, User } from "lucide-react";
+import { Copy, Calendar, User, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PublicDeckSummaryDTO } from "@/lib/services/contracts/IDeckService";
+import { displayUsername, profileHref } from "@/lib/utils/display-username";
 
 interface CommunityDeckCardProps {
   deck: PublicDeckSummaryDTO;
@@ -39,9 +40,11 @@ function timeAgo(date: Date | string | undefined): string {
 }
 
 export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDeckCardProps) {
+  const [articlesExpanded, setArticlesExpanded] = useState(false);
   const creatorName = deck.creatorDisplayUsername || deck.creatorUsername || 'Unknown';
   const totalCards = deck.totalCards || 0;
   const estimatedValue = deck.estimatedValue || 0;
+  const articleRefs = deck.articleReferences || [];
   const heroImgUrl = deck.heroPrintingId
     ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.heroPrintingId}/public`
     : null;
@@ -115,13 +118,13 @@ export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDe
               <User className="h-3 w-3" />
               {deck.creatorUsername ? (
                 <Link
-                  href={`/profile/${deck.creatorUsername}`}
+                  href={profileHref(deck.creatorUsername)}
                   className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  {creatorName}
+                  {displayUsername(creatorName)}
                 </Link>
               ) : (
-                <span>{creatorName}</span>
+                <span>{displayUsername(creatorName)}</span>
               )}
             </div>
             <div className="flex items-center gap-1">
@@ -130,6 +133,45 @@ export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDe
             </div>
           </div>
         </div>
+
+        {/* Article References */}
+        {articleRefs.length > 0 && (
+          <div className="px-4 pb-3">
+            {articleRefs.length === 1 ? (
+              <Link
+                href={`/articles/${articleRefs[0].publicId}`}
+                className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <BookOpen className="h-3 w-3" />
+                {articleRefs[0].title}
+              </Link>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setArticlesExpanded(!articlesExpanded)}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <BookOpen className="h-3 w-3" />
+                  Featured in {articleRefs.length} articles
+                  {articlesExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+                {articlesExpanded && (
+                  <div className="mt-1.5 space-y-1 pl-4.5">
+                    {articleRefs.map((ref) => (
+                      <Link
+                        key={ref.publicId}
+                        href={`/articles/${ref.publicId}`}
+                        className="block text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                      >
+                        {ref.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">

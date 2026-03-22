@@ -40,6 +40,7 @@ import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad"
 import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad"
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure"
+import { profileHref } from "@/lib/utils/display-username"
 import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar"
 import { SlidersHorizontal } from "lucide-react"
 
@@ -398,7 +399,7 @@ export default function SharedWantsListPage({
             {/* Profile link */}
             {profileUsername ? (
               <Link
-                href={`/profile/${profileUsername}`}
+                href={profileHref(profileUsername)}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 transition-all group shrink-0"
               >
                 <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />

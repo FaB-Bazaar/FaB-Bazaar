@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
 import { usersClient } from '@/lib/client';
 import type { TradeAnalysisFullDTO } from '@/lib/client/users-client';
+import { profileHref } from '@/lib/utils/display-username';
 
 interface UserTradePreviewProps {
   userId: string;
@@ -246,7 +247,7 @@ export default function UserTradePreviewDropdown({ userId, username, className =
           <button
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/profile/${username}`);
+              router.push(profileHref(username));
             }}
             className="w-full flex items-center justify-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-sm"
           >

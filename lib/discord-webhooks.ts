@@ -1,4 +1,6 @@
 // lib/discord-webhooks.ts
+import { displayUsername } from '@/lib/utils/display-username';
+
 export interface BinderUpdateData {
     username: string;
     cardsAdded: Array<{
@@ -57,7 +59,7 @@ export interface BinderUpdateData {
   
         const embed = {
           title: `📦 Binder Updated`,
-          description: `**${data.username}** updated their collection`,
+          description: `**${displayUsername(data.username)}** updated their collection`,
           fields: [
             {
               name: '📊 Cards Added',
@@ -161,7 +163,7 @@ export interface BinderUpdateData {
   
         const embed = {
           title: `🎯 Wants List Updated`,
-          description: `**${data.username}** updated their wants list`,
+          description: `**${displayUsername(data.username)}** updated their wants list`,
           fields: [
             {
               name: '📊 Cards Added',

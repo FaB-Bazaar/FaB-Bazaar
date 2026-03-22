@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { locationsClient } from "@/lib/client";
 import type { LocationDTO, EventDTO, LocationFollowerDTO } from "@/types/location";
+import { profileHref } from "@/lib/utils/display-username";
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString(undefined, {
@@ -80,7 +81,7 @@ function EventRow({
 
 function FollowerAvatar({ follower }: { follower: LocationFollowerDTO }) {
   return (
-    <Link href={`/profile/${follower.username}`} title={follower.displayUsername || follower.username}>
+    <Link href={profileHref(follower.username)} title={follower.displayUsername || follower.username}>
       {follower.avatarUrl ? (
         <img
           src={follower.avatarUrl}

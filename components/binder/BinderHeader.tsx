@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check, Keyboard } from 'lucide-react';
 
 import { PricingStatus } from './PricingStatus';
+import { profileHref } from '@/lib/utils/display-username';
 
 interface BinderHeaderProps {
   binder: any;
@@ -80,7 +81,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
 
           {/* Profile button - always shown for everyone */}
           <Link
-            href={`/profile/${binder.username}`}
+            href={profileHref(binder.username)}
             className="inline-flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 rounded-lg border border-blue-200 dark:border-blue-700 transition-all duration-200 group flex-1 sm:flex-initial justify-center"
           >
             <UserCircle className="hidden sm:block h-4 w-4" />
@@ -266,7 +267,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
 //       {binder?.username && (
 //         <div className="mb-2">
 //           <Link 
-//             href={`/profile/${binder.username}`} 
+//             href={profileHref(binder.username)} 
 //             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
 //           >
 //             <UserCircle className="h-4 w-4" />

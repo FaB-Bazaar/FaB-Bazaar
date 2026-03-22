@@ -6,20 +6,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { 
-  User, 
-  Calendar, 
-  BookOpen, 
-  MapPin, 
+import {
+  User,
+  Calendar,
+  BookOpen,
+  MapPin,
   ExternalLink,
   TrendingUp,
   Loader2,
   DollarSign,
   Heart,
-  Layers
+  Layers,
+  Swords
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ProfileTile } from "@/components/profiles/ProfileTile"
+import CommunityDeckCard from "@/components/deck/CommunityDeckCard"
+import { decksClient } from "@/lib/client"
+import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/hooks/use-toast"
+import type { PublicDeckSummaryDTO } from "@/lib/services/contracts/IDeckService"
+import { displayUsername } from "@/lib/utils/display-username"
 
 interface UserProfile {
   _id: string
@@ -104,12 +112,61 @@ interface ProfileResponse {
 
 export default function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = use(params)
+  const router = useRouter()
+  const { user: currentUser } = useAuth()
+  const { toast } = useToast()
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'collection' | 'decks'>('collection')
+
   // State to manage binder visibility
   const [showAllBinders, setShowAllBinders] = useState(false)
+
+  // Decks tab state
+  const [publicDecks, setPublicDecks] = useState<PublicDeckSummaryDTO[]>([])
+  const [decksLoading, setDecksLoading] = useState(false)
+  const [decksFetched, setDecksFetched] = useState(false)
+  const [copyingId, setCopyingId] = useState<string | null>(null)
+
+  // Fetch public decks when decks tab is first selected
+  useEffect(() => {
+    if (activeTab === 'decks' && !decksFetched) {
+      setDecksLoading(true)
+      decksClient.getCommunityDecks({ username }, { page: 1, limit: 50 })
+        .then((result) => {
+          if (result.success) {
+            setPublicDecks(result.data.decks)
+          }
+        })
+        .catch((err) => console.error('Failed to fetch public decks:', err))
+        .finally(() => {
+          setDecksLoading(false)
+          setDecksFetched(true)
+        })
+    }
+  }, [activeTab, decksFetched, username])
+
+  const handleCopyDeck = async (deck: PublicDeckSummaryDTO) => {
+    if (!currentUser) {
+      router.push(`/auth/signin?callbackUrl=/profile/${username}`)
+      return
+    }
+    setCopyingId(deck.publicId)
+    try {
+      const result = await decksClient.copyDeck(deck.publicId, `Copy of ${deck.name}`)
+      if (result.success) {
+        toast({ title: "Deck copied", description: `"${deck.name}" has been copied to your decks.` })
+      } else {
+        toast({ title: "Error", description: result.error || "Failed to copy deck.", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to copy deck.", variant: "destructive" })
+    }
+    setCopyingId(null)
+  }
 
   // useEffect with AbortController to prevent issues with Strict Mode double-invoking
   useEffect(() => {
@@ -224,11 +281,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
             <Avatar className="h-24 w-24 mx-auto lg:mx-0 mb-3">
               <AvatarImage src={user.image || "/cardback.webp"} alt={user.username} />
               <AvatarFallback className="text-2xl">
-                {user.username.charAt(0).toUpperCase()}
+                {displayUsername(user.username).charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
 
-            <h1 className="text-2xl font-bold break-words">{user.username}</h1>
+            <h1 className="text-2xl font-bold break-words">{displayUsername(user.username)}</h1>
 
             {user.discordUsername && (
               <a
@@ -301,43 +358,102 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
 
         {/* Main content */}
         <main className="lg:col-span-3 space-y-6">
-          {binders.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Collection ({stats.totalBinders} binders)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {bindersToShow.map((binder) => (
-                    <ProfileTile key={binder._id} binder={binder} />
-                  ))}
-                </div>
-                {binders.length > 6 && !showAllBinders && (
-                  <div className="mt-4">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setShowAllBinders(true)}
-                    >
-                      View All {stats.totalBinders} Binders
-                    </Button>
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setActiveTab('collection')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'collection'
+                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <BookOpen className="h-4 w-4" />
+              Collection
+            </button>
+            <button
+              onClick={() => setActiveTab('decks')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'decks'
+                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <Swords className="h-4 w-4" />
+              Decks
+            </button>
+          </div>
+
+          {/* Collection tab */}
+          {activeTab === 'collection' && (
+            binders.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Collection ({stats.totalBinders} binders)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {bindersToShow.map((binder) => (
+                      <ProfileTile key={binder._id} binder={binder} />
+                    ))}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="text-center py-12">
-                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold">No Public Binders</h3>
-                <p className="text-muted-foreground text-sm">
-                  {user.username} has not made any of their binders public yet.
-                </p>
-              </CardContent>
-            </Card>
+                  {binders.length > 6 && !showAllBinders && (
+                    <div className="mt-4">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowAllBinders(true)}
+                      >
+                        View All {stats.totalBinders} Binders
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">No Public Binders</h3>
+                  <p className="text-muted-foreground text-sm">
+                    {displayUsername(user.username)} has not made any of their binders public yet.
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          )}
+
+          {/* Decks tab */}
+          {activeTab === 'decks' && (
+            decksLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : publicDecks.length > 0 ? (
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {publicDecks.map((deck) => (
+                  <CommunityDeckCard
+                    key={deck.publicId}
+                    deck={deck}
+                    onCopy={handleCopyDeck}
+                    copying={copyingId === deck.publicId}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Swords className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold">No Public Decks</h3>
+                  <p className="text-muted-foreground text-sm">
+                    {displayUsername(user.username)} has not made any of their decks public yet.
+                  </p>
+                </CardContent>
+              </Card>
+            )
           )}
         </main>
       </div>

@@ -41,7 +41,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DarkModeToggle } from '@/components/DarkModeToggle'
-import MobileSearch from '@/components/search/MobileSearch' 
+import MobileSearch from '@/components/search/MobileSearch'
+import { profileHref } from '@/lib/utils/display-username'
 import { handleSignOut } from "@/app/actions/auth"
 
 export default function Navbar() {
@@ -254,7 +255,7 @@ export default function Navbar() {
 
   const handleCopyProfileLink = async () => {
     if (!user?.username) return;
-    const profileUrl = `https://fabbazaar.app/profile/${user.username}`;
+    const profileUrl = `https://fabbazaar.app${profileHref(user.username)}`;
     try {
       await navigator.clipboard.writeText(profileUrl);
       setIsProfileLinkCopied(true);
@@ -287,7 +288,7 @@ export default function Navbar() {
             {user?.username && (
               <DropdownMenuItem asChild>
                 <Link
-                  href={`/profile/${user.username}`}
+                  href={profileHref(user.username)}
                   onClick={() => setIsMenuOpen(false)}
                   className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
                 >
@@ -494,7 +495,7 @@ export default function Navbar() {
           <DropdownMenuItem asChild>
             <Link href="/decks" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <Layers className="h-4 w-4 mr-2" />
-              View All Decks
+              View Your Decks
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -863,7 +864,7 @@ export default function Navbar() {
                   {mobileDecksExpanded && (
                     <div className="bg-gray-50 dark:bg-gray-700/50 py-1">
                       <Link href="/decks" onClick={() => setIsMenuOpen(false)}>
-                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">View All Decks</div>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">View Your Decks</div>
                       </Link>
                       <Link href="/decks/community" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Community Decks</div>

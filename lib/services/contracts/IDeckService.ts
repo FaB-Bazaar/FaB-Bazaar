@@ -284,6 +284,7 @@ export interface PublicDeckSummaryDTO extends DeckSummaryDTO {
   creatorUsername?: string;
   creatorDisplayUsername?: string;
   heroPrintingId?: string;
+  articleReferences?: { publicId: string; title: string }[];
 }
 
 /**
