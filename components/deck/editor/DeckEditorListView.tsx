@@ -1423,6 +1423,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               if (tv === 'attack-reaction') return types.includes('attack') && types.includes('reaction');
               return types.includes(tv);
             }
+            // Arcane damage filter — search card text for "N arcane damage"
+            if (f.stat === 'arcane') {
+              const cardText = (details?.text ?? '') as string;
+              const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
+              return arcaneMatches.some(m => parseInt(m[1]) === f.value);
+            }
             let v = details?.[f.stat] as number | undefined;
             // Cards with no defense field (items, etc.) are treated as defense 0
             if (v == null && f.stat === 'defense') v = 0;
@@ -1455,6 +1461,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         if (tv === 'defense-reaction') return types.includes('defense') && types.includes('reaction');
         if (tv === 'attack-reaction') return types.includes('attack') && types.includes('reaction');
         return types.includes(tv);
+      }
+      if (f.stat === 'arcane') {
+        const cardText = ((card as any).text ?? '') as string;
+        const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
+        return arcaneMatches.some(m => parseInt(m[1]) === f.value);
       }
       let v = (card as any)[f.stat] as number | undefined;
       if (v == null && f.stat === 'defense') v = 0;

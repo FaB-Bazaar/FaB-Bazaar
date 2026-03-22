@@ -142,7 +142,7 @@ export default function DeckEditorPage() {
   const heroTypes: string[] = ((state.deck?.hero?.[0]?.printingDetails as any)?.types || []).map((t: string) => t.toLowerCase());
   const heroClass = heroTypes.find(t => !NON_CLASS_TYPES.has(t)) || '';
 
-  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear'>(null);
+  const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear' | 'arcane'>(null);
   const [keywordBuffer, setKeywordBuffer] = useState('');
 
   useEffect(() => {
@@ -193,6 +193,7 @@ export default function DeckEditorPage() {
         else if (e.key.toLowerCase() === 't') { setChordMode('type'); startTimeout(); }
         else if (e.key.toLowerCase() === 'k') { setChordMode('keyword'); setKeywordBuffer(''); startTimeout(); }
         else if (e.key.toLowerCase() === 'f') { setChordMode('clear'); startTimeout(); }
+        else if (e.key.toLowerCase() === 'w') { setChordMode('arcane'); startTimeout(); }
         else if (e.key.toLowerCase() === 'o') { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); resetChord(); }
         else if (e.key.toLowerCase() === 'u') { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); resetChord(); }
         else { resetChord(); }
@@ -228,6 +229,16 @@ export default function DeckEditorPage() {
         const n = parseInt(e.key);
         if (!isNaN(n) && n >= 0 && n <= 9) {
           window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'defense', value: n } }));
+          scrollToRed();
+        }
+        resetChord();
+        return;
+      }
+
+      if (chordMode === 'arcane') {
+        const n = parseInt(e.key);
+        if (!isNaN(n) && n >= 1 && n <= 9) {
+          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'arcane', value: n } }));
           scrollToRed();
         }
         resetChord();
@@ -549,19 +560,20 @@ export default function DeckEditorPage() {
           'T': () => setChordMode('type'),
           'K': () => { setChordMode('keyword'); setKeywordBuffer(''); },
           'F': () => setChordMode('clear'),
+          'W': () => setChordMode('arcane'),
           'S': () => { setActiveTab('search'); setChordMode(null); },
           'M': () => { setActiveTab('matchups'); setChordMode(null); },
           'O': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); setChordMode(null); },
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
-        const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense' };
+        const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
         const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', C: heroClass };
         const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
         return (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
             <div className="flex items-center gap-4 text-sm text-gray-200 flex-wrap">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F' }[chordMode!]}`}
+                {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F', arcane: 'W' }[chordMode!]}`}
               </span>
               <div className="w-px h-6 bg-gray-700" />
               {chordMode === 'select' && [
@@ -579,6 +591,7 @@ export default function DeckEditorPage() {
                 { key: 'T', label: 'Type' },
                 { key: 'K', label: 'Keyword' },
                 { key: 'F', label: 'Filters' },
+                { key: 'W', label: 'Arcane' },
                 { key: 'S', label: 'Search' },
                 { key: 'M', label: 'Matchups' },
                 { key: 'O', label: 'Owned', color: 'text-green-400' },
@@ -589,6 +602,20 @@ export default function DeckEditorPage() {
                   <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
                 </button>
               ))}
+              {chordMode === 'arcane' && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400 mr-1">Arcane =</span>
+                  {[1,2,3,4,5,6,7,8,9].map(n => (
+                    <button key={n} type="button" className={hudBtn} onClick={() => {
+                      window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'arcane', value: n } }));
+                      scrollRed();
+                      setChordMode(null);
+                    }}>
+                      <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{n}</kbd>
+                    </button>
+                  ))}
+                </div>
+              )}
               {(chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense') && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-gray-400 mr-1">
