@@ -49,6 +49,7 @@ import { PostgresAuthTokenService } from './postgres/auth-token/PostgresAuthToke
 import { PostgresOAuthFlowService } from './postgres/oauth-flow/PostgresOAuthFlowService';
 import { PostgresCuratedListService } from './postgres/curated-lists/PostgresCuratedListService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
+import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 
 
 /**
@@ -474,6 +475,7 @@ export const authTokenService = ServiceFactory.authTokenService;
 export const oauthFlowService = ServiceFactory.oauthFlowService;
 export const curatedListService = ServiceFactory.curatedListService;
 export const gameResultsService = new PostgresGameResultsService();
+export const siteSettingsService = new PostgresSiteSettingsService();
 
 
 /**

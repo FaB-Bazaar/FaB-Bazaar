@@ -45,6 +45,7 @@ import { userService, binderService, printingsService } from "@/lib/services"
 | `eventService` | Event management |
 | `curatedListService` | Curated card lists |
 | `gameResultsService` | Game result tracking |
+| `siteSettingsService` | Site-wide key-value config (e.g., `ads_enabled`). Generic `get<T>(key)` / `set(key, value)` |
 
 ## Testing
 
