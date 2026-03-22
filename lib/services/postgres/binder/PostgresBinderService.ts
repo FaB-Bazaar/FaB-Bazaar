@@ -108,7 +108,7 @@ export class PostgresBinderService implements IBinderService {
       const isPublic = binder.isPublic;
 
       if (!isOwner && !isPublic) {
-        return { success: true, data: null };
+        return { success: false, error: 'Access denied: This binder is private' };
       }
 
       return { success: true, data: this.mapToBinderDTO(binder) };

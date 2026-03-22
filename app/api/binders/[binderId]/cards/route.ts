@@ -44,12 +44,13 @@ export async function GET(
     const requestingUserId = authResult.success ? authResult.userId : undefined;
 
     // Get binder info using service layer (ID only — slug lookup is for Discord/MCP)
-    const binderResult = await binderService.getBinder(binderId);
+    const binderResult = await binderService.getBinder(binderId, requestingUserId);
     if (!binderResult.success) {
+      const isAccessDenied = binderResult.error?.includes('Access denied');
       return NextResponse.json({
         success: false,
         error: binderResult.error || 'Failed to find binder'
-      }, { status: 500 });
+      }, { status: isAccessDenied ? 403 : 500 });
     }
 
     if (!binderResult.data) {
