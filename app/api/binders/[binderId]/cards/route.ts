@@ -1,7 +1,6 @@
 // app/api/binders/[binderId]/cards/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, AuthResult } from '@/lib/auth/multi-auth';
-import { Types } from 'mongoose';
 import { DiscordWebhooks } from '@/lib/discord/discord-webhooks';
 import { binderService, printingsService } from '@/lib/services';
 import type { BinderCardFilters, BinderCardSearchOptions, AddCardDTO, BinderDTO } from '@/lib/services/contracts/IBinderService';
@@ -44,8 +43,8 @@ export async function GET(
     const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
     const requestingUserId = authResult.success ? authResult.userId : undefined;
 
-    // Get binder info using service layer
-    const binderResult = await binderService.findBinderByIdOrSlug(binderId);
+    // Get binder info using service layer (ID only — slug lookup is for Discord/MCP)
+    const binderResult = await binderService.getBinder(binderId);
     if (!binderResult.success) {
       return NextResponse.json({
         success: false,
@@ -148,34 +147,15 @@ export async function POST(
 
     const userId = authResult.userId!;
 
-    // Find or create binder if needed (for slug-based access)
-    // A binder ID can be a MongoDB ObjectId OR a PostgreSQL UUID — both are treated as IDs.
-    // Only non-ID strings (slugs) use getOrCreateBinderBySlug.
-    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const isId = Types.ObjectId.isValid(binderId) || UUID_REGEX.test(binderId);
-
-    let binderToUse: BinderDTO;
-    if (!isId) {
-      // It's a slug — get or create
-      const binderResult = await binderService.getOrCreateBinderBySlug(userId, binderId);
-      if (!binderResult.success) {
-        return NextResponse.json({
-          success: false,
-          error: binderResult.error || 'Failed to get or create binder'
-        }, { status: 500 });
-      }
-      binderToUse = binderResult.data;
-    } else {
-      // It's an ID (MongoDB ObjectId or PostgreSQL UUID)
-      const binderResult = await binderService.findBinderByIdOrSlug(binderId, userId);
-      if (!binderResult.success || !binderResult.data) {
-        return NextResponse.json({
-          success: false,
-          error: 'Binder not found'
-        }, { status: 404 });
-      }
-      binderToUse = binderResult.data;
+    // Look up binder by ID (slug-based access is for Discord/MCP only)
+    const binderResult = await binderService.getBinder(binderId, userId);
+    if (!binderResult.success || !binderResult.data) {
+      return NextResponse.json({
+        success: false,
+        error: 'Binder not found'
+      }, { status: 404 });
     }
+    const binderToUse: BinderDTO = binderResult.data;
 
     // Handle both single card and multiple cards
     const itemsToAdd = body.printings || [body];

@@ -48,8 +48,8 @@ export async function GET(
     const includeNotes = url.searchParams.get('includeNotes') === 'true';
     const sortBy = url.searchParams.get('sortBy') || 'name';
 
-    // Find binder using service layer
-    const binderResult = await binderService.findBinderByIdOrSlug(binderId);
+    // Find binder using service layer (ID only — slug lookup is for Discord/MCP)
+    const binderResult = await binderService.getBinder(binderId);
     if (!binderResult.success) {
       return NextResponse.json({
         success: false,

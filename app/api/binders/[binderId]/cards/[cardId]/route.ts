@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { Types } from 'mongoose';
 import { binderService } from '@/lib/services';
 import type { UpdateCardDTO } from '@/lib/services/contracts/IBinderService';
 
@@ -12,10 +11,6 @@ export async function GET(
 ) {
   try {
     const { binderId, cardId } = await params;
-
-    if (!Types.ObjectId.isValid(cardId) || !Types.ObjectId.isValid(binderId)) {
-      return NextResponse.json({ success: false, error: 'Invalid ID format' }, { status: 400 });
-    }
 
     // Get requesting user ID for access control
     const session = await auth();

@@ -4,9 +4,16 @@
 import { articleService, userService } from '@/lib/services';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { auth } from "@/auth";
-import type { IArticle } from '@/models/Article';
-
-type ArticlePayload = Partial<Pick<IArticle, 'title' | 'subtitle' | 'slug' | 'content' | 'contentType' | 'image' | 'status' | 'sections'>> & {
+// IArticle import removed (MongoDB model, 2026-03-22) — fields inlined below
+type ArticlePayload = {
+  title?: string;
+  subtitle?: string;
+  slug?: string;
+  content?: string;
+  contentType?: string;
+  image?: string;
+  status?: string;
+  sections?: any[];
   heroSlug?: string;
   heroClass?: string;
 };

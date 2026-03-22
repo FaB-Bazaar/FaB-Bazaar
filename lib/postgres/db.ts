@@ -27,13 +27,17 @@ export const db = drizzle(pool, { schema });
 // Export pool for direct access if needed
 export { pool };
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  await pool.end();
-  process.exit(0);
-});
+// Graceful shutdown (guarded to prevent listener leak during hot reload)
+if (!(globalThis as any).__pgShutdownRegistered) {
+  process.on('SIGINT', async () => {
+    await pool.end();
+    process.exit(0);
+  });
 
-process.on('SIGTERM', async () => {
-  await pool.end();
-  process.exit(0);
-});
+  process.on('SIGTERM', async () => {
+    await pool.end();
+    process.exit(0);
+  });
+
+  (globalThis as any).__pgShutdownRegistered = true;
+}

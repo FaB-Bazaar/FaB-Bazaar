@@ -1,6 +1,13 @@
 // lib/deck-allocation.ts
 
-import { DeckPrinting } from '@/models/Deck'
+// DeckPrinting type inlined from models/Deck.ts (MongoDB model import removed 2026-03-22)
+interface DeckPrinting {
+  printingId: string
+  condition?: string
+  notes?: string
+  addedAt?: Date
+  printingDetails?: any
+}
 
 export interface CardAllocation {
   hero: DeckPrinting[]

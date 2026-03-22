@@ -18,32 +18,20 @@ import type { IWantsService } from './contracts/IWantsService';
 import type { IInventoryService } from './contracts/IInventoryService';
 import type { IAuthService } from './contracts/IAuthService';
 
-// New service contracts (Phase 0)
+// Additional service contracts
 import type { ILocationService } from './contracts/ILocationService';
 import type { IEventService } from './contracts/IEventService';
 import type { IDeckService } from './contracts/IDeckService';
-import type { IDenormalizationService } from './contracts/IDenormalizationService';
-import type { IBinderStatsService } from './contracts/IBinderStatsService';
 import type { IArticleService } from './contracts/IArticleService';
-import type { IMatchingService } from './contracts/IMatchingService';
 import type { IOAuthService } from './contracts/IOAuthService';
-import type { IMetadataService } from './contracts/IMetadataService';
-import type { ITradeMatchingService } from './contracts/ITradeMatchingService';
-import type { ITradeAnalysisService } from './contracts/ITradeAnalysisService';
-import type { IFeaturedCardsService } from './contracts/IFeaturedCardsService';
-import type { IHeroService } from './contracts/IHeroService';
-import type { ISystemStatsService } from './contracts/ISystemStatsService';
 import type { IAuthTokenService } from './contracts/IAuthTokenService';
 import type { IOAuthFlowService } from './contracts/IOAuthFlowService';
 import type { ICuratedListService } from './contracts/ICuratedListService';
 
-// ❌ MongoDB implementations - DEPRECATED (commented out to prevent loading)
-// These are kept in the codebase as reference only, not functional
-// import { MongoUserService } from './mongodb/user/MongoUserService';
-// import { MongoBinderService } from './mongodb/binder/MongoBinderService';
-// import { MongoPrintingsService } from './mongodb/printings/MongoPrintingsService';
-// import { MongoWantsService } from './mongodb/wants/MongoWantsService';
-// import { MongoInventoryService } from './mongodb/inventory/MongoInventoryService';
+// Deprecated contracts (kept only because other files import their DTO types)
+import type { IBinderStatsService } from './contracts/IBinderStatsService';
+import type { IMetadataService } from './contracts/IMetadataService';
+
 import { AuthService } from './auth/AuthService';
 
 // PostgreSQL implementations
@@ -62,13 +50,6 @@ import { PostgresOAuthFlowService } from './postgres/oauth-flow/PostgresOAuthFlo
 import { PostgresCuratedListService } from './postgres/curated-lists/PostgresCuratedListService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 
-// ❌ MongoDB implementations - DEPRECATED (commented out to prevent loading)
-// These are kept in the codebase as reference only, not functional
-// Deprecated MongoDB service imports removed (2026-02-16)
-// - MongoBinderStatsService → Use binderService.getUserBindersWithStats()
-// - MongoHeroService → Use printingsService + fab-constants/heroes + articleService
-// - MongoMetadataService → Use @/lib/fab-constants
-// - Other deprecated services documented in lib/services/CLAUDE.md
 
 /**
  * Service Factory
@@ -99,17 +80,10 @@ class ServiceFactory {
   private static _locationService: ILocationService | null = null;
   private static _eventService: IEventService | null = null;
 
-  // New services (Phase 0) - implementations will be added as they are created
+  // Additional services
   private static _deckService: IDeckService | null = null;
-  private static _denormalizationService: IDenormalizationService | null = null;
   private static _articleService: IArticleService | null = null;
-  private static _matchingService: IMatchingService | null = null;
   private static _oauthService: IOAuthService | null = null;
-  private static _metadataService: IMetadataService | null = null;
-  private static _tradeMatchingService: ITradeMatchingService | null = null;
-  private static _tradeAnalysisService: ITradeAnalysisService | null = null;
-  private static _featuredCardsService: IFeaturedCardsService | null = null;
-  private static _systemStatsService: ISystemStatsService | null = null;
   private static _authTokenService: IAuthTokenService | null = null;
   private static _oauthFlowService: IOAuthFlowService | null = null;
   private static _curatedListService: ICuratedListService | null = null;
@@ -317,17 +291,10 @@ class ServiceFactory {
     this._locationService = null;
     this._eventService = null;
 
-    // New services
+    // Additional services
     this._deckService = null;
-    this._denormalizationService = null;
     this._articleService = null;
-    this._matchingService = null;
     this._oauthService = null;
-    this._metadataService = null;
-    this._tradeMatchingService = null;
-    this._tradeAnalysisService = null;
-    this._featuredCardsService = null;
-    this._systemStatsService = null;
     this._authTokenService = null;
   }
 
@@ -358,8 +325,7 @@ class ServiceFactory {
   }
 
   // ====================================
-  // New Service Getters (Phase 0)
-  // Implementations will be added as services are created
+  // Additional Service Getters
   // ====================================
 
   /**
@@ -382,18 +348,6 @@ class ServiceFactory {
   }
 
 
-  /**
-   * Get the Denormalization Service instance
-   * @deprecated For PostgreSQL, denormalization is not needed. Use JOINs instead.
-   */
-  static get denormalizationService(): IDenormalizationService {
-    throw new Error('denormalizationService is deprecated for PostgreSQL. Use JOINs instead of denormalizing data.');
-  }
-
-  static setDenormalizationService(service: IDenormalizationService): void {
-    this._denormalizationService = service;
-  }
-
 
   /**
    * Get the Article Service instance
@@ -415,21 +369,6 @@ class ServiceFactory {
   }
 
   /**
-   * Get the Matching Service instance
-   * @deprecated This service has redundant functionality and is being removed.
-   */
-  static get matchingService(): IMatchingService {
-    throw new Error('matchingService is deprecated. Redundant functionality - consider consolidating trade matching logic.');
-  }
-
-  static setMatchingService(service: IMatchingService): void {
-    this._matchingService = service;
-  }
-
-  /**
-   * Get the OAuth Service instance
-   */
-  /**
    * Get the OAuth Service instance
    *
    * Creates a new OAuthService on first call, then returns cached instance.
@@ -448,70 +387,6 @@ class ServiceFactory {
     this._oauthService = service;
   }
 
-  /**
-   * Get the Metadata Service instance
-   * @deprecated Card metadata is now available as static constants. Use @/lib/fab-constants instead.
-   */
-  static get metadataService(): IMetadataService {
-    throw new Error('metadataService is deprecated. Use @/lib/fab-constants (SET_MAP, FOILING_MAP, RARITY_MAP, etc.) instead of database calls.');
-  }
-
-  static setMetadataService(service: IMetadataService): void {
-    this._metadataService = service;
-  }
-
-  /**
-   * Get the Trade Matching Service instance
-   * @deprecated This service has redundant functionality and is being removed.
-   */
-  static get tradeMatchingService(): ITradeMatchingService {
-    throw new Error('tradeMatchingService is deprecated. Redundant functionality - consider consolidating trade matching logic.');
-  }
-
-  static setTradeMatchingService(service: ITradeMatchingService): void {
-    this._tradeMatchingService = service;
-  }
-
-  /**
-   * Get the Trade Analysis Service instance
-   * @deprecated This service has redundant functionality and is being removed.
-   */
-  static get tradeAnalysisService(): ITradeAnalysisService {
-    throw new Error('tradeAnalysisService is deprecated. Redundant functionality - consider consolidating trade matching logic.');
-  }
-
-  static setTradeAnalysisService(service: ITradeAnalysisService): void {
-    this._tradeAnalysisService = service;
-  }
-
-  /**
-   * Get the Featured Cards Service instance
-   * @deprecated Consider using PostgreSQL materialized views or Redis for caching instead.
-   */
-  static get featuredCardsService(): IFeaturedCardsService {
-    throw new Error('featuredCardsService is deprecated. Consider using PostgreSQL materialized views or Redis for featured card caching.');
-  }
-
-  static setFeaturedCardsService(service: IFeaturedCardsService): void {
-    this._featuredCardsService = service;
-  }
-
-
-  /**
-   * Get the System Stats Service instance
-   * @deprecated Homepage vanity metrics (total users, total cards) are no longer needed.
-   */
-  static get systemStatsService(): ISystemStatsService {
-    throw new Error('systemStatsService is deprecated. Homepage vanity metrics have been removed.');
-  }
-
-  static setSystemStatsService(service: ISystemStatsService): void {
-    this._systemStatsService = service;
-  }
-
-  /**
-   * Get the Auth Token Service instance
-   */
   /**
    * Get the Auth Token Service instance
    *
@@ -600,16 +475,6 @@ export const oauthFlowService = ServiceFactory.oauthFlowService;
 export const curatedListService = ServiceFactory.curatedListService;
 export const gameResultsService = new PostgresGameResultsService();
 
-// ❌ Deprecated services - DO NOT USE (commented out to prevent module loading errors)
-// export const denormalizationService = ServiceFactory.denormalizationService; // Use JOINs instead
-// export const binderStatsService = ServiceFactory.binderStatsService; // Use binderService.getUserBindersWithStats()
-// export const matchingService = ServiceFactory.matchingService; // Redundant functionality
-// export const metadataService = ServiceFactory.metadataService; // Use @/lib/fab-constants
-// export const tradeMatchingService = ServiceFactory.tradeMatchingService; // Redundant functionality
-// export const tradeAnalysisService = ServiceFactory.tradeAnalysisService; // Redundant functionality
-// export const featuredCardsService = ServiceFactory.featuredCardsService; // Use PostgreSQL views or Redis
-// export const heroService = ServiceFactory.heroService; // Use printingsService + constants + articleService
-// export const systemStatsService = ServiceFactory.systemStatsService; // Vanity metrics removed
 
 /**
  * Export factory for advanced use cases (e.g., testing)

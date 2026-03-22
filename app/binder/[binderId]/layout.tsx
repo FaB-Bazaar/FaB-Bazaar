@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ binderId:
   };
 
   try {
-    const binderResult = await binderService.findBinderByIdOrSlug(binderId);
+    const binderResult = await binderService.getBinder(binderId);
     if (!binderResult.success || !binderResult.data) return fallback;
 
     const binder = binderResult.data;

@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { revalidatePath } from 'next/cache';
 import { binderService } from '@/lib/services';
-import { Types } from 'mongoose';
-
 /**
  * PATCH /api/binders/[binderId]/bulk-update
  *
@@ -40,25 +38,11 @@ export async function PATCH(
       }, { status: 400 });
     }
 
-    // Resolve binderId if it's a slug (use service layer)
-    let resolvedBinderId = binderId;
-    if (!Types.ObjectId.isValid(binderId)) {
-      // Try to find by slug/discordExternalId
-      const binderResult = await binderService.findBinderByIdOrSlug(binderId, userId);
-      if (!binderResult.success || !binderResult.data) {
-        return NextResponse.json({
-          success: false,
-          error: 'Binder not found or access denied'
-        }, { status: 404 });
-      }
-      resolvedBinderId = binderResult.data._id;
-    }
-
     const startTime = Date.now();
 
-    // Use service layer to bulk update cards
+    // Use service layer to bulk update cards (ID only — slug lookup is for Discord/MCP)
     const result = await binderService.bulkUpdateCards(
-      resolvedBinderId,
+      binderId,
       userId,
       'forTrade',
       body.forTrade
