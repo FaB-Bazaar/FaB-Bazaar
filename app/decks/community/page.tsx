@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
 import CommunityDeckCard from "@/components/deck/CommunityDeckCard";
 import type { PublicDeckSummaryDTO, DeckFormat } from "@/lib/services/contracts/IDeckService";
+import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
+import { getBannedCardIds, getLivingLegendHeroIds } from '@/lib/fab-banned-cards';
 
 const FORMATS: DeckFormat[] = [
   'Classic Constructed',
@@ -20,6 +22,24 @@ const FORMATS: DeckFormat[] = [
   'Limited',
   'Casual',
 ];
+
+function toDisplayName(name: string) {
+  return name.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getHeroOptionsForFormat(format: string) {
+  const bannedIds = getBannedCardIds(format);
+  const livingLegendIds = getLivingLegendHeroIds(format);
+  const isExcluded = (cardUniqueId?: string) =>
+    cardUniqueId && (bannedIds.has(cardUniqueId) || livingLegendIds.has(cardUniqueId));
+
+  const source = (format === 'Silver Age' || format === 'Blitz') ? YOUNG_HERO_INFO : HERO_INFO;
+
+  return Object.entries(source)
+    .filter(([_, info]) => !isExcluded(info.cardUniqueId))
+    .map(([key]) => ({ value: key, label: toDisplayName(key) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
 
 const PAGE_SIZE = 20;
 
@@ -33,7 +53,14 @@ export default function CommunityDecksPage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [format, setFormat] = useState<string>(searchParams.get('format') || '');
   const [heroName, setHeroName] = useState(searchParams.get('hero') || '');
+  const [username, setUsername] = useState(searchParams.get('username') || '');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10));
+
+  // Hero options based on selected format
+  const heroOptions = useMemo(() => {
+    if (!format) return [];
+    return getHeroOptionsForFormat(format);
+  }, [format]);
 
   // Data
   const [decks, setDecks] = useState<PublicDeckSummaryDTO[]>([]);
@@ -47,6 +74,7 @@ export default function CommunityDecksPage() {
       ...(search && { search }),
       ...(format && { format: format as DeckFormat }),
       ...(heroName && { heroName }),
+      ...(username && { username }),
     };
 
     const result = await decksClient.getCommunityDecks(filters, { page, limit: PAGE_SIZE });
@@ -55,7 +83,7 @@ export default function CommunityDecksPage() {
       setTotal(result.data.total);
     }
     setLoading(false);
-  }, [search, format, heroName, page]);
+  }, [search, format, heroName, username, page]);
 
   useEffect(() => {
     fetchDecks();
@@ -70,6 +98,16 @@ export default function CommunityDecksPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  // Debounced username
+  const [usernameInput, setUsernameInput] = useState(username);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setUsername(usernameInput);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [usernameInput]);
 
   const handleCopy = async (deck: PublicDeckSummaryDTO) => {
     if (!user) {
@@ -129,7 +167,7 @@ export default function CommunityDecksPage() {
         </div>
         <select
           value={format}
-          onChange={(e) => { setFormat(e.target.value); setPage(1); }}
+          onChange={(e) => { setFormat(e.target.value); setHeroName(''); setPage(1); }}
           className="h-10 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 text-gray-700 dark:text-gray-300"
         >
           <option value="">All Formats</option>
@@ -137,11 +175,22 @@ export default function CommunityDecksPage() {
             <option key={f} value={f}>{f}</option>
           ))}
         </select>
-        <Input
-          placeholder="Hero name..."
+        <select
           value={heroName}
           onChange={(e) => { setHeroName(e.target.value); setPage(1); }}
-          className="sm:w-48"
+          className="h-10 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 text-gray-700 dark:text-gray-300 sm:w-56"
+          disabled={!format}
+        >
+          <option value="">{format ? 'All Heroes' : 'Select format first'}</option>
+          {heroOptions.map((h) => (
+            <option key={h.value} value={h.value}>{h.label}</option>
+          ))}
+        </select>
+        <Input
+          placeholder="Username..."
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
+          className="sm:w-40"
         />
       </div>
 

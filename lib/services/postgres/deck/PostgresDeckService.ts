@@ -760,14 +760,19 @@ export class PostgresDeckService implements IDeckService {
       if (filters?.search) {
         conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
       }
+      if (filters?.username) {
+        conditions.push(eq(users.username, filters.username));
+      }
 
       const whereClause = and(...conditions);
+      const needsUserJoin = !!filters?.username;
 
       // Get total count
-      const [{ count }] = await db
+      const countQuery = db
         .select({ count: sql<number>`count(*)::int` })
-        .from(decks)
-        .where(whereClause);
+        .from(decks);
+      if (needsUserJoin) countQuery.leftJoin(users, eq(decks.userId, users.id));
+      const [{ count }] = await countQuery.where(whereClause);
 
       // Get decks with creator info and card stats in a single query
       const limit = pagination?.limit || 20;
@@ -788,6 +793,7 @@ export class PostgresDeckService implements IDeckService {
           creatorDisplayUsername: users.displayUsername,
           cardCount: sql<number>`COALESCE(SUM(${deckCards.quantity}), 0)::int`,
           totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
+          heroPrintingId: sql<string>`MIN(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.printingId} END)`,
         })
         .from(decks)
         .leftJoin(users, eq(decks.userId, users.id))
@@ -814,6 +820,7 @@ export class PostgresDeckService implements IDeckService {
         updatedAt: row.updatedAt ?? undefined,
         creatorUsername: row.creatorUsername ?? undefined,
         creatorDisplayUsername: row.creatorDisplayUsername ?? undefined,
+        heroPrintingId: row.heroPrintingId ?? undefined,
       }));
 
       return {

@@ -273,6 +273,7 @@ export interface PublicDeckFilters {
   format?: DeckFormat;
   heroName?: string;
   search?: string;
+  username?: string;
 }
 
 /**
@@ -282,6 +283,7 @@ export interface PublicDeckSummaryDTO extends DeckSummaryDTO {
   description?: string;
   creatorUsername?: string;
   creatorDisplayUsername?: string;
+  heroPrintingId?: string;
 }
 
 /**

@@ -55,11 +55,14 @@ export async function POST(
       );
     }
 
-    // Fetch deck
-    const deckResult = await deckService.findByPublicId(
+    // Fetch deck (fallback without userId for non-owner lookups)
+    let deckResult = await deckService.findByPublicId(
       resolvedParams.deckId,
       authResult.userId
     );
+    if (deckResult.success && !deckResult.data) {
+      deckResult = await deckService.findByPublicId(resolvedParams.deckId);
+    }
 
     if (!deckResult.success || !deckResult.data) {
       return NextResponse.json(
@@ -154,21 +157,17 @@ export async function GET(
   { params }: { params: { deckId: string } }
 ) {
   try {
-    const authResult = await authenticateRequest(request, {});
-    if (!authResult.success) {
-      return NextResponse.json(
-        { success: false, error: authResult.error },
-        { status: 401 }
-      );
-    }
-
     const resolvedParams = await params;
+    const authResult = await authenticateRequest(request, {});
 
-    // Fetch deck
-    const deckResult = await deckService.findByPublicId(
-      resolvedParams.deckId,
-      authResult.userId
-    );
+    // Fetch deck — try with userId first, then without for public/unlisted access
+    let deckResult = authResult.success
+      ? await deckService.findByPublicId(resolvedParams.deckId, authResult.userId)
+      : { success: true as const, data: null };
+
+    if (deckResult.success && !deckResult.data) {
+      deckResult = await deckService.findByPublicId(resolvedParams.deckId);
+    }
 
     if (!deckResult.success || !deckResult.data) {
       return NextResponse.json(
@@ -179,11 +178,11 @@ export async function GET(
 
     const deck = deckResult.data;
 
-    // Validate ownership
-    if (deck.userId?.toString() !== authResult.userId) {
+    // Private decks: only the owner can see matchups
+    if (deck.visibility === 'private' && (!authResult.success || deck.userId?.toString() !== authResult.userId)) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
+        { success: false, error: 'Deck not found' },
+        { status: 404 }
       );
     }
 

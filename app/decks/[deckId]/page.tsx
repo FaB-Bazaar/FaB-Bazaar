@@ -1059,7 +1059,7 @@ export default function DeckEditorPage() {
               <DeckResultsTab deckId={deckId} deck={state.deck ?? undefined} />
             )}
 
-            {/* Matchups tab content — always mounted once deck loads to avoid refetch on tab switch */}
+            {/* Matchups tab content — visible to all viewers of the deck */}
             {state.deck && (
               <div className={activeTab === "matchups" ? undefined : "hidden"}>
                 <DeckMatchupsDialog

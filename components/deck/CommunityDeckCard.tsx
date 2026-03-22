@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import { createPortal } from "react-dom";
+import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,11 +39,12 @@ function timeAgo(date: Date | string | undefined): string {
 }
 
 export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDeckCardProps) {
-  const [heroPreview, setHeroPreview] = useState<{ url: string; x: number; y: number } | null>(null);
-
   const creatorName = deck.creatorDisplayUsername || deck.creatorUsername || 'Unknown';
   const totalCards = deck.totalCards || 0;
   const estimatedValue = deck.estimatedValue || 0;
+  const heroImgUrl = deck.heroPrintingId
+    ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.heroPrintingId}/public`
+    : null;
 
   return (
     <>
@@ -52,6 +52,15 @@ export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDe
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-start gap-3">
+            {heroImgUrl && (
+              <div className="flex-shrink-0">
+                <img
+                  src={heroImgUrl}
+                  alt={deck.heroName || "Hero"}
+                  className="w-12 h-16 object-cover rounded"
+                />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <Link
                 href={`/decks/${deck.publicId}`}
@@ -68,7 +77,7 @@ export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDe
 
               {deck.heroName && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 truncate">
-                  {deck.heroName}
+                  {deck.heroName.replace(/\b\w/g, c => c.toUpperCase())}
                 </div>
               )}
             </div>
@@ -104,7 +113,16 @@ export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDe
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-1">
               <User className="h-3 w-3" />
-              <span>{creatorName}</span>
+              {deck.creatorUsername ? (
+                <Link
+                  href={`/profile/${deck.creatorUsername}`}
+                  className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  {creatorName}
+                </Link>
+              ) : (
+                <span>{creatorName}</span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />

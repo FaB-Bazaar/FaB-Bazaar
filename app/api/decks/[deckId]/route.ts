@@ -67,10 +67,16 @@ export async function GET(
     const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
 
     // Use service layer to fetch deck
-    const result = await deckService.findByPublicId(
+    // First try with userId (ownership check), then without (public/unlisted access)
+    let result = await deckService.findByPublicId(
       resolvedParams.deckId,
       authResult.success ? authResult.userId : undefined
     );
+
+    if (result.success && !result.data && authResult.success) {
+      // Not found as owner — try without userId constraint (for public/unlisted decks)
+      result = await deckService.findByPublicId(resolvedParams.deckId);
+    }
 
     if (!result.success) {
       return NextResponse.json({
@@ -81,7 +87,6 @@ export async function GET(
 
     const deck = result.data;
 
-    // Check if deck exists (should not happen if result.success is true, but defensive check)
     if (!deck) {
       return NextResponse.json({
         success: false,

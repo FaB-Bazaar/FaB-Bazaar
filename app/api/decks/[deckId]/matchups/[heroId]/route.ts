@@ -55,11 +55,14 @@ export async function PUT(
       );
     }
 
-    // Fetch deck
-    const deckResult = await deckService.findByPublicId(
+    // Fetch deck (fallback without userId for non-owner lookups)
+    let deckResult = await deckService.findByPublicId(
       resolvedParams.deckId,
       authResult.userId
     );
+    if (deckResult.success && !deckResult.data) {
+      deckResult = await deckService.findByPublicId(resolvedParams.deckId);
+    }
 
     if (!deckResult.success || !deckResult.data) {
       return NextResponse.json(
@@ -169,11 +172,14 @@ export async function DELETE(
 
     const resolvedParams = await params;
 
-    // Fetch deck
-    const deckResult = await deckService.findByPublicId(
+    // Fetch deck (fallback without userId for non-owner lookups)
+    let deckResult = await deckService.findByPublicId(
       resolvedParams.deckId,
       authResult.userId
     );
+    if (deckResult.success && !deckResult.data) {
+      deckResult = await deckService.findByPublicId(resolvedParams.deckId);
+    }
 
     if (!deckResult.success || !deckResult.data) {
       return NextResponse.json(
