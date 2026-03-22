@@ -411,10 +411,11 @@ export async function POST(req: Request) {
         // Check if user has curator/admin role for conditional tool visibility
         let isCurator = false;
         if (authenticatedUser?._id) {
-          const profileResult = await userService.getProfile(authenticatedUser._id);
-          if (profileResult.success && profileResult.data) {
-            isCurator = !!(profileResult.data.isCurator || profileResult.data.isSuperAdmin);
-          }
+          const [curatorCheck, adminCheck] = await Promise.all([
+            userService.hasRole(authenticatedUser._id, 'isCurator'),
+            userService.hasRole(authenticatedUser._id, 'isSuperAdmin'),
+          ]);
+          isCurator = !!(curatorCheck.success && curatorCheck.data) || !!(adminCheck.success && adminCheck.data);
         }
 
         const curatorTools = isCurator ? [

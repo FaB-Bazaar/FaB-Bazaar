@@ -14,14 +14,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    const userResult = await userService.getProfile(authResult.userId!);
-    if (!userResult.success || !userResult.data) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 401 });
-    }
-
-    const profile = userResult.data;
-    const isCurator = profile.isCurator || false;
-    const isSuperAdmin = profile.roles?.isSuperAdmin || false;
+    const [curatorCheck, adminCheck] = await Promise.all([
+      userService.hasRole(authResult.userId!, 'isCurator'),
+      userService.hasRole(authResult.userId!, 'isSuperAdmin'),
+    ]);
+    const isCurator = !!(curatorCheck.success && curatorCheck.data);
+    const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
 
     if (!isCurator && !isSuperAdmin) {
       return NextResponse.json({ success: false, error: 'Curator or Super Admin role required' }, { status: 403 });

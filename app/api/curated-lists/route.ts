@@ -13,10 +13,12 @@ export async function GET(req: NextRequest) {
 
     if (authResult.success && !viewPublic) {
       // Check if user is curator or superadmin
-      const userResult = await userService.getProfile(authResult.userId!);
-      const profile = userResult.success ? userResult.data : null;
-      const isCurator = profile?.isCurator || false;
-      const isSuperAdmin = profile?.roles?.isSuperAdmin || false;
+      const [curatorCheck, adminCheck] = await Promise.all([
+        userService.hasRole(authResult.userId!, 'isCurator'),
+        userService.hasRole(authResult.userId!, 'isSuperAdmin'),
+      ]);
+      const isCurator = !!(curatorCheck.success && curatorCheck.data);
+      const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
 
       if (isCurator || isSuperAdmin) {
         // Return all lists (including unpublished) for admins
@@ -49,14 +51,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
-    const userResult = await userService.getProfile(authResult.userId!);
-    if (!userResult.success || !userResult.data) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 401 });
-    }
-
-    const profile = userResult.data;
-    const isCurator = profile.isCurator || false;
-    const isSuperAdmin = profile.roles?.isSuperAdmin || false;
+    const [curatorCheck, adminCheck] = await Promise.all([
+      userService.hasRole(authResult.userId!, 'isCurator'),
+      userService.hasRole(authResult.userId!, 'isSuperAdmin'),
+    ]);
+    const isCurator = !!(curatorCheck.success && curatorCheck.data);
+    const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
 
     if (!isCurator && !isSuperAdmin) {
       return NextResponse.json({ success: false, error: 'Curator or Super Admin role required' }, { status: 403 });

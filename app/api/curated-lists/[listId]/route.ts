@@ -8,14 +8,12 @@ async function checkCuratorOrAdmin(req: NextRequest, body?: object) {
     return { authorized: false, status: 401, error: 'Authentication required' };
   }
 
-  const userResult = await userService.getProfile(authResult.userId!);
-  if (!userResult.success || !userResult.data) {
-    return { authorized: false, status: 401, error: 'User not found' };
-  }
-
-  const profile = userResult.data;
-  const isCurator = profile.isCurator || false;
-  const isSuperAdmin = profile.roles?.isSuperAdmin || false;
+  const [curatorCheck, adminCheck] = await Promise.all([
+    userService.hasRole(authResult.userId!, 'isCurator'),
+    userService.hasRole(authResult.userId!, 'isSuperAdmin'),
+  ]);
+  const isCurator = !!(curatorCheck.success && curatorCheck.data);
+  const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
 
   if (!isCurator && !isSuperAdmin) {
     return { authorized: false, status: 403, error: 'Curator or Super Admin role required' };

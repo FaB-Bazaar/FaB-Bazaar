@@ -733,6 +733,7 @@ export class PostgresUserService implements IUserService {
           canManageLocations: users.canManageLocations,
           canImportCardCollections: users.canImportCardCollections,
           canModerateForums: users.canModerateForums,
+          isCurator: users.isCurator,
         })
         .from(users)
         .where(eq(users.id, userId));
@@ -741,13 +742,14 @@ export class PostgresUserService implements IUserService {
         return { success: false, error: 'User not found' };
       }
 
-      const roleMap: Record<keyof UserRolesDTO, boolean> = {
+      const roleMap: Record<keyof UserRolesDTO | 'isCurator', boolean> = {
         isAdmin: user.isAdmin || false,
         isSuperAdmin: user.isSuperAdmin || false,
         isContentCreator: user.isContentCreator || false,
         canManageLocations: user.canManageLocations || false,
         canImportCardCollections: user.canImportCardCollections || false,
         canModerateForums: user.canModerateForums || false,
+        isCurator: user.isCurator || false,
       };
 
       return { success: true, data: roleMap[role] };
