@@ -66,25 +66,29 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
   if (mcpFilters.types) searchFilters.types = mcpFilters.types;
   if (mcpFilters.classes) searchFilters.classes = mcpFilters.classes;
   if (mcpFilters.talents) searchFilters.talents = mcpFilters.talents;
+  if (mcpFilters.talentsAll) (searchFilters as any).talentsAll = mcpFilters.talentsAll;
   if (mcpFilters.rarities) searchFilters.rarities = mcpFilters.rarities;
   if (mcpFilters.foilings) searchFilters.foilings = mcpFilters.foilings;
   if (mcpFilters.editions) searchFilters.editions = mcpFilters.editions;
   if (mcpFilters.color) searchFilters.color = mcpFilters.color;
   if (mcpFilters.traits) searchFilters.traits = mcpFilters.traits;
   if (mcpFilters.keywords) searchFilters.keywords = mcpFilters.keywords;
-  if (mcpFilters.textKeywords) searchFilters.textKeywords = mcpFilters.textKeywords;
   if (mcpFilters.artists) searchFilters.artists = mcpFilters.artists;
   
   // Stats
   if (mcpFilters.power !== undefined) searchFilters.power = mcpFilters.power;
   if (mcpFilters.powerMin !== undefined) searchFilters.powerMin = mcpFilters.powerMin;
   if (mcpFilters.powerMax !== undefined) searchFilters.powerMax = mcpFilters.powerMax;
+  if (mcpFilters.powerNot !== undefined) (searchFilters as any).powerNot = mcpFilters.powerNot;
   if (mcpFilters.cost !== undefined) searchFilters.cost = mcpFilters.cost;
+  if (mcpFilters.costs !== undefined) (searchFilters as any).costs = mcpFilters.costs;
   if (mcpFilters.costMin !== undefined) searchFilters.costMin = mcpFilters.costMin;
   if (mcpFilters.costMax !== undefined) searchFilters.costMax = mcpFilters.costMax;
+  if (mcpFilters.costNot !== undefined) (searchFilters as any).costNot = mcpFilters.costNot;
   if (mcpFilters.defense !== undefined) searchFilters.defense = mcpFilters.defense;
   if (mcpFilters.defenseMin !== undefined) searchFilters.defenseMin = mcpFilters.defenseMin;
   if (mcpFilters.defenseMax !== undefined) searchFilters.defenseMax = mcpFilters.defenseMax;
+  if (mcpFilters.defenseNot !== undefined) (searchFilters as any).defenseNot = mcpFilters.defenseNot;
   if (mcpFilters.pitch !== undefined) searchFilters.pitch = mcpFilters.pitch;
   
   // Price filters
@@ -96,6 +100,9 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
   
   // Hero-based filtering
   if (mcpFilters.heroLegal) searchFilters.heroLegal = mcpFilters.heroLegal;
+  if (mcpFilters.heroClasses) (searchFilters as any).heroClasses = mcpFilters.heroClasses;
+  if (mcpFilters.heroTalents) (searchFilters as any).heroTalents = mcpFilters.heroTalents;
+  if (mcpFilters.heroEssences) (searchFilters as any).heroEssences = mcpFilters.heroEssences;
   if (mcpFilters.excludeClasses) searchFilters.excludeClasses = mcpFilters.excludeClasses;
   if (mcpFilters.excludeTalents) searchFilters.excludeTalents = mcpFilters.excludeTalents;
   
@@ -132,8 +139,8 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
 
   // Add negation filters
   const negationFields = [
-    'colorNot', 'raritiesNot', 'setsNot', 'foilingsNot', 'editionsNot', 
-    'typesNot', 'keywordsNot', 'textNot', 'talentsNot'
+    'colorNot', 'raritiesNot', 'setsNot', 'foilingsNot', 'editionsNot',
+    'typesNot', 'keywordsNot', 'textNot', 'talentsNot', 'classesNot'
   ];
   
   negationFields.forEach(field => {
@@ -261,24 +268,24 @@ export const searchPrintingsTool = {
           talents: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Talents/essences (light, ice, earth, lightning, pirate, etc.)'
+            description: 'Talents/essences — card must have ANY of these (OR logic). Use talentsAll for AND logic.'
+          },
+          talentsAll: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Card must have ALL of these talents (AND logic / subset match). Use for multi-talent requirements like ["light", "ice"].'
           },
           traits: {
             type: 'array',
             items: { type: 'string' },
             description: 'Card traits'
           },
-          keywords: { 
-            type: 'array', 
-            items: { type: 'string' },
-            description: 'Card keywords (go again, dominate, etc.)'
-          },
-          textKeywords: {
+          keywords: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Keywords that appear in card text'
+            description: 'Card keywords (go again, dominate, stealth, phantasm, etc.)'
           },
-          color: { 
+          color: {
             type: 'string', 
             enum: ['blue', 'red', 'yellow'],
             description: 'Card color'
@@ -288,13 +295,17 @@ export const searchPrintingsTool = {
           power: { type: ['number', 'array'], description: 'Exact power value(s)' },
           powerMin: { type: 'number', description: 'Minimum power' },
           powerMax: { type: 'number', description: 'Maximum power' },
+          powerNot: { type: 'array', items: { type: 'number' }, description: 'Power values to exclude' },
           cost: { type: ['number', 'array'], description: 'Exact cost value(s)' },
+          costs: { type: 'array', items: { type: 'number' }, description: 'Match any of these exact cost values (e.g. [0,1,2] for budget cards)' },
           costMin: { type: 'number', description: 'Minimum cost' },
           costMax: { type: 'number', description: 'Maximum cost' },
+          costNot: { type: 'array', items: { type: 'number' }, description: 'Cost values to exclude' },
           defense: { type: ['number', 'array'], description: 'Exact defense value(s)' },
           defenseMin: { type: 'number', description: 'Minimum defense' },
           defenseMax: { type: 'number', description: 'Maximum defense' },
-          pitch: { type: ['number', 'array'], description: 'Pitch value(s)' },
+          defenseNot: { type: 'array', items: { type: 'number' }, description: 'Defense values to exclude' },
+          pitch: { type: ['number', 'array'], description: 'Pitch value(s) — 1=red, 2=yellow, 3=blue' },
           
           // Printing attributes
           sets: { type: 'array', items: { type: 'string' }, description: 'Set codes' },
@@ -313,15 +324,18 @@ export const searchPrintingsTool = {
           },
           
           // Hero-based filtering
-          heroLegal: { type: 'string', description: 'Hero name for legal filtering' },
-          excludeClasses: { type: 'array', items: { type: 'string' }, description: 'Classes to exclude' },
-          excludeTalents: { type: 'array', items: { type: 'string' }, description: 'Talents to exclude' },
-          
+          heroLegal: { type: 'string', description: 'Hero name — returns cards legal for that hero (OR logic across hero classes/talents)' },
+          heroClasses: { type: 'array', items: { type: 'string' }, description: 'Precise hero filtering: card classes must overlap with these (use with heroTalents for deck legality)' },
+          heroTalents: { type: 'array', items: { type: 'string' }, description: 'Precise hero filtering: card talents must be a subset of these' },
+          heroEssences: { type: 'array', items: { type: 'string' }, description: 'Elemental essences the hero supports' },
+          excludeClasses: { type: 'array', items: { type: 'string' }, description: 'Classes to exclude from results' },
+          excludeTalents: { type: 'array', items: { type: 'string' }, description: 'Talents to exclude from results' },
+
           // Format legality
-          format: { 
-            type: 'string', 
-            enum: ['blitz', 'cc', 'commoner', 'll'],
-            description: 'Format legality'
+          format: {
+            type: 'string',
+            enum: ['blitz', 'cc', 'commoner', 'll', 'silver_age'],
+            description: 'Format legality filter'
           },
           includeBanned: { type: 'boolean', description: 'Include banned cards' },
           includeSuspended: { type: 'boolean', description: 'Include suspended cards' },
@@ -333,8 +347,9 @@ export const searchPrintingsTool = {
           foilingsNot: { type: 'array', items: { type: 'string' }, description: 'Foilings to exclude' },
           editionsNot: { type: 'array', items: { type: 'string' }, description: 'Editions to exclude' },
           typesNot: { type: 'array', items: { type: 'string' }, description: 'Types to exclude' },
+          classesNot: { type: 'array', items: { type: 'string' }, description: 'Classes to exclude' },
           keywordsNot: { type: 'array', items: { type: 'string' }, description: 'Keywords to exclude' },
-          textNot: { type: 'string', description: 'Text to exclude' },
+          textNot: { type: 'string', description: 'Text to exclude (substring match)' },
           talentsNot: { type: 'array', items: { type: 'string' }, description: 'Talents to exclude' },
           
           // Boolean convenience filters (extensive list maintained for backward compatibility)
@@ -452,11 +467,7 @@ export const searchPrintingsTool = {
             type: 'string',
             enum: ['all', 'summary', 'gameplay', 'identifiers'],
             default: 'summary',
-            description: 'Response mode: summary (highly optimized for MCP client), all (full data), gameplay (deck building), identifiers (IDs only)'
-          },
-          returnSimplified: { 
-            type: 'boolean',
-            description: 'Return simplified response format for compatibility'
+            description: 'Hint for response verbosity (note: currently all modes return full data — use limit to control token usage)'
           }
         }
       }

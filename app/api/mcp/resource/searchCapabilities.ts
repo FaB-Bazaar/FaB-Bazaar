@@ -448,27 +448,18 @@ export const searchCapabilitiesResource = {
     },
 
     response_optimization: {
+      note: 'The "show" parameter is a hint only — all modes currently return the same full data. Use "limit" to control token usage.',
+      recommendation: 'Keep limit low (10-20) for broad searches, higher (50-100) only when you need specific printing IDs for binder/deck operations.',
       claude_recommended_modes: {
         summary: {
-          description: 'RECOMMENDED: Token-optimized essential data',
-          when_to_use: [
-            'General searches',
-            'Deck building queries',
-            'Quick lookups',
-            'Most Claude interactions'
-          ],
-          includes: 'printing_id, name, printing_card_id, set, edition, foiling, rarity, color, tcg_market, power, cost, defense',
-          token_efficiency: 'Highest'
+          description: 'Default — use for general searches and deck building',
+          when_to_use: ['General searches', 'Deck building queries', 'Quick lookups'],
+          token_tip: 'Set limit: 12-20 for most searches'
         },
         gameplay: {
-          description: 'Deck building and rules reference',
-          when_to_use: [
-            'Competitive deck building',
-            'Rules questions',
-            'Format-specific searches'
-          ],
-          includes: 'Game mechanics, stats, keywords, format legality',
-          token_efficiency: 'Medium'
+          description: 'Use for deck-building context where you need stats/keywords',
+          when_to_use: ['Competitive deck building', 'Format-specific searches'],
+          token_tip: 'Set limit: 20-50'
         }
       }
     },
@@ -553,19 +544,51 @@ export const searchCapabilitiesResource = {
       }
     },
 
+    filter_reference: {
+      stat_filters: {
+        power: 'Exact match: power: 6  |  Range: powerMin: 4, powerMax: 8  |  Exclude: powerNot: [0, 1]',
+        cost: 'Exact match: cost: 0  |  Multiple: costs: [0,1,2]  |  Range: costMin/costMax  |  Exclude: costNot: [5,6]',
+        defense: 'Exact match: defense: 3  |  Range: defenseMin/defenseMax  |  Exclude: defenseNot: [0]',
+        pitch: 'pitch: 1 (red)  |  pitch: 2 (yellow)  |  pitch: 3 (blue)'
+      },
+      talent_filters: {
+        talents: 'OR logic — card has ANY of these talents: ["light", "ice"]',
+        talentsAll: 'AND logic — card must have ALL of these: ["light", "ice"] (for dual-talent cards)',
+        talentsNot: 'Exclude cards with any of these talents'
+      },
+      class_filters: {
+        classes: 'OR logic — card belongs to any of these classes',
+        classesNot: 'Exclude cards belonging to any of these classes'
+      },
+      format_values: {
+        supported: ['blitz', 'cc', 'commoner', 'll', 'silver_age'],
+        note: 'silver_age is a valid format — do not omit it'
+      },
+      hero_filtering: {
+        heroLegal: 'Single hero name, OR logic across that hero\'s classes/talents',
+        heroClasses_heroTalents: 'Precise deck legality: heroClasses (overlap) + heroTalents (subset). Use these instead of heroLegal for deck-building searches.',
+        excludeClasses_excludeTalents: 'Explicit class/talent exclusion'
+      },
+      name_search_behavior: {
+        exact_true: 'Exact name match only',
+        exact_false_default: 'Broad mode: substring match + fuzzy word similarity. Handles typos and partial names.',
+        collector_numbers: 'Names like "arc123" or "wtr001" are recognized as collector numbers'
+      }
+    },
+
     consistency_enforcement: {
       naming_conventions: {
         boolean_filters: 'Always use is/has prefix (isEquipment, hasLight)',
-        negation_filters: 'Always use Not suffix (raritiesNot, setsNot)',
+        negation_filters: 'Always use Not suffix (raritiesNot, setsNot, classesNot)',
         array_fields: 'Always plural (rarities, not rarity)',
         case_sensitivity: 'printingCardId values must match exactly'
       },
-      
+
       filter_standardization: {
         price_filtering: 'Always use priceMin/priceMax instead of operators',
         array_values: 'Always use arrays for multiple values',
         exact_matching: 'Set exact: true for specific card name requests',
-        response_modes: 'Always specify show parameter for optimal results'
+        talent_logic: 'Use talents for OR, talentsAll for AND multi-talent requirements'
       },
 
       quality_checks: {

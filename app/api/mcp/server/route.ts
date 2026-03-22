@@ -4,7 +4,7 @@ import { searchCapabilitiesResource } from '../resource/searchCapabilities';
 import { fabConstantsResource } from '../resource/fabConstants';
 import { articleFormattingResource } from '../resource/articleFormatting';
 import { rateLimit } from '@/lib/rate-limit';
-import { authTokenService } from '@/lib/services';
+import { authTokenService, userService } from '@/lib/services';
 
 // Import the tools
 import { searchPrintingsTool } from '../tool/searchPrintings';
@@ -16,6 +16,15 @@ import { listBindersTool } from '../tool/listBinders';
 import { getWantsTool } from '../tool/getWants';
 import { updateWantsTool } from '../tool/updateWants';
 import { whoHasTool } from '../tool/whoHas';
+
+// Import curation tools (curator/admin only)
+import { listCuratedListsTool } from '../tool/curation/listCuratedLists';
+import { getCuratedListTool } from '../tool/curation/getCuratedList';
+import { createCuratedListTool } from '../tool/curation/createCuratedList';
+import { updateCuratedListTool } from '../tool/curation/updateCuratedList';
+import { deleteCuratedListTool } from '../tool/curation/deleteCuratedList';
+import { addCardToListTool } from '../tool/curation/addCardToList';
+import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 
 // Import deck tools
 import { listDecksTool } from '../tool/listDecks';
@@ -398,7 +407,54 @@ export async function POST(req: Request) {
           }          
         }, { headers: corsHeaders() });
 
-      case 'tools/list':
+      case 'tools/list': {
+        // Check if user has curator/admin role for conditional tool visibility
+        let isCurator = false;
+        if (authenticatedUser?._id) {
+          const profileResult = await userService.getProfile(authenticatedUser._id);
+          if (profileResult.success && profileResult.data) {
+            isCurator = !!(profileResult.data.isCurator || profileResult.data.isSuperAdmin);
+          }
+        }
+
+        const curatorTools = isCurator ? [
+          {
+            name: listCuratedListsTool.name,
+            description: listCuratedListsTool.description,
+            inputSchema: listCuratedListsTool.parameters
+          },
+          {
+            name: getCuratedListTool.name,
+            description: getCuratedListTool.description,
+            inputSchema: getCuratedListTool.parameters
+          },
+          {
+            name: createCuratedListTool.name,
+            description: createCuratedListTool.description,
+            inputSchema: createCuratedListTool.parameters
+          },
+          {
+            name: updateCuratedListTool.name,
+            description: updateCuratedListTool.description,
+            inputSchema: updateCuratedListTool.parameters
+          },
+          {
+            name: deleteCuratedListTool.name,
+            description: deleteCuratedListTool.description,
+            inputSchema: deleteCuratedListTool.parameters
+          },
+          {
+            name: addCardToListTool.name,
+            description: addCardToListTool.description,
+            inputSchema: addCardToListTool.parameters
+          },
+          {
+            name: removeCardFromListTool.name,
+            description: removeCardFromListTool.description,
+            inputSchema: removeCardFromListTool.parameters
+          }
+        ] : [];
+
         return NextResponse.json({
           jsonrpc: "2.0",
           id: id,
@@ -626,10 +682,14 @@ Step 5: get_binder (verify additions)
                 name: updateArticleSectionTool.name,
                 description: updateArticleSectionTool.description,
                 inputSchema: updateArticleSectionTool.parameters
-              }
+              },
+
+              // CURATION TOOLS (only visible to curators/admins)
+              ...curatorTools
             ]
           }
         }, { headers: corsHeaders() });
+      }
 
         case 'tools/call':
           if (DEBUG_MCP) console.log('✅ Handling tools/call request');
@@ -1704,6 +1764,51 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
         This tool requires article ownership or SuperAdmin role.`
                   }
                 ],
+                isError: true,
+                error: err instanceof Error ? err.message : 'Unknown error'
+              }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        // CURATION TOOLS HANDLERS
+        if (toolName === 'list_curated_lists' || toolName === 'get_curated_list' ||
+            toolName === 'create_curated_list' || toolName === 'update_curated_list' ||
+            toolName === 'delete_curated_list' || toolName === 'add_card_to_list' ||
+            toolName === 'remove_card_from_list') {
+          if (DEBUG_MCP) console.log(`📋 Executing curation tool: ${toolName}`);
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authMethod === 'oauth2'
+              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
+              : extractMCPToken(req);
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+
+            const toolMap: Record<string, any> = {
+              list_curated_lists: listCuratedListsTool,
+              get_curated_list: getCuratedListTool,
+              create_curated_list: createCuratedListTool,
+              update_curated_list: updateCuratedListTool,
+              delete_curated_list: deleteCuratedListTool,
+              add_card_to_list: addCardToListTool,
+              remove_card_from_list: removeCardFromListTool,
+            };
+            const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
+
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Done.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error(`💥 Error in ${toolName}:`, err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: `💥 Error in ${toolName}: ${err instanceof Error ? err.message : 'Unknown error'}` }],
                 isError: true,
                 error: err instanceof Error ? err.message : 'Unknown error'
               }
