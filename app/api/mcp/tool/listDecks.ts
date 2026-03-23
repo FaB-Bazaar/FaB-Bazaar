@@ -47,7 +47,7 @@ export const listDecksTool = {
       const queryParams = new URLSearchParams({ limit: '100', sortBy: 'updatedAt', sortOrder: 'desc' });
       if (params.format) queryParams.set('format', params.format);
 
-      const response = await mcpFetch(`${API_BASE_URL}/api/decks/list?${queryParams}`, {
+      const response = await mcpFetch(`${API_BASE_URL}/api/decks?${queryParams}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
       });

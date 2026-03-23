@@ -80,7 +80,7 @@ export const removeCardsFromDeckTool = {
       if (!printings?.length) return { success: false, error: 'printings array is required and must not be empty.' };
 
       // Resolve deck by name
-      const listRes = await mcpFetch(`${API_BASE_URL}/api/decks/list?limit=100`, {
+      const listRes = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
       });
       if (!listRes.ok) return { success: false, error: `Failed to fetch deck list (HTTP ${listRes.status}).` };

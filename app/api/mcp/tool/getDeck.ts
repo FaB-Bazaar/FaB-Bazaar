@@ -84,7 +84,7 @@ export const getDeckTool = {
       }
 
       // Step 1: list decks to find the publicId matching this name
-      const listResponse = await mcpFetch(`${API_BASE_URL}/api/decks/list?limit=100`, {
+      const listResponse = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
       });
