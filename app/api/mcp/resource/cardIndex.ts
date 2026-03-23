@@ -55,6 +55,103 @@ const CURATED_GENERICS: Record<string, string> = {
   'springboard somersault|2':     'cdKfTPMWTMLdjrGkjPGrt', // SDO n s r
   'talisman of cremation|3':      'TL9PwKq978WwT89JFH7cW', // EVR f s r
   'warmonger\'s diplomacy|3':     'h8tQqgptDmDQwpcKzqbmK', // DTD n s m
+
+  // ── CC-legal heroes ────────────────────────────────────────────────────────
+  'arakni, 5l!p3d 7hru 7h3 cr4x|0':        'KtjmrCkz9NLRqn7ffmct6', // HER n r
+  'arakni, huntsman|0':                     'rbMRhbhc9GRcmw6Gkhd67', // DYN n s
+  'arakni, marionette|0':                   'tGzd8dmzbfc9M6dMTRPRN', // HNT n s
+  'betsy, skin in the game|0':             'WGg6cTRckfjL7jgpfNjMC', // HVY n s
+  'bravo, showstopper|0':                  'hFCGDBDPccndtnkdmB9jh', // WTR u s
+  'cindra, dracai of retribution|0':       'W9jcfrcKFrmBdMF8tH8fB', // HNT n s
+  'dash i/o|0':                            'BFqPtPwHknCrmKmtTb7ww', // EVO n s
+  'dorinthea ironsong|0':                  'TnWBzzDH9McMtddqbzCK9', // WTR u s
+  'fai, rising rebellion|0':              'ncq89NkTPw6NTFh6kKDpc', // UPR n s
+  'fang, dracai of blades|0':             'WjWGWhrRT7wQdmjRPjGz7', // HNT n s
+  'gravy bones, shipwrecked looter|0':    'pwNcgwhktrBKkPrjN9Kp7', // SEA n s
+  'hala, bladesaint of the vow|0':        'fmCKJLG8BJMmgN6LqDGHk', // AHA n r
+  'ira, scarlet revenger|0':              'KWCQrPBTWJwrn8KGbRkGb', // HER n r
+  'jarl vetreiði|0':                       '9zQDNKTzhjQ7PnckgFjhB', // GEM n s
+  'kassai of the golden sand|0':          'r6BjNMkbPfggLLLffGNzk', // HVY n s
+  'katsu, the wanderer|0':                'gFmfF8FTLG9M7KWbPc97C', // WTR u s
+  'kayo, underhanded cheat|0':            'jmBr99LqHr7Gntgb9Q6Wj', // SUP n s
+  'levia, shadowborn abomination|0':      'nhg9QWDnCgHRgBWPwbJHb', // MON u s
+  'lyath goldmane, vile savant|0':        'Lz7nbGDHbhkPNKcJptgQr', // SUP n s
+  'marlynn, treasure hunter|0':           'tHjDmqRMpqfDthtwChrPw', // SEA n s
+  'maxx \'the hype\' nitro|0':            'H8pcpDMJkJgrKg9KwGdrh', // EVO n s
+  'olympia, prized fighter|0':            'nGDHq8JpRGGmRj9mCjwmW', // HVY n s
+  'oscilio, constella intelligence|0':    'KCTTM79RGBfrr6NmtMbMG', // ROS n s
+  'pleiades, superstar|0':               'fjnzWwnMHHGdcR86CPpFz', // SUP n s
+  'prism, awakener of sol|0':            'WfF8QtgHKWLrb6HpWbpDb', // DTD n s
+  'puffin, hightail|0':                  'p9TDdg6wJjQ68PGBTMzNR', // SEA n s
+  'rhinar, reckless rampage|0':          'RcT68bt6fmP6HCwrrPPt8', // WTR u s
+  'riptide, lurker of the deep|0':       'bzbhhTKHjBNDDd9BfMBBd', // OUT n s
+  'ser boltyn, breaker of dawn|0':       'fCgt9DFn8tFmbLB7QnqMn', // MON u s
+  'teklovossen, esteemed magnate|0':     'HzzQknF6bNgbmnznJtgpW', // EVO n s
+  'tuffnut, bumbling hulkster|0':        'zMzQznDgkkBMTLwTPd9Fd', // SUP n s
+  'uzuri, switchblade|0':               'ctrCNh8jrpmrtDnF8JLTD', // OUT n s
+  'valda, seismic impact|0':            'Lpmd98dRLm6cwdCLFjbJd', // MPG n s
+  'victor goldmane, high and mighty|0': 'h8jjPkmRtjMDgKhkRMQzR', // HVY n s
+  'vynnset, iron maiden|0':             'GWQ6Wt9mRFdtT6zGrDqKF', // HER n r
+
+  // ── Silver Age heroes (young heroes) ──────────────────────────────────────
+  'arakni|0':                    'bqWpM79CBDMMdThW7r78j', // DYN n s
+  'arakni, solitary confinement|0': 'CrMrwzB7FNRpP8wzMdbK6', // OUT n s
+  'arakni, web of deceit|0':     'HzwHK9bqdwWBfDdn9B8nf', // HNT n s
+  'aurora|0':                    'pcHC7jCf8bJcmBHCHKcTn', // ROS n s
+  'azalea|0':                    'HGdFkn9r8w7HWjMDwnNdW', // ARC u s
+  'benji, the piercing wind|0':  'PqQRtQLP6pRtCznctghtq', // CRU u s
+  'betsy|0':                     '9nhT7f6wqFTnWnKpGpGnh', // HVY n s
+  'boltyn|0':                    'pTRkj6B7KDr7r89nqWPmz', // MON u s
+  'bravo|0':                     'k9b6GFmgTmBDrj7gtRMrH', // WTR u s
+  'bravo, flattering showman|0': 'frPQMkJqDFNFQgD9RL6bL', // GEM n s
+  'briar|0':                     'wpPrrKKKjcbqMHGWcCfmc', // ELE f s
+  'chane|0':                     '8gnTTBph8gTGDDbrr9Mkf', // MON u s
+  'cindra|0':                    'ChFnf6fLg8qjdCqd9WQKq', // HNT n s
+  'dash|0':                      'Cj6C9tJQnD8KpghLCzb7P', // ARC u s
+  'dash, database|0':            'bmTWm9BR8hWcNwRF8FQb8', // EVO n s
+  'data doll mkii|0':            'hjjcBJ6frDrPdNjrQKWRg', // CRU u s
+  'dorinthea|0':                 'PNwBGPtjw6Fq9BzmJPNgp', // WTR u s
+  'dromai|0':                    'rJ7F6nLrJw8qqRzdDRTNb', // UPR n s
+  'enigma|0':                    'qdcCr8db7NbhMNtF8qdCK', // MST n s
+  'fai|0':                       'nQqW7c87GKmKt7rNJRWPT', // UPR n s
+  'fang|0':                      'TQwHW8QPfgDLN68CRDkQQ', // HNT n s
+  'florian|0':                   'Lj8nqddPpq9whJKwktHFF', // ROS n s
+  'gravy bones|0':               'HhJDHnTPnhhPhbpLMcpCc', // SEA n s
+  'ira, crimson haze|0':         'QrnLFMdwTkrh6dMmdwdCw', // CRU u s
+  'iyslander|0':                 'tmgGmpmgrKcKtzLMdPkRr', // UPR n s
+  'kano|0':                      'fnc8WWRBBzK7K9GBf8tQj', // ARC u s
+  'kassai|0':                    'c8W6MbTM9mfQqhdwHjwMK', // HVY n s
+  'kassai, cintari sellsword|0': 'gdKG8BwkcrHFpmqzHMpFT', // CRU u s
+  'katsu|0':                     'WbgGwnctFjwNQGHkHzt6f', // WTR u s
+  'kavdaen, trader of skins|0':  'TKjgLCMMCBwNmKCQFjbbB', // CRU u s
+  'kayo|0':                      'qwtffKTM6prpL8pGzTGjB', // HVY n s
+  'kayo, berserker runt|0':      'Q7zgdCTFzrHz8CKnHTcHF', // CRU u s
+  'kayo, strong-arm|0':          'THcPmjNB6P6qpnhT7dnPw', // SUP n s
+  'levia|0':                     'fp8QBWGwtHdBFkcNTMtmw', // MON u s
+  'lexi|0':                      'cLFk6w8F9gGcChztGmDbQ', // ELE f s
+  'lyath goldmane|0':            'g7WgqrJDTGRJKpmrm9HM6', // SUP n s
+  'marlynn|0':                   'k6PbjfPDWWP7LnGtNWKTr', // SEA n s
+  'maxx nitro|0':                'TLktLHTFLgQcBqBqwRLc9', // EVO n s
+  'nuu|0':                       'fQDDMcTjbqKwwbnmHqQF8', // MST n s
+  'oldhim|0':                    'Qn6FLdKMLmBggzCQrHdPK', // ELE f s
+  'olympia|0':                   'LmrDKHwrR7mwBcQ8mB7rt', // HVY n s
+  'oscilio|0':                   '6GrrF8wg9gQtKBnRhzNrd', // ROS n s
+  'pleiades|0':                  'BL7mWdjjJJk8qNqDn8CKK', // SUP n s
+  'prism|0':                     'rRBFBkDTRDMMFD88Q6NQJ', // MON u s
+  'puffin|0':                    'DH9kqqWkkRpmrqndc67DQ', // SEA n s
+  'rhinar|0':                    'dRLBz6gG69cczznWMNjjP', // WTR u s
+  'riptide|0':                   '8pBgMgRTnkDhkqtzNmqM6', // OUT n s
+  'scurv, stowaway|0':           '7KcHWBh7tRn6rcWzRCnwj', // SEA n s
+  'teklovossen|0':               'tTDjnrMDGhH786kJcGMb6', // EVO n s
+  'terra|0':                     'JHcFWjrt6JJhpqwrHWCwR', // TER n s
+  'tuffnut|0':                   'krkbfC6CQFhfPmGtCHN6R', // SUP n s
+  'uzuri|0':                     'T88ghT69FPDhBLJ6bLCcz', // OUT n s
+  'valda brightaxe|0':           'PtDp8pMgTqLLnhnHP7hgc', // EVR f s
+  'verdance|0':                  'NTzjt9fLPTj6zM8mBPrTN', // ROS n s
+  'victor goldmane|0':           'TnPLc88GKqMJtkNPdNpm9', // HVY n s
+  'viserai|0':                   'WDjPjLDRBpWdwdtJPFNbR', // ARC u s
+  'vynnset|0':                   'bnh7GmLDRMNhhB68mkDCq', // DTD n s
+  'zen|0':                       'gpgtNrLRPfb7ktDLRJbgw', // MST n s
 };
 
 export const cardIndexResource = {

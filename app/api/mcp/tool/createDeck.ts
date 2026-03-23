@@ -1,5 +1,8 @@
 // app/api/mcp/tool/createDeck.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { printingsService } from '@/lib/services';
+import { sortPrintings } from '@/lib/fab-constants/sets';
+import { isHeroLivingLegend } from '@/lib/fab-banned-cards';
 
 const VALID_FORMATS = [
   'Classic Constructed',
@@ -16,30 +19,26 @@ const VALID_VISIBILITIES = ['private', 'unlisted', 'public'] as const;
 
 export const createDeckTool = {
   name: 'create_deck',
-  description: `🆕 CREATE DECK: Create a new empty deck with a name, format, and visibility.
+  description: `🆕 CREATE DECK: Create a new deck with a name, format, and hero.
 
-  Creates a deck for the authenticated user. After creation, use add_cards_to_deck to populate it.
-
-  📋 REQUIRED:
+  📋 REQUIRED (always ask for all three together):
   - name: deck name (e.g. "Fai Aggro")
-  - format: must be one of the exact enum values below
+  - format: exact enum value — see formats below
+  - heroName: hero card name
+    • CC / Living Legend: use the full adult name  (e.g. "Fai, Rising Rebellion")
+    • Silver Age / Blitz: use the short young name (e.g. "Fai")
+
+  🎯 FORMATS (exact values required):
+  Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual
 
   🔒 VISIBILITY (default: unlisted):
   - "private"   — only you can see it
   - "unlisted"  — anyone with the link can view, not listed publicly
   - "public"    — visible in community decks
 
-  🎯 FORMATS (exact values required):
-  Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual
-
-  🦸 HERO (optional):
-  - heroPrintingId: use search_printings to find the hero's printingId
-  - If provided, the hero card is automatically added to the hero slot
-
   💡 WORKFLOW:
-  Step 1: (optional) search_printings — find your hero's printingId
-  Step 2: create_deck — create the deck
-  Step 3: add_cards_to_deck — add your cards`,
+  Step 1: create_deck — name + format + heroName (all three at once)
+  Step 2: add_cards_to_deck — add all cards by cardName + pitch`,
 
   parameters: {
     type: 'object',
@@ -53,6 +52,10 @@ export const createDeckTool = {
         enum: [...VALID_FORMATS],
         description: 'Game format — must be an exact enum value: Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual',
       },
+      heroName: {
+        type: 'string',
+        description: 'Hero card name. For CC use the full adult name (e.g. "Fai, Rising Rebellion"). For Silver Age / Blitz use the short young name (e.g. "Fai"). Auto-resolves to the correct legal printing.',
+      },
       visibility: {
         type: 'string',
         enum: [...VALID_VISIBILITIES],
@@ -65,10 +68,10 @@ export const createDeckTool = {
       },
       heroPrintingId: {
         type: 'string',
-        description: 'Optional printing ID of the hero card to add (from search_printings results)',
+        description: 'Optional explicit printing ID override (from search_printings). Use instead of heroName when a specific printing matters.',
       },
     },
-    required: ['name', 'format'],
+    required: ['name', 'format', 'heroName'],
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -80,7 +83,7 @@ export const createDeckTool = {
         return { success: false, error: 'Authentication failed: No token found.' };
       }
 
-      const { name, format, visibility, description, heroPrintingId } = params;
+      const { name, format, visibility, description, heroPrintingId: explicitId, heroName } = params;
 
       if (!name?.trim()) {
         return { success: false, error: 'name is required and cannot be empty.' };
@@ -100,13 +103,42 @@ export const createDeckTool = {
         };
       }
 
+      // Resolve hero name → printingId
+      let heroPrintingId: string | undefined = explicitId?.trim() || undefined;
+
+      if (!heroPrintingId && heroName?.trim()) {
+        const result = await printingsService.searchPrintings(
+          { name: heroName.trim(), exact: true },
+          { limit: 50 }
+        );
+
+        if (!result.success || !(result.data as any[])?.length) {
+          return { success: false, error: `Hero "${heroName}" not found. Check the spelling or use heroPrintingId instead.` };
+        }
+
+        const isBlitzOrSA = ['Blitz', 'Silver Age'].includes(format);
+        const legalityField = isBlitzOrSA ? 'blitz_legal' : 'cc_legal';
+
+        const eligible = (result.data as any[]).filter((p: any) => {
+          if (!p[legalityField]) return false;
+          if (p.card_unique_id && isHeroLivingLegend(p.card_unique_id, format)) return false;
+          return true;
+        });
+
+        if (!eligible.length) {
+          return { success: false, error: `Hero "${heroName}" has no legal printing in ${format} (may be Living Legend status).` };
+        }
+
+        heroPrintingId = sortPrintings(eligible)[0].printing_id;
+      }
+
       const body: Record<string, string> = {
         name: name.trim(),
         format,
         visibility: visibility || 'unlisted',
       };
       if (description?.trim()) body.description = description.trim();
-      if (heroPrintingId?.trim()) body.heroPrintingId = heroPrintingId.trim();
+      if (heroPrintingId) body.heroPrintingId = heroPrintingId;
 
       const res = await mcpFetch(`${API_BASE_URL}/api/decks`, {
         method: 'POST',
@@ -123,9 +155,10 @@ export const createDeckTool = {
       }
 
       const deck = data.data;
+      const heroLabel = heroName?.trim() || (heroPrintingId ? `printing ${heroPrintingId}` : 'no hero');
       return {
         success: true,
-        message: `Deck "${deck.name}" created (${deck.format}, ${deck.visibility}).${heroPrintingId ? ' Hero card added.' : ''} Use add_cards_to_deck to populate it.`,
+        message: `Deck "${deck.name}" created (${deck.format}, ${deck.visibility}). Hero: ${heroLabel}. Use add_cards_to_deck to populate it.`,
         publicId: deck.publicId,
         name: deck.name,
         format: deck.format,
