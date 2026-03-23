@@ -18,7 +18,8 @@ import {
   Globe,
   Calendar,
   BarChart3,
-  Star
+  Star,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -82,6 +83,7 @@ interface DeckCardProps {
   isCurator?: boolean;
   onChangeVisibility?: (deckId: string, value: 'private' | 'unlisted' | 'public') => void;
   onUpdateMetafyGuideId?: (deckId: string, value: string | null) => void;
+  onSettings?: () => void;
 }
 
 export default function DeckCard({
@@ -96,6 +98,7 @@ export default function DeckCard({
   isCurator,
   onChangeVisibility,
   onUpdateMetafyGuideId,
+  onSettings,
 }: DeckCardProps) {
   const [metafyGuideIdDraft, setMetafyGuideIdDraft] = useState(deck.metafyGuideId ?? '');
   const [heroPreview, setHeroPreview] = useState<{ url: string; x: number; y: number } | null>(null);
@@ -362,6 +365,17 @@ export default function DeckCard({
             >
               <BarChart3 className="h-4 w-4" />
             </Button>
+            {onSettings && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onSettings}
+                className="h-8 w-8 p-0"
+                title="Deck settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           <div className="flex gap-1">

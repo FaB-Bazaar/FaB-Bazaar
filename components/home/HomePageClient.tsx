@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowRight, Search, MapPin, BookOpen, MessageCircle } from "lucide-react"
+import { ArrowRight, Search, MapPin, BookOpen, MessageCircle, Trophy } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { FeaturedCardsCarousel } from "@/components/shared/FeaturedCardsCarousel"
 
@@ -186,6 +186,25 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
             </p>
           </div>
         )}
+
+        {/* Decks to Beat CTA */}
+        <div className="mb-3">
+          <Link
+            href="/decks/to-beat"
+            className="group flex items-center justify-between gap-4 py-3 px-4 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Trophy className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Decks to Beat</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Top competitive decks curated each month — Classic Constructed &amp; Silver Age.</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 shrink-0 group-hover:underline">
+              View this month <ArrowRight className="w-3 h-3" />
+            </span>
+          </Link>
+        </div>
 
         {/* Discord + Store finder row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

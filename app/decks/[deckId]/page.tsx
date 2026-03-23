@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -15,6 +15,7 @@ import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
+import DeckSettings from "@/components/deck/DeckSettings";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
@@ -57,6 +58,42 @@ export default function DeckEditorPage() {
 
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
+
+  // Deck settings
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
+  const handleSaveSettings = async (settings: {
+    name: string;
+    description: string;
+    format: string;
+    hero?: string;
+    visibility: 'private' | 'unlisted' | 'public';
+    isPublic: boolean;
+    availableOnTalishar: boolean;
+    metafyGuideId: string | null;
+  }) => {
+    setSettingsSaving(true);
+    try {
+      const result = await decksClient.updateDeck(deckId, {
+        name: settings.name,
+        description: settings.description,
+        format: settings.format,
+        heroName: settings.hero,
+        visibility: settings.visibility,
+        availableOnTalishar: settings.availableOnTalishar,
+        metafyGuideId: settings.metafyGuideId,
+      } as any);
+      if (!result.success) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+        throw new Error(result.error);
+      }
+      handlers.refreshDeck();
+      toast({ title: "Settings saved" });
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
 
   // Tracks whether the one-time auto-search from curated builds has fired
   const autoSearchedRef = useRef(false);
@@ -771,6 +808,15 @@ export default function DeckEditorPage() {
                     {state.deck.format}
                   </span>
                 )}
+                {isOwner && (
+                  <button
+                    onClick={() => setSettingsOpen(true)}
+                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+                    title="Deck settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
+                )}
                 <DarkModeToggle />
                 <span className="text-xs text-muted-foreground">
                   {!isOwner
@@ -1075,6 +1121,28 @@ export default function DeckEditorPage() {
           </div>
         </div>
       </div>
+
+      {isOwner && state.deck && (
+        <DeckSettings
+          deck={{
+            _id: deckId,
+            name: state.deck.name,
+            description: state.deck.description,
+            format: state.deck.format,
+            hero: state.deck.heroName,
+            visibility: state.deck.visibility,
+            isPublic: state.deck.visibility === 'public',
+            availableOnTalishar: state.deck.availableOnTalishar,
+            metafyGuideId: state.deck.metafyGuideId,
+          }}
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          onSave={handleSaveSettings}
+          loading={settingsSaving}
+          deckId={deckId}
+          fullDeck={state.deck}
+        />
+      )}
 
       {/* Dialog: swap printing for staged (search tab) cards */}
       <ViewPrintingsDialog

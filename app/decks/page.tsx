@@ -33,6 +33,7 @@ import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings } from "@/lib/fab-constants";
 import DeckCard from "@/components/deck/DeckCard";
 import CreateDeckDialog from "@/components/deck/CreateDeckDialog";
 import DeckStats from "@/components/deck/DeckStats";
+import DeckSettings from "@/components/deck/DeckSettings";
 
 interface DeckPrinting {
   _id?: string;
@@ -98,6 +99,7 @@ export default function DecksPage() {
   const [activeTab, setActiveTab] = useState("decks");
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
   const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
+  const [settingsDeck, setSettingsDeck] = useState<Deck | null>(null);
 
   // Fetch user's decks and Metafy status
   useEffect(() => {
@@ -150,35 +152,35 @@ export default function DecksPage() {
     isPublic: boolean;
   }) => {
     try {
+      if (!deckData.hero) {
+        throw new Error('A hero is required to create a deck');
+      }
+
       console.log('[Decks] Creating new deck:', deckData.name);
 
-      const result = await decksClient.createDeck(deckData);
+      // Resolve hero printing before creating the deck so it's added atomically
+      let heroPrintingId = deckData.heroPrintingId;
+      if (!heroPrintingId) {
+        const heroKey = deckData.hero.toLowerCase();
+        const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
+          ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
+        if (heroInfo?.cardUniqueId) {
+          const params = new URLSearchParams({ cardUniqueId: heroInfo.cardUniqueId, limit: '50', show: 'browse_bulk' });
+          const printingsRes = await fetch(`/api/printings/search?${params}`);
+          const printingsData = await printingsRes.json();
+          const printings: any[] = printingsData.data?.printings ?? [];
+          const firstPrinting = sortPrintings(printings)[0];
+          heroPrintingId = firstPrinting?.printing_id;
+        }
+        if (!heroPrintingId) {
+          throw new Error('Could not resolve a printing for the selected hero');
+        }
+      }
+
+      const result = await decksClient.createDeck({ ...deckData, heroPrintingId });
 
       if (result.success) {
         console.log('[Decks] Deck created successfully:', result.data);
-
-        // Auto-add the hero's default printing to the hero slot
-        if (deckData.hero) {
-          const heroKey = deckData.hero.toLowerCase();
-          const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
-            ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
-          if (heroInfo?.cardUniqueId) {
-            try {
-              // Fetch printings and sort them the same way the printing dialog does
-              // so the auto-selected printing always matches what's shown first in the dialog
-              const params = new URLSearchParams({ cardUniqueId: heroInfo.cardUniqueId, limit: '50', show: 'browse_bulk' });
-              const printingsRes = await fetch(`/api/printings/search?${params}`);
-              const printingsData = await printingsRes.json();
-              const printings: any[] = printingsData.data?.printings ?? [];
-              const firstPrinting = sortPrintings(printings)[0];
-              if (firstPrinting?.printing_id) {
-                await decksClient.addPrintings(result.data.publicId, [{ printingId: firstPrinting.printing_id, quantity: 1, category: 'hero' }]);
-              }
-            } catch {
-              // Non-fatal — hero printing can be set later in the editor
-            }
-          }
-        }
 
         setDecks(prev => [result.data, ...prev]);
         setCreateDeckOpen(false);
@@ -202,7 +204,7 @@ export default function DecksPage() {
       console.error('Failed to create deck:', err);
       toast({
         title: "Error",
-        description: "Failed to create deck.",
+        description: err.message || "Failed to create deck.",
         variant: "destructive"
       });
     }
@@ -325,6 +327,39 @@ export default function DecksPage() {
     if (!result.success) {
       toast({ title: "Error", description: "Failed to update Metafy Guide ID.", variant: "destructive" });
     }
+  };
+
+  const handleSaveSettings = async (settings: {
+    name: string;
+    description: string;
+    format: string;
+    hero?: string;
+    visibility: 'private' | 'unlisted' | 'public';
+    isPublic: boolean;
+    availableOnTalishar: boolean;
+    metafyGuideId: string | null;
+  }) => {
+    if (!settingsDeck) return;
+    const result = await decksClient.updateDeck(settingsDeck.publicId, {
+      name: settings.name,
+      description: settings.description,
+      format: settings.format,
+      heroName: settings.hero,
+      visibility: settings.visibility,
+      availableOnTalishar: settings.availableOnTalishar,
+      metafyGuideId: settings.metafyGuideId,
+    } as any);
+    if (!result.success) {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+      throw new Error(result.error);
+    }
+    setDecks(prev => prev.map(d =>
+      d.publicId === settingsDeck.publicId
+        ? { ...d, ...settings, heroName: settings.hero, isPublic: settings.visibility === 'public' }
+        : d
+    ));
+    setSettingsDeck(prev => prev ? { ...prev, ...settings, heroName: settings.hero } : prev);
+    toast({ title: "Settings saved" });
   };
 
   // Calculate unique cards for a deck (for backwards compatibility)
@@ -470,6 +505,18 @@ export default function DecksPage() {
       />
 
       {/* Delete Confirmation Dialog */}
+      {settingsDeck && (
+        <DeckSettings
+          deck={{ ...settingsDeck, _id: settingsDeck.publicId, hero: settingsDeck.heroName }}
+          open={!!settingsDeck}
+          onOpenChange={(open) => { if (!open) setSettingsDeck(null); }}
+          onSave={handleSaveSettings}
+          isMetafyPartner={hasMetafyAccount}
+          deckId={settingsDeck.publicId}
+          fullDeck={settingsDeck}
+        />
+      )}
+
       <AlertDialog open={!!deletingDeckId} onOpenChange={open => !open && setDeletingDeckId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -664,6 +711,7 @@ export default function DecksPage() {
                     onDelete={() => handleDeleteDeck(deck.publicId)}
                     onDuplicate={() => handleDuplicateDeck(deck)}
                     onView={() => router.push(`/decks/${deck.publicId}/analyze`)}
+                    onSettings={() => setSettingsDeck(deck)}
                     hasMetafyAccount={hasMetafyAccount}
                     onChangeVisibility={handleChangeVisibility}
                     onToggleTalishar={handleToggleTalishar}

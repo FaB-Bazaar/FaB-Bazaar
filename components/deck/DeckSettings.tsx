@@ -22,36 +22,6 @@ const FORMATS = [
   'Living Legend'
 ];
 
-const POPULAR_HEROES = [
-  'Rhinar',
-  'Dorinthea',
-  'Katsu',
-  'Bravo',
-  'Chane',
-  'Viserai',
-  'Prism',
-  'Lexi',
-  'Oldhim',
-  'Briar',
-  'Fai',
-  'Iyslander'
-];
-
-// Popular young heroes for Silver Age
-const POPULAR_YOUNG_HEROES = [
-  'Rhinar',
-  'Dorinthea',
-  'Katsu',
-  'Bravo',
-  'Azalea',
-  'Ira, Crimson Haze',
-  'Dash',
-  'Kayo',
-  'Iyslander',
-  'Lexi',
-  'Viserai',
-  'Fai'
-];
 
 interface DeckSettingsProps {
   deck: {
@@ -88,7 +58,6 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description || "");
   const [format, setFormat] = useState(deck.format);
-  const [hero, setHero] = useState(deck.hero || "");
   const [visibility, setVisibility] = useState<'private' | 'unlisted' | 'public'>(deck.visibility || 'unlisted');
   const [availableOnTalishar, setAvailableOnTalishar] = useState(deck.availableOnTalishar ?? false);
   const [metafyGuideId, setMetafyGuideId] = useState(deck.metafyGuideId || "");
@@ -96,14 +65,10 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [matchupsOpen, setMatchupsOpen] = useState(false);
   const [matchupsCount, setMatchupsCount] = useState(0);
 
-  // Determine which hero list to show based on format
-  const popularHeroes = format === 'Silver Age' ? POPULAR_YOUNG_HEROES : POPULAR_HEROES;
-
   const hasChanges =
     name !== deck.name ||
     description !== (deck.description || "") ||
     format !== deck.format ||
-    hero !== (deck.hero || "") ||
     visibility !== (deck.visibility || 'unlisted') ||
     availableOnTalishar !== (deck.availableOnTalishar ?? false) ||
     metafyGuideId !== (deck.metafyGuideId || "");
@@ -117,7 +82,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         name: name.trim(),
         description: description.trim(),
         format,
-        hero: hero.trim() || undefined,
+        hero: deck.hero,
         visibility,
         isPublic: visibility !== 'private',
         availableOnTalishar,
@@ -134,7 +99,6 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     setName(deck.name);
     setDescription(deck.description || "");
     setFormat(deck.format);
-    setHero(deck.hero || "");
     setVisibility(deck.visibility || 'unlisted');
     setAvailableOnTalishar(deck.availableOnTalishar ?? false);
     setMetafyGuideId(deck.metafyGuideId || "");
@@ -197,32 +161,6 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
             <option key={formatOption} value={formatOption}>{formatOption}</option>
           ))}
         </select>
-      </div>
-
-      {/* Hero */}
-      <div className="space-y-1.5">
-        <Label htmlFor="deck-hero">
-          Hero{format === 'Silver Age' && <span className="text-xs text-muted-foreground ml-1">(Young heroes only)</span>}
-        </Label>
-        <Input
-          id="deck-hero"
-          value={hero}
-          onChange={(e) => setHero(e.target.value)}
-          placeholder="Enter hero name..."
-          maxLength={50}
-        />
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {popularHeroes.map(heroOption => (
-            <button
-              key={heroOption}
-              type="button"
-              onClick={() => setHero(heroOption)}
-              className="text-xs px-2 py-0.5 bg-muted hover:bg-muted/70 rounded transition-colors"
-            >
-              {heroOption}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Visibility */}

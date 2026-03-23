@@ -183,12 +183,8 @@ export default function CommunityDecksPage() {
           All Decks
         </button>
         <button
-          onClick={() => { setTab('featured'); setPage(1); setFormat('Classic Constructed'); setHeroName(''); }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'featured'
-              ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
+          onClick={() => router.push('/decks/to-beat')}
+          className="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
         >
           Decks to Beat
         </button>

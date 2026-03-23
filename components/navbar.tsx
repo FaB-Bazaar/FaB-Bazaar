@@ -510,6 +510,12 @@ export default function Navbar() {
               Community Decks
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/decks/to-beat" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Trophy className="h-4 w-4 mr-2" />
+              Decks to Beat
+            </Link>
+          </DropdownMenuItem>
 
           {decks.length > 0 && (
             <>

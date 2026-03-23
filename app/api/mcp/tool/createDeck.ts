@@ -116,8 +116,10 @@ export const createDeckTool = {
           return { success: false, error: `Hero "${heroName}" not found. Check the spelling or use heroPrintingId instead.` };
         }
 
-        const isBlitzOrSA = ['Blitz', 'Silver Age'].includes(format);
-        const legalityField = isBlitzOrSA ? 'blitz_legal' : 'cc_legal';
+        const legalityField =
+          format === 'Silver Age' ? 'silver_age_legal' :
+          format === 'Blitz' ? 'blitz_legal' :
+          'cc_legal';
 
         const eligible = (result.data as any[]).filter((p: any) => {
           if (!p[legalityField]) return false;

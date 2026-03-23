@@ -677,7 +677,7 @@ export class PostgresDeckService implements IDeckService {
         deckRows.map(async (row) => {
           const [{ cardCount, totalValue }] = await db
             .select({
-              cardCount: sql<number>`COALESCE(SUM(${deckCards.quantity}), 0)::int`,
+              cardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
               totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
             })
             .from(deckCards)
@@ -779,7 +779,7 @@ export class PostgresDeckService implements IDeckService {
           updatedAt: decks.updatedAt,
           creatorUsername: users.username,
           creatorDisplayUsername: users.displayUsername,
-          cardCount: sql<number>`COALESCE(SUM(${deckCards.quantity}), 0)::int`,
+          cardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
           heroPrintingId: sql<string>`MIN(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.printingId} END)`,
         })
@@ -789,6 +789,13 @@ export class PostgresDeckService implements IDeckService {
         .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
         .where(whereClause)
         .groupBy(decks.id, users.username, users.displayUsername)
+        .having(
+          sql`NOT (
+            (${decks.format} = 'Classic Constructed' AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) < 80) OR
+            (${decks.format} = 'Silver Age'           AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) < 55) OR
+            (${decks.format} = 'Blitz'                AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) < 55)
+          )`
+        )
         .orderBy(desc(decks.updatedAt))
         .limit(limit)
         .offset(offset);

@@ -69,6 +69,7 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
               <Link
                 href={`/decks/${deck.publicId}`}
                 className="font-semibold text-lg text-gray-900 dark:text-gray-100 truncate block hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                title={deck.name}
               >
                 {deck.name}
               </Link>
