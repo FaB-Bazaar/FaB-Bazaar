@@ -823,7 +823,7 @@ export class PostgresDeckService implements IDeckService {
               sql`EXISTS (
                 SELECT 1 FROM jsonb_array_elements(${articles.sections}) AS s
                 WHERE s->>'type' = 'decklist-block'
-                AND s->>'deckId' = ANY(${deckPublicIds})
+                AND s->>'deckId' IN (${sql.join(deckPublicIds.map(id => sql`${id}`), sql`, `)})
               )`
             )
           );
