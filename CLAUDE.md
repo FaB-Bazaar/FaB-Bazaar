@@ -26,6 +26,12 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - `binderStatsService` — removed; use `binderService.getUserBindersWithStats()`
 - `denormalizationService` — removed (was MongoDB-only)
 - `tradeMatchingService`, `tradeAnalysisService`, `matchingService` — deprecated
+- Fabrary integration (`fabraryUrl`, `fabraryDeckId`) — removed from decks (0026)
+
+## Known Gotchas
+
+- **`/api/decks/list` is Talishar-only** — requires `x-api-key`; MCP and OAuth clients must use `/api/decks` (GET) instead.
+- **Circular dep risk in services** — do not import from `@/lib/services` in any file that `lib/services/index.ts` imports transitively. Use `await import('@/lib/services')` lazily inside function bodies. (`lib/metafy/tokens.ts` hit this: caused `ReferenceError` in TDZ for `ServiceFactory`.)
 
 ## API Route Pattern
 

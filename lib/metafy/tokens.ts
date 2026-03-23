@@ -1,5 +1,4 @@
 import { encryptAddress, decryptAddress } from '@/lib/encryption';
-import { userService } from '@/lib/services';
 
 const METAFY_TOKEN_URL = 'https://metafy.gg/irk/oauth/token';
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh if within 5 minutes of expiry
@@ -41,6 +40,7 @@ export function decryptMetafyTokens(stored: {
  * (caller should prompt the user to re-link their Metafy account).
  */
 export async function getValidMetafyAccessToken(userId: string): Promise<string | null> {
+  const { userService } = await import('@/lib/services');
   const result = await userService.getMetafyTokens(userId);
   if (!result.success || !result.data) return null;
 

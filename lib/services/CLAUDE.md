@@ -56,6 +56,10 @@ import { ServiceFactory } from "@/lib/services"
 ServiceFactory.setUserService(mockUserService)
 ```
 
+## Circular Dependency Warning
+
+Never import from `@/lib/services` in any file that `index.ts` imports transitively (e.g. service implementations, `lib/metafy/tokens.ts`). It puts `ServiceFactory` in TDZ → `ReferenceError` at runtime. Use lazy `await import('@/lib/services')` inside async function bodies instead.
+
 ## Dead Contract Files (2 remaining)
 
 These contract files still exist only because other files import their DTO types. The services themselves are removed.

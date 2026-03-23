@@ -21,3 +21,11 @@ const authResult = await authenticateSession();
 - `authenticateSession()` — NextAuth session only
 - `validateMcpToken()` — MCP token validation
 - `validateOAuthToken()` — OAuth 2.1 JWT validation
+
+## Gotcha: OAuth is opt-in
+
+OAuth Bearer tokens are silently rejected unless you pass `{ allowOAuth: true }` as the **3rd argument**:
+```typescript
+authenticateRequest(request, body, { allowOAuth: true })
+```
+Omitting the 3rd arg returns 401 for OAuth clients with no error about the missing flag.
