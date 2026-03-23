@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
 
     // For GET requests, check query params for auth
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
 
     if (!authResult.success) {
       console.log(`[DeckAPI] GET Authentication failed: ${authResult.error}`);
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Hybrid authentication
-    const authResult = await authenticateRequest(request, body);
+    const authResult = await authenticateRequest(request, body, { allowOAuth: true });
 
     if (!authResult.success) {
       console.log(`[DeckAPI] POST Authentication failed: ${authResult.error}`);

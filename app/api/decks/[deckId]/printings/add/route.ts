@@ -14,7 +14,7 @@ export async function POST(
     const resolvedParams = await params;
 
     // Authentication
-    const authResult = await authenticateRequest(request, body);
+    const authResult = await authenticateRequest(request, body, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({
         success: false,

@@ -36,7 +36,7 @@ export async function POST(
   { params }: { params: { deckId: string } }
 ) {
   try {
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json(
         { success: false, error: authResult.error },
@@ -158,7 +158,7 @@ export async function GET(
 ) {
   try {
     const resolvedParams = await params;
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
 
     // Fetch deck — try with userId first, then without for public/unlisted access
     let deckResult = authResult.success

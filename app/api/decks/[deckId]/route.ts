@@ -167,7 +167,7 @@ export async function PATCH(
     const resolvedParams = await params;
 
     // Authentication required for updates
-    const authResult = await authenticateRequest(request, body);
+    const authResult = await authenticateRequest(request, body, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({
         success: false,
@@ -225,7 +225,7 @@ export async function DELETE(
     const url = new URL(request.url);
 
     // Authentication required for deletion
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
 
     if (!authResult.success) {
       return NextResponse.json({

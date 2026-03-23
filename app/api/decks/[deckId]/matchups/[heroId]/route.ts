@@ -36,7 +36,7 @@ export async function PUT(
   { params }: { params: { deckId: string; heroId: string } }
 ) {
   try {
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json(
         { success: false, error: authResult.error },
@@ -162,7 +162,7 @@ export async function DELETE(
   { params }: { params: { deckId: string; heroId: string } }
 ) {
   try {
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json(
         { success: false, error: authResult.error },
