@@ -692,14 +692,23 @@ function DeckTileSection({
               style={{ width: '100%' }}
             >
               {tile.imageUrl ? (
-                <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
+                <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53', display: 'flex', flexDirection: 'column', gap: '1px', background: '#111827' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={tile.imageUrl}
                     alt={tile.name}
                     className="w-full block"
-                    style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                    style={{ objectFit: 'cover', objectPosition: 'top', flex: '0 0 81%', minHeight: 0 }}
                     draggable={false}
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={tile.imageUrl}
+                    alt=""
+                    className="w-full block"
+                    style={{ objectFit: 'cover', objectPosition: 'bottom', flex: '1 0 0', minHeight: 0 }}
+                    draggable={false}
+                    aria-hidden="true"
                   />
                 </div>
               ) : (
@@ -1938,14 +1947,23 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                     >
                       {card.imageUrl ? (
-                        <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
+                        <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53', display: 'flex', flexDirection: 'column', gap: '1px', background: '#111827' }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={card.imageUrl}
                             alt={card.name}
                             className="w-full block"
-                            style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                            style={{ objectFit: 'cover', objectPosition: 'top', flex: '0 0 81%', minHeight: 0 }}
                             draggable={false}
+                          />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={card.imageUrl}
+                            alt=""
+                            className="w-full block"
+                            style={{ objectFit: 'cover', objectPosition: 'bottom', flex: '1 0 0', minHeight: 0 }}
+                            draggable={false}
+                            aria-hidden="true"
                           />
                         </div>
                       ) : (

@@ -4821,13 +4821,13 @@ let FabMatchReport = class extends i$1 {
       <div class="sideboard-cards">
         ${cardsIn.length > 0 ? b`
           <div class="card-group">
-            <span class="card-group-label in">+In</span>
+            <span class="card-group-label in">+In (${cardsIn.length})</span>
             ${cardsIn.map((card) => this.renderSingleCard(card.printingId))}
           </div>
         ` : ""}
         ${cardsOut.length > 0 ? b`
           <div class="card-group">
-            <span class="card-group-label out">-Out</span>
+            <span class="card-group-label out">-Out (${cardsOut.length})</span>
             ${cardsOut.map((card) => this.renderSingleCard(card.printingId))}
           </div>
         ` : ""}
@@ -4838,16 +4838,20 @@ let FabMatchReport = class extends i$1 {
     const cardData = this.cardDataMap.get(printingId);
     const isLoading = this.loadingCards.has(printingId);
     if (isLoading || !cardData) {
-      return b`<div class="card-thumbnail-placeholder"></div>`;
+      return b`
+        <div class="sideboard-card-item">
+          <div class="card-thumbnail-placeholder"></div>
+        </div>
+      `;
     }
     return b`
-      <img
-        class="card-thumbnail"
-        src="${cardData.image_url}"
-        alt="${cardData.display_name}"
-        title="${cardData.display_name} - Click to enlarge"
-        @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}"
-      />
+      <div class="sideboard-card-item" @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}" title="${cardData.display_name} — click to enlarge">
+        <div class="card-thumb-wrap">
+          <img class="card-thumb-top" src="${cardData.image_url}" alt="${cardData.display_name}" />
+          <img class="card-thumb-bottom" src="${cardData.image_url}" alt="" aria-hidden="true" />
+        </div>
+        <div class="sideboard-card-name">${cardData.display_name}</div>
+      </div>
     `;
   }
   renderHeroCard() {
@@ -4906,24 +4910,16 @@ let FabMatchReport = class extends i$1 {
       const cardData = this.cardDataMap.get(part.printingId);
       const isLoading = this.loadingCards.has(part.printingId);
       if (isLoading) {
-        return b`<span class="inline-card-wrapper">
-          <span class="inline-card-placeholder"></span>
-          <span class="inline-card-name">${part.cardName}</span>
-        </span>`;
+        return b`<span class="inline-card-name">${part.cardName}</span>`;
       }
       if (!cardData) {
         return b`<span class="inline-card-name">${part.cardName}</span>`;
       }
-      return b`<span class="inline-card-wrapper">
-        <img
-          class="inline-card-thumbnail"
-          src="${cardData.image_url}"
-          alt="${cardData.display_name}"
-          title="${cardData.display_name} - Click to enlarge"
-          @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}"
-        />
-        <span class="inline-card-name">${part.cardName}</span>
-      </span>`;
+      return b`<span
+        class="inline-card-name inline-card-clickable"
+        title="${cardData.display_name} — click to view"
+        @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}"
+      >${part.cardName}</span>`;
     })}`;
   }
   render() {
@@ -4932,23 +4928,25 @@ let FabMatchReport = class extends i$1 {
     }
     const resultClass = this.result.toUpperCase() === "W" ? "win" : this.result.toUpperCase() === "L" ? "loss" : "draw";
     const resultLabel = this.result.toUpperCase() === "W" ? "W" : this.result.toUpperCase() === "L" ? "L" : "D";
+    const resultWord = resultClass === "win" ? "Win" : resultClass === "loss" ? "Loss" : "Draw";
     return b`
       ${this.renderOverlay()}
       <div class="match">
-        <div class="header">
+        <div class="header ${resultClass}">
           <div class="round-info">
             <span class="round">${this.round}</span>
             ${this.renderHeroCard()}
-            ${this.record ? b`
-              <span class="record">(${this.record})</span>
-            ` : ""}
+            ${this.opponent ? b`<span class="opponent-inline">${this.opponent}</span>` : ""}
           </div>
-          <div class="result-badge ${resultClass}">${resultLabel}</div>
+          <div class="result-right">
+            ${this.record ? b`<span class="record">${this.record}</span>` : ""}
+            <div class="result-badge ${resultClass}">
+              <span class="result-letter">${resultLabel}</span>
+              <span class="result-word">${resultWord}</span>
+            </div>
+          </div>
         </div>
         <div class="content">
-          ${this.opponent ? b`
-            <div class="opponent">Opponent: ${this.opponent}</div>
-          ` : ""}
           ${this.summary ? b`
             <div class="summary">${this.renderSummaryWithInlineCards()}</div>
           ` : ""}
@@ -4974,9 +4972,9 @@ FabMatchReport.styles = i$4`
 
     /* ===== LIGHT MODE (default) ===== */
     .match {
-      background: #faf5ff; /* purple-50, softer than white */
-      border: 1px solid #e9d5ff;
-      border-radius: 0.5rem;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.625rem;
       overflow: hidden;
     }
 
@@ -4984,67 +4982,100 @@ FabMatchReport.styles = i$4`
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem 1.5rem;
+      padding: 0.75rem 1.25rem;
       border-bottom: 1px solid #e2e8f0;
       flex-wrap: wrap;
       gap: 0.75rem;
     }
 
+    /* Subtle result color tint on header */
+    .header.win  { background: rgba(34, 197, 94, 0.06);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    .header.loss { background: rgba(239, 68, 68, 0.06);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    .header.draw { background: rgba(234, 179, 8, 0.06);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+
     .round-info {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
     }
 
+    /* Round label — styled pill badge */
     .round {
-      font-size: 1rem;
+      font-size: 0.6875rem;
       font-weight: 700;
-      color: #0f172a;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 0.1875rem 0.5rem;
+      border-radius: 0.25rem;
     }
 
     .hero {
       display: inline-flex;
       align-items: center;
-      padding: 0.25rem 0.75rem;
-      background: #e2e8f0;
+      padding: 0.1875rem 0.625rem;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       border-radius: 0.375rem;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: #334155;
     }
 
+    .opponent-inline {
+      font-size: 0.8125rem;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    /* Result pill — wider, shows full word */
     .result-badge {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
+      gap: 0.375rem;
+      padding: 0.25rem 0.875rem;
+      border-radius: 99px;
       font-weight: 700;
-      font-size: 1.125rem;
+      font-size: 0.8125rem;
       color: white;
+      letter-spacing: 0.03em;
     }
 
-    .result-badge.win { background: #22c55e; }
-    .result-badge.loss { background: #ef4444; }
-    .result-badge.draw { background: #eab308; }
+    .result-badge.win  { background: #16a34a; }
+    .result-badge.loss { background: #dc2626; }
+    .result-badge.draw { background: #ca8a04; }
+
+    .result-letter {
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .result-word {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    .result-right {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
 
     .record {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       color: #64748b;
       font-weight: 500;
     }
 
     .content {
-      padding: 1.5rem;
-    }
-
-    .opponent {
-      font-size: 0.875rem;
-      color: #64748b;
-      margin-bottom: 1rem;
-      font-style: italic;
+      padding: 1.25rem 1.5rem;
     }
 
     .summary {
@@ -5085,7 +5116,7 @@ FabMatchReport.styles = i$4`
     .card-group {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.5rem;
     }
 
@@ -5096,6 +5127,8 @@ FabMatchReport.styles = i$4`
       border-radius: 0.25rem;
       min-width: 2rem;
       text-align: center;
+      align-self: flex-start;
+      margin-top: 0.25rem;
     }
 
     .card-group-label.in {
@@ -5108,25 +5141,70 @@ FabMatchReport.styles = i$4`
       color: #991b1b;
     }
 
-    .card-thumbnail {
-      width: 45px;
-      height: 63px;
-      border-radius: 3px;
-      object-fit: cover;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    /* Sideboard card item: dual-crop thumbnail + name below */
+    .sideboard-card-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      width: 52px;
       cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .card-thumbnail:hover {
+    .card-thumb-wrap {
+      width: 52px;
+      border-radius: 4px;
+      overflow: hidden;
+      aspect-ratio: 63/53;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: #111827;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .sideboard-card-item:hover .card-thumb-wrap {
       transform: scale(1.08);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-thumb-top {
+      width: 100%;
+      object-fit: cover;
+      object-position: top;
+      flex: 0 0 81%;
+      min-height: 0;
+      display: block;
+    }
+
+    .card-thumb-bottom {
+      width: 100%;
+      object-fit: cover;
+      object-position: bottom;
+      flex: 1 0 0;
+      min-height: 0;
+      display: block;
+    }
+
+    .sideboard-card-name {
+      font-size: 0.6rem;
+      font-weight: 500;
+      color: #475569;
+      text-align: center;
+      line-height: 1.2;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      width: 100%;
     }
 
     .card-thumbnail-placeholder {
-      width: 45px;
-      height: 63px;
-      border-radius: 3px;
+      width: 52px;
+      aspect-ratio: 63/53;
+      border-radius: 4px;
       background: #e2e8f0;
       animation: pulse 1.5s ease-in-out infinite;
     }
@@ -5143,23 +5221,24 @@ FabMatchReport.styles = i$4`
     }
 
     .hero-card-image {
-      width: 50px;
-      height: 70px;
-      border-radius: 4px;
+      width: 64px;
+      height: 90px;
+      border-radius: 6px;
       object-fit: cover;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
       cursor: pointer;
-      transition: transform 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
     .hero-card-image:hover {
       transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     }
 
     .hero-card-placeholder {
-      width: 50px;
-      height: 70px;
-      border-radius: 4px;
+      width: 64px;
+      height: 90px;
+      border-radius: 6px;
       background: #e2e8f0;
       animation: pulse 1.5s ease-in-out infinite;
     }
@@ -5210,43 +5289,53 @@ FabMatchReport.styles = i$4`
       background: rgba(255, 255, 255, 0.2);
     }
 
-    .inline-card-wrapper {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      vertical-align: middle;
-      margin: 0 0.125rem;
-    }
-
     .inline-card-name {
       font-weight: 600;
       color: #0f172a;
     }
 
+    .inline-card-clickable {
+      cursor: pointer;
+      border-bottom: 1px dashed #94a3b8;
+      transition: color 0.1s, border-color 0.1s;
+    }
+
+    .inline-card-clickable:hover {
+      color: #6366f1;
+      border-bottom-color: #6366f1;
+    }
+
     /* ===== DARK MODE (via .dark class on html) ===== */
     :host-context(.dark) .match {
+      background: #0f172a;
+      border-color: #1e293b;
+    }
+
+    :host-context(.dark) .header {
+      border-bottom-color: #1e293b;
+    }
+
+    :host-context(.dark) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    :host-context(.dark) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    :host-context(.dark) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+
+    :host-context(.dark) .round {
+      color: #94a3b8;
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header {
-      border-bottom-color: #334155;
-    }
-
-    :host-context(.dark) .round {
-      color: #f1f5f9;
-    }
-
     :host-context(.dark) .hero {
-      background: #334155;
+      background: #1e293b;
+      border-color: #334155;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .record {
-      color: #94a3b8;
+    :host-context(.dark) .opponent-inline {
+      color: #64748b;
     }
 
-    :host-context(.dark) .opponent {
+    :host-context(.dark) .record {
       color: #94a3b8;
     }
 
@@ -5281,53 +5370,32 @@ FabMatchReport.styles = i$4`
       background: #334155;
     }
 
+    :host-context(.dark) .sideboard-card-name {
+      color: #94a3b8;
+    }
+
     :host-context(.dark) .inline-card-name {
       color: #f1f5f9;
     }
 
-    .inline-card-thumbnail {
-      width: 28px;
-      height: 39px;
-      border-radius: 2px;
-      object-fit: cover;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      vertical-align: middle;
-    }
-
-    .inline-card-thumbnail:hover {
-      transform: scale(1.15);
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
-      z-index: 10;
-      position: relative;
-    }
-
-    .inline-card-placeholder {
-      display: inline-block;
-      width: 28px;
-      height: 39px;
-      border-radius: 2px;
-      background: #e2e8f0;
-      animation: pulse 1.5s ease-in-out infinite;
-      vertical-align: middle;
-    }
-
-    :host-context(.dark) .inline-card-placeholder {
-      background: #334155;
+    :host-context(.dark) .inline-card-clickable:hover {
+      color: #818cf8;
+      border-bottom-color: #818cf8;
     }
 
     /* ===== DARK MODE (Safari/iOS fallback via OS preference) ===== */
     @media (prefers-color-scheme: dark) {
       .match {
-        background: #1e293b;
-        border-color: #334155;
+        background: #0f172a;
+        border-color: #1e293b;
       }
-      .header {
-        border-bottom-color: #334155;
-      }
-      .round { color: #f1f5f9; }
-      .hero { background: #334155; color: #e2e8f0; }
+      .header { border-bottom-color: #1e293b; }
+      .header.win  { background: rgba(34, 197, 94, 0.08); }
+      .header.loss { background: rgba(239, 68, 68, 0.08); }
+      .header.draw { background: rgba(234, 179, 8, 0.08); }
+      .round { color: #94a3b8; background: #1e293b; border-color: #334155; }
+      .hero { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+      .opponent-inline { color: #64748b; }
       .record { color: #94a3b8; }
       .opponent { color: #94a3b8; }
       .summary { color: #cbd5e1; }
@@ -5338,8 +5406,8 @@ FabMatchReport.styles = i$4`
       .card-group-label.out { background: #450a0a; color: #fca5a5; }
       .card-thumbnail-placeholder,
       .hero-card-placeholder { background: #334155; }
+      .sideboard-card-name { color: #94a3b8; }
       .inline-card-name { color: #f1f5f9; }
-      .inline-card-placeholder { background: #334155; }
     }
   `;
 __decorateClass$3([
@@ -5400,6 +5468,9 @@ var __decorateClass$2 = (decorators, target, key, kind) => {
   if (kind && result) __defProp$2(target, key, result);
   return result;
 };
+const COST_CHIPS = [0, 1, 2, 3, 4, 5];
+const POWER_CHIPS = [3, 4, 5, 6, 7];
+const DEFENSE_CHIPS = [0, 2, 3, 4];
 let FabDecklistBlock = class extends i$1 {
   constructor() {
     super(...arguments);
@@ -5413,25 +5484,86 @@ let FabDecklistBlock = class extends i$1 {
     this._loading = false;
     this._error = "";
     this._deckData = null;
+    this._viewMode = "grid";
+    this._highlightFilters = [];
+    this._overlayId = null;
+    this._onKeyDown = (e2) => {
+      if (e2.key === "Escape") this._overlayId = null;
+    };
     this._lastFetchedDeckId = "";
   }
-  // Lifecycle: Initial fetch when component first renders
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("keydown", this._onKeyDown);
+    const saved = localStorage.getItem("fab-decklist-view");
+    if (saved === "list" || saved === "grid") {
+      this._viewMode = saved;
+    }
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("keydown", this._onKeyDown);
+  }
   firstUpdated() {
     if (this.deckId && !this._lastFetchedDeckId) {
       this._fetchDeck();
     }
   }
-  // Lifecycle: React to property changes after initial render
   updated(changedProperties) {
     if (changedProperties.has("deckId") && this.deckId && this.deckId !== this._lastFetchedDeckId) {
       this._fetchDeck();
     }
   }
-  // Fetch deck data from API
+  _setViewMode(mode) {
+    this._viewMode = mode;
+    localStorage.setItem("fab-decklist-view", mode);
+  }
+  _toggleFilter(stat, value) {
+    const idx = this._highlightFilters.findIndex((f2) => f2.stat === stat && f2.value === value);
+    if (idx >= 0) {
+      this._highlightFilters = this._highlightFilters.filter((_2, i3) => i3 !== idx);
+    } else {
+      this._highlightFilters = [...this._highlightFilters, { stat, value }];
+    }
+  }
+  _isFilterActive(stat, value) {
+    return this._highlightFilters.some((f2) => f2.stat === stat && f2.value === value);
+  }
+  _matchesStat(card, stat, value) {
+    switch (stat) {
+      case "pitch":
+        return card.pitch === value;
+      case "cost":
+        if (card.cost === null) return false;
+        return value === 5 ? card.cost >= 5 : card.cost === value;
+      case "power":
+        if (card.power === null) return false;
+        return value === 7 ? card.power >= 7 : card.power === value;
+      case "defense":
+        if (value === 0) return card.defense === null || card.defense === 0;
+        return card.defense === value;
+      default:
+        return false;
+    }
+  }
+  _matchesAllFilters(card) {
+    return this._highlightFilters.every((f2) => this._matchesStat(card, f2.stat, f2.value));
+  }
+  _computeAllCards() {
+    if (!this._deckData) return [];
+    return this._deckData.sections.flatMap((s2) => s2.cards);
+  }
+  // Count total copies (with quantity) matching a chip
+  _getChipCount(stat, value) {
+    return this._computeAllCards().reduce((sum, card) => {
+      return sum + (this._matchesStat(card, stat, value) ? card.quantity : 0);
+    }, 0);
+  }
   async _fetchDeck() {
     if (!this.deckId) return;
     this._loading = true;
     this._error = "";
+    this._highlightFilters = [];
     this._lastFetchedDeckId = this.deckId;
     try {
       const params = new URLSearchParams();
@@ -5447,49 +5579,134 @@ let FabDecklistBlock = class extends i$1 {
       if (!response.ok || !result.success) {
         throw new Error(result.error || "Failed to fetch deck");
       }
-      const deck = result.data;
-      this._deckData = this._transformDeckToSections(deck);
+      this._deckData = this._transformDeckToSections(result.data);
     } catch (e2) {
       this._error = e2 instanceof Error ? e2.message : "Failed to fetch deck";
     } finally {
       this._loading = false;
     }
   }
-  // Transform deck API response to sections format with aggregated quantities
   _transformDeckToSections(deck) {
     const sections = [];
-    const categories = [
-      { key: "hero", label: "Hero" },
-      { key: "equipment", label: "Equipment" },
+    const heroAndEquipment = [
+      ...Array.isArray(deck.hero) ? deck.hero : [],
+      ...Array.isArray(deck.equipment) ? deck.equipment : []
+    ];
+    if (heroAndEquipment.length > 0) {
+      const cardMap = /* @__PURE__ */ new Map();
+      for (const card of heroAndEquipment) {
+        const printingId = card.printingId;
+        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const qty = card.quantity ?? 1;
+        if (cardMap.has(printingId)) {
+          cardMap.get(printingId).quantity += qty;
+        } else {
+          cardMap.set(printingId, {
+            cardName,
+            printingId,
+            quantity: qty,
+            foiling: card.printingDetails?.foiling || card.foiling,
+            pitch: card.printingDetails?.pitch ?? null,
+            cost: card.printingDetails?.cost ?? null,
+            power: card.printingDetails?.power ?? null,
+            defense: card.printingDetails?.defense ?? null,
+            types: card.printingDetails?.types ?? [],
+            keywords: card.printingDetails?.keywords ?? []
+          });
+        }
+      }
+      const totalEquip = Array.from(cardMap.values()).reduce((s2, c2) => s2 + c2.quantity, 0);
+      sections.push({
+        label: "EQUIPMENT & WEAPONS",
+        pitchColor: null,
+        totalCards: totalEquip,
+        uniqueCards: cardMap.size,
+        cards: Array.from(cardMap.values())
+      });
+    }
+    const remainingCategories = [
       { key: "maindeck", label: "Main Deck" },
       { key: "inventory", label: "Inventory" },
       { key: "maybeboard", label: "Maybeboard" },
       { key: "tokens", label: "Tokens" }
     ];
-    for (const { key, label } of categories) {
+    for (const { key } of remainingCategories) {
       const categoryCards = deck[key];
-      if (Array.isArray(categoryCards) && categoryCards.length > 0) {
-        const cardMap = /* @__PURE__ */ new Map();
+      if (!Array.isArray(categoryCards) || categoryCards.length === 0) continue;
+      if (key === "maindeck") {
+        const pitchBuckets = [
+          { label: "LIBRARY — RED", pitchColor: "red", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
+          { label: "LIBRARY — YELLOW", pitchColor: "yellow", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
+          { label: "LIBRARY — BLUE", pitchColor: "blue", cardMap: /* @__PURE__ */ new Map(), totalCards: 0 },
+          { label: "Other", pitchColor: null, cardMap: /* @__PURE__ */ new Map(), totalCards: 0 }
+        ];
         for (const card of categoryCards) {
+          const pitch = card.printingDetails?.pitch;
+          const bucketIndex = pitch === 1 ? 0 : pitch === 2 ? 1 : pitch === 3 ? 2 : 3;
+          const bucket = pitchBuckets[bucketIndex];
           const printingId = card.printingId;
           const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
-          const foiling = card.printingDetails?.foiling || card.foiling;
-          if (cardMap.has(printingId)) {
-            cardMap.get(printingId).quantity += 1;
+          const qty = card.quantity ?? 1;
+          bucket.totalCards += qty;
+          if (bucket.cardMap.has(printingId)) {
+            bucket.cardMap.get(printingId).quantity += qty;
           } else {
-            cardMap.set(printingId, {
+            bucket.cardMap.set(printingId, {
               cardName,
               printingId,
-              quantity: 1,
-              foiling
+              quantity: qty,
+              foiling: card.printingDetails?.foiling || card.foiling,
+              cost: card.printingDetails?.cost ?? null,
+              power: card.printingDetails?.power ?? null,
+              defense: card.printingDetails?.defense ?? null,
+              types: card.printingDetails?.types ?? [],
+              keywords: card.printingDetails?.keywords ?? []
             });
           }
         }
-        const aggregatedCards = Array.from(cardMap.values());
-        const totalCards = categoryCards.length;
-        const uniqueCards = aggregatedCards.length;
-        sections.push({ label, totalCards, uniqueCards, cards: aggregatedCards });
+        for (const bucket of pitchBuckets) {
+          if (bucket.cardMap.size > 0) {
+            sections.push({
+              label: bucket.label,
+              pitchColor: bucket.pitchColor,
+              totalCards: bucket.totalCards,
+              uniqueCards: bucket.cardMap.size,
+              cards: Array.from(bucket.cardMap.values())
+            });
+          }
+        }
+        continue;
       }
+      const cardMap = /* @__PURE__ */ new Map();
+      for (const card of categoryCards) {
+        const printingId = card.printingId;
+        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const qty = card.quantity ?? 1;
+        if (cardMap.has(printingId)) {
+          cardMap.get(printingId).quantity += qty;
+        } else {
+          cardMap.set(printingId, {
+            cardName,
+            printingId,
+            quantity: qty,
+            foiling: card.printingDetails?.foiling || card.foiling,
+            pitch: card.printingDetails?.pitch ?? null,
+            cost: card.printingDetails?.cost ?? null,
+            power: card.printingDetails?.power ?? null,
+            defense: card.printingDetails?.defense ?? null,
+            types: card.printingDetails?.types ?? [],
+            keywords: card.printingDetails?.keywords ?? []
+          });
+        }
+      }
+      const label = key === "inventory" ? "Inventory" : key === "maybeboard" ? "Maybeboard" : "Tokens";
+      sections.push({
+        label,
+        pitchColor: null,
+        totalCards: categoryCards.length,
+        uniqueCards: cardMap.size,
+        cards: Array.from(cardMap.values())
+      });
     }
     return {
       sections,
@@ -5498,11 +5715,9 @@ let FabDecklistBlock = class extends i$1 {
       notes: deck.description
     };
   }
-  // Helper to get image URL from printingId
   getCardImageUrl(printingId) {
     return `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`;
   }
-  // Helper to get foiling badge class
   getFoilingClass(foiling) {
     if (!foiling) return "nf";
     const f2 = foiling.toLowerCase();
@@ -5510,13 +5725,175 @@ let FabDecklistBlock = class extends i$1 {
     if (f2.includes("cold") || f2.includes("cf")) return "cf";
     return "nf";
   }
-  // Helper to get foiling display text
   getFoilingText(foiling) {
     if (!foiling) return "NF";
     const f2 = foiling.toLowerCase();
     if (f2.includes("rainbow") || f2.includes("rf")) return "RF";
     if (f2.includes("cold") || f2.includes("cf")) return "CF";
     return "NF";
+  }
+  renderHud() {
+    const allCards = this._computeAllCards();
+    if (allCards.length === 0) return null;
+    const pitchChips = [1, 2, 3].map((v2) => {
+      const count = this._getChipCount("pitch", v2);
+      const active = this._isFilterActive("pitch", v2);
+      return b`
+        <button
+          class="hud-chip ${active ? "active" : ""} ${count === 0 ? "zero" : ""}"
+          @click="${() => count > 0 && this._toggleFilter("pitch", v2)}"
+          title="Pitch ${v2} (${count} cards)"
+        >
+          <img class="hud-stat-icon" src="/fab/symbols/pitch${v2}.png" alt="Pitch ${v2}" />
+        </button>
+      `;
+    });
+    const costChips = COST_CHIPS.map((v2) => {
+      const label = v2 === 5 ? "5+" : String(v2);
+      const count = this._getChipCount("cost", v2);
+      const active = this._isFilterActive("cost", v2);
+      return b`
+        <button
+          class="hud-chip ${active ? "active" : ""} ${count === 0 ? "zero" : ""}"
+          @click="${() => count > 0 && this._toggleFilter("cost", v2)}"
+          title="Cost ${label} (${count} cards)"
+        >
+          <div class="hud-cost-icon-wrap">
+            <img src="/fab/symbols/cost.png" alt="Cost" />
+            <span>${label}</span>
+          </div>
+        </button>
+      `;
+    });
+    const powerChips = POWER_CHIPS.map((v2) => {
+      const label = v2 === 7 ? "7+" : String(v2);
+      const count = this._getChipCount("power", v2);
+      const active = this._isFilterActive("power", v2);
+      return b`
+        <button
+          class="hud-chip ${active ? "active" : ""} ${count === 0 ? "zero" : ""}"
+          @click="${() => count > 0 && this._toggleFilter("power", v2)}"
+          title="Power ${label} (${count} cards)"
+        >
+          <span>${label}</span>
+          <img class="hud-stat-icon" src="/fab/symbols/power.png" alt="Power" />
+        </button>
+      `;
+    });
+    const defenseChips = DEFENSE_CHIPS.map((v2) => {
+      const count = this._getChipCount("defense", v2);
+      const active = this._isFilterActive("defense", v2);
+      return b`
+        <button
+          class="hud-chip ${active ? "active" : ""} ${count === 0 ? "zero" : ""}"
+          @click="${() => count > 0 && this._toggleFilter("defense", v2)}"
+          title="Defense ${v2} (${count} cards)"
+        >
+          <span>${v2}</span>
+          <img class="hud-stat-icon" src="/fab/symbols/block.png" alt="Defense" />
+        </button>
+      `;
+    });
+    return b`
+      <div class="hud">
+        <span class="hud-label">Highlight</span>
+        <div class="hud-group">${pitchChips}</div>
+        <div class="hud-divider"></div>
+        <div class="hud-group">${costChips}</div>
+        <div class="hud-divider"></div>
+        <div class="hud-group">${powerChips}</div>
+        <div class="hud-divider"></div>
+        <div class="hud-group">${defenseChips}</div>
+        ${this._highlightFilters.length > 0 ? b`
+          <button class="hud-clear" @click="${() => {
+      this._highlightFilters = [];
+    }}">
+            × clear
+          </button>
+        ` : ""}
+      </div>
+    `;
+  }
+  renderGridView(cards) {
+    const hasFilters = this._highlightFilters.length > 0;
+    const tiles = cards.flatMap(
+      (card) => Array.from({ length: card.quantity }, () => card)
+    );
+    return b`
+      <div class="cards-grid">
+        ${tiles.map((card) => {
+      const matched = hasFilters && this._matchesAllFilters(card);
+      const dimmed = hasFilters && !this._matchesAllFilters(card);
+      return b`
+            <div class="card-item ${matched ? "highlighted" : ""} ${dimmed ? "dimmed" : ""}">
+              <div class="card-image-wrapper" @click="${() => card.printingId && (this._overlayId = card.printingId)}">
+                ${card.printingId ? b`
+                  <img
+                    class="card-image-top"
+                    src="${this.getCardImageUrl(card.printingId)}"
+                    alt="${card.cardName}"
+                    loading="lazy"
+                    @error=${(e2) => {
+        e2.target.src = "/cardback.webp";
+        const wrapper = e2.target.closest(".card-image-wrapper");
+        const bottom = wrapper?.querySelector(".card-image-bottom");
+        if (bottom) bottom.style.display = "none";
+      }}
+                  />
+                  <img
+                    class="card-image-bottom"
+                    src="${this.getCardImageUrl(card.printingId)}"
+                    alt=""
+                    loading="lazy"
+                  />
+                ` : b`
+                  <img class="card-image" src="/cardback.webp" alt="${card.cardName}" />
+                `}
+                ${this.getFoilingText(card.foiling) !== "NF" ? b`
+                  <span class="foil-badge ${this.getFoilingClass(card.foiling)}">
+                    ${this.getFoilingText(card.foiling)}
+                  </span>
+                ` : ""}
+                <div class="card-name-hover">${card.cardName}</div>
+              </div>
+            </div>
+          `;
+    })}
+      </div>
+    `;
+  }
+  renderListView(cards) {
+    const hasFilters = this._highlightFilters.length > 0;
+    return b`
+      <div class="cards-list">
+        ${cards.map((card) => {
+      const matched = hasFilters && this._matchesAllFilters(card);
+      const dimmed = hasFilters && !this._matchesAllFilters(card);
+      return b`
+            <div class="list-row ${matched ? "highlighted" : ""} ${dimmed ? "dimmed" : ""}" @click="${() => card.printingId && (this._overlayId = card.printingId)}">
+              ${card.printingId ? b`
+                <img
+                  class="list-card-thumb"
+                  src="${this.getCardImageUrl(card.printingId)}"
+                  alt="${card.cardName}"
+                  loading="lazy"
+                  @error=${(e2) => {
+        e2.target.src = "/cardback.webp";
+      }}
+                />
+              ` : b`
+                <img class="list-card-thumb" src="/cardback.webp" alt="${card.cardName}" />
+              `}
+              <span class="list-card-name">${card.cardName}</span>
+              ${card.quantity > 1 ? b`<span class="list-card-qty">${card.quantity}×</span>` : ""}
+              <span class="list-foil-badge ${this.getFoilingClass(card.foiling)}">
+                ${this.getFoilingText(card.foiling)}
+              </span>
+            </div>
+          `;
+    })}
+      </div>
+    `;
   }
   render() {
     if (this._loading) {
@@ -5548,6 +5925,7 @@ let FabDecklistBlock = class extends i$1 {
     let effectiveTitle = this.title;
     let effectiveExportUrl = this.exportUrl;
     let effectiveNotes = this.notes;
+    const hasApiData = !!this._deckData;
     if (this._deckData) {
       sectionsData = this._deckData.sections;
       effectiveTitle = this.title !== "Decklist" ? this.title : this._deckData.title || "Decklist";
@@ -5558,17 +5936,18 @@ let FabDecklistBlock = class extends i$1 {
         const parsed = JSON.parse(this.sections);
         sectionsData = parsed.map((section) => ({
           label: section.label,
+          pitchColor: null,
           totalCards: section.cards?.length || 0,
           uniqueCards: section.cards?.length || 0,
           cards: (section.cards || []).map((card) => {
             if (typeof card === "string") {
               const match = card.match(/^(\d+)x\s+(.+)$/);
               if (match) {
-                return { cardName: match[2], printingId: "", quantity: parseInt(match[1], 10) };
+                return { cardName: match[2], printingId: "", quantity: parseInt(match[1], 10), pitch: null, cost: null, power: null, defense: null, types: [], keywords: [] };
               }
-              return { cardName: card, printingId: "", quantity: 1 };
+              return { cardName: card, printingId: "", quantity: 1, pitch: null, cost: null, power: null, defense: null, types: [], keywords: [] };
             }
-            return { ...card, quantity: card.quantity || 1 };
+            return { pitch: null, cost: null, power: null, defense: null, types: [], keywords: [], ...card, quantity: card.quantity || 1 };
           })
         }));
       } catch (e2) {
@@ -5579,70 +5958,57 @@ let FabDecklistBlock = class extends i$1 {
     } else {
       return b``;
     }
-    if (sectionsData.length === 0) {
-      return b``;
-    }
+    if (sectionsData.length === 0) return b``;
     return b`
       <div class="decklist">
         <div class="header">
           <h3 class="title">${effectiveTitle}</h3>
-          ${effectiveExportUrl ? b`
-            <a
-              href="${effectiveExportUrl}"
-              class="export-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View Full List
-              <span class="export-icon">${this.renderExternalLinkIcon()}</span>
-            </a>
-          ` : ""}
+          <div class="header-actions">
+            <div class="view-toggle" role="group" aria-label="View mode">
+              <button
+                class="view-btn ${this._viewMode === "grid" ? "active" : ""}"
+                @click="${() => this._setViewMode("grid")}"
+                title="Grid view"
+                aria-pressed="${this._viewMode === "grid"}"
+              >
+                ${this.renderGridIcon()} Grid
+              </button>
+              <button
+                class="view-btn ${this._viewMode === "list" ? "active" : ""}"
+                @click="${() => this._setViewMode("list")}"
+                title="List view"
+                aria-pressed="${this._viewMode === "list"}"
+              >
+                ${this.renderListIcon()} List
+              </button>
+            </div>
+            ${effectiveExportUrl ? b`
+              <a
+                href="${effectiveExportUrl}"
+                class="export-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Full List
+                <span class="export-icon">${this.renderExternalLinkIcon()}</span>
+              </a>
+            ` : ""}
+          </div>
         </div>
         <div class="content">
+          ${hasApiData ? this.renderHud() : ""}
           ${sectionsData.map((section) => b`
             <div class="section">
               <div class="section-header">
-                <h4 class="section-title">${section.label}</h4>
+                ${section.pitchColor ? b`<span class="pitch-dot ${section.pitchColor}"></span>` : ""}
+                <h4 class="section-title ${section.pitchColor ? "library" : ""}">${section.label}</h4>
                 ${section.totalCards ? b`
                   <span class="section-count">
-                    ${section.totalCards} cards${section.uniqueCards && section.uniqueCards !== section.totalCards ? b` • ${section.uniqueCards} unique` : ""}
+                    ${section.totalCards} ${section.totalCards === 1 ? "card" : "cards"}${section.uniqueCards && section.uniqueCards !== section.totalCards ? b` • ${section.uniqueCards} unique` : ""}
                   </span>
                 ` : ""}
               </div>
-              <div class="cards-grid">
-                ${(section.cards || []).map((card) => b`
-                  <div class="card-item">
-                    <div class="card-image-wrapper">
-                      ${card.printingId ? b`
-                        <img
-                          class="card-image"
-                          src="${this.getCardImageUrl(card.printingId)}"
-                          alt="${card.cardName}"
-                          loading="lazy"
-                          @error=${(e2) => {
-      const img = e2.target;
-      img.src = "/cardback.webp";
-    }}
-                        />
-                      ` : b`
-                        <img class="card-image" src="/cardback.webp" alt="${card.cardName}" />
-                      `}
-                      ${card.quantity > 1 ? b`
-                        <span class="quantity-badge">${card.quantity}x</span>
-                      ` : ""}
-                      <span class="foil-badge ${this.getFoilingClass(card.foiling)}">
-                        ${this.getFoilingText(card.foiling)}
-                      </span>
-                    </div>
-                    <div class="card-info">
-                      <div class="card-name">${card.cardName}</div>
-                      <div class="card-meta">
-                        ${card.quantity > 1 ? `${card.quantity} ${this.getFoilingText(card.foiling)}` : this.getFoilingText(card.foiling)}
-                      </div>
-                    </div>
-                  </div>
-                `)}
-              </div>
+              ${this._viewMode === "list" ? this.renderListView(section.cards) : this.renderGridView(section.cards)}
             </div>
           `)}
           ${effectiveNotes ? b`
@@ -5653,6 +6019,37 @@ let FabDecklistBlock = class extends i$1 {
           ` : ""}
         </div>
       </div>
+      ${this._overlayId ? b`
+        <div class="card-overlay" @click="${() => this._overlayId = null}">
+          <img
+            class="card-overlay-img"
+            src="${this.getCardImageUrl(this._overlayId)}"
+            alt="Card preview"
+          />
+        </div>
+      ` : ""}
+    `;
+  }
+  renderGridIcon() {
+    return b`
+      <svg viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="6" height="6" rx="1"/>
+        <rect x="9" y="1" width="6" height="6" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" rx="1"/>
+        <rect x="9" y="9" width="6" height="6" rx="1"/>
+      </svg>
+    `;
+  }
+  renderListIcon() {
+    return b`
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">
+        <line x1="4" y1="4" x2="14" y2="4"/>
+        <line x1="4" y1="8" x2="14" y2="8"/>
+        <line x1="4" y1="12" x2="14" y2="12"/>
+        <circle cx="1.5" cy="4" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="1.5" cy="8" r="1" fill="currentColor" stroke="none"/>
+        <circle cx="1.5" cy="12" r="1" fill="currentColor" stroke="none"/>
+      </svg>
     `;
   }
   renderExternalLinkIcon() {
@@ -5697,6 +6094,57 @@ FabDecklistBlock.styles = i$4`
       margin: 0;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    /* ===== VIEW TOGGLE ===== */
+    .view-toggle {
+      display: inline-flex;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      overflow: hidden;
+    }
+
+    .view-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      padding: 0.3125rem 0.625rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+      line-height: 1;
+    }
+
+    .view-btn + .view-btn {
+      border-left: 1px solid #e2e8f0;
+    }
+
+    .view-btn:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .view-btn.active {
+      background: #0f172a;
+      color: white;
+    }
+
+    .view-btn svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
     .export-link {
       display: inline-flex;
       align-items: center;
@@ -5726,9 +6174,132 @@ FabDecklistBlock.styles = i$4`
       padding: 1rem;
     }
 
+    /* ===== HUD FILTER BAR ===== */
+    .hud {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 0.375rem 0.625rem;
+      margin-bottom: 1rem;
+      background: rgba(15, 23, 42, 0.08);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 0.5rem;
+      font-size: 0.625rem;
+    }
+
+    .hud-label {
+      font-size: 0.625rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+
+    .hud-group {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    /* Cost chips: icon with number overlaid */
+    .hud-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+      border: none;
+      background: rgba(15, 23, 42, 0.12);
+      cursor: pointer;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: #1e293b;
+      transition: background 0.1s, opacity 0.1s;
+      line-height: 1;
+    }
+
+    .hud-chip:hover:not(.zero) {
+      background: rgba(15, 23, 42, 0.2);
+    }
+
+    .hud-chip.active {
+      background: #f59e0b;
+      color: white;
+      box-shadow: 0 0 0 1px #d97706;
+    }
+
+    .hud-chip.zero {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    /* Cost chip: icon with number centered on top */
+    .hud-cost-icon-wrap {
+      position: relative;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .hud-cost-icon-wrap img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+    }
+
+    .hud-cost-icon-wrap span {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5rem;
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 0 3px rgba(0,0,0,1), 0 0 1px rgba(0,0,0,1);
+      line-height: 1;
+    }
+
+    /* Stat icon (power/defense/pitch) */
+    .hud-stat-icon {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .hud-divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(15, 23, 42, 0.15);
+      flex-shrink: 0;
+    }
+
+    .hud-clear {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: #94a3b8;
+      transition: color 0.1s;
+      margin-left: auto;
+    }
+
+    .hud-clear:hover {
+      color: #64748b;
+    }
+
     /* ===== SECTION STYLES ===== */
     .section {
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     .section:last-child {
@@ -5738,17 +6309,36 @@ FabDecklistBlock.styles = i$4`
     .section-header {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.5rem 0.5rem 0.75rem;
+      gap: 0.5rem;
+      padding: 0.375rem 0.5rem 0.5rem;
       border-bottom: 1px solid #e2e8f0;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.375rem;
     }
+
+    .pitch-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .pitch-dot.red { background: #ef4444; }
+    .pitch-dot.yellow { background: #eab308; }
+    .pitch-dot.blue { background: #3b82f6; }
 
     .section-title {
       font-size: 1rem;
       font-weight: 600;
       color: #0f172a;
       margin: 0;
+    }
+
+    .section-title.library {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
 
     .section-count {
@@ -5758,53 +6348,105 @@ FabDecklistBlock.styles = i$4`
 
     /* ===== CARD GRID ===== */
     .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: 0.75rem;
-    }
-
-    @media (min-width: 640px) {
-      .cards-grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .cards-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      }
-    }
-
-    /* ===== CARD ITEM ===== */
-    .card-item {
       display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    /* ===== CARD ITEM (grid view) ===== */
+    .card-item {
+      width: 72px;
+      flex-shrink: 0;
+      transition: opacity 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+    }
+
+    .card-item.dimmed {
+      opacity: 0.18;
+      filter: grayscale(1);
+      transform: scale(0.95);
+    }
+
+    .card-item.highlighted .card-image-wrapper {
+      box-shadow: 0 0 0 2px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.55);
     }
 
     .card-image-wrapper {
       position: relative;
-      aspect-ratio: 5 / 7;
-      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      border-radius: 4px;
       overflow: hidden;
-      background: #1e293b;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      background: #080c14;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
+      cursor: pointer;
     }
 
     .card-image-wrapper:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      z-index: 1;
     }
 
+    .card-item.highlighted .card-image-wrapper:hover {
+      box-shadow: 0 0 0 2px #f59e0b, 0 6px 18px rgba(245, 158, 11, 0.6);
+    }
+
+    /* Top slice: name banner + artwork (~top 55% of card) */
+    .card-image-top {
+      width: 100%;
+      height: 55px;
+      object-fit: cover;
+      object-position: top;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    /* Bottom slice: type/stats frame (~bottom 13% of card) */
+    .card-image-bottom {
+      width: 100%;
+      height: 13px;
+      object-fit: cover;
+      object-position: bottom;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    /* Fallback: single full card (cardback or no-image) */
     .card-image {
       width: 100%;
-      height: 100%;
+      height: 69px;
       object-fit: cover;
       display: block;
     }
 
-    /* Quantity badge */
+    /* Hover name overlay — sits over the top slice only */
+    .card-name-hover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 55px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 3px 4px;
+      background: linear-gradient(transparent 30%, rgba(0, 0, 0, 0.85));
+      color: white;
+      font-size: 0.5rem;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.2;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
+
+    .card-image-wrapper:hover .card-name-hover {
+      opacity: 1;
+    }
+
     .quantity-badge {
       position: absolute;
       top: 4px;
@@ -5818,7 +6460,6 @@ FabDecklistBlock.styles = i$4`
       backdrop-filter: blur(4px);
     }
 
-    /* Foiling indicator */
     .foil-badge {
       position: absolute;
       top: 4px;
@@ -5845,26 +6486,88 @@ FabDecklistBlock.styles = i$4`
       color: white;
     }
 
-    /* Card info below image */
-    .card-info {
-      padding: 0 2px;
+    /* ===== LIST VIEW ===== */
+    .cards-list {
+      display: flex;
+      flex-direction: column;
     }
 
-    .card-name {
+    .list-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.1875rem 0.5rem;
+      border-radius: 3px;
+      transition: background 0.1s, opacity 0.2s, filter 0.2s;
+      cursor: pointer;
+    }
+
+    .list-row:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .list-row.dimmed {
+      opacity: 0.2;
+      filter: grayscale(1);
+    }
+
+    .list-row.highlighted {
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 2px solid #f59e0b;
+      padding-left: 0.25rem;
+    }
+
+    .list-card-thumb {
+      width: 22px;
+      height: 31px;
+      border-radius: 2px;
+      object-fit: cover;
+      object-position: top;
+      flex-shrink: 0;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    }
+
+    .list-card-name {
+      flex: 1;
       font-size: 0.75rem;
       font-weight: 500;
       color: #1e293b;
-      line-height: 1.3;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
       overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    .card-meta {
-      font-size: 0.65rem;
-      color: #64748b;
-      margin-top: 2px;
+    .list-card-qty {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: #94a3b8;
+      min-width: 1.25rem;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Only show foil badge for non-NF cards */
+    .list-foil-badge {
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .list-foil-badge.nf {
+      display: none;
+    }
+
+    .list-foil-badge.rf {
+      background: rgba(234, 179, 8, 0.2);
+      color: #92400e;
+    }
+
+    .list-foil-badge.cf {
+      background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(139, 92, 246, 0.15), rgba(6, 182, 212, 0.15));
+      color: #6d28d9;
     }
 
     /* ===== NOTES ===== */
@@ -5926,6 +6629,58 @@ FabDecklistBlock.styles = i$4`
       color: #f1f5f9;
     }
 
+    :host-context(.dark) .view-toggle {
+      border-color: #334155;
+    }
+
+    :host-context(.dark) .view-btn {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .view-btn + .view-btn {
+      border-left-color: #334155;
+    }
+
+    :host-context(.dark) .view-btn:hover {
+      background: #0f172a;
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .view-btn.active {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    :host-context(.dark) .hud {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    :host-context(.dark) .hud-label {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .hud-chip {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+    }
+
+    :host-context(.dark) .hud-chip:hover:not(.zero) {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    :host-context(.dark) .hud-divider {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    :host-context(.dark) .hud-clear {
+      color: #64748b;
+    }
+
+    :host-context(.dark) .hud-clear:hover {
+      color: #94a3b8;
+    }
+
     :host-context(.dark) .section-header {
       border-bottom-color: #334155;
     }
@@ -5938,16 +6693,33 @@ FabDecklistBlock.styles = i$4`
       color: #94a3b8;
     }
 
-    :host-context(.dark) .card-name {
+    :host-context(.dark) .card-image-wrapper {
+      background: #0f172a;
+    }
+
+    :host-context(.dark) .list-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    :host-context(.dark) .list-row.highlighted {
+      background: rgba(245, 158, 11, 0.12);
+    }
+
+    :host-context(.dark) .list-card-name {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .card-meta {
+    :host-context(.dark) .list-card-qty {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .card-image-wrapper {
-      background: #0f172a;
+    :host-context(.dark) .list-foil-badge.rf {
+      background: rgba(234, 179, 8, 0.2);
+      color: #fcd34d;
+    }
+
+    :host-context(.dark) .list-foil-badge.cf {
+      color: #a78bfa;
     }
 
     :host-context(.dark) .notes {
@@ -5971,65 +6743,69 @@ FabDecklistBlock.styles = i$4`
       border-top-color: #60a5fa;
     }
 
-    /* ===== SYSTEM DARK MODE (fallback for mobile) ===== */
+    /* ===== SYSTEM DARK MODE (fallback) ===== */
     @media (prefers-color-scheme: dark) {
-      .decklist {
-        background: #1e293b;
-        border-color: #334155;
-      }
+      .decklist { background: #1e293b; border-color: #334155; }
+      .header { border-bottom-color: #334155; }
+      .title { color: #f1f5f9; }
+      .view-toggle { border-color: #334155; }
+      .view-btn { color: #94a3b8; }
+      .view-btn + .view-btn { border-left-color: #334155; }
+      .view-btn:hover { background: #0f172a; color: #f1f5f9; }
+      .view-btn.active { background: #f1f5f9; color: #0f172a; }
+      .hud { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }
+      .hud-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
+      .hud-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+      .hud-divider { background: rgba(255,255,255,0.1); }
+      .hud-group-icon { filter: invert(1); opacity: 0.6; }
+      .section-header { border-bottom-color: #334155; }
+      .section-title { color: #f1f5f9; }
+      .section-count { color: #94a3b8; }
+      .card-image-wrapper { background: #0f172a; }
+      .list-row:hover { background: rgba(255,255,255,0.04); }
+      .list-row.highlighted { background: rgba(245,158,11,0.12); }
+      .list-card-name { color: #e2e8f0; }
+      .list-card-qty { color: #94a3b8; }
+      .list-foil-badge.nf { background: rgba(100,116,139,0.3); color: #94a3b8; }
+      .list-foil-badge.rf { background: rgba(234,179,8,0.2); color: #fcd34d; }
+      .list-foil-badge.cf { color: #a78bfa; }
+      .notes { background: #422006; }
+      .notes-title { color: #f1f5f9; }
+      .notes-text { color: #e2e8f0; }
+      .loading { color: #94a3b8; }
+      .loading-spinner { border-color: #334155; border-top-color: #60a5fa; }
+    }
 
-      .header {
-        border-bottom-color: #334155;
-      }
+    /* ===== CARD OVERLAY ===== */
+    .card-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.88);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      animation: overlayIn 0.15s ease;
+    }
 
-      .title {
-        color: #f1f5f9;
-      }
+    @keyframes overlayIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
 
-      .section-header {
-        border-bottom-color: #334155;
-      }
+    .card-overlay-img {
+      max-height: 88vh;
+      max-width: min(88vw, 320px);
+      border-radius: 10px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      animation: overlayImgIn 0.15s ease;
+    }
 
-      .section-title {
-        color: #f1f5f9;
-      }
-
-      .section-count {
-        color: #94a3b8;
-      }
-
-      .card-name {
-        color: #e2e8f0;
-      }
-
-      .card-meta {
-        color: #94a3b8;
-      }
-
-      .card-image-wrapper {
-        background: #0f172a;
-      }
-
-      .notes {
-        background: #422006;
-      }
-
-      .notes-title {
-        color: #f1f5f9;
-      }
-
-      .notes-text {
-        color: #e2e8f0;
-      }
-
-      .loading {
-        color: #94a3b8;
-      }
-
-      .loading-spinner {
-        border-color: #334155;
-        border-top-color: #60a5fa;
-      }
+    @keyframes overlayImgIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
     }
   `;
 __decorateClass$2([
@@ -6062,6 +6838,15 @@ __decorateClass$2([
 __decorateClass$2([
   r()
 ], FabDecklistBlock.prototype, "_deckData", 2);
+__decorateClass$2([
+  r()
+], FabDecklistBlock.prototype, "_viewMode", 2);
+__decorateClass$2([
+  r()
+], FabDecklistBlock.prototype, "_highlightFilters", 2);
+__decorateClass$2([
+  r()
+], FabDecklistBlock.prototype, "_overlayId", 2);
 FabDecklistBlock = __decorateClass$2([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);

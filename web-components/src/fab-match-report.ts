@@ -56,9 +56,9 @@ export class FabMatchReport extends LitElement {
 
     /* ===== LIGHT MODE (default) ===== */
     .match {
-      background: #faf5ff; /* purple-50, softer than white */
-      border: 1px solid #e9d5ff;
-      border-radius: 0.5rem;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.625rem;
       overflow: hidden;
     }
 
@@ -66,67 +66,100 @@ export class FabMatchReport extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem 1.5rem;
+      padding: 0.75rem 1.25rem;
       border-bottom: 1px solid #e2e8f0;
       flex-wrap: wrap;
       gap: 0.75rem;
     }
 
+    /* Subtle result color tint on header */
+    .header.win  { background: rgba(34, 197, 94, 0.06);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    .header.loss { background: rgba(239, 68, 68, 0.06);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    .header.draw { background: rgba(234, 179, 8, 0.06);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+
     .round-info {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
     }
 
+    /* Round label — styled pill badge */
     .round {
-      font-size: 1rem;
+      font-size: 0.6875rem;
       font-weight: 700;
-      color: #0f172a;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 0.1875rem 0.5rem;
+      border-radius: 0.25rem;
     }
 
     .hero {
       display: inline-flex;
       align-items: center;
-      padding: 0.25rem 0.75rem;
-      background: #e2e8f0;
+      padding: 0.1875rem 0.625rem;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
       border-radius: 0.375rem;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: #334155;
     }
 
+    .opponent-inline {
+      font-size: 0.8125rem;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+
+    /* Result pill — wider, shows full word */
     .result-badge {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
+      gap: 0.375rem;
+      padding: 0.25rem 0.875rem;
+      border-radius: 99px;
       font-weight: 700;
-      font-size: 1.125rem;
+      font-size: 0.8125rem;
       color: white;
+      letter-spacing: 0.03em;
     }
 
-    .result-badge.win { background: #22c55e; }
-    .result-badge.loss { background: #ef4444; }
-    .result-badge.draw { background: #eab308; }
+    .result-badge.win  { background: #16a34a; }
+    .result-badge.loss { background: #dc2626; }
+    .result-badge.draw { background: #ca8a04; }
+
+    .result-letter {
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .result-word {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    .result-right {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
 
     .record {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       color: #64748b;
       font-weight: 500;
     }
 
     .content {
-      padding: 1.5rem;
-    }
-
-    .opponent {
-      font-size: 0.875rem;
-      color: #64748b;
-      margin-bottom: 1rem;
-      font-style: italic;
+      padding: 1.25rem 1.5rem;
     }
 
     .summary {
@@ -167,7 +200,7 @@ export class FabMatchReport extends LitElement {
     .card-group {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
+      align-items: flex-start;
       gap: 0.5rem;
     }
 
@@ -178,6 +211,8 @@ export class FabMatchReport extends LitElement {
       border-radius: 0.25rem;
       min-width: 2rem;
       text-align: center;
+      align-self: flex-start;
+      margin-top: 0.25rem;
     }
 
     .card-group-label.in {
@@ -190,25 +225,70 @@ export class FabMatchReport extends LitElement {
       color: #991b1b;
     }
 
-    .card-thumbnail {
-      width: 45px;
-      height: 63px;
-      border-radius: 3px;
-      object-fit: cover;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    /* Sideboard card item: dual-crop thumbnail + name below */
+    .sideboard-card-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      width: 52px;
       cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .card-thumbnail:hover {
+    .card-thumb-wrap {
+      width: 52px;
+      border-radius: 4px;
+      overflow: hidden;
+      aspect-ratio: 63/53;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: #111827;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .sideboard-card-item:hover .card-thumb-wrap {
       transform: scale(1.08);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-thumb-top {
+      width: 100%;
+      object-fit: cover;
+      object-position: top;
+      flex: 0 0 81%;
+      min-height: 0;
+      display: block;
+    }
+
+    .card-thumb-bottom {
+      width: 100%;
+      object-fit: cover;
+      object-position: bottom;
+      flex: 1 0 0;
+      min-height: 0;
+      display: block;
+    }
+
+    .sideboard-card-name {
+      font-size: 0.6rem;
+      font-weight: 500;
+      color: #475569;
+      text-align: center;
+      line-height: 1.2;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      width: 100%;
     }
 
     .card-thumbnail-placeholder {
-      width: 45px;
-      height: 63px;
-      border-radius: 3px;
+      width: 52px;
+      aspect-ratio: 63/53;
+      border-radius: 4px;
       background: #e2e8f0;
       animation: pulse 1.5s ease-in-out infinite;
     }
@@ -225,23 +305,24 @@ export class FabMatchReport extends LitElement {
     }
 
     .hero-card-image {
-      width: 50px;
-      height: 70px;
-      border-radius: 4px;
+      width: 64px;
+      height: 90px;
+      border-radius: 6px;
       object-fit: cover;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
       cursor: pointer;
-      transition: transform 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
     .hero-card-image:hover {
       transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     }
 
     .hero-card-placeholder {
-      width: 50px;
-      height: 70px;
-      border-radius: 4px;
+      width: 64px;
+      height: 90px;
+      border-radius: 6px;
       background: #e2e8f0;
       animation: pulse 1.5s ease-in-out infinite;
     }
@@ -292,43 +373,53 @@ export class FabMatchReport extends LitElement {
       background: rgba(255, 255, 255, 0.2);
     }
 
-    .inline-card-wrapper {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      vertical-align: middle;
-      margin: 0 0.125rem;
-    }
-
     .inline-card-name {
       font-weight: 600;
       color: #0f172a;
     }
 
+    .inline-card-clickable {
+      cursor: pointer;
+      border-bottom: 1px dashed #94a3b8;
+      transition: color 0.1s, border-color 0.1s;
+    }
+
+    .inline-card-clickable:hover {
+      color: #6366f1;
+      border-bottom-color: #6366f1;
+    }
+
     /* ===== DARK MODE (via .dark class on html) ===== */
     :host-context(.dark) .match {
+      background: #0f172a;
+      border-color: #1e293b;
+    }
+
+    :host-context(.dark) .header {
+      border-bottom-color: #1e293b;
+    }
+
+    :host-context(.dark) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    :host-context(.dark) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    :host-context(.dark) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+
+    :host-context(.dark) .round {
+      color: #94a3b8;
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header {
-      border-bottom-color: #334155;
-    }
-
-    :host-context(.dark) .round {
-      color: #f1f5f9;
-    }
-
     :host-context(.dark) .hero {
-      background: #334155;
+      background: #1e293b;
+      border-color: #334155;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .record {
-      color: #94a3b8;
+    :host-context(.dark) .opponent-inline {
+      color: #64748b;
     }
 
-    :host-context(.dark) .opponent {
+    :host-context(.dark) .record {
       color: #94a3b8;
     }
 
@@ -363,53 +454,32 @@ export class FabMatchReport extends LitElement {
       background: #334155;
     }
 
+    :host-context(.dark) .sideboard-card-name {
+      color: #94a3b8;
+    }
+
     :host-context(.dark) .inline-card-name {
       color: #f1f5f9;
     }
 
-    .inline-card-thumbnail {
-      width: 28px;
-      height: 39px;
-      border-radius: 2px;
-      object-fit: cover;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      vertical-align: middle;
-    }
-
-    .inline-card-thumbnail:hover {
-      transform: scale(1.15);
-      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
-      z-index: 10;
-      position: relative;
-    }
-
-    .inline-card-placeholder {
-      display: inline-block;
-      width: 28px;
-      height: 39px;
-      border-radius: 2px;
-      background: #e2e8f0;
-      animation: pulse 1.5s ease-in-out infinite;
-      vertical-align: middle;
-    }
-
-    :host-context(.dark) .inline-card-placeholder {
-      background: #334155;
+    :host-context(.dark) .inline-card-clickable:hover {
+      color: #818cf8;
+      border-bottom-color: #818cf8;
     }
 
     /* ===== DARK MODE (Safari/iOS fallback via OS preference) ===== */
     @media (prefers-color-scheme: dark) {
       .match {
-        background: #1e293b;
-        border-color: #334155;
+        background: #0f172a;
+        border-color: #1e293b;
       }
-      .header {
-        border-bottom-color: #334155;
-      }
-      .round { color: #f1f5f9; }
-      .hero { background: #334155; color: #e2e8f0; }
+      .header { border-bottom-color: #1e293b; }
+      .header.win  { background: rgba(34, 197, 94, 0.08); }
+      .header.loss { background: rgba(239, 68, 68, 0.08); }
+      .header.draw { background: rgba(234, 179, 8, 0.08); }
+      .round { color: #94a3b8; background: #1e293b; border-color: #334155; }
+      .hero { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+      .opponent-inline { color: #64748b; }
       .record { color: #94a3b8; }
       .opponent { color: #94a3b8; }
       .summary { color: #cbd5e1; }
@@ -420,8 +490,8 @@ export class FabMatchReport extends LitElement {
       .card-group-label.out { background: #450a0a; color: #fca5a5; }
       .card-thumbnail-placeholder,
       .hero-card-placeholder { background: #334155; }
+      .sideboard-card-name { color: #94a3b8; }
       .inline-card-name { color: #f1f5f9; }
-      .inline-card-placeholder { background: #334155; }
     }
   `;
 
@@ -572,13 +642,13 @@ export class FabMatchReport extends LitElement {
       <div class="sideboard-cards">
         ${cardsIn.length > 0 ? html`
           <div class="card-group">
-            <span class="card-group-label in">+In</span>
+            <span class="card-group-label in">+In (${cardsIn.length})</span>
             ${cardsIn.map(card => this.renderSingleCard(card.printingId))}
           </div>
         ` : ''}
         ${cardsOut.length > 0 ? html`
           <div class="card-group">
-            <span class="card-group-label out">-Out</span>
+            <span class="card-group-label out">-Out (${cardsOut.length})</span>
             ${cardsOut.map(card => this.renderSingleCard(card.printingId))}
           </div>
         ` : ''}
@@ -591,17 +661,21 @@ export class FabMatchReport extends LitElement {
     const isLoading = this.loadingCards.has(printingId);
 
     if (isLoading || !cardData) {
-      return html`<div class="card-thumbnail-placeholder"></div>`;
+      return html`
+        <div class="sideboard-card-item">
+          <div class="card-thumbnail-placeholder"></div>
+        </div>
+      `;
     }
 
     return html`
-      <img
-        class="card-thumbnail"
-        src="${cardData.image_url}"
-        alt="${cardData.display_name}"
-        title="${cardData.display_name} - Click to enlarge"
-        @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}"
-      />
+      <div class="sideboard-card-item" @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}" title="${cardData.display_name} — click to enlarge">
+        <div class="card-thumb-wrap">
+          <img class="card-thumb-top" src="${cardData.image_url}" alt="${cardData.display_name}" />
+          <img class="card-thumb-bottom" src="${cardData.image_url}" alt="" aria-hidden="true" />
+        </div>
+        <div class="sideboard-card-name">${cardData.display_name}</div>
+      </div>
     `;
   }
 
@@ -682,26 +756,18 @@ export class FabMatchReport extends LitElement {
       const isLoading = this.loadingCards.has(part.printingId);
 
       if (isLoading) {
-        return html`<span class="inline-card-wrapper">
-          <span class="inline-card-placeholder"></span>
-          <span class="inline-card-name">${part.cardName}</span>
-        </span>`;
+        return html`<span class="inline-card-name">${part.cardName}</span>`;
       }
 
       if (!cardData) {
         return html`<span class="inline-card-name">${part.cardName}</span>`;
       }
 
-      return html`<span class="inline-card-wrapper">
-        <img
-          class="inline-card-thumbnail"
-          src="${cardData.image_url}"
-          alt="${cardData.display_name}"
-          title="${cardData.display_name} - Click to enlarge"
-          @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}"
-        />
-        <span class="inline-card-name">${part.cardName}</span>
-      </span>`;
+      return html`<span
+        class="inline-card-name inline-card-clickable"
+        title="${cardData.display_name} — click to view"
+        @click="${() => this.openOverlay(cardData.image_url, cardData.display_name)}"
+      >${part.cardName}</span>`;
     })}`;
   }
 
@@ -718,23 +784,26 @@ export class FabMatchReport extends LitElement {
       : this.result.toUpperCase() === 'L' ? 'L'
       : 'D';
 
+    const resultWord = resultClass === 'win' ? 'Win' : resultClass === 'loss' ? 'Loss' : 'Draw';
+
     return html`
       ${this.renderOverlay()}
       <div class="match">
-        <div class="header">
+        <div class="header ${resultClass}">
           <div class="round-info">
             <span class="round">${this.round}</span>
             ${this.renderHeroCard()}
-            ${this.record ? html`
-              <span class="record">(${this.record})</span>
-            ` : ''}
+            ${this.opponent ? html`<span class="opponent-inline">${this.opponent}</span>` : ''}
           </div>
-          <div class="result-badge ${resultClass}">${resultLabel}</div>
+          <div class="result-right">
+            ${this.record ? html`<span class="record">${this.record}</span>` : ''}
+            <div class="result-badge ${resultClass}">
+              <span class="result-letter">${resultLabel}</span>
+              <span class="result-word">${resultWord}</span>
+            </div>
+          </div>
         </div>
         <div class="content">
-          ${this.opponent ? html`
-            <div class="opponent">Opponent: ${this.opponent}</div>
-          ` : ''}
           ${this.summary ? html`
             <div class="summary">${this.renderSummaryWithInlineCards()}</div>
           ` : ''}
