@@ -17,6 +17,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - **File locking** — many core files are locked and cannot be modified
 - **Service layer for all DB access** — never query the database directly; use services from `@/lib/services`
 - **Use `@/lib/fab-constants`** for card metadata (SET_MAP, FOILING_MAP, RARITY_MAP) — do NOT use metadataService
+- **Use `@/lib/utils/display-username`** for rendered usernames — `displayUsername()` strips internal `dc_`/`gh_` prefixes, `profileHref()` URL-encodes profile links. Discord bot commands still need raw usernames.
 
 ## Deprecated/Removed Services
 

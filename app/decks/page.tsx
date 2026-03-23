@@ -53,6 +53,7 @@ interface Deck {
   visibility?: 'private' | 'unlisted' | 'public';
   isPublic: boolean;
   availableOnTalishar?: boolean;
+  featured?: boolean;
   metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
@@ -304,6 +305,16 @@ export default function DecksPage() {
     if (!result.success) {
       setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, availableOnTalishar: !value } : d));
       toast({ title: "Error", description: "Failed to update Talishar setting.", variant: "destructive" });
+    }
+  };
+
+  // Handle Featured toggle (Decks to Beat)
+  const handleToggleFeatured = async (deckId: string, value: boolean) => {
+    setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, featured: value } : d));
+    const result = await decksClient.toggleFeatured(deckId, value);
+    if (!result.success) {
+      setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, featured: !value } : d));
+      toast({ title: "Error", description: "Failed to update featured status.", variant: "destructive" });
     }
   };
 
@@ -656,6 +667,8 @@ export default function DecksPage() {
                     hasMetafyAccount={hasMetafyAccount}
                     onChangeVisibility={handleChangeVisibility}
                     onToggleTalishar={handleToggleTalishar}
+                    onToggleFeatured={handleToggleFeatured}
+                    isCurator={user?.isCurator || user?.isSuperAdmin}
                     onUpdateMetafyGuideId={handleUpdateMetafyGuideId}
                   />
                 ))}

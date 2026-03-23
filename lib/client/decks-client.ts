@@ -547,3 +547,23 @@ export async function duplicateDeck(
     return handleError(error);
   }
 }
+
+/**
+ * Toggle featured status for a deck (Decks to Beat)
+ * Requires curator or superadmin role.
+ */
+export async function toggleFeatured(
+  publicId: string,
+  featured: boolean
+): Promise<ApiResponse<{ featured: boolean }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/featured`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featured }),
+    });
+    return await handleResponse<{ featured: boolean }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}

@@ -49,6 +49,11 @@ export default function CommunityDecksPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Tab state
+  const [tab, setTab] = useState<'all' | 'featured'>(
+    searchParams.get('tab') === 'featured' ? 'featured' : 'all'
+  );
+
   // Filters
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [format, setFormat] = useState<string>(searchParams.get('format') || '');
@@ -75,6 +80,7 @@ export default function CommunityDecksPage() {
       ...(format && { format: format as DeckFormat }),
       ...(heroName && { heroName }),
       ...(username && { username }),
+      ...(tab === 'featured' && { featured: true }),
     };
 
     const result = await decksClient.getCommunityDecks(filters, { page, limit: PAGE_SIZE });
@@ -83,7 +89,7 @@ export default function CommunityDecksPage() {
       setTotal(result.data.total);
     }
     setLoading(false);
-  }, [search, format, heroName, username, page]);
+  }, [search, format, heroName, username, page, tab]);
 
   useEffect(() => {
     fetchDecks();
@@ -152,6 +158,30 @@ export default function CommunityDecksPage() {
         <p className="text-gray-600 dark:text-gray-400 mt-2">
           Browse public decks shared by the community. Copy any deck to start building from it.
         </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => { setTab('all'); setPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === 'all'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          All Decks
+        </button>
+        <button
+          onClick={() => { setTab('featured'); setPage(1); }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            tab === 'featured'
+              ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Decks to Beat
+        </button>
       </div>
 
       {/* Filters */}

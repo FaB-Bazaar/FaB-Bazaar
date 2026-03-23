@@ -338,7 +338,11 @@ export default function BinderPage() {
         return;
       }
 
-      if (e.key === 'Escape') { resetChord(); return; }
+      if (e.key === 'Escape') {
+        if (chordMode) { resetChord(); return; }
+        clearAllFilters();
+        return;
+      }
       if (!chordMode || isTyping) return;
 
       e.preventDefault();

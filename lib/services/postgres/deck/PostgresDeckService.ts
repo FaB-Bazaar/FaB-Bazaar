@@ -146,10 +146,9 @@ export class PostgresDeckService implements IDeckService {
       heroName: deckRow.heroName || undefined,
       visibility: deckRow.visibility || 'unlisted',
       isPublic: deckRow.visibility !== 'private',
-      fabraryUrl: deckRow.fabraryUrl || undefined,
-      fabraryDeckId: deckRow.fabraryDeckId || undefined,
       metafyGuideId: deckRow.metafyGuideId || undefined,
       availableOnTalishar: deckRow.availableOnTalishar ?? false,
+      featured: deckRow.featured ?? false,
 
       // Category arrays (JOINed data, not embedded)
       hero: categorizeCards('hero'),
@@ -388,13 +387,6 @@ export class PostgresDeckService implements IDeckService {
       }
       const deckSlug = data.slug || slugResult.data;
 
-      // Extract Fabrary deck ID if URL provided
-      let fabraryDeckId: string | undefined;
-      if (data.fabraryUrl) {
-        const match = data.fabraryUrl.match(/\/decks\/([A-Z0-9]+)/i);
-        fabraryDeckId = match ? match[1] : undefined;
-      }
-
       // Create deck
       const deckId = nanoid(21);
       const publicId = nanoid(21);
@@ -411,8 +403,6 @@ export class PostgresDeckService implements IDeckService {
           format: data.format,
           heroName: data.heroName?.trim(),
           visibility: data.visibility || (data.isPublic ? 'public' : 'unlisted'),
-          fabraryUrl: data.fabraryUrl?.trim(),
-          fabraryDeckId,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -552,13 +542,6 @@ export class PostgresDeckService implements IDeckService {
         }
       }
 
-      // Extract Fabrary deck ID if URL provided
-      let fabraryDeckId: string | undefined;
-      if (updates.fabraryUrl) {
-        const match = updates.fabraryUrl.match(/\/decks\/([A-Z0-9]+)/i);
-        fabraryDeckId = match ? match[1] : undefined;
-      }
-
       const updateFields: any = { updatedAt: new Date() };
       if (updates.name !== undefined) updateFields.name = updates.name.trim();
       if (updates.description !== undefined) updateFields.description = updates.description.trim();
@@ -566,10 +549,6 @@ export class PostgresDeckService implements IDeckService {
       if (updates.heroName !== undefined) updateFields.heroName = updates.heroName?.trim();
       if (updates.visibility !== undefined) updateFields.visibility = updates.visibility;
       else if (updates.isPublic !== undefined) updateFields.visibility = updates.isPublic ? 'public' : 'unlisted';
-      if (updates.fabraryUrl !== undefined) {
-        updateFields.fabraryUrl = updates.fabraryUrl?.trim();
-        updateFields.fabraryDeckId = fabraryDeckId;
-      }
       if (updates.slug !== undefined) updateFields.slug = updates.slug;
       if (updates.metadata !== undefined) updateFields.metadata = updates.metadata;
       if (updates.metafyGuideId !== undefined) updateFields.metafyGuideId = updates.metafyGuideId;
@@ -763,6 +742,9 @@ export class PostgresDeckService implements IDeckService {
       if (filters?.username) {
         conditions.push(eq(users.username, filters.username));
       }
+      if (filters?.featured !== undefined) {
+        conditions.push(eq(decks.featured, filters.featured));
+      }
 
       const whereClause = and(...conditions);
       const needsUserJoin = !!filters?.username;
@@ -788,6 +770,7 @@ export class PostgresDeckService implements IDeckService {
           format: decks.format,
           heroName: decks.heroName,
           visibility: decks.visibility,
+          featured: decks.featured,
           updatedAt: decks.updatedAt,
           creatorUsername: users.username,
           creatorDisplayUsername: users.displayUsername,
@@ -815,6 +798,7 @@ export class PostgresDeckService implements IDeckService {
         heroName: row.heroName ?? undefined,
         visibility: 'public' as const,
         isPublic: true,
+        featured: row.featured,
         totalCards: row.cardCount,
         estimatedValue: row.totalValue,
         updatedAt: row.updatedAt ?? undefined,
@@ -877,6 +861,30 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to list public decks',
+      };
+    }
+  }
+
+  async toggleFeatured(
+    publicId: string,
+    featured: boolean
+  ): AsyncResult<boolean> {
+    try {
+      const result = await db
+        .update(decks)
+        .set({ featured, updatedAt: new Date() })
+        .where(eq(decks.publicId, publicId))
+        .returning({ id: decks.id });
+
+      if (result.length === 0) {
+        return { success: false, error: 'Deck not found' };
+      }
+      return { success: true, data: true };
+    } catch (error) {
+      console.error('[PostgresDeckService.toggleFeatured] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to toggle featured',
       };
     }
   }

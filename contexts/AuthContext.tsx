@@ -12,6 +12,8 @@ interface User {
   country?: string
   state?: string
   isMetafySupporter?: boolean
+  isCurator?: boolean
+  isSuperAdmin?: boolean
 }
 
 interface AuthContextType {
@@ -42,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         city: session.user.city,
         state: session.user.state,
         isMetafySupporter: session.user.roles?.isMetafySupporter || false,
+        isCurator: session.user.roles?.isCurator || false,
+        isSuperAdmin: session.user.roles?.isSuperAdmin || false,
       })
     } else {
       setUser(null)

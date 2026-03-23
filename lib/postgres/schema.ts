@@ -524,15 +524,14 @@ export const decks = pgTable('decks', {
   heroName: text('hero_name'),  // Name of the hero
   visibility: visibilityLevelEnum('visibility').default('unlisted').notNull(),
 
-  // Fabrary integration
-  fabraryUrl: text('fabrary_url'),
-  fabraryDeckId: text('fabrary_deck_id'),
-
   // Metafy guide linking (restricts deck access to guide purchasers)
   metafyGuideId: text('metafy_guide_id'),
 
   // Talishar integration (opt-in to appearing in Talishar deck list)
   availableOnTalishar: boolean('available_on_talishar').notNull().default(true),
+
+  // Featured flag for "Decks to Beat" section (curators/superadmins can toggle)
+  featured: boolean('featured').notNull().default(false),
 
   // Optional metadata
   tags: text('tags').array(),

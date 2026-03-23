@@ -17,7 +17,8 @@ import {
   Lock,
   Globe,
   Calendar,
-  BarChart3
+  BarChart3,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -47,6 +48,7 @@ interface Deck {
   visibility?: 'private' | 'unlisted' | 'public';
   isPublic: boolean;
   availableOnTalishar?: boolean;
+  featured?: boolean;
   metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
@@ -76,6 +78,8 @@ interface DeckCardProps {
   onView: () => void;
   hasMetafyAccount?: boolean;
   onToggleTalishar?: (deckId: string, value: boolean) => void;
+  onToggleFeatured?: (deckId: string, value: boolean) => void;
+  isCurator?: boolean;
   onChangeVisibility?: (deckId: string, value: 'private' | 'unlisted' | 'public') => void;
   onUpdateMetafyGuideId?: (deckId: string, value: string | null) => void;
 }
@@ -88,6 +92,8 @@ export default function DeckCard({
   onView,
   hasMetafyAccount,
   onToggleTalishar,
+  onToggleFeatured,
+  isCurator,
   onChangeVisibility,
   onUpdateMetafyGuideId,
 }: DeckCardProps) {
@@ -281,6 +287,33 @@ export default function DeckCard({
                   checked={deck.availableOnTalishar ?? false}
                   onChange={(val) => onToggleTalishar(deck.publicId ?? deck._id, val)}
                 />
+              </div>
+            )}
+            {isCurator && deck.visibility === 'public' && onToggleFeatured && (
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-600 dark:text-gray-400">
+                  Decks to Beat
+                </Label>
+                <button
+                  role="switch"
+                  type="button"
+                  aria-checked={deck.featured ?? false}
+                  onClick={() => onToggleFeatured(deck.publicId ?? deck._id, !(deck.featured ?? false))}
+                  title={deck.featured ? "Remove from Decks to Beat" : "Add to Decks to Beat"}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    deck.featured
+                      ? "bg-amber-500 dark:bg-amber-600"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 text-xs ${
+                      deck.featured ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  >
+                    <Star className="h-3 w-3 text-amber-500" />
+                  </span>
+                </button>
               </div>
             )}
             {hasMetafyAccount && onUpdateMetafyGuideId && (

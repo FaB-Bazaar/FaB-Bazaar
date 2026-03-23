@@ -81,10 +81,9 @@ export interface DeckDTO {
   heroName?: string;
   visibility: DeckVisibility;
   isPublic: boolean;  // Computed: visibility !== 'private' (backward compat)
-  fabraryUrl?: string;
-  fabraryDeckId?: string;
   metafyGuideId?: string | null;
   availableOnTalishar?: boolean;
+  featured?: boolean;
 
   // Category arrays
   hero: DeckPrintingDTO[];
@@ -146,7 +145,6 @@ export interface CreateDeckDTO {
   heroPrintingId?: string;
   visibility?: DeckVisibility;
   isPublic?: boolean;  // Backward compat: maps to visibility
-  fabraryUrl?: string;
   slug?: string;
   copyFromDeckId?: string;
 }
@@ -161,7 +159,6 @@ export interface UpdateDeckDTO {
   heroName?: string;
   visibility?: DeckVisibility;
   isPublic?: boolean;  // Backward compat: maps to visibility
-  fabraryUrl?: string;
   slug?: string;
   metadata?: Record<string, any>;
   metafyGuideId?: string | null;
@@ -274,6 +271,7 @@ export interface PublicDeckFilters {
   heroName?: string;
   search?: string;
   username?: string;
+  featured?: boolean;
 }
 
 /**
@@ -284,6 +282,7 @@ export interface PublicDeckSummaryDTO extends DeckSummaryDTO {
   creatorUsername?: string;
   creatorDisplayUsername?: string;
   heroPrintingId?: string;
+  featured?: boolean;
   articleReferences?: { publicId: string; title: string }[];
 }
 
@@ -562,6 +561,18 @@ export interface IDeckService {
     filters?: PublicDeckFilters,
     pagination?: PaginationOptions
   ): AsyncResult<{ decks: PublicDeckSummaryDTO[]; total: number }>;
+
+  /**
+   * Toggle the featured status of a deck (for "Decks to Beat" section)
+   *
+   * @param publicId - The deck's public ID
+   * @param featured - Whether to feature or unfeature
+   * @returns True if toggled successfully
+   */
+  toggleFeatured(
+    publicId: string,
+    featured: boolean
+  ): AsyncResult<boolean>;
 
   // ====================================
   // Card Management
