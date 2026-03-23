@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const requestedUserId = searchParams.get('userId'); // For public binders
     const isSummary = searchParams.get('summary') === 'true';
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : null;
 
     console.log('[API TRACK] /api/binders called', {
       time: new Date().toISOString(),
@@ -79,6 +80,8 @@ export async function GET(req: NextRequest) {
       if (authMethod === 'mcpToken') {
         bindersWithStats = bindersWithStats.filter(b => b.slug === 'mcp-binder');
       }
+
+      if (limit) bindersWithStats = bindersWithStats.slice(0, limit);
 
       return NextResponse.json(
         {

@@ -294,6 +294,7 @@ export default function DeckEditorPage() {
           'w': 'weapon',
           'g': 'generic',
           'h': 'hero',
+          'b': 'block',
           'c': heroClass || '',
         };
         const val = TYPE_KEYS[e.key.toLowerCase()];
@@ -617,7 +618,7 @@ export default function DeckEditorPage() {
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
-        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', C: heroClass };
+        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', C: heroClass };
         const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
         return (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
@@ -691,6 +692,7 @@ export default function DeckEditorPage() {
                 { key: 'E', label: 'Equipment' },
                 { key: 'W', label: 'Weapon' },
                 { key: 'G', label: 'Generic' },
+                { key: 'B', label: 'Block' },
                 ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
               ].map(({ key, label }) => (
                 <button key={key} type="button" className={hudBtn} onClick={() => {

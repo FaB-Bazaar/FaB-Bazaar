@@ -1419,8 +1419,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               const tv = String(f.value);
               if (tv === 'attack') return types.includes('attack') && types.includes('action');
               if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
-              if (tv === 'defense-reaction') return types.includes('defense') && types.includes('reaction');
-              if (tv === 'attack-reaction') return types.includes('attack') && types.includes('reaction');
+              if (tv === 'defense-reaction') return types.includes('defense reaction');
+              if (tv === 'attack-reaction') return types.includes('attack reaction');
               return types.includes(tv);
             }
             // Arcane damage filter — search card text for "N arcane damage"
@@ -1458,8 +1458,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         const tv = String(f.value);
         if (tv === 'attack') return types.includes('attack') && types.includes('action');
         if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
-        if (tv === 'defense-reaction') return types.includes('defense') && types.includes('reaction');
-        if (tv === 'attack-reaction') return types.includes('attack') && types.includes('reaction');
+        if (tv === 'defense-reaction') return types.includes('defense reaction');
+        if (tv === 'attack-reaction') return types.includes('attack reaction');
         return types.includes(tv);
       }
       if (f.stat === 'arcane') {

@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : null;
+
     // Use service layer to fetch decks (lightweight version)
     const result = await deckService.listUserDecksBasic(session.user.id);
 
@@ -31,11 +34,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const decks = limit ? result.data.slice(0, limit) : result.data;
+
     return NextResponse.json(
       {
         success: true,
-        decks: result.data,
-        count: result.data.length
+        decks,
+        count: decks.length
       },
       {
         headers: {

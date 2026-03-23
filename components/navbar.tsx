@@ -87,7 +87,7 @@ export default function Navbar() {
     console.log('[Navbar] Loading decks on demand...')
     setDecksLoading(true)
     
-    fetch("/api/decks/user")
+    fetch("/api/decks/user?limit=5")
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -113,7 +113,7 @@ export default function Navbar() {
     console.log('[Navbar] Loading binders on demand...')
     setBindersLoading(true)
   
-    fetch('/api/binders?summary=true')
+    fetch('/api/binders?summary=true&limit=5')
       .then(res => res.json())
       .then(data => {
         setBinders(data.binders || [])
@@ -135,7 +135,7 @@ export default function Navbar() {
     const handleBindersUpdate = () => {
       console.log('[Navbar] Refreshing binders due to binder event')
       
-      fetch('/api/binders?summary=true')
+      fetch('/api/binders?summary=true&limit=5')
         .then(res => res.json())
         .then(data => {
           setBinders(data.binders || [])
@@ -551,7 +551,6 @@ export default function Navbar() {
                 if (navDeckSort === 'created') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                 return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
               })
-              .slice(0, 5)
               .map((deck) => {
                 const heroName = deck.hero && Array.isArray(deck.hero) && deck.hero.length > 0
                   ? deck.hero[0]?.printingDetails?.display_name || deck.hero[0]?.printingId
