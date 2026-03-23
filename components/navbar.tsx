@@ -308,21 +308,12 @@ export default function Navbar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href="https://www.patreon.com/cw/FaBBazaar" target="_blank" rel="noopener noreferrer" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                <div className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
-                  <img
-                    src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/3acf374e-d7cb-44de-ae14-2bd47701e700/public"
-                    alt="Patreon"
-                    className="h-4 w-4 mr-2 dark:hidden"
-                  />
-                  <img
-                    src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/caa8e487-eff1-460f-85ba-943114d86e00/public"
-                    alt="Patreon"
-                    className="h-4 w-4 mr-2 hidden dark:block"
-                  />
-                  Support on Patreon
+              <Link href="/metafy" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
+                <div className="flex items-center text-sm font-medium text-violet-600 dark:text-violet-400">
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Support FaB Bazaar
                 </div>
-              </a>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/about" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
@@ -720,19 +711,10 @@ export default function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <a href="https://www.patreon.com/cw/FaBBazaar" target="_blank" rel="noopener noreferrer" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                        <img
-                          src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/3acf374e-d7cb-44de-ae14-2bd47701e700/public"
-                          alt="Patreon"
-                          className="h-4 w-4 mr-2 dark:hidden"
-                        />
-                        <img
-                          src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/caa8e487-eff1-460f-85ba-943114d86e00/public"
-                          alt="Patreon"
-                          className="h-4 w-4 mr-2 hidden dark:block"
-                        />
-                        Support on Patreon
-                      </a>
+                      <Link href="/metafy" className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
+                        <Trophy className="h-4 w-4 mr-2 text-violet-500 dark:text-violet-400" />
+                        Support FaB Bazaar
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/about" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">

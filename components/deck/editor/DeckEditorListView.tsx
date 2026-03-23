@@ -2024,7 +2024,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <img
             src={enlargedImage.url}
             alt={enlargedImage.name}
-            className="max-h-[90vh] max-w-[min(90vw,680px)] rounded-xl shadow-2xl border border-gray-600"
+            className="w-[min(90vw,460px)] h-auto rounded-xl shadow-2xl border border-gray-600"
             onClick={e => e.stopPropagation()}
           />
         </div>
