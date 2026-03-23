@@ -1834,7 +1834,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           {renderSection("Bench", benchedCards, "benched", "bench")}
         </div>
       ) : viewMode === 'tile' ? (
-        <div className="rounded border border-gray-700/50 p-2">
+        <div className="rounded border border-gray-700/50 p-2 md:pr-80">
           {tileTopSections.map(s => (
             <DeckTileSection
               key={s.key}
@@ -2006,14 +2006,10 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         <div
           className="fixed z-[9999]"
           onClick={() => setHoveredImage(null)}
-          style={{
-            ...(mouseXRef.current < window.innerWidth / 2 ? { right: 16 } : { left: 16 }),
-            top: '50%',
-            transform: 'translateY(-50%)',
-          }}
+          style={{ right: 24, top: '50%', transform: 'translateY(-50%)' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hoveredImage.url} alt={hoveredImage.name} className="w-56 rounded-xl shadow-2xl border border-gray-600" />
+          <img src={hoveredImage.url} alt={hoveredImage.name} className="w-56 md:w-72 rounded-xl shadow-2xl border border-gray-600" />
         </div>
       )}
 
@@ -2028,7 +2024,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <img
             src={enlargedImage.url}
             alt={enlargedImage.name}
-            className="max-h-[90vh] max-w-[min(90vw,400px)] rounded-xl shadow-2xl border border-gray-600"
+            className="max-h-[90vh] max-w-[min(90vw,680px)] rounded-xl shadow-2xl border border-gray-600"
             onClick={e => e.stopPropagation()}
           />
         </div>
