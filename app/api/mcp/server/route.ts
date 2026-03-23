@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { searchCapabilitiesResource } from '../resource/searchCapabilities';
 import { fabConstantsResource } from '../resource/fabConstants';
 import { articleFormattingResource } from '../resource/articleFormatting';
+import { cardIndexResource } from '../resource/cardIndex';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService } from '@/lib/services';
 
@@ -29,6 +30,7 @@ import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 // Import deck tools
 import { listDecksTool } from '../tool/listDecks';
 import { getDeckTool } from '../tool/getDeck';
+import { createDeckTool } from '../tool/createDeck';
 import { addCardsToDeckTool } from '../tool/addCardsToDeck';
 import { removeCardsFromDeckTool } from '../tool/removeCardsFromDeck';
 import { updateDeckTool } from '../tool/updateDeck';
@@ -609,6 +611,11 @@ Step 5: get_binder (verify additions)
                 inputSchema: getDeckTool.parameters
               },
               {
+                name: createDeckTool.name,
+                description: createDeckTool.description,
+                inputSchema: createDeckTool.parameters
+              },
+              {
                 name: addCardsToDeckTool.name,
                 description: addCardsToDeckTool.description,
                 inputSchema: addCardsToDeckTool.parameters
@@ -970,6 +977,32 @@ The new tool provides the same functionality with better guidance for proper wor
                 isError: true,
                 error: err instanceof Error ? err.message : 'Unknown error'
               }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'create_deck') {
+          if (DEBUG_MCP) console.log('🆕 Executing create deck');
+          try {
+            const authHeader = req.headers.get('Authorization');
+            const tokenToPass = authMethod === 'oauth2'
+              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
+              : extractMCPToken(req);
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await createDeckTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Deck created.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in create_deck:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error creating deck: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }
@@ -1871,6 +1904,12 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
                 name: articleFormattingResource.name,
                 description: `📝 ARTICLE EDITING: ${articleFormattingResource.description} - Essential for editing articles with inline cards!`,
                 mimeType: 'application/json'
+              },
+              {
+                uri: cardIndexResource.uri,
+                name: cardIndexResource.name,
+                description: `🃏 DECKLIST IMPORT: ${cardIndexResource.description}`,
+                mimeType: 'application/json'
               }
             ]
           }
@@ -1915,6 +1954,23 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
 
         if (uri === 'article://formatting') {
           const resourceData = await articleFormattingResource.handler();
+          return NextResponse.json({
+            jsonrpc: "2.0",
+            id: id,
+            result: {
+              contents: [
+                {
+                  uri: uri,
+                  mimeType: 'application/json',
+                  text: JSON.stringify(resourceData, null, 2)
+                }
+              ]
+            }
+          }, { headers: corsHeaders() });
+        }
+
+        if (uri === cardIndexResource.uri) {
+          const resourceData = cardIndexResource.handler();
           return NextResponse.json({
             jsonrpc: "2.0",
             id: id,
