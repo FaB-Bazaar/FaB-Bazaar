@@ -272,6 +272,9 @@ export interface PublicDeckFilters {
   search?: string;
   username?: string;
   featured?: boolean;
+  /** Filter by updatedAt month (1–12) and year (e.g. 2026) */
+  month?: number;
+  year?: number;
 }
 
 /**

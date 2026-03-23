@@ -614,7 +614,7 @@ export class PostgresDeckService implements IDeckService {
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
       if (filters?.visibility) conditions.push(eq(decks.visibility, filters.visibility));
       else if (filters?.isPublic !== undefined) conditions.push(eq(decks.visibility, filters.isPublic ? 'public' : 'private'));
-      if (filters?.heroName) conditions.push(eq(decks.heroName, filters.heroName));
+      if (filters?.heroName) conditions.push(sql`lower(${decks.heroName}) = lower(${filters.heroName})`);
       if (filters?.search) {
         conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
       }
@@ -735,7 +735,7 @@ export class PostgresDeckService implements IDeckService {
       let conditions: any[] = [eq(decks.visibility, 'public')];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
-      if (filters?.heroName) conditions.push(eq(decks.heroName, filters.heroName));
+      if (filters?.heroName) conditions.push(sql`lower(${decks.heroName}) = lower(${filters.heroName})`);
       if (filters?.search) {
         conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
       }
@@ -744,6 +744,11 @@ export class PostgresDeckService implements IDeckService {
       }
       if (filters?.featured !== undefined) {
         conditions.push(eq(decks.featured, filters.featured));
+      }
+      if (filters?.month !== undefined && filters?.year !== undefined) {
+        const start = new Date(filters.year, filters.month - 1, 1);
+        const end = new Date(filters.year, filters.month, 1);
+        conditions.push(sql`${decks.updatedAt} >= ${start} AND ${decks.updatedAt} < ${end}`);
       }
 
       const whereClause = and(...conditions);
@@ -821,7 +826,7 @@ export class PostgresDeckService implements IDeckService {
             and(
               eq(articles.status, 'published'),
               sql`EXISTS (
-                SELECT 1 FROM jsonb_array_elements(${articles.sections}) AS s
+                SELECT 1 FROM jsonb_array_elements(${articles.sections}::jsonb) AS s
                 WHERE s->>'type' = 'decklist-block'
                 AND s->>'deckId' IN (${sql.join(deckPublicIds.map(id => sql`${id}`), sql`, `)})
               )`

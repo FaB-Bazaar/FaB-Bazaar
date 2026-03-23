@@ -56,10 +56,15 @@ export default function CommunityDecksPage() {
 
   // Filters
   const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [format, setFormat] = useState<string>(searchParams.get('format') || '');
+  const [format, setFormat] = useState<string>(searchParams.get('format') || (searchParams.get('tab') === 'featured' ? 'Classic Constructed' : ''));
   const [heroName, setHeroName] = useState(searchParams.get('hero') || '');
   const [username, setUsername] = useState(searchParams.get('username') || '');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10));
+
+  // Featured month filter
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [featuredMonth, setFeaturedMonth] = useState<string>(currentMonth);
 
   // Hero options based on selected format
   const heroOptions = useMemo(() => {
@@ -75,13 +80,18 @@ export default function CommunityDecksPage() {
 
   const fetchDecks = useCallback(async () => {
     setLoading(true);
-    const filters = {
+    const filters: Record<string, any> = {
       ...(search && { search }),
       ...(format && { format: format as DeckFormat }),
       ...(heroName && { heroName }),
       ...(username && { username }),
       ...(tab === 'featured' && { featured: true }),
     };
+    if (tab === 'featured' && featuredMonth) {
+      const [y, m] = featuredMonth.split('-');
+      filters.year = parseInt(y, 10);
+      filters.month = parseInt(m, 10);
+    }
 
     const result = await decksClient.getCommunityDecks(filters, { page, limit: PAGE_SIZE });
     if (result.success) {
@@ -89,7 +99,7 @@ export default function CommunityDecksPage() {
       setTotal(result.data.total);
     }
     setLoading(false);
-  }, [search, format, heroName, username, page, tab]);
+  }, [search, format, heroName, username, page, tab, featuredMonth]);
 
   useEffect(() => {
     fetchDecks();
@@ -163,7 +173,7 @@ export default function CommunityDecksPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
         <button
-          onClick={() => { setTab('all'); setPage(1); }}
+          onClick={() => { setTab('all'); setPage(1); setFeaturedMonth(currentMonth); setFormat(''); setHeroName(''); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             tab === 'all'
               ? 'border-blue-500 text-blue-600 dark:text-blue-400'
@@ -173,7 +183,7 @@ export default function CommunityDecksPage() {
           All Decks
         </button>
         <button
-          onClick={() => { setTab('featured'); setPage(1); }}
+          onClick={() => { setTab('featured'); setPage(1); setFormat('Classic Constructed'); setHeroName(''); }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             tab === 'featured'
               ? 'border-amber-500 text-amber-600 dark:text-amber-400'
@@ -183,6 +193,42 @@ export default function CommunityDecksPage() {
           Decks to Beat
         </button>
       </div>
+
+      {/* Featured tab controls: month + format */}
+      {tab === 'featured' && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <input
+            type="month"
+            value={featuredMonth}
+            max={`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`}
+            onChange={(e) => { setFeaturedMonth(e.target.value); setPage(1); }}
+            className="h-9 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 text-gray-700 dark:text-gray-300"
+          />
+          {(['Classic Constructed', 'Silver Age'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => { setFormat(format === f ? '' : f); setHeroName(''); setPage(1); }}
+              className={`h-9 px-3 rounded-md border text-sm font-medium transition-colors ${
+                format === f
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-400'
+              }`}
+            >
+              {f === 'Classic Constructed' ? 'Classic' : f}
+            </button>
+          ))}
+          <select
+            value={['Classic Constructed', 'Silver Age'].includes(format) ? '' : format}
+            onChange={(e) => { setFormat(e.target.value); setHeroName(''); setPage(1); }}
+            className="h-9 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 text-gray-700 dark:text-gray-300"
+          >
+            <option value="">More formats...</option>
+            {FORMATS.filter((f) => !['Classic Constructed', 'Silver Age'].includes(f)).map((f) => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -195,16 +241,18 @@ export default function CommunityDecksPage() {
             className="pl-10"
           />
         </div>
-        <select
-          value={format}
-          onChange={(e) => { setFormat(e.target.value); setHeroName(''); setPage(1); }}
-          className="h-10 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 text-gray-700 dark:text-gray-300"
-        >
-          <option value="">All Formats</option>
-          {FORMATS.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </select>
+        {tab === 'all' && (
+          <select
+            value={format}
+            onChange={(e) => { setFormat(e.target.value); setHeroName(''); setPage(1); }}
+            className="h-10 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-3 text-gray-700 dark:text-gray-300"
+          >
+            <option value="">All Formats</option>
+            {FORMATS.map((f) => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </select>
+        )}
         <select
           value={heroName}
           onChange={(e) => { setHeroName(e.target.value); setPage(1); }}
@@ -251,6 +299,7 @@ export default function CommunityDecksPage() {
               deck={deck}
               onCopy={handleCopy}
               copying={copyingId === deck.publicId}
+              showUsername={tab !== 'featured'}
             />
           ))}
         </div>

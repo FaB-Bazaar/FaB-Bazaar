@@ -138,6 +138,7 @@ export const createDeckTool = {
         visibility: visibility || 'unlisted',
       };
       if (description?.trim()) body.description = description.trim();
+      if (heroName?.trim()) body.hero = heroName.trim();
       if (heroPrintingId) body.heroPrintingId = heroPrintingId;
 
       const res = await mcpFetch(`${API_BASE_URL}/api/decks`, {

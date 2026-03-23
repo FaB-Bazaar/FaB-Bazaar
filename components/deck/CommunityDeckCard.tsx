@@ -13,6 +13,7 @@ interface CommunityDeckCardProps {
   deck: PublicDeckSummaryDTO;
   onCopy: (deck: PublicDeckSummaryDTO) => void;
   copying?: boolean;
+  showUsername?: boolean;
 }
 
 const formatColors: Record<string, string> = {
@@ -39,7 +40,7 @@ function timeAgo(date: Date | string | undefined): string {
   return `${Math.floor(diffDays / 365)}y ago`;
 }
 
-export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDeckCardProps) {
+export default function CommunityDeckCard({ deck, onCopy, copying, showUsername = true }: CommunityDeckCardProps) {
   const [articlesExpanded, setArticlesExpanded] = useState(false);
   const creatorName = deck.creatorDisplayUsername || deck.creatorUsername || 'Unknown';
   const totalCards = deck.totalCards || 0;
@@ -114,19 +115,21 @@ export default function CommunityDeckCard({ deck, onCopy, copying }: CommunityDe
         {/* Footer */}
         <div className="px-4 pb-4 space-y-2">
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <div className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              {deck.creatorUsername ? (
-                <Link
-                  href={profileHref(deck.creatorUsername)}
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  {displayUsername(creatorName)}
-                </Link>
-              ) : (
-                <span>{displayUsername(creatorName)}</span>
-              )}
-            </div>
+            {showUsername ? (
+              <div className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {deck.creatorUsername ? (
+                  <Link
+                    href={profileHref(deck.creatorUsername)}
+                    className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    {displayUsername(creatorName)}
+                  </Link>
+                ) : (
+                  <span>{displayUsername(creatorName)}</span>
+                )}
+              </div>
+            ) : <span />}
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               <span>{timeAgo(deck.updatedAt)}</span>

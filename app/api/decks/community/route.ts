@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const search = url.searchParams.get('search');
     const username = url.searchParams.get('username');
     const featured = url.searchParams.get('featured');
+    const monthParam = url.searchParams.get('month');
+    const yearParam = url.searchParams.get('year');
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 50);
 
@@ -21,6 +23,10 @@ export async function GET(request: NextRequest) {
       ...(search && { search }),
       ...(username && { username }),
       ...(featured !== null && { featured: featured === 'true' }),
+      ...(monthParam && yearParam && {
+        month: parseInt(monthParam, 10),
+        year: parseInt(yearParam, 10),
+      }),
     };
 
     const result = await deckService.listPublicDecks(filters, {
