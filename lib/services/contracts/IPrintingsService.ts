@@ -171,6 +171,8 @@ export interface PrintingDTO {
   // Other
   played_horizontally: boolean;
   expansion_slot: boolean;
+  other_face_printing_id?: string | null;
+  is_front_face: boolean;
   flavor_text: string;
   image_url: string;
   tcgplayer_product_id?: string;

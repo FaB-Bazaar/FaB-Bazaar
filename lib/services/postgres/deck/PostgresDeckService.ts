@@ -80,12 +80,29 @@ export class PostgresDeckService implements IDeckService {
         tcgMid: printings.tcgMid,
         tcgHigh: printings.tcgHigh,
         tcgplayerUrl: printings.tcgplayerUrl,
+        otherFacePrintingId: printings.otherFacePrintingId,
+        isFrontFace: printings.isFrontFace,
       })
       .from(deckCards)
       .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
       .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
       .where(eq(deckCards.deckId, deckRow.id));
 
+
+    // Batch-fetch other face image URLs for DFC cards
+    const otherFaceIds = [...new Set(
+      deckCardsWithDetails.map(dc => dc.otherFacePrintingId).filter(Boolean) as string[]
+    )];
+    const otherFaceImageMap = new Map<string, string>();
+    if (otherFaceIds.length > 0) {
+      const otherFaceRows = await db
+        .select({ printingId: printings.printingId, imageUrl: printings.imageUrl })
+        .from(printings)
+        .where(inArray(printings.printingId, otherFaceIds));
+      for (const row of otherFaceRows) {
+        if (row.imageUrl) otherFaceImageMap.set(row.printingId, row.imageUrl);
+      }
+    }
 
     // Group cards by category
     const categorizeCards = (category: DeckCategory): DeckPrintingDTO[] => {
@@ -112,6 +129,11 @@ export class PostgresDeckService implements IDeckService {
               tcg_mid: dc.tcgMid || undefined,
               tcg_high: dc.tcgHigh || undefined,
               tcgplayer_url: dc.tcgplayerUrl || undefined,
+              other_face_printing_id: dc.otherFacePrintingId ?? null,
+              is_front_face: dc.isFrontFace ?? true,
+              other_face_image_url: dc.otherFacePrintingId
+                ? (otherFaceImageMap.get(dc.otherFacePrintingId) ?? null)
+                : null,
               types: dc.types || undefined,
               classes: dc.classes || undefined,
               talents: dc.talents || undefined,

@@ -82,6 +82,8 @@ PRINTING_FIELDS: List[str] = [
     'is_under_100', 'is_expensive', 'is_premium',
     # System
     'expansion_slot', 'content_hash',
+    # Double-faced card linking
+    'other_face_printing_id', 'is_front_face',
 ]
 
 # Fields from the JSON that do not exist in PostgreSQL (MongoDB-only)
@@ -117,7 +119,7 @@ PRINTING_BOOL_NOT_NULL: frozenset = frozenset([
     'has_price',
     'is_budget', 'is_under_5', 'is_under_10', 'is_under_25', 'is_under_50',
     'is_under_100', 'is_expensive', 'is_premium',
-    'expansion_slot',
+    'expansion_slot', 'is_front_face',
 ])
 
 # ─── SQL (built once at module load) ──────────────────────────────────────────

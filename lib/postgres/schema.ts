@@ -430,6 +430,10 @@ export const printings = pgTable('printings', {
   expansionSlot: boolean('expansion_slot').default(false).notNull(),
   contentHash: text('content_hash'),
 
+  // Double-faced card linking
+  otherFacePrintingId: text('other_face_printing_id'),
+  isFrontFace: boolean('is_front_face').default(true).notNull(),
+
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

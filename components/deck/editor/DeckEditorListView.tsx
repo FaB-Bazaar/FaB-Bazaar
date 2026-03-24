@@ -320,6 +320,7 @@ interface DeckTileCard {
   pitch: number | null;
   tcgplayerUrl?: string;
   tcgLow?: number;
+  otherFaceImageUrl?: string;
 }
 
 interface DeckTileSectionData {
@@ -373,6 +374,7 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
           pitch: pd?.pitch ?? null,
           tcgplayerUrl: pd?.tcgplayer_url ?? undefined,
           tcgLow: pd?.tcg_low ?? undefined,
+          otherFaceImageUrl: pd?.other_face_image_url ?? undefined,
         });
       }
     }
@@ -490,7 +492,7 @@ function DeckTileSection({
   /** Add 1 more copy of a tile (+1 button on hover) */
   onAddTile?: (tile: DeckTileCard) => void;
   /** Open enlarged image lightbox */
-  onEnlargeImage?: (url: string, name: string) => void;
+  onEnlargeImage?: (url: string, name: string, otherFaceUrl?: string) => void;
   /** Add a card to the selected binder */
   onAddToBinder?: (printingId: string, cardName: string) => void;
   /** Add an unowned card to the wants list */
@@ -777,8 +779,8 @@ function DeckTileSection({
               {!isTouchDevice && !isDragActive && onEnlargeImage && tile.imageUrl && (
                 <button
                   className="absolute bottom-0.5 right-0.5 w-10 h-10 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-gray-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
-                  title="Enlarge image"
-                  onClick={e => { e.stopPropagation(); onEnlargeImage(tile.imageUrl!, tile.name); }}
+                  title={tile.otherFaceImageUrl ? "Enlarge — shows both faces" : "Enlarge image"}
+                  onClick={e => { e.stopPropagation(); onEnlargeImage(tile.imageUrl!, tile.name, tile.otherFaceImageUrl); }}
                 >
                   <ZoomIn className="h-5 w-5" />
                 </button>
@@ -973,7 +975,7 @@ function DeckTileSection({
                   </button>
                 ))}
                 {onEnlargeImage && tile.imageUrl && (
-                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlargeImage(tile.imageUrl!, tile.name); dismiss(); }}>
+                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlargeImage(tile.imageUrl!, tile.name, tile.otherFaceImageUrl); dismiss(); }}>
                     Enlarge image
                   </button>
                 )}
@@ -1193,7 +1195,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
   const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
-  const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string } | null>(null);
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string; otherFaceUrl?: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
   const TILE_SIZES = [
     { key: 'compact', label: 'Compact', width: 72 },
@@ -1594,7 +1596,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         overlayEl.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
         overlayEl.style.opacity = '0.4';
         requestAnimationFrame(() => {
-          overlayEl.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease';
+          overlayEl.style.transition = 'transform 0.75s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease';
           overlayEl.style.transform = 'translate(0, 0) scale(1)';
           overlayEl.style.opacity = '1';
         });
@@ -1623,7 +1625,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onMoveToInventory: canEdit && onMoveSingle ? handleTileMoveToInventory : undefined,
     onMoveTo: canEdit && onMoveSingle ? handleTileMoveTo : undefined,
     onAddTile: canEdit ? handleTileAddOne : undefined,
-    onEnlargeImage: (url: string, name: string) => setEnlargedImage({ url, name }),
+    onEnlargeImage: (url: string, name: string, otherFaceUrl?: string) => setEnlargedImage({ url, name, otherFaceUrl }),
     onAddToBinder: onAddToBinder,
     onAddToWants: onAddToWants,
     highlightMatchIds: matchingPrintingIds,
@@ -2139,13 +2141,30 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
           onClick={() => setEnlargedImage(null)}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={enlargedImage.url}
-            alt={enlargedImage.name}
-            className="w-[min(90vw,460px)] h-auto rounded-xl shadow-2xl border border-gray-600"
-            onClick={e => e.stopPropagation()}
-          />
+          {enlargedImage.otherFaceUrl ? (
+            <div className="flex gap-3 items-center" onClick={e => e.stopPropagation()}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={enlargedImage.url}
+                alt={enlargedImage.name}
+                className="w-[min(44vw,320px)] h-auto rounded-xl shadow-2xl border border-gray-600"
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={enlargedImage.otherFaceUrl}
+                alt={`${enlargedImage.name} (back face)`}
+                className="w-[min(44vw,320px)] h-auto rounded-xl shadow-2xl border border-gray-600"
+              />
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={enlargedImage.url}
+              alt={enlargedImage.name}
+              className="w-[min(90vw,460px)] h-auto rounded-xl shadow-2xl border border-gray-600"
+              onClick={e => e.stopPropagation()}
+            />
+          )}
         </div>
       )}
     </>

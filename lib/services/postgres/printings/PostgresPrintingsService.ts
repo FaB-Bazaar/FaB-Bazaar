@@ -1245,6 +1245,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       silver_age_suspended: row.silverAgeSuspended || false,
       played_horizontally: row.playedHorizontally || false,
       expansion_slot: row.expansionSlot || false,
+      other_face_printing_id: row.otherFacePrintingId ?? null,
+      is_front_face: row.isFrontFace ?? true,
       flavor_text: row.flavorText || '',
       image_url: row.imageUrl || '',
       tcgplayer_product_id: row.tcgplayerProductId,

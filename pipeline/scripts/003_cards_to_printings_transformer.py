@@ -225,6 +225,16 @@ class CardsToPrintingsTransformer:
         ]
         return ' '.join(filter(None, components)).lower()
 
+    def get_dfc_fields(self, printing):
+        """Extract double-faced card linking fields (only for is_DFC: true entries)"""
+        dfc_list = printing.get('double_sided_card_info') or []
+        dfc_info = dfc_list[0] if dfc_list else {}
+        is_dfc = bool(dfc_info.get('is_DFC', False))
+        return {
+            'other_face_printing_id': dfc_info.get('other_face_unique_id') if is_dfc else None,
+            'is_front_face': bool(dfc_info.get('is_front', True)) if is_dfc else True,
+        }
+
     def get_edition_flags(self, edition_code):
         """Get edition flags based on edition code"""
         edition_lower = self.normalize_string(edition_code)
@@ -444,6 +454,9 @@ class CardsToPrintingsTransformer:
                 **self.get_art_flags(printing.get('art_variations', [])),
                 **self.get_price_flags(tcg_market, tcg_mid, tcg_low),
                 
+                # Double-faced card info
+                **self.get_dfc_fields(printing),
+
                 # Other printing data
                 'expansion_slot': bool(printing.get('expansion_slot', False)),
                 'flavor_text': self.normalize_string(printing.get('flavor_text_plain', '')),

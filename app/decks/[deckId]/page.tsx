@@ -297,6 +297,7 @@ export default function DeckEditorPage() {
           'h': 'hero',
           'b': 'block',
           'm': 'item',
+          'z': 'ally',
           'c': heroClass || '',
         };
         const val = TYPE_KEYS[e.key.toLowerCase()];
@@ -620,7 +621,7 @@ export default function DeckEditorPage() {
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
-        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', C: heroClass };
+        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', C: heroClass };
         const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
         const isOverlayMode = chordMode === 'type' || chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense' || chordMode === 'arcane';
         const exitChord = () => {
@@ -639,6 +640,7 @@ export default function DeckEditorPage() {
               { key: 'G', label: 'Generic' },
               { key: 'B', label: 'Block' },
               { key: 'M', label: 'Item' },
+              { key: 'Z', label: 'Ally' },
               ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
             ]
           : chordMode === 'arcane'
