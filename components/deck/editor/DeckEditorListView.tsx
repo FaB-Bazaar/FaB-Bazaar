@@ -1577,6 +1577,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     return [...map.values()];
   })();
   const focusTotal = focusCards.reduce((sum, { count }) => sum + count, 0);
+
+  // Dynamically size focus overlay cards — shrink if 3+ rows would result
+  const focusCardWidth = (() => {
+    const available = typeof window !== 'undefined' ? window.innerWidth - 96 : 1200;
+    const gap = 16;
+    const perRow = (w: number) => Math.max(1, Math.floor((available + gap) / (w + gap)));
+    if (Math.ceil(focusCards.length / perRow(220)) < 3) return 220;
+    const targetPerRow = Math.ceil(focusCards.length / 2);
+    return Math.max(150, Math.floor((available - (targetPerRow - 1) * gap) / targetPerRow));
+  })();
   const focusFilterLabel = highlightFilters.map(f => {
     if (f.stat === 'type') return String(f.value);
     if (f.stat === 'pitch') return `pitch ${f.value}`;
@@ -2109,9 +2119,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             >×</button>
           </div>
 
-          {/* Centered scrollable card row — clicking empty space closes the overlay */}
-          <div className="overflow-y-auto flex-1 flex items-center justify-center px-6 py-4">
-            <div className="flex flex-wrap justify-center gap-4">
+          {/* Centered scrollable card grid — clicking empty space closes the overlay */}
+          <div className="overflow-y-auto flex-1 flex px-6 py-4">
+            <div className="flex flex-wrap justify-center gap-4 my-auto w-full">
               {focusCards.map(({ tile, count }) => {
                 const isMeld = tile.name.includes(' // ');
                 return (
@@ -2123,7 +2133,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     else overlayCardRefs.current.delete(tile.printingId);
                   }}
                   className="relative cursor-pointer group"
-                  style={{ width: isMeld ? 360 : 220, opacity: 0 }}
+                  style={{ width: isMeld ? Math.round(focusCardWidth * 1.64) : focusCardWidth, opacity: 0 }}
                   onClick={(e) => { e.stopPropagation(); tile.imageUrl && setEnlargedImage({ url: tile.imageUrl, name: tile.name }); }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
