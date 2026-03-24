@@ -181,6 +181,7 @@ export default function DeckEditorPage() {
   const heroClass = heroTypes.find(t => !NON_CLASS_TYPES.has(t)) || '';
 
   const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear' | 'arcane'>(null);
+  const [chordExiting, setChordExiting] = useState(false);
   const [keywordBuffer, setKeywordBuffer] = useState('');
 
   useEffect(() => {
@@ -295,6 +296,7 @@ export default function DeckEditorPage() {
           'g': 'generic',
           'h': 'hero',
           'b': 'block',
+          'm': 'item',
           'c': heroClass || '',
         };
         const val = TYPE_KEYS[e.key.toLowerCase()];
@@ -618,133 +620,149 @@ export default function DeckEditorPage() {
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
-        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', C: heroClass };
+        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', C: heroClass };
         const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
+        const isOverlayMode = chordMode === 'type' || chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense' || chordMode === 'arcane';
+        const exitChord = () => {
+          setChordExiting(true);
+          setTimeout(() => { setChordMode(null); setKeywordBuffer(''); setChordExiting(false); }, 160);
+        };
+        const overlayChips: { key: string; label: string }[] = chordMode === 'type'
+          ? [
+              { key: 'A', label: 'Attack' },
+              { key: 'N', label: 'Non-Attack' },
+              { key: 'I', label: 'Instant' },
+              { key: 'D', label: 'Def Reaction' },
+              { key: 'R', label: 'Atk Reaction' },
+              { key: 'E', label: 'Equipment' },
+              { key: 'W', label: 'Weapon' },
+              { key: 'G', label: 'Generic' },
+              { key: 'B', label: 'Block' },
+              { key: 'M', label: 'Item' },
+              ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
+            ]
+          : chordMode === 'arcane'
+          ? [1,2,3,4,5,6,7,8,9].map(n => ({ key: String(n), label: String(n) }))
+          : isOverlayMode
+          ? [0,1,2,3,4,5,6,7,8,9].map(n => ({ key: String(n), label: String(n) }))
+          : [];
         return (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
-            <div className="flex items-center gap-4 text-sm text-gray-200 flex-wrap">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F', arcane: 'W' }[chordMode!]}`}
-              </span>
-              <div className="w-px h-6 bg-gray-700" />
-              {chordMode === 'select' && [
-                { key: '0', label: 'Top' },
-                { key: '1', label: 'Red', color: 'text-red-400' },
-                { key: '2', label: 'Yellow', color: 'text-yellow-400' },
-                { key: '3', label: 'Blue', color: 'text-blue-400' },
-                { key: '4', label: 'Inventory' },
-                { key: '7', label: '+ Bench' },
-                { key: '8', label: '+ Inventory' },
-                { key: '9', label: '+ Library' },
-                { key: 'A', label: 'Attack' },
-                { key: 'C', label: 'Cost' },
-                { key: 'D', label: activeTab === 'deck' ? 'Defense' : 'Deck' },
-                { key: 'T', label: 'Type' },
-                { key: 'K', label: 'Keyword' },
-                { key: 'F', label: 'Filters' },
-                { key: 'W', label: 'Arcane' },
-                { key: 'S', label: 'Search' },
-                { key: 'M', label: 'Matchups' },
-                { key: 'O', label: 'Owned', color: 'text-green-400' },
-                { key: 'U', label: 'Unowned', color: 'text-red-400' },
-              ].map(({ key, label, color }) => (
-                <button key={key} type="button" className={hudBtn} onClick={() => SELECT_ACTIONS[key]?.()}>
-                  <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
-                  <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
-                </button>
-              ))}
-              {chordMode === 'arcane' && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-400 mr-1">Arcane =</span>
-                  {[1,2,3,4,5,6,7,8,9].map(n => (
-                    <button key={n} type="button" className={hudBtn} onClick={() => {
-                      window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'arcane', value: n } }));
-                      scrollRed();
-                      setChordMode(null);
-                    }}>
-                      <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{n}</kbd>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {(chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense') && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-400 mr-1">
-                    {chordMode === 'attack' ? 'Attack' : chordMode === 'cost' ? 'Cost' : 'Defense'} =
-                  </span>
-                  {[0,1,2,3,4,5,6,7,8,9].map(n => (
-                    <button key={n} type="button" className={hudBtn} onClick={() => {
-                      window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: STAT_MAP[chordMode!], value: n } }));
-                      scrollRed();
-                      setChordMode(null);
-                    }}>
-                      <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{n}</kbd>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {chordMode === 'type' && [
-                { key: 'A', label: 'Attack' },
-                { key: 'N', label: 'Non-Attack' },
-                { key: 'I', label: 'Instant' },
-                { key: 'D', label: 'Def Reaction' },
-                { key: 'R', label: 'Atk Reaction' },
-                { key: 'E', label: 'Equipment' },
-                { key: 'W', label: 'Weapon' },
-                { key: 'G', label: 'Generic' },
-                { key: 'B', label: 'Block' },
-                ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
-              ].map(({ key, label }) => (
-                <button key={key} type="button" className={hudBtn} onClick={() => {
-                  const val = TYPE_KEYS[key];
-                  if (val) {
-                    window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'type', value: val } }));
-                    scrollRed();
-                  }
-                  setChordMode(null);
-                }}>
-                  <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
-                  <span className="text-xs text-gray-400">{label}</span>
-                </button>
-              ))}
-              {chordMode === 'keyword' && (() => {
-                const matches = (KEYWORDS as readonly string[]).filter(k => k.startsWith(keywordBuffer));
-                return (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-400">Type to filter:</span>
-                    <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-100 font-mono text-xs border border-gray-600 min-w-[60px]">
-                      {keywordBuffer || '…'}
-                    </kbd>
-                    <span className="text-[10px] text-gray-500">({matches.length} match{matches.length !== 1 ? 'es' : ''})</span>
-                    <div className="flex gap-1.5 flex-wrap max-w-[500px]">
-                      {matches.slice(0, 12).map(k => (
-                        <button key={k} type="button" className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:text-white cursor-pointer transition-colors" onClick={() => {
-                          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'keyword', value: k } }));
-                          scrollForKw(k);
-                          setChordMode(null);
-                          setKeywordBuffer('');
-                        }}>
-                          {k}
-                        </button>
-                      ))}
-                      {matches.length > 12 && <span className="text-[10px] text-gray-500">+{matches.length - 12}</span>}
-                    </div>
+          <>
+            {isOverlayMode && (
+              <div
+                className="fixed left-1/2 -translate-x-1/2 z-50"
+                style={{ bottom: '76px', width: 'min(500px, 92vw)' }}
+              >
+                <div className="bg-gray-900/97 border border-gray-700 rounded-2xl shadow-2xl backdrop-blur-sm p-3">
+                  <div
+                    className="grid gap-1.5"
+                    style={{ gridTemplateColumns: chordMode === 'type' ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)' }}
+                  >
+                    {overlayChips.map((chip, i) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} flex items-center gap-2 px-2.5 py-2.5 rounded-lg bg-gray-800 border border-gray-700/80 hover:bg-gray-700 hover:border-gray-500 cursor-pointer transition-colors`}
+                        style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms` }}
+                        onClick={() => {
+                          if (chordMode === 'type') {
+                            const val = TYPE_KEYS[chip.key];
+                            if (val) {
+                              window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'type', value: val } }));
+                              scrollRed();
+                            }
+                          } else {
+                            const n = parseInt(chip.key);
+                            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: STAT_MAP[chordMode!], value: n } }));
+                            scrollRed();
+                          }
+                          exitChord();
+                        }}
+                      >
+                        <kbd className="px-1.5 py-0.5 rounded bg-gray-900 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center flex-shrink-0">{chip.key}</kbd>
+                        {chordMode === 'type' && <span className="text-xs text-gray-300 truncate">{chip.label}</span>}
+                      </button>
+                    ))}
                   </div>
-                );
-              })()}
-              {chordMode === 'clear' && (
-                <button type="button" className={hudBtn} onClick={() => {
-                  window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
-                  setChordMode(null);
-                }}>
-                  <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">0</kbd>
-                  <span className="text-xs text-gray-400">Clear all filters</span>
-                </button>
-              )}
-              <div className="w-px h-6 bg-gray-700" />
-              <button type="button" className="text-[10px] text-gray-500 hover:text-gray-300 cursor-pointer transition-colors" onClick={() => setChordMode(null)}>Esc to cancel</button>
+                </div>
+              </div>
+            )}
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl px-5 py-3 backdrop-blur-sm">
+              <div className="flex items-center gap-4 text-sm text-gray-200 flex-wrap">
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {chordMode === 'select' ? `${modKey}K` : `${modKey}K → ${{ attack: 'A', cost: 'C', defense: 'D', type: 'T', keyword: 'K', clear: 'F', arcane: 'W' }[chordMode!]}`}
+                </span>
+                <div className="w-px h-6 bg-gray-700" />
+                {chordMode === 'select' && [
+                  { key: '0', label: 'Top' },
+                  { key: '1', label: 'Red', color: 'text-red-400' },
+                  { key: '2', label: 'Yellow', color: 'text-yellow-400' },
+                  { key: '3', label: 'Blue', color: 'text-blue-400' },
+                  { key: '4', label: 'Inventory' },
+                  { key: '7', label: '+ Bench' },
+                  { key: '8', label: '+ Inventory' },
+                  { key: '9', label: '+ Library' },
+                  { key: 'A', label: 'Attack' },
+                  { key: 'C', label: 'Cost' },
+                  { key: 'D', label: activeTab === 'deck' ? 'Defense' : 'Deck' },
+                  { key: 'T', label: 'Type' },
+                  { key: 'K', label: 'Keyword' },
+                  { key: 'F', label: 'Filters' },
+                  { key: 'W', label: 'Arcane' },
+                  { key: 'S', label: 'Search' },
+                  { key: 'M', label: 'Matchups' },
+                  { key: 'O', label: 'Owned', color: 'text-green-400' },
+                  { key: 'U', label: 'Unowned', color: 'text-red-400' },
+                ].map(({ key, label, color }) => (
+                  <button key={key} type="button" className={hudBtn} onClick={() => SELECT_ACTIONS[key]?.()}>
+                    <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">{key}</kbd>
+                    <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
+                  </button>
+                ))}
+                {isOverlayMode && (
+                  <span className="text-xs text-gray-500 italic">
+                    {{ attack: 'Attack power', cost: 'Card cost', defense: 'Defense', type: 'Card type', arcane: 'Arcane damage' }[chordMode]} →
+                  </span>
+                )}
+                {chordMode === 'keyword' && (() => {
+                  const matches = (KEYWORDS as readonly string[]).filter(k => k.startsWith(keywordBuffer));
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-400">Type to filter:</span>
+                      <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-100 font-mono text-xs border border-gray-600 min-w-[60px]">
+                        {keywordBuffer || '…'}
+                      </kbd>
+                      <span className="text-[10px] text-gray-500">({matches.length} match{matches.length !== 1 ? 'es' : ''})</span>
+                      <div className="flex gap-1.5 flex-wrap max-w-[500px]">
+                        {matches.slice(0, 12).map(k => (
+                          <button key={k} type="button" className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:text-white cursor-pointer transition-colors" onClick={() => {
+                            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'keyword', value: k } }));
+                            scrollForKw(k);
+                            setChordMode(null);
+                            setKeywordBuffer('');
+                          }}>
+                            {k}
+                          </button>
+                        ))}
+                        {matches.length > 12 && <span className="text-[10px] text-gray-500">+{matches.length - 12}</span>}
+                      </div>
+                    </div>
+                  );
+                })()}
+                {chordMode === 'clear' && (
+                  <button type="button" className={hudBtn} onClick={() => {
+                    window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
+                    setChordMode(null);
+                  }}>
+                    <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center">0</kbd>
+                    <span className="text-xs text-gray-400">Clear all filters</span>
+                  </button>
+                )}
+                <div className="w-px h-6 bg-gray-700" />
+                <button type="button" className="text-[10px] text-gray-500 hover:text-gray-300 cursor-pointer transition-colors" onClick={() => setChordMode(null)}>Esc to cancel</button>
+              </div>
             </div>
-          </div>
+          </>
         );
       })()}
 

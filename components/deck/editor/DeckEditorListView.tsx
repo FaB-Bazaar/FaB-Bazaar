@@ -648,7 +648,7 @@ function DeckTileSection({
           const isHighlighted = highlightMatchIds ? highlightMatchIds.has(tile.printingId) : null;
           const showBinderLabel = ownershipState === 'full' && (own?.binderNames?.length ?? 0) > 0;
           return (
-            <div key={tile.key} className="flex flex-col items-center" style={{ width: tileWidth }}>
+            <div key={tile.key} className="flex flex-col items-center" data-focus-id={tile.printingId} style={{ width: tileWidth }}>
             <div
               title={thisTileDraggable ? `${tile.name} — drag to move, click to swap printing` : (onSwap ? `${tile.name} — click to swap printing` : tile.name)}
               draggable={thisTileDraggable}
@@ -1209,6 +1209,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
   const mouseXRef = useRef(0);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const overlayCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const handleUpgradePrintings = async () => {
     if (!onUpgradePrintings) return;
@@ -1512,13 +1513,18 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       const { filter } = (e as CustomEvent).detail as { filter: 'all' | 'owned' | 'unowned' };
       setOwnershipFilter(prev => prev === filter ? 'all' : filter);
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHighlightFilters([]);
+    };
     window.addEventListener('deck-highlight-filter', handleFilter);
     window.addEventListener('deck-highlight-clear', handleClear);
     window.addEventListener('deck-ownership-filter', handleOwnershipFilter);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('deck-highlight-filter', handleFilter);
       window.removeEventListener('deck-highlight-clear', handleClear);
       window.removeEventListener('deck-ownership-filter', handleOwnershipFilter);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -1544,6 +1550,58 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   };
 
   const filteredTileSections = applyOwnershipFilter(tileSections);
+
+  // Collect matching cards for the focus panel (deduped by printingId, with count)
+  const focusCards: Array<{ tile: DeckTileCard; count: number }> = (() => {
+    if (!matchingPrintingIds || matchingPrintingIds.size === 0) return [];
+    const map = new Map<string, { tile: DeckTileCard; count: number }>();
+    for (const section of filteredTileSections) {
+      for (const tile of section.tiles) {
+        if (!matchingPrintingIds.has(tile.printingId)) continue;
+        const existing = map.get(tile.printingId);
+        if (existing) existing.count++;
+        else map.set(tile.printingId, { tile, count: 1 });
+      }
+    }
+    return [...map.values()];
+  })();
+  const focusTotal = focusCards.reduce((sum, { count }) => sum + count, 0);
+  const focusFilterLabel = highlightFilters.map(f => {
+    if (f.stat === 'type') return String(f.value);
+    if (f.stat === 'pitch') return `pitch ${f.value}`;
+    if (f.stat === 'keyword') return String(f.value);
+    return `${f.stat} ${f.value}`;
+  }).join(' + ');
+
+  // FLIP animation: fly matching cards from their deck positions to the focus overlay
+  useEffect(() => {
+    if (focusCards.length === 0) {
+      overlayCardRefs.current.clear();
+      return;
+    }
+    const refs = overlayCardRefs.current;
+    requestAnimationFrame(() => {
+      refs.forEach((overlayEl, printingId) => {
+        const sourceTile = document.querySelector(`[data-focus-id="${printingId}"]`);
+        if (!sourceTile || !overlayEl) return;
+        const sourceRect = sourceTile.getBoundingClientRect();
+        const finalRect = overlayEl.getBoundingClientRect();
+        if (!finalRect.width) return;
+        const dx = sourceRect.left + sourceRect.width / 2 - (finalRect.left + finalRect.width / 2);
+        const dy = sourceRect.top + sourceRect.height / 2 - (finalRect.top + finalRect.height / 2);
+        const scale = sourceRect.width / finalRect.width;
+        overlayEl.style.transition = 'none';
+        overlayEl.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+        overlayEl.style.opacity = '0.4';
+        requestAnimationFrame(() => {
+          overlayEl.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease';
+          overlayEl.style.transform = 'translate(0, 0) scale(1)';
+          overlayEl.style.opacity = '1';
+        });
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightFilters]);
 
   // Hero is embedded in the equipment section header — not a standalone section
   const heroPortrait = tileSections.find(s => s.key === 'hero')?.tiles[0] ?? null;
@@ -1996,6 +2054,67 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Filter focus overlay — dims the deck and shows matching cards floating in from their positions */}
+      {focusCards.length > 0 && (viewMode === 'tile' || viewMode === 'game') && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div
+          className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex flex-col"
+          onClick={() => setHighlightFilters([])}
+        >
+          {/* Header */}
+          <div
+            className="flex items-center justify-between px-5 py-3 shrink-0"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-amber-400">{focusTotal} {focusTotal === 1 ? 'card' : 'cards'}</span>
+              {focusFilterLabel && <span className="text-xs text-gray-500">{focusFilterLabel}</span>}
+            </div>
+            <button
+              type="button"
+              onClick={() => setHighlightFilters([])}
+              className="text-gray-400 hover:text-white text-xl leading-none px-2 transition-colors"
+              title="Clear filter"
+            >×</button>
+          </div>
+
+          {/* Centered scrollable card row — clicking empty space closes the overlay */}
+          <div className="overflow-y-auto flex-1 flex items-center justify-center px-6 py-4">
+            <div className="flex flex-wrap justify-center gap-4">
+              {focusCards.map(({ tile, count }) => {
+                const isMeld = tile.name.includes(' // ');
+                return (
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+                <div
+                  key={tile.printingId}
+                  ref={el => {
+                    if (el) overlayCardRefs.current.set(tile.printingId, el);
+                    else overlayCardRefs.current.delete(tile.printingId);
+                  }}
+                  className="relative cursor-pointer group"
+                  style={{ width: isMeld ? 280 : 160, opacity: 0 }}
+                  onClick={(e) => { e.stopPropagation(); tile.imageUrl && setEnlargedImage({ url: tile.imageUrl, name: tile.name }); }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={tile.imageUrl}
+                    alt={tile.name}
+                    className="w-full rounded-lg shadow-xl ring-1 ring-white/10 group-hover:ring-amber-400/70 group-hover:scale-[1.04] transition-transform duration-150"
+                    style={{ aspectRatio: isMeld ? '4/3' : '3/4', objectFit: 'cover', display: 'block' }}
+                    draggable={false}
+                  />
+                  {count > 1 && (
+                    <span className="absolute top-1.5 right-1.5 text-[11px] bg-black/80 text-white rounded px-1.5 py-0.5 font-mono leading-tight">×{count}</span>
+                  )}
+                  <div className="text-[10px] text-gray-400 mt-1.5 truncate text-center">{tile.name}</div>
+                </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
