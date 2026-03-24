@@ -1689,6 +1689,22 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           >
             <Layers className="h-3.5 w-3.5" />Game
           </button>
+          {/* Hover toggle — separated by a slightly thicker divider to signal it's a modifier, not a mode */}
+          {!isTouchDevice && (viewMode === 'tile' || viewMode === 'game') && (
+            <button
+              type="button"
+              onClick={() => { setHoverMode(m => !m); setHoveredImage(null); }}
+              className={cn(
+                "px-3 py-1.5 text-xs flex items-center gap-1.5 border-l-2 transition-colors",
+                hoverMode
+                  ? "border-l-blue-600 bg-blue-900/30 text-blue-300"
+                  : "border-l-gray-600 text-gray-500 hover:bg-gray-800"
+              )}
+              title="Toggle hover preview (H)"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Tile size stepper — only for tile/game views */}
@@ -1711,23 +1727,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               title="Larger tiles"
             >+</button>
           </div>
-        )}
-
-        {/* Hover preview toggle — only for tile/game views */}
-        {!isTouchDevice && (viewMode === 'tile' || viewMode === 'game') && (
-          <button
-            type="button"
-            onClick={() => { setHoverMode(m => !m); setHoveredImage(null); }}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition-colors",
-              hoverMode
-                ? "border-blue-600 bg-blue-900/30 text-blue-300"
-                : "border-gray-700 text-gray-500 hover:bg-gray-800"
-            )}
-            title="Toggle hover preview (H)"
-          >
-            <Eye className="h-3.5 w-3.5" />Hover
-          </button>
         )}
         </div>
 
@@ -1761,26 +1760,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20 shrink-0" />
               unowned
             </button>
-            {canEdit && onMoveSingle && (
-              <span className="flex items-center gap-1">
-                <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
-                </svg>
-                drag to move
-              </span>
-            )}
-            {canEdit && (
-              <span className="flex items-center gap-1">
-                <ArrowLeftRight className="h-2.5 w-2.5 shrink-0" />
-                click to swap
-              </span>
-            )}
-            {canEdit && onRemoveTile && (
-              <span className="flex items-center gap-1">
-                <X className="h-2.5 w-2.5 shrink-0" />
-                hover to remove
-              </span>
-            )}
             {onAddToBinder && binders && binders.length > 0 && (
               <span className="flex items-center gap-1.5 border-l border-gray-700 pl-3 ml-1">
                 <BookmarkPlus className="h-2.5 w-2.5 shrink-0" />
