@@ -1420,6 +1420,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         for (const c of allCards) {
           const details = c.printingDetails as any;
           const passes = highlightFilters.every(f => {
+            // Name filter — partial case-insensitive match on display name
+            if (f.stat === 'name') {
+              const name = (details?.display_name || details?.name || '') as string;
+              return name.toLowerCase().includes(String(f.value).toLowerCase());
+            }
             // Keyword filter — match against the keywords array (startsWith to handle "arcane barrier 1" etc.)
             if (f.stat === 'keyword') {
               const kws: string[] = ((details?.keywords as string[] | undefined) || []).map((k: string) => k.toLowerCase());
@@ -1461,6 +1466,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const nonPitchFilters = highlightFilters.filter(f => f.stat !== 'pitch');
     if (nonPitchFilters.length === 0) return null;
     return nonPitchFilters.every(f => {
+      if (f.stat === 'name') {
+        return card.name.toLowerCase().includes(String(f.value).toLowerCase());
+      }
       if (f.stat === 'keyword') {
         const kws: string[] = ((card as any).keywords || []).map((k: string) => k.toLowerCase());
         const needle = String(f.value).toLowerCase();
