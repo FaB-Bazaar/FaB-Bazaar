@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart } from "lucide-react";
+import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye } from "lucide-react";
 import { TcgAffiliateLink } from "@/components/tracking";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
@@ -1194,6 +1194,7 @@ interface DeckEditorListViewProps {
 export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings }: DeckEditorListViewProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
+  const [hoverMode, setHoverMode] = useState(false);
   const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string; otherFaceUrl?: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
@@ -1298,7 +1299,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             onRemove={handleRemove}
             removingId={removingId}
             onMove={onMove}
-            onHoverImage={(url, name) => setHoveredImage({ url, name })}
+            onHoverImage={(url, name) => hoverMode && setHoveredImage({ url, name })}
             onClearImage={() => setHoveredImage(null)}
             isTouchDevice={isTouchDevice}
           />
@@ -1516,7 +1517,15 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       setOwnershipFilter(prev => prev === filter ? 'all' : filter);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setHighlightFilters([]);
+      if (e.key === 'Escape') {
+        setHighlightFilters([]);
+        setEnlargedImage(null);
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+        setHoverMode(prev => !prev);
+        setHoveredImage(null);
+      }
     };
     window.addEventListener('deck-highlight-filter', handleFilter);
     window.addEventListener('deck-highlight-clear', handleClear);
@@ -1611,7 +1620,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileRestSections = filteredTileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
 
   const tileSharedProps = {
-    onHover: isTouchDevice ? (_url: string, _name: string) => {} : (url: string, name: string) => setHoveredImage({ url, name }),
+    onHover: isTouchDevice ? (_url: string, _name: string) => {} : (url: string, name: string) => hoverMode && setHoveredImage({ url, name }),
     onLeave: isTouchDevice ? () => {} : () => setHoveredImage(null),
     onSwap: canEdit ? onSwap : undefined,
     ownershipMap,
@@ -1692,6 +1701,23 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               title="Larger tiles"
             >+</button>
           </div>
+        )}
+
+        {/* Hover preview toggle — only for tile/game views */}
+        {!isTouchDevice && (viewMode === 'tile' || viewMode === 'game') && (
+          <button
+            type="button"
+            onClick={() => { setHoverMode(m => !m); setHoveredImage(null); }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border transition-colors",
+              hoverMode
+                ? "border-blue-600 bg-blue-900/30 text-blue-300"
+                : "border-gray-700 text-gray-500 hover:bg-gray-800"
+            )}
+            title="Toggle hover preview (H)"
+          >
+            <Eye className="h-3.5 w-3.5" />Hover
+          </button>
         )}
         </div>
 
@@ -1894,7 +1920,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           {renderSection("Bench", benchedCards, "benched", "bench")}
         </div>
       ) : viewMode === 'tile' ? (
-        <div className="rounded border border-gray-700/50 p-2 md:pr-80">
+        <div className={cn("rounded border border-gray-700/50 p-2", hoverMode && "md:pr-[420px]")}>
           {tileTopSections.map(s => (
             <DeckTileSection
               key={s.key}
@@ -1909,7 +1935,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         </div>
       ) : (
         /* Game view — one tile per card name, R/Y/B pitch count bubbles */
-        <div className="rounded border border-gray-700/50 p-2">
+        <div className={cn("rounded border border-gray-700/50 p-2", hoverMode && "md:pr-[420px]")}>
           {buildGameViewSections(displayDeck).map(section => {
             const sectionTotal = section.cards.reduce((s, c) => s + c.totalQty, 0);
             const sectionCollapseKey = `game-${section.key}`;
@@ -1937,7 +1963,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
                         style={{ width: 28 }}
                         title={heroPortrait.name}
-                        onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name }); }}
+                        onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); hoverMode && heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name }); }}
                         onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -1960,7 +1986,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                           className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
                           style={{ width: 28 }}
                           title={card.name}
-                          onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name }); }}
+                          onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); hoverMode && card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name }); }}
                           onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -2003,7 +2029,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         gameHighlight === false && "opacity-25 scale-95 grayscale",
                       )}
                       style={{ width: tileWidth }}
-                      onMouseEnter={isTouchDevice ? undefined : () => card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
+                      onMouseEnter={isTouchDevice ? undefined : () => hoverMode && card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
                       onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
                     >
                       {card.imageUrl ? (
@@ -2097,7 +2123,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     else overlayCardRefs.current.delete(tile.printingId);
                   }}
                   className="relative cursor-pointer group"
-                  style={{ width: isMeld ? 280 : 160, opacity: 0 }}
+                  style={{ width: isMeld ? 360 : 220, opacity: 0 }}
                   onClick={(e) => { e.stopPropagation(); tile.imageUrl && setEnlargedImage({ url: tile.imageUrl, name: tile.name }); }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2130,7 +2156,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           style={{ right: 24, top: '50%', transform: 'translateY(-50%)' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hoveredImage.url} alt={hoveredImage.name} className="w-56 md:w-72 rounded-xl shadow-2xl border border-gray-600" />
+          <img src={hoveredImage.url} alt={hoveredImage.name} className="w-72 md:w-[400px] rounded-xl shadow-2xl border border-gray-600" />
         </div>
       )}
 
