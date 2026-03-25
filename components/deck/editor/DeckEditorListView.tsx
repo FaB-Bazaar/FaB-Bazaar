@@ -1531,7 +1531,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       }
       if (e.key === 'h' || e.key === 'H') {
         if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
-        setHoverMode(prev => !prev);
+        setHoverMode(prev => { setHighlightFilters([]); return !prev; });
         setHoveredImage(null);
       }
     };
@@ -1701,7 +1701,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           {!isTouchDevice && (viewMode === 'tile' || viewMode === 'game') && (
             <button
               type="button"
-              onClick={() => { setHoverMode(m => !m); setHoveredImage(null); }}
+              onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
               className={cn(
                 "px-3 py-1.5 text-xs flex items-center gap-1.5 border-l-2 transition-colors",
                 hoverMode
@@ -2083,7 +2083,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       )}
 
       {/* Filter focus overlay — dims the deck and shows matching cards floating in from their positions */}
-      {focusCards.length > 0 && (viewMode === 'tile' || viewMode === 'game') && (
+      {/* In hover mode, skip the overlay — tiles show highlight/dim in-place instead */}
+      {focusCards.length > 0 && !hoverMode && (viewMode === 'tile' || viewMode === 'game') && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex flex-col"

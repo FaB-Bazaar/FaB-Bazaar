@@ -25,10 +25,75 @@ import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { cn } from "@/lib/utils";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+
+interface PackageCard {
+  printingId: string;
+  displayName?: string;
+  color?: string;
+  setCode?: string;
+  imageUrl?: string;
+}
+
+function PackageCardItem({
+  card,
+  defaultQty,
+  adding,
+  isOwner,
+  onAdd,
+}: {
+  card: PackageCard;
+  defaultQty: number;
+  adding: boolean;
+  isOwner: boolean;
+  onAdd: (qty: number) => void;
+}) {
+  const [qty, setQty] = useState(defaultQty);
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <img
+        src={card.imageUrl || "/cardback.webp"}
+        alt={card.displayName ?? card.printingId}
+        className="w-full rounded-lg shadow-md"
+      />
+      <span className="text-gray-300 text-xs text-center leading-tight">
+        {card.displayName ?? card.printingId}
+      </span>
+      {isOwner && (
+        <div className="w-full flex items-center gap-1">
+          <button
+            onClick={() => setQty(q => Math.max(1, q - 1))}
+            className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold flex items-center justify-center shrink-0"
+          >−</button>
+          <input
+            type="number"
+            min={1}
+            max={99}
+            value={qty}
+            onChange={e => setQty(Math.max(1, Math.min(99, parseInt(e.target.value) || 1)))}
+            className="flex-1 min-w-0 text-center text-xs bg-gray-800 border border-gray-600 rounded text-white h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <button
+            onClick={() => setQty(q => Math.min(99, q + 1))}
+            className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold flex items-center justify-center shrink-0"
+          >+</button>
+        </div>
+      )}
+      {isOwner && (
+        <button
+          onClick={() => onAdd(qty)}
+          disabled={adding}
+          className="w-full text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center justify-center gap-1"
+        >
+          {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          Add to Deck
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function DeckEditorPage() {
   const params = useParams();
@@ -56,7 +121,7 @@ export default function DeckEditorPage() {
   const [curatedBuilds, setCuratedBuilds] = useState<Array<{
     id: string;
     name: string;
-    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string }>;
+    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string }>;
   }>>([]);
 
   // Search form collapse state
@@ -548,56 +613,25 @@ export default function DeckEditorPage() {
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
-  const [pendingBuild, setPendingBuild] = useState<Array<{ printingId: string; displayName?: string; color?: string }> | null>(null);
+  const [previewBuild, setPreviewBuild] = useState<{
+    name: string;
+    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string }>;
+  } | null>(null);
+  const [addingCard, setAddingCard] = useState<string | null>(null);
 
-  const applyBuild = async (cardList: Array<{ printingId: string; displayName?: string; color?: string }> | undefined) => {
-    if (!cardList?.length || !isOwner) return;
-
-    const hasCards = (state.deck?.maindeck?.length ?? 0) > 0;
-    if (hasCards) {
-      setPendingBuild(cardList);
-      return;
-    }
-
-    await executeBuild(cardList);
-  };
-
-  const executeBuild = async (cardList: Array<{ printingId: string; displayName?: string; color?: string }>) => {
-
-    if (activeTab === 'search') {
-      // Search tab: populate the text input and run the search so user can review/stage
-      const counts = new Map<string, number>();
-      for (const card of cardList) {
-        const baseName = card.displayName || card.printingId;
-        const colorSuffix = card.color ? ` (${card.color.charAt(0).toUpperCase() + card.color.slice(1)})` : '';
-        const key = baseName + colorSuffix;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-      const lines = Array.from(counts.entries()).map(([name, qty]) => `${qty}x ${name}`);
-      const inputText = lines.join('\n');
-      handlers.setBulkInput(inputText);
-      autoSearchedRef.current = true;
-      setSearchFormOpen(true);
-      const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
-      await handlers.handleBulkSearch(syntheticEvent, inputText);
-      setSearchFormOpen(false);
-    } else {
-      // Deck/other tabs: add cards directly to the deck
-      const printingCounts = new Map<string, number>();
-      for (const card of cardList) {
-        printingCounts.set(card.printingId, (printingCounts.get(card.printingId) ?? 0) + 1);
-      }
-      const printingsPayload = Array.from(printingCounts.entries()).map(([printingId, quantity]) => ({
-        printingId,
-        quantity,
-      }));
-      const result = await decksClient.addPrintings(deckId, printingsPayload);
+  const addCardToDeck = async (printingId: string, quantity: number, displayName?: string) => {
+    if (!isOwner || quantity < 1) return;
+    setAddingCard(printingId);
+    try {
+      const result = await decksClient.addPrintings(deckId, [{ printingId, quantity }]);
       if (result.success) {
-        toast({ title: "Build applied", description: `Added ${cardList.length} card(s) to deck.` });
+        toast({ title: "Added", description: `${quantity}x ${displayName ?? printingId}` });
         await handlers.refreshDeck();
       } else {
-        toast({ title: "Failed to apply build", description: result.error, variant: "destructive" });
+        toast({ title: "Failed to add card", description: result.error, variant: "destructive" });
       }
+    } finally {
+      setAddingCard(null);
     }
   };
 
@@ -1040,16 +1074,11 @@ export default function DeckEditorPage() {
                 </button>
                 {buildsExpanded && (
                   <div className="px-3 pb-2 border-t border-blue-200 dark:border-blue-800 pt-2">
-                    {(state.deck?.maindeck?.length ?? 0) === 0 && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
-                        New deck? Click a build below to add the most common cards for this hero.
-                      </p>
-                    )}
                   <div className="flex items-center gap-2 flex-wrap">
                     {curatedBuilds.map(build => (
                       <button
                         key={build.id}
-                        onClick={() => applyBuild(build.cards)}
+                        onClick={() => setPreviewBuild({ name: build.name, cards: build.cards })}
                         className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm"
                       >
                         {build.name}
@@ -1336,22 +1365,42 @@ export default function DeckEditorPage() {
         currentDeck={state.deck ?? undefined}
       />
 
-      <AlertDialog open={!!pendingBuild} onOpenChange={open => !open && setPendingBuild(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deck already has cards</AlertDialogTitle>
-            <AlertDialogDescription>
-              This deck already has {state.deck?.maindeck?.length ?? 0} card{(state.deck?.maindeck?.length ?? 0) !== 1 ? "s" : ""} in it. The suggested build will be added on top of the existing cards. Continue?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingBuild(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={async () => { const build = pendingBuild; setPendingBuild(null); if (build) await executeBuild(build); }}>
-              Add anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Package preview modal */}
+      {previewBuild && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 overflow-y-auto py-8" onClick={() => setPreviewBuild(null)}>
+          <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+              <div>
+                <span className="text-white font-semibold text-lg">{previewBuild.name}</span>
+                <span className="ml-3 text-gray-400 text-sm">{previewBuild.cards.length} card{previewBuild.cards.length !== 1 ? "s" : ""}</span>
+              </div>
+              <button onClick={() => setPreviewBuild(null)} className="text-gray-400 hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {(() => {
+                const seen = new Map<string, { card: typeof previewBuild.cards[0]; qty: number }>();
+                for (const card of previewBuild.cards) {
+                  const existing = seen.get(card.printingId);
+                  if (existing) existing.qty++;
+                  else seen.set(card.printingId, { card, qty: 1 });
+                }
+                return Array.from(seen.values()).map(({ card, qty }) => (
+                  <PackageCardItem
+                    key={card.printingId}
+                    card={card}
+                    defaultQty={qty}
+                    adding={addingCard === card.printingId}
+                    isOwner={isOwner}
+                    onAdd={q => addCardToDeck(card.printingId, q, card.displayName)}
+                  />
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
