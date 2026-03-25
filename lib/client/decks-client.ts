@@ -494,16 +494,16 @@ export async function getCommunityDecks(
  */
 export async function upgradeToOwnedPrintings(
   publicId: string
-): Promise<ApiResponse<{ swapped: number; errors: string[]; total: number }>> {
+): Promise<ApiResponse<{ swapped: number; errors: string[]; total: number; updatedCards: Array<{ cardName: string; color: string | null }> }>> {
   try {
     // Step 1: get suggestions
     const suggestRes = await fetch(`/api/decks/${publicId}/upgrade-printings`);
-    const suggestions = await handleResponse<{ swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: string }> }>(suggestRes);
+    const suggestions = await handleResponse<{ swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: string; cardName: string; color: string | null }> }>(suggestRes);
     if (!suggestions.success) return suggestions;
 
     const swaps = suggestions.data.swaps;
     if (!swaps.length) {
-      return { success: true, data: { swapped: 0, errors: [], total: 0 } };
+      return { success: true, data: { swapped: 0, errors: [], total: 0, updatedCards: [] } };
     }
 
     // Step 2: execute
@@ -515,7 +515,8 @@ export async function upgradeToOwnedPrintings(
     const execResult = await handleResponse<{ swapped: number; errors: string[] }>(execRes);
     if (!execResult.success) return execResult;
 
-    return { success: true, data: { ...execResult.data, total: swaps.length } };
+    const updatedCards = swaps.map(s => ({ cardName: s.cardName, color: s.color }));
+    return { success: true, data: { ...execResult.data, total: swaps.length, updatedCards } };
   } catch (error) {
     return handleError(error);
   }

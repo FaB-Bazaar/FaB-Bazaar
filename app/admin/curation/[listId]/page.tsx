@@ -26,6 +26,7 @@ interface CuratedListCard {
   displayName?: string;
   imageUrl?: string;
   setCode?: string;
+  comment?: string | null;
 }
 
 interface CuratedList {
@@ -71,9 +72,35 @@ export default function CurationListEditorPage() {
   const [addingCard, setAddingCard] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
   const [removingCardId, setRemovingCardId] = useState<string | null>(null);
+  const [cardComments, setCardComments] = useState<Record<string, string>>({}); // cardName → comment
+  const [savingComment, setSavingComment] = useState<string | null>(null);
 
-  const allHeroes = useMemo(() => getHeroesGroupedByClass(), []);
+  const [assignedHeroNames, setAssignedHeroNames] = useState<string[] | null>(null); // null = no restriction (superadmin)
+  const allHeroesUnfiltered = useMemo(() => getHeroesGroupedByClass(), []);
   const allClasses = useMemo(() => getAllClasses(), []);
+
+  const allHeroes = useMemo(() => {
+    if (!assignedHeroNames || assignedHeroNames.length === 0) return allHeroesUnfiltered;
+    const lowerAssigned = new Set(assignedHeroNames.map(h => h.toLowerCase()));
+    const filtered: Record<string, string[]> = {};
+    for (const [cls, heroes] of Object.entries(allHeroesUnfiltered)) {
+      const matching = heroes.filter(h => lowerAssigned.has(h.toLowerCase()));
+      if (matching.length > 0) filtered[cls] = matching;
+    }
+    return filtered;
+  }, [allHeroesUnfiltered, assignedHeroNames]);
+
+  useEffect(() => {
+    fetch('/api/curator-heroes/me')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setAssignedHeroNames(data.data.map((a: { heroName: string }) => a.heroName));
+        }
+        // If no assignments (superadmin), leave null — no restriction
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isNew) return;
@@ -91,7 +118,16 @@ export default function CurationListEditorPage() {
           setFormat(list.format ?? '');
           setTagsInput((list.tags ?? []).join(', '));
           setIsPublished(list.isPublished);
-          setCards(list.cards ?? []);
+          const loadedCards = list.cards ?? [];
+          setCards(loadedCards);
+          // Seed comments map (one per unique card name, first non-null wins)
+          const commentMap: Record<string, string> = {};
+          for (const c of loadedCards) {
+            if (c.displayName && c.comment && !commentMap[c.displayName]) {
+              commentMap[c.displayName] = c.comment;
+            }
+          }
+          setCardComments(commentMap);
         } else {
           toast({ title: 'Error', description: data.error, variant: 'destructive' });
         }
@@ -141,6 +177,20 @@ export default function CurationListEditorPage() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveComment = async (cardName: string, comment: string) => {
+    if (isNew) return;
+    setSavingComment(cardName);
+    try {
+      await fetch(`/api/curated-lists/${listId}/cards/comment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardName, comment: comment || null }),
+      });
+    } finally {
+      setSavingComment(null);
     }
   };
 
@@ -295,58 +345,67 @@ export default function CurationListEditorPage() {
         <div className="mt-10">
           <h2 className="text-lg font-semibold mb-4">Cards ({cards.length})</h2>
 
-          <div className="flex gap-2 overflow-x-auto pb-3">
-            {cards.map(card => (
-              <div
-                key={card.id}
-                className="relative flex-shrink-0 group"
-                style={{ width: 80 }}
-              >
-                <div className="relative rounded-lg overflow-hidden" style={{ aspectRatio: '63/88' }}>
-                  {card.imageUrl ? (
-                    <img
-                      src={card.imageUrl}
-                      alt={card.displayName || card.printingId}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <span className="text-[9px] text-muted-foreground text-center px-1 leading-tight">
-                        {card.displayName || card.printingId}
-                      </span>
+          {/* Cards grouped by name with comment inputs */}
+          {(() => {
+            const groups: Array<{ name: string; cards: CuratedListCard[] }> = [];
+            const seen = new Map<string, CuratedListCard[]>();
+            for (const card of cards) {
+              const key = card.displayName || card.printingId;
+              if (!seen.has(key)) { seen.set(key, []); groups.push({ name: key, cards: seen.get(key)! }); }
+              seen.get(key)!.push(card);
+            }
+            return (
+              <div className="space-y-4">
+                {groups.map(group => (
+                  <div key={group.name} className="flex gap-4 items-start">
+                    {/* Card tiles for this name */}
+                    <div className="flex gap-2 flex-shrink-0">
+                      {group.cards.map(card => (
+                        <div key={card.id} className="relative flex-shrink-0 group" style={{ width: 72 }}>
+                          <div className="relative rounded-lg overflow-hidden" style={{ aspectRatio: '63/88' }}>
+                            {card.imageUrl ? (
+                              <img src={card.imageUrl} alt={card.displayName || card.printingId} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <span className="text-[9px] text-muted-foreground text-center px-1 leading-tight">{card.displayName || card.printingId}</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleRemoveCard(card.id)}
+                              disabled={removingCardId === card.id}
+                              className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              {removingCardId === card.id ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <X className="h-4 w-4 text-white" />}
+                            </button>
+                          </div>
+                          {card.setCode && <p className="text-[9px] text-muted-foreground text-center uppercase mt-0.5 truncate">{card.setCode}</p>}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  <button
-                    onClick={() => handleRemoveCard(card.id)}
-                    disabled={removingCardId === card.id}
-                    className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    {removingCardId === card.id ? (
-                      <Loader2 className="h-5 w-5 text-white animate-spin" />
-                    ) : (
-                      <X className="h-5 w-5 text-white" />
-                    )}
-                  </button>
-                </div>
-                {card.setCode && (
-                  <p className="text-[9px] text-muted-foreground text-center uppercase mt-0.5 truncate">{card.setCode}</p>
-                )}
+                    {/* Comment for this card name */}
+                    <div className="flex-1 min-w-0 pt-1">
+                      <p className="text-xs font-medium text-foreground mb-1 truncate">{group.name} ×{group.cards.length}</p>
+                      <Textarea
+                        rows={2}
+                        placeholder="Add a note for deck builders..."
+                        className="text-xs resize-none"
+                        value={cardComments[group.name] ?? ''}
+                        onChange={e => setCardComments(prev => ({ ...prev, [group.name]: e.target.value }))}
+                        onBlur={() => handleSaveComment(group.name, cardComments[group.name] ?? '')}
+                      />
+                      {savingComment === group.name && <p className="text-[10px] text-muted-foreground mt-0.5">Saving...</p>}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            );
+          })()}
 
-            {/* Add card tile */}
-            <button
-              onClick={() => setAddCardOpen(true)}
-              disabled={addingCard}
-              className="flex-shrink-0 rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-muted-foreground/60 transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground"
-              style={{ width: 80, aspectRatio: '63/88' }}
-            >
-              {addingCard ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
-              ) : (
-                <Plus className="h-6 w-6" />
-              )}
-            </button>
+          <div className="mt-4">
+            <Button variant="outline" size="sm" onClick={() => setAddCardOpen(true)} disabled={addingCard}>
+              {addingCard ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+              Add Card
+            </Button>
           </div>
 
           {cards.length === 0 && (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { curatedListService, userService } from '@/lib/services';
+import { curatedListService, curatorHeroAssignmentService, userService } from '@/lib/services';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,9 +20,18 @@ export async function GET(req: NextRequest) {
       const isCurator = !!(curatorCheck.success && curatorCheck.data);
       const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
 
-      if (isCurator || isSuperAdmin) {
-        // Return all lists (including unpublished) for admins
+      if (isSuperAdmin) {
+        // Superadmins see all lists
         const result = await curatedListService.getAllLists();
+        if (!result.success) {
+          return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, data: result.data });
+      }
+
+      if (isCurator) {
+        // Curators only see lists for their assigned heroes
+        const result = await curatedListService.getListsForCurator(authResult.userId!);
         if (!result.success) {
           return NextResponse.json({ success: false, error: result.error }, { status: 500 });
         }
@@ -66,6 +75,18 @@ export async function POST(req: NextRequest) {
 
     if (!name) {
       return NextResponse.json({ success: false, error: 'name is required' }, { status: 400 });
+    }
+
+    // Non-superadmin curators can only create lists for their assigned heroes
+    if (isCurator && !isSuperAdmin && heroName) {
+      const assignmentsResult = await curatorHeroAssignmentService.getAssignmentsForUser(authResult.userId!);
+      if (!assignmentsResult.success) {
+        return NextResponse.json({ success: false, error: 'Failed to verify hero assignments' }, { status: 500 });
+      }
+      const assignedHeroes = assignmentsResult.data.map(a => a.heroName.toLowerCase());
+      if (!assignedHeroes.includes(heroName.toLowerCase())) {
+        return NextResponse.json({ success: false, error: 'You are not assigned as curator for this hero' }, { status: 403 });
+      }
     }
 
     const result = await curatedListService.createList(authResult.userId!, {

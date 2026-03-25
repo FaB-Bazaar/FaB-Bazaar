@@ -1103,6 +1103,7 @@ export const curatedListCards = pgTable('curated_list_cards', {
   listId: text('list_id').notNull().references(() => curatedLists.id, { onDelete: 'cascade' }),
   printingId: text('printing_id').notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  comment: text('comment'),
 }, (table) => ({
   listIdIdx: index('idx_curated_list_cards_list_id').on(table.listId),
 }));
@@ -1120,4 +1121,19 @@ export const curatedListCardsRelations = relations(curatedListCards, ({ one }) =
     fields: [curatedListCards.listId],
     references: [curatedLists.id],
   }),
+}));
+
+// ============================================================================
+// CURATOR HERO ASSIGNMENTS
+// ============================================================================
+
+export const curatorHeroAssignments = pgTable('curator_hero_assignments', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  heroName: text('hero_name').notNull(),
+  metafyProductUrl: text('metafy_product_url'),
+  metafyLinkLabel: text('metafy_link_label'),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.heroName] }),
+  userIdIdx: index('idx_cha_user_id').on(table.userId),
+  heroNameIdx: index('idx_cha_hero_name').on(table.heroName),
 }));

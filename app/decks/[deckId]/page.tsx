@@ -35,6 +35,7 @@ interface PackageCard {
   color?: string;
   setCode?: string;
   imageUrl?: string;
+  comment?: string | null;
 }
 
 function PackageCardItem({
@@ -42,12 +43,16 @@ function PackageCardItem({
   defaultQty,
   adding,
   isOwner,
+  inDeck,
+  comment,
   onAdd,
 }: {
   card: PackageCard;
   defaultQty: number;
   adding: boolean;
   isOwner: boolean;
+  inDeck?: number;
+  comment?: string;
   onAdd: (qty: number) => void;
 }) {
   const [qty, setQty] = useState(defaultQty);
@@ -61,6 +66,12 @@ function PackageCardItem({
       <span className="text-gray-300 text-xs text-center leading-tight">
         {card.displayName ?? card.printingId}
       </span>
+      {comment && (
+        <p className="text-gray-400 text-xs text-center leading-snug italic px-1">{comment}</p>
+      )}
+      {inDeck != null && inDeck > 0 && (
+        <span className="text-xs text-gray-500">{inDeck} in deck</span>
+      )}
       {isOwner && (
         <div className="w-full flex items-center gap-1">
           <button
@@ -121,7 +132,9 @@ export default function DeckEditorPage() {
   const [curatedBuilds, setCuratedBuilds] = useState<Array<{
     id: string;
     name: string;
-    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string }>;
+    description?: string | null;
+    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string; comment?: string | null }>;
+    curatorUser: { username: string; displayUsername: string; avatarUrl: string | null; metafyProductUrl: string | null } | null;
   }>>([]);
 
   // Search form collapse state
@@ -210,19 +223,23 @@ export default function DeckEditorPage() {
   useEffect(() => {
     if (!state.deck) return;
     const heroName = state.deck.heroName || state.deck.hero?.[0]?.printingDetails?.display_name?.toLowerCase();
-    const url = heroName
+    const listsUrl = heroName
       ? `/api/curated-lists?heroName=${encodeURIComponent(heroName)}&view=public`
       : `/api/curated-lists?view=public`;
     setBuildsLoading(true);
-    fetch(url)
+    const listsPromise = fetch(listsUrl)
       .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setCuratedBuilds(data.data ?? []);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setBuildsLoading(false));
+      .then(data => { if (data.success) setCuratedBuilds(data.data ?? []); })
+      .catch(() => {});
+    const curatorsPromise = heroName
+      ? fetch(`/api/curator-heroes?heroName=${encodeURIComponent(heroName)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) setHeroCurators(data.data ?? []);
+          })
+          .catch(() => {})
+      : Promise.resolve();
+    Promise.all([listsPromise, curatorsPromise]).finally(() => setBuildsLoading(false));
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
 
@@ -594,16 +611,15 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
+  const [upgradeResult, setUpgradeResult] = useState<Array<{ cardName: string; color: string | null }> | null>(null);
+
   const handleUpgradePrintings = async () => {
     const result = await upgradeToOwnedPrintings(deckId);
     if (result.success) {
       if (result.data.total === 0) {
         toast({ title: "All printings up to date", description: "No unowned printings found with owned alternatives." });
       } else {
-        toast({
-          title: "Printings updated",
-          description: `${result.data.swapped} of ${result.data.total} printing${result.data.total !== 1 ? "s" : ""} swapped to owned copies.`,
-        });
+        setUpgradeResult(result.data.updatedCards);
         await handlers.refreshDeck();
       }
     } else {
@@ -613,18 +629,27 @@ export default function DeckEditorPage() {
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
+  const [heroCurators, setHeroCurators] = useState<Array<{ displayUsername: string; avatarUrl: string | null; metafyProductUrl: string | null; metafyLinkLabel: string | null }>>([]);
   const [previewBuild, setPreviewBuild] = useState<{
     name: string;
-    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string }>;
+    description?: string | null;
+    cards: Array<{ printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string; comment?: string | null }>;
+    curatorUser: { username: string; displayUsername: string; avatarUrl: string | null; metafyProductUrl: string | null } | null;
   } | null>(null);
+  const [addingAll, setAddingAll] = useState(false);
   const [addingCard, setAddingCard] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!previewBuild) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewBuild(null); };
+    if (!previewBuild && !upgradeResult) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPreviewBuild(null);
+        setUpgradeResult(null);
+      }
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [previewBuild]);
+  }, [previewBuild, upgradeResult]);
 
   const addCardToDeck = async (printingId: string, quantity: number, displayName?: string) => {
     if (!isOwner || quantity < 1) return;
@@ -639,6 +664,30 @@ export default function DeckEditorPage() {
       }
     } finally {
       setAddingCard(null);
+    }
+  };
+
+  const addAllToDeck = async () => {
+    if (!isOwner || !previewBuild) return;
+    setAddingAll(true);
+    try {
+      const seen = new Map<string, { printingId: string; quantity: number }>();
+      for (const card of previewBuild.cards) {
+        const existing = seen.get(card.printingId);
+        if (existing) existing.quantity++;
+        else seen.set(card.printingId, { printingId: card.printingId, quantity: 1 });
+      }
+      const items = Array.from(seen.values());
+      const result = await decksClient.addPrintings(deckId, items);
+      if (result.success) {
+        const totalCards = items.reduce((sum, i) => sum + i.quantity, 0);
+        toast({ title: "Added all", description: `${totalCards} card${totalCards !== 1 ? "s" : ""} added to deck` });
+        await handlers.refreshDeck();
+      } else {
+        toast({ title: "Failed to add cards", description: result.error, variant: "destructive" });
+      }
+    } finally {
+      setAddingAll(false);
     }
   };
 
@@ -1085,29 +1134,58 @@ export default function DeckEditorPage() {
                     {curatedBuilds.map(build => (
                       <button
                         key={build.id}
-                        onClick={() => setPreviewBuild({ name: build.name, cards: build.cards })}
-                        className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm"
+                        onClick={() => setPreviewBuild({ name: build.name, description: build.description, cards: build.cards, curatorUser: build.curatorUser })}
+                        className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm flex items-center gap-1.5"
                       >
+                        {build.curatorUser?.avatarUrl && (
+                          <img src={build.curatorUser.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />
+                        )}
                         {build.name}
                       </button>
                     ))}
                   </div>
                   </div>
                 )}
-                {fablazingUrl && (
-                  <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5">
-                    <a
-                      href={fablazingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
-                    >
-                      <img src="/fablazing-logo.svg" alt="Fablazing" className="h-3.5 w-auto bg-gray-900 rounded px-1" />
-                      <span>View latest {heroDisplayName} decklists</span>
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
-                  </div>
-                )}
+                {(() => {
+                  const curatorsWithMetafy = heroCurators.filter(c => c.metafyProductUrl);
+
+                  if (curatorsWithMetafy.length > 0) {
+                    return (
+                      <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5 flex flex-col gap-1">
+                        {curatorsWithMetafy.map(c => (
+                          <a
+                            key={c.metafyProductUrl}
+                            href={c.metafyProductUrl!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+                          >
+                            {c.avatarUrl && <img src={c.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />}
+                            <img src="/metafy-white.svg" alt="Metafy" className="hidden dark:block h-3.5 w-auto shrink-0" />
+                            <img src="/metafy-black.svg" alt="Metafy" className="block dark:hidden h-3.5 w-auto shrink-0 opacity-70" />
+                            <span>{c.metafyLinkLabel || `${c.displayUsername}'s Metafy guide`}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return fablazingUrl ? (
+                    <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5">
+                      <a
+                        href={fablazingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+                      >
+                        <img src="/fablazing-logo.svg" alt="Fablazing" className="h-3.5 w-auto bg-gray-900 rounded px-1" />
+                        <span>View latest {heroDisplayName} decklists</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    </div>
+                  ) : null;
+                })()}
               </div>
               );
             })()}
@@ -1372,16 +1450,71 @@ export default function DeckEditorPage() {
         currentDeck={state.deck ?? undefined}
       />
 
+      {/* Upgrade printings result modal */}
+      {upgradeResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setUpgradeResult(null)}>
+          <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+              <span className="text-white font-semibold">Printings Updated</span>
+              <button onClick={() => setUpgradeResult(null)} className="text-gray-400 hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-3 max-h-80 overflow-y-auto">
+              <p className="text-gray-400 text-xs mb-3">{upgradeResult.length} card{upgradeResult.length !== 1 ? "s" : ""} swapped to owned printings</p>
+              <ul className="space-y-1">
+                {upgradeResult.map((c, i) => (
+                  <li key={i} className="text-sm text-gray-200">
+                    {c.cardName}{c.color ? <span className="ml-1 text-gray-400 text-xs">({c.color})</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-700">
+              <button onClick={() => setUpgradeResult(null)} className="w-full text-sm py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Package preview modal */}
       {previewBuild && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 overflow-y-auto py-8" onClick={() => setPreviewBuild(null)}>
           <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-              <div>
-                <span className="text-white font-semibold text-lg">{previewBuild.name}</span>
-                <span className="ml-3 text-gray-400 text-sm">{previewBuild.cards.length} card{previewBuild.cards.length !== 1 ? "s" : ""}</span>
+            <div className="flex items-start justify-between px-6 py-4 border-b border-gray-700">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-semibold text-lg">{previewBuild.name}</span>
+                  <span className="text-gray-400 text-sm">{previewBuild.cards.length} card{previewBuild.cards.length !== 1 ? "s" : ""}</span>
+                </div>
+                {previewBuild.description && (
+                  <p className="text-gray-400 text-sm max-w-2xl">{previewBuild.description}</p>
+                )}
+                {previewBuild.curatorUser && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {previewBuild.curatorUser.avatarUrl && (
+                      <img src={previewBuild.curatorUser.avatarUrl} className="h-5 w-5 rounded-full" alt="" />
+                    )}
+                    <span className="text-gray-400 text-xs">by {previewBuild.curatorUser.displayUsername}</span>
+                    {previewBuild.curatorUser.metafyProductUrl && (
+                      <a
+                        href={previewBuild.curatorUser.metafyProductUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <img src="/metafy-white.svg" alt="Metafy" className="h-3.5 w-auto shrink-0" />
+                        <span>Metafy guide</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
-              <button onClick={() => setPreviewBuild(null)} className="text-gray-400 hover:text-white transition-colors">
+              <button onClick={() => setPreviewBuild(null)} className="text-gray-400 hover:text-white transition-colors mt-0.5">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1393,18 +1526,45 @@ export default function DeckEditorPage() {
                   if (existing) existing.qty++;
                   else seen.set(card.printingId, { card, qty: 1 });
                 }
-                return Array.from(seen.values()).map(({ card, qty }) => (
-                  <PackageCardItem
-                    key={card.printingId}
-                    card={card}
-                    defaultQty={qty}
-                    adding={addingCard === card.printingId}
-                    isOwner={isOwner}
-                    onAdd={q => addCardToDeck(card.printingId, q, card.displayName)}
-                  />
-                ));
+                const deckCopies = new Map<string, number>();
+                for (const category of ['hero', 'equipment', 'maindeck', 'inventory', 'benched', 'tokens'] as const) {
+                  for (const c of state.deck?.[category] ?? []) {
+                    deckCopies.set(c.printingId, (deckCopies.get(c.printingId) ?? 0) + (c.quantity ?? 1));
+                  }
+                }
+                // Track which card names have had their comment shown already
+                const shownComments = new Set<string>();
+                return Array.from(seen.values()).map(({ card, qty }) => {
+                  const cardName = card.displayName ?? '';
+                  const showComment = !!card.comment && cardName && !shownComments.has(cardName);
+                  if (showComment) shownComments.add(cardName);
+                  return (
+                    <PackageCardItem
+                      key={card.printingId}
+                      card={card}
+                      defaultQty={qty}
+                      adding={addingCard === card.printingId}
+                      isOwner={isOwner}
+                      inDeck={deckCopies.get(card.printingId) ?? 0}
+                      comment={showComment ? card.comment ?? undefined : undefined}
+                      onAdd={q => addCardToDeck(card.printingId, q, card.displayName)}
+                    />
+                  );
+                });
               })()}
             </div>
+            {isOwner && (
+              <div className="px-6 pb-5 pt-2 border-t border-gray-700 flex justify-end">
+                <button
+                  onClick={addAllToDeck}
+                  disabled={addingAll}
+                  className="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center gap-2"
+                >
+                  {addingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Add All to Deck
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

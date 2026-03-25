@@ -27,6 +27,7 @@ import type { IOAuthService } from './contracts/IOAuthService';
 import type { IAuthTokenService } from './contracts/IAuthTokenService';
 import type { IOAuthFlowService } from './contracts/IOAuthFlowService';
 import type { ICuratedListService } from './contracts/ICuratedListService';
+import type { ICuratorHeroAssignmentService } from './contracts/ICuratorHeroAssignmentService';
 
 // Deprecated contracts (kept only because other files import their DTO types)
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -48,6 +49,7 @@ import { PostgresOAuthService } from './postgres/oauth/PostgresOAuthService';
 import { PostgresAuthTokenService } from './postgres/auth-token/PostgresAuthTokenService';
 import { PostgresOAuthFlowService } from './postgres/oauth-flow/PostgresOAuthFlowService';
 import { PostgresCuratedListService } from './postgres/curated-lists/PostgresCuratedListService';
+import { PostgresCuratorHeroAssignmentService } from './postgres/curator-heroes/PostgresCuratorHeroAssignmentService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 
@@ -88,6 +90,7 @@ class ServiceFactory {
   private static _authTokenService: IAuthTokenService | null = null;
   private static _oauthFlowService: IOAuthFlowService | null = null;
   private static _curatedListService: ICuratedListService | null = null;
+  private static _curatorHeroAssignmentService: ICuratorHeroAssignmentService | null = null;
 
   /**
    * Get the User Service instance
@@ -439,6 +442,17 @@ class ServiceFactory {
   static setCuratedListService(service: ICuratedListService): void {
     this._curatedListService = service;
   }
+
+  static get curatorHeroAssignmentService(): ICuratorHeroAssignmentService {
+    if (!this._curatorHeroAssignmentService) {
+      this._curatorHeroAssignmentService = new PostgresCuratorHeroAssignmentService();
+    }
+    return this._curatorHeroAssignmentService;
+  }
+
+  static setCuratorHeroAssignmentService(service: ICuratorHeroAssignmentService): void {
+    this._curatorHeroAssignmentService = service;
+  }
 }
 
 /**
@@ -474,6 +488,7 @@ export const oauthService = ServiceFactory.oauthService;
 export const authTokenService = ServiceFactory.authTokenService;
 export const oauthFlowService = ServiceFactory.oauthFlowService;
 export const curatedListService = ServiceFactory.curatedListService;
+export const curatorHeroAssignmentService = ServiceFactory.curatorHeroAssignmentService;
 export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
 

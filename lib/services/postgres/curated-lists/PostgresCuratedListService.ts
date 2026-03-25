@@ -1,12 +1,14 @@
 import { db } from '@/lib/postgres/db';
-import { curatedLists, curatedListCards, printings, cards } from '@/lib/postgres/schema';
-import { eq, asc, or, isNull, and, sql } from 'drizzle-orm';
+import { curatedLists, curatedListCards, curatorHeroAssignments, printings, cards, users } from '@/lib/postgres/schema';
+import { eq, asc, or, isNull, and, inArray, sql } from 'drizzle-orm';
 import { getHeroInfo } from '@/lib/fab-constants/heroes';
+import { displayUsername } from '@/lib/utils/display-username';
 import { nanoid } from 'nanoid';
 import type {
   ICuratedListService,
   CuratedListDTO,
   CuratedListCardDTO,
+  CuratorAttributionDTO,
   CreateCuratedListInput,
   UpdateCuratedListInput,
   VariantType,
@@ -14,7 +16,11 @@ import type {
 import type { AsyncResult } from '../../contracts/common';
 
 export class PostgresCuratedListService implements ICuratedListService {
-  private toDTO(row: typeof curatedLists.$inferSelect, cardList?: CuratedListCardDTO[]): CuratedListDTO {
+  private toDTO(
+    row: typeof curatedLists.$inferSelect,
+    cardList?: CuratedListCardDTO[],
+    curatorUser?: CuratorAttributionDTO | null,
+  ): CuratedListDTO {
     return {
       id: row.id,
       name: row.name,
@@ -28,6 +34,7 @@ export class PostgresCuratedListService implements ICuratedListService {
       parentId: row.parentId ?? null,
       variantType: (row.variantType as VariantType | null) ?? null,
       createdBy: row.createdBy ?? null,
+      curatorUser: curatorUser ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       cards: cardList,
@@ -41,6 +48,7 @@ export class PostgresCuratedListService implements ICuratedListService {
         listId: curatedListCards.listId,
         printingId: curatedListCards.printingId,
         sortOrder: curatedListCards.sortOrder,
+        comment: curatedListCards.comment,
         displayName: cards.displayName,
         imageUrl: printings.imageUrl,
         setCode: printings.set,
@@ -57,6 +65,7 @@ export class PostgresCuratedListService implements ICuratedListService {
       listId: row.listId,
       printingId: row.printingId,
       sortOrder: row.sortOrder ?? 0,
+      comment: row.comment ?? null,
       displayName: row.displayName ?? undefined,
       imageUrl: row.imageUrl ?? undefined,
       setCode: row.setCode ?? undefined,
@@ -86,15 +95,41 @@ export class PostgresCuratedListService implements ICuratedListService {
       }
 
       const rows = await db
-        .select()
+        .select({
+          list: curatedLists,
+          user: {
+            id: users.id,
+            username: users.username,
+            displayUsername: users.displayUsername,
+            avatarUrl: users.avatarUrl,
+          },
+          assignment: {
+            metafyProductUrl: curatorHeroAssignments.metafyProductUrl,
+          },
+        })
         .from(curatedLists)
+        .leftJoin(users, eq(curatedLists.createdBy, users.id))
+        .leftJoin(
+          curatorHeroAssignments,
+          and(
+            eq(curatorHeroAssignments.userId, curatedLists.createdBy),
+            sql`lower(${curatorHeroAssignments.heroName}) = lower(${curatedLists.heroName})`
+          )
+        )
         .where(and(heroFilter, eq(curatedLists.isPublished, true)))
         .orderBy(asc(curatedLists.sortOrder));
 
       const result: CuratedListDTO[] = await Promise.all(
-        rows.map(async row => {
-          const cardList = await this.fetchCardsForList(row.id);
-          return this.toDTO(row, cardList);
+        rows.map(async ({ list, user, assignment }) => {
+          const cardList = await this.fetchCardsForList(list.id);
+          const curatorUser: CuratorAttributionDTO | null = user.id ? {
+            userId: user.id,
+            username: user.username,
+            displayUsername: displayUsername(user.displayUsername ?? user.username),
+            avatarUrl: user.avatarUrl ?? null,
+            metafyProductUrl: assignment?.metafyProductUrl ?? null,
+          } : null;
+          return this.toDTO(list, cardList, curatorUser);
         })
       );
 
@@ -119,6 +154,55 @@ export class PostgresCuratedListService implements ICuratedListService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get all lists',
+      };
+    }
+  }
+
+  async getListsForCurator(userId: string): AsyncResult<CuratedListDTO[]> {
+    try {
+      const assignmentRows = await db
+        .select({ heroName: curatorHeroAssignments.heroName, metafyProductUrl: curatorHeroAssignments.metafyProductUrl })
+        .from(curatorHeroAssignments)
+        .where(eq(curatorHeroAssignments.userId, userId));
+
+      if (assignmentRows.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const heroNames = assignmentRows.map(r => r.heroName.toLowerCase());
+      const metafyMap = new Map(assignmentRows.map(r => [r.heroName.toLowerCase(), r.metafyProductUrl ?? null]));
+
+      const [userRow] = await db
+        .select({ id: users.id, username: users.username, displayUsername: users.displayUsername, avatarUrl: users.avatarUrl })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      const rows = await db
+        .select()
+        .from(curatedLists)
+        .where(inArray(sql`lower(${curatedLists.heroName})`, heroNames))
+        .orderBy(asc(curatedLists.sortOrder));
+
+      const curatorUser: CuratorAttributionDTO | null = userRow ? {
+        userId: userRow.id,
+        username: userRow.username,
+        displayUsername: displayUsername(userRow.displayUsername ?? userRow.username),
+        avatarUrl: userRow.avatarUrl ?? null,
+        metafyProductUrl: null,
+      } : null;
+
+      return {
+        success: true,
+        data: rows.map(row => {
+          const heroKey = (row.heroName ?? '').toLowerCase();
+          const withMetafy = curatorUser ? { ...curatorUser, metafyProductUrl: metafyMap.get(heroKey) ?? null } : null;
+          return this.toDTO(row, undefined, withMetafy);
+        }),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get lists for curator',
       };
     }
   }
@@ -258,6 +342,27 @@ export class PostgresCuratedListService implements ICuratedListService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to remove card',
+      };
+    }
+  }
+
+  async updateCardComment(listId: string, cardName: string, comment: string | null): AsyncResult<void> {
+    try {
+      // Update comment on all cards in this list that match the given card name (via JOIN)
+      await db.execute(
+        sql`UPDATE curated_list_cards clc
+            SET comment = ${comment}
+            FROM printings p
+            JOIN cards c ON p.card_unique_id = c.card_unique_id
+            WHERE clc.printing_id = p.printing_id
+              AND clc.list_id = ${listId}
+              AND lower(c.display_name) = lower(${cardName})`
+      );
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update card comment',
       };
     }
   }

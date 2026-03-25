@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { curatedListService, userService } from '@/lib/services';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit } from 'lucide-react';
+import { Plus, Edit, Users } from 'lucide-react';
 import type { CuratedListDTO } from '@/lib/services/contracts/ICuratedListService';
 
 function toDisplayName(name: string): string {
@@ -62,7 +62,9 @@ export default async function CurationAdminPage() {
 
   if (!isSuperAdmin && !isCurator) redirect('/');
 
-  const listsResult = await curatedListService.getAllLists();
+  const listsResult = isSuperAdmin
+    ? await curatedListService.getAllLists()
+    : await curatedListService.getListsForCurator(currentUser._id);
   const lists = listsResult.success ? listsResult.data : [];
 
   const general = lists.filter(l => !l.heroName && !l.className);
@@ -102,12 +104,22 @@ export default async function CurationAdminPage() {
             Manage curated card lists for deck building suggestions.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/admin/curation/new">
-            <Plus className="h-4 w-4 mr-2" />
-            New List
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <Button asChild variant="outline">
+              <Link href="/admin/curation/curator-assignments">
+                <Users className="h-4 w-4 mr-2" />
+                Curators
+              </Link>
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/admin/curation/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New List
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {lists.length === 0 ? (

@@ -46,6 +46,7 @@ export async function GET(
         cardUniqueId: printings.cardUniqueId,
         tcgLow: printings.tcgLow,
         cardName: sql<string>`COALESCE(${cards.displayName}, ${cards.name}, ${deckCards.printingId})`,
+        color: cards.color,
       })
       .from(deckCards)
       .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
@@ -132,6 +133,7 @@ export async function GET(
         currentPrintingId: row.printingId,
         newPrintingId: best.printingId,
         cardName: row.cardName,
+        color: row.color ?? null,
         category: row.category,
         currentTcgLow: row.tcgLow,
         newTcgLow: best.tcgLow,

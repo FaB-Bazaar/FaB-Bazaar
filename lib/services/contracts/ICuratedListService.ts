@@ -11,6 +11,15 @@ export interface CuratedListCardDTO {
   imageUrl?: string;
   setCode?: string;
   color?: string;
+  comment?: string | null;
+}
+
+export interface CuratorAttributionDTO {
+  userId: string;
+  username: string;
+  displayUsername: string;
+  avatarUrl: string | null;
+  metafyProductUrl: string | null;
 }
 
 export interface CuratedListDTO {
@@ -26,6 +35,7 @@ export interface CuratedListDTO {
   parentId: string | null;
   variantType: VariantType | null;
   createdBy: string | null;
+  curatorUser: CuratorAttributionDTO | null;
   createdAt: Date;
   updatedAt: Date;
   cards?: CuratedListCardDTO[];
@@ -60,6 +70,7 @@ export interface UpdateCuratedListInput {
 export interface ICuratedListService {
   getPublishedListsForHero(heroName?: string): AsyncResult<CuratedListDTO[]>;
   getAllLists(): AsyncResult<CuratedListDTO[]>;
+  getListsForCurator(userId: string): AsyncResult<CuratedListDTO[]>;
   getListById(id: string): AsyncResult<CuratedListDTO>;
   createList(userId: string, input: CreateCuratedListInput): AsyncResult<CuratedListDTO>;
   updateList(id: string, input: UpdateCuratedListInput): AsyncResult<CuratedListDTO>;
@@ -67,4 +78,5 @@ export interface ICuratedListService {
   addCard(listId: string, printingId: string): AsyncResult<CuratedListCardDTO>;
   removeCard(cardId: string): AsyncResult<void>;
   reorderCards(listId: string, cardIds: string[]): AsyncResult<void>;
+  updateCardComment(listId: string, cardName: string, comment: string | null): AsyncResult<void>;
 }
