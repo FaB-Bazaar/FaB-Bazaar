@@ -65,13 +65,13 @@ export class PostgresCuratorHeroAssignmentService implements ICuratorHeroAssignm
 
   async assign(userId: string, heroName: string, metafyProductUrl?: string | null, metafyLinkLabel?: string | null): AsyncResult<void> {
     try {
-      await db
-        .insert(curatorHeroAssignments)
-        .values({ userId, heroName: heroName.toLowerCase(), metafyProductUrl: metafyProductUrl ?? null, metafyLinkLabel: metafyLinkLabel ?? null })
-        .onConflictDoUpdate({
-          target: [curatorHeroAssignments.userId, curatorHeroAssignments.heroName],
-          set: { metafyProductUrl: metafyProductUrl ?? null, metafyLinkLabel: metafyLinkLabel ?? null },
-        });
+      await db.execute(
+        sql`INSERT INTO curator_hero_assignments (user_id, hero_name, metafy_product_url, metafy_link_label)
+            VALUES (${userId}, ${heroName.toLowerCase()}, ${metafyProductUrl ?? null}, ${metafyLinkLabel ?? null})
+            ON CONFLICT (user_id, hero_name) DO UPDATE SET
+              metafy_product_url = EXCLUDED.metafy_product_url,
+              metafy_link_label = EXCLUDED.metafy_link_label`
+      );
       return { success: true, data: undefined };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to assign curator to hero' };
