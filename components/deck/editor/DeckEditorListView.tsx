@@ -1207,6 +1207,24 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('normal');
   const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
   const tileWidth = TILE_SIZES[tileSizeIdx].width;
+
+  useEffect(() => {
+    if (viewMode !== 'tile' && viewMode !== 'game') return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === '9') setTileSizeKey(k => {
+        const i = TILE_SIZES.findIndex(s => s.key === k);
+        return i > 0 ? TILE_SIZES[i - 1].key : k;
+      });
+      if (e.key === '0') setTileSizeKey(k => {
+        const i = TILE_SIZES.findIndex(s => s.key === k);
+        return i < TILE_SIZES.length - 1 ? TILE_SIZES[i + 1].key : k;
+      });
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [viewMode]);
   const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
