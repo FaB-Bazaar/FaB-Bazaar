@@ -17,7 +17,10 @@ import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
 import DeckSettings from "@/components/deck/DeckSettings";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
-import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
+import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/editor/QuickAddCardDialog";
+import { preloadCardPool } from "@/lib/client/card-pool-cache";
+import { getHeroInfo } from "@/lib/fab-constants";
+import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
@@ -157,6 +160,40 @@ export default function DeckEditorPage() {
       .finally(() => setBuildsLoading(false));
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
+
+  // Preload card pool in the background after deck + hero are known
+  useEffect(() => {
+    if (!state.deck) return;
+    const deck = state.deck;
+    const TALENT_SET = new Set(OFFICIAL_TALENTS);
+    const NON_CLASS = new Set(['hero','young','adult','token','equipment','weapon','action','attack','instant','defense reaction','attack reaction','demi-hero']);
+
+    let heroClasses: string[] = [];
+    let heroTalents: string[] = [];
+
+    const h = deck.hero?.[0]?.printingDetails as Record<string, unknown> | undefined;
+    if (h) {
+      const directClasses = ((h.classes as string[] | undefined) || []).map(c => c.toLowerCase()).filter(Boolean);
+      const directTalents = ((h.talents as string[] | undefined) || []).map(t => t.toLowerCase()).filter(Boolean);
+      if (directClasses.length || directTalents.length) {
+        heroClasses = directClasses; heroTalents = directTalents;
+      } else {
+        const heroTypes = ((h.types as string[] | undefined) || []).map(t => t.toLowerCase());
+        heroClasses = heroTypes.filter(t => !TALENT_SET.has(t) && !NON_CLASS.has(t));
+        heroTalents = heroTypes.filter(t => TALENT_SET.has(t));
+      }
+    }
+    if (!heroClasses.length && deck.heroName) {
+      const info = getHeroInfo(deck.heroName);
+      if (info) { heroClasses = info.classes; heroTalents = info.talents; }
+    }
+    if (!heroClasses.length) return;
+
+    preloadCardPool(
+      { heroClasses, heroTalents, heroEssences: [], format: deck.format },
+      [...TYPE_CHIPS, GENERIC_CHIP],
+    );
+  }, [state.deck?.heroName, state.deck?.hero, state.deck?.format]);
 
   // Fetch binders when user is available
   useEffect(() => {

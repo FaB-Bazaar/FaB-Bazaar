@@ -2131,10 +2131,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     style={{ aspectRatio: isMeld ? '4/3' : '3/4', objectFit: 'cover', display: 'block' }}
                     draggable={false}
                   />
-                  {count > 1 && (
-                    <span className="absolute top-1.5 right-1.5 text-[11px] bg-black/80 text-white rounded px-1.5 py-0.5 font-mono leading-tight">×{count}</span>
-                  )}
-                  <div className="text-[10px] text-gray-400 mt-1.5 truncate text-center">{tile.name}</div>
+                  <div className="mt-1.5 text-center">
+                    <span className="text-xs font-bold text-white font-mono">{count}×</span>
+                    {' '}
+                    <span className="text-[10px] text-gray-400">{tile.name}</span>
+                  </div>
                 </div>
                 );
               })}
