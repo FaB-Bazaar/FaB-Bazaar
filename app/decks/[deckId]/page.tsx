@@ -419,6 +419,7 @@ export default function DeckEditorPage() {
           'z': 'ally',
           's': 'base',
           'v': 'evo',
+          'u': 'aura',
           'c': heroClass || '',
         };
         const val = TYPE_KEYS[e.key.toLowerCase()];
@@ -771,7 +772,7 @@ export default function DeckEditorPage() {
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
-        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', S: 'base', V: 'evo', C: heroClass };
+        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', S: 'base', U: 'aura', V: 'evo', C: heroClass };
         const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
         const isOverlayMode = chordMode === 'type' || chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense' || chordMode === 'arcane';
         const exitChord = () => {
@@ -787,12 +788,14 @@ export default function DeckEditorPage() {
               { key: 'R', label: 'Atk Reaction' },
               { key: 'E', label: 'Equipment' },
               { key: 'W', label: 'Weapon' },
-              { key: 'G', label: 'Generic' },
               { key: 'B', label: 'Block' },
               { key: 'M', label: 'Item' },
+              //ideally ally, evo, base, aura only shows up as an option when there are ally cards in a card pool of the hero
               { key: 'Z', label: 'Ally' },
+              { key: 'U', label: 'Aura' },
               { key: 'S', label: 'Base' },
-              { key: 'V', label: 'Evo' },
+              { key: 'V', label: 'Evo' }, 
+              { key: 'G', label: 'Generic' },
               ...(heroClass ? [{ key: 'C', label: heroClass.charAt(0).toUpperCase() + heroClass.slice(1) }] : []),
             ]
           : chordMode === 'arcane'
