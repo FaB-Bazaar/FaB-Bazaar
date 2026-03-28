@@ -191,6 +191,7 @@ export async function POST(
     const resolvedParams = await params;
     const publicId = resolvedParams.deckId;
     const body = await request.json();
+    console.warn('[Talishar Webhook] Full payload', JSON.stringify(body, null, 2));
 
     // Validate the URL's deck exists (keeps the 200 OK guarantee for Talishar)
     const deckLookup = await deckService.findByPublicId(publicId, undefined);
