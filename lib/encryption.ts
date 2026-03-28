@@ -44,7 +44,7 @@ export function decryptAddress(encryptedData: EncryptedData): string {
     
     return decrypted;
   } catch (error) {
-    console.error('Failed to decrypt address:', error);
+    console.warn('Failed to decrypt address (key mismatch?):', error);
     return '';
   }
 }

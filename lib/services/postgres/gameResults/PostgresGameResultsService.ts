@@ -19,6 +19,8 @@ export interface GameResultDTO {
   cardResults?: unknown;
   turnResults?: unknown;
   turnLog?: [number, string, string][] | null;
+  opponentCardResults?: unknown;
+  opponentTurnLog?: [number, string, string][] | null;
   playedAt: Date;
   createdAt: Date;
 }
@@ -63,6 +65,8 @@ function toDTO(row: typeof gameResults.$inferSelect): GameResultDTO {
     cardResults: row.cardResults,
     turnResults: row.turnResults,
     turnLog: row.turnLog as [number, string, string][] | null ?? null,
+    opponentCardResults: row.opponentCardResults,
+    opponentTurnLog: row.opponentTurnLog as [number, string, string][] | null ?? null,
     playedAt: row.playedAt,
     createdAt: row.createdAt,
   };
@@ -72,10 +76,16 @@ export class PostgresGameResultsService {
   async createGameResult(
     deckId: string,
     payload: TalisharGamePayload,
-    deckEntry: TalisharDeckPayload
+    deckEntry: TalisharDeckPayload,
+    opponentEntry?: TalisharDeckPayload
   ): Promise<AsyncResult<GameResultDTO>> {
     try {
       const result = deckEntry.result === 1 ? 'win' : 'loss';
+
+      // Only store opponent card data if they consented (cardResults present and non-empty).
+      // Talishar strips cardResults when a player opts out (functions.inc.php:968-972).
+      const opponentConsented =
+        Array.isArray(opponentEntry?.cardResults) && opponentEntry.cardResults.length > 0;
 
       const [row] = await db
         .insert(gameResults)
@@ -94,6 +104,8 @@ export class PostgresGameResultsService {
           cardResults: deckEntry.cardResults ?? null,
           turnResults: deckEntry.turnResults ?? null,
           turnLog: deckEntry.turnLog ?? null,
+          opponentCardResults: opponentConsented ? opponentEntry!.cardResults ?? null : null,
+          opponentTurnLog: opponentConsented ? opponentEntry!.turnLog ?? null : null,
         })
         .onConflictDoNothing()
         .returning();
@@ -124,7 +136,9 @@ export class PostgresGameResultsService {
         pool.query(
           `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
                   player_hero, opponent_hero, result::text, conceded, first_player,
-                  total_turns, card_results, turn_results, turn_log, played_at, created_at
+                  total_turns, card_results, turn_results, turn_log,
+                  opponent_card_results, opponent_turn_log,
+                  played_at, created_at
            FROM game_results
            WHERE deck_id = $1
            ORDER BY played_at DESC
@@ -149,6 +163,8 @@ export class PostgresGameResultsService {
         cardResults: row.card_results ?? null,
         turnResults: row.turn_results ?? null,
         turnLog: row.turn_log ?? null,
+        opponentCardResults: row.opponent_card_results ?? null,
+        opponentTurnLog: row.opponent_turn_log ?? null,
         playedAt: row.played_at,
         createdAt: row.created_at,
       }));

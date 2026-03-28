@@ -4,6 +4,7 @@ import NextAuth from 'next-auth';
 import Discord from 'next-auth/providers/discord';
 import crypto from 'crypto';
 import { authConfig } from './auth.config';
+import { encryptAddress } from '@/lib/encryption';
 
 // This is the MAIN configuration with SERVER-ONLY logic.
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -59,11 +60,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               console.log('[JWT Callback] Existing user, updating Discord info');
               console.log('[JWT Callback] User roles from DB:', JSON.stringify(user.roles, null, 2));
 
-              // Update Discord info
+              // Update Discord info and re-encrypt email with current key (self-heals key mismatch)
+              const emailUpdate = profile.email ? encryptAddress(profile.email) : null;
               const updateResult = await userService.updateUser(user._id, {
                 discordId: profile.id,
                 discordUsername: profile.username,
                 discordAvatar: avatarUrl,
+                ...(emailUpdate && {
+                  email: emailUpdate.encrypted,
+                  emailIV: emailUpdate.iv,
+                }),
               });
 
               if (updateResult.success && updateResult.data) {

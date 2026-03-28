@@ -562,7 +562,7 @@ export const gameResults = pgTable('game_results', {
   id: text('id').primaryKey(),
   deckId: text('deck_id').notNull().references(() => decks.id, { onDelete: 'cascade' }),
   talisharGameId: text('talishar_game_id'),
-  talisharGameGuid: text('talishar_game_guid').unique(),
+  talisharGameGuid: text('talishar_game_guid'),
   format: text('format'),
   playerHero: text('player_hero'),
   opponentHero: text('opponent_hero'),
@@ -573,11 +573,14 @@ export const gameResults = pgTable('game_results', {
   cardResults: jsonb('card_results'),
   turnResults: jsonb('turn_results'),
   turnLog: jsonb('turn_log').$type<[number, string, string][]>(),
+  opponentCardResults: jsonb('opponent_card_results'),
+  opponentTurnLog: jsonb('opponent_turn_log').$type<[number, string, string][]>(),
   playedAt: timestamp('played_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   deckIdIdx: index('idx_game_results_deck_id').on(table.deckId),
   deckPlayedIdx: index('idx_game_results_deck_played').on(table.deckId, table.playedAt),
+  uniqueDeckGuid: uniqueIndex('idx_game_results_deck_guid').on(table.deckId, table.talisharGameGuid),
 }));
 
 // ============================================================================

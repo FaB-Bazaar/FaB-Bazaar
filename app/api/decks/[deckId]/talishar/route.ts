@@ -192,26 +192,45 @@ export async function POST(
     const publicId = resolvedParams.deckId;
     const body = await request.json();
 
-    // Resolve publicId → internal deck id (game_results.deck_id is a FK to decks.id)
+    // Validate the URL's deck exists (keeps the 200 OK guarantee for Talishar)
     const deckLookup = await deckService.findByPublicId(publicId, undefined);
     if (!deckLookup.success || !deckLookup.data) {
       console.warn('[Talishar Webhook] Unknown deck, discarding', { publicId });
       return NextResponse.json({ success: true, received: true });
     }
-    console.warn('[Talishar Webhook] Matched deck', { publicId, internalId: deckLookup.data._id });
-    const internalDeckId = deckLookup.data._id;
 
-    // Find which deck entry (deck1 or deck2) belongs to this FaB Bazaar deck
-    const deckEntry = body.deck1?.deckbuilderID === publicId || body.deck1?.deckbuilderID?.endsWith(`/${publicId}`)
-      ? body.deck1
-      : body.deck2?.deckbuilderID === publicId || body.deck2?.deckbuilderID?.endsWith(`/${publicId}`)
-        ? body.deck2
-        : body.deck1; // fallback to deck1 if we can't match
+    // Process both deck entries. deckbuilderID presence = player consented to tracking.
+    // Talishar strips deckbuilderID when a player opts out (functions.inc.php:969).
+    const candidates = (
+      [
+        { entry: body.deck1, opponent: body.deck2 },
+        { entry: body.deck2, opponent: body.deck1 },
+      ] as const
+    ).filter(({ entry }) => !!entry?.deckbuilderID);
 
-    const result = await gameResultsService.createGameResult(internalDeckId, body, deckEntry);
+    console.warn('[Talishar Webhook] Processing entries', {
+      publicId,
+      candidates: candidates.map(({ entry }) => ({
+        deckbuilderID: entry.deckbuilderID,
+        hero: entry.playerHero,
+        result: entry.result,
+      })),
+    });
 
-    if (!result.success) {
-      console.error(`[Talishar Stats] Failed to save game result for deck ${publicId}:`, result.error);
+    const saveResults = await Promise.all(
+      candidates.map(async ({ entry, opponent }) => {
+        const lookup = await deckService.findByPublicId(entry.deckbuilderID as string, undefined);
+        if (!lookup.success || !lookup.data) {
+          console.warn('[Talishar Webhook] No FaB Bazaar deck for deckbuilderID', {
+            deckbuilderID: entry.deckbuilderID,
+          });
+          return null;
+        }
+        return gameResultsService.createGameResult(lookup.data._id, body, entry, opponent);
+      })
+    );
+
+    if (saveResults.some(r => r && !r.success)) {
       return NextResponse.json({ error: 'Failed to save game result' }, { status: 500 });
     }
 
