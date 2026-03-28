@@ -363,7 +363,26 @@ export default function DeckEditorPage() {
       const EQUIPMENT_KEYWORDS = new Set(['battleworn', 'arcane barrier', 'blade break', 'cloaked', 'modular', 'spellvoid', 'quell', 'temper', 'unity', 'guardwell']);
       const scrollForKeyword = (kw: string) => EQUIPMENT_KEYWORDS.has(kw) ? scrollToTop() : scrollToRed();
 
+      // Helper: dispatch a range of highlight filter values (e.g. power 4-6)
+      const dispatchRangeFilters = (stat: string, lo: number, hi: number) => {
+        const [start, end] = [Math.min(lo, hi), Math.max(lo, hi)];
+        for (let v = start; v <= end; v++) {
+          window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat, value: v, additive: true } }));
+        }
+        scrollToRed();
+        resetChord();
+      };
+
       if (chordMode === 'attack') {
+        // Range syntax: press "-" first to start a range (e.g. "-4-6" = power 4,5,6)
+        if (keywordBuffer.startsWith('-')) {
+          const buf = keywordBuffer + e.key;
+          const rangeMatch = buf.match(/^-(\d)-(\d)$/);
+          if (rangeMatch) { dispatchRangeFilters('power', parseInt(rangeMatch[1]), parseInt(rangeMatch[2])); return; }
+          if (e.key === 'Escape' || e.key === 'Enter') { resetChord(); return; }
+          setKeywordBuffer(buf); startTimeout(); return;
+        }
+        if (e.key === '-') { setKeywordBuffer('-'); startTimeout(); return; }
         const n = parseInt(e.key);
         if (!isNaN(n) && n >= 0 && n <= 9) {
           window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'power', value: n } }));
@@ -374,6 +393,14 @@ export default function DeckEditorPage() {
       }
 
       if (chordMode === 'cost') {
+        if (keywordBuffer.startsWith('-')) {
+          const buf = keywordBuffer + e.key;
+          const rangeMatch = buf.match(/^-(\d)-(\d)$/);
+          if (rangeMatch) { dispatchRangeFilters('cost', parseInt(rangeMatch[1]), parseInt(rangeMatch[2])); return; }
+          if (e.key === 'Escape' || e.key === 'Enter') { resetChord(); return; }
+          setKeywordBuffer(buf); startTimeout(); return;
+        }
+        if (e.key === '-') { setKeywordBuffer('-'); startTimeout(); return; }
         const n = parseInt(e.key);
         if (!isNaN(n) && n >= 0 && n <= 9) {
           window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'cost', value: n } }));
@@ -384,6 +411,14 @@ export default function DeckEditorPage() {
       }
 
       if (chordMode === 'defense') {
+        if (keywordBuffer.startsWith('-')) {
+          const buf = keywordBuffer + e.key;
+          const rangeMatch = buf.match(/^-(\d)-(\d)$/);
+          if (rangeMatch) { dispatchRangeFilters('defense', parseInt(rangeMatch[1]), parseInt(rangeMatch[2])); return; }
+          if (e.key === 'Escape' || e.key === 'Enter') { resetChord(); return; }
+          setKeywordBuffer(buf); startTimeout(); return;
+        }
+        if (e.key === '-') { setKeywordBuffer('-'); startTimeout(); return; }
         const n = parseInt(e.key);
         if (!isNaN(n) && n >= 0 && n <= 9) {
           window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'defense', value: n } }));
@@ -805,7 +840,7 @@ export default function DeckEditorPage() {
           : [];
         return (
           <>
-            {isOverlayMode && (
+            {isOverlayMode && !keywordBuffer.startsWith('-') && (
               <div
                 className="fixed left-1/2 -translate-x-1/2 z-50"
                 style={{ bottom: '76px', width: 'min(500px, 92vw)' }}
@@ -876,9 +911,15 @@ export default function DeckEditorPage() {
                     <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
                   </button>
                 ))}
-                {isOverlayMode && (
+                {isOverlayMode && !keywordBuffer.startsWith('-') && (
                   <span className="text-xs text-gray-500 italic">
                     {{ attack: 'Attack power', cost: 'Card cost', defense: 'Defense', type: 'Card type', arcane: 'Arcane damage' }[chordMode]} →
+                  </span>
+                )}
+                {isOverlayMode && keywordBuffer.startsWith('-') && (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-400">
+                    Range: <kbd className="px-1.5 py-0.5 rounded bg-gray-800 font-mono text-xs border border-amber-600/60 min-w-[48px] text-center">{keywordBuffer || '…'}</kbd>
+                    <span className="text-gray-500 text-[10px]">e.g. -4-6</span>
                   </span>
                 )}
                 {chordMode === 'keyword' && (() => {

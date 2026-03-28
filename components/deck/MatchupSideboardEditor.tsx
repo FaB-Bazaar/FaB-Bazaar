@@ -234,6 +234,8 @@ function ListSection({
   onLeave: () => void;
 }) {
   const total = section.cards.reduce((s, c) => s + c.available, 0);
+  const deckTotal = section.cards.reduce((s, c) => s + (deckCounts.get(c.talisharId) ?? c.originalDeckCount), 0);
+  const displayCount = isRight ? total - deckTotal : deckTotal;
 
   return (
     <div>
@@ -242,7 +244,7 @@ function ListSection({
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
         )}
         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{section.title}</span>
-        <span className="text-xs text-gray-400">({total})</span>
+        <span className="text-xs text-gray-400">({displayCount}/{total})</span>
       </div>
 
       {section.cards.map(card => {
@@ -318,7 +320,7 @@ function TileHoverPreview({ imageUrl }: { imageUrl: string | null }) {
 // ─────────────────────────────────────────────────────────
 
 function TileSectionUnified({
-  section, deckCounts, readOnly, onToggle, onHover, onLeave,
+  section, deckCounts, readOnly, onToggle, onHover, onLeave, tileWidth = 108,
 }: {
   section: Section;
   deckCounts: Map<string, number>;
@@ -326,8 +328,10 @@ function TileSectionUnified({
   onToggle: (id: string, copyIndex: number) => void;
   onHover: (imageUrl: string) => void;
   onLeave: () => void;
+  tileWidth?: number;
 }) {
   const total = section.cards.reduce((s, c) => s + c.available, 0);
+  const deckTotal = section.cards.reduce((s, c) => s + (deckCounts.get(c.talisharId) ?? c.originalDeckCount), 0);
 
   return (
     <div className="mb-3">
@@ -338,7 +342,7 @@ function TileSectionUnified({
         <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
           {section.title}
         </span>
-        <span className="text-[10px] text-gray-500">({total})</span>
+        <span className="text-[10px] text-gray-500">({deckTotal}/{total})</span>
       </div>
 
       <div className="flex flex-wrap gap-1">
@@ -364,7 +368,7 @@ function TileSectionUnified({
                 onMouseLeave={onLeave}
                 title={card.name}
                 className={`relative rounded transition-all select-none ${interactive ? 'cursor-pointer' : 'cursor-default'} ${ringClass} ${opacityClass}`}
-                style={{ width: '72px' }}
+                style={{ width: tileWidth }}
               >
                 {copy.imageUrl ? (
                   <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53' }}>
@@ -417,6 +421,15 @@ export default function MatchupSideboardEditor({
   const [viewMode, setViewMode] = useState<ViewMode>('tile');
   const [hovered, setHovered] = useState<HoverState | null>(null);
   const [tileHovered, setTileHovered] = useState<string | null>(null);
+  const TILE_SIZES = [
+    { key: 'compact', label: 'Compact', width: 108 },
+    { key: 'normal',  label: 'Normal',  width: 150 },
+    { key: 'large',   label: 'Large',   width: 200 },
+  ] as const;
+  type TileSizeKey = typeof TILE_SIZES[number]['key'];
+  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('large');
+  const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
+  const tileWidth = TILE_SIZES[tileSizeIdx].width;
   const hasInit = useRef(false);
   const didInteract = useRef(false);
   const onChangeRef = useRef(onChange);
@@ -581,6 +594,23 @@ export default function MatchupSideboardEditor({
               <RotateCcw className="h-2.5 w-2.5" />Reset
             </button>
           )}
+          {viewMode === 'tile' && (
+            <div className="flex items-center rounded border border-gray-700 overflow-hidden">
+              <button
+                type="button"
+                disabled={tileSizeIdx === 0}
+                onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx - 1].key)}
+                className="px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >−</button>
+              <span className="px-1.5 py-0.5 text-[10px] text-gray-300 border-x border-gray-700 min-w-[44px] text-center">{TILE_SIZES[tileSizeIdx].label}</span>
+              <button
+                type="button"
+                disabled={tileSizeIdx === TILE_SIZES.length - 1}
+                onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx + 1].key)}
+                className="px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >+</button>
+            </div>
+          )}
           <div className="flex rounded border border-gray-700 overflow-hidden">
             <button
               type="button"
@@ -673,6 +703,7 @@ export default function MatchupSideboardEditor({
                               onToggle={toggleTile}
                               onHover={setTileHovered}
                               onLeave={() => setTileHovered(null)}
+                              tileWidth={tileWidth}
                             />
                           </div>
                         ))}
@@ -687,6 +718,7 @@ export default function MatchupSideboardEditor({
                         onToggle={toggleTile}
                         onHover={setTileHovered}
                         onLeave={() => setTileHovered(null)}
+                        tileWidth={tileWidth}
                       />
                     ))}
                   </>

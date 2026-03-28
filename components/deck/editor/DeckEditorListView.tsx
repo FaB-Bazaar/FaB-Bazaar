@@ -1097,30 +1097,32 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
   const bestPitch = new Map<string, number>();
 
   for (const printing of cards) {
-    const name = (printing.printingDetails?.name || printing.printingId) as string;
+    // Group by card_unique_id so different pitch variants of the same card name remain separate
+    const uid = (printing.printingDetails?.card_unique_id as string | undefined) || printing.printingId;
+    const name = (printing.printingDetails?.display_name || printing.printingDetails?.name || printing.printingId) as string;
     const pitch = printing.printingDetails?.pitch as number | undefined;
     const qty = printing.quantity ?? 1;
     const imageUrl = printing.printingDetails?.image_url as string | undefined;
 
     const pd = printing.printingDetails as any;
-    if (!map.has(name)) {
-      map.set(name, {
+    if (!map.has(uid)) {
+      map.set(uid, {
         name, imageUrl,
         redQty: 0, yellowQty: 0, blueQty: 0, noPitchQty: 0, totalQty: 0,
         cost: pd?.cost ?? null,
         defense: pd?.defense ?? null,
         power: pd?.power ?? null,
       });
-      bestPitch.set(name, pitch ?? 99);
+      bestPitch.set(uid, pitch ?? 99);
     }
-    const card = map.get(name)!;
+    const card = map.get(uid)!;
     card.totalQty += qty;
 
     // Prefer the image from the lowest pitch (red > yellow > blue > unpitched)
     const thisPitch = pitch ?? 99;
-    if (imageUrl && thisPitch < (bestPitch.get(name) ?? 99)) {
+    if (imageUrl && thisPitch < (bestPitch.get(uid) ?? 99)) {
       card.imageUrl = imageUrl;
-      bestPitch.set(name, thisPitch);
+      bestPitch.set(uid, thisPitch);
     }
 
     if (pitch === 1) card.redQty += qty;
@@ -1140,8 +1142,22 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
 
 function buildGameViewSections(deck: DeckDTO): GameViewSection[] {
   const sections: GameViewSection[] = [];
-  const eqCards = buildGameCards(deck.equipment || []);
-  const libCards = buildGameCards(deck.maindeck || []);
+
+  // Apply classifyTileCard to equipment-category cards so evo cards (which are
+  // pitched library cards, not zone-starting equipment) land in the correct pitch
+  // section rather than Equipment & Weapons.
+  const eqPrintings: DeckPrintingDTO[] = [];
+  const evoPrintings: DeckPrintingDTO[] = [];
+  for (const p of (deck.equipment || [])) {
+    if (classifyTileCard(p, 'equipment') === 'equipment') {
+      eqPrintings.push(p);
+    } else {
+      evoPrintings.push(p);
+    }
+  }
+
+  const eqCards = buildGameCards(eqPrintings);
+  const libCards = buildGameCards([...(deck.maindeck || []), ...evoPrintings]);
   const invCards = buildGameCards(deck.inventory || []);
   const benchCards = buildGameCards(deck.benched || []);
   // Always include equipment section so the hero portrait is always visible
@@ -1199,12 +1215,12 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string; otherFaceUrl?: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
   const TILE_SIZES = [
-    { key: 'compact', label: 'Compact', width: 72 },
-    { key: 'normal',  label: 'Normal',  width: 108 },
-    { key: 'large',   label: 'Large',   width: 150 },
+    { key: 'compact', label: 'Compact', width: 108 },
+    { key: 'normal',  label: 'Normal',  width: 150 },
+    { key: 'large',   label: 'Large',   width: 200 },
   ] as const;
   type TileSizeKey = typeof TILE_SIZES[number]['key'];
-  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('normal');
+  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('large');
   const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
   const tileWidth = TILE_SIZES[tileSizeIdx].width;
 
@@ -1426,6 +1442,48 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     }, 0);
   };
 
+  // Helper: check if a card's details object matches a single filter entry
+  const checkFilterOnDetails = (details: any, f: { stat: string; value: number | string }): boolean => {
+    if (f.stat === 'name') {
+      const name = (details?.display_name || details?.name || '') as string;
+      return name.toLowerCase().includes(String(f.value).toLowerCase());
+    }
+    if (f.stat === 'keyword') {
+      const kws: string[] = ((details?.keywords as string[] | undefined) || []).map((k: string) => k.toLowerCase());
+      const needle = String(f.value).toLowerCase();
+      return kws.some(k => k === needle || k.startsWith(needle + ' '));
+    }
+    if (f.stat === 'type') {
+      const types: string[] = ((details?.types as string[] | undefined) || []).map((t: string) => t.toLowerCase());
+      const tv = String(f.value);
+      if (tv === 'attack') return types.includes('attack') && types.includes('action');
+      if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
+      if (tv === 'defense-reaction') return types.includes('defense reaction');
+      if (tv === 'attack-reaction') return types.includes('attack reaction');
+      return types.includes(tv);
+    }
+    if (f.stat === 'arcane') {
+      const cardText = (details?.text ?? '') as string;
+      const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
+      return arcaneMatches.some(m => parseInt(m[1]) === f.value);
+    }
+    let v = details?.[f.stat] as number | undefined;
+    if (v == null && f.stat === 'defense') v = 0;
+    if (v == null) return false;
+    const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
+    return threshold !== null ? v >= threshold : v === f.value;
+  };
+
+  // Group filters by stat then apply: OR within same stat, AND across stats
+  const groupFiltersByStat = (filters: Array<{ stat: string; value: number | string }>) => {
+    const map = new Map<string, Array<{ stat: string; value: number | string }>>();
+    for (const f of filters) {
+      if (!map.has(f.stat)) map.set(f.stat, []);
+      map.get(f.stat)!.push(f);
+    }
+    return map;
+  };
+
   const matchingPrintingIds: Set<string> | null = highlightFilters.length > 0
     ? (() => {
         const ids = new Set<string>();
@@ -1435,43 +1493,13 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           ...(displayDeck.inventory || []),
           ...(displayDeck.benched || []),
         ];
+        const filtersByStat = groupFiltersByStat(highlightFilters);
         for (const c of allCards) {
           const details = c.printingDetails as any;
-          const passes = highlightFilters.every(f => {
-            // Name filter — partial case-insensitive match on display name
-            if (f.stat === 'name') {
-              const name = (details?.display_name || details?.name || '') as string;
-              return name.toLowerCase().includes(String(f.value).toLowerCase());
-            }
-            // Keyword filter — match against the keywords array (startsWith to handle "arcane barrier 1" etc.)
-            if (f.stat === 'keyword') {
-              const kws: string[] = ((details?.keywords as string[] | undefined) || []).map((k: string) => k.toLowerCase());
-              const needle = String(f.value).toLowerCase();
-              return kws.some(k => k === needle || k.startsWith(needle + ' '));
-            }
-            // Type filter — match against the types array
-            if (f.stat === 'type') {
-              const types: string[] = ((details?.types as string[] | undefined) || []).map((t: string) => t.toLowerCase());
-              const tv = String(f.value);
-              if (tv === 'attack') return types.includes('attack') && types.includes('action');
-              if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
-              if (tv === 'defense-reaction') return types.includes('defense reaction');
-              if (tv === 'attack-reaction') return types.includes('attack reaction');
-              return types.includes(tv);
-            }
-            // Arcane damage filter — search card text for "N arcane damage"
-            if (f.stat === 'arcane') {
-              const cardText = (details?.text ?? '') as string;
-              const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
-              return arcaneMatches.some(m => parseInt(m[1]) === f.value);
-            }
-            let v = details?.[f.stat] as number | undefined;
-            // Cards with no defense field (items, etc.) are treated as defense 0
-            if (v == null && f.stat === 'defense') v = 0;
-            if (v == null) return false;
-            const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
-            return threshold !== null ? v >= threshold : v === f.value;
-          });
+          // AND across stats, OR within same stat
+          const passes = [...filtersByStat.values()].every(statFilters =>
+            statFilters.some(f => checkFilterOnDetails(details, f))
+          );
           if (passes) ids.add(c.printingId);
         }
         return ids;
@@ -1483,35 +1511,36 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     // Pitch not applicable in game view (cards grouped by name across all pitch variants)
     const nonPitchFilters = highlightFilters.filter(f => f.stat !== 'pitch');
     if (nonPitchFilters.length === 0) return null;
-    return nonPitchFilters.every(f => {
-      if (f.stat === 'name') {
-        return card.name.toLowerCase().includes(String(f.value).toLowerCase());
-      }
-      if (f.stat === 'keyword') {
-        const kws: string[] = ((card as any).keywords || []).map((k: string) => k.toLowerCase());
-        const needle = String(f.value).toLowerCase();
-        return kws.some(k => k === needle || k.startsWith(needle + ' '));
-      }
-      if (f.stat === 'type') {
-        const types: string[] = ((card as any).types || []).map((t: string) => t.toLowerCase());
-        const tv = String(f.value);
-        if (tv === 'attack') return types.includes('attack') && types.includes('action');
-        if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
-        if (tv === 'defense-reaction') return types.includes('defense reaction');
-        if (tv === 'attack-reaction') return types.includes('attack reaction');
-        return types.includes(tv);
-      }
-      if (f.stat === 'arcane') {
-        const cardText = ((card as any).text ?? '') as string;
-        const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
-        return arcaneMatches.some(m => parseInt(m[1]) === f.value);
-      }
-      let v = (card as any)[f.stat] as number | undefined;
-      if (v == null && f.stat === 'defense') v = 0;
-      if (v == null) return false;
-      const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
-      return threshold !== null ? v >= threshold : v === f.value;
-    });
+    const filtersByStat = groupFiltersByStat(nonPitchFilters);
+    return [...filtersByStat.values()].every(statFilters =>
+      statFilters.some(f => {
+        if (f.stat === 'name') return card.name.toLowerCase().includes(String(f.value).toLowerCase());
+        if (f.stat === 'keyword') {
+          const kws: string[] = ((card as any).keywords || []).map((k: string) => k.toLowerCase());
+          const needle = String(f.value).toLowerCase();
+          return kws.some(k => k === needle || k.startsWith(needle + ' '));
+        }
+        if (f.stat === 'type') {
+          const types: string[] = ((card as any).types || []).map((t: string) => t.toLowerCase());
+          const tv = String(f.value);
+          if (tv === 'attack') return types.includes('attack') && types.includes('action');
+          if (tv === 'non-attack') return types.includes('action') && !types.includes('attack');
+          if (tv === 'defense-reaction') return types.includes('defense reaction');
+          if (tv === 'attack-reaction') return types.includes('attack reaction');
+          return types.includes(tv);
+        }
+        if (f.stat === 'arcane') {
+          const cardText = ((card as any).text ?? '') as string;
+          const arcaneMatches = [...cardText.matchAll(/(\d+)\s+arcane damage/gi)];
+          return arcaneMatches.some(m => parseInt(m[1]) === f.value);
+        }
+        let v = (card as any)[f.stat] as number | undefined;
+        if (v == null && f.stat === 'defense') v = 0;
+        if (v == null) return false;
+        const threshold = typeof f.value === 'string' && f.value.endsWith('+') ? parseInt(f.value) : null;
+        return threshold !== null ? v >= threshold : v === f.value;
+      })
+    );
   };
 
   const toggleHighlight = (stat: string, value: number | string) => {
@@ -1520,6 +1549,10 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       if (exact) {
         // Same button clicked again — remove it
         return prev.filter(f => !(f.stat === stat && f.value === value));
+      }
+      if (hoverMode) {
+        // In hover mode: allow multiple values per stat (OR within same stat)
+        return [...prev, { stat, value }];
       }
       const sameStat = prev.find(f => f.stat === stat);
       if (sameStat) {
@@ -1534,8 +1567,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   // Listen for chord-triggered highlight filter events from the deck page
   useEffect(() => {
     const handleFilter = (e: Event) => {
-      const { stat, value } = (e as CustomEvent).detail;
-      toggleHighlight(stat, value);
+      const { stat, value, additive } = (e as CustomEvent).detail;
+      if (additive) {
+        // Additive mode (e.g. chord range dispatch): add without replacing same-stat filters
+        setHighlightFilters(prev => {
+          if (prev.some(f => f.stat === stat && f.value === value)) return prev;
+          return [...prev, { stat, value }];
+        });
+      } else {
+        toggleHighlight(stat, value);
+      }
     };
     const handleClear = () => setHighlightFilters([]);
     const handleOwnershipFilter = (e: Event) => {
@@ -1629,8 +1670,18 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const refs = overlayCardRefs.current;
     requestAnimationFrame(() => {
       refs.forEach((overlayEl, printingId) => {
+        if (!overlayEl) return;
         const sourceTile = document.querySelector(`[data-focus-id="${printingId}"]`);
-        if (!sourceTile || !overlayEl) return;
+        if (!sourceTile) {
+          // No source tile in DOM (e.g. game view) — simple fade-in
+          overlayEl.style.transition = 'none';
+          overlayEl.style.opacity = '0';
+          requestAnimationFrame(() => {
+            overlayEl.style.transition = 'opacity 0.4s ease';
+            overlayEl.style.opacity = '1';
+          });
+          return;
+        }
         const sourceRect = sourceTile.getBoundingClientRect();
         const finalRect = overlayEl.getBoundingClientRect();
         if (!finalRect.width) return;
@@ -1875,7 +1926,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
           {/* Power filter — number to left of symbol */}
           <div className="flex items-center gap-1">
-            {([3, 4, 5, 6, '7+'] as const).map(v => {
+            {([1, 2, 3, 4, 5, 6, '7+'] as const).map(v => {
               const count = getStatCount('power', v);
               const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
               return (
@@ -1896,7 +1947,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
           {/* Block filter — number to left of symbol */}
           <div className="flex items-center gap-1">
-            {([0, 2, 3, 4] as const).map(v => {
+            {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
               const count = getStatCount('defense', v);
               const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
               return (
@@ -1952,7 +2003,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         /* Game view — one tile per card name, R/Y/B pitch count bubbles */
         <div className={cn("rounded border border-gray-700/50 p-2", hoverMode && "md:pr-[420px]")}>
           {buildGameViewSections(displayDeck).map(section => {
-            const sectionTotal = section.cards.reduce((s, c) => s + c.totalQty, 0);
+            const sectionTotal = section.cards.reduce((s, c) =>
+              s + (section.key === 'red' ? c.redQty : section.key === 'yellow' ? c.yellowQty : section.key === 'blue' ? c.blueQty : section.key === 'unpitched' ? c.noPitchQty : c.totalQty), 0);
             const sectionCollapseKey = `game-${section.key}`;
             const isSectionCollapsed = collapsedSections.has(sectionCollapseKey);
             const gameZoneAccent: Record<string, { bg: string; border: string; headerBorder: string; labelColor: string }> = {
