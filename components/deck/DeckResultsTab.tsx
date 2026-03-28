@@ -113,19 +113,53 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
     return map;
   }, [allCardResults]);
 
-  // Process turn_log into per-turn groups, merging HIT flags onto played entries
-  const turnLogByTurn = useMemo(() => {
-    const log = game.turnLog as [number, string, string][] | null;
-    if (!log?.length) return null;
-    const hitSet = new Set(log.filter(e => e[2] === "HIT").map(e => `${e[0]}-${e[1]}`));
-    const byTurn = new Map<number, Array<{ cardId: string; action: "M" | "P" | "B"; hit: boolean }>>();
-    for (const [turn, cardId, action] of log) {
-      if (action === "HIT") continue;
-      if (!byTurn.has(turn)) byTurn.set(turn, []);
-      byTurn.get(turn)!.push({ cardId, action: action as "M" | "P" | "B", hit: action === "M" && hitSet.has(`${turn}-${cardId}`) });
+  const opponentCardResultMap = useMemo(() => {
+    const map = new Map<string, CardResult>();
+    const cards = (game.opponentCardResults as CardResult[] | null) ?? [];
+    for (const cr of cards) {
+      if (cr.cardId) map.set(cr.cardId, cr);
     }
-    return byTurn;
-  }, [game.turnLog]);
+    return map;
+  }, [game.opponentCardResults]);
+
+  // Process both turn_logs into per-turn groups, merging HIT flags and opponent entries
+  const turnLogByTurn = useMemo(() => {
+    const playerLog = game.turnLog as [number, string, string][] | null;
+    const opponentLog = game.opponentTurnLog as [number, string, string][] | null;
+    if (!playerLog?.length && !opponentLog?.length) return null;
+
+    const playerTurnIdx = game.firstPlayer ? 0 : 1;
+
+    const playerHitSet = new Set((playerLog ?? []).filter(e => e[2] === "HIT").map(e => `${e[0]}-${e[1]}`));
+    const opponentHitSet = new Set((opponentLog ?? []).filter(e => e[2] === "HIT").map(e => `${e[0]}-${e[1]}`));
+
+    const byTurn = new Map<number, Array<{ cardId: string; action: string; hit: boolean; isOpponent: boolean }>>();
+
+    const addEntries = (log: [number, string, string][], hitSet: Set<string>, isOpponent: boolean) => {
+      for (const [turn, cardId, action] of log) {
+        if (action === "HIT") continue;
+        if (!byTurn.has(turn)) byTurn.set(turn, []);
+        byTurn.get(turn)!.push({ cardId, action, hit: action === "M" && hitSet.has(`${turn}-${cardId}`), isOpponent });
+      }
+    };
+
+    if (playerLog?.length) addEntries(playerLog, playerHitSet, false);
+    if (opponentLog?.length) addEntries(opponentLog, opponentHitSet, true);
+
+    // Within each turn group: attacker's cards first, then defender reactions
+    for (const [turnIdx, entries] of byTurn.entries()) {
+      const isYourTurn = turnIdx === playerTurnIdx;
+      entries.sort((a, b) => {
+        const aAttacks = isYourTurn ? !a.isOpponent : a.isOpponent;
+        const bAttacks = isYourTurn ? !b.isOpponent : b.isOpponent;
+        if (aAttacks && !bAttacks) return -1;
+        if (!aAttacks && bAttacks) return 1;
+        return 0;
+      });
+    }
+
+    return { byTurn, playerTurnIdx };
+  }, [game.turnLog, game.opponentTurnLog, game.firstPlayer]);
 
   const turnResults = game.turnResults
     ? Object.entries(game.turnResults as Record<string, TurnResult>).sort(([a], [b]) => parseInt(a.replace("turn_", "")) - parseInt(b.replace("turn_", "")))
@@ -174,16 +208,20 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
         <div className="border-t border-gray-100 dark:border-gray-800 px-3 pb-4 pt-3 space-y-4">
 
           {/* Turn-by-turn play log with card images */}
-          {turnLogByTurn && turnLogByTurn.size > 0 && (
+          {turnLogByTurn && turnLogByTurn.byTurn.size > 0 && (
             <div className="space-y-3">
               <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Play by Play</p>
-              {Array.from(turnLogByTurn.entries()).sort(([a], [b]) => a - b).map(([turnNum, entries]) => {
+              {Array.from(turnLogByTurn.byTurn.entries()).sort(([a], [b]) => a - b).map(([turnNum, entries]) => {
                 const tr = (game.turnResults as Record<string, TurnResult> | null)?.[`turn_${turnNum}`];
+                const isYourTurn = turnNum === turnLogByTurn.playerTurnIdx;
                 return (
                   <div key={turnNum}>
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest shrink-0">
                         Turn {turnNum + 1}
+                      </span>
+                      <span className={cn("text-[9px] font-medium px-1.5 py-0.5 rounded", isYourTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400")}>
+                        {isYourTurn ? "your turn" : "opp turn"}
                       </span>
                       {tr && (
                         <span className="flex items-center gap-2 text-[10px]">
@@ -197,14 +235,17 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                       {entries.map((entry, i) => {
                         const imageUrl = cardIdLookup.get(entry.cardId);
                         const cardName = getCardNameFromId(entry.cardId);
-                        const cr = allCardResults.find(c => c.cardId === entry.cardId);
+                        const cr = entry.isOpponent
+                          ? opponentCardResultMap.get(entry.cardId)
+                          : allCardResults.find(c => c.cardId === entry.cardId);
                         const pitchValue = cr?.pitchValue;
-                        const pitchBorder =
-                          entry.action === "P" && pitchValue != null && pitchValue > 0
-                            ? (PITCH_BORDER[pitchValue] ?? "border-gray-300 dark:border-gray-600")
-                            : entry.action === "B"
-                            ? "border-blue-400"
-                            : "border-gray-300 dark:border-gray-600";
+                        const pitchBorder = entry.isOpponent
+                          ? "border-orange-400 dark:border-orange-500"
+                          : entry.action === "P" && pitchValue != null && pitchValue > 0
+                          ? (PITCH_BORDER[pitchValue] ?? "border-gray-300 dark:border-gray-600")
+                          : entry.action === "B"
+                          ? "border-blue-400"
+                          : "border-gray-300 dark:border-gray-600";
 
                         return (
                           <div
@@ -216,10 +257,16 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                           >
                             <div className={cn("relative w-full rounded overflow-hidden border-2", pitchBorder)} style={{ aspectRatio: "63/53" }}>
                               <img src={imageUrl || "/cardback.webp"} alt={cardName} className="w-full block" loading="lazy" />
-                              {entry.action === "B" && (
+                              {entry.isOpponent && (
+                                <div className="absolute bottom-1 left-1 bg-orange-500/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">OPP</div>
+                              )}
+                              {!entry.isOpponent && entry.action === "B" && (
                                 <div className="absolute bottom-1 left-1 bg-blue-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">BLK</div>
                               )}
-                              {entry.action === "P" && pitchValue != null && pitchValue > 0 && (
+                              {!entry.isOpponent && entry.action === "D" && (
+                                <div className="absolute bottom-1 left-1 bg-purple-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">DR</div>
+                              )}
+                              {!entry.isOpponent && entry.action === "P" && pitchValue != null && pitchValue > 0 && (
                                 <div className={cn("absolute bottom-1 left-1 text-[8px] font-bold px-1 py-0.5 rounded leading-none", PITCH_BADGE[pitchValue] ?? "bg-gray-500 text-white")}>P</div>
                               )}
                               {entry.hit && (
