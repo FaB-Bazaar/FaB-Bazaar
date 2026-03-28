@@ -108,6 +108,7 @@ export default function BinderPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [priceUpdatedAt, setPriceUpdatedAt] = useState<Date | null>(null);
   const [chordMode, setChordMode] = useState<null | 'select' | 'rarity' | 'foiling' | 'set' | 'class' | 'clear'>(null);
+  const [chordExiting, setChordExiting] = useState(false);
   const [setBuffer, setSetBuffer] = useState('');
 
   // Mobile state
@@ -317,8 +318,13 @@ export default function BinderPage() {
   const setFilter = (type: string, value: string) => setActiveFilters(prev => ({ ...prev, [type]: value }));
   const clearFilter = (type: string) => setActiveFilters(prev => { const newFilters = { ...prev }; delete newFilters[type]; return newFilters; });
   const clearAllFilters = () => { setSearchQuery(""); setActiveFilters({}); };
+  const exitChord = () => {
+    setChordExiting(true);
+    setTimeout(() => { setChordMode(null); setSetBuffer(''); setChordExiting(false); }, 160);
+  };
 
   const activeFilterCount = Object.values(activeFilters).filter(Boolean).length + (searchQuery ? 1 : 0);
+  const modKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
   // --- CMD+K CHORD SHORTCUT (letter · 1→rarity · 2→foiling) ---
   useEffect(() => {
@@ -1077,34 +1083,8 @@ const SuperSlamDisclosure = () => {
                     </div>
                   )}
 
-                  {/* Chord mode hints for rarity / foiling */}
-                  {chordMode === 'rarity' && (
-                    <div className="flex flex-wrap gap-2 mb-4 p-2 rounded-md ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900">
-                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium">Rarity — press a key:</span>
-                      {[['F','Fabled'],['V','Marvel'],['L','Legendary'],['M','Majestic'],['P','Promo'],['S','Super Rare'],['R','Rare'],['C','Common'],['B','Basic'],['T','Token']].map(([key, label]) => (
-                        <span key={key} className="px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{key} = {label}</span>
-                      ))}
-                    </div>
-                  )}
-                  {chordMode === 'clear' && (
-                    <div className="flex flex-wrap gap-2 mb-4 p-2 rounded-md ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900">
-                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium">Press 0 again to clear all filters</span>
-                    </div>
-                  )}
-                  {chordMode === 'foiling' && (
-                    <div className="flex flex-wrap gap-2 mb-4 p-2 rounded-md ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900">
-                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium">Foiling — press a key:</span>
-                      {[['R','Rainbow'],['C','Cold'],['G','Gold'],['S','Non-foil']].map(([key, label]) => (
-                        <span key={key} className="px-2 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">{key} = {label}</span>
-                      ))}
-                    </div>
-                  )}
-
                   {/* Alphabet filter strip */}
-                  <div className={`flex flex-wrap gap-1 mb-4 rounded-md transition-all ${chordMode === 'select' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 p-1' : ''}`}>
-                    {chordMode === 'select' && (
-                      <span className="w-full text-xs text-blue-500 dark:text-blue-400 font-medium mb-1">1 = Rarity · 2 = Foiling · 3 = Set · 4 = Class · 9 = Add Card · 0 = Clear · or type a letter</span>
-                    )}
+                  <div className="flex flex-wrap gap-1 mb-4">
                     {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => {
                       const isActive = activeFilters.startsWith === letter;
                       return (
@@ -1317,6 +1297,203 @@ const SuperSlamDisclosure = () => {
             </>
           ) : null}
         </>
+      )}
+
+      {/* ── Binder Tools HUD ─────────────────────────────────────────────────── */}
+      {/* Dormant pill — always visible when no chord mode is active */}
+      {!chordMode && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <button
+            type="button"
+            onClick={() => setChordMode('select')}
+            className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
+            <span>Binder Tools</span>
+            <span className="text-blue-400/70 group-hover:text-blue-300 transition-colors">▸</span>
+          </button>
+        </div>
+      )}
+
+      {/* Rarity chip overlay */}
+      {chordMode === 'rarity' && (() => {
+        const rarityDistMap = new Map<string, number>();
+        for (const card of cards) {
+          const r = (card.printingDetails?.rarity ?? card.rarity) as string | undefined;
+          if (r) rarityDistMap.set(r, (rarityDistMap.get(r) ?? 0) + 1);
+        }
+        const rarityMax = rarityDistMap.size > 0 ? Math.max(...Array.from(rarityDistMap.values())) : 0;
+        const RARITY_CHIPS = [
+          { key: 'F', label: 'Fabled',     code: 'f', rgb: '161,88,0' },
+          { key: 'V', label: 'Marvel',     code: 'v', rgb: '109,40,217' },
+          { key: 'L', label: 'Legendary',  code: 'l', rgb: '109,40,217' },
+          { key: 'M', label: 'Majestic',   code: 'm', rgb: '109,40,217' },
+          { key: 'P', label: 'Promo',      code: 'p', rgb: '30,58,138' },
+          { key: 'S', label: 'Super Rare', code: 's', rgb: '30,58,138' },
+          { key: 'R', label: 'Rare',       code: 'r', rgb: '30,58,138' },
+          { key: 'C', label: 'Common',     code: 'c', rgb: '55,65,81' },
+          { key: 'B', label: 'Basic',      code: 'b', rgb: '55,65,81' },
+          { key: 'T', label: 'Token',      code: 't', rgb: '55,65,81' },
+        ];
+        return (
+          <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ bottom: '76px', width: 'min(720px, 96vw)' }}>
+            <div className="bg-gray-950 border border-gray-600 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-700">
+                <button type="button" onClick={() => setChordMode('select')}
+                  className="flex items-center gap-1.5 text-base font-medium text-gray-200 hover:text-white transition-colors rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-950"
+                  aria-label="Back to Binder Tools menu">← Back</button>
+                <span className="text-base font-bold text-white tracking-wide">Card Rarity</span>
+                <span className="text-sm text-gray-300">Click a rarity or press its key</span>
+              </div>
+              <div className="grid gap-2 p-4" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+                {RARITY_CHIPS.map((chip, i) => {
+                  const chipCount = rarityDistMap.get(chip.code) ?? 0;
+                  const isZero = rarityMax > 0 && chipCount === 0;
+                  const isActive = activeFilters.rarity === chip.code;
+                  const heatRatio = rarityMax > 0 && !isZero ? chipCount / rarityMax : 0;
+                  const bgOpacity = isZero ? 0.07 : 0.10 + heatRatio * 0.32;
+                  return (
+                    <button key={chip.key} type="button" aria-label={`Filter by ${chip.label}`}
+                      className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} relative flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-950 ${
+                        isActive ? 'border-amber-400/80 border-t-[3px]' : isZero ? 'border-gray-600/40 border-dashed' : 'border-gray-600/60 hover:brightness-125'
+                      }`}
+                      style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms`, backgroundColor: `rgba(${chip.rgb}, ${bgOpacity})` }}
+                      onClick={() => { setActiveTab('cards'); activeFilters.rarity === chip.code ? clearFilter('rarity') : setFilter('rarity', chip.code); exitChord(); }}
+                    >
+                      {isActive && <span className="absolute top-1.5 right-2 text-xs font-bold text-amber-300" aria-hidden="true">✓</span>}
+                      <kbd className={`px-2.5 py-1 rounded-md font-sans text-base font-bold border min-w-[34px] text-center ${isZero ? 'bg-gray-900/60 text-gray-300 border-gray-600/50' : 'bg-gray-900/80 text-white border-gray-500'}`}>{chip.key}</kbd>
+                      <span className={`text-base font-semibold text-center leading-tight ${isActive ? 'text-amber-200' : isZero ? 'text-gray-300' : 'text-white'}`}>{chip.label}</span>
+                      {rarityMax > 0 && <span className={`text-sm tabular-nums font-medium ${isZero ? 'text-gray-400' : isActive ? 'text-amber-300' : 'text-gray-200'}`}>{chipCount}×</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Foiling chip overlay */}
+      {chordMode === 'foiling' && (() => {
+        const foilingDistMap = new Map<string, number>();
+        for (const card of cards) {
+          const f = (card.printingDetails?.foiling ?? card.foiling) as string | undefined;
+          if (f) foilingDistMap.set(f, (foilingDistMap.get(f) ?? 0) + 1);
+        }
+        const foilingMax = foilingDistMap.size > 0 ? Math.max(...Array.from(foilingDistMap.values())) : 0;
+        const FOILING_CHIPS = [
+          { key: 'R', label: 'Rainbow',  code: 'r', rgb: '161,88,0' },
+          { key: 'C', label: 'Cold',     code: 'c', rgb: '30,58,138' },
+          { key: 'G', label: 'Gold',     code: 'g', rgb: '133,77,14' },
+          { key: 'S', label: 'Standard', code: 's', rgb: '55,65,81' },
+        ];
+        return (
+          <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ bottom: '76px', width: 'min(560px, 96vw)' }}>
+            <div className="bg-gray-950 border border-gray-600 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-700">
+                <button type="button" onClick={() => setChordMode('select')}
+                  className="flex items-center gap-1.5 text-base font-medium text-gray-200 hover:text-white transition-colors rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-950"
+                  aria-label="Back to Binder Tools menu">← Back</button>
+                <span className="text-base font-bold text-white tracking-wide">Foiling</span>
+                <span className="text-sm text-gray-300">Click a foiling or press its key</span>
+              </div>
+              <div className="grid gap-2 p-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                {FOILING_CHIPS.map((chip, i) => {
+                  const chipCount = foilingDistMap.get(chip.code) ?? 0;
+                  const isZero = foilingMax > 0 && chipCount === 0;
+                  const isActive = activeFilters.foiling === chip.code;
+                  const heatRatio = foilingMax > 0 && !isZero ? chipCount / foilingMax : 0;
+                  const bgOpacity = isZero ? 0.07 : 0.10 + heatRatio * 0.32;
+                  return (
+                    <button key={chip.key} type="button" aria-label={`Filter by ${chip.label} foiling`}
+                      className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} relative flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-950 ${
+                        isActive ? 'border-amber-400/80 border-t-[3px]' : isZero ? 'border-gray-600/40 border-dashed' : 'border-gray-600/60 hover:brightness-125'
+                      }`}
+                      style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms`, backgroundColor: `rgba(${chip.rgb}, ${bgOpacity})` }}
+                      onClick={() => { setActiveTab('cards'); activeFilters.foiling === chip.code ? clearFilter('foiling') : setFilter('foiling', chip.code); exitChord(); }}
+                    >
+                      {isActive && <span className="absolute top-1.5 right-2 text-xs font-bold text-amber-300" aria-hidden="true">✓</span>}
+                      <kbd className={`px-2.5 py-1 rounded-md font-sans text-base font-bold border min-w-[34px] text-center ${isZero ? 'bg-gray-900/60 text-gray-300 border-gray-600/50' : 'bg-gray-900/80 text-white border-gray-500'}`}>{chip.key}</kbd>
+                      <span className={`text-base font-semibold text-center leading-tight ${isActive ? 'text-amber-200' : isZero ? 'text-gray-300' : 'text-white'}`}>{chip.label}</span>
+                      {foilingMax > 0 && <span className={`text-sm tabular-nums font-medium ${isZero ? 'text-gray-400' : isActive ? 'text-amber-300' : 'text-gray-200'}`}>{chipCount}×</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Select panel + clear confirmation */}
+      {(chordMode === 'select' || chordMode === 'clear') && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-950 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm" style={{ width: 'min(780px, 96vw)' }}>
+          <div className="px-6 py-5">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{modKey}K · Binder Tools</span>
+              {chordMode === 'clear'
+                ? <span className="text-base font-semibold text-amber-300">Press 0 again to confirm</span>
+                : <span className="text-xs text-gray-500">press a key or click an action</span>}
+              <button type="button" className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2 py-0.5 rounded hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" onClick={() => setChordMode(null)}>✕ Esc</button>
+            </div>
+            <div className="grid grid-cols-3 gap-x-6 divide-x divide-gray-700/40">
+              {/* Filter by */}
+              <div className="pr-4">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Filter by</div>
+                {([
+                  { key: '1', label: 'Rarity',  mode: 'rarity'  as const, active: activeFilters.rarity },
+                  { key: '2', label: 'Foiling', mode: 'foiling' as const, active: activeFilters.foiling },
+                  { key: '3', label: 'Set',     mode: 'set'     as const, active: activeFilters.set },
+                  { key: '4', label: 'Class',   mode: 'class'   as const, active: activeFilters.class },
+                ] as const).map(({ key, label, mode, active }) => (
+                  <button key={key} type="button"
+                    className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    onClick={() => { setChordMode(mode); setSetBuffer(''); }}>
+                    <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                    <span className="text-sm text-gray-300">{label}</span>
+                    {active && <span className="ml-auto text-xs text-amber-400 font-medium truncate max-w-[80px]">{active}</span>}
+                  </button>
+                ))}
+              </div>
+              {/* Jump to letter */}
+              <div className="px-4">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Jump to letter</div>
+                <p className="text-sm text-gray-400 leading-snug">Type any letter key (A–Z) while this menu is open.</p>
+                {activeFilters.startsWith && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-sm text-amber-300 font-medium">Active: {activeFilters.startsWith}</span>
+                    <button className="text-xs text-gray-500 hover:text-gray-200 transition-colors focus-visible:ring-1 focus-visible:ring-blue-400 rounded" onClick={() => clearFilter('startsWith')}>✕</button>
+                  </div>
+                )}
+              </div>
+              {/* Actions */}
+              <div className="pl-4">
+                <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Actions</div>
+                {editable && (
+                  <button type="button"
+                    className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    onClick={() => { setIsCardSearchOpen(true); setChordMode(null); }}>
+                    <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">9</kbd>
+                    <span className="text-sm text-gray-300">Add Card</span>
+                  </button>
+                )}
+                <button type="button"
+                  className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  onClick={() => setChordMode('clear')}>
+                  <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">0</kbd>
+                  <span className="text-sm text-gray-300">Clear filters</span>
+                </button>
+                {chordMode === 'clear' && (
+                  <button type="button"
+                    className="mt-2 w-full px-3 py-2 bg-red-800 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                    onClick={() => { clearAllFilters(); setChordMode(null); }}>
+                    Confirm clear all
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Desktop Video-Capable Ad - Shows at bottom on desktop only */}
