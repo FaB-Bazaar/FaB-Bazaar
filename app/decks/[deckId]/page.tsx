@@ -326,8 +326,9 @@ export default function DeckEditorPage() {
         window.dispatchEvent(new CustomEvent('deck-highlight-clear'));
         return;
       }
-      if (!chordMode || isTyping) return;
-
+      if (!chordMode) return;
+      // When a chord is active it takes priority over any focused input
+      // (isTyping only blocks chord *entry*, not chord *continuation*)
       e.preventDefault();
 
       if (chordMode === 'select') {
@@ -442,7 +443,8 @@ export default function DeckEditorPage() {
         const TYPE_KEYS: Record<string, string> = {
           'a': 'attack',
           'n': 'non-attack',
-          'i': 'instant',
+          'i': 'item',
+          't': 'instant',
           'd': 'defense-reaction',
           'r': 'attack-reaction',
           'e': 'equipment',
@@ -807,7 +809,7 @@ export default function DeckEditorPage() {
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
-        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', S: 'base', U: 'aura', V: 'evo', C: heroClass };
+        const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'item', T: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', S: 'base', U: 'aura', V: 'evo', C: heroClass };
         const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
         const isOverlayMode = chordMode === 'type' || chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense' || chordMode === 'arcane';
         const exitChord = () => {
@@ -818,13 +820,13 @@ export default function DeckEditorPage() {
           ? [
               { key: 'A', label: 'Attack' },
               { key: 'N', label: 'Non-Attack' },
-              { key: 'I', label: 'Instant' },
+              { key: 'I', label: 'Item' },
+              { key: 'T', label: 'Instant' },
               { key: 'D', label: 'Def Reaction' },
               { key: 'R', label: 'Atk Reaction' },
               { key: 'E', label: 'Equipment' },
               { key: 'W', label: 'Weapon' },
               { key: 'B', label: 'Block' },
-              { key: 'M', label: 'Item' },
               //ideally ally, evo, base, aura only shows up as an option when there are ally cards in a card pool of the hero
               { key: 'Z', label: 'Ally' },
               { key: 'U', label: 'Aura' },
@@ -1008,7 +1010,7 @@ export default function DeckEditorPage() {
 
       <div className={isOwner && activeTab === "search" ? "lg:ml-96" : ""}>
         <div className="container mx-auto pt-3 pb-20 sm:pb-0 px-4">
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full">
             {/* Compact header: back arrow + title + view link */}
             <div className="flex items-center gap-2 mb-2">
               <Link

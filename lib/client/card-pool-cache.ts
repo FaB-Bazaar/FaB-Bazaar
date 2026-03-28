@@ -184,7 +184,7 @@ export async function fetchTypeCards(
   const promise = (async () => {
     const params = baseParams(p);
     params.set('types', apiType);
-    params.set('limit', '1500');
+    params.set('limit', '8000');
     params.set('sortBy', 'name');
     params.set('sortOrder', 'asc');
     const data: { success?: boolean; data?: { printings?: PrintingResult[] } } =

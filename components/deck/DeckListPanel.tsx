@@ -47,6 +47,8 @@ export default function DeckListPanel({
     })
   }
 
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null)
+
   const [printingDialogTarget, setPrintingDialogTarget] = useState<{
     cardName: string;
     cardUniqueId: string;
@@ -394,12 +396,8 @@ export default function DeckListPanel({
                               className="flex-1 truncate cursor-pointer hover:underline hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
                               onClick={() => {
                                 handleCardLeave()
-                                setPrintingDialogTarget({
-                                  cardName: name,
-                                  cardUniqueId: firstCard?.printingDetails?.card_unique_id || '',
-                                  printingId: firstCard?.printingId || '',
-                                  category: 'maindeck',
-                                })
+                                const imageUrl = firstCard?.printingDetails?.image_url
+                                if (imageUrl) setZoomedImageUrl(imageUrl)
                               }}
                             >{name}</span>
                             {!isExpanded && firstCard?.printingDetails?.tcg_low > 0 && (
@@ -531,6 +529,24 @@ export default function DeckListPanel({
           </div>
         )}
       </div>
+
+      {/* Card zoom lightbox */}
+      {zoomedImageUrl && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
+          onClick={() => setZoomedImageUrl(null)}
+        >
+          <Image
+            src={zoomedImageUrl}
+            alt="Card zoom"
+            width={400}
+            height={560}
+            className="max-h-[85vh] max-w-[85vw] w-auto h-auto rounded-xl shadow-2xl border border-gray-600"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Printings dialog — swap printing for a deck card */}
       <ViewPrintingsDialog

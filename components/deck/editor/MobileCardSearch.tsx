@@ -6,7 +6,10 @@ import { searchClient, decksClient } from "@/lib/client";
 import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
 import { useToast } from "@/hooks/use-toast";
+import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
+
+const shorthandParser = new FABShorthandParser();
 
 const FORMAT_TO_SEARCH: Record<string, string> = {
   "Classic Constructed": "cc",
@@ -92,8 +95,9 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
 
   const doSearch = useCallback(async (q: string) => {
     setLoading(true);
-    const filters: any = {};
-    if (q.trim()) filters.name = q.trim();
+    const parsed = shorthandParser.parseQuery(q.trim());
+    const filters: any = { ...parsed.filters };
+    if (parsed.remainingText.trim()) filters.name = parsed.remainingText.trim();
     if (heroFilter) {
       filters.heroClasses = heroFilter.heroClasses;
       filters.heroTalents = heroFilter.heroTalents;
@@ -201,7 +205,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search cards..."
+            placeholder='Search cards… or try keyword:"go again" color:blue'
             className="w-full pl-9 pr-9 py-2 rounded-full bg-gray-100 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {query ? (
