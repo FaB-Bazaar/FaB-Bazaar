@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Loader2, Sword, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GameResultDTO } from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
@@ -25,6 +25,7 @@ interface TurnResult {
   damageTaken?: number;
   resourcesUsed?: number;
   resourcesLeft?: number;
+  cardsLeft?: number;
   cardsBlocked?: number;
   cardsPitched?: number;
   damageBlocked?: number;
@@ -100,10 +101,18 @@ interface GameRowProps {
   isExpanded: boolean;
   onToggle: () => void;
   onHover: (data: HoverCard | null) => void;
+  playerHeroName?: string;
 }
 
-function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover }: GameRowProps) {
+interface TableCellTooltip {
+  cards: Array<{ cardId: string; isOpponent: boolean }>;
+  x: number;
+  y: number;
+}
+
+function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, playerHeroName }: GameRowProps) {
   const allCardResults = (game.cardResults as CardResult[] | null) ?? [];
+  const [tableCellTooltip, setTableCellTooltip] = useState<TableCellTooltip | null>(null);
 
   const cardResultMap = useMemo(() => {
     const map = new Map<string, CardResult>();
@@ -213,12 +222,22 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
               <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Play by Play</p>
               {Array.from(turnLogByTurn.byTurn.entries()).sort(([a], [b]) => a - b).map(([turnNum, entries]) => {
                 const tr = (game.turnResults as Record<string, TurnResult> | null)?.[`turn_${turnNum}`];
-                const isYourTurn = turnNum === turnLogByTurn.playerTurnIdx;
+                const playerEs = entries.filter(e => !e.isOpponent);
+                const oppEs = entries.filter(e => e.isOpponent);
+                const oppAttacks = oppEs.some(e => e.action === "M");
+                const playerAttacks = playerEs.some(e => e.action === "M");
+                const playerBlocks = playerEs.some(e => e.action === "B");
+                const hasInstant = entries.some(e => e.action === "INSTANT");
+                const isYourTurn = oppAttacks ? false
+                  : playerAttacks ? true
+                  : playerBlocks ? false
+                  : hasInstant ? false
+                  : turnNum % 2 === turnLogByTurn.playerTurnIdx;
                 return (
                   <div key={turnNum}>
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest shrink-0">
-                        Turn {turnNum + 1}
+                        Turn {turnNum}
                       </span>
                       <span className={cn("text-[9px] font-medium px-1.5 py-0.5 rounded", isYourTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400")}>
                         {isYourTurn ? "your turn" : "opp turn"}
@@ -232,22 +251,56 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {entries.map((entry, i) => {
+                    {(() => {
+                      const isOff = (a: string) => a === "M" || a === "P" || a === "INSTANT";
+                      const isDef = (a: string) => a === "B" || a === "D";
+                      const playerLabel = playerHeroName ?? "You";
+                      const oppLabel = game.opponentHero ? formatHeroName(game.opponentHero) : "Opponent";
+
+                      // Split each turn cycle into two half-turns:
+                      // 1) Attacker A plays (M/P/INSTANT), Defender B responds (B/D)
+                      // 2) Attacker B plays (M/P/INSTANT), Defender A responds (B/D)
+                      const oppOffensive = oppEs.filter(e => isOff(e.action));
+                      const oppDefensive = oppEs.filter(e => isDef(e.action));
+                      const playerOffensive = playerEs.filter(e => isOff(e.action));
+                      const playerDefensive = playerEs.filter(e => isDef(e.action));
+
+                      // Half-turn where OPP attacks and YOU defend
+                      const oppAttackHalf = [...oppOffensive, ...playerDefensive].length > 0
+                        ? [
+                            { isOpponent: true,  label: oppLabel,    cards: oppOffensive },
+                            { isOpponent: false, label: playerLabel,  cards: playerDefensive },
+                          ].filter(r => r.cards.length > 0)
+                        : null;
+
+                      // Half-turn where YOU attack and OPP defends
+                      const playerAttackHalf = [...playerOffensive, ...oppDefensive].length > 0
+                        ? [
+                            { isOpponent: false, label: playerLabel,  cards: playerOffensive },
+                            { isOpponent: true,  label: oppLabel,    cards: oppDefensive },
+                          ].filter(r => r.cards.length > 0)
+                        : null;
+
+                      // Attacker for this cycle goes first
+                      const phases = (isYourTurn
+                        ? [playerAttackHalf, oppAttackHalf]
+                        : [oppAttackHalf, playerAttackHalf]
+                      ).filter(Boolean) as NonNullable<typeof oppAttackHalf>[];
+
+                      const renderCard = (entry: typeof entries[0], i: number) => {
                         const imageUrl = cardIdLookup.get(entry.cardId);
                         const cardName = getCardNameFromId(entry.cardId);
                         const cr = entry.isOpponent
                           ? opponentCardResultMap.get(entry.cardId)
                           : allCardResults.find(c => c.cardId === entry.cardId);
                         const pitchValue = cr?.pitchValue;
-                        const pitchBorder = entry.isOpponent
+                        const border = entry.isOpponent
                           ? "border-orange-400 dark:border-orange-500"
                           : entry.action === "P" && pitchValue != null && pitchValue > 0
                           ? (PITCH_BORDER[pitchValue] ?? "border-gray-300 dark:border-gray-600")
                           : entry.action === "B"
                           ? "border-blue-400"
                           : "border-gray-300 dark:border-gray-600";
-
                         return (
                           <div
                             key={`${entry.cardId}-${entry.action}-${i}`}
@@ -256,29 +309,42 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                             onMouseEnter={() => imageUrl && onHover({ imageUrl, cardName, statValue: 0, hitPct: null, badgeClass: "bg-gray-700 text-white" })}
                             onMouseLeave={() => onHover(null)}
                           >
-                            <div className={cn("relative w-full rounded overflow-hidden border-2", pitchBorder)} style={{ aspectRatio: "63/53" }}>
+                            <div className={cn("relative w-full rounded overflow-hidden border-2", border)} style={{ aspectRatio: "63/53" }}>
                               <img src={imageUrl || "/cardback.webp"} alt={cardName} className="w-full block" loading="lazy" />
-                              {entry.isOpponent && (
-                                <div className="absolute bottom-1 left-1 bg-orange-500/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">OPP</div>
-                              )}
-                              {!entry.isOpponent && entry.action === "B" && (
-                                <div className="absolute bottom-1 left-1 bg-blue-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">BLK</div>
-                              )}
-                              {!entry.isOpponent && entry.action === "D" && (
-                                <div className="absolute bottom-1 left-1 bg-purple-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">DR</div>
-                              )}
-                              {!entry.isOpponent && entry.action === "P" && pitchValue != null && pitchValue > 0 && (
+                              {entry.action === "B" && <div className="absolute bottom-1 left-1 bg-blue-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">BLK</div>}
+                              {entry.action === "D" && <div className="absolute bottom-1 left-1 bg-purple-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">DR</div>}
+                              {entry.action === "P" && pitchValue != null && pitchValue > 0 && (
                                 <div className={cn("absolute bottom-1 left-1 text-[8px] font-bold px-1 py-0.5 rounded leading-none", PITCH_BADGE[pitchValue] ?? "bg-gray-500 text-white")}>P</div>
                               )}
-                              {entry.hit && (
-                                <div className="absolute top-0.5 right-0.5 bg-green-500 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">HIT</div>
-                              )}
+                              {entry.hit && <div className="absolute top-0.5 right-0.5 bg-green-500 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">HIT</div>}
                             </div>
                             <p className="text-[9px] text-gray-500 dark:text-gray-400 text-center leading-tight w-full truncate">{cardName}</p>
                           </div>
                         );
-                      })}
-                    </div>
+                      };
+
+                      return (
+                        <div className="space-y-3">
+                          {phases.map((rows, phaseIdx) => (
+                            <div key={phaseIdx} className={cn("space-y-2", phaseIdx > 0 && "pt-2 border-t border-gray-100 dark:border-gray-800")}>
+                              {rows.map(({ isOpponent, label, cards }) => (
+                                <div key={String(isOpponent)}>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", isOpponent ? "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400" : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400")}>
+                                      {isOpponent ? "OPP" : "YOU"}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{label}</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {cards.map((entry, i) => renderCard(entry, i))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -286,6 +352,9 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
           )}
 
           {/* Per-game card sections: PLAYED / PITCHED / BLOCKED */}
+          {gameSections.some(({ cards }) => cards.length > 0) && (
+            <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Card Summary</p>
+          )}
           {gameSections.map(({ label, cards, statKey }) => {
             if (cards.length === 0) return null;
             return (
@@ -333,38 +402,96 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
           })}
 
           {/* Turn summary table */}
-          {turnResults.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5 uppercase">Turn Summary</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800">
-                      <th className="text-left py-1 px-2 font-medium">Turn</th>
-                      <th className="text-center py-1 px-2 font-medium">Cards</th>
-                      <th className="text-center py-1 px-2 font-medium">Dealt</th>
-                      <th className="text-center py-1 px-2 font-medium">Taken</th>
-                      <th className="text-center py-1 px-2 font-medium">Resources</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                    {turnResults.map(([key, t]) => {
-                      const num = parseInt(key.replace("turn_", "")) + 1;
-                      return (
-                        <tr key={key} className="text-gray-700 dark:text-gray-300">
-                          <td className="py-1 px-2 text-gray-400 dark:text-gray-500">{num}</td>
-                          <td className="text-center py-1 px-2">{t.cardsUsed ?? "—"}</td>
-                          <td className={cn("text-center py-1 px-2 font-medium", (t.damageDealt ?? 0) > 0 ? "text-green-600 dark:text-green-400" : "text-gray-400")}>{t.damageDealt ?? 0}</td>
-                          <td className={cn("text-center py-1 px-2 font-medium", (t.damageTaken ?? 0) > 0 ? "text-red-500 dark:text-red-400" : "text-gray-400")}>{t.damageTaken ?? 0}</td>
-                          <td className="text-center py-1 px-2">{t.resourcesUsed ?? "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {turnResults.length > 0 && (() => {
+            const playerTurnIdx = game.firstPlayer ? 0 : 1;
+            const playerLabel = playerHeroName ? formatHeroName(playerHeroName) : "You";
+            const opponentLabel = game.opponentHero ? formatHeroName(game.opponentHero) : "Opp";
+            return (
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5 uppercase">Turn Summary</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800">
+                        <th className="text-left py-1 px-2 font-medium">Turn</th>
+                        <th className="text-left py-1 px-2 font-medium">Hero</th>
+                        <th className="text-center py-1 px-2 font-medium">Played</th>
+                        <th className="text-center py-1 px-2 font-medium">Pitched</th>
+                        <th className="text-center py-1 px-2 font-medium">Blocked</th>
+                        <th className="text-center py-1 px-2 font-medium">Dealt</th>
+                        <th className="text-center py-1 px-2 font-medium">Taken</th>
+                        <th className="text-center py-1 px-2 font-medium">Res</th>
+                        <th className="text-center py-1 px-2 font-medium leading-tight">Hand<br />Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {turnResults.map(([key, t]) => {
+                        const idx = parseInt(key.replace("turn_", ""));
+                        const turnEntries = turnLogByTurn?.byTurn.get(idx) ?? [];
+                        const tPlayerEs = turnEntries.filter(e => !e.isOpponent);
+                        const tOppEs = turnEntries.filter(e => e.isOpponent);
+                        const tOppAttacks = tOppEs.some(e => e.action === "M");
+                        const tPlayerAttacks = tPlayerEs.some(e => e.action === "M");
+                        const tPlayerBlocks = tPlayerEs.some(e => e.action === "B");
+                        const tHasInstant = turnEntries.some(e => e.action === "INSTANT");
+                        const isPlayerTurn = tOppAttacks ? false : tPlayerAttacks ? true : tPlayerBlocks ? false : tHasInstant ? false : idx % 2 === playerTurnIdx;
+                        const playedCards = turnEntries.filter(e => e.action === "M");
+                        const pitchedCards = turnEntries.filter(e => e.action === "P");
+                        const blockedCards = turnEntries.filter(e => e.action === "B");
+                        const showTooltip = (e: React.MouseEvent<HTMLTableCellElement>, cards: typeof turnEntries) => {
+                          if (cards.length === 0) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTableCellTooltip({ cards, x: rect.left + rect.width / 2, y: rect.top });
+                        };
+                        return (
+                          <tr key={key} className="text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800">
+                            <td className="py-1 px-2 text-gray-400 dark:text-gray-500 text-center font-medium whitespace-nowrap">
+                              Turn {idx}
+                            </td>
+                            <td className="py-1 px-2">
+                              <span className="flex items-center gap-1.5">
+                                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0", isPlayerTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400")}>
+                                  {isPlayerTurn ? "YOU" : "OPP"}
+                                </span>
+                                <span className="text-[11px] text-gray-700 dark:text-gray-300">
+                                  {isPlayerTurn ? (playerHeroName ?? "—") : opponentLabel}
+                                </span>
+                              </span>
+                            </td>
+                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, playedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsUsed ?? "—"}</td>
+                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, pitchedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsPitched ?? "—"}</td>
+                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, blockedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsBlocked ?? "—"}</td>
+                            <td className={cn("text-center py-1 px-2 font-medium", (t.damageDealt ?? 0) > 0 ? "text-green-600 dark:text-green-400" : "text-gray-400")}>{t.damageDealt ?? 0}</td>
+                            <td className={cn("text-center py-1 px-2 font-medium", (t.damageTaken ?? 0) > 0 ? "text-red-500 dark:text-red-400" : "text-gray-400")}>{t.damageTaken ?? 0}</td>
+                            <td className="text-center py-1 px-2">{t.resourcesUsed ?? "—"}</td>
+                            <td className="text-center py-1 px-2 text-gray-400">{t.cardsLeft ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Fixed-position card tooltip for turn summary table cells */}
+      {tableCellTooltip && (
+        <div
+          className="fixed z-50 flex gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5 shadow-xl pointer-events-none"
+          style={{ left: tableCellTooltip.x, top: tableCellTooltip.y - 8, transform: "translate(-50%, -100%)" }}
+        >
+          {tableCellTooltip.cards.map((entry, i) => (
+            <div key={i} className={cn("rounded overflow-hidden border-2", entry.isOpponent ? "border-orange-400 dark:border-orange-500" : "border-blue-400 dark:border-blue-500")}>
+              <img
+                src={cardIdLookup.get(entry.cardId) ?? "/cardback.webp"}
+                alt={getCardNameFromId(entry.cardId)}
+                style={{ width: 44, display: "block" }}
+              />
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -436,12 +563,15 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
     }
 
     // Pass 3: opponent card IDs → image URL via opponentCardImages (keyed by cardId)
+    // Strip _equip suffix: turn log uses e.g. "crown_of_providence_equip" but
+    // opponentCardResults (and thus opponentCardImages) uses "crown_of_providence"
     for (const game of results) {
       const oppLog = game.opponentTurnLog as [number, string, string][] | null;
       if (!oppLog) continue;
       for (const [, cardId] of oppLog) {
         if (map.has(cardId)) continue;
-        const imageUrl = opponentCardImages.get(cardId);
+        const lookupId = cardId.endsWith('_equip') ? cardId.slice(0, -'_equip'.length) : cardId;
+        const imageUrl = opponentCardImages.get(lookupId);
         if (imageUrl) map.set(cardId, imageUrl);
       }
     }
@@ -520,6 +650,19 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
         }
       }
     }
+    // Also collect cards from opponentTurnLog that aren't in opponentCardResults
+    // (equipment cards only appear in the turn log, never in opponentCardResults)
+    for (const game of results) {
+      const oppLog = game.opponentTurnLog as [number, string, string][] | null;
+      if (!oppLog) continue;
+      for (const [, cardId] of oppLog) {
+        const cleanId = cardId.endsWith('_equip') ? cardId.slice(0, -'_equip'.length) : cardId;
+        if (seen.has(cleanId)) continue;
+        seen.add(cleanId);
+        cards.push({ cardId: cleanId, cardName: getCardNameFromId(cleanId) });
+      }
+    }
+
     if (cards.length === 0) return;
     fetch('/api/printings/images', {
       method: 'POST',
@@ -715,6 +858,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                 isExpanded={expandedGameId === r.id}
                 onToggle={() => setExpandedGameId(expandedGameId === r.id ? null : r.id)}
                 onHover={setHoveredCard}
+                playerHeroName={deck?.hero?.[0]?.printingDetails?.display_name ?? (deck?.heroName ? formatHeroName(deck.heroName) : undefined)}
               />
             ))}
           </div>

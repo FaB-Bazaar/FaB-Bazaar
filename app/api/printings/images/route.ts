@@ -27,10 +27,20 @@ export async function POST(request: NextRequest) {
       const filters: Record<string, unknown> = { name: cardName, exact: true };
       if (pitchValue != null && pitchValue > 0) filters.pitch = pitchValue;
 
-      const result = await printingsService.searchPrintings(
+      let result = await printingsService.searchPrintings(
         filters as Parameters<typeof printingsService.searchPrintings>[0],
         { limit: 1, sortBy: 'set', sortOrder: 'asc', show: 'all' }
       );
+      // Fallback: if exact match fails (e.g. slug-derived name missing punctuation like
+      // "Titans Fist" vs "Titan's Fist", or "Stalagmite Bastion" vs "Stalagmite, Bastion"),
+      // retry with broad search which splits by terms and uses word_similarity.
+      if ((!result.success || !result.data.printings?.[0]?.image_url) && filters.exact) {
+        const { exact: _exact, ...broadFilters } = filters;
+        result = await printingsService.searchPrintings(
+          broadFilters as Parameters<typeof printingsService.searchPrintings>[0],
+          { limit: 1, sortBy: 'name', sortOrder: 'asc', show: 'all' }
+        );
+      }
       if (result.success && result.data.printings?.[0]?.image_url) {
         return [cardId, result.data.printings[0].image_url] as const;
       }
