@@ -225,6 +225,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                       </span>
                       {tr && (
                         <span className="flex items-center gap-2 text-[10px]">
+                          {(tr.damageThreatened ?? 0) > 0 && <span className="text-orange-500 dark:text-orange-400 font-medium">{tr.damageThreatened} threatened</span>}
                           {(tr.damageDealt ?? 0) > 0 && <span className="text-green-600 dark:text-green-400 font-medium">+{tr.damageDealt} dealt</span>}
                           {(tr.damageTaken ?? 0) > 0 && <span className="text-red-500 dark:text-red-400 font-medium">−{tr.damageTaken} taken</span>}
                           {(tr.damageBlocked ?? 0) > 0 && <span className="text-blue-500 dark:text-blue-400 font-medium">{tr.damageBlocked} blocked</span>}
@@ -251,7 +252,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                           <div
                             key={`${entry.cardId}-${entry.action}-${i}`}
                             className="shrink-0 flex flex-col items-center gap-1"
-                            style={{ width: 60 }}
+                            style={{ width: 80 }}
                             onMouseEnter={() => imageUrl && onHover({ imageUrl, cardName, statValue: 0, hitPct: null, badgeClass: "bg-gray-700 text-white" })}
                             onMouseLeave={() => onHover(null)}
                           >
@@ -383,6 +384,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["never-used"]));
   const [heroFilter, setHeroFilter] = useState<string>("all");
   const [hoveredCard, setHoveredCard] = useState<HoverCard | null>(null);
+  const [opponentCardImages, setOpponentCardImages] = useState<Map<string, string>>(new Map());
   const mouseXRef = useRef(0);
 
   useEffect(() => {
@@ -414,8 +416,9 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
-    // Pass 2: for any cardId still missing, strip pitch suffix and match against slug lookup
+    // Pass 2: for any cardId still missing, strip pitch/equip suffixes and match against slug lookup
     // This catches equipment, hero, and token cards not in card_results
+    // e.g. "evo_beta_base_chest_blue_equip" → strip "_equip" → strip "_blue" → "evo_beta_base_chest"
     const pitchSuffixes = ["_red", "_yellow", "_blue"];
     for (const game of results) {
       const log = game.turnLog as [number, string, string][] | null;
@@ -423,6 +426,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       for (const [, cardId] of log) {
         if (map.has(cardId)) continue;
         let slug = cardId;
+        if (slug.endsWith("_equip")) slug = slug.slice(0, -"_equip".length);
         for (const suffix of pitchSuffixes) {
           if (slug.endsWith(suffix)) { slug = slug.slice(0, -suffix.length); break; }
         }
@@ -431,8 +435,28 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
+    // Pass 3: opponent card IDs → image URL via opponentCardImages (keyed by cardName)
+    for (const game of results) {
+      const oppLog = game.opponentTurnLog as [number, string, string][] | null;
+      const oppCards = game.opponentCardResults as CardResult[] | null;
+      if (!oppLog || !oppCards) continue;
+      // Build cardId → cardName map for this game's opponent cards
+      const oppCardNames = new Map<string, string>();
+      for (const cr of oppCards) {
+        if (cr.cardId && cr.cardName) oppCardNames.set(cr.cardId, cr.cardName);
+      }
+      for (const [, cardId] of oppLog) {
+        if (map.has(cardId)) continue;
+        const cardName = oppCardNames.get(cardId);
+        if (cardName) {
+          const imageUrl = opponentCardImages.get(cardName);
+          if (imageUrl) map.set(cardId, imageUrl);
+        }
+      }
+    }
+
     return map;
-  }, [results, cardLookup, cardSlugLookup]);
+  }, [results, cardLookup, cardSlugLookup, opponentCardImages]);
 
   // Unique heroes in order of first appearance
   const uniqueHeroes = useMemo(() => {
@@ -488,6 +512,35 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       .catch(() => {})
       .finally(() => setLoadingMore(false));
   };
+
+  // Fetch images for opponent cards that aren't in the player's deck
+  // Sends {cardId, cardName, pitchValue} so the correct pitch variant image is returned
+  useEffect(() => {
+    if (results.length === 0) return;
+    const seen = new Set<string>();
+    const cards: Array<{ cardId: string; cardName: string; pitchValue?: number }> = [];
+    for (const game of results) {
+      const crs = game.opponentCardResults as CardResult[] | null;
+      if (!crs) continue;
+      for (const cr of crs) {
+        if (cr.cardId && cr.cardName && !seen.has(cr.cardId)) {
+          seen.add(cr.cardId);
+          cards.push({ cardId: cr.cardId, cardName: cr.cardName, pitchValue: cr.pitchValue });
+        }
+      }
+    }
+    if (cards.length === 0) return;
+    fetch('/api/printings/images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards }),
+    })
+      .then(r => r.json())
+      .then((data: { images: Record<string, string> }) => {
+        if (data.images) setOpponentCardImages(new Map(Object.entries(data.images)));
+      })
+      .catch(() => {});
+  }, [results]);
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
   if (error) return <p className="text-sm text-red-500 py-8 text-center">{error}</p>;
@@ -695,7 +748,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{
-            ...(mouseXRef.current < window.innerWidth / 2 ? { right: 16 } : { left: 16 }),
+            right: 16,
             top: "50%",
             transform: "translateY(-50%)",
           }}
