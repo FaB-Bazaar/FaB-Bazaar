@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { userService, featuredCardsService } from '@/lib/services';
+import { userService } from '@/lib/services';
+import { refreshFeaturedPrintingIds } from '@/lib/featured-cards-refresh';
 
 /**
  * Admin endpoint to manually refresh featured cards cache
@@ -31,22 +32,16 @@ export async function POST(request: NextRequest) {
 
     // Trigger the refresh
     console.log(`[Admin] Featured cards refresh triggered by ${user.id} (${user.name})`);
-    const result = await featuredCardsService.refreshFeaturedCards();
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: result.error
-        },
-        { status: 500 }
-      );
-    }
+    const start = Date.now();
+    const printingIds = await refreshFeaturedPrintingIds();
 
     return NextResponse.json({
       success: true,
       message: 'Featured cards cache refreshed successfully',
-      data: result.data
+      data: {
+        cardsRefreshed: printingIds.length,
+        processingTimeSeconds: ((Date.now() - start) / 1000).toFixed(2),
+      },
     });
 
   } catch (error) {

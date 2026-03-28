@@ -262,9 +262,9 @@ export function FeaturedCardsCarousel({ cards, cardWidth = 240 }: { cards: any[]
 
   return (
     <div className="not-prose overflow-hidden" ref={emblaRef}>
-      <div className="flex gap-6">
+      <div className="flex">
         {cards.map((card, index) => (
-          <div key={`${card.printing_id || card.name}-${index}`} className="flex-shrink-0" style={{ width: `${cardWidth}px` }}>
+          <div key={`${card.printing_id || card.name}-${index}`} className="flex-shrink-0 mr-6" style={{ width: `${cardWidth}px` }}>
             <FeaturedCardSmall card={card} />
           </div>
         ))}

@@ -314,7 +314,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                               {entry.action === "B" && <div className="absolute bottom-1 left-1 bg-blue-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">BLK</div>}
                               {entry.action === "D" && <div className="absolute bottom-1 left-1 bg-purple-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">DR</div>}
                               {entry.action === "P" && pitchValue != null && pitchValue > 0 && (
-                                <div className={cn("absolute bottom-1 left-1 text-[8px] font-bold px-1 py-0.5 rounded leading-none", PITCH_BADGE[pitchValue] ?? "bg-gray-500 text-white")}>P</div>
+                                <div className={cn("absolute bottom-1 left-1 text-[8px] font-bold px-1 py-0.5 rounded leading-none", PITCH_BADGE[pitchValue] ?? "bg-gray-500 text-white")}>Pitch</div>
                               )}
                               {entry.hit && <div className="absolute top-0.5 right-0.5 bg-green-500 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">HIT</div>}
                             </div>
