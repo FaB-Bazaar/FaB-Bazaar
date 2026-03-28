@@ -889,6 +889,21 @@ export default function DeckEditorPage() {
         }
         const maxDistCount = deckDistMap.size > 0 ? Math.max(...Array.from(deckDistMap.values())) : 0;
         const activeVals = activeHighlights.get(statField ?? '') ?? new Set<number | string>();
+        // ── Type distribution map for type chips ───────────────────────────────
+        const typeDistMap = new Map<string, number>();
+        if (chordMode === 'type') {
+          const allCards = [
+            ...(state.deck?.maindeck ?? []),
+            ...(state.deck?.equipment ?? []),
+            ...(state.deck?.inventory ?? []),
+          ];
+          for (const card of allCards) {
+            const types = (card.printingDetails?.types ?? []) as string[];
+            const qty = card.quantity ?? 1;
+            for (const t of types) typeDistMap.set(t, (typeDistMap.get(t) ?? 0) + qty);
+          }
+        }
+        const activeTypeVals = activeHighlights.get('type') ?? new Set<number | string>();
         const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'item', T: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', S: 'base', U: 'aura', V: 'evo', C: heroClass };
         const hudBtn = "flex items-center gap-2 cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 hover:bg-gray-700/60 transition-colors";
         const isOverlayMode = chordMode === 'type' || chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense' || chordMode === 'arcane';
@@ -926,63 +941,97 @@ export default function DeckEditorPage() {
             {isOverlayMode && !keywordBuffer.startsWith('-') && (
               <div
                 className="fixed left-1/2 -translate-x-1/2 z-50"
-                style={{ bottom: '76px', width: chordMode === 'type' ? 'min(620px, 94vw)' : 'min(480px, 94vw)' }}
+                style={{ bottom: '76px', width: chordMode === 'type' ? 'min(820px, 96vw)' : 'min(620px, 96vw)' }}
               >
-                <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="bg-gray-950 border border-gray-600 rounded-2xl shadow-2xl overflow-hidden">
 
-                  {/* Header — issue 2: contrast; issue 5: semantic instruction */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
-                    {/* issue 2+3: visible Back with focus ring */}
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-700">
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
+                      className="flex items-center gap-1.5 text-base font-medium text-gray-200 hover:text-white transition-colors rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-950"
                       onClick={() => setChordMode('select')}
                       aria-label="Back to Deck Tools menu"
                     >
                       ← Back
                     </button>
-                    <span className="text-sm font-semibold text-white">
+                    <span className="text-base font-bold text-white tracking-wide">
                       {{ attack: 'Attack Power', cost: 'Card Cost', defense: 'Defense Value', type: 'Card Type', arcane: 'Arcane Damage' }[chordMode]}
                     </span>
-                    {/* issue 2+5: readable hint with actual semantic meaning */}
-                    <span className="text-xs text-gray-400 text-right max-w-[140px] leading-tight">
+                    <span className="text-sm text-gray-300 text-right max-w-[180px] leading-tight">
                       {chordMode === 'type' ? 'Click a type or press its key' : 'Click a value to highlight matching cards'}
                     </span>
                   </div>
 
-                  {/* Chip grid — issue 1: no duplicate label; issue 8: tighter spacing */}
+                  {/* Chip grid */}
                   <div
-                    className="grid gap-1 p-3"
+                    className="grid gap-2 p-4"
                     style={{ gridTemplateColumns: chordMode === 'type' ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)' }}
                   >
                     {overlayChips.map((chip, i) => {
                       const isNumeric = chordMode !== 'type';
                       const chipNum = isNumeric ? parseInt(chip.key) : NaN;
-                      const chipCount = isNumeric && !isNaN(chipNum) ? (deckDistMap.get(chipNum) ?? 0) : 0;
-                      const isZero = isNumeric && maxDistCount > 0 && chipCount === 0;
-                      const isActive = isNumeric && activeVals.has(chipNum);
+                      const typeVal = !isNumeric ? TYPE_KEYS[chip.key] : '';
+                      const chipCount = isNumeric ? (deckDistMap.get(chipNum) ?? 0) : (typeDistMap.get(typeVal) ?? 0);
+                      const isZero = (isNumeric ? maxDistCount > 0 : typeDistMap.size > 0) && chipCount === 0;
+                      const isActive = isNumeric ? activeVals.has(chipNum) : activeTypeVals.has(typeVal);
                       const lo = Math.min(hudRangeMin, hudRangeMax);
                       const hi = Math.max(hudRangeMin, hudRangeMax);
                       const inRange = isNumeric && !isNaN(chipNum) && chipNum >= lo && chipNum <= hi;
+                      // 4 muted color groups — SC 1.4.1 compliant: text label is the non-color cue
+                      // Background intensity scales with card count (heatmap): 10%–40% opacity range
+                      type TypeTheme = { rgb: string; border: string; kbd: string };
+                      const TYPE_GROUP: Record<string, TypeTheme> = {
+                        A: { rgb: '127,29,29',   border: 'border-red-700/50',    kbd: 'bg-red-950/80 border-red-700/60' },
+                        N: { rgb: '127,29,29',   border: 'border-red-700/50',    kbd: 'bg-red-950/80 border-red-700/60' },
+                        R: { rgb: '127,29,29',   border: 'border-red-700/50',    kbd: 'bg-red-950/80 border-red-700/60' },
+                        D: { rgb: '127,29,29',   border: 'border-red-700/50',    kbd: 'bg-red-950/80 border-red-700/60' },
+                        B: { rgb: '127,29,29',   border: 'border-red-700/50',    kbd: 'bg-red-950/80 border-red-700/60' },
+                        E: { rgb: '120,53,15',   border: 'border-amber-700/45',  kbd: 'bg-amber-950/80 border-amber-700/60' },
+                        W: { rgb: '120,53,15',   border: 'border-amber-700/45',  kbd: 'bg-amber-950/80 border-amber-700/60' },
+                        I: { rgb: '120,53,15',   border: 'border-amber-700/45',  kbd: 'bg-amber-950/80 border-amber-700/60' },
+                        T: { rgb: '30,58,138',   border: 'border-blue-700/45',   kbd: 'bg-blue-950/80 border-blue-700/60' },
+                        G: { rgb: '30,58,138',   border: 'border-blue-700/45',   kbd: 'bg-blue-950/80 border-blue-700/60' },
+                        S: { rgb: '30,58,138',   border: 'border-blue-700/45',   kbd: 'bg-blue-950/80 border-blue-700/60' },
+                        Z: { rgb: '76,29,149',   border: 'border-violet-700/45', kbd: 'bg-violet-950/80 border-violet-700/60' },
+                        U: { rgb: '76,29,149',   border: 'border-violet-700/45', kbd: 'bg-violet-950/80 border-violet-700/60' },
+                        V: { rgb: '76,29,149',   border: 'border-violet-700/45', kbd: 'bg-violet-950/80 border-violet-700/60' },
+                        C: { rgb: '76,29,149',   border: 'border-violet-700/45', kbd: 'bg-violet-950/80 border-violet-700/60' },
+                      };
+                      const theme: TypeTheme = TYPE_GROUP[chip.key] ?? { rgb: '75,85,99', border: 'border-gray-600/50', kbd: 'bg-gray-900 border-gray-500' };
+                      // Heatmap: scale bg opacity from 0.08 (floor) to 0.42 (ceiling) based on count ratio
+                      const typeMaxCount = typeDistMap.size > 0 ? Math.max(...Array.from(typeDistMap.values())) : 0;
+                      const heatRatio = !isNumeric && typeMaxCount > 0 && !isZero ? chipCount / typeMaxCount : 0;
+                      const numHeatRatio = isNumeric && maxDistCount > 0 && !isZero ? chipCount / maxDistCount : 0;
+                      const bgOpacity = isZero ? 0.07 : (!isNumeric ? 0.10 + heatRatio * 0.32 : 0.08 + numHeatRatio * 0.22);
+                      const heatBg = !isNumeric
+                        ? { backgroundColor: `rgba(${theme.rgb}, ${bgOpacity})` }
+                        : { backgroundColor: `rgba(59,130,246, ${bgOpacity})` }; // numeric: subtle blue scale
                       return (
                         <button
                           key={chip.key}
                           type="button"
                           aria-label={chordMode === 'type' ? chip.label : `Highlight ${STAT_MAP[chordMode!] ?? chordMode} ${chip.key}`}
-                          className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} ${
+                          className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} relative ${
                             chordMode === 'type'
-                              ? 'flex flex-col items-center gap-1.5 px-2 py-3 rounded-lg bg-gray-800 border border-gray-700/80 hover:bg-gray-700 hover:border-gray-500'
-                              : `flex flex-col items-center justify-center gap-0.5 px-2 py-3 rounded-lg border ${
+                              ? `flex flex-col items-center gap-1.5 px-3 py-4 rounded-xl border transition-all ${
                                   isActive
-                                    ? 'bg-amber-900/40 border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]'
-                                    : inRange
-                                    ? 'bg-amber-900/20 border-amber-700/50 hover:bg-amber-900/30 hover:border-amber-600/60'
+                                    ? `border-amber-400/80 border-t-[3px]`
                                     : isZero
-                                    ? 'bg-gray-800/40 border-gray-700/30 opacity-40'
-                                    : 'bg-gray-800 border-gray-700/80 hover:bg-gray-700 hover:border-gray-500'
+                                    ? `${theme.border} border-dashed`
+                                    : `${theme.border} hover:brightness-125`
                                 }`
-                          } cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900`}
-                          style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms` }}
+                              : `flex flex-col items-center justify-center gap-1 px-3 py-4 rounded-xl border transition-all ${
+                                  isActive
+                                    ? 'border-amber-400/80 border-t-[3px]'
+                                    : inRange
+                                    ? 'border-amber-600/60 border-t-[3px] border-t-amber-500'
+                                    : isZero
+                                    ? 'border-gray-600/40 border-dashed'
+                                    : 'border-blue-800/40 hover:brightness-125'
+                                }`
+                          } cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-950`}
+                          style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms`, ...heatBg }}
                           onClick={() => {
                             if (chordMode === 'type') {
                               const val = TYPE_KEYS[chip.key];
@@ -1000,19 +1049,29 @@ export default function DeckEditorPage() {
                         >
                           {chordMode === 'type' ? (
                             <>
-                              <kbd className="px-1.5 py-0.5 rounded bg-gray-900 text-gray-200 font-mono text-xs border border-gray-600 min-w-[22px] text-center flex-shrink-0">{chip.key}</kbd>
-                              <span className="text-xs text-gray-300 truncate text-center leading-tight">{chip.label}</span>
+                              {isActive && (
+                                <span className="absolute top-1.5 right-2 text-xs font-bold text-amber-300" aria-hidden="true">✓</span>
+                              )}
+                              <kbd className={`px-2.5 py-1 rounded-md font-sans text-base font-bold tracking-wide border min-w-[34px] text-center flex-shrink-0 ${theme.kbd} text-white`}>{chip.key}</kbd>
+                              <span className={`text-base font-semibold truncate text-center leading-tight ${isActive ? 'text-amber-200' : isZero ? 'text-gray-300' : 'text-white'}`}>{chip.label}</span>
+                              <span className={`text-base leading-none tabular-nums font-medium ${isZero ? 'text-gray-300' : isActive ? 'text-amber-300' : 'text-gray-200'}`}>{chipCount}×</span>
                             </>
                           ) : (
                             <>
-                              <span className={`text-2xl font-mono font-medium leading-none select-none ${isZero ? 'text-gray-500' : isActive ? 'text-amber-300' : inRange ? 'text-amber-100' : 'text-gray-100'}`}>{chip.key}</span>
+                              {isActive && (
+                                <span className="absolute top-1.5 right-2 text-xs font-bold text-amber-300" aria-hidden="true">✓</span>
+                              )}
+                              {inRange && !isActive && (
+                                <span className="absolute top-1.5 right-2 text-xs font-bold text-amber-400" aria-hidden="true">~</span>
+                              )}
+                              <span className={`text-4xl font-mono font-bold leading-none select-none ${isZero ? 'text-gray-400' : isActive ? 'text-amber-300' : inRange ? 'text-amber-100' : 'text-white'}`}>{chip.key}</span>
                               {maxDistCount > 0 && (
-                                <span className={`text-[10px] leading-none tabular-nums mt-0.5 ${isZero ? 'text-gray-600' : isActive ? 'text-amber-400' : 'text-gray-400'}`}>{chipCount}×</span>
+                                <span className={`text-base leading-none tabular-nums font-medium ${isZero ? 'text-gray-300' : isActive ? 'text-amber-300' : 'text-gray-200'}`}>{chipCount}×</span>
                               )}
                               {maxDistCount > 0 && (
-                                <div className="w-full h-0.5 rounded-full bg-gray-700/50 mt-1 overflow-hidden">
+                                <div className="w-full h-1 rounded-full bg-gray-700 mt-1 overflow-hidden">
                                   <div
-                                    className={`h-full rounded-full transition-all duration-300 ${isActive ? 'bg-amber-400' : inRange ? 'bg-amber-600/80' : 'bg-blue-500/70'}`}
+                                    className={`h-full rounded-full transition-all duration-300 ${isActive ? 'bg-amber-400' : inRange ? 'bg-amber-500' : 'bg-blue-500'}`}
                                     style={{ width: `${(chipCount / maxDistCount) * 100}%` }}
                                   />
                                 </div>
@@ -1031,26 +1090,26 @@ export default function DeckEditorPage() {
                     let rangeCardCount = 0;
                     for (let v = lo; v <= hi; v++) rangeCardCount += deckDistMap.get(v) ?? 0;
                     return (
-                      <div className="border-t border-gray-700 bg-gray-800/40 px-4 py-3 flex items-center gap-3 flex-wrap">
-                        <span className="text-sm text-gray-300 flex-shrink-0">Highlight range:</span>
+                      <div className="border-t border-gray-700 bg-gray-900/60 px-5 py-4 flex items-center gap-4 flex-wrap">
+                        <span className="text-base font-medium text-gray-200 flex-shrink-0">Highlight range:</span>
                         <select
                           value={hudRangeMin}
                           onChange={e => setHudRangeMin(Number(e.target.value))}
-                          className="bg-gray-800 text-gray-100 text-sm rounded-lg border border-gray-600 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+                          className="bg-gray-800 text-white text-base rounded-lg border border-gray-500 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
                         >
                           {overlayChips.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                         </select>
-                        <span className="text-sm text-gray-400 flex-shrink-0">to</span>
+                        <span className="text-base font-medium text-gray-300 flex-shrink-0">to</span>
                         <select
                           value={hudRangeMax}
                           onChange={e => setHudRangeMax(Number(e.target.value))}
-                          className="bg-gray-800 text-gray-100 text-sm rounded-lg border border-gray-600 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+                          className="bg-gray-800 text-white text-base rounded-lg border border-gray-500 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
                         >
                           {overlayChips.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                         </select>
                         <button
                           type="button"
-                          className="px-3 py-1.5 bg-amber-700 hover:bg-amber-600 text-amber-50 text-sm font-medium rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-base font-semibold rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                           onClick={() => {
                             const stat = STAT_MAP[chordMode!];
                             for (let v = lo; v <= hi; v++) {
