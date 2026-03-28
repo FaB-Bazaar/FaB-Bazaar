@@ -435,23 +435,14 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
-    // Pass 3: opponent card IDs → image URL via opponentCardImages (keyed by cardName)
+    // Pass 3: opponent card IDs → image URL via opponentCardImages (keyed by cardId)
     for (const game of results) {
       const oppLog = game.opponentTurnLog as [number, string, string][] | null;
-      const oppCards = game.opponentCardResults as CardResult[] | null;
-      if (!oppLog || !oppCards) continue;
-      // Build cardId → cardName map for this game's opponent cards
-      const oppCardNames = new Map<string, string>();
-      for (const cr of oppCards) {
-        if (cr.cardId && cr.cardName) oppCardNames.set(cr.cardId, cr.cardName);
-      }
+      if (!oppLog) continue;
       for (const [, cardId] of oppLog) {
         if (map.has(cardId)) continue;
-        const cardName = oppCardNames.get(cardId);
-        if (cardName) {
-          const imageUrl = opponentCardImages.get(cardName);
-          if (imageUrl) map.set(cardId, imageUrl);
-        }
+        const imageUrl = opponentCardImages.get(cardId);
+        if (imageUrl) map.set(cardId, imageUrl);
       }
     }
 

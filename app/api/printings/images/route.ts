@@ -1,7 +1,7 @@
 // POST /api/printings/images
 // Body: { cards: Array<{ cardId: string; cardName: string; pitchValue?: number }> }
 // Returns: { images: { [cardId]: imageUrl } }
-// Used by DeckResultsTab to look up images for opponent cards by name + pitch.
+// Fetches card images for opponent cards. All lookups run concurrently via Promise.all.
 import { NextRequest, NextResponse } from 'next/server';
 import { printingsService } from '@/lib/services';
 
@@ -9,16 +9,18 @@ const MAX_CARDS = 200;
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const cards: Array<{ cardId: string; cardName: string; pitchValue?: number }> = body?.cards ?? [];
+  const input: Array<{ cardId: string; cardName: string; pitchValue?: number }> = body?.cards ?? [];
 
-  if (!Array.isArray(cards) || cards.length === 0) {
+  if (!Array.isArray(input) || input.length === 0) {
     return NextResponse.json({ images: {} });
   }
 
   // Deduplicate by cardId
-  const unique = cards.slice(0, MAX_CARDS).filter(
-    (c, i, arr) => c.cardId && c.cardName && arr.findIndex(x => x.cardId === c.cardId) === i
-  );
+  const unique = input
+    .slice(0, MAX_CARDS)
+    .filter((c, i, arr) => c.cardId && c.cardName && arr.findIndex(x => x.cardId === c.cardId) === i);
+
+  if (unique.length === 0) return NextResponse.json({ images: {} });
 
   const entries = await Promise.all(
     unique.map(async ({ cardId, cardName, pitchValue }) => {
