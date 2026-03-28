@@ -16,7 +16,7 @@ export async function OPTIONS() {
 import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
 import { userService, deckService } from '@/lib/services';
 
-const HASH_MAX_AGE_SECS = 60; // 1 minute
+const HASH_MAX_AGE_SECS = 300; // 5 minutes
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     const expectedHash = crypto
       .createHash('sha256')
-      .update(metafyId + salt + timestamp)
+      .update(metafyId + salt)
       .digest('hex');
 
     if (metafyHash !== expectedHash) {
