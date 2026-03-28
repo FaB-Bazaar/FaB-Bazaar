@@ -302,6 +302,13 @@ export default function DeckEditorPage() {
   const [chordMode, setChordMode] = useState<null | 'select' | 'attack' | 'cost' | 'defense' | 'type' | 'keyword' | 'clear' | 'arcane' | 'nameFilter'>(null);
   const [chordExiting, setChordExiting] = useState(false);
   const [keywordBuffer, setKeywordBuffer] = useState('');
+  // Tile size — synced from DeckEditorListView via custom events
+  const [tileSize, setTileSize] = useState({ idx: 2, label: 'Large', total: 3 });
+  // Range picker state for numeric highlight sub-modes
+  const [hudRangeMin, setHudRangeMin] = useState(0);
+  const [hudRangeMax, setHudRangeMax] = useState(9);
+  // Track which filter values are currently active (for chip active-state rendering)
+  const [activeHighlights, setActiveHighlights] = useState<Map<string, Set<number | string>>>(new Map());
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
@@ -535,6 +542,46 @@ export default function DeckEditorPage() {
     document.addEventListener('keydown', handleKeyDown);
     return () => { document.removeEventListener('keydown', handleKeyDown); clearTimeout(timeout); };
   }, [chordMode, activeTab, keywordBuffer]);
+
+  // Sync tile size label from DeckEditorListView broadcasts
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { idx, label, total } = (e as CustomEvent<{ idx: number; label: string; total: number }>).detail;
+      setTileSize({ idx, label, total });
+    };
+    window.addEventListener('deck-tile-size-update', handler);
+    return () => window.removeEventListener('deck-tile-size-update', handler);
+  }, []);
+
+  // Reset range pickers when entering a numeric sub-mode
+  useEffect(() => {
+    if (chordMode === 'arcane') { setHudRangeMin(1); setHudRangeMax(9); }
+    else if (chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense') { setHudRangeMin(0); setHudRangeMax(9); }
+  }, [chordMode]);
+
+  // Track active highlight filters so chips can show their active state
+  useEffect(() => {
+    const filterHandler = (e: Event) => {
+      const { stat, value, additive } = (e as CustomEvent<{ stat: string; value: number | string; additive?: boolean }>).detail;
+      setActiveHighlights(prev => {
+        const next = new Map(prev);
+        if (!additive) {
+          next.set(stat, new Set([value]));
+        } else {
+          const existing = next.get(stat) ?? new Set();
+          next.set(stat, new Set([...existing, value]));
+        }
+        return next;
+      });
+    };
+    const clearHandler = () => setActiveHighlights(new Map());
+    window.addEventListener('deck-highlight-filter', filterHandler);
+    window.addEventListener('deck-highlight-clear', clearHandler);
+    return () => {
+      window.removeEventListener('deck-highlight-filter', filterHandler);
+      window.removeEventListener('deck-highlight-clear', clearHandler);
+    };
+  }, []);
   // ────────────────────────────────────────────────────────────────────────────
 
   // Redirect only when the deck is private and the viewer isn't the owner
@@ -787,11 +834,11 @@ export default function DeckEditorPage() {
           <button
             type="button"
             onClick={() => setChordMode('select')}
-            className="flex items-center gap-2 bg-gray-900/90 border border-gray-700/60 rounded-full px-4 py-1.5 text-xs text-gray-500 hover:text-gray-200 hover:border-gray-500 hover:bg-gray-800/95 backdrop-blur-sm shadow-lg transition-all duration-200 group"
+            className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group"
           >
-            <kbd className="px-1 py-0.5 rounded bg-gray-800 text-gray-400 font-mono text-[10px] border border-gray-600 group-hover:border-gray-500 group-hover:text-gray-300 transition-colors">{modKey}K</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
             <span>Deck Tools</span>
-            <span className="text-gray-600 group-hover:text-gray-400 transition-colors">▸</span>
+            <span className="text-blue-400/70 group-hover:text-blue-300 transition-colors">▸</span>
           </button>
         </div>
       )}
@@ -824,8 +871,26 @@ export default function DeckEditorPage() {
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
+        // ── Deck distribution map for chip frequency bars ──────────────────────
+        const statField = STAT_MAP[chordMode!];
+        const deckDistMap = new Map<number, number>();
+        if (statField && chordMode !== 'type') {
+          const allCards = [
+            ...(state.deck?.maindeck ?? []),
+            ...(state.deck?.equipment ?? []),
+            ...(state.deck?.inventory ?? []),
+          ];
+          for (const card of allCards) {
+            const val = (card.printingDetails as Record<string, unknown>)?.[statField];
+            if (val != null && typeof val === 'number') {
+              deckDistMap.set(val, (deckDistMap.get(val) ?? 0) + (card.quantity ?? 1));
+            }
+          }
+        }
+        const maxDistCount = deckDistMap.size > 0 ? Math.max(...Array.from(deckDistMap.values())) : 0;
+        const activeVals = activeHighlights.get(statField ?? '') ?? new Set<number | string>();
         const TYPE_KEYS: Record<string, string> = { A: 'attack', N: 'non-attack', I: 'item', T: 'instant', D: 'defense-reaction', R: 'attack-reaction', E: 'equipment', W: 'weapon', G: 'generic', B: 'block', M: 'item', Z: 'ally', S: 'base', U: 'aura', V: 'evo', C: heroClass };
-        const hudBtn = "flex items-center gap-1.5 cursor-pointer rounded px-1 -mx-1 hover:bg-gray-700/60 transition-colors";
+        const hudBtn = "flex items-center gap-2 cursor-pointer rounded px-1.5 py-0.5 -mx-1.5 hover:bg-gray-700/60 transition-colors";
         const isOverlayMode = chordMode === 'type' || chordMode === 'attack' || chordMode === 'cost' || chordMode === 'defense' || chordMode === 'arcane';
         const exitChord = () => {
           setChordExiting(true);
@@ -861,55 +926,145 @@ export default function DeckEditorPage() {
             {isOverlayMode && !keywordBuffer.startsWith('-') && (
               <div
                 className="fixed left-1/2 -translate-x-1/2 z-50"
-                style={{ bottom: '76px', width: chordMode === 'type' ? 'min(600px, 94vw)' : 'min(400px, 94vw)' }}
+                style={{ bottom: '76px', width: chordMode === 'type' ? 'min(620px, 94vw)' : 'min(480px, 94vw)' }}
               >
-                <div className="bg-gray-900/97 border border-gray-700 rounded-2xl shadow-2xl backdrop-blur-sm overflow-hidden">
-                  {/* Sub-mode header: back button + context label + hint */}
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700/60">
+                <div className="bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
+
+                  {/* Header — issue 2: contrast; issue 5: semantic instruction */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
+                    {/* issue 2+3: visible Back with focus ring */}
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors"
+                      className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors rounded px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900"
                       onClick={() => setChordMode('select')}
+                      aria-label="Back to Deck Tools menu"
                     >
-                      <span>←</span>
-                      <span>Back</span>
+                      ← Back
                     </button>
-                    <span className="text-xs font-medium text-gray-300">
+                    <span className="text-sm font-semibold text-white">
                       {{ attack: 'Attack Power', cost: 'Card Cost', defense: 'Defense Value', type: 'Card Type', arcane: 'Arcane Damage' }[chordMode]}
                     </span>
-                    <span className="text-[10px] text-gray-600">click · or press key</span>
+                    {/* issue 2+5: readable hint with actual semantic meaning */}
+                    <span className="text-xs text-gray-400 text-right max-w-[140px] leading-tight">
+                      {chordMode === 'type' ? 'Click a type or press its key' : 'Click a value to highlight matching cards'}
+                    </span>
                   </div>
-                  {/* Chip grid */}
+
+                  {/* Chip grid — issue 1: no duplicate label; issue 8: tighter spacing */}
                   <div
-                    className="grid gap-1.5 p-3"
+                    className="grid gap-1 p-3"
                     style={{ gridTemplateColumns: chordMode === 'type' ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)' }}
                   >
-                    {overlayChips.map((chip, i) => (
-                      <button
-                        key={chip.key}
-                        type="button"
-                        className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg bg-gray-800 border border-gray-700/80 hover:bg-gray-700 hover:border-gray-500 cursor-pointer transition-colors`}
-                        style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms` }}
-                        onClick={() => {
-                          if (chordMode === 'type') {
-                            const val = TYPE_KEYS[chip.key];
-                            if (val) {
-                              window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'type', value: val } }));
+                    {overlayChips.map((chip, i) => {
+                      const isNumeric = chordMode !== 'type';
+                      const chipNum = isNumeric ? parseInt(chip.key) : NaN;
+                      const chipCount = isNumeric && !isNaN(chipNum) ? (deckDistMap.get(chipNum) ?? 0) : 0;
+                      const isZero = isNumeric && maxDistCount > 0 && chipCount === 0;
+                      const isActive = isNumeric && activeVals.has(chipNum);
+                      const lo = Math.min(hudRangeMin, hudRangeMax);
+                      const hi = Math.max(hudRangeMin, hudRangeMax);
+                      const inRange = isNumeric && !isNaN(chipNum) && chipNum >= lo && chipNum <= hi;
+                      return (
+                        <button
+                          key={chip.key}
+                          type="button"
+                          aria-label={chordMode === 'type' ? chip.label : `Highlight ${STAT_MAP[chordMode!] ?? chordMode} ${chip.key}`}
+                          className={`${chordExiting ? 'chord-chip-exit' : 'chord-chip-enter'} ${
+                            chordMode === 'type'
+                              ? 'flex flex-col items-center gap-1.5 px-2 py-3 rounded-lg bg-gray-800 border border-gray-700/80 hover:bg-gray-700 hover:border-gray-500'
+                              : `flex flex-col items-center justify-center gap-0.5 px-2 py-3 rounded-lg border ${
+                                  isActive
+                                    ? 'bg-amber-900/40 border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.35)]'
+                                    : inRange
+                                    ? 'bg-amber-900/20 border-amber-700/50 hover:bg-amber-900/30 hover:border-amber-600/60'
+                                    : isZero
+                                    ? 'bg-gray-800/40 border-gray-700/30 opacity-40'
+                                    : 'bg-gray-800 border-gray-700/80 hover:bg-gray-700 hover:border-gray-500'
+                                }`
+                          } cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900`}
+                          style={{ animationDelay: chordExiting ? '0ms' : `${i * 22}ms` }}
+                          onClick={() => {
+                            if (chordMode === 'type') {
+                              const val = TYPE_KEYS[chip.key];
+                              if (val) {
+                                window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'type', value: val } }));
+                                scrollRed();
+                              }
+                            } else {
+                              const n = parseInt(chip.key);
+                              window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: STAT_MAP[chordMode!], value: n } }));
                               scrollRed();
                             }
-                          } else {
-                            const n = parseInt(chip.key);
-                            window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: STAT_MAP[chordMode!], value: n } }));
-                            scrollRed();
-                          }
-                          exitChord();
-                        }}
-                      >
-                        <kbd className="px-1.5 py-0.5 rounded bg-gray-900 text-gray-300 font-mono text-xs border border-gray-600 min-w-[22px] text-center flex-shrink-0">{chip.key}</kbd>
-                        <span className="text-[10px] text-gray-400 truncate text-center leading-tight">{chip.label}</span>
-                      </button>
-                    ))}
+                            exitChord();
+                          }}
+                        >
+                          {chordMode === 'type' ? (
+                            <>
+                              <kbd className="px-1.5 py-0.5 rounded bg-gray-900 text-gray-200 font-mono text-xs border border-gray-600 min-w-[22px] text-center flex-shrink-0">{chip.key}</kbd>
+                              <span className="text-xs text-gray-300 truncate text-center leading-tight">{chip.label}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className={`text-2xl font-mono font-medium leading-none select-none ${isZero ? 'text-gray-500' : isActive ? 'text-amber-300' : inRange ? 'text-amber-100' : 'text-gray-100'}`}>{chip.key}</span>
+                              {maxDistCount > 0 && (
+                                <span className={`text-[10px] leading-none tabular-nums mt-0.5 ${isZero ? 'text-gray-600' : isActive ? 'text-amber-400' : 'text-gray-400'}`}>{chipCount}×</span>
+                              )}
+                              {maxDistCount > 0 && (
+                                <div className="w-full h-0.5 rounded-full bg-gray-700/50 mt-1 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${isActive ? 'bg-amber-400' : inRange ? 'bg-amber-600/80' : 'bg-blue-500/70'}`}
+                                    style={{ width: `${(chipCount / maxDistCount) * 100}%` }}
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {/* Range picker — issue 4: proportional button; issue 7: consistent visual language */}
+                  {chordMode !== 'type' && (() => {
+                    const lo = Math.min(hudRangeMin, hudRangeMax);
+                    const hi = Math.max(hudRangeMin, hudRangeMax);
+                    let rangeCardCount = 0;
+                    for (let v = lo; v <= hi; v++) rangeCardCount += deckDistMap.get(v) ?? 0;
+                    return (
+                      <div className="border-t border-gray-700 bg-gray-800/40 px-4 py-3 flex items-center gap-3 flex-wrap">
+                        <span className="text-sm text-gray-300 flex-shrink-0">Highlight range:</span>
+                        <select
+                          value={hudRangeMin}
+                          onChange={e => setHudRangeMin(Number(e.target.value))}
+                          className="bg-gray-800 text-gray-100 text-sm rounded-lg border border-gray-600 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+                        >
+                          {overlayChips.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                        </select>
+                        <span className="text-sm text-gray-400 flex-shrink-0">to</span>
+                        <select
+                          value={hudRangeMax}
+                          onChange={e => setHudRangeMax(Number(e.target.value))}
+                          className="bg-gray-800 text-gray-100 text-sm rounded-lg border border-gray-600 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+                        >
+                          {overlayChips.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 bg-amber-700 hover:bg-amber-600 text-amber-50 text-sm font-medium rounded-lg transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                          onClick={() => {
+                            const stat = STAT_MAP[chordMode!];
+                            for (let v = lo; v <= hi; v++) {
+                              window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat, value: v, additive: true } }));
+                            }
+                            scrollRed();
+                            exitChord();
+                          }}
+                        >
+                          Apply range{rangeCardCount > 0 ? ` (${rangeCardCount} cards)` : ''}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -921,18 +1076,18 @@ export default function DeckEditorPage() {
             >
               {chordMode === 'select' ? (
                 /* ── Grouped select mode panel ── */
-                <div className="px-5 py-4">
+                <div className="px-6 py-5">
                   {/* Panel header */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">{modKey}K · Deck Tools</span>
-                    <span className="text-[10px] text-gray-600">press a key or click an action</span>
-                    <button type="button" className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors" onClick={() => setChordMode(null)}>✕ Esc</button>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{modKey}K · Deck Tools</span>
+                    <span className="text-xs text-gray-500">press a key or click an action</span>
+                    <button type="button" className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2 py-0.5 rounded hover:bg-gray-700" onClick={() => setChordMode(null)}>✕ Esc</button>
                   </div>
                   {/* Four-column group layout */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-0 divide-x divide-gray-700/40">
                     {/* Navigate */}
                     <div className="pr-4">
-                      <div className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-2">Navigate to</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Navigate to</div>
                       {[
                         { key: '0', label: 'Scroll to top' },
                         { key: '1', label: 'Red (1) section', color: 'text-red-400' },
@@ -940,15 +1095,15 @@ export default function DeckEditorPage() {
                         { key: '3', label: 'Blue (3) section', color: 'text-blue-400' },
                         { key: '4', label: 'Inventory section' },
                       ].map(({ key, label, color }) => (
-                        <button key={key} type="button" className={`${hudBtn} w-full mb-0.5`} onClick={() => SELECT_ACTIONS[key]?.()}>
-                          <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center flex-shrink-0">{key}</kbd>
-                          <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
+                        <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
+                          <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                          <span className={`text-sm ${color || 'text-gray-300'}`}>{label}</span>
                         </button>
                       ))}
                     </div>
                     {/* Highlight */}
                     <div className="px-4">
-                      <div className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-2">Highlight cards by</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Highlight cards by</div>
                       {[
                         { key: 'A', label: 'Attack power', sub: true },
                         { key: 'C', label: 'Card cost', sub: true },
@@ -959,41 +1114,58 @@ export default function DeckEditorPage() {
                         { key: 'S', label: 'Name search' },
                         { key: 'F', label: 'Clear all filters' },
                       ].map(({ key, label, sub }) => (
-                        <button key={key} type="button" className={`${hudBtn} w-full mb-0.5`} onClick={() => SELECT_ACTIONS[key]?.()}>
-                          <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center flex-shrink-0">{key}</kbd>
-                          <span className="text-xs text-gray-400 flex-1">{label}</span>
-                          {sub && <span className="text-[9px] text-gray-600">▸</span>}
+                        <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
+                          <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                          <span className="text-sm text-gray-300 flex-1">{label}</span>
+                          {sub && <span className="text-xs text-gray-500">▸</span>}
                         </button>
                       ))}
                     </div>
                     {/* Add Cards */}
                     <div className="px-4">
-                      <div className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-2">Add cards to</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Add cards to</div>
                       {[
                         { key: '9', label: 'Maindeck' },
                         { key: '8', label: 'Inventory' },
                         { key: '7', label: 'Bench' },
                       ].map(({ key, label }) => (
-                        <button key={key} type="button" className={`${hudBtn} w-full mb-0.5`} onClick={() => SELECT_ACTIONS[key]?.()}>
-                          <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center flex-shrink-0">{key}</kbd>
-                          <span className="text-xs text-gray-400">+ {label}</span>
+                        <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
+                          <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                          <span className="text-sm text-gray-300">+ {label}</span>
                         </button>
                       ))}
                     </div>
                     {/* View */}
                     <div className="pl-4">
-                      <div className="text-[9px] font-semibold uppercase tracking-widest text-gray-600 mb-2">Switch view</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Switch view</div>
                       {[
                         { key: 'M', label: 'Matchups tab' },
                         ...(activeTab !== 'deck' ? [{ key: 'D', label: 'Deck tab' }] : []),
                         { key: 'O', label: 'Owned cards only', color: 'text-green-400' },
                         { key: 'U', label: 'Unowned cards', color: 'text-red-400' },
                       ].map(({ key, label, color }) => (
-                        <button key={key} type="button" className={`${hudBtn} w-full mb-0.5`} onClick={() => SELECT_ACTIONS[key]?.()}>
-                          <kbd className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 font-mono text-xs border border-gray-600 min-w-[20px] text-center flex-shrink-0">{key}</kbd>
-                          <span className={`text-xs ${color || 'text-gray-400'}`}>{label}</span>
+                        <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
+                          <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                          <span className={`text-sm ${color || 'text-gray-300'}`}>{label}</span>
                         </button>
                       ))}
+                      {/* Tile size stepper */}
+                      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-gray-700/30">
+                        <span className="text-xs text-gray-500 flex-1">Tile size</span>
+                        <button
+                          type="button"
+                          disabled={tileSize.idx === 0}
+                          onClick={() => window.dispatchEvent(new CustomEvent('deck-tile-size', { detail: { direction: 'smaller' } }))}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+                        >−</button>
+                        <span className="text-sm text-gray-200 min-w-[52px] text-center">{tileSize.label}</span>
+                        <button
+                          type="button"
+                          disabled={tileSize.idx === tileSize.total - 1}
+                          onClick={() => window.dispatchEvent(new CustomEvent('deck-tile-size', { detail: { direction: 'larger' } }))}
+                          className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+                        >+</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1003,7 +1175,7 @@ export default function DeckEditorPage() {
                   {/* Breadcrumb back button */}
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors flex-shrink-0"
+                    className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors flex-shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     onClick={() => setChordMode('select')}
                   >
                     <span>←</span>
@@ -1016,8 +1188,8 @@ export default function DeckEditorPage() {
                   <div className="w-px h-5 bg-gray-700 flex-shrink-0" />
 
                   {isOverlayMode && !keywordBuffer.startsWith('-') && (
-                    <span className="text-xs text-gray-500 italic">
-                      {{ attack: 'Attack power', cost: 'Card cost', defense: 'Defense', type: 'Card type', arcane: 'Arcane damage' }[chordMode]} →
+                    <span className="text-xs text-gray-400">
+                      {{ attack: 'Attack Power', cost: 'Card Cost', defense: 'Defense', type: 'Card Type', arcane: 'Arcane Damage' }[chordMode]}
                     </span>
                   )}
                   {isOverlayMode && keywordBuffer.startsWith('-') && (

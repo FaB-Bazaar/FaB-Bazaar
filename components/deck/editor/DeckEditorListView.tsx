@@ -652,7 +652,7 @@ function DeckTileSection({
           return (
             <div key={tile.key} className="flex flex-col items-center" data-focus-id={tile.printingId} style={{ width: tileWidth }}>
             <div
-              title={thisTileDraggable ? `${tile.name} — drag to move, click to swap printing` : (onSwap ? `${tile.name} — click to swap printing` : tile.name)}
+              title={thisTileDraggable ? `${tile.name} — drag to move, click to enlarge` : `${tile.name} — click to enlarge`}
               draggable={thisTileDraggable}
               onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name)}
               onMouseLeave={onLeave}
@@ -669,6 +669,8 @@ function DeckTileSection({
                 } else if ((e.metaKey || e.ctrlKey) && onMoveTo && tile.category !== 'hero') {
                   e.preventDefault();
                   setContextMenu({ tile, x: e.clientX, y: e.clientY });
+                } else if (onEnlargeImage && tile.imageUrl) {
+                  onEnlargeImage(tile.imageUrl, tile.name, tile.otherFaceImageUrl);
                 } else {
                   onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category });
                 }
@@ -775,26 +777,26 @@ function DeckTileSection({
                 </button>
               )}
 
-              {/* Magnify button — shown on hover when tile has an image */}
-              {!isTouchDevice && !isDragActive && onEnlargeImage && tile.imageUrl && (
+              {/* Swap printing button — bottom-right corner, shown on hover */}
+              {!isTouchDevice && !isDragActive && onSwap && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute bottom-0.5 right-0.5 w-10 h-10 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-gray-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
-                  title={tile.otherFaceImageUrl ? "Enlarge — shows both faces" : "Enlarge image"}
-                  onClick={e => { e.stopPropagation(); onEnlargeImage(tile.imageUrl!, tile.name, tile.otherFaceImageUrl); }}
+                  className="absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-purple-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  title="Swap printing"
+                  onClick={e => { e.stopPropagation(); onSwap({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category }); }}
                 >
-                  <ZoomIn className="h-5 w-5" />
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
                 </button>
               )}
 
-              {/* Hover overlay: drag hint when draggable, swap hint otherwise */}
+              {/* Hover overlay: drag hint when draggable, zoom hint otherwise */}
               {!isTouchDevice && !isDragActive && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded transition-opacity pointer-events-none">
                   {thisTileDraggable ? (
                     <svg className="h-4 w-4 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                       <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
                     </svg>
-                  ) : onSwap ? (
-                    <ArrowLeftRight className="h-3.5 w-3.5 text-white" />
+                  ) : tile.imageUrl ? (
+                    <ZoomIn className="h-4 w-4 text-white drop-shadow" />
                   ) : null}
                 </div>
               )}
@@ -1241,6 +1243,29 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [viewMode]);
+
+  // Respond to HUD deck-tile-size events (from page.tsx HUD buttons)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { direction } = (e as CustomEvent<{ direction: string }>).detail;
+      setTileSizeKey(k => {
+        const i = TILE_SIZES.findIndex(s => s.key === k);
+        if (direction === 'smaller' && i > 0) return TILE_SIZES[i - 1].key;
+        if (direction === 'larger' && i < TILE_SIZES.length - 1) return TILE_SIZES[i + 1].key;
+        return k;
+      });
+    };
+    window.addEventListener('deck-tile-size', handler);
+    return () => window.removeEventListener('deck-tile-size', handler);
+  }, []);
+
+  // Broadcast current tile size so the HUD can display it
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('deck-tile-size-update', {
+      detail: { idx: tileSizeIdx, label: TILE_SIZES[tileSizeIdx].label, total: TILE_SIZES.length },
+    }));
+  }, [tileSizeIdx]);
+
   const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
