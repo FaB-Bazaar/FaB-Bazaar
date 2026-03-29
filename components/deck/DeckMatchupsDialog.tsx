@@ -837,7 +837,66 @@ export default function DeckMatchupsDialog({
 
   // Render inline or as dialog
   if (inline) {
-    const galleryCards = gallery?.section === 'deck' ? deckGalleryCards : inventoryGalleryCards;
+    const galleryCards = (() => {
+      if (gallery?.section === 'deck') {
+        // Apply this matchup's sideboard changes to the deck view:
+        // sideboard.out → those cards leave the deck (moving to inventory)
+        // sideboard.in  → those cards enter the deck (coming from inventory)
+        const matchup = matchups.find(m => m.heroId === gallery?.heroId);
+        if (!matchup?.sideboard?.in?.length && !matchup?.sideboard?.out?.length) {
+          return deckGalleryCards;
+        }
+        const countMap = new Map<string, { count: number; displayName: string; printingId: string }>();
+        for (const c of deckGalleryCards) {
+          countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId });
+        }
+        for (const id of matchup?.sideboard?.out ?? []) {
+          const entry = countMap.get(id);
+          if (entry) {
+            entry.count -= 1;
+            if (entry.count <= 0) countMap.delete(id);
+          }
+        }
+        for (const id of matchup?.sideboard?.in ?? []) {
+          const existing = countMap.get(id);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            const invCard = inventoryGalleryCards.find(c => c.talisharId === id);
+            countMap.set(id, { count: 1, displayName: invCard?.displayName ?? id, printingId: invCard?.printingId ?? id });
+          }
+        }
+        return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId }));
+      }
+      // Apply this matchup's sideboard changes to the inventory view:
+      // sideboard.in  → those cards leave inventory (moving into the deck)
+      // sideboard.out → those cards enter inventory (coming out of the deck)
+      const matchup = matchups.find(m => m.heroId === gallery?.heroId);
+      if (!matchup?.sideboard?.in?.length && !matchup?.sideboard?.out?.length) {
+        return inventoryGalleryCards;
+      }
+      const countMap = new Map<string, { count: number; displayName: string; printingId: string }>();
+      for (const c of inventoryGalleryCards) {
+        countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId });
+      }
+      for (const id of matchup?.sideboard?.in ?? []) {
+        const entry = countMap.get(id);
+        if (entry) {
+          entry.count -= 1;
+          if (entry.count <= 0) countMap.delete(id);
+        }
+      }
+      for (const id of matchup?.sideboard?.out ?? []) {
+        const existing = countMap.get(id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          const deckCard = deckGalleryCards.find(c => c.talisharId === id);
+          countMap.set(id, { count: 1, displayName: deckCard?.displayName ?? id, printingId: deckCard?.printingId ?? id });
+        }
+      }
+      return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId }));
+    })();
     const galleryHeroName = gallery ? getHeroDisplayName(gallery.heroId) : '';
     const galleryTotal = galleryCards.reduce((s, c) => s + c.count, 0);
     const galleryLabel = gallery?.section === 'deck'

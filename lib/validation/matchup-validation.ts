@@ -204,4 +204,65 @@ function buildTalisharIdentifier(printing: any, fallbackId: string): string {
   return baseIdentifier;
 }
 
+/**
+ * Sanitizes all matchups in a deck, stripping stale sideboard entries.
+ * Returns { matchups, changed } — `changed` is true if any matchup was modified.
+ */
+export function sanitizeAllMatchups(
+  matchups: DeckMatchup[],
+  deck: any
+): { matchups: DeckMatchup[]; changed: boolean } {
+  let changed = false;
+  const sanitized = matchups.map(m => {
+    const s = sanitizeMatchup(m, deck);
+    if (
+      s.sideboard.in.length !== m.sideboard.in.length ||
+      s.sideboard.out.length !== m.sideboard.out.length
+    ) {
+      changed = true;
+    }
+    return s;
+  });
+  return { matchups: sanitized, changed };
+}
+
+/**
+ * Strips stale sideboard entries that reference cards no longer in the correct zone.
+ * - `in` entries for cards not in inventory are removed
+ * - `out` entries for cards not in maindeck are removed
+ *
+ * Use this before validateMatchup when deck composition may have changed since
+ * the matchup was last saved (e.g. cards removed from inventory/maindeck).
+ */
+export function sanitizeMatchup(matchup: DeckMatchup, deck: any): DeckMatchup {
+  const context = buildValidationContext(deck);
+
+  const inCounts = new Map<string, number>();
+  const sanitizedIn: string[] = [];
+  for (const id of matchup.sideboard.in) {
+    const used = inCounts.get(id) || 0;
+    const available = context.sideboardCards.get(id) || 0;
+    if (used < available) {
+      sanitizedIn.push(id);
+      inCounts.set(id, used + 1);
+    }
+  }
+
+  const outCounts = new Map<string, number>();
+  const sanitizedOut: string[] = [];
+  for (const id of matchup.sideboard.out) {
+    const used = outCounts.get(id) || 0;
+    const available = context.mainDeckCards.get(id) || 0;
+    if (used < available) {
+      sanitizedOut.push(id);
+      outCounts.set(id, used + 1);
+    }
+  }
+
+  return {
+    ...matchup,
+    sideboard: { in: sanitizedIn, out: sanitizedOut },
+  };
+}
+
 export { VALID_HERO_IDS };

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { deckService } from '@/lib/services';
-import { validateMatchup } from '@/lib/validation/matchup-validation';
+import { validateMatchup, sanitizeMatchup } from '@/lib/validation/matchup-validation';
 import { DeckMatchup } from '@/types/deck';
 
 /**
@@ -89,8 +89,11 @@ export async function PUT(
       );
     }
 
+    // Strip stale sideboard entries (cards removed from deck/inventory since last save)
+    const sanitized = sanitizeMatchup(matchup, deck);
+
     // Validate matchup
-    const validation = validateMatchup(matchup, deck);
+    const validation = validateMatchup(sanitized, deck);
     if (!validation.valid) {
       return NextResponse.json(
         { success: false, error: validation.errors[0], errors: validation.errors },
@@ -113,7 +116,7 @@ export async function PUT(
       );
     }
 
-    matchups[existingIndex] = matchup;
+    matchups[existingIndex] = sanitized;
     metadata.matchups = matchups;
 
     // Update deck
@@ -132,7 +135,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      data: { matchup }
+      data: { matchup: sanitized }
     });
 
   } catch (error) {

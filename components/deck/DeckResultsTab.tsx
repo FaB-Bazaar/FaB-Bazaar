@@ -157,7 +157,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
 
     // Within each turn group: attacker's cards first, then defender reactions
     for (const [turnIdx, entries] of byTurn.entries()) {
-      const isYourTurn = turnIdx === playerTurnIdx;
+      const isYourTurn = turnIdx % 2 === playerTurnIdx;
       entries.sort((a, b) => {
         const aAttacks = isYourTurn ? !a.isOpponent : a.isOpponent;
         const bAttacks = isYourTurn ? !b.isOpponent : b.isOpponent;
@@ -184,7 +184,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
     <div>
       <button
         onClick={onToggle}
-        className="flex items-center gap-3 w-full py-2.5 px-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+        className="flex items-center gap-3 w-full py-2.5 px-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
       >
         <span className={cn(
           "shrink-0 w-7 text-center text-xs font-bold px-1.5 py-1 rounded-full",
@@ -201,7 +201,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
             </span>
             {game.conceded && <span className="text-xs text-gray-400">(conceded)</span>}
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-0.5">
             {game.format && <span>Format {game.format}</span>}
             {game.totalTurns != null && <span>{game.totalTurns} turns</span>}
             {game.firstPlayer != null && <span>{game.firstPlayer ? "went first" : "went second"}</span>}
@@ -223,7 +223,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
             const opponentLabel = game.opponentHero ? formatHeroName(game.opponentHero) : "Opp";
             return (
               <div>
-                <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5 uppercase">Turn Summary</p>
+                <p className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 mb-1.5 uppercase">Turn Summary</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -249,7 +249,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                         const tPlayerAttacks = tPlayerEs.some(e => e.action === "M");
                         const tPlayerBlocks = tPlayerEs.some(e => e.action === "B");
                         const tHasInstant = turnEntries.some(e => e.action === "INSTANT");
-                        const isPlayerTurn = tOppAttacks ? false : tPlayerAttacks ? true : tPlayerBlocks ? false : tHasInstant ? false : idx % 2 === playerTurnIdx;
+                        const isPlayerTurn = (tOppAttacks && tPlayerAttacks) ? (idx % 2 === playerTurnIdx) : tOppAttacks ? false : tPlayerAttacks ? true : tPlayerBlocks ? false : tHasInstant ? false : idx % 2 === playerTurnIdx;
                         const playedCards = turnEntries.filter(e => e.action === "M");
                         const pitchedCards = turnEntries.filter(e => e.action === "P");
                         const blockedCards = turnEntries.filter(e => e.action === "B");
@@ -260,15 +260,15 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                         };
                         return (
                           <tr key={key} className="text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800">
-                            <td className="py-1 px-2 text-gray-400 dark:text-gray-500 text-center font-medium whitespace-nowrap">
+                            <td className="py-1 px-2 text-gray-600 dark:text-gray-400 text-center font-medium whitespace-nowrap">
                               Turn {idx}
                             </td>
                             <td className="py-1 px-2">
                               <span className="flex items-center gap-1.5">
-                                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0", isPlayerTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400")}>
+                                <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded shrink-0", isPlayerTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400")}>
                                   {isPlayerTurn ? "YOU" : "OPP"}
                                 </span>
-                                <span className="text-[11px] text-gray-700 dark:text-gray-300">
+                                <span className="text-xs text-gray-700 dark:text-gray-300">
                                   {isPlayerTurn ? (playerHeroName ?? "—") : opponentLabel}
                                 </span>
                               </span>
@@ -293,7 +293,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
           {/* Turn-by-turn play log with card images */}
           {turnLogByTurn && turnLogByTurn.byTurn.size > 0 && (
             <div className="space-y-3">
-              <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Play by Play</p>
+              <p className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase">Play by Play</p>
               {Array.from(turnLogByTurn.byTurn.entries()).sort(([a], [b]) => a - b).map(([turnNum, entries]) => {
                 const tr = (game.turnResults as Record<string, TurnResult> | null)?.[`turn_${turnNum}`];
                 const playerEs = entries.filter(e => !e.isOpponent);
@@ -302,7 +302,8 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                 const playerAttacks = playerEs.some(e => e.action === "M");
                 const playerBlocks = playerEs.some(e => e.action === "B");
                 const hasInstant = entries.some(e => e.action === "INSTANT");
-                const isYourTurn = oppAttacks ? false
+                const isYourTurn = (oppAttacks && playerAttacks) ? (turnNum % 2 === turnLogByTurn.playerTurnIdx)
+                  : oppAttacks ? false
                   : playerAttacks ? true
                   : playerBlocks ? false
                   : hasInstant ? false
@@ -310,14 +311,14 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                 return (
                   <div key={turnNum}>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest shrink-0">
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest shrink-0">
                         Turn {turnNum}
                       </span>
-                      <span className={cn("text-[9px] font-medium px-1.5 py-0.5 rounded", isYourTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400")}>
+                      <span className={cn("text-xs font-medium px-1.5 py-0.5 rounded", isYourTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400")}>
                         {isYourTurn ? "your turn" : "opp turn"}
                       </span>
                       {tr && (
-                        <span className="flex items-center gap-2 text-[10px]">
+                        <span className="flex items-center gap-2 text-xs">
                           {(tr.damageThreatened ?? 0) > 0 && <span className="text-orange-500 dark:text-orange-400 font-medium">{tr.damageThreatened} threatened</span>}
                           {(tr.damageDealt ?? 0) > 0 && <span className="text-green-600 dark:text-green-400 font-medium">+{tr.damageDealt} dealt</span>}
                           {(tr.damageTaken ?? 0) > 0 && <span className="text-red-500 dark:text-red-400 font-medium">−{tr.damageTaken} taken</span>}
@@ -385,14 +386,14 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                           >
                             <div className={cn("relative w-full rounded overflow-hidden border-2", border)} style={{ aspectRatio: "63/53" }}>
                               <img src={imageUrl || "/cardback.webp"} alt={cardName} className="w-full block" loading="lazy" />
-                              {entry.action === "B" && <div className="absolute bottom-1 left-1 bg-blue-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">BLK</div>}
-                              {entry.action === "D" && <div className="absolute bottom-1 left-1 bg-purple-600/90 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">DR</div>}
+                              {entry.action === "B" && <div className="absolute bottom-1 left-1 bg-blue-600/90 text-white text-xs font-bold px-1 py-0.5 rounded leading-none">BLK</div>}
+                              {entry.action === "D" && <div className="absolute bottom-1 left-1 bg-purple-600/90 text-white text-xs font-bold px-1 py-0.5 rounded leading-none">DR</div>}
                               {entry.action === "P" && pitchValue != null && pitchValue > 0 && (
-                                <div className={cn("absolute bottom-1 left-1 text-[8px] font-bold px-1 py-0.5 rounded leading-none", PITCH_BADGE[pitchValue] ?? "bg-gray-500 text-white")}>Pitch</div>
+                                <div className={cn("absolute bottom-1 left-1 text-xs font-bold px-1 py-0.5 rounded leading-none", PITCH_BADGE[pitchValue] ?? "bg-gray-500 text-white")}>Pitch</div>
                               )}
-                              {entry.hit && <div className="absolute top-0.5 right-0.5 bg-green-500 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">HIT</div>}
+                              {entry.hit && <div className="absolute top-0.5 right-0.5 bg-green-500 text-white text-xs font-bold px-1 py-0.5 rounded leading-none">HIT</div>}
                             </div>
-                            <p className="text-[9px] text-gray-500 dark:text-gray-400 text-center leading-tight w-full truncate">{cardName}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center leading-tight w-full truncate">{cardName}</p>
                           </div>
                         );
                       };
@@ -404,10 +405,10 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                               {rows.map(({ isOpponent, label, cards }) => (
                                 <div key={String(isOpponent)}>
                                   <div className="flex items-center gap-1.5 mb-1">
-                                    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", isOpponent ? "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400" : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400")}>
+                                    <span className={cn("text-xs font-bold px-1.5 py-0.5 rounded", isOpponent ? "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400" : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400")}>
                                       {isOpponent ? "OPP" : "YOU"}
                                     </span>
-                                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{label}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
                                   </div>
                                   <div className="flex flex-wrap gap-1.5">
                                     {cards.map((entry, i) => renderCard(entry, i))}
@@ -427,13 +428,13 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
 
           {/* Per-game card sections: PLAYED / PITCHED / BLOCKED */}
           {gameSections.some(({ cards }) => cards.length > 0) && (
-            <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 uppercase">Card Summary</p>
+            <p className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase">Card Summary</p>
           )}
           {gameSections.map(({ label, cards, statKey }) => {
             if (cards.length === 0) return null;
             return (
               <div key={label}>
-                <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">{label}</p>
+                <p className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 mb-1.5">{label}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {cards.map(cr => {
                     const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
@@ -467,7 +468,7 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                       </div>
                     );
                     return printingId
-                      ? <a key={`${cr.cardId}-${cr.pitchValue}-${statKey}`} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer">{tile}</a>
+                      ? <a key={`${cr.cardId}-${cr.pitchValue}-${statKey}`} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer" className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">{tile}</a>
                       : <div key={`${cr.cardId}-${cr.pitchValue}-${statKey}`}>{tile}</div>;
                   })}
                 </div>
@@ -512,6 +513,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const [heroFilter, setHeroFilter] = useState<string>("all");
   const [hoveredCard, setHoveredCard] = useState<HoverCard | null>(null);
   const [opponentCardImages, setOpponentCardImages] = useState<Map<string, string>>(new Map());
+  const [fallbackCardImages, setFallbackCardImages] = useState<Map<string, string>>(new Map());
   const mouseXRef = useRef(0);
 
   useEffect(() => {
@@ -576,8 +578,19 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
+    // Pass 4: player turn log cards not in deck (tokens, generated cards, cards removed from deck)
+    for (const game of results) {
+      const log = game.turnLog as [number, string, string][] | null;
+      if (!log) continue;
+      for (const [, cardId] of log) {
+        if (map.has(cardId)) continue;
+        const imageUrl = fallbackCardImages.get(cardId);
+        if (imageUrl) map.set(cardId, imageUrl);
+      }
+    }
+
     return map;
-  }, [results, cardLookup, cardSlugLookup, opponentCardImages]);
+  }, [results, cardLookup, cardSlugLookup, opponentCardImages, fallbackCardImages]);
 
   // Unique heroes in order of first appearance
   const uniqueHeroes = useMemo(() => {
@@ -676,6 +689,38 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       .catch(() => {});
   }, [results]);
 
+  // Fetch images for player turn log cards not found in the deck
+  // (tokens, generated cards like Gold, cards since removed from the deck)
+  const missingPlayerCards = useMemo(() => {
+    const missing: Array<{ cardId: string; cardName: string }> = [];
+    const seen = new Set<string>();
+    for (const game of results) {
+      const log = game.turnLog as [number, string, string][] | null;
+      if (!log) continue;
+      for (const [, cardId, action] of log) {
+        if (action === 'HIT' || seen.has(cardId) || cardIdLookup.has(cardId)) continue;
+        seen.add(cardId);
+        const baseName = cardId.replace(/_equip$/, '').replace(/_(red|yellow|blue)$/, '');
+        missing.push({ cardId, cardName: getCardNameFromId(baseName) });
+      }
+    }
+    return missing;
+  }, [results, cardIdLookup]);
+
+  useEffect(() => {
+    if (missingPlayerCards.length === 0) return;
+    fetch('/api/printings/images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards: missingPlayerCards }),
+    })
+      .then(r => r.json())
+      .then((data: { images: Record<string, string> }) => {
+        if (data.images) setFallbackCardImages(prev => new Map([...prev, ...Object.entries(data.images)]));
+      })
+      .catch(() => {});
+  }, [missingPlayerCards]);
+
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
   if (error) return <p className="text-sm text-red-500 py-8 text-center">{error}</p>;
   if (results.length === 0) return (
@@ -727,7 +772,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
     );
 
     return printingId
-      ? <a key={`${cr.cardId}-${cr.pitchValue}-${sectionId}`} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer">{tile}</a>
+      ? <a key={`${cr.cardId}-${cr.pitchValue}-${sectionId}`} href={`/printing/${printingId}`} target="_blank" rel="noopener noreferrer" className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">{tile}</a>
       : <div key={`${cr.cardId}-${cr.pitchValue}-${sectionId}`}>{tile}</div>;
   };
 
@@ -741,13 +786,13 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
             <button
               onClick={() => setHeroFilter("all")}
               className={cn(
-                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                 heroFilter === "all"
                   ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               )}
             >
-              All ({results.length})
+              {heroFilter === "all" ? "✓ " : ""}All ({results.length})
             </button>
             {uniqueHeroes.map(hero => {
               const heroGames = results.filter(r => r.opponentHero === hero);
@@ -757,13 +802,13 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                   key={hero}
                   onClick={() => setHeroFilter(hero)}
                   className={cn(
-                    "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                    "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                     heroFilter === hero
                       ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                   )}
                 >
-                  {formatHeroName(hero)} ({heroWins}W–{heroGames.length - heroWins}L)
+                  {heroFilter === hero ? "✓ " : ""}{formatHeroName(hero)} ({heroWins}W–{heroGames.length - heroWins}L)
                 </button>
               );
             })}
@@ -791,7 +836,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
           <div className="rounded-lg border border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setShowCardStats(v => !v)}
-              className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               {showCardStats ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
               Card Performance
@@ -813,9 +858,9 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                     const collapsed = collapsedSections.has(id);
                     return (
                       <div key={id}>
-                        <button onClick={() => toggleSection(id)} className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                        <button onClick={() => toggleSection(id)} className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                           <span className="text-xs font-bold tracking-widest text-gray-600 dark:text-gray-300 flex-1">{title}</span>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">({cards.length})</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">({cards.length})</span>
                           {collapsed ? <ChevronRight className="h-3.5 w-3.5 text-gray-400" /> : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
                         </button>
                         {!collapsed && (
@@ -828,14 +873,14 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                   })}
                   {neverUsed.length > 0 && (
                     <div>
-                      <button onClick={() => toggleSection("never-used")} className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                        <span className="text-xs font-bold tracking-widest text-gray-400 dark:text-gray-500 flex-1">NEVER USED</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">({neverUsed.length})</span>
+                      <button onClick={() => toggleSection("never-used")} className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                        <span className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 flex-1">NEVER USED</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">({neverUsed.length})</span>
                         {collapsedSections.has("never-used") ? <ChevronRight className="h-3.5 w-3.5 text-gray-400" /> : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
                       </button>
                       {!collapsedSections.has("never-used") && (
                         <div className="px-3 pb-3 pt-1">
-                          <div className="flex flex-wrap gap-2 opacity-40">{neverUsed.map(cr => renderAggTile(cr, "played", "never-used"))}</div>
+                          <div className="flex flex-wrap gap-2">{neverUsed.map(cr => renderAggTile(cr, "played", "never-used"))}</div>
                         </div>
                       )}
                     </div>
@@ -870,7 +915,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2 rounded border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50"
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2 rounded border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               {loadingMore ? "Loading..." : `Load more (${total - results.length} remaining)`}
             </button>
@@ -911,7 +956,7 @@ function Stat({ label, value, color }: { label: string; value: string | number; 
   return (
     <div className="text-center">
       <div className={cn("text-2xl font-bold text-gray-900 dark:text-white", color)}>{value}</div>
-      <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      <div className="text-xs text-gray-600 dark:text-gray-400">{label}</div>
     </div>
   );
 }
