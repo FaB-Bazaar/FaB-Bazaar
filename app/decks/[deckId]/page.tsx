@@ -830,7 +830,7 @@ export default function DeckEditorPage() {
     <div className="bg-white dark:bg-gray-900 min-h-screen">
       {/* Dormant HUD trigger — hidden on matchups tab (MatchupSideboardHUD takes over) */}
       {!chordMode && activeTab !== "matchups" && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
           <button
             type="button"
             onClick={() => setChordMode('select')}
@@ -1130,7 +1130,7 @@ export default function DeckEditorPage() {
 
             {/* Main HUD bar */}
             <div
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-sm transition-all duration-200"
+              className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-sm transition-all duration-200"
               style={{ width: chordMode === 'select' ? 'min(880px, 96vw)' : undefined }}
             >
               {chordMode === 'select' ? (
@@ -1140,7 +1140,10 @@ export default function DeckEditorPage() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{modKey}K · Deck Tools</span>
                     <span className="text-xs text-gray-500">press a key or click an action</span>
-                    <button type="button" className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2 py-0.5 rounded hover:bg-gray-700" onClick={() => setChordMode(null)}>✕ Esc</button>
+                    <button type="button" className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2 py-0.5 rounded hover:bg-gray-700" onClick={() => setChordMode(null)}>
+                      <span className="hidden sm:inline">✕ Esc</span>
+                      <span className="sm:hidden">✕ Close</span>
+                    </button>
                   </div>
                   {/* Four-column group layout */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-0 divide-x divide-gray-700/40">

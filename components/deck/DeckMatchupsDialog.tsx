@@ -395,15 +395,16 @@ export default function DeckMatchupsDialog({
     const groups = new Map<string, GalleryCard>();
     for (const p of printings || []) {
       const id = buildTalisharIdentifier(p);
+      const qty = p.quantity ?? 1;
       if (!groups.has(id)) {
         groups.set(id, {
           talisharId: id,
-          count: 1,
+          count: qty,
           displayName: p.printingDetails?.display_name || p.printingDetails?.name || id,
           printingId: p.printingId,
         });
       } else {
-        groups.get(id)!.count++;
+        groups.get(id)!.count += qty;
       }
     }
     return Array.from(groups.values());
@@ -846,7 +847,6 @@ export default function DeckMatchupsDialog({
     const isInventory = gallery?.section === 'inventory';
     const galleryLabelSize = isInventory ? 'text-xl' : 'text-sm';
     const gallerySubSize = isInventory ? 'text-sm' : 'text-xs';
-    const galleryCardHeight = isInventory ? 'h-80' : 'h-52';
 
     return (
       <>
@@ -884,27 +884,32 @@ export default function DeckMatchupsDialog({
             </div>
 
             {/* Card grid — vertically scrollable, centered */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4">
               {galleryCards.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-500 italic font-sans">No cards in this section</p>
                 </div>
               ) : (
                 <div className={isInventory
-                  ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-5 justify-items-center"
-                  : "flex flex-wrap justify-center gap-4 content-start"
+                  ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"
+                  : "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2"
                 }>
                   {galleryCards.map((card) => (
-                    <div key={card.talisharId} className="flex flex-col items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
-                        alt={card.displayName}
-                        className={`${galleryCardHeight} w-auto rounded-lg shadow-2xl`}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
-                      />
-                      <span className="text-sm text-gray-200 font-sans text-center max-w-[140px]">
-                        <span className="font-bold">{card.count}×</span> {card.displayName}
+                    <div key={card.talisharId} className="flex flex-col gap-1.5">
+                      <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                          alt={card.displayName}
+                          className="w-full h-full object-cover object-top"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+                        />
+                      </div>
+                      <span className={`${isInventory ? 'text-xs' : 'text-[10px]'} text-gray-300 font-sans text-center leading-tight truncate`}>
+                        {(!isInventory || card.count > 1) && (
+                          <span className="text-gray-400 font-bold">{card.count}× </span>
+                        )}
+                        {card.displayName}
                       </span>
                     </div>
                   ))}
