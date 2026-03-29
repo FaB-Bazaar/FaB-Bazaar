@@ -1664,6 +1664,52 @@ export default function DeckEditorPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                   </div>
                 ) : state.deck ? (
+                  <>
+                  {/* Deck stats bar — total cards + pitch color breakdown */}
+                  {(() => {
+                    const d = optimisticDeck ?? state.deck;
+                    const all = [...(d?.maindeck ?? []), ...(d?.inventory ?? []), ...(d?.equipment ?? [])];
+                    const red    = all.filter(c => c.printingDetails?.pitch === 1).reduce((s, c) => s + (c.quantity || 1), 0);
+                    const yellow = all.filter(c => c.printingDetails?.pitch === 2).reduce((s, c) => s + (c.quantity || 1), 0);
+                    const blue   = all.filter(c => c.printingDetails?.pitch === 3).reduce((s, c) => s + (c.quantity || 1), 0);
+                    const none   = all.filter(c => !c.printingDetails?.pitch).reduce((s, c) => s + (c.quantity || 1), 0);
+                    const total = red + yellow + blue + none;
+                    if (total === 0) return null;
+                    return (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2.5 mb-3 rounded-lg bg-gray-100 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/60">
+                        <span className="text-base font-bold text-gray-900 dark:text-gray-100">{total} <span className="text-sm font-normal text-gray-600 dark:text-gray-400">cards</span></span>
+                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block" />
+                        {red > 0 && (
+                          <span className="flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-400">
+                            <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" aria-hidden="true" />
+                            {red}
+                            <span className="font-normal text-red-500 dark:text-red-400/70">red</span>
+                          </span>
+                        )}
+                        {yellow > 0 && (
+                          <span className="flex items-center gap-1.5 text-sm font-semibold text-yellow-700 dark:text-yellow-400">
+                            <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 flex-shrink-0" aria-hidden="true" />
+                            {yellow}
+                            <span className="font-normal text-yellow-600 dark:text-yellow-400/70">yellow</span>
+                          </span>
+                        )}
+                        {blue > 0 && (
+                          <span className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400">
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0" aria-hidden="true" />
+                            {blue}
+                            <span className="font-normal text-blue-500 dark:text-blue-400/70">blue</span>
+                          </span>
+                        )}
+                        {none > 0 && (
+                          <span className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+                            <span className="w-2.5 h-2.5 rounded-full bg-gray-400 dark:bg-gray-500 flex-shrink-0" aria-hidden="true" />
+                            {none}
+                            <span className="text-gray-500 dark:text-gray-500">no pitch</span>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <DeckEditorListView
                     deck={state.deck}
                     ownershipMap={state.ownershipMap}
@@ -1686,6 +1732,7 @@ export default function DeckEditorPage() {
                     onAddToWants={handleAddToWants}
                     onUpgradePrintings={handleUpgradePrintings}
                   />
+                  </>
                 ) : null}
               </>
             )}

@@ -13,9 +13,11 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 
 ## Common Mistakes
 
-- **`opacity-40` on entire chips** — kills contrast to ~1.5:1. Use per-element color classes instead (e.g. `text-gray-300` + dashed border).
+- **`opacity-40` (or `opacity-70`) on entire chips/containers** — kills contrast to ~1.5:1. Use per-element color classes instead (e.g. `text-gray-300` + dashed border).
 - **`font-mono` for key badges** — I/l/1 look identical. Use `font-sans font-bold` for keyboard key labels.
 - **`text-gray-500` for counts/badges** — ~3.9:1, fails WCAG AA for small text. Use `text-gray-300`.
+- **`text-yellow-400/500` in light mode** — ~1.9:1/2.9:1 contrast, fails AA. Use `text-yellow-700 dark:text-yellow-400`.
+- **`text-[8px]` for tile labels** — below any readable threshold. Minimum `text-xs` even for secondary labels (binder names, prices).
 
 ## Font Sizes
 
