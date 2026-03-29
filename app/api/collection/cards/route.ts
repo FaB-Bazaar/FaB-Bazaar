@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from "@/auth";
+import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { binderService } from '@/lib/services';
 
 export async function GET(req: NextRequest) {
   try {
     // 1. Authenticate the request
-    const session = await auth();
-    if (!session?.user?.id) {
+    const authResult = await authenticateRequest(req, {});
+    if (!authResult.success) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Use service layer to search for cards
-    const result = await binderService.searchUserCards(session.user.id, query, 50);
+    const result = await binderService.searchUserCards(authResult.userId, query, 50);
 
     if (!result.success) {
       return NextResponse.json({

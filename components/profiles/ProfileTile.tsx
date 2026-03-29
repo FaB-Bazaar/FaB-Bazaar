@@ -139,8 +139,7 @@ export function ProfileTile({ binder }: ProfileTileProps) {
     // Use new stats fields first, fallback to old ones - ensure we always get numbers
     const totalQuantity = Number(binder.totalQuantity) || Number(binder.cardCount) || Number(binder.totalCards) || 0;
     const totalValue = Number(binder.totalValue?.tcg_low) || Number(binder.total_value) || 0;
-    const marketValue = Number(binder.totalValue?.tcg_market) || 0;
-    
+
     // For trade breakdown - ensure we always get numbers
     const quantityForTrade = Number(binder.quantityForTrade) || 0;
     const quantityNotForTrade = Number(binder.quantityNotForTrade) || 0;
@@ -151,8 +150,7 @@ export function ProfileTile({ binder }: ProfileTileProps) {
       // Total stats - all guaranteed to be numbers
       totalCards: totalQuantity,
       totalValue: totalValue,
-      marketValue: marketValue,
-      
+
       // Trade breakdown - all guaranteed to be numbers
       cardsForTrade: quantityForTrade,
       cardsNotForTrade: quantityNotForTrade,

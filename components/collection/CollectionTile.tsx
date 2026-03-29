@@ -236,7 +236,6 @@ export function CollectionTile({
   const getDisplayStats = (binder: BinderWithStats) => {
     const totalQuantity = binder.totalQuantity ?? 0;
     const totalValue = binder.totalValue?.tcg_low ?? binder.total_value ?? 0;
-    const marketValue = binder.totalValue?.tcg_market ?? 0;
     const quantityForTrade = binder.quantityForTrade ?? 0;
     const quantityNotForTrade = binder.quantityNotForTrade ?? 0;
     const valueForTrade = binder.valueForTrade?.tcg_low ?? 0;
@@ -245,7 +244,6 @@ export function CollectionTile({
     return {
       totalCards: totalQuantity,
       totalValue: totalValue,
-      marketValue: marketValue,
       cardsForTrade: quantityForTrade,
       cardsNotForTrade: quantityNotForTrade,
       valueForTrade: valueForTrade,

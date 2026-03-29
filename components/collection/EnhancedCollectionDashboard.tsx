@@ -46,7 +46,7 @@ const formatCompact = (value: number) => {
 };
 
 
-function CollectionHighlights({ overview }: { overview: CollectionOverview }) {
+export function CollectionHighlights({ overview }: { overview: CollectionOverview }) {
   const { collection } = overview;
   
     const getTopRarities = () => {
@@ -87,7 +87,7 @@ function CollectionHighlights({ overview }: { overview: CollectionOverview }) {
       {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard title="Total Cards" value={formatCompact(collection.totalQuantity)} icon={<Package className="h-8 w-8 text-muted-foreground/50" />} />
-        <StatCard title="Collection Value" value={formatCurrency(collection.totalValues.tcg_market)} icon={<Coins className="h-8 w-8 text-muted-foreground/50" />} />
+        <StatCard title="Collection Value" value={formatCurrency(collection.totalValues.tcg_low)} icon={<Coins className="h-8 w-8 text-muted-foreground/50" />} />
         <StatCard
           title="For Trade"
           value={formatCompact(collection.quantityForTrade)}
@@ -152,7 +152,7 @@ function CollectionHighlights({ overview }: { overview: CollectionOverview }) {
               </span>
               <div className="text-right">
                 <div className="font-semibold text-foreground">{collection.quantityForTrade.toLocaleString()} cards</div>
-                <div className="text-sm text-green-600 dark:text-green-500">{formatCurrency(collection.valueForTrade.tcg_market)}</div>
+                <div className="text-sm text-green-600 dark:text-green-500">{formatCurrency(collection.valueForTrade.tcg_low)}</div>
               </div>
             </div>
             <div className="flex justify-between items-center">
@@ -162,7 +162,7 @@ function CollectionHighlights({ overview }: { overview: CollectionOverview }) {
               </span>
               <div className="text-right">
                 <div className="font-semibold text-foreground">{collection.quantityNotForTrade.toLocaleString()} cards</div>
-                <div className="text-sm text-green-600 dark:text-green-500">{formatCurrency(collection.valueNotForTrade.tcg_market)}</div>
+                <div className="text-sm text-green-600 dark:text-green-500">{formatCurrency(collection.valueNotForTrade.tcg_low)}</div>
               </div>
             </div>
           </CardContent>
@@ -178,11 +178,7 @@ function CollectionHighlights({ overview }: { overview: CollectionOverview }) {
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">TCG Low</span>
-              <span className="font-medium text-foreground">{formatCurrency(collection.totalValues.tcg_low)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Market Price</span>
-              <span className="font-bold text-green-600 dark:text-green-500">{formatCurrency(collection.totalValues.tcg_market)}</span>
+              <span className="font-bold text-green-600 dark:text-green-500">{formatCurrency(collection.totalValues.tcg_low)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">TCG High</span>
@@ -213,7 +209,7 @@ function BinderQuickAccess({ binders, onDeleteBinder }: { binders: BinderWithSta
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {binders.map((binder) => {
         const totalCards = binder.totalQuantity || 0;
-        const totalValue = binder.totalValue?.tcg_market || binder.total_value || 0;
+        const totalValue = binder.totalValue?.tcg_low || binder.total_value || 0;
         const forTradeCards = binder.quantityForTrade || 0;
         
         return (

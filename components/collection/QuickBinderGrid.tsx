@@ -59,7 +59,7 @@ export function QuickBinderGrid({ binders, onDeleteBinder }: QuickBinderGridProp
           const visibility = getVisibilityInfo(binder)
           const VisibilityIcon = visibility.icon
           const totalCards = binder.totalQuantity || 0
-          const totalValue = binder.totalValue?.tcg_market || binder.total_value || 0
+          const totalValue = binder.totalValue?.tcg_low || binder.total_value || 0
           const forTradeCards = binder.quantityForTrade || 0
           
           return (

@@ -80,6 +80,7 @@ export default function BinderPage() {
   const [binder, setBinder] = useState<any>(null);
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cardsLoaded, setCardsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Pagination and infinite scroll state
@@ -242,6 +243,7 @@ export default function BinderPage() {
     } finally {
       setLoading(false);
       setLoadingMore(false);
+      setCardsLoaded(true);
     }
   };
 
@@ -1105,7 +1107,7 @@ const SuperSlamDisclosure = () => {
                     })}
                   </div>
 
-                  {loading && !cards.length ? <LoadingScreen message="Applying filters..." />
+                  {(loading || !cardsLoaded) && !cards.length ? <LoadingScreen message="Applying filters..." />
                   : cards.length === 0 ? (
                     <div className="text-center py-12 bg-card rounded-lg border">
                       <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

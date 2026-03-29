@@ -11,7 +11,7 @@
  * - Stats tracking and aggregation
  */
 
-import { eq, and, or, sql, inArray, desc, asc, like } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, desc, asc, like, ilike } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { binders, inventoryItems, users, printings, cards } from '@/lib/postgres/schema';
 import type {
@@ -1574,8 +1574,65 @@ export class PostgresBinderService implements IBinderService {
    * Search for cards by name across all user's binders
    */
   async searchUserCards(userId: string, searchQuery: string, limit = 50): AsyncResult<CardSearchResultDTO[]> {
-    // TODO: Implement card search with location grouping
-    return { success: false, error: 'searchUserCards not implemented yet' };
+    try {
+      const rows = await db
+        .select({
+          cardUniqueId: cards.cardUniqueId,
+          cardName: cards.name,
+          imageUrl: printings.imageUrl,
+          binderId: binders.id,
+          binderName: binders.name,
+          binderSlug: binders.slug,
+          quantity: inventoryItems.quantity,
+          forTrade: inventoryItems.forTrade,
+        })
+        .from(inventoryItems)
+        .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .innerJoin(binders, eq(inventoryItems.binderId, binders.id))
+        .where(
+          and(
+            eq(inventoryItems.userId, userId),
+            ilike(cards.name, `%${searchQuery}%`)
+          )
+        );
+
+      // Group rows by card, collecting all binder locations
+      const cardMap = new Map<string, CardSearchResultDTO>();
+
+      for (const row of rows) {
+        if (!cardMap.has(row.cardUniqueId)) {
+          if (cardMap.size >= limit) continue;
+          cardMap.set(row.cardUniqueId, {
+            _id: row.cardUniqueId,
+            name: row.cardName,
+            imageUrl: row.imageUrl ?? undefined,
+            locations: [],
+          });
+        }
+
+        const card = cardMap.get(row.cardUniqueId)!;
+        const existing = card.locations.find(l => l.binderId === row.binderId);
+        if (existing) {
+          existing.quantity += row.quantity;
+        } else {
+          card.locations.push({
+            binderId: row.binderId,
+            binderName: row.binderName,
+            binderSlug: row.binderSlug ?? undefined,
+            quantity: row.quantity,
+            forTrade: row.forTrade,
+          });
+        }
+      }
+
+      return { success: true, data: Array.from(cardMap.values()) };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to search cards',
+      };
+    }
   }
 
   // ============================================================================

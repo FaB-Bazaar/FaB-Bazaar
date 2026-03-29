@@ -701,3 +701,38 @@ export async function getRealTimeCardCount(): Promise<ApiResponse<{ totalQuantit
     return handleError(error);
   }
 }
+
+// ====================================
+// Collection Overview & Search
+// ====================================
+
+/**
+ * Get full collection overview including aggregated stats across all binders.
+ * Replaces direct fetch('/api/collection?view=complete') calls in components.
+ */
+export async function getCollectionOverview(): Promise<ApiResponse<unknown>> {
+  try {
+    const response = await fetch('/api/collection?view=complete');
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Search cards by name across all user binders.
+ * Returns cards grouped by card ID with binder locations.
+ *
+ * @param query - Search term (min 3 characters)
+ */
+export async function searchCollectionCards(query: string): Promise<ApiResponse<import('@/lib/services/contracts/IBinderService').CardSearchResultDTO[]>> {
+  try {
+    if (query.length < 3) return { success: true, data: [] };
+    const response = await fetch(`/api/collection/cards?q=${encodeURIComponent(query)}`);
+    const result = await handleResponse<{ success: boolean; results: import('@/lib/services/contracts/IBinderService').CardSearchResultDTO[] }>(response);
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, data: result.data.results || [] };
+  } catch (error) {
+    return handleError(error);
+  }
+}

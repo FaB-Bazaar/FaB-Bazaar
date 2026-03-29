@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useInView } from 'react-intersection-observer';
 import { useDebounce } from 'use-debounce';
+import { bindersClient } from "@/lib/client";
 
 // Components
 import BinderCard from "@/components/binder/BinderCard";
@@ -188,6 +189,92 @@ export default function AllCardsPage() {
     router.push(`/binder/${binderId}`);
   };
 
+  // --- CARD EDIT HANDLERS ---
+  const findCard = (cardId: string) =>
+    allLoadedCards.find(c => (c.id || c._id) === cardId);
+
+  const handleQuantityIncrease = async (cardId: string) => {
+    const card = findCard(cardId);
+    if (!card) return;
+    const newQty = (card.quantity || 1) + 1;
+
+    setAllLoadedCards(prev => prev.map(c =>
+      (c.id || c._id) === cardId ? { ...c, quantity: newQty } : c
+    ));
+
+    const result = await bindersClient.updateBinderCard(card.binderId, cardId, { quantity: newQty });
+    if (!result.success) {
+      setAllLoadedCards(prev => prev.map(c =>
+        (c.id || c._id) === cardId ? { ...c, quantity: card.quantity } : c
+      ));
+      toast({ title: "Failed to update quantity", variant: "destructive" });
+    }
+  };
+
+  const handleQuantityDecrease = async (cardId: string) => {
+    const card = findCard(cardId);
+    if (!card || (card.quantity || 1) <= 1) return;
+    const newQty = card.quantity - 1;
+
+    setAllLoadedCards(prev => prev.map(c =>
+      (c.id || c._id) === cardId ? { ...c, quantity: newQty } : c
+    ));
+
+    const result = await bindersClient.updateBinderCard(card.binderId, cardId, { quantity: newQty });
+    if (!result.success) {
+      setAllLoadedCards(prev => prev.map(c =>
+        (c.id || c._id) === cardId ? { ...c, quantity: card.quantity } : c
+      ));
+      toast({ title: "Failed to update quantity", variant: "destructive" });
+    }
+  };
+
+  const handleRemove = async (cardId: string) => {
+    const card = findCard(cardId);
+    if (!card) return;
+
+    setAllLoadedCards(prev => prev.filter(c => (c.id || c._id) !== cardId));
+
+    const result = await bindersClient.deleteBinderCard(card.binderId, cardId);
+    if (!result.success) {
+      toast({ title: "Failed to remove card", variant: "destructive" });
+      fetchCards(1, true);
+    }
+  };
+
+  const handleToggleForTrade = async (card: any, checked: boolean) => {
+    const cardId = card.id || card._id;
+
+    setAllLoadedCards(prev => prev.map(c =>
+      (c.id || c._id) === cardId ? { ...c, forTrade: checked } : c
+    ));
+
+    const result = await bindersClient.updateBinderCard(card.binderId, cardId, { forTrade: checked });
+    if (!result.success) {
+      setAllLoadedCards(prev => prev.map(c =>
+        (c.id || c._id) === cardId ? { ...c, forTrade: card.forTrade } : c
+      ));
+      toast({ title: "Failed to update trade status", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateCard = async (cardId: string, updates: any) => {
+    const card = findCard(cardId);
+    if (!card) return;
+
+    setAllLoadedCards(prev => prev.map(c =>
+      (c.id || c._id) === cardId ? { ...c, ...updates } : c
+    ));
+
+    const result = await bindersClient.updateBinderCard(card.binderId, cardId, updates);
+    if (!result.success) {
+      setAllLoadedCards(prev => prev.map(c =>
+        (c.id || c._id) === cardId ? card : c
+      ));
+      toast({ title: "Failed to update card", variant: "destructive" });
+    }
+  };
+
   // --- RENDER LOGIC ---
   if (authLoading || (loading && !allLoadedCards.length)) {
     return (
@@ -286,18 +373,19 @@ export default function AllCardsPage() {
                   <div key={cardId} className="relative">
                     <BinderCard
                       card={card}
-                      editable={false}
-                      onEdit={() => {}}
-                      onRemove={() => {}}
-                      onOpenPrintingSwap={() => {}}
+                      editable={true}
+                      onEdit={() => router.push(`/binder/${card.binderId}`)}
+                      onRemove={handleRemove}
+                      onOpenPrintingSwap={undefined}
                       isSelected={false}
                       onSelect={undefined}
                       selectedQty={1}
                       maxQty={card.quantity}
                       toast={toast}
-                      onQuantityIncrease={() => {}}
-                      onQuantityDecrease={() => {}}
-                      onToggleForTrade={() => {}}
+                      handleUpdateCard={handleUpdateCard}
+                      onQuantityIncrease={handleQuantityIncrease}
+                      onQuantityDecrease={handleQuantityDecrease}
+                      onToggleForTrade={handleToggleForTrade}
                     />
                     {/* Binder Badge */}
                     {card.binderName && (
