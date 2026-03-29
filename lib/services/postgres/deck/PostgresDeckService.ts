@@ -804,6 +804,7 @@ export class PostgresDeckService implements IDeckService {
           cardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
           heroPrintingId: sql<string>`MIN(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.printingId} END)`,
+          matchupCount: sql<number>`COALESCE(jsonb_array_length(${decks.metadata}->'matchups'), 0)::int`,
         })
         .from(decks)
         .leftJoin(users, eq(decks.userId, users.id))
@@ -839,6 +840,7 @@ export class PostgresDeckService implements IDeckService {
         creatorUsername: row.creatorUsername ?? undefined,
         creatorDisplayUsername: row.creatorDisplayUsername ?? undefined,
         heroPrintingId: row.heroPrintingId ?? undefined,
+        matchupCount: row.matchupCount ?? 0,
       }));
 
       // Batch-fetch article references for these decks

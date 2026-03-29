@@ -101,6 +101,22 @@ const PITCH_CHIPS = [
   { label: 'Blue',   value: 3, active: 'bg-blue-900/50 border-blue-500',  dot: 'bg-blue-500',   iconUrl: '/fab/symbols/pitch3.png' },
 ];
 
+// Common keyword chips — shown as a browseable filter section below Class
+const KEYWORD_CHIPS: { label: string; value: string; abbr: string }[] = [
+  { label: 'Go Again',       value: 'go again',       abbr: 'GA'  },
+  { label: 'Dominate',       value: 'dominate',       abbr: 'DOM' },
+  { label: 'Arcane Barrier', value: 'arcane barrier', abbr: 'AB'  },
+  { label: 'Stealth',        value: 'stealth',        abbr: 'STL' },
+  { label: 'Phantasm',       value: 'phantasm',       abbr: 'PHT' },
+  { label: 'Combo',          value: 'combo',          abbr: 'CMB' },
+  { label: 'Intimidate',     value: 'intimidate',     abbr: 'INT' },
+  { label: 'Crush',          value: 'crush',          abbr: 'CRS' },
+  { label: 'Ward',           value: 'ward',           abbr: 'WRD' },
+  { label: 'Reprise',        value: 'reprise',        abbr: 'RPR' },
+  { label: 'Blade Break',    value: 'blade break',    abbr: 'BB'  },
+  { label: 'Boost',          value: 'boost',          abbr: 'BST' },
+];
+
 const PITCH_STYLE: Record<number, { border: string; badge: string; label: string }> = {
   1: { border: "border-l-red-500",    badge: "bg-red-500 text-white",       label: "Pitch 1" },
   2: { border: "border-l-yellow-400", badge: "bg-yellow-400 text-gray-900", label: "Pitch 2" },
@@ -587,6 +603,7 @@ export default function QuickAddCardDialog({
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
+  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   // null = probes not yet run, Set = available chip values for this hero
   const [availableTypes, setAvailableTypes] = useState<Set<string> | null>(null);
   const [cards, setCards] = useState<CardResult[]>([]);
@@ -665,6 +682,7 @@ export default function QuickAddCardDialog({
       setDebouncedQuery("");
       setSelectedType(null);
       setSelectedPitch(null);
+      setSelectedKeyword(null);
       setCards([]);
       setError(null);
       setEnlargedImage(null);
@@ -695,9 +713,10 @@ export default function QuickAddCardDialog({
     const hasQuery = !!debouncedQuery.trim();
     const hasType = !!selectedType;
     const hasPitch = selectedPitch != null;
+    const hasKeyword = !!selectedKeyword;
 
     // Nothing to search — clear results and wait for user input
-    if (!hasQuery && !hasType && !hasPitch) {
+    if (!hasQuery && !hasType && !hasPitch && !hasKeyword) {
       setCards([]);
       setError(null);
       return;
@@ -708,8 +727,8 @@ export default function QuickAddCardDialog({
     setSelectedCard(null);
     setPage(1);
 
-    // Browse by type chip — check cache first
-    if (!hasQuery && hasType && targetCategory !== 'hero' && targetCategory !== 'equipment') {
+    // Browse by type chip — check cache first (skip when keyword filter active)
+    if (!hasQuery && hasType && !hasKeyword && targetCategory !== 'hero' && targetCategory !== 'equipment') {
       const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType);
       const apiType = chip ? chip.apiType : selectedType!;
       const chipValue = selectedType!;
@@ -762,6 +781,7 @@ export default function QuickAddCardDialog({
           const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType);
           params.set("types", chip ? chip.apiType : selectedType!);
         }
+        if (hasKeyword) params.set("text", selectedKeyword!);
         const effectivePitch = hasPitch ? selectedPitch : (targetCategory === "maindeck" ? pitchFilter ?? null : null);
         if (effectivePitch != null) params.set("pitch", String(effectivePitch));
       }
@@ -790,7 +810,7 @@ export default function QuickAddCardDialog({
       .catch(() => setError("Search failed. Please try again."))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, selectedType, selectedPitch, targetCategory, pitchFilter, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
+  }, [debouncedQuery, selectedType, selectedPitch, selectedKeyword, targetCategory, pitchFilter, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
 
   // Sync selectedPrinting when card selection changes
   useEffect(() => {
@@ -872,7 +892,7 @@ export default function QuickAddCardDialog({
 
           {/* Left sidebar — filters */}
           {targetCategory !== "hero" && targetCategory !== "equipment" && (
-            <div className="w-[360px] shrink-0 border-r border-gray-700/60 px-3 py-4 flex flex-col gap-5 overflow-y-auto">
+            <div className="w-[390px] shrink-0 border-r border-gray-700/60 px-3 py-4 flex flex-col gap-5 overflow-y-auto">
               {/* Search + pitch row */}
               <div className="flex flex-col gap-1.5">
                 <div className="relative">
@@ -886,7 +906,7 @@ export default function QuickAddCardDialog({
                     onKeyDown={e => e.key === "Escape" && handleEscape()}
                   />
                   {query && (
-                    <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs">✕</button>
+                    <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">✕</button>
                   )}
                 </div>
                 {targetCategory === "maindeck" && (
@@ -901,7 +921,7 @@ export default function QuickAddCardDialog({
                           title={chip.label}
                           onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
                           className={cn(
-                            "p-0.5 rounded transition-all",
+                            "p-0.5 rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                             isActive ? "bg-gray-600 ring-1 ring-white/30" : "opacity-50 hover:opacity-80",
                           )}
                         >
@@ -916,7 +936,7 @@ export default function QuickAddCardDialog({
 
               {/* Type filters */}
               <div>
-                <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Type</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Type</p>
                 {availableTypes === null ? (
                   <div className="grid grid-cols-4 gap-1.5">
                     {Array.from({ length: 9 }).map((_, i) => (
@@ -934,7 +954,7 @@ export default function QuickAddCardDialog({
                         title={chip.label}
                         onClick={() => setSelectedType(t => t === chip.value ? null : chip.value)}
                         className={cn(
-                          "group flex flex-col items-center gap-1 p-1 rounded border transition-all",
+                          "group flex flex-col items-center gap-1 p-1 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                           isActive ? chip.active : "bg-transparent border-transparent text-gray-500 hover:text-gray-200 hover:bg-gray-800"
                         )}
                       >
@@ -971,7 +991,7 @@ export default function QuickAddCardDialog({
               {/* Class / talent restriction filters */}
               {(heroClasses.length > 0 || heroTalents.length > 0) && (
                 <div>
-                  <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">Class</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Class</p>
                   <div className="grid grid-cols-4 gap-1.5">
                     {[...heroClasses, ...heroTalents].map(cls => {
                       const isActive = selectedType === cls;
@@ -982,7 +1002,7 @@ export default function QuickAddCardDialog({
                           title={cls + (isTalent ? ' (talent)' : '')}
                           onClick={() => setSelectedType(t => t === cls ? null : cls)}
                           className={cn(
-                            "group flex flex-col items-center gap-1 p-1 rounded border transition-all",
+                            "group flex flex-col items-center gap-1 p-1 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                             isActive
                               ? (isTalent ? "bg-violet-900/50 border-violet-600" : "bg-indigo-900/50 border-indigo-600")
                               : "bg-transparent border-transparent text-gray-500 hover:text-gray-200 hover:bg-gray-800"
@@ -1017,7 +1037,7 @@ export default function QuickAddCardDialog({
                         <button type="button" title="Generic"
                           onClick={() => setSelectedType(t => t === GENERIC_CHIP.value ? null : GENERIC_CHIP.value)}
                           className={cn(
-                            "group flex flex-col items-center gap-1 p-1 rounded border transition-all",
+                            "group flex flex-col items-center gap-1 p-1 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                             isActive ? GENERIC_CHIP.active : "bg-transparent border-transparent text-gray-500 hover:text-gray-200 hover:bg-gray-800"
                           )}
                         >
@@ -1043,6 +1063,35 @@ export default function QuickAddCardDialog({
                         </button>
                       );
                     })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Keyword filters */}
+              {targetCategory !== 'hero' && targetCategory !== 'equipment' && (
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Keyword</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {KEYWORD_CHIPS.map(kw => {
+                      const isActive = selectedKeyword === kw.value;
+                      return (
+                        <button key={kw.value} type="button" title={kw.label}
+                          onClick={() => setSelectedKeyword(k => k === kw.value ? null : kw.value)}
+                          className={cn(
+                            "group flex flex-col items-center gap-1 p-1.5 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                            isActive ? "bg-teal-900/50 border-teal-600 text-teal-300" : "bg-transparent border-transparent text-gray-500 hover:text-gray-200 hover:bg-gray-800"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-full rounded flex items-center justify-center ring-1 transition-all",
+                            isActive ? "ring-teal-500 bg-teal-900/30" : "ring-gray-700 opacity-55 group-hover:opacity-85 bg-gray-800",
+                          )} style={{ aspectRatio: '1 / 1' }}>
+                            <span className={cn("text-sm font-bold", isActive ? "text-teal-300" : "text-gray-300")}>{kw.abbr}</span>
+                          </div>
+                          <span className="text-xs leading-tight truncate w-full text-center">{kw.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1105,11 +1154,29 @@ export default function QuickAddCardDialog({
                 </div>
               )}
               {error && <p className="text-sm text-red-400 py-4 text-center">{error}</p>}
-              {!loading && !error && (debouncedQuery || selectedType || selectedPitch) && cards.length === 0 && (
-                <p className="text-sm text-gray-500 py-8 text-center">No cards found</p>
+              {!loading && !error && (debouncedQuery || selectedType || selectedPitch != null || selectedKeyword) && cards.length === 0 && (
+                <div className="py-10 text-center flex flex-col items-center gap-2">
+                  <p className="text-sm text-gray-300 font-medium">No cards found</p>
+                  <p className="text-xs text-gray-500">
+                    {(selectedType || selectedKeyword) && debouncedQuery
+                      ? "Try removing the type or keyword filter, or broaden your search."
+                      : selectedType || selectedKeyword
+                      ? "No matching cards for this filter combination — try a different type or keyword."
+                      : "Try a different name or check your spelling."}
+                  </p>
+                  {(selectedType || selectedKeyword || selectedPitch != null) && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedType(null); setSelectedKeyword(null); setSelectedPitch(null); }}
+                      className="mt-1 text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                    >
+                      Clear all filters
+                    </button>
+                  )}
+                </div>
               )}
-              {!loading && !debouncedQuery && !selectedType && !selectedPitch && (
-                <p className="text-sm text-gray-600 py-8 text-center">Pick a filter or search by name</p>
+              {!loading && !debouncedQuery && !selectedType && selectedPitch == null && !selectedKeyword && (
+                <p className="text-sm text-gray-500 py-8 text-center">Pick a filter or search by name</p>
               )}
               {!loading && cards.length > 0 && (() => {
                 const totalPages = Math.ceil(cards.length / PAGE_SIZE);

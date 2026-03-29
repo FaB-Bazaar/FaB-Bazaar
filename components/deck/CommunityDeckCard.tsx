@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Calendar, User, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { Copy, Calendar, User, BookOpen, ChevronDown, ChevronUp, Swords } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PublicDeckSummaryDTO } from "@/lib/services/contracts/IDeckService";
 import { displayUsername, profileHref } from "@/lib/utils/display-username";
@@ -108,6 +108,15 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
                 <span className="font-medium text-green-600 dark:text-green-400">
                   ~${estimatedValue.toFixed(2)}
                 </span>
+              </div>
+            )}
+            {(deck.matchupCount ?? 0) > 0 && (
+              <div className="flex justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
+                <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <Swords className="h-3 w-3" aria-hidden="true" />
+                  Matchups:
+                </span>
+                <span className="font-medium">{deck.matchupCount}</span>
               </div>
             )}
           </div>

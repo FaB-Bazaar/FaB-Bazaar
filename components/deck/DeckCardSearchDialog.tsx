@@ -123,9 +123,24 @@ export default function DeckCardSearchDialog({
   const parseSearchQuery = (query: string) => {
     const filters: any = {};
     const searchTerms: string[] = [];
-    
-    const parts = query.toLowerCase().split(' ');
-    
+
+    // Extract quoted phrases as body text search (e.g. "arcane barrier")
+    // Also supports text:"arcane barrier" prefix
+    let remaining = query;
+    const textPrefixMatch = remaining.match(/\btext:"([^"]+)"/i) || remaining.match(/\btext:'([^']+)'/i);
+    if (textPrefixMatch) {
+      filters.text = textPrefixMatch[1];
+      remaining = remaining.replace(textPrefixMatch[0], '').trim();
+    } else {
+      const quotedMatch = remaining.match(/"([^"]+)"/);
+      if (quotedMatch) {
+        filters.text = quotedMatch[1];
+        remaining = remaining.replace(quotedMatch[0], '').trim();
+      }
+    }
+
+    const parts = remaining.toLowerCase().split(/\s+/).filter(Boolean);
+
     parts.forEach(part => {
       if (['action', 'attack', 'defense', 'equipment', 'weapon', 'hero', 'instant'].includes(part)) {
         if (!filters.types) filters.types = [];
@@ -156,11 +171,11 @@ export default function DeckCardSearchDialog({
         searchTerms.push(part);
       }
     });
-    
+
     if (searchTerms.length > 0) {
       filters.name = searchTerms.join(' ');
     }
-    
+
     return filters;
   };
 
@@ -286,6 +301,7 @@ export default function DeckCardSearchDialog({
 
     const params = new URLSearchParams();
     if (filters.name) params.append('name', filters.name);
+    if (filters.text) params.append('text', filters.text);
     if (filters.types) params.append('types', filters.types.join(','));
     if (filters.color) params.append('color', filters.color);
     if (filters.rarities) params.append('rarities', filters.rarities.join(','));
@@ -664,7 +680,7 @@ export default function DeckCardSearchDialog({
               <div className="relative mb-4">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder={`Search for ${getCategoryDisplayName(targetCategory)} cards... (e.g., 'red action under 10' or 'majestic weapon')`}
+                  placeholder={`Search by name, or "quoted text" to search card text...`}
                   className="pl-8 pr-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

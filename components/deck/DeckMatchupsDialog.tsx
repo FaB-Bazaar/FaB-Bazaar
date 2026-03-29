@@ -1,7 +1,7 @@
 // components/deck/DeckMatchupsDialog.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -293,6 +293,16 @@ export default function DeckMatchupsDialog({
   const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
   const [heroImageMap, setHeroImageMap] = useState<Map<string, string>>(new Map());
 
+  // Gallery state — fullscreen card image viewer
+  const [gallery, setGallery] = useState<{ heroId: string; section: 'deck' | 'inventory' } | null>(null);
+
+  useEffect(() => {
+    if (!gallery) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setGallery(null); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [gallery]);
+
   // Form state for add/edit
   const [formHeroId, setFormHeroId] = useState("");
   const [formTurnOrder, setFormTurnOrder] = useState<"First" | "Second" | "NoPreference" | null>(null);
@@ -377,6 +387,38 @@ export default function DeckMatchupsDialog({
 
     return baseIdentifier;
   };
+
+  // Build grouped card arrays for the gallery (unique cards with qty + image)
+  interface GalleryCard { talisharId: string; count: number; displayName: string; printingId: string }
+
+  const buildGalleryCards = useCallback((printings: any[]): GalleryCard[] => {
+    const groups = new Map<string, GalleryCard>();
+    for (const p of printings || []) {
+      const id = buildTalisharIdentifier(p);
+      if (!groups.has(id)) {
+        groups.set(id, {
+          talisharId: id,
+          count: 1,
+          displayName: p.printingDetails?.display_name || p.printingDetails?.name || id,
+          printingId: p.printingId,
+        });
+      } else {
+        groups.get(id)!.count++;
+      }
+    }
+    return Array.from(groups.values());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const deckGalleryCards = useMemo<GalleryCard[]>(
+    () => buildGalleryCards([...(deck?.hero || []), ...(deck?.equipment || []), ...(deck?.maindeck || [])]),
+    [deck, buildGalleryCards]
+  );
+
+  const inventoryGalleryCards = useMemo<GalleryCard[]>(
+    () => buildGalleryCards(deck?.inventory || []),
+    [deck, buildGalleryCards]
+  );
 
   // Fetch hero images for matchup list thumbnails
   const fetchHeroImages = async () => {
@@ -684,6 +726,24 @@ export default function DeckMatchupsDialog({
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => setGallery({ heroId: matchup.heroId, section: 'deck' })}
+                            aria-label={`View full deck for ${getHeroDisplayName(matchup.heroId)} matchup`}
+                            className="text-xs px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          >
+                            Deck
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGallery({ heroId: matchup.heroId, section: 'inventory' })}
+                            aria-label={`View inventory for ${getHeroDisplayName(matchup.heroId)} matchup`}
+                            className="text-xs px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          >
+                            Inv
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => {
                               handleEdit(matchup);
                               setActiveTab("add");
@@ -776,7 +836,85 @@ export default function DeckMatchupsDialog({
 
   // Render inline or as dialog
   if (inline) {
-    return matchupsContent;
+    const galleryCards = gallery?.section === 'deck' ? deckGalleryCards : inventoryGalleryCards;
+    const galleryHeroName = gallery ? getHeroDisplayName(gallery.heroId) : '';
+    const galleryTotal = galleryCards.reduce((s, c) => s + c.count, 0);
+    const galleryLabel = gallery?.section === 'deck'
+      ? 'Full Deck'
+      : `Put these ${galleryTotal} cards in your inventory!`;
+    const galleryAccent = gallery?.section === 'deck' ? 'text-blue-400' : 'text-amber-400';
+    const isInventory = gallery?.section === 'inventory';
+    const galleryLabelSize = isInventory ? 'text-xl' : 'text-sm';
+    const gallerySubSize = isInventory ? 'text-sm' : 'text-xs';
+    const galleryCardHeight = isInventory ? 'h-80' : 'h-52';
+
+    return (
+      <>
+        {matchupsContent}
+
+        {/* Fullscreen card gallery */}
+        {gallery && (
+          <div
+            className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${galleryLabel} — ${galleryHeroName}`}
+          >
+            {/* Header — 3-column grid keeps label truly centered */}
+            <div className="grid grid-cols-[44px_1fr_44px] items-center px-4 py-4 flex-shrink-0 border-b border-white/10">
+              {/* left spacer matches X button width */}
+              <span />
+              <div className="flex flex-col items-center gap-0.5 text-center">
+                <span className={`${galleryLabelSize} font-sans font-bold ${galleryAccent}`}>
+                  {galleryLabel}
+                </span>
+                <span className={`${gallerySubSize} text-gray-400 font-sans`}>
+                  {galleryHeroName}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGallery(null)}
+                aria-label="Close gallery"
+                className="flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                style={{ minWidth: 44, minHeight: 44 }}
+              >
+                <X className="h-6 w-6" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Card grid — vertically scrollable, centered */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {galleryCards.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500 italic font-sans">No cards in this section</p>
+                </div>
+              ) : (
+                <div className={isInventory
+                  ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-5 justify-items-center"
+                  : "flex flex-wrap justify-center gap-4 content-start"
+                }>
+                  {galleryCards.map((card) => (
+                    <div key={card.talisharId} className="flex flex-col items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                        alt={card.displayName}
+                        className={`${galleryCardHeight} w-auto rounded-lg shadow-2xl`}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+                      />
+                      <span className="text-sm text-gray-200 font-sans text-center max-w-[140px]">
+                        <span className="font-bold">{card.count}×</span> {card.displayName}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   return (

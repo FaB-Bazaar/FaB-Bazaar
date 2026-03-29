@@ -131,6 +131,7 @@ export interface DeckSummaryDTO {
   isPublic: boolean;  // Computed: visibility !== 'private'
   totalCards?: number;
   estimatedValue?: number;
+  matchupCount?: number;
   updatedAt?: Date;
 }
 

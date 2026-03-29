@@ -828,8 +828,8 @@ export default function DeckEditorPage() {
 
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
-      {/* Dormant HUD trigger — always visible, opens Deck Tools on click */}
-      {!chordMode && (
+      {/* Dormant HUD trigger — hidden on matchups tab (MatchupSideboardHUD takes over) */}
+      {!chordMode && activeTab !== "matchups" && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
           <button
             type="button"

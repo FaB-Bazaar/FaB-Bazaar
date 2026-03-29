@@ -77,6 +77,7 @@ interface Deck {
   // Computed fields for backwards compatibility
   uniqueCards?: number;
   fabraryUrl?: string;
+  metadata?: Record<string, any>;
 }
 
 export default function DecksPage() {
@@ -707,6 +708,7 @@ export default function DecksPage() {
                   <DeckCard
                     key={deck.publicId}
                     deck={deck}
+                    matchupCount={deck.metadata?.matchups?.length ?? 0}
                     onEdit={() => router.push(`/decks/${deck.publicId}`)}
                     onDelete={() => handleDeleteDeck(deck.publicId)}
                     onDuplicate={() => handleDuplicateDeck(deck)}

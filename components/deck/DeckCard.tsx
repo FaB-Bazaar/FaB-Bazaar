@@ -9,17 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Edit3,
   Trash2,
   Copy,
   Eye,
-  Share2,
   Lock,
   Globe,
   Calendar,
   BarChart3,
   Star,
   Settings,
+  Swords,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -73,6 +72,7 @@ interface Deck {
 
 interface DeckCardProps {
   deck: Deck;
+  matchupCount?: number;
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -88,6 +88,7 @@ interface DeckCardProps {
 
 export default function DeckCard({
   deck,
+  matchupCount = 0,
   onEdit,
   onDelete,
   onDuplicate,
@@ -258,6 +259,16 @@ export default function DeckCard({
               Empty deck
             </div>
           )}
+
+          {matchupCount > 0 && (
+            <div className="flex justify-between text-sm pt-1 border-t border-gray-100 dark:border-gray-700 mt-1">
+              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                <Swords className="h-3 w-3" aria-hidden="true" />
+                Matchups:
+              </span>
+              <span className="font-medium">{matchupCount}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -345,61 +356,53 @@ export default function DeckCard({
 
       {/* Actions */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onEdit}
+            className="flex-1"
+          >
+            Open Deck
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onView}
+            className="h-8 w-8 p-0"
+            title="Analyze deck"
+          >
+            <BarChart3 className="h-4 w-4" />
+          </Button>
+          {onSettings && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={onEdit}
+              onClick={onSettings}
               className="h-8 w-8 p-0"
-              title="Edit deck"
+              title="Deck settings"
             >
-              <Edit3 className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onView}
-              className="h-8 w-8 p-0"
-              title="Analyze deck"
-            >
-              <BarChart3 className="h-4 w-4" />
-            </Button>
-            {onSettings && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onSettings}
-                className="h-8 w-8 p-0"
-                title="Deck settings"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-
-          <div className="flex gap-1">
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDuplicate}
-              className="h-8 w-8 p-0"
-              title="Duplicate deck"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDelete}
-              className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900"
-              title="Delete deck"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDuplicate}
+            className="h-8 w-8 p-0"
+            title="Duplicate deck"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900"
+            title="Delete deck"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

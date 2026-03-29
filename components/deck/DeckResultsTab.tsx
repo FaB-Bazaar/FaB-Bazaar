@@ -216,6 +216,80 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
       {isExpanded && (
         <div className="border-t border-gray-100 dark:border-gray-800 px-3 pb-4 pt-3 space-y-4">
 
+          {/* Turn summary table */}
+          {turnResults.length > 0 && (() => {
+            const playerTurnIdx = game.firstPlayer ? 0 : 1;
+            const playerLabel = playerHeroName ? formatHeroName(playerHeroName) : "You";
+            const opponentLabel = game.opponentHero ? formatHeroName(game.opponentHero) : "Opp";
+            return (
+              <div>
+                <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5 uppercase">Turn Summary</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800">
+                        <th className="text-left py-1 px-2 font-medium">Turn</th>
+                        <th className="text-left py-1 px-2 font-medium">Hero</th>
+                        <th className="text-center py-1 px-2 font-medium">Played</th>
+                        <th className="text-center py-1 px-2 font-medium">Pitched</th>
+                        <th className="text-center py-1 px-2 font-medium">Blocked</th>
+                        <th className="text-center py-1 px-2 font-medium">Dealt</th>
+                        <th className="text-center py-1 px-2 font-medium">Taken</th>
+                        <th className="text-center py-1 px-2 font-medium">Res</th>
+                        <th className="text-center py-1 px-2 font-medium leading-tight">Hand<br />Remaining</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {turnResults.map(([key, t]) => {
+                        const idx = parseInt(key.replace("turn_", ""));
+                        const turnEntries = turnLogByTurn?.byTurn.get(idx) ?? [];
+                        const tPlayerEs = turnEntries.filter(e => !e.isOpponent);
+                        const tOppEs = turnEntries.filter(e => e.isOpponent);
+                        const tOppAttacks = tOppEs.some(e => e.action === "M");
+                        const tPlayerAttacks = tPlayerEs.some(e => e.action === "M");
+                        const tPlayerBlocks = tPlayerEs.some(e => e.action === "B");
+                        const tHasInstant = turnEntries.some(e => e.action === "INSTANT");
+                        const isPlayerTurn = tOppAttacks ? false : tPlayerAttacks ? true : tPlayerBlocks ? false : tHasInstant ? false : idx % 2 === playerTurnIdx;
+                        const playedCards = turnEntries.filter(e => e.action === "M");
+                        const pitchedCards = turnEntries.filter(e => e.action === "P");
+                        const blockedCards = turnEntries.filter(e => e.action === "B");
+                        const showTooltip = (e: React.MouseEvent<HTMLTableCellElement>, cards: typeof turnEntries) => {
+                          if (cards.length === 0) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTableCellTooltip({ cards, x: rect.left + rect.width / 2, y: rect.top });
+                        };
+                        return (
+                          <tr key={key} className="text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800">
+                            <td className="py-1 px-2 text-gray-400 dark:text-gray-500 text-center font-medium whitespace-nowrap">
+                              Turn {idx}
+                            </td>
+                            <td className="py-1 px-2">
+                              <span className="flex items-center gap-1.5">
+                                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0", isPlayerTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400")}>
+                                  {isPlayerTurn ? "YOU" : "OPP"}
+                                </span>
+                                <span className="text-[11px] text-gray-700 dark:text-gray-300">
+                                  {isPlayerTurn ? (playerHeroName ?? "—") : opponentLabel}
+                                </span>
+                              </span>
+                            </td>
+                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, playedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsUsed ?? "—"}</td>
+                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, pitchedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsPitched ?? "—"}</td>
+                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, blockedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsBlocked ?? "—"}</td>
+                            <td className={cn("text-center py-1 px-2 font-medium", (t.damageDealt ?? 0) > 0 ? "text-green-600 dark:text-green-400" : "text-gray-400")}>{t.damageDealt ?? 0}</td>
+                            <td className={cn("text-center py-1 px-2 font-medium", (t.damageTaken ?? 0) > 0 ? "text-red-500 dark:text-red-400" : "text-gray-400")}>{t.damageTaken ?? 0}</td>
+                            <td className="text-center py-1 px-2">{t.resourcesUsed ?? "—"}</td>
+                            <td className="text-center py-1 px-2 text-gray-400">{t.cardsLeft ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Turn-by-turn play log with card images */}
           {turnLogByTurn && turnLogByTurn.byTurn.size > 0 && (
             <div className="space-y-3">
@@ -400,80 +474,6 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
               </div>
             );
           })}
-
-          {/* Turn summary table */}
-          {turnResults.length > 0 && (() => {
-            const playerTurnIdx = game.firstPlayer ? 0 : 1;
-            const playerLabel = playerHeroName ? formatHeroName(playerHeroName) : "You";
-            const opponentLabel = game.opponentHero ? formatHeroName(game.opponentHero) : "Opp";
-            return (
-              <div>
-                <p className="text-[10px] font-bold tracking-widest text-gray-400 dark:text-gray-500 mb-1.5 uppercase">Turn Summary</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800">
-                        <th className="text-left py-1 px-2 font-medium">Turn</th>
-                        <th className="text-left py-1 px-2 font-medium">Hero</th>
-                        <th className="text-center py-1 px-2 font-medium">Played</th>
-                        <th className="text-center py-1 px-2 font-medium">Pitched</th>
-                        <th className="text-center py-1 px-2 font-medium">Blocked</th>
-                        <th className="text-center py-1 px-2 font-medium">Dealt</th>
-                        <th className="text-center py-1 px-2 font-medium">Taken</th>
-                        <th className="text-center py-1 px-2 font-medium">Res</th>
-                        <th className="text-center py-1 px-2 font-medium leading-tight">Hand<br />Remaining</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {turnResults.map(([key, t]) => {
-                        const idx = parseInt(key.replace("turn_", ""));
-                        const turnEntries = turnLogByTurn?.byTurn.get(idx) ?? [];
-                        const tPlayerEs = turnEntries.filter(e => !e.isOpponent);
-                        const tOppEs = turnEntries.filter(e => e.isOpponent);
-                        const tOppAttacks = tOppEs.some(e => e.action === "M");
-                        const tPlayerAttacks = tPlayerEs.some(e => e.action === "M");
-                        const tPlayerBlocks = tPlayerEs.some(e => e.action === "B");
-                        const tHasInstant = turnEntries.some(e => e.action === "INSTANT");
-                        const isPlayerTurn = tOppAttacks ? false : tPlayerAttacks ? true : tPlayerBlocks ? false : tHasInstant ? false : idx % 2 === playerTurnIdx;
-                        const playedCards = turnEntries.filter(e => e.action === "M");
-                        const pitchedCards = turnEntries.filter(e => e.action === "P");
-                        const blockedCards = turnEntries.filter(e => e.action === "B");
-                        const showTooltip = (e: React.MouseEvent<HTMLTableCellElement>, cards: typeof turnEntries) => {
-                          if (cards.length === 0) return;
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setTableCellTooltip({ cards, x: rect.left + rect.width / 2, y: rect.top });
-                        };
-                        return (
-                          <tr key={key} className="text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-gray-800">
-                            <td className="py-1 px-2 text-gray-400 dark:text-gray-500 text-center font-medium whitespace-nowrap">
-                              Turn {idx}
-                            </td>
-                            <td className="py-1 px-2">
-                              <span className="flex items-center gap-1.5">
-                                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0", isPlayerTurn ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-orange-100 dark:bg-orange-900/40 text-orange-500 dark:text-orange-400")}>
-                                  {isPlayerTurn ? "YOU" : "OPP"}
-                                </span>
-                                <span className="text-[11px] text-gray-700 dark:text-gray-300">
-                                  {isPlayerTurn ? (playerHeroName ?? "—") : opponentLabel}
-                                </span>
-                              </span>
-                            </td>
-                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, playedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsUsed ?? "—"}</td>
-                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, pitchedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsPitched ?? "—"}</td>
-                            <td className="text-center py-1 px-2 cursor-default" onMouseEnter={e => showTooltip(e, blockedCards)} onMouseLeave={() => setTableCellTooltip(null)}>{t.cardsBlocked ?? "—"}</td>
-                            <td className={cn("text-center py-1 px-2 font-medium", (t.damageDealt ?? 0) > 0 ? "text-green-600 dark:text-green-400" : "text-gray-400")}>{t.damageDealt ?? 0}</td>
-                            <td className={cn("text-center py-1 px-2 font-medium", (t.damageTaken ?? 0) > 0 ? "text-red-500 dark:text-red-400" : "text-gray-400")}>{t.damageTaken ?? 0}</td>
-                            <td className="text-center py-1 px-2">{t.resourcesUsed ?? "—"}</td>
-                            <td className="text-center py-1 px-2 text-gray-400">{t.cardsLeft ?? "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })()}
         </div>
       )}
 
