@@ -868,13 +868,6 @@ const SuperSlamDisclosure = () => {
         destination="binder" 
       />
       {editingCard && <EditCardDialog card={editingCard} open={!!editingCard} onOpenChange={(open) => !open && setEditingCard(null)} onSave={handleEditCard} />}
-      <TransferCardsDialog 
-        open={transferDialogOpen} 
-        onOpenChange={setTransferDialogOpen} 
-        selectedCards={selectedCards} 
-        sourceBinderId={binderId} 
-        onTransferComplete={handleTransferComplete} 
-      />
       <DeleteSelectedDialog open={deleteSelectedDialogOpen} onOpenChange={setDeleteSelectedDialogOpen} selectedCards={selectedCards} binderId={binderId} onDeleteComplete={handleDeleteComplete} />
       {printingSwapCard && (
         <PrintingSwapDialog
@@ -1206,6 +1199,7 @@ const SuperSlamDisclosure = () => {
             <SelectedCardsSidebar
               selectedCards={selectedCards}
               sidebarOpen={sidebarOpen}
+              sourceBinderId={binderId}
               onCloseSidebar={() => setSidebarOpen(false)}
               onQuantityChange={handleSelectedCardQuantityChange}
               onRemoveSelected={(index) => {
@@ -1213,9 +1207,9 @@ const SuperSlamDisclosure = () => {
                 if (cardToRemove) handleRemoveSelectedCard(cardToRemove.id);
               }}
               onClearSelected={handleClearSelected}
-              onTransfer={() => setTransferDialogOpen(true)}
+              onTransferComplete={handleTransferComplete}
               onCopySelected={handleCopySelected}
-              onDeleteSelected={() => setDeleteSelectedDialogOpen(true)} 
+              onDeleteSelected={() => setDeleteSelectedDialogOpen(true)}
               copied={copied}
               editable={editable}
             />
@@ -1264,7 +1258,8 @@ const SuperSlamDisclosure = () => {
                   if (cardToRemove) handleRemoveSelectedCard(cardToRemove.id);
                 }}
                 onClearSelected={handleClearSelected}
-                onTransfer={() => setTransferDialogOpen(true)}
+                sourceBinderId={binderId}
+                onTransferComplete={handleTransferComplete}
                 onDeleteSelected={() => setDeleteSelectedDialogOpen(true)}
                 onCopySelected={handleCopySelected}
                 copied={copied}

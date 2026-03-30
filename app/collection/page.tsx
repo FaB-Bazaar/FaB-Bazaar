@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { generateUniqueBinderSlug } from "@/lib/utils"
-import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight } from "lucide-react"
+import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2 } from "lucide-react"
 
 import { CollectionTile } from "@/components/collection/CollectionTile"
 import BulkTransferDialog from "@/components/collection/BulkTransferDialog"
@@ -108,7 +108,7 @@ export interface BinderWithStats {
 }
 
 // Simple card for view mode
-function BinderViewCard({ binder }: { binder: BinderWithStats }) {
+function BinderViewCard({ binder, onDelete }: { binder: BinderWithStats; onDelete: (binder: BinderWithStats) => void }) {
   const totalValue = binder.totalValue?.tcg_low || binder.total_value || 0
   const formatValue = (v: number) =>
     v >= 1000
@@ -116,19 +116,26 @@ function BinderViewCard({ binder }: { binder: BinderWithStats }) {
       : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(v)
 
   return (
-    <Link href={`/binder/${binder._id}`} className="block h-full">
-      <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-        <CardContent className="p-4 flex flex-col h-full">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold truncate text-foreground">{binder.name}</h3>
-              {(binder.slug || binder.discordExternalId) && (
-                <Badge variant="secondary" className="text-xs mt-1 font-mono">
-                  {binder.slug || binder.discordExternalId}
-                </Badge>
-              )}
-            </div>
-          </div>
+    <Card className="hover:border-primary transition-colors h-full">
+      <CardContent className="p-4 flex flex-col h-full">
+        <div className="flex items-start justify-between mb-3">
+          <Link href={`/binder/${binder._id}`} className="flex-1 min-w-0 group">
+            <h3 className="font-semibold truncate text-foreground group-hover:text-primary transition-colors">{binder.name}</h3>
+            {(binder.slug || binder.discordExternalId) && (
+              <Badge variant="secondary" className="text-xs mt-1 font-mono">
+                {binder.slug || binder.discordExternalId}
+              </Badge>
+            )}
+          </Link>
+          <button
+            onClick={() => onDelete(binder)}
+            className="ml-2 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            title="Delete binder"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+        <Link href={`/binder/${binder._id}`} className="flex-1">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <div className="text-muted-foreground">Cards</div>
@@ -145,9 +152,9 @@ function BinderViewCard({ binder }: { binder: BinderWithStats }) {
               {binder.quantityForTrade} for trade
             </div>
           )}
-        </CardContent>
-      </Card>
-    </Link>
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -504,7 +511,11 @@ export default function CollectionPage() {
                   </div>
                 ) : (
                   binders.map(binder => (
-                    <BinderViewCard key={binder._id} binder={binder} />
+                    <BinderViewCard
+                      key={binder._id}
+                      binder={binder}
+                      onDelete={(b) => { setBinderToDelete(b); setDeleteModalOpen(true); }}
+                    />
                   ))
                 )}
                 <button

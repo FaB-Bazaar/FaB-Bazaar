@@ -1,6 +1,6 @@
 // app/api/binders/transfer-selected/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { binderService } from '@/lib/services';
 
 /**
@@ -51,15 +51,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication required'
-      }, { status: 401 });
+    const authResult = await authenticateRequest(request, {});
+    if (!authResult.success) {
+      return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = authResult.userId;
 
     // Convert to service layer format
     const cardsToTransfer = cards.map((c: { cardId: string; quantity: number }) => ({

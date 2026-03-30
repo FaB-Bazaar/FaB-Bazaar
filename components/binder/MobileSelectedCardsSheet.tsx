@@ -1,12 +1,15 @@
 // components/binder/MobileSelectedCardsSheet.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { X, Plus, Minus, Package, Copy, Check, ArrowRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { bindersClient } from "@/lib/client";
 
 // A simplified card item for the mobile sheet
 const MobileSelectedCardItem = ({ card, onQuantityChange, onRemove }: any) => {
@@ -58,7 +61,8 @@ interface MobileSelectedCardsSheetProps {
   onQuantityChange: (cardId: string, newQuantity: number) => void;
   onRemoveSelected: (index: number) => void;
   onClearSelected: () => void;
-  onTransfer?: () => void;
+  sourceBinderId: string;
+  onTransferComplete?: () => void;
   onDeleteSelected?: () => void;
   onCopySelected: () => void;
   copied: boolean;
@@ -71,11 +75,50 @@ export const MobileSelectedCardsSheet = ({
   onQuantityChange,
   onRemoveSelected,
   onClearSelected,
-  onTransfer,
+  sourceBinderId,
+  onTransferComplete,
   onDeleteSelected,
   onCopySelected,
   copied
 }: MobileSelectedCardsSheetProps) => {
+  const { toast } = useToast()
+  const [binders, setBinders] = useState<any[]>([])
+  const [targetBinderId, setTargetBinderId] = useState("")
+  const [transferring, setTransferring] = useState(false)
+
+  useEffect(() => {
+    const fetchBinders = async () => {
+      const result = await bindersClient.getUserBinders()
+      if (result.success) {
+        const filtered = (result.data.binders || []).filter(
+          (b: any) => b._id !== sourceBinderId && !b.archived
+        )
+        setBinders(filtered)
+        setTargetBinderId(filtered[0]?._id ?? "")
+      }
+    }
+    fetchBinders()
+  }, [sourceBinderId])
+
+  const handleTransfer = async () => {
+    if (!targetBinderId) return
+    setTransferring(true)
+    try {
+      const cards = selectedCards.map(card => ({ cardId: String(card.id || card._id), quantity: card.quantity || 1 }))
+      const result = await bindersClient.transferSelectedCards(sourceBinderId, targetBinderId, cards)
+      if (!result.success) throw new Error(result.error || "Transfer failed")
+      const { summary } = result.data as any
+      toast({ title: "Transfer Complete", description: `Transferred ${summary.totalQuantityTransferred} cards` })
+      onClearSelected()
+      onOpenChange(false)
+      onTransferComplete?.()
+    } catch (err: any) {
+      toast({ title: "Transfer Failed", description: err.message, variant: "destructive" })
+    } finally {
+      setTransferring(false)
+    }
+  }
+
   const totalCards = selectedCards.reduce((sum: number, card: any) => sum + card.quantity, 0);
 
   return (
@@ -104,58 +147,45 @@ export const MobileSelectedCardsSheet = ({
           </div>
 
           <DrawerFooter className="pt-2 space-y-2">
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              {onTransfer && (
-                <Button
-                  onClick={() => {
-                    onTransfer();
-                    onOpenChange(false);
-                  }}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <ArrowRight className="h-4 w-4" />
-                  Transfer
-                </Button>
-              )}
+            {/* Inline binder picker + transfer */}
+            {binders.length > 0 && (
+              <Select value={targetBinderId} onValueChange={setTargetBinderId}>
+                <SelectTrigger className="w-full text-sm">
+                  <SelectValue placeholder="Select destination binder…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {binders.map(b => (
+                    <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button
+              onClick={handleTransfer}
+              disabled={transferring || !targetBinderId || binders.length === 0}
+              className="w-full flex items-center gap-2"
+            >
+              {transferring
+                ? <><div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />Transferring…</>
+                : <><ArrowRight className="h-4 w-4" />Transfer to Binder</>
+              }
+            </Button>
 
-              <Button
-                onClick={() => {
-                  onCopySelected();
-                  // Don't close the sheet so user can see the copied state
-                }}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={onCopySelected} variant="outline" className="flex items-center gap-2">
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
-
               {onDeleteSelected && (
-                <Button
-                  onClick={() => {
-                    onDeleteSelected();
-                    onOpenChange(false);
-                  }}
-                  variant="destructive"
-                  className="flex items-center gap-2 col-span-2"
-                >
+                <Button onClick={() => { onDeleteSelected(); onOpenChange(false); }} variant="destructive" className="flex items-center gap-2">
                   <Trash2 className="h-4 w-4" />
-                  Delete Selected
+                  Delete
                 </Button>
               )}
             </div>
 
-            {/* Bottom actions */}
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onClearSelected();
-                  onOpenChange(false);
-                }}
-              >
+              <Button variant="outline" onClick={() => { onClearSelected(); onOpenChange(false); }}>
                 Clear All
               </Button>
               <Button variant="outline" onClick={() => onOpenChange(false)}>

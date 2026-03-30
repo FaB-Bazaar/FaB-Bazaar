@@ -474,6 +474,39 @@ export async function transferSelectedCards(
 }
 
 /**
+ * Transfer cards from multiple source binders to a single target binder in one request.
+ * Groups by sourceBinderId server-side; quantities are merged if the printing already exists
+ * in the target.
+ *
+ * @param targetBinderId - Destination binder ID
+ * @param cards - Cards with their source binder and quantity
+ * @returns Aggregated transfer summary
+ *
+ * @example
+ * ```typescript
+ * const result = await transferCardsCrossSource('target456', [
+ *   { cardId: 'card1', sourceBinderId: 'binderA', quantity: 2 },
+ *   { cardId: 'card2', sourceBinderId: 'binderB', quantity: 1 },
+ * ]);
+ * ```
+ */
+export async function transferCardsCrossSource(
+  targetBinderId: string,
+  cards: { cardId: string; sourceBinderId: string; quantity: number }[]
+): Promise<ApiResponse<{ summary: any; results: any[] }>> {
+  try {
+    const response = await fetch('/api/collection/transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetBinderId, cards }),
+    });
+    return await handleResponse<{ summary: any; results: any[] }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Copy entire binder (creates new binder with all cards)
  *
  * @param sourceBinderId - Source binder ID
