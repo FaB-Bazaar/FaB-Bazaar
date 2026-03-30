@@ -10,6 +10,10 @@ This repo is publicly open-sourced. Keep CLAUDE.md content at the architecture/p
 
 Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQL + Drizzle ORM. Self-hosted VPS (Docker).
 
+## Security
+
+- **Never hardcode secrets** — no API keys, tokens, passwords, or connection strings in source code. All secrets via `process.env.*` only, sourced from `.env.local` (never committed).
+
 ## Key Rules
 
 - **PostgreSQL only** — MongoDB fully removed (2026-03-08). No Mongoose models, no MongoDB connections. The `models/` directory is dead code.
@@ -65,17 +69,47 @@ Four methods: NextAuth Session, Discord Bot Token, MCP Token, OAuth 2.1 Bearer. 
 import { authenticateRequest, authenticateSession } from "@/lib/auth/multi-auth"
 ```
 
-## Non-obvious Commands
+## Testing
+
+### Running tests
 
 ```bash
-npm run seo:check     # SEO analysis
-npm run seo:report    # Generate SEO report
-npm run seo:sitemap   # Generate sitemap
-npm run seo:robots    # Generate robots.txt
-npm run seo:manifest  # Generate manifest
-npm run seo:speed     # Speed analysis
-npm run test          # Vitest
+npm run test                          # all tests (watch mode)
+npx vitest run                        # all tests (CI / one-shot)
+npx vitest run <path>                 # single file
 ```
+
+Requires `POSTGRES_URL` in `.env.local` for service integration tests (reads via `vitest.setup.ts` → `loadEnvConfig`).
+
+### Two-layer pattern
+
+Every feature gets two test files:
+
+| Layer | File location | DB | What it proves |
+|-------|---------------|----|----------------|
+| **Service integration** | `lib/services/postgres/**/*.test.ts` | Real (local Docker) | Business logic, transactions, edge cases |
+| **Route unit** | `app/api/**/*.test.ts` | None (mocked service) | Auth, validation, grouping, HTTP response shape |
+
+### Service integration test conventions
+
+- `beforeAll`: query a real FK value (e.g. `printingId`) needed to insert test rows
+- `beforeEach`: insert isolated test data using `crypto.randomUUID()` IDs
+- `afterEach`: `db.delete(users).where(eq(users.id, testUserId))` — cascade handles binders → inventory items
+- Import service directly: `import { PostgresBinderService } from './PostgresBinderService'`
+- Do **not** import from `@/lib/services` in service test files (circular dep risk — see Known Gotchas)
+
+### Route unit test conventions
+
+```typescript
+vi.mock('@/lib/services', () => ({ binderService: { methodName: vi.fn() } }));
+vi.mock('@/lib/auth/multi-auth', () => ({ authenticateRequest: vi.fn() }));
+// Import AFTER mocks (vi.mock is hoisted; referencing outer variables in factories breaks)
+import { POST } from './route';
+import { binderService } from '@/lib/services';
+const mockMethod = vi.mocked(binderService.methodName);
+```
+
+See `app/api/collection/transfer/route.test.ts` for a complete example.
 
 ## Environment
 
