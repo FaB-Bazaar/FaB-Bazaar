@@ -1,7 +1,7 @@
 // components/deck/DeckSettings.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Settings, Save, Trash2, Swords } from "lucide-react";
+import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2 } from "lucide-react";
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
 import TalisharToggle from "./TalisharToggle";
 
@@ -65,6 +65,21 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [matchupsOpen, setMatchupsOpen] = useState(false);
   const [matchupsCount, setMatchupsCount] = useState(0);
 
+  // Co-owners state
+  const [coOwners, setCoOwners] = useState<{ id: string; username: string; avatar: string | null }[]>([]);
+  const [coOwnerInput, setCoOwnerInput] = useState("");
+  const [coOwnerSaving, setCoOwnerSaving] = useState(false);
+  const [coOwnerError, setCoOwnerError] = useState<string | null>(null);
+
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<{ id: string; username: string; avatar: string | null }[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const CO_OWNER_MAX = 20;
+
   const hasChanges =
     name !== deck.name ||
     description !== (deck.description || "") ||
@@ -102,6 +117,132 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     setVisibility(deck.visibility || 'unlisted');
     setAvailableOnTalishar(deck.availableOnTalishar ?? false);
     setMetafyGuideId(deck.metafyGuideId || "");
+  };
+
+  // Fetch co-owners
+  const fetchCoOwners = useCallback(() => {
+    if (!deckId) return;
+    fetch(`/api/decks/${deckId}/co-owners`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => { if (data.success) setCoOwners(data.data); })
+      .catch(() => {});
+  }, [deckId]);
+
+  useEffect(() => { fetchCoOwners(); }, [fetchCoOwners]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleCoOwnerInputChange = (value: string) => {
+    setCoOwnerInput(value);
+    setCoOwnerError(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.length < 3) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      if (!deckId) return;
+      setSuggestionsLoading(true);
+      try {
+        const res = await fetch(`/api/users/autocomplete?q=${encodeURIComponent(value)}&deckId=${deckId}`, { credentials: 'include' });
+        const data = await res.json();
+        if (data.success) {
+          // Filter out already-added co-owners
+          const addedIds = new Set(coOwners.map(c => c.id));
+          setSuggestions(data.users.filter((u: { id: string }) => !addedIds.has(u.id)));
+          setShowSuggestions(true);
+        }
+      } catch {
+        // silently ignore autocomplete errors
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    }, 250);
+  };
+
+  const putCoOwners = async (userIds: string[]): Promise<boolean> => {
+    const res = await fetch(`/api/decks/${deckId}/co-owners`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ userIds }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      fetchCoOwners();
+      return true;
+    }
+    setCoOwnerError(data.error || 'Failed to update co-owners');
+    return false;
+  };
+
+  const handleSelectSuggestion = async (user: { id: string; username: string; avatar: string | null }) => {
+    setShowSuggestions(false);
+    setCoOwnerInput("");
+    setSuggestions([]);
+    if (coOwners.length >= CO_OWNER_MAX) {
+      setCoOwnerError(`Maximum ${CO_OWNER_MAX} co-owners allowed`);
+      return;
+    }
+    setCoOwnerSaving(true);
+    setCoOwnerError(null);
+    try {
+      await putCoOwners([...coOwners.map(c => c.id), user.id]);
+    } catch {
+      setCoOwnerError('Failed to add co-owner');
+    } finally {
+      setCoOwnerSaving(false);
+    }
+  };
+
+  const handleAddCoOwner = async () => {
+    if (!deckId) return;
+    if (coOwners.length >= CO_OWNER_MAX) {
+      setCoOwnerError(`Maximum ${CO_OWNER_MAX} co-owners allowed`);
+      return;
+    }
+    // Use the first suggestion if it matches the current input
+    const match = suggestions.find(s => s.username.toLowerCase() === coOwnerInput.trim().toLowerCase()) ?? suggestions[0];
+    if (!match) {
+      setCoOwnerError('No matching user found. Please select from the dropdown.');
+      return;
+    }
+    setCoOwnerSaving(true);
+    setCoOwnerError(null);
+    setShowSuggestions(false);
+    setCoOwnerInput("");
+    setSuggestions([]);
+    try {
+      await putCoOwners([...coOwners.map(c => c.id), match.id]);
+    } catch {
+      setCoOwnerError('Failed to add co-owner');
+    } finally {
+      setCoOwnerSaving(false);
+    }
+  };
+
+  const handleRemoveCoOwner = async (coOwnerId: string) => {
+    if (!deckId) return;
+    setCoOwnerSaving(true);
+    setCoOwnerError(null);
+    try {
+      const remainingIds = coOwners.filter(c => c.id !== coOwnerId).map(c => c.id);
+      await putCoOwners(remainingIds);
+    } catch {
+      setCoOwnerError('Failed to remove co-owner');
+    } finally {
+      setCoOwnerSaving(false);
+    }
   };
 
   // Fetch matchups count
@@ -216,6 +357,85 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
             <Swords className="h-4 w-4 mr-2" />
             Manage Matchup Sideboards {matchupsCount > 0 && `(${matchupsCount})`}
           </Button>
+        </div>
+      )}
+
+      {/* Co-Owners */}
+      {deckId && (
+        <div className="pt-3 border-t space-y-2">
+          <Label>Co-Owners ({coOwners.length}/{CO_OWNER_MAX})</Label>
+          <p className="text-xs text-muted-foreground">Co-owners can edit cards and view results. Type 3+ characters to search.</p>
+          <div ref={autocompleteRef} className="relative">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  value={coOwnerInput}
+                  onChange={e => handleCoOwnerInputChange(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') { setShowSuggestions(false); }
+                    if (e.key === 'Enter') { e.preventDefault(); handleAddCoOwner(); }
+                  }}
+                  onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                  placeholder="Search username..."
+                  disabled={coOwnerSaving || coOwners.length >= CO_OWNER_MAX}
+                  autoComplete="off"
+                />
+                {suggestionsLoading && (
+                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddCoOwner}
+                disabled={!coOwnerInput.trim() || coOwnerSaving || coOwners.length >= CO_OWNER_MAX}
+                title="Add by exact username"
+              >
+                <UserPlus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Autocomplete dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <ul className="absolute z-50 left-0 right-0 mt-1 bg-gray-900 border border-gray-700 rounded-md shadow-lg overflow-hidden">
+                {suggestions.map(user => (
+                  <li key={user.id}>
+                    <button
+                      type="button"
+                      onMouseDown={e => { e.preventDefault(); handleSelectSuggestion(user); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-800 transition-colors"
+                    >
+                      {user.avatar ? (
+                        <img src={user.avatar} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gray-700 shrink-0" />
+                      )}
+                      <span className="text-gray-100">{user.username}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {coOwnerError && <p className="text-xs text-red-500">{coOwnerError}</p>}
+          {coOwners.length > 0 && (
+            <ul className="space-y-1">
+              {coOwners.map(coOwner => (
+                <li key={coOwner.id} className="flex items-center justify-between text-sm py-0.5">
+                  <span className="text-foreground">{coOwner.username}</span>
+                  <button
+                    onClick={() => handleRemoveCoOwner(coOwner.id)}
+                    disabled={coOwnerSaving}
+                    className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                    title="Remove co-owner"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

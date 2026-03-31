@@ -209,6 +209,8 @@ export default function DeckEditorPage() {
   const [deckSwapTarget, setDeckSwapTarget] = useState<SwapTarget | null>(null);
 
   const isOwner = !!(user && state.deck && state.deck.userId === user.id);
+  const isCoOwner = !!(user && state.deck && !isOwner && (state.deck.coOwners ?? []).includes(user.id));
+  const canEdit = isOwner || isCoOwner;
 
   const stagedCards = state.bulkResults.filter(c => c.isStaged);
 
@@ -611,8 +613,10 @@ export default function DeckEditorPage() {
   useEffect(() => {
     if (authLoading || state.deckLoading) return;
     if (!state.deck) return;
-    const ownerViewing = user && state.deck.userId === user.id;
-    if (!ownerViewing && !state.deck.isPublic) {
+    const canView = (user && state.deck.userId === user.id) ||
+      (user && (state.deck.coOwners ?? []).includes(user.id)) ||
+      state.deck.isPublic;
+    if (!canView) {
       router.replace(`/decks/${deckId}/analyze`);
     }
   }, [authLoading, state.deckLoading, user, state.deck, deckId, router]);
@@ -760,7 +764,7 @@ export default function DeckEditorPage() {
   }, [previewBuild, upgradeResult]);
 
   const addCardToDeck = async (printingId: string, quantity: number, displayName?: string) => {
-    if (!isOwner || quantity < 1) return;
+    if (!canEdit || quantity < 1) return;
     setAddingCard(printingId);
     try {
       const result = await decksClient.addPrintings(deckId, [{ printingId, quantity }]);
@@ -776,7 +780,7 @@ export default function DeckEditorPage() {
   };
 
   const addAllToDeck = async () => {
-    if (!isOwner || !previewBuild) return;
+    if (!canEdit || !previewBuild) return;
     setAddingAll(true);
     try {
       const seen = new Map<string, { printingId: string; quantity: number }>();
@@ -1335,7 +1339,7 @@ export default function DeckEditorPage() {
         );
       })()}
 
-      {isOwner && activeTab === "search" && (
+      {canEdit && activeTab === "search" && (
         <DeckEditorSidebar
           deck={optimisticDeck ?? state.deck}
           deckLoading={state.deckLoading}
@@ -1368,7 +1372,7 @@ export default function DeckEditorPage() {
         />
       )}
 
-      <div className={isOwner && activeTab === "search" ? "lg:ml-96" : ""}>
+      <div className={canEdit && activeTab === "search" ? "lg:ml-96" : ""}>
         <div className="container mx-auto pt-3 pb-20 sm:pb-0 px-4">
           <div className="w-full">
             {/* Compact header: back arrow + title + view link */}
@@ -1380,9 +1384,16 @@ export default function DeckEditorPage() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Link>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-                {state.deckLoading ? "Loading..." : state.deck ? state.deck.name : "Deck Editor"}
-              </h1>
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                  {state.deckLoading ? "Loading..." : state.deck ? state.deck.name : "Deck Editor"}
+                </h1>
+                {!isOwner && state.deck?.ownerUsername && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    by {state.deck.ownerUsername}
+                  </span>
+                )}
+              </div>
               <Link
                 href={`/decks/${deckId}/analyze`}
                 className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1"
@@ -1408,7 +1419,7 @@ export default function DeckEditorPage() {
                 )}
                 <DarkModeToggle />
                 <span className="text-xs text-muted-foreground">
-                  {!isOwner
+                  {!canEdit
                     ? "Read only"
                     : state.deck?.heroName
                     ? `Filtered for ${state.deck.heroName}`
@@ -1449,7 +1460,7 @@ export default function DeckEditorPage() {
                     </button>
                   </>
                 )}
-                {!isOwner && state.deck && (
+                {!canEdit && state.deck && (
                   <button
                     onClick={async () => {
                       if (!user) {
@@ -1475,7 +1486,7 @@ export default function DeckEditorPage() {
 
             {/* Tab bar — desktop only */}
             <div className="hidden sm:flex border-b border-gray-200 dark:border-gray-700 mb-4">
-              {isOwner && (
+              {canEdit && (
                 <button
                   onClick={() => setActiveTab("search")}
                   className={cn(
@@ -1518,7 +1529,7 @@ export default function DeckEditorPage() {
                 <Swords className="h-4 w-4" />
                 Matchups
               </button>
-              {isOwner && (
+              {canEdit && (
                 <button
                   onClick={() => setActiveTab("results")}
                   className={cn(
@@ -1535,7 +1546,7 @@ export default function DeckEditorPage() {
             </div>
 
             {/* Curated build buttons — collapsible, always reserves space while loading */}
-            {isOwner && (buildsLoading || curatedBuilds.length > 0) && (() => {
+            {canEdit && (buildsLoading || curatedBuilds.length > 0) && (() => {
               const FABLAZING_FORMAT_MAP: Record<string, string> = {
                 'Classic Constructed': 'cc',
                 'Blitz': 'blitz',
@@ -1632,7 +1643,7 @@ export default function DeckEditorPage() {
             })()}
 
             {/* Search tab content */}
-            {isOwner && activeTab === "search" && (
+            {canEdit && activeTab === "search" && (
               <>
                 {/* Mobile: card grid with direct +/- controls */}
                 {state.deck && (
@@ -1782,7 +1793,7 @@ export default function DeckEditorPage() {
                       handleUpdateDeckCardQty(printingId, currentQty + 1, category)
                     }
                     onAddCard={(category, pitch) => setQuickAddTarget({ category, pitch })}
-                    canEdit={isOwner}
+                    canEdit={canEdit}
                     binders={binders}
                     selectedBinderId={selectedBinderId}
                     onBinderChange={handleBinderChange}
@@ -1796,7 +1807,7 @@ export default function DeckEditorPage() {
             )}
 
             {/* Results tab content */}
-            {isOwner && activeTab === "results" && (
+            {canEdit && activeTab === "results" && (
               <DeckResultsTab deckId={deckId} deck={state.deck ?? undefined} />
             )}
 
@@ -1866,7 +1877,7 @@ export default function DeckEditorPage() {
 
       {/* Mobile bottom tab bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 flex sm:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        {isOwner && (
+        {canEdit && (
           <button
             onClick={() => setActiveTab("search")}
             className={cn(
@@ -1911,7 +1922,7 @@ export default function DeckEditorPage() {
           <Swords className="h-5 w-5" />
           Matchups
         </button>
-        {isOwner && (
+        {canEdit && (
           <button
             onClick={() => setActiveTab("results")}
             className={cn(
@@ -2032,7 +2043,7 @@ export default function DeckEditorPage() {
                       card={card}
                       defaultQty={qty}
                       adding={addingCard === card.printingId}
-                      isOwner={isOwner}
+                      isOwner={canEdit}
                       inDeck={deckCopies.get(card.printingId) ?? 0}
                       comment={showComment ? card.comment ?? undefined : undefined}
                       onAdd={q => addCardToDeck(card.printingId, q, card.displayName)}
@@ -2041,7 +2052,7 @@ export default function DeckEditorPage() {
                 });
               })()}
             </div>
-            {isOwner && (
+            {canEdit && (
               <div className="px-6 pb-5 pt-2 border-t border-gray-700 flex justify-end">
                 <button
                   onClick={addAllToDeck}

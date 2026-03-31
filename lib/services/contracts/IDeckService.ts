@@ -115,6 +115,12 @@ export interface DeckDTO {
   // Optional metadata
   tags?: string[];
   metadata?: Record<string, any>;
+
+  // Co-owners: user IDs that share edit access (primary owner manages this list)
+  coOwners?: string[];
+
+  // Resolved display username of the primary owner (populated by API routes, not service layer)
+  ownerUsername?: string | null;
 }
 
 /**
@@ -123,6 +129,7 @@ export interface DeckDTO {
 export interface DeckSummaryDTO {
   _id: string;
   publicId: string;
+  userId: string;
   name: string;
   slug?: string;
   format: DeckFormat;
@@ -133,6 +140,8 @@ export interface DeckSummaryDTO {
   estimatedValue?: number;
   matchupCount?: number;
   updatedAt?: Date;
+  isCoOwned?: boolean;  // True when the requesting user is a co-owner (not the primary owner)
+  ownerUsername?: string;  // Display username of the primary owner (populated for co-owned decks)
 }
 
 /**
@@ -513,6 +522,20 @@ export interface IDeckService {
     publicId: string,
     userId: string
   ): AsyncResult<boolean>;
+
+  /**
+   * Update the co-owners list for a deck (primary owner only)
+   *
+   * @param publicId - The deck's public ID
+   * @param ownerUserId - Must be the primary owner
+   * @param coOwnerIds - Full replacement list of co-owner user IDs (max 20)
+   * @returns The updated deck
+   */
+  updateCoOwners(
+    publicId: string,
+    ownerUserId: string,
+    coOwnerIds: string[]
+  ): AsyncResult<DeckDTO>;
 
   // ====================================
   // List Operations

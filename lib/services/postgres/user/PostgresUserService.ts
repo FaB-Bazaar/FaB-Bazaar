@@ -5,7 +5,7 @@
  * Clean, normalized queries with no denormalization
  */
 
-import { eq, and, or, sql } from 'drizzle-orm';
+import { eq, and, or, sql, inArray } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { users, binders, wantsItems, metafyCommunities } from '@/lib/postgres/schema';
 import { encryptMetafyTokens } from '@/lib/metafy/tokens';
@@ -502,6 +502,26 @@ export class PostgresUserService implements IUserService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to search users',
+      };
+    }
+  }
+
+  /**
+   * Get multiple users by their IDs in a single query
+   */
+  async getUsersByIds(ids: string[]): AsyncResult<UserDTO[]> {
+    if (ids.length === 0) return { success: true, data: [] };
+    try {
+      const results = await db
+        .select()
+        .from(users)
+        .where(inArray(users.id, ids));
+      return { success: true, data: results.map(u => this.mapToUserDTO(u)) };
+    } catch (error) {
+      console.error('[PostgresUserService] getUsersByIds error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get users by IDs',
       };
     }
   }

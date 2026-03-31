@@ -56,11 +56,35 @@ interface CardEntry {
   cardId: string;
 }
 
+const PITCH_LABEL: Record<number, string> = { 1: "(red)", 2: "(yel)", 3: "(blu)" };
+
 export default function DeckExport({ deck, onCopyList }: DeckExportProps) {
   const [exportFormat, setExportFormat] = useState<'text' | 'json' | 'csv'>('text');
   const [copied, setCopied] = useState(false);
 
-  // Flatten categorized arrays into a single list of CardEntry
+  // Build GEM-format export: aggregate equipment+maindeck+inventory by name+pitch, exclude hero
+  const buildGemExportText = (): string => {
+    const totals = new Map<string, number>();
+    const keyOrder: string[] = [];
+    const categories: Array<DeckPrinting[]> = [
+      deck.equipment || [],
+      deck.maindeck || [],
+      deck.inventory || [],
+    ];
+    for (const items of categories) {
+      for (const printing of items) {
+        const name = printing.printingDetails?.display_name || printing.printingDetails?.name || printing.printingId;
+        const pitch = printing.printingDetails?.pitch as number | undefined;
+        const pitchStr = pitch ? ` ${PITCH_LABEL[pitch]}` : "";
+        const key = `${name}${pitchStr}`;
+        if (!totals.has(key)) keyOrder.push(key);
+        totals.set(key, (totals.get(key) ?? 0) + (printing.quantity || 1));
+      }
+    }
+    return keyOrder.map(key => `${totals.get(key)} ${key}`).join("\n");
+  };
+
+  // Flatten categorized arrays into a single list of CardEntry (used for JSON/CSV)
   const groupPrintingsByCard = (): CardEntry[] => {
     const categories: Array<{ key: string; items: DeckPrinting[] }> = [
       { key: 'hero', items: deck.hero || [] },
@@ -94,32 +118,7 @@ export default function DeckExport({ deck, onCopyList }: DeckExportProps) {
     return Object.values(grouped);
   };
 
-  // Generate different export formats
-  const generateTextList = () => {
-    const cards = groupPrintingsByCard();
-    const sections = {
-      hero: cards.filter(c => c.category === 'hero'),
-      equipment: cards.filter(c => c.category === 'equipment'),
-      main: cards.filter(c => c.category === 'main'),
-      sideboard: cards.filter(c => c.category === 'sideboard')
-    };
-
-    let output = `${deck.name}\n`;
-    if (deck.heroName) output += `Hero: ${deck.heroName}\n`;
-    output += `Format: ${deck.format}\n\n`;
-
-    Object.entries(sections).forEach(([category, cards]) => {
-      if (cards.length > 0) {
-        output += `${category.charAt(0).toUpperCase() + category.slice(1)}:\n`;
-        cards.forEach(card => {
-          output += `${card.quantity}x ${card.name}${card.set ? ` (${card.set})` : ''}\n`;
-        });
-        output += '\n';
-      }
-    });
-
-    return output.trim();
-  };
+  const generateTextList = buildGemExportText;
 
   const generateJSONExport = () => {
     const cards = groupPrintingsByCard();
@@ -303,42 +302,18 @@ export default function DeckExport({ deck, onCopyList }: DeckExportProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {/* Simple Text List */}
+            {/* GEM Format */}
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div>
-                <div className="font-medium">Simple Card List</div>
+                <div className="font-medium">GEM Format</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Basic quantity and name format
+                  For gem.fabtcg.com — quantity, name, pitch (red/yel/blu)
                 </div>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const cards = groupPrintingsByCard();
-                  const simpleList = cards.map(card => 
-                    `${card.quantity}x ${card.name}`
-                  ).join('\n');
-                  handleCopy(simpleList);
-                }}
-              >
-                <Copy className="h-4 w-4 mr-1" />
-                Copy
-              </Button>
-            </div>
-
-            {/* Tournament Format */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div>
-                <div className="font-medium">Tournament Format</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Organized by category for tournaments
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleCopy(generateTextList())}
+                onClick={() => handleCopy(buildGemExportText())}
               >
                 <Copy className="h-4 w-4 mr-1" />
                 Copy

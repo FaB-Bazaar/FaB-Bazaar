@@ -1,7 +1,8 @@
 // app/api/decks/user/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from '@/auth';
-import { deckService } from '@/lib/services';
+import { deckService, userService } from '@/lib/services';
+import { displayUsername } from '@/lib/utils/display-username';
 
 export async function GET(request: NextRequest) {
   console.log('[API TRACK] /api/decks/user called at', new Date().toISOString());
@@ -34,7 +35,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const decks = limit ? result.data.slice(0, limit) : result.data;
+    let decks = limit ? result.data.slice(0, limit) : result.data;
+
+    // Bulk-fetch owner usernames for co-owned decks
+    const coOwnedUserIds = [...new Set(decks.filter(d => d.isCoOwned).map(d => d.userId))];
+    if (coOwnedUserIds.length > 0) {
+      const ownersResult = await userService.getUsersByIds(coOwnedUserIds);
+      if (ownersResult.success) {
+        const ownerMap = new Map(ownersResult.data.map(u => [u._id, displayUsername(u.username)]));
+        decks = decks.map(d => d.isCoOwned ? { ...d, ownerUsername: ownerMap.get(d.userId) } : d);
+      }
+    }
 
     return NextResponse.json(
       {

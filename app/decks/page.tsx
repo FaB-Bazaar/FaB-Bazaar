@@ -78,6 +78,8 @@ interface Deck {
   uniqueCards?: number;
   fabraryUrl?: string;
   metadata?: Record<string, any>;
+  isCoOwned?: boolean;
+  ownerUsername?: string;
 }
 
 export default function DecksPage() {

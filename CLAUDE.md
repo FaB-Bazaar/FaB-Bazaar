@@ -36,6 +36,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 
 - **`/api/decks/list` is Talishar-only** — requires `x-api-key`; MCP and OAuth clients must use `/api/decks` (GET) instead.
 - **Circular dep risk in services** — do not import from `@/lib/services` in any file that `lib/services/index.ts` imports transitively. Use `await import('@/lib/services')` lazily inside function bodies. (`lib/metafy/tokens.ts` hit this: caused `ReferenceError` in TDZ for `ServiceFactory`.)
+- **Never run `drizzle-kit generate` / `npm run db:generate`** — the drizzle-kit journal (`lib/postgres/migrations/meta/_journal.json`) only tracks migrations 0000–0004. Running generate would diff against that stale snapshot and produce a massive destructive migration covering all of 0005–0031. Always write SQL migration files manually (see any file in `lib/postgres/migrations/` from 0005 onward) and apply directly with `psql $POSTGRES_URL -f <file>`.
 
 ## API Route Pattern
 

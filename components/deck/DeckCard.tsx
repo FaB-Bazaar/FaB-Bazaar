@@ -47,6 +47,8 @@ interface Deck {
   format: string;
   visibility?: 'private' | 'unlisted' | 'public';
   isPublic: boolean;
+  isCoOwned?: boolean;
+  ownerUsername?: string;
   availableOnTalishar?: boolean;
   featured?: boolean;
   metafyGuideId?: string | null;
@@ -174,6 +176,11 @@ export default function DeckCard({
                 {deck.name}
               </Link>
               <div className="flex items-center gap-1 flex-shrink-0">
+                {deck.isCoOwned && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 font-medium" title="You are a co-owner of this deck">
+                    Shared
+                  </span>
+                )}
                 {deck.visibility === 'public' ? (
                   <Globe className="h-4 w-4 text-green-500" title="Public — listed in Community Decks" />
                 ) : deck.visibility === 'unlisted' ? (
@@ -183,6 +190,13 @@ export default function DeckCard({
                 )}
               </div>
             </div>
+
+            {/* Co-owner attribution */}
+            {deck.isCoOwned && deck.ownerUsername && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 -mt-1">
+                by {deck.ownerUsername}
+              </p>
+            )}
 
             {/* Format */}
             <div className="flex items-center gap-2 mb-2">

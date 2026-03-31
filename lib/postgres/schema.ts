@@ -541,6 +541,9 @@ export const decks = pgTable('decks', {
   tags: text('tags').array(),
   metadata: jsonb('metadata'),
 
+  // Co-owners (array of user IDs who share edit access)
+  coOwners: text('co_owners').array().default([]).notNull(),
+
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

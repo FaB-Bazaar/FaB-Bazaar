@@ -195,16 +195,18 @@ export class PostgresDeckService implements IDeckService {
       updatedAt: deckRow.updatedAt,
       tags: deckRow.tags || undefined,
       metadata: deckRow.metadata || undefined,
+      coOwners: deckRow.coOwners || [],
     };
   }
 
   /**
    * Convert database row to DeckSummaryDTO (lightweight)
    */
-  private toSummaryDTO(deckRow: any): DeckSummaryDTO {
+  private toSummaryDTO(deckRow: any, requestingUserId?: string): DeckSummaryDTO {
     return {
       _id: deckRow.id,
       publicId: deckRow.publicId,
+      userId: deckRow.userId,
       name: deckRow.name,
       slug: deckRow.slug || undefined,
       format: deckRow.format,
@@ -214,6 +216,9 @@ export class PostgresDeckService implements IDeckService {
       totalCards: deckRow.totalCards || 0,
       estimatedValue: deckRow.estimatedValue || 0,
       updatedAt: deckRow.updatedAt,
+      isCoOwned: requestingUserId
+        ? deckRow.userId !== requestingUserId && (deckRow.coOwners || []).includes(requestingUserId)
+        : false,
     };
   }
 
@@ -339,7 +344,7 @@ export class PostgresDeckService implements IDeckService {
   ): AsyncResult<DeckDTO | null> {
     try {
       const conditions = userId
-        ? and(eq(decks.id, deckId), eq(decks.userId, userId))
+        ? and(eq(decks.id, deckId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`))
         : eq(decks.id, deckId);
 
       const deckRow = await db
@@ -369,7 +374,7 @@ export class PostgresDeckService implements IDeckService {
   ): AsyncResult<DeckDTO | null> {
     try {
       const conditions = userId
-        ? and(eq(decks.publicId, publicId), eq(decks.userId, userId))
+        ? and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`))
         : eq(decks.publicId, publicId);
 
       const deckRow = await db
@@ -579,7 +584,7 @@ export class PostgresDeckService implements IDeckService {
       const updatedDeck = await db
         .update(decks)
         .set(updateFields)
-        .where(and(eq(decks.publicId, publicId), eq(decks.userId, userId)))
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
         .returning();
 
       if (updatedDeck.length === 0) {
@@ -631,7 +636,7 @@ export class PostgresDeckService implements IDeckService {
     pagination?: PaginationOptions
   ): AsyncResult<{ decks: DeckDTO[]; total: number }> {
     try {
-      let conditions = [eq(decks.userId, userId)];
+      let conditions = [or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
       if (filters?.visibility) conditions.push(eq(decks.visibility, filters.visibility));
@@ -691,7 +696,7 @@ export class PostgresDeckService implements IDeckService {
       const deckRows = await db
         .select()
         .from(decks)
-        .where(eq(decks.userId, userId))
+        .where(or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`))
         .orderBy(desc(decks.updatedAt));
 
       // For each deck, get card count and value
@@ -710,7 +715,7 @@ export class PostgresDeckService implements IDeckService {
             ...row,
             totalCards: cardCount,
             estimatedValue: totalValue,
-          });
+          }, userId);
         })
       );
 
@@ -939,7 +944,7 @@ export class PostgresDeckService implements IDeckService {
       const deck = await db
         .select()
         .from(decks)
-        .where(and(eq(decks.publicId, publicId), eq(decks.userId, userId)))
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
         .limit(1);
 
       if (deck.length === 0) {
@@ -1036,7 +1041,7 @@ export class PostgresDeckService implements IDeckService {
       const deck = await db
         .select()
         .from(decks)
-        .where(and(eq(decks.publicId, publicId), eq(decks.userId, userId)))
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
         .limit(1);
 
       if (deck.length === 0) {
@@ -1163,7 +1168,7 @@ export class PostgresDeckService implements IDeckService {
       const deck = await db
         .select()
         .from(decks)
-        .where(and(eq(decks.publicId, publicId), eq(decks.userId, userId)))
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
         .limit(1);
 
       if (deck.length === 0) {
@@ -1829,6 +1834,36 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to validate format',
+      };
+    }
+  }
+
+  async updateCoOwners(
+    publicId: string,
+    ownerUserId: string,
+    coOwnerIds: string[]
+  ): AsyncResult<DeckDTO> {
+    try {
+      if (coOwnerIds.length > 20) {
+        return { success: false, error: 'A deck can have at most 20 co-owners' };
+      }
+
+      const updated = await db
+        .update(decks)
+        .set({ coOwners: coOwnerIds, updatedAt: new Date() })
+        .where(and(eq(decks.publicId, publicId), eq(decks.userId, ownerUserId)))
+        .returning();
+
+      if (updated.length === 0) {
+        return { success: false, error: 'Deck not found or access denied' };
+      }
+
+      return { success: true, data: await this.toDeckDTO(updated[0]) };
+    } catch (error) {
+      console.error('[PostgresDeckService.updateCoOwners] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update co-owners',
       };
     }
   }

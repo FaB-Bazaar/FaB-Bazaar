@@ -19,7 +19,8 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Deck not found' }, { status: 404 });
     }
 
-    if (deckLookup.data.userId?.toString() !== authResult.userId) {
+    const isCoOwner = (deckLookup.data.coOwners ?? []).includes(authResult.userId ?? '');
+    if (deckLookup.data.userId?.toString() !== authResult.userId && !isCoOwner) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
 

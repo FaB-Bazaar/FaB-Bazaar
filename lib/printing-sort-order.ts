@@ -9,11 +9,11 @@ import { getSetCodesInDisplayOrder } from './fab-constants';
  * Order: Cold Foil → Rainbow Foil → Standard (non-foil)
  */
 export const FOILING_DISPLAY_ORDER: Record<string, number> = {
-  'c': 1,   // Cold Foil
-  'g': 2,   // Gold Cold Foil
-  'r': 3,   // Rainbow Foil
-  's': 4,   // Standard (non-foil)
-  'n': 4,   // Standard (non-foil, alternate code)
+  's': 1,   // Standard (non-foil)
+  'n': 1,   // Standard (non-foil, alternate code)
+  'r': 2,   // Rainbow Foil
+  'c': 3,   // Cold Foil
+  'g': 4,   // Gold Cold Foil
 };
 
 /**

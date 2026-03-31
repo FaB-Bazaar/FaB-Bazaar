@@ -1,8 +1,9 @@
 // app/api/decks/[deckId]/route.ts - Updated for service layer
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService, articleService } from '@/lib/services';
+import { deckService, articleService, userService } from '@/lib/services';
 import { getValidMetafyAccessToken } from '@/lib/metafy/tokens';
+import { displayUsername } from '@/lib/utils/display-username';
 
 /**
  * Validates that a deck is actually embedded in the specified article/hero
@@ -104,16 +105,20 @@ export async function GET(
       );
     }
 
-    // Check access for private decks (allow if embedded in article/hero)
-    if (deck.visibility === 'private' && !isEmbedded && (!authResult.success || deck.userId?.toString() !== authResult.userId)) {
+    // Determine ownership / co-ownership
+    const isOwner = authResult.success && deck.userId?.toString() === authResult.userId;
+    const isCoOwner = authResult.success && !isOwner && (deck.coOwners ?? []).includes(authResult.userId!);
+
+    // Check access for private decks (allow if embedded in article/hero, or if owner/co-owner)
+    if (deck.visibility === 'private' && !isEmbedded && !isOwner && !isCoOwner) {
       return NextResponse.json({
         success: false,
         error: 'Deck not found or access denied'
       }, { status: 404 });
     }
 
-    // Determine if user can edit
-    const canEdit = authResult.success && deck.userId?.toString() === authResult.userId;
+    // Determine if user can edit (owner or co-owner)
+    const canEdit = isOwner || isCoOwner;
 
     // Check Metafy guide access (if deck is gated to guide purchasers)
     if (deck.metafyGuideId && !canEdit) {
@@ -143,9 +148,15 @@ export async function GET(
       }
     }
 
+    // Resolve owner's display username
+    const ownerResult = await userService.findById(deck.userId);
+    const ownerUsername = ownerResult.success && ownerResult.data?.username
+      ? displayUsername(ownerResult.data.username)
+      : null;
+
     return NextResponse.json({
       success: true,
-      data: { ...deck, canEdit },
+      data: { ...deck, canEdit, isCoOwner, ownerUsername },
     });
 
   } catch (error) {
@@ -175,6 +186,21 @@ export async function PATCH(
       }, { status: 401 });
     }
 
+    // Determine if the caller is the primary owner or a co-owner
+    const deckLookup = await deckService.findByPublicId(resolvedParams.deckId);
+    const deckData = deckLookup.success ? deckLookup.data : null;
+    const isOwner = deckData?.userId === authResult.userId;
+    const isCoOwner = !isOwner && (deckData?.coOwners ?? []).includes(authResult.userId!);
+
+    if (!isOwner && !isCoOwner) {
+      return NextResponse.json({ success: false, error: 'Deck not found or access denied' }, { status: 404 });
+    }
+
+    // Co-owners cannot change owner-only settings
+    if (isCoOwner && (body.visibility !== undefined || body.isPublic !== undefined || body.metafyGuideId !== undefined || body.availableOnTalishar !== undefined)) {
+      return NextResponse.json({ success: false, error: 'Only the deck owner can change visibility and settings' }, { status: 403 });
+    }
+
     // Use service layer to update deck
     const result = await deckService.updateDeck(
       resolvedParams.deckId,
@@ -186,7 +212,6 @@ export async function PATCH(
         heroName: body.hero,
         visibility: body.visibility,
         isPublic: body.isPublic,
-        fabraryUrl: body.fabraryUrl,
         metafyGuideId: body.metafyGuideId,
         availableOnTalishar: body.availableOnTalishar,
       }
