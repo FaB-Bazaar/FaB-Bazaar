@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink, Settings } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink, Settings, Copy, Download, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -106,6 +106,26 @@ function PackageCardItem({
   );
 }
 
+const PITCH_LABEL: Record<number, string> = { 1: "(red)", 2: "(yel)", 3: "(blu)" };
+
+function buildDeckExportText(deck: DeckDTO): string {
+  const totals = new Map<string, number>();
+  const keyOrder: string[] = [];
+  for (const category of ["equipment", "maindeck", "inventory"] as const) {
+    const cards = (deck[category] ?? []) as DeckPrintingDTO[];
+    for (const card of cards) {
+      const qty = card.quantity ?? 1;
+      const name = card.printingDetails?.display_name || card.printingDetails?.name || card.printingId;
+      const pitch = card.printingDetails?.pitch;
+      const pitchStr = pitch ? ` ${PITCH_LABEL[pitch]}` : "";
+      const key = `${name}${pitchStr}`;
+      if (!totals.has(key)) keyOrder.push(key);
+      totals.set(key, (totals.get(key) ?? 0) + qty);
+    }
+  }
+  return keyOrder.map(key => `${totals.get(key)} ${key}`).join("\n");
+}
+
 export default function DeckEditorPage() {
   const params = useParams();
   const router = useRouter();
@@ -139,6 +159,9 @@ export default function DeckEditorPage() {
 
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
+
+  // Export/copy state
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Deck settings
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1391,6 +1414,41 @@ export default function DeckEditorPage() {
                     ? `Filtered for ${state.deck.heroName}`
                     : ""}
                 </span>
+                {state.deck && (
+                  <>
+                    <button
+                      onClick={() => {
+                        const text = buildDeckExportText(state.deck!);
+                        navigator.clipboard.writeText(text).then(() => {
+                          setCopySuccess(true);
+                          setTimeout(() => setCopySuccess(false), 2000);
+                        });
+                      }}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
+                      title="Copy deck list to clipboard (GEM format)"
+                    >
+                      {copySuccess ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                      {copySuccess ? "Copied!" : "Copy list"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const text = buildDeckExportText(state.deck!);
+                        const blob = new Blob([text], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${state.deck!.name || "deck"}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
+                      title="Export deck list as .txt (GEM format)"
+                    >
+                      <Download className="h-3 w-3" />
+                      Export
+                    </button>
+                  </>
+                )}
                 {!isOwner && state.deck && (
                   <button
                     onClick={async () => {
