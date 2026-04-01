@@ -1,7 +1,7 @@
 // app/my-articles/[publicId]/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -86,10 +86,13 @@ export default function EditArticlePage() {
   const [saving, setSaving] = useState(false);
   const [coverImageDialogOpen, setCoverImageDialogOpen] = useState(false);
   const [coverCardDetails, setCoverCardDetails] = useState<any>(null);
+  const hasFetched = useRef(false);
 
-  // Fetch article
+  // Fetch article — guard with ref so tab-focus session refreshes don't re-fetch and
+  // overwrite unsaved edits (NextAuth re-creates the user object on window focus).
   useEffect(() => {
-    if (user && publicId) {
+    if (user && publicId && !hasFetched.current) {
+      hasFetched.current = true;
       fetchArticle();
     }
   }, [user, publicId]);
