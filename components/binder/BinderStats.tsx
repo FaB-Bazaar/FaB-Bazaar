@@ -283,9 +283,9 @@ export default function BinderStats({ binder, stats, loading, editable, onOpenSe
   const cardsNotForTrade = binder?.quantityNotForTrade || (totalCards - cardsForTrade);
   
   // Calculate values
-  const totalValue = binder?.totalValue?.tcg_market || binder?.total_value || stats?.estimatedValue || 0;
-  const valueForTrade = binder?.valueForTrade?.tcg_market || 0;
-  const valueNotForTrade = binder?.valueNotForTrade?.tcg_market || 0;
+  const totalValue = binder?.totalValue?.tcg_low || binder?.total_value || stats?.estimatedValue || 0;
+  const valueForTrade = binder?.valueForTrade?.tcg_low || 0;
+  const valueNotForTrade = binder?.valueNotForTrade?.tcg_low || 0;
   
   // Calculate percentages
   const forTradePercentage = totalCards > 0 ? (cardsForTrade / totalCards) * 100 : 0;
@@ -336,7 +336,7 @@ export default function BinderStats({ binder, stats, loading, editable, onOpenSe
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalValue)}</div>
             <p className="text-xs text-muted-foreground">
-              Market price estimate
+              TCG Low price estimate
             </p>
           </CardContent>
         </Card>

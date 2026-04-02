@@ -229,9 +229,17 @@ export default function BinderPage() {
         if (data.metadata.counts) setCounts(data.metadata.counts);
         if (data.metadata.uniqueValues) setUniqueValues(data.metadata.uniqueValues);
         if (data.metadata.stats) {
+          const s = data.metadata.stats;
           setBinder(prev => ({
             ...prev,
-            stats: data.metadata.stats
+            stats: s,
+            totalQuantity: s.totalCards,
+            quantityForTrade: s.forTradeCount,
+            quantityNotForTrade: (s.totalCards - s.forTradeCount),
+            totalValue: s.totalValue,
+            valueForTrade: s.valueForTrade,
+            valueNotForTrade: s.valueNotForTrade,
+            rarityCounts: s.rarityCounts,
           }));
         }
         if (data.metadata.priceUpdatedAt) {

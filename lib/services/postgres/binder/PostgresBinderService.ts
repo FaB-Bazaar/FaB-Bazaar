@@ -1802,8 +1802,8 @@ export class PostgresBinderService implements IBinderService {
           .where(eq(inventoryItems.binderId, binderId)),
       ]);
 
-      // Get counts and quantity stats in parallel
-      const [forTradeCount, notForTradeCount, quantityStats, priceRow] = await Promise.all([
+      // Get counts, quantity stats, and price totals in parallel
+      const [forTradeCount, notForTradeCount, quantityAndPriceStats, priceRow, rarityRows] = await Promise.all([
         db.select({ count: sql<number>`count(*)::int` })
           .from(inventoryItems)
           .where(and(eq(inventoryItems.binderId, binderId), eq(inventoryItems.forTrade, true))),
@@ -1813,14 +1813,35 @@ export class PostgresBinderService implements IBinderService {
         db.select({
           totalCards: sql<number>`COALESCE(SUM(${inventoryItems.quantity}), 0)::int`,
           forTradeCards: sql<number>`COALESCE(SUM(CASE WHEN ${inventoryItems.forTrade} THEN ${inventoryItems.quantity} ELSE 0 END), 0)::int`,
+          totalValueLow: sql<number>`COALESCE(SUM(${inventoryItems.quantity} * ${printings.tcgLow}), 0)::real`,
+          totalValueMarket: sql<number>`COALESCE(SUM(${inventoryItems.quantity} * ${printings.tcgMarket}), 0)::real`,
+          totalValueMid: sql<number>`COALESCE(SUM(${inventoryItems.quantity} * ${printings.tcgMid}), 0)::real`,
+          totalValueHigh: sql<number>`COALESCE(SUM(${inventoryItems.quantity} * ${printings.tcgHigh}), 0)::real`,
+          forTradeValueLow: sql<number>`COALESCE(SUM(CASE WHEN ${inventoryItems.forTrade} THEN ${inventoryItems.quantity} * ${printings.tcgLow} ELSE 0 END), 0)::real`,
+          notForTradeValueLow: sql<number>`COALESCE(SUM(CASE WHEN NOT ${inventoryItems.forTrade} THEN ${inventoryItems.quantity} * ${printings.tcgLow} ELSE 0 END), 0)::real`,
         })
           .from(inventoryItems)
+          .leftJoin(printings, eq(inventoryItems.printingId, printings.printingId))
           .where(eq(inventoryItems.binderId, binderId)),
         db.select({ priceUpdatedAt: sql<Date>`MAX(${printings.priceUpdatedAt})` })
           .from(inventoryItems)
           .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
           .where(eq(inventoryItems.binderId, binderId)),
+        db.select({
+          rarity: printings.rarity,
+          count: sql<number>`COALESCE(SUM(${inventoryItems.quantity}), 0)::int`,
+        })
+          .from(inventoryItems)
+          .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+          .where(eq(inventoryItems.binderId, binderId))
+          .groupBy(printings.rarity),
       ]);
+
+      const row = quantityAndPriceStats[0];
+      const rarityCounts: Record<string, number> = {};
+      for (const r of rarityRows) {
+        if (r.rarity) rarityCounts[r.rarity] = r.count;
+      }
 
       return {
         uniqueValues: {
@@ -1834,8 +1855,17 @@ export class PostgresBinderService implements IBinderService {
           notForTrade: notForTradeCount[0]?.count || 0,
         },
         stats: {
-          totalCards: quantityStats[0]?.totalCards || 0,
-          forTradeCount: quantityStats[0]?.forTradeCards || 0,
+          totalCards: row?.totalCards || 0,
+          forTradeCount: row?.forTradeCards || 0,
+          totalValue: {
+            tcg_low: row?.totalValueLow || 0,
+            tcg_market: row?.totalValueMarket || 0,
+            tcg_mid: row?.totalValueMid || 0,
+            tcg_high: row?.totalValueHigh || 0,
+          },
+          valueForTrade: { tcg_low: row?.forTradeValueLow || 0 },
+          valueNotForTrade: { tcg_low: row?.notForTradeValueLow || 0 },
+          rarityCounts,
         },
         priceUpdatedAt: priceRow[0]?.priceUpdatedAt || null,
       };
@@ -1855,6 +1885,10 @@ export class PostgresBinderService implements IBinderService {
         stats: {
           totalCards: 0,
           forTradeCount: 0,
+          totalValue: { tcg_low: 0, tcg_market: 0, tcg_mid: 0, tcg_high: 0 },
+          valueForTrade: { tcg_low: 0 },
+          valueNotForTrade: { tcg_low: 0 },
+          rarityCounts: {},
         },
         priceUpdatedAt: null,
       };

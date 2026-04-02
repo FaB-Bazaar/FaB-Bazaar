@@ -218,6 +218,19 @@ export interface BinderCardsResult {
     stats?: {
       totalCards: number;
       forTradeCount: number;
+      totalValue?: {
+        tcg_low: number;
+        tcg_market: number;
+        tcg_mid: number;
+        tcg_high: number;
+      };
+      valueForTrade?: {
+        tcg_low: number;
+      };
+      valueNotForTrade?: {
+        tcg_low: number;
+      };
+      rarityCounts?: Record<string, number>;
     };
     priceUpdatedAt?: Date | null;
   };
