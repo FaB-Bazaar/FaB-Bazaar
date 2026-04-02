@@ -36,8 +36,9 @@ import { ExportModal } from '@/components/binder/ExportModal';
 import { TradeRequestSidebar } from "@/components/binder/TradeRequestSidebar";
 import { MobileTradeRequestSheet } from "@/components/binder/MobileTradeRequestSheet";
 import { MobileSelectedCardsSheet } from "@/components/binder/MobileSelectedCardsSheet";
-import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
-import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
+// Ads disabled until further notice
+// import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
+// import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
 import { getSetImageOrFallback } from "@/lib/set-images";
 import { CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
 
@@ -1501,11 +1502,9 @@ const SuperSlamDisclosure = () => {
         </div>
       )}
 
-      {/* Desktop Video-Capable Ad - Shows at bottom on desktop only */}
-      <DesktopAnchorAd key={adRefreshKey} />
-
-      {/* Mobile Anchor Ad - Shows at bottom on mobile only */}
-      <MobileAnchorAd key={adRefreshKey} />
+      {/* Ads disabled until further notice */}
+      {/* <DesktopAnchorAd key={adRefreshKey} /> */}
+      {/* <MobileAnchorAd key={adRefreshKey} /> */}
     </div>
   );
 }
