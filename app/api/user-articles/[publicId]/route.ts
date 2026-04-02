@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { articleService } from '@/lib/services';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 /**
  * GET /api/user-articles/[publicId]
@@ -137,6 +137,8 @@ export async function PATCH(
 
     // Revalidate relevant pages
     revalidatePath('/my-articles');
+    // Bust the unstable_cache data cache for this article
+    revalidateTag(`article-${publicId}`);
 
     // If published, revalidate public pages
     if (result.data.status === 'published') {
