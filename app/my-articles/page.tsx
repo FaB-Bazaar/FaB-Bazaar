@@ -327,7 +327,7 @@ export default function MyArticlesPage() {
                     article={article}
                     onEdit={() => router.push(`/my-articles/${article.publicId}`)}
                     onDelete={() => handleDeleteArticle(article.publicId)}
-                    onView={article.status === 'published' ? () => window.open(`/articles/${article.publicId}`, '_blank') : undefined}
+                    onView={article.status === 'published' ? () => window.open(`/${article.contentType === 'hero' ? 'heroes' : 'articles'}/${article.publicId}`, '_blank') : undefined}
                   />
                 ))}
               </div>
