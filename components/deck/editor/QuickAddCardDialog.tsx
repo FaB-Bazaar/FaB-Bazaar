@@ -888,11 +888,11 @@ export default function QuickAddCardDialog({
         )}
 
         {/* Body: left sidebar filters + right results */}
-        <div className="flex min-h-0 flex-1">
+        <div className="flex flex-col sm:flex-row min-h-0 flex-1">
 
           {/* Left sidebar — filters */}
           {targetCategory !== "hero" && targetCategory !== "equipment" && (
-            <div className="w-[390px] shrink-0 border-r border-gray-700/60 px-3 py-4 flex flex-col gap-5 overflow-y-auto">
+            <div className="sm:w-[390px] w-full sm:shrink-0 border-b sm:border-b-0 sm:border-r border-gray-700/60 px-3 py-2 sm:py-4 flex flex-col gap-2 sm:gap-5 overflow-y-auto max-h-[40vh] sm:max-h-none">
               {/* Search + pitch row */}
               <div className="flex flex-col gap-1.5">
                 <div className="relative">

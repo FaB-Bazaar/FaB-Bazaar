@@ -438,7 +438,10 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
                 <div className="flex flex-wrap gap-1.5">
                   {cards.map(cr => {
                     const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
-                    const imageUrl = deckCard?.printingDetails?.image_url;
+                    const pitchSuffix = cr.pitchValue === 1 ? '_red' : cr.pitchValue === 2 ? '_yellow' : cr.pitchValue === 3 ? '_blue' : '';
+                    const imageUrl = deckCard?.printingDetails?.image_url
+                      ?? (cr.cardId ? cardIdLookup.get(cr.cardId) : undefined)
+                      ?? (cr.cardId && pitchSuffix ? cardIdLookup.get(`${cr.cardId}${pitchSuffix}`) : undefined);
                     const printingId = deckCard?.printingId;
                     const statValue = cr[statKey];
                     const isAttack = deckCard?.printingDetails?.types?.some(t => t.toLowerCase() === "attack") ?? false;
@@ -589,6 +592,17 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
+    // Pass 5: card_results cards fetched via fallback (cardId format may differ from turn log)
+    for (const game of results) {
+      const cards = game.cardResults as CardResult[] | null;
+      if (!cards) continue;
+      for (const cr of cards) {
+        if (!cr.cardId || map.has(cr.cardId)) continue;
+        const imageUrl = fallbackCardImages.get(cr.cardId);
+        if (imageUrl) map.set(cr.cardId, imageUrl);
+      }
+    }
+
     return map;
   }, [results, cardLookup, cardSlugLookup, opponentCardImages, fallbackCardImages]);
 
@@ -691,17 +705,29 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
   // Fetch images for player turn log cards not found in the deck
   // (tokens, generated cards like Gold, cards since removed from the deck)
+  // Also includes card_results entries missing from cardIdLookup (e.g. removed cards
+  // that don't appear in the turn log but do appear in card stats).
   const missingPlayerCards = useMemo(() => {
-    const missing: Array<{ cardId: string; cardName: string }> = [];
+    const missing: Array<{ cardId: string; cardName: string; pitchValue?: number }> = [];
     const seen = new Set<string>();
     for (const game of results) {
       const log = game.turnLog as [number, string, string][] | null;
-      if (!log) continue;
-      for (const [, cardId, action] of log) {
-        if (action === 'HIT' || seen.has(cardId) || cardIdLookup.has(cardId)) continue;
-        seen.add(cardId);
-        const baseName = cardId.replace(/_equip$/, '').replace(/_(red|yellow|blue)$/, '');
-        missing.push({ cardId, cardName: getCardNameFromId(baseName) });
+      if (log) {
+        for (const [, cardId, action] of log) {
+          if (action === 'HIT' || seen.has(cardId) || cardIdLookup.has(cardId)) continue;
+          seen.add(cardId);
+          const baseName = cardId.replace(/_equip$/, '').replace(/_(red|yellow|blue)$/, '');
+          missing.push({ cardId, cardName: getCardNameFromId(baseName) });
+        }
+      }
+      // card_results uses its own cardId format (may differ from turn log)
+      const cards = game.cardResults as CardResult[] | null;
+      if (cards) {
+        for (const cr of cards) {
+          if (!cr.cardId || !cr.cardName || seen.has(cr.cardId) || cardIdLookup.has(cr.cardId)) continue;
+          seen.add(cr.cardId);
+          missing.push({ cardId: cr.cardId, cardName: cr.cardName, pitchValue: cr.pitchValue });
+        }
       }
     }
     return missing;
@@ -741,7 +767,10 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
   const renderAggTile = (cr: CardResult, statKey: "played" | "pitched" | "blocked", sectionId: string) => {
     const deckCard = cr.cardName ? cardLookup.get(`${cr.cardName.toLowerCase()}|${cr.pitchValue ?? 0}`) : undefined;
-    const imageUrl = deckCard?.printingDetails?.image_url;
+    const pitchSuffix = cr.pitchValue === 1 ? '_red' : cr.pitchValue === 2 ? '_yellow' : cr.pitchValue === 3 ? '_blue' : '';
+    const imageUrl = deckCard?.printingDetails?.image_url
+      ?? (cr.cardId ? cardIdLookup.get(cr.cardId) : undefined)
+      ?? (cr.cardId && pitchSuffix ? cardIdLookup.get(`${cr.cardId}${pitchSuffix}`) : undefined);
     const printingId = deckCard?.printingId;
     const statValue = cr[statKey];
     const isAttack = deckCard?.printingDetails?.types?.some(t => t.toLowerCase() === "attack") ?? false;
