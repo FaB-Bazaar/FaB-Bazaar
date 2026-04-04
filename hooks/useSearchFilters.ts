@@ -70,7 +70,13 @@ export interface UseSearchFiltersReturn {
   isHero: boolean | undefined;
   setIsHero: (value: boolean | undefined) => void;
 
-  // Boolean class filters
+  // Boolean card type filters (extended)
+  isDefenseReaction: boolean | undefined;
+  setIsDefenseReaction: (value: boolean | undefined) => void;
+  isInstant: boolean | undefined;
+  setIsInstant: (value: boolean | undefined) => void;
+
+  // Boolean class filters (all 9)
   isGuardian: boolean | undefined;
   setIsGuardian: (value: boolean | undefined) => void;
   isWarrior: boolean | undefined;
@@ -81,6 +87,32 @@ export interface UseSearchFiltersReturn {
   setIsWizard: (value: boolean | undefined) => void;
   isBrute: boolean | undefined;
   setIsBrute: (value: boolean | undefined) => void;
+  isRuneblade: boolean | undefined;
+  setIsRuneblade: (value: boolean | undefined) => void;
+  isNecromancer: boolean | undefined;
+  setIsNecromancer: (value: boolean | undefined) => void;
+  isMechanologist: boolean | undefined;
+  setIsMechanologist: (value: boolean | undefined) => void;
+  isRanger: boolean | undefined;
+  setIsRanger: (value: boolean | undefined) => void;
+
+  // Stat ranges
+  costMin: string;
+  setCostMin: (value: string) => void;
+  costMax: string;
+  setCostMax: (value: string) => void;
+  powerMin: string;
+  setPowerMin: (value: string) => void;
+  powerMax: string;
+  setPowerMax: (value: string) => void;
+  defenseMin: string;
+  setDefenseMin: (value: string) => void;
+  defenseMax: string;
+  setDefenseMax: (value: string) => void;
+
+  // Keyword chips
+  selectedKeywords: string[];
+  setSelectedKeywords: (value: string[]) => void;
 
   // Foiling filters
   isRainbowFoil: boolean | undefined;
@@ -174,12 +206,31 @@ export function useSearchFilters(): UseSearchFiltersReturn {
   const [isWeapon, setIsWeapon] = useState<boolean | undefined>(undefined);
   const [isHero, setIsHero] = useState<boolean | undefined>(undefined);
 
-  // Boolean class filters
+  // Extended card type filters
+  const [isDefenseReaction, setIsDefenseReaction] = useState<boolean | undefined>(undefined);
+  const [isInstant, setIsInstant] = useState<boolean | undefined>(undefined);
+
+  // Boolean class filters (all 9)
   const [isGuardian, setIsGuardian] = useState<boolean | undefined>(undefined);
   const [isWarrior, setIsWarrior] = useState<boolean | undefined>(undefined);
   const [isNinja, setIsNinja] = useState<boolean | undefined>(undefined);
   const [isWizard, setIsWizard] = useState<boolean | undefined>(undefined);
   const [isBrute, setIsBrute] = useState<boolean | undefined>(undefined);
+  const [isRuneblade, setIsRuneblade] = useState<boolean | undefined>(undefined);
+  const [isNecromancer, setIsNecromancer] = useState<boolean | undefined>(undefined);
+  const [isMechanologist, setIsMechanologist] = useState<boolean | undefined>(undefined);
+  const [isRanger, setIsRanger] = useState<boolean | undefined>(undefined);
+
+  // Stat ranges
+  const [costMin, setCostMin] = useState('');
+  const [costMax, setCostMax] = useState('');
+  const [powerMin, setPowerMin] = useState('');
+  const [powerMax, setPowerMax] = useState('');
+  const [defenseMin, setDefenseMin] = useState('');
+  const [defenseMax, setDefenseMax] = useState('');
+
+  // Keyword chips
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
 
   // Foiling filters
   const [isRainbowFoil, setIsRainbowFoil] = useState<boolean | undefined>(undefined);
@@ -238,11 +289,24 @@ export function useSearchFilters(): UseSearchFiltersReturn {
     setIsEquipment(undefined);
     setIsWeapon(undefined);
     setIsHero(undefined);
+    setIsDefenseReaction(undefined);
+    setIsInstant(undefined);
     setIsGuardian(undefined);
     setIsWarrior(undefined);
     setIsNinja(undefined);
     setIsWizard(undefined);
     setIsBrute(undefined);
+    setIsRuneblade(undefined);
+    setIsNecromancer(undefined);
+    setIsMechanologist(undefined);
+    setIsRanger(undefined);
+    setCostMin('');
+    setCostMax('');
+    setPowerMin('');
+    setPowerMax('');
+    setDefenseMin('');
+    setDefenseMax('');
+    setSelectedKeywords([]);
     setIsRainbowFoil(undefined);
     setIsExtendedArt(undefined);
     setIsColdFoil(undefined);
@@ -337,7 +401,13 @@ export function useSearchFilters(): UseSearchFiltersReturn {
     isHero,
     setIsHero,
 
-    // Boolean classes
+    // Extended card types
+    isDefenseReaction,
+    setIsDefenseReaction,
+    isInstant,
+    setIsInstant,
+
+    // Boolean classes (all 9)
     isGuardian,
     setIsGuardian,
     isWarrior,
@@ -348,6 +418,32 @@ export function useSearchFilters(): UseSearchFiltersReturn {
     setIsWizard,
     isBrute,
     setIsBrute,
+    isRuneblade,
+    setIsRuneblade,
+    isNecromancer,
+    setIsNecromancer,
+    isMechanologist,
+    setIsMechanologist,
+    isRanger,
+    setIsRanger,
+
+    // Stat ranges
+    costMin,
+    setCostMin,
+    costMax,
+    setCostMax,
+    powerMin,
+    setPowerMin,
+    powerMax,
+    setPowerMax,
+    defenseMin,
+    setDefenseMin,
+    defenseMax,
+    setDefenseMax,
+
+    // Keyword chips
+    selectedKeywords,
+    setSelectedKeywords,
 
     // Foiling
     isRainbowFoil,

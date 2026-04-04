@@ -23,33 +23,53 @@ export const RESPONSE_PROJECTIONS = {
     'printing_data.id': 1
   },
 
+  // browse_bulk: served by GET /api/printings/browse (direct Drizzle query, Redis-cached).
+  // This definition is kept as documentation only — the Postgres service does not
+  // read RESPONSE_PROJECTIONS; it always returns all columns via buildSelectFields().
+  // See lib/client/browse-cache.ts for the authoritative field list.
   browse_bulk: {
-    _id: 0,
+    // Identity
     printing_id: 1,
     card_unique_id: 1,
-    name: 1,           
-    display_name: 1,
-    image_url: 1,
-    color: 1,
-    rarity: 1,
-    foiling: 1,
-    edition: 1,
-    set_id: 1, // Keep both for safety with formatters
-    set: 1,
-    
-    // Price Fields
-    tcg_market: 1,
-    tcg_low: 1,
-    tcg_mid: 1,
-    tcg_high: 1,
-    
-    tcgplayer_url: 1,
-    "printing_data.display_name": 1,
-    "printing_data.tcgplayer_url": 1,
 
-    // --- NEWLY ADDED ---
-    is_extended_art: 1, 
-  },  
+    // Display (from cards table via JOIN)
+    display_name: 1,
+    type_text_display: 1,
+    color: 1,
+    image_url: 1,
+    printing_card_id: 1,   // maps to printings.collector_number
+
+    // Filtering — game stats (cards table)
+    types: 1,
+    pitch: 1,
+    power: 1,
+    cost: 1,
+    defense: 1,
+    keywords: 1,
+
+    // Filtering — class boolean flags (cards table)
+    is_generic: 1,
+    is_guardian: 1,
+    is_warrior: 1,
+    is_ninja: 1,
+    is_wizard: 1,
+    is_brute: 1,
+    is_ranger: 1,
+    is_runeblade: 1,
+    is_necromancer: 1,
+    is_mechanologist: 1,
+
+    // Printing attributes (printings table)
+    set: 1,
+    edition: 1,
+    foiling: 1,
+    rarity: 1,
+
+    // Price (printings table)
+    tcg_low: 1,
+    tcg_market: 1,
+    tcgplayer_url: 1,
+  },
   gameplay: {
     printing_id: 1,
     name: 1,

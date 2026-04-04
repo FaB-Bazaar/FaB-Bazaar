@@ -18,6 +18,14 @@ import {
   fetchTypeCards,
   getCachedCards,
 } from "@/lib/client/card-pool-cache";
+import {
+  TYPE_CHIPS as SHARED_TYPE_CHIPS,
+  GENERIC_CHIP as SHARED_GENERIC_CHIP,
+  CLASS_ICONS as SHARED_CLASS_ICONS,
+  PITCH_CHIPS as SHARED_PITCH_CHIPS,
+  KEYWORD_CHIPS as SHARED_KEYWORD_CHIPS,
+  type ChipDef,
+} from "@/lib/search/card-filter-chips";
 
 interface QuickAddCardDialogProps {
   open: boolean;
@@ -42,80 +50,13 @@ const ZONE_LABELS: Partial<Record<DeckCategory, string>> = {
 
 const shorthandParser = new FABShorthandParser();
 
-export type ChipDef = { label: string; value: string; apiType: string; active: string; dot: string; iconUrl?: string; iconPosition?: string; clientFilter?: (cards: CardResult[]) => CardResult[] };
-
-// Card type chips — order defines grid layout (3 per row)
-export const TYPE_CHIPS: ChipDef[] = [
-  // Row 1
-  { label: 'Attack',    value: 'attack',            apiType: 'attack',           active: 'bg-red-900/50 border-red-600',          dot: 'bg-red-500',     iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/pW6r9LMKhrnznfDwMcHMN/public', iconPosition: 'center 24%' },
-  { label: 'Action',    value: 'non-attack-action', apiType: 'action',           active: 'bg-emerald-900/50 border-emerald-600',  dot: 'bg-emerald-400', iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/h8tQqgptDmDQwpcKzqbmK/public', iconPosition: 'center 24%', clientFilter: cards => cards.filter(c => !c.types.includes('attack')) },
-  { label: 'Item',      value: 'item',              apiType: 'item',             active: 'bg-purple-900/50 border-purple-600',    dot: 'bg-purple-500',  iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/wdHRncG9CfjtMFCDPwcTk/public', iconPosition: 'center 24%' },
-  // Row 2
-  { label: 'Atk React', value: 'attack-reaction',   apiType: 'attack reaction',  active: 'bg-orange-900/50 border-orange-600',    dot: 'bg-orange-400',  iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/NrdPMgG8MdN8DrDNw8tJb/public', iconPosition: 'center 24%' },
-  { label: 'Def React', value: 'defense-reaction',  apiType: 'defense reaction', active: 'bg-blue-900/50 border-blue-600',         dot: 'bg-blue-500',    iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/WqgkrnT9ctJ68JpPBhrM9/public', iconPosition: 'center 24%' },
-  { label: 'Instant',   value: 'instant',           apiType: 'instant',          active: 'bg-cyan-900/50 border-cyan-600',         dot: 'bg-cyan-400',    iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/tFD8WWkJmgkHQtRrKNNkF/public', iconPosition: 'center 24%' },
-  // Row 3
-  { label: 'Equipment', value: 'equipment',         apiType: 'equipment',        active: 'bg-teal-900/50 border-teal-600',         dot: 'bg-teal-500',    iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/JrkdqCNm8TWbQzWPJjbTD/public', iconPosition: 'center 24%' },
-  { label: 'Weapon',    value: 'weapon',            apiType: 'weapon',           active: 'bg-amber-900/50 border-amber-600',       dot: 'bg-amber-500',   iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/TD9rD9RPPzCrkwDLzngHb/public', iconPosition: 'center 24%' },
-  { label: 'Block',     value: 'block',             apiType: 'block',            active: 'bg-slate-700 border-slate-500',          dot: 'bg-slate-400',   iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/MMrN7PkNmgDDzGbKRdJ8f/public', iconPosition: 'center 24%' },
-  // Row 4 (class-specific — probe hides unused)
-  { label: 'Gem',       value: 'gem',               apiType: 'gem',              active: 'bg-pink-900/50 border-pink-600',          dot: 'bg-pink-400',    iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/JmtWDDGWhTCR9B9KKK8kz/public', iconPosition: 'center 24%' },
-  { label: 'Ally',      value: 'ally',              apiType: 'ally',             active: 'bg-green-900/50 border-green-600',       dot: 'bg-green-500',   iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/GtjztF7LT8kPDQ8w7GkRw/public', iconPosition: 'center 24%' },
-  { label: 'Evo',       value: 'evo',               apiType: 'evo',              active: 'bg-sky-900/50 border-sky-600',            dot: 'bg-sky-400',     iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/KWzQFrpNwFt9WkbRJTjnp/public', iconPosition: 'center 24%' },
-];
-
-// Generic chip — shown separately as a class/restriction filter
-export const GENERIC_CHIP: ChipDef = {
-  label: 'Generic', value: 'generic', apiType: 'generic',
-  active: 'bg-gray-700 border-gray-500', dot: 'bg-gray-400',
-  iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/8TWrBzGKFPwKkCL9jtpRg/public', iconPosition: 'center 24%',
-};
-
-// Art icons for hero classes (used in the dynamic Class section)
-const CLASS_ICONS: Record<string, { iconUrl: string; iconPosition?: string }> = {
-  guardian:      { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/7K9gFgGrJnftB9n89wgJN/public', iconPosition: 'center 24%' },
-  ninja:         { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/BTGB69BNhCLmkkzgkGBC6/public', iconPosition: 'center 24%' },
-  warrior:       { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/TnWBzzDH9McMtddqbzCK9/public', iconPosition: 'center 24%' },
-  brute:         { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/RcT68bt6fmP6HCwrrPPt8/public', iconPosition: 'center 24%' },
-  runeblade:     { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/mQBL6JqLdWWWtLcrD8LJ7/public', iconPosition: 'center 24%' },
-  mechanologist: { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/NBNg9HgWhmnLJz9zqRLJt/public', iconPosition: 'center 24%' },
-  wizard:        { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/tQmMJWfTtcQd6pDDdDPNM/public', iconPosition: 'center 24%' },
-  illusionist:   { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/qNQBQNb8DKFb9f76k7GkR/public', iconPosition: 'center 24%' },
-  necromancer:   { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/bQFTt8tNcKTfdgCkgRn8n/public', iconPosition: 'center 24%' },
-  ranger:        { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/MFjJBrkHcwQWT9FJKKgJm/public', iconPosition: 'center 24%' },
-  pirate:        { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/RHGqMtCGmFKMkj6M7JCqd/public', iconPosition: 'center 24%' },
-  draconic:      { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/PBWjkGRRd8LtwBftCHcfJ/public', iconPosition: 'center 24%' },
-  light:         { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/DzzgKTRKQKffd7DHMWqjB/public', iconPosition: 'center 24%' },
-  shadow:        { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/wkPdd78hBknCcmcBJfdhT/public', iconPosition: 'center 24%' },
-  // ice: pending production URL
-  earth:         { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/Nmj6pwhDHtgGncCTktrLK/public', iconPosition: 'center 24%' },
-  lightning:     { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/gchhRHddRfR7jpdc8T9LB/public', iconPosition: 'center 24%' },
-  chaos:         { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/mRCB6tmCdLwgQwthtcq7G/public', iconPosition: 'center 24%' },
-  reviled:       { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/LFwThrpfbjP7jPqPQfqQc/public', iconPosition: 'center 24%' },
-  revered:       { iconUrl: 'http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/7phpCFbGLBMNw8h88JQr6/public', iconPosition: 'center 24%' },
-};
-
-const PITCH_CHIPS = [
-  { label: 'Red',    value: 1, active: 'bg-red-900/50 border-red-500',    dot: 'bg-red-500',    iconUrl: '/fab/symbols/pitch1.png' },
-  { label: 'Yellow', value: 2, active: 'bg-yellow-900/50 border-yellow-500', dot: 'bg-yellow-400', iconUrl: '/fab/symbols/pitch2.png' },
-  { label: 'Blue',   value: 3, active: 'bg-blue-900/50 border-blue-500',  dot: 'bg-blue-500',   iconUrl: '/fab/symbols/pitch3.png' },
-];
-
-// Common keyword chips — shown as a browseable filter section below Class
-const KEYWORD_CHIPS: { label: string; value: string; abbr: string }[] = [
-  { label: 'Go Again',       value: 'go again',       abbr: 'GA'  },
-  { label: 'Dominate',       value: 'dominate',       abbr: 'DOM' },
-  { label: 'Arcane Barrier', value: 'arcane barrier', abbr: 'AB'  },
-  { label: 'Stealth',        value: 'stealth',        abbr: 'STL' },
-  { label: 'Phantasm',       value: 'phantasm',       abbr: 'PHT' },
-  { label: 'Combo',          value: 'combo',          abbr: 'CMB' },
-  { label: 'Intimidate',     value: 'intimidate',     abbr: 'INT' },
-  { label: 'Crush',          value: 'crush',          abbr: 'CRS' },
-  { label: 'Ward',           value: 'ward',           abbr: 'WRD' },
-  { label: 'Reprise',        value: 'reprise',        abbr: 'RPR' },
-  { label: 'Blade Break',    value: 'blade break',    abbr: 'BB'  },
-  { label: 'Boost',          value: 'boost',          abbr: 'BST' },
-];
+// Re-export shared constants under local names for backward compat within this file
+export type { ChipDef };
+export const TYPE_CHIPS = SHARED_TYPE_CHIPS;
+export const GENERIC_CHIP = SHARED_GENERIC_CHIP;
+const CLASS_ICONS = SHARED_CLASS_ICONS;
+const PITCH_CHIPS = SHARED_PITCH_CHIPS;
+const KEYWORD_CHIPS = SHARED_KEYWORD_CHIPS;
 
 const PITCH_STYLE: Record<number, { border: string; badge: string; label: string }> = {
   1: { border: "border-l-red-500",    badge: "bg-red-500 text-white",       label: "Pitch 1" },
@@ -734,7 +675,10 @@ export default function QuickAddCardDialog({
       const chipValue = selectedType!;
 
       const applyFilters = (cards: CardResult[]) => {
-        let result = chip?.clientFilter ? chip.clientFilter(cards) : cards;
+        // Action chip excludes cards that are also attacks (non-attack actions only)
+        let result = chip?.value === 'non-attack-action'
+          ? cards.filter(c => !c.types.includes('attack'))
+          : cards;
         const effectivePitch = hasPitch ? selectedPitch : (targetCategory === "maindeck" ? pitchFilter ?? null : null);
         if (effectivePitch != null) result = result.filter(c => c.pitch === effectivePitch);
         return result;

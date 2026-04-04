@@ -87,6 +87,14 @@ export interface SearchFilters {
   isUnder100?: boolean;
   isExpensive?: boolean;
 
+  // Stat ranges
+  costMin?: number;
+  costMax?: number;
+  powerMin?: number;
+  powerMax?: number;
+  defenseMin?: number;
+  defenseMax?: number;
+
   // Other
   includeBanned?: boolean;
 }
@@ -130,6 +138,14 @@ export function filtersToURLParams(
   if (filters.priceMin !== undefined) params.set('priceMin', String(filters.priceMin));
   if (filters.priceMax !== undefined) params.set('priceMax', String(filters.priceMax));
   if (filters.priceField) params.set('priceField', filters.priceField);
+
+  // Stat ranges
+  if (filters.costMin !== undefined) params.set('costMin', String(filters.costMin));
+  if (filters.costMax !== undefined) params.set('costMax', String(filters.costMax));
+  if (filters.powerMin !== undefined) params.set('powerMin', String(filters.powerMin));
+  if (filters.powerMax !== undefined) params.set('powerMax', String(filters.powerMax));
+  if (filters.defenseMin !== undefined) params.set('defenseMin', String(filters.defenseMin));
+  if (filters.defenseMax !== undefined) params.set('defenseMax', String(filters.defenseMax));
 
   // Format & Hero
   if (filters.format) params.set('format', filters.format);
@@ -288,6 +304,20 @@ export function urlParamsToFilters(searchParams: URLSearchParams | ReadonlyURLSe
   filters.isUnder50 = parseBoolean('isUnder50');
   filters.isUnder100 = parseBoolean('isUnder100');
   filters.isExpensive = parseBoolean('isExpensive');
+
+  // Stat ranges
+  const costMin = get('costMin');
+  if (costMin) filters.costMin = parseFloat(costMin);
+  const costMax = get('costMax');
+  if (costMax) filters.costMax = parseFloat(costMax);
+  const powerMin = get('powerMin');
+  if (powerMin) filters.powerMin = parseFloat(powerMin);
+  const powerMax = get('powerMax');
+  if (powerMax) filters.powerMax = parseFloat(powerMax);
+  const defenseMin = get('defenseMin');
+  if (defenseMin) filters.defenseMin = parseFloat(defenseMin);
+  const defenseMax = get('defenseMax');
+  if (defenseMax) filters.defenseMax = parseFloat(defenseMax);
 
   // Other
   filters.includeBanned = parseBoolean('includeBanned');
