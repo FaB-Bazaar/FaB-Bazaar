@@ -205,7 +205,10 @@ export async function updateArticle(articleId: string, payload: ArticlePayload) 
     }
 
     revalidatePath('/guides');
+    // Revalidate by slug (legacy path, if used)
     revalidatePath(`/${result.data.contentType === 'hero' ? 'heroes' : 'articles'}/${result.data.slug}`);
+    // Revalidate by publicId — heroes pages use /heroes/[publicId] as the canonical URL
+    revalidatePath(`/${result.data.contentType === 'hero' ? 'heroes' : 'articles'}/${result.data.publicId}`);
 
     // Invalidate Data Cache
     revalidateTag(`article-${result.data.publicId}`);
