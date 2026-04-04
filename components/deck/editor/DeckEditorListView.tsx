@@ -801,6 +801,7 @@ function DeckTileSection({
                 </div>
               )}
             </div>
+            <span className="sr-only">{tile.name}</span>
             {ownershipFilter === 'owned' && showBinderLabel && (
               <div className="flex flex-col items-center gap-0.5 w-full px-0.5 mt-0.5">
                 <a
@@ -2152,6 +2153,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                           <span className="text-[7px] text-center text-gray-300 leading-tight">{card.name}</span>
                         </div>
                       )}
+                      <span className="sr-only">{card.name}</span>
                       {/* Qty badge — show only the relevant pitch for library sections */}
                       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 pb-0.5 px-0.5">
                         {section.key === 'red'      && card.redQty > 0      && <span className="bg-red-500 text-white text-xs min-w-[22px] px-1.5 py-1 rounded-full font-bold leading-none text-center border-2 border-white/90 shadow">{card.redQty}</span>}
