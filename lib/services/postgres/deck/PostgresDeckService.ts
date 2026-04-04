@@ -154,7 +154,9 @@ export class PostgresDeckService implements IDeckService {
 
     // Calculate counts and value (instead of storing them)
     const allCards = deckCardsWithDetails;
-    const totalCards = allCards.reduce((sum, dc) => sum + (dc.quantity || 0), 0);
+    const totalCards = allCards
+      .filter(dc => dc.category !== 'hero' && dc.category !== 'benched')
+      .reduce((sum, dc) => sum + (dc.quantity || 0), 0);
     const estimatedValue = allCards.reduce((sum, dc) => sum + (dc.tcgMarket || 0) * (dc.quantity || 0), 0);
 
     return {

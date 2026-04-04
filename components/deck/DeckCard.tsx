@@ -65,6 +65,7 @@ interface Deck {
   equipmentCount: number;
   maindeckCount: number;
   inventoryCount: number;
+  benchedCount?: number;
   maybeboardCount?: number;
   tokensCount?: number;
   estimatedValue: number;
@@ -124,6 +125,7 @@ export default function DeckCard({
     equipment: deck.equipmentCount || (deck.equipment || []).length,
     maindeck: deck.maindeckCount || (deck.maindeck || []).length,
     inventory: deck.inventoryCount || (deck.inventory || []).length,
+    benched: deck.benchedCount || 0,
     maybeboard: deck.maybeboardCount || (deck.maybeboard || []).length,
     tokens: deck.tokensCount || (deck.tokens || []).length
   };
@@ -252,6 +254,12 @@ export default function DeckCard({
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Inventory:</span>
               <span className="font-medium">{deckStats.inventory}</span>
+            </div>
+          )}
+          {deckStats.benched > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Bench:</span>
+              <span className="font-medium">{deckStats.benched}</span>
             </div>
           )}
           {deckStats.maybeboard > 0 && (

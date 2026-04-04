@@ -35,10 +35,10 @@ interface DeckStatsProps {
       totalCards: number;
     }>;
     categoryBreakdown: {
-      heroes: number;
       equipment: number;
       maindeck: number;
       inventory: number;
+      benched: number;
       maybeboard: number;
       tokens: number;
     };
@@ -67,10 +67,10 @@ export default function DeckStats({ stats, onViewFormat }: DeckStatsProps) {
 
   const getCategoryIcon = (category: string) => {
     const icons = {
-      heroes: Users,
       equipment: Shield,
       maindeck: Sword,
       inventory: Package,
+      benched: Layers,
       maybeboard: BookOpen,
       tokens: Target
     };
@@ -79,10 +79,10 @@ export default function DeckStats({ stats, onViewFormat }: DeckStatsProps) {
 
   const getCategoryColor = (category: string) => {
     const colors = {
-      heroes: 'text-purple-600 dark:text-purple-400',
       equipment: 'text-blue-600 dark:text-blue-400',
       maindeck: 'text-green-600 dark:text-green-400',
       inventory: 'text-orange-600 dark:text-orange-400',
+      benched: 'text-indigo-600 dark:text-indigo-400',
       maybeboard: 'text-gray-600 dark:text-gray-400',
       tokens: 'text-yellow-600 dark:text-yellow-400'
     };
@@ -237,7 +237,7 @@ export default function DeckStats({ stats, onViewFormat }: DeckStatsProps) {
                     <div className="flex items-center gap-2">
                       <Icon className={cn("h-4 w-4", getCategoryColor(category))} />
                       <span className="font-medium capitalize">
-                        {category === 'maindeck' ? 'Main Deck' : category}
+                        {category === 'maindeck' ? 'Main Deck' : category === 'benched' ? 'Bench' : category}
                       </span>
                     </div>
                     <div className="text-right text-sm">

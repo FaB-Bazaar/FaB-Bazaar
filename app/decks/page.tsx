@@ -69,6 +69,7 @@ interface Deck {
   equipmentCount: number;
   maindeckCount: number;
   inventoryCount: number;
+  benchedCount?: number;
   maybeboardCount?: number;
   tokensCount?: number;
   estimatedValue: number;
@@ -365,13 +366,11 @@ export default function DecksPage() {
     toast({ title: "Settings saved" });
   };
 
-  // Calculate unique cards for a deck (for backwards compatibility)
+  // Calculate unique cards for a deck (excludes hero and bench)
   const calculateUniqueCards = (deck: Deck): number => {
     const uniqueCardIds = new Set();
-    
-    // Combine all category arrays and count unique cards
+
     const allPrintings = [
-      ...(deck.hero || []),
       ...(deck.equipment || []),
       ...(deck.maindeck || []),
       ...(deck.inventory || []),
@@ -435,11 +434,12 @@ export default function DecksPage() {
         .filter(deck => deck.format === format)
         .reduce((total, deck) => total + (deck.totalCards || 0), 0)
     })),
+    totalBenchedCards: decks.reduce((total, deck) => total + (deck.benchedCount || 0), 0),
     categoryBreakdown: {
-      heroes: decks.reduce((total, deck) => total + (deck.heroCount || 0), 0),
       equipment: decks.reduce((total, deck) => total + (deck.equipmentCount || 0), 0),
       maindeck: decks.reduce((total, deck) => total + (deck.maindeckCount || 0), 0),
       inventory: decks.reduce((total, deck) => total + (deck.inventoryCount || 0), 0),
+      benched: decks.reduce((total, deck) => total + (deck.benchedCount || 0), 0),
       maybeboard: decks.reduce((total, deck) => total + (deck.maybeboardCount || 0), 0),
       tokens: decks.reduce((total, deck) => total + (deck.tokensCount || 0), 0)
     },
@@ -551,7 +551,10 @@ export default function DecksPage() {
             <div className="flex items-center gap-2 sm:gap-4 text-sm text-gray-600 dark:text-gray-400">
               <span>{decks.length} decks</span>
               <span>{stats.publicDecks} public</span>
-              <span>{stats.totalCards} total cards</span>
+              <span>{stats.totalCards} cards</span>
+              {stats.totalBenchedCards > 0 && (
+                <span>{stats.totalBenchedCards} benched</span>
+              )}
             </div>
 
             {stats.totalEstimatedValue > 0 && (
