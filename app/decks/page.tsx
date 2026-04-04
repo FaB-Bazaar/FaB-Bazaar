@@ -517,6 +517,9 @@ export default function DecksPage() {
           isMetafyPartner={hasMetafyAccount}
           deckId={settingsDeck.publicId}
           fullDeck={settingsDeck}
+          isCurator={user?.isCurator || user?.isSuperAdmin}
+          featured={settingsDeck.featured}
+          onToggleFeatured={handleToggleFeatured}
         />
       )}
 
@@ -719,12 +722,8 @@ export default function DecksPage() {
                     onDuplicate={() => handleDuplicateDeck(deck)}
                     onView={() => router.push(`/decks/${deck.publicId}/analyze`)}
                     onSettings={() => setSettingsDeck(deck)}
-                    hasMetafyAccount={hasMetafyAccount}
                     onChangeVisibility={handleChangeVisibility}
                     onToggleTalishar={handleToggleTalishar}
-                    onToggleFeatured={handleToggleFeatured}
-                    isCurator={user?.isCurator || user?.isSuperAdmin}
-                    onUpdateMetafyGuideId={handleUpdateMetafyGuideId}
                   />
                 ))}
               </div>

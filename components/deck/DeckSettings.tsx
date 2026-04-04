@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2 } from "lucide-react";
+import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2, Star } from "lucide-react";
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
 import TalisharToggle from "./TalisharToggle";
 
@@ -52,9 +52,12 @@ interface DeckSettingsProps {
   // Optional: for matchup sideboards feature
   deckId?: string; // publicId for API calls
   fullDeck?: any; // Full deck object with hero, equipment, maindeck, inventory arrays
+  isCurator?: boolean;
+  featured?: boolean;
+  onToggleFeatured?: (deckId: string, value: boolean) => void;
 }
 
-export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck }: DeckSettingsProps) {
+export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck, isCurator, featured: featuredProp, onToggleFeatured }: DeckSettingsProps) {
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description || "");
   const [format, setFormat] = useState(deck.format);
@@ -62,6 +65,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [availableOnTalishar, setAvailableOnTalishar] = useState(deck.availableOnTalishar ?? false);
   const [metafyGuideId, setMetafyGuideId] = useState(deck.metafyGuideId || "");
   const [saving, setSaving] = useState(false);
+  const [featuredLocal, setFeaturedLocal] = useState(featuredProp ?? false);
   const [matchupsOpen, setMatchupsOpen] = useState(false);
   const [matchupsCount, setMatchupsCount] = useState(0);
 
@@ -129,6 +133,8 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   }, [deckId]);
 
   useEffect(() => { fetchCoOwners(); }, [fetchCoOwners]);
+
+  useEffect(() => { setFeaturedLocal(featuredProp ?? false); }, [featuredProp]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -332,6 +338,38 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         </div>
         <TalisharToggle checked={availableOnTalishar} onChange={setAvailableOnTalishar} />
       </div>
+
+      {/* Decks to Beat (curator-only, public decks only) */}
+      {isCurator && visibility === 'public' && onToggleFeatured && deckId && (
+        <div className="flex items-center justify-between py-1">
+          <div>
+            <Label>Decks to Beat</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Feature this deck in the Decks to Beat list</p>
+          </div>
+          <button
+            role="switch"
+            type="button"
+            aria-checked={featuredLocal}
+            onClick={() => {
+              const next = !featuredLocal;
+              setFeaturedLocal(next);
+              onToggleFeatured(deckId, next);
+            }}
+            title={featuredLocal ? "Remove from Decks to Beat" : "Add to Decks to Beat"}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              featuredLocal ? "bg-amber-500 dark:bg-amber-600" : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 ${
+                featuredLocal ? "translate-x-5" : "translate-x-0"
+              }`}
+            >
+              <Star className="h-3 w-3 text-amber-500" />
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Metafy Guide ID (partner-only) */}
       {isMetafyPartner && (

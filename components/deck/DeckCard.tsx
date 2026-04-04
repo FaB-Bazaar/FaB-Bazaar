@@ -1,13 +1,12 @@
 // components/deck/DeckCard.tsx - Updated for new deck structure
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   Trash2,
   Copy,
@@ -16,9 +15,9 @@ import {
   Globe,
   Calendar,
   BarChart3,
-  Star,
   Settings,
   Swords,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -80,12 +79,8 @@ interface DeckCardProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onView: () => void;
-  hasMetafyAccount?: boolean;
   onToggleTalishar?: (deckId: string, value: boolean) => void;
-  onToggleFeatured?: (deckId: string, value: boolean) => void;
-  isCurator?: boolean;
   onChangeVisibility?: (deckId: string, value: 'private' | 'unlisted' | 'public') => void;
-  onUpdateMetafyGuideId?: (deckId: string, value: string | null) => void;
   onSettings?: () => void;
 }
 
@@ -96,15 +91,10 @@ export default function DeckCard({
   onDelete,
   onDuplicate,
   onView,
-  hasMetafyAccount,
   onToggleTalishar,
-  onToggleFeatured,
-  isCurator,
   onChangeVisibility,
-  onUpdateMetafyGuideId,
   onSettings,
 }: DeckCardProps) {
-  const [metafyGuideIdDraft, setMetafyGuideIdDraft] = useState(deck.metafyGuideId ?? '');
   const [heroPreview, setHeroPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   
   // Get format color
@@ -143,6 +133,7 @@ export default function DeckCard({
   };
 
   return (
+    <TooltipProvider delayDuration={300}>
     <>
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col">
       {/* Header */}
@@ -177,11 +168,23 @@ export default function DeckCard({
               >
                 {deck.name}
               </Link>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {deck.isCoOwned && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 font-medium" title="You are a co-owner of this deck">
                     Shared
                   </span>
+                )}
+                {deck.description && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[220px] text-xs leading-relaxed">
+                      {deck.description}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {deck.visibility === 'public' ? (
                   <Globe className="h-4 w-4 text-green-500" title="Public — listed in Community Decks" />
@@ -201,11 +204,18 @@ export default function DeckCard({
             )}
 
             {/* Format */}
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               <Badge className={cn("text-white text-xs", getFormatColor(deck.format))}>
                 {deck.format}
               </Badge>
             </div>
+
+            {/* Hero name */}
+            {deck.hero && deck.hero.length > 0 && (
+              <p className="text-sm text-gray-700 dark:text-gray-300 truncate mb-1">
+                {deck.hero[0].printingDetails?.display_name || deck.hero[0].printingDetails?.name}
+              </p>
+            )}
 
             {/* Stats */}
             <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
@@ -219,25 +229,11 @@ export default function DeckCard({
           </div>
         </div>
 
-        {/* Description */}
-        {deck.description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-2">
-            {deck.description}
-          </p>
-        )}
       </div>
 
       {/* Deck Composition */}
       <div className="p-4 flex-1">
         <div className="space-y-2">
-          {deck.hero && deck.hero.length > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Hero:</span>
-              <span className="font-medium truncate ml-2 text-right">
-                {deck.hero[0].printingDetails?.display_name || deck.hero[0].printingDetails?.name || "Unknown"}
-              </span>
-            </div>
-          )}
           {deckStats.equipment > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-600 dark:text-gray-400">Equipment:</span>
@@ -294,85 +290,62 @@ export default function DeckCard({
         </div>
       </div>
 
-      {/* Quick Settings + Updated — anchored above action bar */}
-      <div className="px-4 pb-4 space-y-2">
-        {(onChangeVisibility || onToggleTalishar || (hasMetafyAccount && onUpdateMetafyGuideId)) && (
-          <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-            {onChangeVisibility && (
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-gray-600 dark:text-gray-400">
-                  Visibility
-                </Label>
-                <select
-                  value={deck.visibility || 'unlisted'}
-                  onChange={(e) => onChangeVisibility(deck.publicId ?? deck._id, e.target.value as 'private' | 'unlisted' | 'public')}
-                  className="text-xs h-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2"
-                >
-                  <option value="private">Private</option>
-                  <option value="unlisted">Unlisted</option>
-                  <option value="public">Public</option>
-                </select>
-              </div>
-            )}
-            {onToggleTalishar && (
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-gray-600 dark:text-gray-400">
-                  Available on Talishar
-                </Label>
-                <TalisharToggle
-                  checked={deck.availableOnTalishar ?? false}
-                  onChange={(val) => onToggleTalishar(deck.publicId ?? deck._id, val)}
-                />
-              </div>
-            )}
-            {isCurator && deck.visibility === 'public' && onToggleFeatured && (
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-gray-600 dark:text-gray-400">
-                  Decks to Beat
-                </Label>
-                <button
-                  role="switch"
-                  type="button"
-                  aria-checked={deck.featured ?? false}
-                  onClick={() => onToggleFeatured(deck.publicId ?? deck._id, !(deck.featured ?? false))}
-                  title={deck.featured ? "Remove from Decks to Beat" : "Add to Decks to Beat"}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    deck.featured
-                      ? "bg-amber-500 dark:bg-amber-600"
-                      : "bg-gray-300 dark:bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 text-xs ${
-                      deck.featured ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  >
-                    <Star className="h-3 w-3 text-amber-500" />
-                  </span>
-                </button>
-              </div>
-            )}
-            {hasMetafyAccount && onUpdateMetafyGuideId && (
-              <div>
-                <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
-                  Metafy Guide ID
-                </Label>
-                <Input
-                  value={metafyGuideIdDraft}
-                  onChange={(e) => setMetafyGuideIdDraft(e.target.value)}
-                  onBlur={() => onUpdateMetafyGuideId(deck.publicId ?? deck._id, metafyGuideIdDraft.trim() || null)}
-                  placeholder="Leave blank to disable"
-                  className="h-7 text-xs"
-                />
-              </div>
-            )}
-          </div>
-        )}
+      {/* Compact footer: Visibility · Talishar · Date */}
+      <div className="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          {onChangeVisibility && (
+            <div className="flex items-center gap-1">
+              <select
+                value={deck.visibility || 'unlisted'}
+                onChange={(e) => onChangeVisibility(deck.publicId ?? deck._id, e.target.value as 'private' | 'unlisted' | 'public')}
+                className="text-xs h-6 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5"
+              >
+                <option value="private">Private</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="public">Public</option>
+              </select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px] text-xs leading-relaxed">
+                  <p><strong>Public</strong> — listed in Community Decks</p>
+                  <p><strong>Unlisted</strong> — accessible via link only</p>
+                  <p><strong>Private</strong> — only you can see this</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
 
-        {/* Last Updated */}
-        <div className="flex items-center gap-1 pt-2 text-xs text-gray-500 dark:text-gray-400">
-          <Calendar className="h-3 w-3" />
-          <span>Updated {formatDate(deck.updatedAt)}</span>
+          {onChangeVisibility && onToggleTalishar && (
+            <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
+          )}
+
+          {onToggleTalishar && (
+            <div className="flex items-center gap-1">
+              <TalisharToggle
+                checked={deck.availableOnTalishar ?? false}
+                onChange={(val) => onToggleTalishar(deck.publicId ?? deck._id, val)}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px] text-xs leading-relaxed">
+                  When enabled, this deck can be imported directly on Talishar for online play.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 ml-auto text-xs text-gray-500 dark:text-gray-400">
+            <Calendar className="h-3 w-3" />
+            <span>{formatDate(deck.updatedAt)}</span>
+          </div>
         </div>
       </div>
 
@@ -444,6 +417,7 @@ export default function DeckCard({
       document.body
     )}
     </>
+    </TooltipProvider>
   );
 }
 // // components/deck/DeckCard.tsx - Updated for new printings data model
