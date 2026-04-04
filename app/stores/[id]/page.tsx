@@ -5,12 +5,14 @@ import Link from "next/link";
 import { use } from "react";
 import {
   MapPin, Phone, Globe, Users, Calendar, ChevronLeft,
-  Check, ExternalLink,
+  Check, ExternalLink, ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
 import { locationsClient } from "@/lib/client";
 import type { LocationDTO, EventDTO, LocationFollowerDTO } from "@/types/location";
+import type { StoreTradeMatchDTO } from "@/lib/services/contracts/IInventoryService";
 import { profileHref } from "@/lib/utils/display-username";
 
 function formatDate(date: Date | string) {
@@ -109,6 +111,8 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followPending, setFollowPending] = useState(false);
+  const [tradeMatches, setTradeMatches] = useState<StoreTradeMatchDTO[]>([]);
+  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -139,6 +143,12 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
         );
         setAttendingIds(attendingEventIds);
       }
+
+      // Load trade matches independently (auth optional — silently skipped if not logged in)
+      fetch(`/api/stores/${id}/trade-matches`, { credentials: 'include' })
+        .then((r) => r.json())
+        .then((data) => { if (data.success) setTradeMatches(data.matches || []); })
+        .catch(() => {});
 
       setLoading(false);
     }
@@ -308,6 +318,95 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
             </section>
           )}
 
+          {/* Trade Opportunities */}
+          {tradeMatches.length > 0 && (
+            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
+                <ArrowLeftRight className="w-4 h-4 text-green-500" />
+                Trade Opportunities ({tradeMatches.length})
+              </h2>
+              <div className="flex flex-col gap-3">
+                {tradeMatches.map((match) => (
+                  <div key={match.userId} className="flex gap-3 items-start border-b border-gray-100 dark:border-gray-700 last:border-0 pb-3 last:pb-0">
+                    <Link href={`/profile/${match.username}`} className="flex-shrink-0">
+                      {match.avatarUrl ? (
+                        <img
+                          src={match.avatarUrl}
+                          alt={match.username}
+                          className="w-9 h-9 rounded-full object-cover border-2 border-white dark:border-gray-800"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-500 dark:text-gray-300 border-2 border-white dark:border-gray-800">
+                          {(match.displayUsername || match.username).charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/profile/${match.username}`}
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        {match.displayUsername || match.username}
+                      </Link>
+                      {match.theyHaveYouWant.length > 0 && (
+                        <div className="mt-1.5">
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                            Has {match.theyHaveYouWant.length} card{match.theyHaveYouWant.length !== 1 ? 's' : ''} you want:
+                          </span>
+                          <ul className="mt-1 flex flex-col gap-1.5">
+                            {match.theyHaveYouWant.map((c) => (
+                              <li key={c.printingId} className="flex items-center gap-2">
+                                {c.imageUrl ? (
+                                  <img
+                                    src={c.imageUrl}
+                                    alt={c.displayName}
+                                    className="h-10 w-7 rounded object-cover flex-shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+                                    onClick={() => setZoomedImageUrl(c.imageUrl!)}
+                                  />
+                                ) : (
+                                  <div className="h-10 w-7 rounded bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                                )}
+                                <span className="text-xs text-gray-600 dark:text-gray-300">
+                                  {c.quantity}x {c.foiling} {c.displayName}{c.collectorNumber && <span className="text-gray-400 dark:text-gray-500"> ({c.collectorNumber})</span>}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {match.theyWantYouHave.length > 0 && (
+                        <div className="mt-1.5">
+                          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                            Wants {match.theyWantYouHave.length} card{match.theyWantYouHave.length !== 1 ? 's' : ''} you have:
+                          </span>
+                          <ul className="mt-1 flex flex-col gap-1.5">
+                            {match.theyWantYouHave.map((c) => (
+                              <li key={c.printingId} className="flex items-center gap-2">
+                                {c.imageUrl ? (
+                                  <img
+                                    src={c.imageUrl}
+                                    alt={c.displayName}
+                                    className="h-10 w-7 rounded object-cover flex-shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+                                    onClick={() => setZoomedImageUrl(c.imageUrl!)}
+                                  />
+                                ) : (
+                                  <div className="h-10 w-7 rounded bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                                )}
+                                <span className="text-xs text-gray-600 dark:text-gray-300">
+                                  {c.quantity}x {c.foiling} {c.displayName}{c.collectorNumber && <span className="text-gray-400 dark:text-gray-500"> ({c.collectorNumber})</span>}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Past events */}
           {pastEvents.length > 0 && (
             <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
@@ -383,6 +482,23 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
         </div>
       </div>
+
+      {/* Card zoom lightbox */}
+      {zoomedImageUrl && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
+          onClick={() => setZoomedImageUrl(null)}
+        >
+          <Image
+            src={zoomedImageUrl}
+            alt="Card zoom"
+            width={400}
+            height={560}
+            className="max-h-[85vh] max-w-[85vw] w-auto h-auto rounded-xl shadow-2xl border border-gray-600"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

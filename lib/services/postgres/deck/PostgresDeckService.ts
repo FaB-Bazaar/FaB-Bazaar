@@ -215,6 +215,7 @@ export class PostgresDeckService implements IDeckService {
       heroName: deckRow.heroName || undefined,
       visibility: deckRow.visibility || 'unlisted',
       isPublic: deckRow.visibility !== 'private',
+      availableOnTalishar: deckRow.availableOnTalishar ?? false,
       totalCards: deckRow.totalCards || 0,
       estimatedValue: deckRow.estimatedValue || 0,
       updatedAt: deckRow.updatedAt,

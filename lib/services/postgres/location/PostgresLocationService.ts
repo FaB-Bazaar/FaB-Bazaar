@@ -286,9 +286,7 @@ export class PostgresLocationService implements ILocationService {
             userId: r.userId,
             username: r.username,
             displayUsername: r.displayUsername,
-            avatarUrl: r.avatarUrl ?? (r.discordId && r.discordAvatar
-              ? `https://cdn.discordapp.com/avatars/${r.discordId}/${r.discordAvatar}.png`
-              : null),
+            avatarUrl: r.avatarUrl ?? r.discordAvatar ?? null,
             followedAt: r.followedAt,
           })),
           total: totalResult[0]?.total ?? 0,

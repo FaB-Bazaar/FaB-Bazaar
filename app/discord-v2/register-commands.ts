@@ -39,12 +39,18 @@ const commands = [
   // 4. /trade - Simple trade analysis
   new SlashCommandBuilder()
     .setName('trade')
-    .setDescription('See what you and another user can trade')
+    .setDescription('See trade opportunities with a user or everyone at a store')
     .addUserOption(opt =>
       opt
         .setName('user')
         .setDescription('The user to check trades with')
-        .setRequired(true)
+        .setRequired(false)
+    )
+    .addStringOption(opt =>
+      opt
+        .setName('store')
+        .setDescription('Store name — shows all trade matches with followers of that store')
+        .setRequired(false)
     ),
 
   // 5. /deck - View a user's deck list

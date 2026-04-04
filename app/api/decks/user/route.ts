@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : null;
+    const talisharOnly = searchParams.get('talishar') === 'true';
 
     // Use service layer to fetch decks (lightweight version)
     const result = await deckService.listUserDecksBasic(session.user.id);
@@ -35,7 +36,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let decks = limit ? result.data.slice(0, limit) : result.data;
+    let decks = talisharOnly
+      ? result.data.filter(d => d.availableOnTalishar)
+      : result.data;
+    decks = limit ? decks.slice(0, limit) : decks;
 
     // Bulk-fetch owner usernames for co-owned decks
     const coOwnedUserIds = [...new Set(decks.filter(d => d.isCoOwned).map(d => d.userId))];

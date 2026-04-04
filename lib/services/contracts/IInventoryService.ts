@@ -228,6 +228,36 @@ export interface IInventoryService {
     userId: string,
     options: TradeableCardsOptions
   ): AsyncResult<PaginatedTradeableCards>;
+
+  getStoreTradeMatches(
+    storeId: string,
+    userId: string
+  ): AsyncResult<StoreTradeMatchDTO[]>;
+}
+
+// ====================================
+// Store Trade Match DTOs
+// ====================================
+
+export interface StoreTradeCardDTO {
+  printingId: string;
+  collectorNumber?: string | null;
+  displayName: string;
+  set: string;
+  foiling: string;
+  /** How many the current user wants (theyHaveYouWant) or has forTrade (theyWantYouHave) */
+  quantity: number;
+  tcgMarket?: number | null;
+  imageUrl?: string | null;
+}
+
+export interface StoreTradeMatchDTO {
+  userId: string;
+  username: string;
+  displayUsername?: string | null;
+  avatarUrl?: string | null;
+  theyHaveYouWant: StoreTradeCardDTO[];
+  theyWantYouHave: StoreTradeCardDTO[];
 }
 
 /**

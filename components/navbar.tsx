@@ -62,6 +62,9 @@ export default function Navbar() {
   const [decksLoaded, setDecksLoaded] = useState(false) // DECKS-FEATURE
   const [bindersLoaded, setBindersLoaded] = useState(false)
   const [navDeckSort, setNavDeckSort] = useState<'updated' | 'name' | 'created'>('updated')
+  const [followedStores, setFollowedStores] = useState<any[]>([])
+  const [storesLoading, setStoresLoading] = useState(false)
+  const [storesLoaded, setStoresLoaded] = useState(false)
 
   // Check for URL parameters to auto-open search
   useEffect(() => {
@@ -87,7 +90,7 @@ export default function Navbar() {
     console.log('[Navbar] Loading decks on demand...')
     setDecksLoading(true)
     
-    fetch("/api/decks/user?limit=5")
+    fetch("/api/decks/user?limit=5&talishar=true")
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -106,6 +109,23 @@ export default function Navbar() {
       })
   }
   
+
+  const loadStoresOnDemand = () => {
+    if (storesLoaded || storesLoading || !user) return
+    setStoresLoading(true)
+    fetch('/api/stores/followed')
+      .then(res => res.json())
+      .then(data => {
+        setFollowedStores(data.success ? (data.stores || []) : [])
+        setStoresLoaded(true)
+        setStoresLoading(false)
+      })
+      .catch(() => {
+        setFollowedStores([])
+        setStoresLoaded(true)
+        setStoresLoading(false)
+      })
+  }
 
   const loadBindersOnDemand = () => {
     if (bindersLoaded || bindersLoading || !user) return
@@ -150,7 +170,7 @@ export default function Navbar() {
     const handleDecksUpdate = () => {
       console.log('[Navbar] Refreshing decks due to deck event')
       
-      fetch("/api/decks/user")
+      fetch("/api/decks/user?limit=5&talishar=true")
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -196,7 +216,9 @@ export default function Navbar() {
       setBinders([])
       setDecks([]) // DECKS-FEATURE
       setDecksLoaded(false) // DECKS-FEATURE
-      setBindersLoaded(false) 
+      setBindersLoaded(false)
+      setFollowedStores([])
+      setStoresLoaded(false)
       return
     }
 
@@ -512,7 +534,7 @@ export default function Navbar() {
             <>
               <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
               <div className="px-2 py-1 flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Recent decks</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Talishar decks</span>
                 <select
                   value={navDeckSort}
                   onChange={(e) => setNavDeckSort(e.target.value as typeof navDeckSort)}
@@ -573,6 +595,65 @@ export default function Navbar() {
     )
   }
 
+  /* Your Stores dropdown */
+  const renderStoresDropdown = () => {
+    if (!user) return null
+
+    return (
+      <DropdownMenu onOpenChange={(open) => open && loadStoresOnDemand()}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/stores") || pathname.startsWith("/stores/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
+          >
+            <MapPin className="h-4 w-4 mr-1" />
+            Your Stores
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-72 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          <DropdownMenuItem asChild>
+            <Link href="/stores" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <MapPin className="h-4 w-4 mr-2" />
+              Browse Stores
+            </Link>
+          </DropdownMenuItem>
+
+          {followedStores.length > 0 && (
+            <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
+          )}
+
+          {storesLoading ? (
+            <DropdownMenuItem disabled>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Loading stores...</span>
+            </DropdownMenuItem>
+          ) : followedStores.length === 0 && storesLoaded ? (
+            <DropdownMenuItem disabled>
+              <span className="text-sm text-gray-500 dark:text-gray-400">No followed stores yet</span>
+            </DropdownMenuItem>
+          ) : (
+            followedStores.map((store) => (
+              <DropdownMenuItem key={store.id} asChild>
+                <Link
+                  href={`/stores/${store.id}`}
+                  className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{store.name}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {[store.addressCity, store.addressState].filter(Boolean).join(', ')}
+                    </span>
+                  </div>
+                </Link>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   return (
     <>
       <header className="bg-page dark:bg-gray-800 border-b dark:border-gray-600 sticky top-0 z-50">
@@ -616,6 +697,9 @@ export default function Navbar() {
 
               {/* Your Decks Dropdown */}
               {renderDecksDropdown()}
+
+              {/* Your Stores Dropdown */}
+              {renderStoresDropdown()}
 
               {/* My Articles - User Content */}
               {user && (

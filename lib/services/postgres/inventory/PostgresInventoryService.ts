@@ -7,7 +7,7 @@
 
 import { eq, and, sql, inArray, gte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { inventoryItems, users, binders, printings, cards } from '@/lib/postgres/schema';
+import { inventoryItems, users, binders, printings, cards, wantsItems, userFollowedStores } from '@/lib/postgres/schema';
 import type {
   IInventoryService,
   WhoHasFilters,
@@ -21,6 +21,8 @@ import type {
   TradeableCardsOptions,
   PaginatedTradeableCards,
   TradeableCardDTO,
+  StoreTradeMatchDTO,
+  StoreTradeCardDTO,
 } from '@/lib/services/contracts/IInventoryService';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 
@@ -575,5 +577,153 @@ export class PostgresInventoryService implements IInventoryService {
       totalValue,
       uniquePrintings: allUniquePrintings,
     };
+  }
+
+  async getStoreTradeMatches(
+    storeId: string,
+    userId: string
+  ): AsyncResult<StoreTradeMatchDTO[]> {
+    try {
+      // Q1: Store followers who have forTrade items that I want
+      // quantity = how many *I* want (from my wants_items)
+      const theyHaveRows = await db
+        .select({
+          userId: users.id,
+          username: users.username,
+          displayUsername: users.displayUsername,
+          avatarUrl: users.avatarUrl,
+          discordAvatar: users.discordAvatar,
+          printingId: inventoryItems.printingId,
+          displayName: cards.displayName,
+          set: printings.set,
+          foiling: printings.foiling,
+          quantity: sql<number>`(SELECT wi.quantity FROM wants_items wi WHERE wi.user_id = ${userId} AND wi.printing_id = ${inventoryItems.printingId} LIMIT 1)`,
+          tcgMarket: printings.tcgMarket,
+          imageUrl: printings.imageUrl,
+          collectorNumber: printings.collectorNumber,
+        })
+        .from(inventoryItems)
+        .innerJoin(users, eq(inventoryItems.userId, users.id))
+        .innerJoin(binders, eq(inventoryItems.binderId, binders.id))
+        .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .innerJoin(
+          userFollowedStores,
+          and(
+            eq(userFollowedStores.userId, inventoryItems.userId),
+            eq(userFollowedStores.locationId, storeId)
+          )
+        )
+        .where(
+          and(
+            sql`${inventoryItems.userId} != ${userId}`,
+            eq(inventoryItems.forTrade, true),
+            eq(binders.allowInMatching, true),
+            sql`${inventoryItems.printingId} IN (SELECT printing_id FROM wants_items WHERE user_id = ${userId})`
+          )
+        );
+
+      // Q2: Store followers who want items I have forTrade
+      // quantity = how many *I* have forTrade (from my inventory_items)
+      const theyWantRows = await db
+        .select({
+          userId: users.id,
+          username: users.username,
+          displayUsername: users.displayUsername,
+          avatarUrl: users.avatarUrl,
+          discordAvatar: users.discordAvatar,
+          printingId: wantsItems.printingId,
+          displayName: cards.displayName,
+          set: printings.set,
+          foiling: printings.foiling,
+          quantity: sql<number>`(SELECT SUM(ii.quantity) FROM inventory_items ii JOIN binders b ON b.id = ii.binder_id WHERE ii.user_id = ${userId} AND ii.printing_id = ${wantsItems.printingId} AND ii.for_trade = true AND b.allow_in_matching = true)`,
+          tcgMarket: printings.tcgMarket,
+          imageUrl: printings.imageUrl,
+        })
+        .from(wantsItems)
+        .innerJoin(users, eq(wantsItems.userId, users.id))
+        .innerJoin(printings, eq(wantsItems.printingId, printings.printingId))
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .innerJoin(
+          userFollowedStores,
+          and(
+            eq(userFollowedStores.userId, wantsItems.userId),
+            eq(userFollowedStores.locationId, storeId)
+          )
+        )
+        .where(
+          and(
+            sql`${wantsItems.userId} != ${userId}`,
+            sql`${wantsItems.printingId} IN (
+              SELECT ii.printing_id FROM inventory_items ii
+              JOIN binders b ON b.id = ii.binder_id
+              WHERE ii.user_id = ${userId} AND ii.for_trade = true AND b.allow_in_matching = true
+            )`
+          )
+        );
+
+      // Group by user
+      const matchMap = new Map<string, StoreTradeMatchDTO>();
+
+      const foilingLabel = (f: string | null): string => {
+        switch (f?.toLowerCase()) {
+          case 'r': case 'rf': case 'rainbow': return 'RF';
+          case 'c': case 'cf': case 'cold': return 'CF';
+          default: return 'NF';
+        }
+      };
+
+      const getOrCreate = (row: typeof theyHaveRows[0]): StoreTradeMatchDTO => {
+        if (!matchMap.has(row.userId)) {
+          matchMap.set(row.userId, {
+            userId: row.userId,
+            username: row.username,
+            displayUsername: row.displayUsername,
+            avatarUrl: row.avatarUrl ?? row.discordAvatar ?? null,
+            theyHaveYouWant: [],
+            theyWantYouHave: [],
+          });
+        }
+        return matchMap.get(row.userId)!;
+      };
+
+      for (const row of theyHaveRows) {
+        getOrCreate(row).theyHaveYouWant.push({
+          printingId: row.printingId,
+          displayName: row.displayName ?? row.printingId,
+          set: row.set ?? '',
+          foiling: foilingLabel(row.foiling),
+          quantity: row.quantity ?? 1,
+          tcgMarket: row.tcgMarket,
+          imageUrl: row.imageUrl,
+          collectorNumber: row.collectorNumber,
+        });
+      }
+
+      for (const row of theyWantRows) {
+        getOrCreate(row).theyWantYouHave.push({
+          printingId: row.printingId,
+          displayName: row.displayName ?? row.printingId,
+          set: row.set ?? '',
+          foiling: foilingLabel(row.foiling),
+          quantity: row.quantity ?? 1,
+          tcgMarket: row.tcgMarket,
+          imageUrl: row.imageUrl,
+          collectorNumber: row.collectorNumber,
+        });
+      }
+
+      // Sort: mutual matches first, then by total card count
+      const matches = [...matchMap.values()].sort((a, b) => {
+        const aMutual = a.theyHaveYouWant.length > 0 && a.theyWantYouHave.length > 0 ? 1 : 0;
+        const bMutual = b.theyHaveYouWant.length > 0 && b.theyWantYouHave.length > 0 ? 1 : 0;
+        if (bMutual !== aMutual) return bMutual - aMutual;
+        return (b.theyHaveYouWant.length + b.theyWantYouHave.length) - (a.theyHaveYouWant.length + a.theyWantYouHave.length);
+      });
+
+      return { success: true, data: matches };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to get store trade matches' };
+    }
   }
 }
