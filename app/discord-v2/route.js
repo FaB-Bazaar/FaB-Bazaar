@@ -4,6 +4,7 @@ import { InteractionType, InteractionResponseType } from 'discord-interactions';
 import { verifyDiscordSignature } from './utils.js';
 import { createErrorResponse, createSuccessResponse, createComponentResponse, createUpdateResponse, createSelectMenu } from './responses.js';
 import { handleListBinders, handleSearchCommand, handleBinderCommand, handleTradeAnalysis, handleWantsCommand, handleDeckCommand } from './commands.js';
+import { userService, locationService } from '@/lib/services';
 import { showCardPrintings } from './utils.js';
 
 // Import the new context menu handlers
@@ -59,8 +60,53 @@ export async function POST(req) {
     return handleMessageComponent(body);
   }
 
+  // Handle autocomplete
+  if (body.type === InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE) {
+    return handleAutocomplete(body);
+  }
+
   // Unknown interaction type
   return new NextResponse('Unhandled interaction type', { status: 400 });
+}
+
+async function handleAutocomplete(body) {
+  const { name, options } = body.data;
+
+  if (name === 'trade') {
+    const focusedOption = options?.find(opt => opt.focused);
+    if (focusedOption?.name === 'store') {
+      const discordId = body.member?.user?.id || body.user?.id;
+      const typed = focusedOption.value?.toLowerCase() || '';
+
+      let choices = [];
+
+      if (discordId) {
+        const userResult = await userService.findByDiscordId(discordId);
+        if (userResult.success && userResult.data) {
+          const storesResult = await locationService.getUserFollowedStores(userResult.data._id.toString());
+          if (storesResult.success) {
+            choices = storesResult.data
+              .filter(s => !typed || s.name.toLowerCase().includes(typed))
+              .slice(0, 25)
+              .map(s => ({
+                name: `${s.name} (${s.addressCity}${s.addressState ? `, ${s.addressState}` : ''})`,
+                value: s.id,
+              }));
+          }
+        }
+      }
+
+      return NextResponse.json({
+        type: InteractionResponseType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT,
+        data: { choices },
+      });
+    }
+  }
+
+  return NextResponse.json({
+    type: InteractionResponseType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT,
+    data: { choices: [] },
+  });
 }
 
 async function handleApplicationCommand(body) {

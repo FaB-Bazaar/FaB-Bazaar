@@ -49,8 +49,9 @@ const commands = [
     .addStringOption(opt =>
       opt
         .setName('store')
-        .setDescription('Store name — shows all trade matches with followers of that store')
+        .setDescription('Your favorited store — shows all trade matches with other followers')
         .setRequired(false)
+        .setAutocomplete(true)
     ),
 
   // 5. /deck - View a user's deck list

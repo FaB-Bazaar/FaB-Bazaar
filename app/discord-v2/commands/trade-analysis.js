@@ -128,12 +128,18 @@ async function handleStoreTradeMatches(requestingDiscordId, storeName) {
     }
     const userId = requestingUserResult.data._id.toString();
 
-    // Find store by name
-    const storeResult = await locationService.browseLocations({ search: storeName, category: 'store' }, { limit: 1 });
-    if (!storeResult.success || storeResult.data.locations.length === 0) {
-      return createErrorResponse(`No store found matching "${storeName}". Try a more specific name.`, true);
+    // storeIdOrName is a store ID (from autocomplete) or a name fallback
+    const byIdResult = await locationService.getLocationById(storeName);
+    let store;
+    if (byIdResult.success && byIdResult.data) {
+      store = byIdResult.data;
+    } else {
+      const byNameResult = await locationService.browseLocations({ search: storeName, category: 'store' }, { limit: 1 });
+      if (!byNameResult.success || byNameResult.data.locations.length === 0) {
+        return createErrorResponse(`No store found matching "${storeName}". Try typing it in the store field to see your followed stores.`, true);
+      }
+      store = byNameResult.data.locations[0];
     }
-    const store = storeResult.data.locations[0];
 
     const matchResult = await inventoryService.getStoreTradeMatches(store.id, userId);
     if (!matchResult.success) {
