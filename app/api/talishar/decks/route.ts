@@ -15,7 +15,7 @@ export async function OPTIONS() {
 }
 import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
 import { userService, deckService } from '@/lib/services';
-import { toTalisharIdentifier } from '@/lib/utils';
+import { TALISHAR_HERO_IDS } from '@/lib/fab-constants/heroes';
 
 const FORMAT_MAP: Record<string, string> = {
   'Classic Constructed': 'cc',
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
   const decks = decksResult.data.decks.map((deck) => ({
     id: deck.publicId,
     name: deck.name,
-    hero: deck.heroName ? toTalisharIdentifier(deck.heroName) : undefined,
+    hero: deck.heroName ? TALISHAR_HERO_IDS[deck.heroName.toLowerCase()] : undefined,
     format: deck.format ? (FORMAT_MAP[deck.format] ?? deck.format.toLowerCase()) : undefined,
   }));
 
