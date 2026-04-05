@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
   const decks = decksResult.data.decks.map((deck) => ({
     name: deck.name,
     deckId: deck.publicId,
+    heroId: deck.heroName,
+    format: deck.format,
   }));
 
   return NextResponse.json({ success: true, decks }, { headers: CORS_HEADERS });
