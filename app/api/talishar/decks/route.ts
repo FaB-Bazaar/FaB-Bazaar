@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     const expectedHash = crypto
       .createHash('sha256')
-      .update(metafyId + salt)
+      .update(metafyId + salt + timestamp)
       .digest('hex');
 
     if (metafyHash !== expectedHash) {
