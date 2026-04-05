@@ -16,6 +16,7 @@ export async function OPTIONS() {
 import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
 import { userService, deckService } from '@/lib/services';
 import { TALISHAR_HERO_IDS } from '@/lib/fab-constants/heroes';
+import { hasTalisharMembership, hasFabBazaarMembership } from '@/lib/metafy/communities';
 
 const FORMAT_MAP: Record<string, string> = {
   'Classic Constructed': 'cc',
@@ -79,6 +80,16 @@ export async function GET(request: NextRequest) {
   }
   if (!userResult.data) {
     return NextResponse.json({ success: true, decks: [] }, { headers: CORS_HEADERS });
+  }
+
+  // Verify the user is a member of both Talishar's and FabBazaar's Metafy communities.
+  // This confirms the integration is properly set up on both sides.
+  const communitiesResult = await userService.getMetafyCommunities(userResult.data.id);
+  if (communitiesResult.success) {
+    const communities = communitiesResult.data;
+    if (!hasTalisharMembership(communities) || !hasFabBazaarMembership(communities)) {
+      return NextResponse.json({ success: true, decks: [] }, { headers: CORS_HEADERS });
+    }
   }
 
   // Fetch decks for this user where availableOnTalishar = true

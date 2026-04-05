@@ -31,6 +31,7 @@ import {
   Info,
   Layers,
   GraduationCap,
+  Link2,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -321,6 +322,14 @@ export default function Navbar() {
                 </Link>
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem asChild>
+              <Link href="/profile/connected-accounts" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                <div className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Connected Accounts
+                </div>
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/mcp-integration" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                 <div className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -779,6 +788,12 @@ export default function Navbar() {
                       <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                         <User className="h-4 w-4 mr-2" />
                         View Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile/connected-accounts" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Connected Accounts
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />

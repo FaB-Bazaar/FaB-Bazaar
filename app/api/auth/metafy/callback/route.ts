@@ -21,24 +21,24 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('[MetafyCallback] Metafy returned error:', error);
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=${encodeURIComponent(error)}`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=${encodeURIComponent(error)}`);
   }
 
   // Validate state cookie
   const cookieState = request.cookies.get('metafy_oauth_state')?.value;
   if (!cookieState || cookieState !== state) {
     console.error('[MetafyCallback] State mismatch — possible CSRF');
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=state_mismatch`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=state_mismatch`);
   }
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=no_code`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=no_code`);
   }
 
   // User must be logged in to link accounts
   const authResult = await authenticateSession();
   if (!authResult.success || !authResult.userId) {
-    return NextResponse.redirect(`${origin}/login?redirect=/profile/edit`);
+    return NextResponse.redirect(`${origin}/login?redirect=/profile/connected-accounts`);
   }
 
   const clientId = process.env.METAFY_CLIENT_ID;
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = process.env.METAFY_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=not_configured`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=not_configured`);
   }
 
   // Exchange code for tokens
@@ -72,13 +72,13 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const body = await tokenResponse.text();
       console.error('[MetafyCallback] Token exchange failed:', tokenResponse.status, body);
-      return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=token_exchange_failed`);
+      return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=token_exchange_failed`);
     }
 
     tokenData = await tokenResponse.json();
   } catch (err) {
     console.error('[MetafyCallback] Token exchange error:', err);
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=token_exchange_failed`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=token_exchange_failed`);
   }
 
   // Fetch Metafy user profile
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
 
   if (!metafyUser?.id) {
     console.error('[MetafyCallback] Could not determine Metafy user ID');
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=no_user_id`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=no_user_id`);
   }
 
   const tokenExpiry = new Date(Date.now() + tokenData.expires_in * 1000);
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
 
   if (!linkResult.success) {
     console.error('[MetafyCallback] Failed to save Metafy link:', linkResult.error);
-    return NextResponse.redirect(`${origin}/profile/edit?metafy=error&reason=save_failed`);
+    return NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=error&reason=save_failed`);
   }
 
   // Fetch and store community memberships (non-fatal — don't fail the OAuth flow)
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     console.warn('[MetafyCallback] Metafy memberships fetch error:', err);
   }
 
-  const response = NextResponse.redirect(`${origin}/profile/edit?metafy=linked`);
+  const response = NextResponse.redirect(`${origin}/profile/connected-accounts?metafy=linked`);
   response.cookies.delete('metafy_oauth_state');
   return response;
 }
