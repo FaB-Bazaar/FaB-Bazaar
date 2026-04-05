@@ -100,9 +100,9 @@ export async function GET(request: NextRequest) {
   }
 
   const decks = decksResult.data.decks.map((deck) => ({
+    id: deck.publicId,
     name: deck.name,
-    deckId: deck.publicId,
-    heroId: getHeroShortName(deck.heroName),
+    hero: getHeroShortName(deck.heroName),
     format: deck.format ? (FORMAT_MAP[deck.format] ?? deck.format.toLowerCase()) : undefined,
   }));
 
