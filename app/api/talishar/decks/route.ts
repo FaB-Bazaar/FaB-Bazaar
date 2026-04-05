@@ -15,7 +15,7 @@ export async function OPTIONS() {
 }
 import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
 import { userService, deckService } from '@/lib/services';
-import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
+import { toTalisharIdentifier } from '@/lib/utils';
 
 const FORMAT_MAP: Record<string, string> = {
   'Classic Constructed': 'cc',
@@ -27,13 +27,6 @@ const FORMAT_MAP: Record<string, string> = {
   'Ultimate Pit Fight': 'upf',
   'Casual': 'open',
 };
-
-function getHeroShortName(heroName: string | undefined): string | undefined {
-  if (!heroName) return undefined;
-  const key = heroName.toLowerCase();
-  const info = HERO_INFO[key] ?? YOUNG_HERO_INFO[key as keyof typeof YOUNG_HERO_INFO];
-  return info?.shortName ?? key.replace(/[^a-z0-9]+/g, '_');
-}
 
 const HASH_MAX_AGE_SECS = 300; // 5 minutes
 
@@ -102,7 +95,7 @@ export async function GET(request: NextRequest) {
   const decks = decksResult.data.decks.map((deck) => ({
     id: deck.publicId,
     name: deck.name,
-    hero: getHeroShortName(deck.heroName),
+    hero: deck.heroName ? toTalisharIdentifier(deck.heroName) : undefined,
     format: deck.format ? (FORMAT_MAP[deck.format] ?? deck.format.toLowerCase()) : undefined,
   }));
 
