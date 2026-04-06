@@ -463,6 +463,14 @@ export class PostgresDeckService implements IDeckService {
           category: 'hero',
           addedAt: new Date(),
         });
+
+        // Backfill hero_name from the card if not provided at creation time
+        if (!data.heroName && printing[0].cards?.name) {
+          await db
+            .update(decks)
+            .set({ heroName: printing[0].cards.name })
+            .where(eq(decks.id, deckId));
+        }
       }
 
       // Handle copying from existing deck
@@ -583,6 +591,29 @@ export class PostgresDeckService implements IDeckService {
       if (updates.metadata !== undefined) updateFields.metadata = updates.metadata;
       if (updates.metafyGuideId !== undefined) updateFields.metafyGuideId = updates.metafyGuideId;
       if (updates.availableOnTalishar !== undefined) updateFields.availableOnTalishar = Boolean(updates.availableOnTalishar);
+
+      // Backfill hero_name from the hero printing when enabling Talishar and hero_name is null
+      if (updates.availableOnTalishar === true && updates.heroName === undefined) {
+        const [currentDeck] = await db
+          .select({ id: decks.id, heroName: decks.heroName })
+          .from(decks)
+          .where(eq(decks.publicId, publicId))
+          .limit(1);
+
+        if (currentDeck && !currentDeck.heroName) {
+          const [heroCard] = await db
+            .select({ cardName: cards.name })
+            .from(deckCards)
+            .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+            .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+            .where(and(eq(deckCards.deckId, currentDeck.id), eq(deckCards.category, 'hero')))
+            .limit(1);
+
+          if (heroCard?.cardName) {
+            updateFields.heroName = heroCard.cardName;
+          }
+        }
+      }
 
       const updatedDeck = await db
         .update(decks)
@@ -1127,7 +1158,17 @@ export class PostgresDeckService implements IDeckService {
         });
       }
 
-      if (totalCardsAdded > 0) {
+      // Sync hero_name from the hero printing if it was just added and is currently null
+      const heroAdded = results.find(r => r.success && r.category === 'hero');
+      if (heroAdded && !deck[0].heroName) {
+        const heroData = printingMap.get(heroAdded.printingId);
+        if (heroData?.name) {
+          await db
+            .update(decks)
+            .set({ heroName: heroData.name, updatedAt: new Date() })
+            .where(eq(decks.id, deck[0].id));
+        }
+      } else if (totalCardsAdded > 0) {
         await db
           .update(decks)
           .set({ updatedAt: new Date() })

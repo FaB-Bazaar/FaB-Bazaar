@@ -27,7 +27,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
-import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings } from "@/lib/fab-constants";
+import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings, TALISHAR_HERO_IDS } from "@/lib/fab-constants";
 
 // Import deck-specific components
 import DeckCard from "@/components/deck/DeckCard";
@@ -306,6 +306,20 @@ export default function DecksPage() {
 
   // Handle Talishar toggle
   const handleToggleTalishar = async (deckId: string, value: boolean) => {
+    if (value) {
+      const deck = decks.find(d => d.publicId === deckId);
+      const heroName = deck?.hero?.[0]?.printingDetails?.display_name
+        ?? deck?.hero?.[0]?.printingDetails?.name;
+      const heroMapped = heroName ? !!TALISHAR_HERO_IDS[heroName.toLowerCase()] : false;
+      if (!heroMapped) {
+        toast({
+          title: "Hero required",
+          description: "Add a hero card to this deck before enabling Talishar imports.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, availableOnTalishar: value } : d));
     const result = await decksClient.updateDeck(deckId, { availableOnTalishar: value });
     if (!result.success) {

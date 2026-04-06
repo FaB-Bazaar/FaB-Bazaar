@@ -103,12 +103,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: decksResult.error }, { status: 500, headers: CORS_HEADERS });
   }
 
-  const decks = decksResult.data.decks.map((deck) => ({
-    id: deck.publicId,
-    name: deck.name,
-    hero: deck.heroName ? TALISHAR_HERO_IDS[deck.heroName.toLowerCase()] : undefined,
-    format: deck.format ? (FORMAT_MAP[deck.format] ?? deck.format.toLowerCase()) : undefined,
-  }));
+  const decks = decksResult.data.decks.map((deck) => {
+    const heroNameRaw = deck.heroName
+      ?? deck.hero?.[0]?.printingDetails?.display_name
+      ?? deck.hero?.[0]?.printingDetails?.name;
+    return {
+      id: deck.publicId,
+      name: deck.name,
+      hero: heroNameRaw ? TALISHAR_HERO_IDS[heroNameRaw.toLowerCase()] : undefined,
+      format: deck.format ? (FORMAT_MAP[deck.format] ?? deck.format.toLowerCase()) : undefined,
+    };
+  });
 
   return NextResponse.json({ success: true, decks }, { headers: CORS_HEADERS });
 }

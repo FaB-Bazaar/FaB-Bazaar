@@ -81,6 +81,7 @@ export {
   HERO_NICKNAMES,
   HERO_INFO,
   YOUNG_HERO_INFO,
+  TALISHAR_HERO_IDS,
   getHeroInfo,
   getHeroesGroupedByClass,
   getYoungHeroesGroupedByClass,

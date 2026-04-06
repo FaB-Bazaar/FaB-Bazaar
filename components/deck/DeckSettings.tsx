@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2, Star } from "lucide-react";
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
 import TalisharToggle from "./TalisharToggle";
+import { TALISHAR_HERO_IDS } from "@/lib/fab-constants/heroes";
 
 const FORMATS = [
   'Classic Constructed',
@@ -68,6 +69,14 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [featuredLocal, setFeaturedLocal] = useState(featuredProp ?? false);
   const [matchupsOpen, setMatchupsOpen] = useState(false);
   const [matchupsCount, setMatchupsCount] = useState(0);
+  const [talisharHeroError, setTalisharHeroError] = useState(false);
+
+  const heroNameForTalishar = deck.hero
+    ?? fullDeck?.hero?.[0]?.printingDetails?.display_name
+    ?? fullDeck?.hero?.[0]?.printingDetails?.name;
+  const heroMappedForTalishar = heroNameForTalishar
+    ? !!TALISHAR_HERO_IDS[heroNameForTalishar.toLowerCase()]
+    : false;
 
   // Co-owners state
   const [coOwners, setCoOwners] = useState<{ id: string; username: string; avatar: string | null }[]>([]);
@@ -331,12 +340,34 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
       </div>
 
       {/* Available on Talishar */}
-      <div className="flex items-center justify-between py-1">
-        <div>
-          <Label>Available on Talishar</Label>
-          <p className="text-xs text-muted-foreground mt-0.5">Show this deck in Talishar imports</p>
+      <div className="space-y-1.5 py-1">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Available on Talishar</Label>
+            <p className="text-xs text-muted-foreground mt-0.5">Show this deck in Talishar imports</p>
+          </div>
+          <TalisharToggle
+            checked={availableOnTalishar}
+            onChange={(val) => {
+              if (val && !heroMappedForTalishar) {
+                setTalisharHeroError(true);
+                return;
+              }
+              setTalisharHeroError(false);
+              setAvailableOnTalishar(val);
+            }}
+          />
         </div>
-        <TalisharToggle checked={availableOnTalishar} onChange={setAvailableOnTalishar} />
+        {talisharHeroError && (
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            A hero is required for Talishar. Add a hero card to your deck first.
+          </p>
+        )}
+        {!talisharHeroError && availableOnTalishar && !heroMappedForTalishar && (
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            This deck&apos;s hero isn&apos;t recognized by Talishar. Add a supported hero card to enable imports.
+          </p>
+        )}
       </div>
 
       {/* Decks to Beat (curator-only, public decks only) */}
