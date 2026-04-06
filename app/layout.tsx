@@ -240,6 +240,16 @@ export default async function RootLayout({
               Articles
             </Link>
           </li>
+          <li>
+            <Link
+              href="https://github.com/FaB-Bazaar/FaB-Bazaar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-500 transition-colors"
+            >
+              Source Code
+            </Link>
+          </li>
         </ul>
       </div>
 
