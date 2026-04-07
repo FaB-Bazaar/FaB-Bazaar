@@ -328,7 +328,7 @@ export default function DeckEditorPage() {
   const [chordExiting, setChordExiting] = useState(false);
   const [keywordBuffer, setKeywordBuffer] = useState('');
   // Tile size — synced from DeckEditorListView via custom events
-  const [tileSize, setTileSize] = useState({ idx: 2, label: 'Large', total: 3 });
+  const [tileSize, setTileSize] = useState({ idx: 0, label: 'Compact', total: 3 });
   // Range picker state for numeric highlight sub-modes
   const [hudRangeMin, setHudRangeMin] = useState(0);
   const [hudRangeMax, setHudRangeMax] = useState(9);
@@ -1379,7 +1379,7 @@ export default function DeckEditorPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/decks"
-                className="flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0"
+                className="flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 title="Back to Decks"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -1389,14 +1389,14 @@ export default function DeckEditorPage() {
                   {state.deckLoading ? "Loading..." : state.deck ? state.deck.name : "Deck Editor"}
                 </h1>
                 {!isOwner && state.deck?.ownerUsername && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  <span className="text-xs text-gray-300 dark:text-gray-300 truncate">
                     by {state.deck.ownerUsername}
                   </span>
                 )}
               </div>
               <Link
                 href={`/decks/${deckId}/analyze`}
-                className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1"
+                className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 title="Analyze deck"
               >
                 <Eye className="h-3.5 w-3.5" />
@@ -1561,7 +1561,7 @@ export default function DeckEditorPage() {
                 return `https://fablazing.com/decklists?${new URLSearchParams(params)}`;
               })() : null;
               return (
-              <div className="mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
+              <div className="hidden sm:block mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
                 <button
                   onClick={() => !buildsLoading && setBuildsExpanded(v => !v)}
                   className="flex items-center gap-2 w-full px-3 py-2 text-left rounded-t-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
@@ -1744,36 +1744,62 @@ export default function DeckEditorPage() {
                     const none   = all.filter(c => !c.printingDetails?.pitch).reduce((s, c) => s + (c.quantity || 1), 0);
                     const total = red + yellow + blue + none;
                     if (total === 0) return null;
+                    const pitchActive = activeHighlights.get('pitch') ?? new Set<number | string>();
+                    const dispatchPitch = (v: number) =>
+                      window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'pitch', value: v } }));
+                    const noPitchActive = pitchActive.size === 0;
+                    // Shared pill classes — same border weight and size for all chips
+                    const pillBase = "flex items-center gap-1.5 rounded-full px-3 py-1 border transition-all text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 shrink-0";
+                    const pillInactive = "border-gray-400/30 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 hover:border-gray-400/60 dark:hover:border-gray-500";
+                    const pitchPills: { v: number; count: number; dot: string; label: string; activeBg: string; activeBorder: string }[] = [
+                      { v: 1, count: red,    dot: 'bg-red-500',    label: 'red',    activeBg: 'bg-red-600 text-white',    activeBorder: 'border-red-500' },
+                      { v: 2, count: yellow, dot: 'bg-yellow-400', label: 'yellow', activeBg: 'bg-yellow-500 text-white', activeBorder: 'border-yellow-400' },
+                      { v: 3, count: blue,   dot: 'bg-blue-500',   label: 'blue',   activeBg: 'bg-blue-600 text-white',   activeBorder: 'border-blue-500' },
+                    ];
                     return (
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2.5 mb-3 rounded-lg bg-gray-100 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700/60">
-                        <span className="text-base font-bold text-gray-900 dark:text-gray-100">{total} <span className="text-sm font-normal text-gray-600 dark:text-gray-400">cards</span></span>
-                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block" />
-                        {red > 0 && (
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-red-600 dark:text-red-400">
-                            <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" aria-hidden="true" />
-                            {red}
-                            <span className="font-normal text-red-500 dark:text-red-400/70">red</span>
-                          </span>
-                        )}
-                        {yellow > 0 && (
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-yellow-700 dark:text-yellow-400">
-                            <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 flex-shrink-0" aria-hidden="true" />
-                            {yellow}
-                            <span className="font-normal text-yellow-600 dark:text-yellow-400/70">yellow</span>
-                          </span>
-                        )}
-                        {blue > 0 && (
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 dark:text-blue-400">
-                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0" aria-hidden="true" />
-                            {blue}
-                            <span className="font-normal text-blue-500 dark:text-blue-400/70">blue</span>
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2 px-4 py-2.5 mb-0 -mx-4 overflow-x-auto scrollbar-none border-y border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/50">
+                        {/* "All" — filled when no pitch filter active, outline when one is */}
+                        <button
+                          onClick={() => pitchActive.size > 0 && window.dispatchEvent(new CustomEvent('deck-highlight-clear'))}
+                          aria-label="Show all cards"
+                          aria-pressed={noPitchActive}
+                          className={cn(pillBase, noPitchActive
+                            ? "bg-gray-600 dark:bg-gray-500 border-gray-600 dark:border-gray-500 text-white font-semibold"
+                            : pillInactive
+                          )}
+                        >
+                          <span className="font-bold">{total}</span>
+                          <span className="opacity-75">cards</span>
+                        </button>
+
+                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 shrink-0" />
+
+                        {/* Pitch pills — neutral border when inactive, colored fill when active */}
+                        {pitchPills.filter(p => p.count > 0).map(p => {
+                          const isActive = pitchActive.has(p.v);
+                          return (
+                            <button
+                              key={p.v}
+                              onClick={() => dispatchPitch(p.v)}
+                              aria-label={`Filter ${p.label} cards (${p.count})`}
+                              aria-pressed={isActive}
+                              className={cn(pillBase, isActive
+                                ? `${p.activeBg} ${p.activeBorder}`
+                                : pillInactive
+                              )}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${p.dot} shrink-0`} aria-hidden="true" />
+                              <span className="font-semibold">{p.count}</span>
+                              <span className="opacity-75">{p.label}</span>
+                            </button>
+                          );
+                        })}
+
                         {none > 0 && (
-                          <span className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-                            <span className="w-2.5 h-2.5 rounded-full bg-gray-400 dark:bg-gray-500 flex-shrink-0" aria-hidden="true" />
-                            {none}
-                            <span className="text-gray-500 dark:text-gray-500">no pitch</span>
+                          <span className={cn(pillBase, "border-gray-400/20 dark:border-gray-700/40 text-gray-500 dark:text-gray-500 cursor-default")}>
+                            <span className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-600 shrink-0" aria-hidden="true" />
+                            <span className="font-semibold">{none}</span>
+                            <span className="opacity-75">no pitch</span>
                           </span>
                         )}
                       </div>

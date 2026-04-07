@@ -1223,7 +1223,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     { key: 'large',   label: 'Large',   width: 200 },
   ] as const;
   type TileSizeKey = typeof TILE_SIZES[number]['key'];
-  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('large');
+  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>(
+    () => (typeof window !== 'undefined' && window.innerWidth >= 768) ? 'normal' : 'compact'
+  );
   const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
   const tileWidth = TILE_SIZES[tileSizeIdx].width;
 
@@ -1510,21 +1512,34 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     return map;
   };
 
+  // Helper: count cards in a specific deck zone
+  const getZoneCount = (zone: string): number => {
+    const arr = zone === 'equipment' ? (displayDeck.equipment || [])
+              : zone === 'inventory' ? (displayDeck.inventory || [])
+              : zone === 'bench'     ? (displayDeck.benched || [])
+              : [];
+    return arr.reduce((s, c) => s + (c.quantity ?? 1), 0);
+  };
+
   const matchingPrintingIds: Set<string> | null = highlightFilters.length > 0
     ? (() => {
         const ids = new Set<string>();
-        const allCards = [
-          ...(displayDeck.maindeck || []),
-          ...(displayDeck.equipment || []),
-          ...(displayDeck.inventory || []),
-          ...(displayDeck.benched || []),
+        // Tag each card with its zone so 'zone' filters can match
+        const zoneCards = [
+          ...(displayDeck.maindeck   || []).map(c => ({ c, zone: 'maindeck'   })),
+          ...(displayDeck.equipment  || []).map(c => ({ c, zone: 'equipment'  })),
+          ...(displayDeck.inventory  || []).map(c => ({ c, zone: 'inventory'  })),
+          ...(displayDeck.benched    || []).map(c => ({ c, zone: 'bench'      })),
         ];
         const filtersByStat = groupFiltersByStat(highlightFilters);
-        for (const c of allCards) {
+        for (const { c, zone } of zoneCards) {
           const details = c.printingDetails as any;
           // AND across stats, OR within same stat
           const passes = [...filtersByStat.values()].every(statFilters =>
-            statFilters.some(f => checkFilterOnDetails(details, f))
+            statFilters.some(f => {
+              if (f.stat === 'zone') return zone === f.value;
+              return checkFilterOnDetails(details, f);
+            })
           );
           if (passes) ids.add(c.printingId);
         }
@@ -1792,23 +1807,26 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           >
             <Layers className="h-3.5 w-3.5" />Game
           </button>
-          {/* Hover toggle — separated by a slightly thicker divider to signal it's a modifier, not a mode */}
-          {!isTouchDevice && (viewMode === 'tile' || viewMode === 'game') && (
-            <button
-              type="button"
-              onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
-              className={cn(
-                "px-3 py-1.5 text-xs flex items-center gap-1.5 border-l-2 transition-colors",
-                hoverMode
-                  ? "border-l-blue-600 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                  : "border-l-gray-300 dark:border-l-gray-600 text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              )}
-              title="Toggle hover preview (H)"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </button>
-          )}
         </div>
+
+        {/* Highlight/Hover eye — between view mode group and tile size stepper */}
+        {(viewMode === 'tile' || viewMode === 'game') && (
+          <button
+            type="button"
+            onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
+            className={cn(
+              "px-3 py-1.5 text-xs flex items-center gap-1.5 rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+              hoverMode
+                ? "border-blue-500 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            )}
+            title="Toggle hover preview (H)"
+            aria-label="Toggle highlight/hover mode"
+            aria-pressed={hoverMode}
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </button>
+        )}
 
         {/* Tile size stepper — only for tile/game views */}
         {(viewMode === 'tile' || viewMode === 'game') && (
@@ -1902,105 +1920,203 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
       {/* Highlight filter bar */}
       {(viewMode === 'tile' || viewMode === 'game') && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 px-2 py-1.5 bg-gray-100 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700/50 text-[10px]">
-          <span className="font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide shrink-0">Highlight</span>
+        <>
+          {/* ── Mobile highlight strips: two swipeable rows ── */}
+          <div className="md:hidden mb-3 -mx-4 flex flex-col gap-0">
 
-          {/* Pitch filter — icon conveys value (1/2/3 red dots) */}
-          <div className="flex items-center gap-1">
-            {([1, 2, 3] as const).map(v => {
-              const count = getStatCount('pitch', v);
-              const isActive = highlightFilters.some(f => f.stat === 'pitch' && f.value === v);
-              return (
+            {/* Row 1 — Zone chips: Equipment / Inventory / Bench with card counts */}
+            <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto scrollbar-none bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700/60">
+              {([
+                { zone: 'equipment', label: 'Equipment' },
+                { zone: 'inventory', label: 'Inventory' },
+                { zone: 'bench',     label: 'Bench'     },
+              ] as const).map(({ zone, label }) => {
+                const count = getZoneCount(zone);
+                const isActive = highlightFilters.some(f => f.stat === 'zone' && f.value === zone);
+                return (
+                  <button
+                    key={zone}
+                    onClick={() => count > 0 && toggleHighlight('zone', zone)}
+                    aria-label={`Highlight ${label} cards (${count})`}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 shrink-0 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      isActive
+                        ? "border-amber-400 bg-amber-500 text-white shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                        : count > 0
+                        ? "border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 active:bg-gray-200 dark:active:bg-gray-600"
+                        : "border-dashed border-gray-300 dark:border-gray-600 opacity-40 cursor-default text-gray-500",
+                    )}
+                  >
+                    {label}
+                    {count > 0 && (
+                      <span className={cn(
+                        "text-xs font-bold px-1.5 py-0.5 rounded-full leading-none",
+                        isActive ? "bg-white/25 text-white" : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300",
+                      )}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {highlightFilters.some(f => f.stat === 'zone') && (
                 <button
-                  key={v}
-                  onClick={() => count > 0 && toggleHighlight('pitch', v)}
-                  className={cn(
-                    "flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
-                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default",
-                  )}
+                  onClick={() => setHighlightFilters(f => f.filter(x => x.stat !== 'zone'))}
+                  aria-label="Clear zone filter"
+                  className="ml-auto flex items-center px-2.5 py-1.5 rounded-full border-2 border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 shrink-0 active:bg-gray-200 dark:active:bg-gray-600 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
-                  <img src={`/fab/symbols/pitch${v}.png`} alt={`Pitch ${v}`} className="w-5 h-5 object-contain" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            {/* Row 2 — Attack 3–7+ | Defense 2–4 */}
+            <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto scrollbar-none bg-gray-50 dark:bg-gray-800/50 border-t border-b border-gray-200 dark:border-gray-700/60">
+              {([3, 4, 5, 6, '7+'] as const).map(v => {
+                const count = getStatCount('power', v);
+                const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
+                return (
+                  <button
+                    key={String(v)}
+                    onClick={() => count > 0 && toggleHighlight('power', v)}
+                    aria-label={`Highlight attack ${v}`}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "flex items-center gap-0.5 px-2.5 py-1.5 rounded-full border-2 shrink-0 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      isActive
+                        ? "border-amber-400 bg-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                        : count > 0
+                        ? "border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600"
+                        : "border-dashed border-gray-300 dark:border-gray-600 opacity-40 cursor-default",
+                    )}
+                  >
+                    <span className={cn("text-sm font-bold leading-none", isActive ? "text-white" : "text-gray-800 dark:text-gray-100")}>{String(v)}</span>
+                    <img src="/fab/symbols/power.png" alt="" className="w-4 h-4 object-contain" />
+                  </button>
+                );
+              })}
+
+              <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 shrink-0 mx-1" />
+
+              {([2, 3, 4] as const).map(v => {
+                const count = getStatCount('defense', v);
+                const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
+                return (
+                  <button
+                    key={String(v)}
+                    onClick={() => count > 0 && toggleHighlight('defense', v)}
+                    aria-label={`Highlight defense ${v}`}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "flex items-center gap-0.5 px-2.5 py-1.5 rounded-full border-2 shrink-0 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      isActive
+                        ? "border-amber-400 bg-amber-500 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                        : count > 0
+                        ? "border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600"
+                        : "border-dashed border-gray-300 dark:border-gray-600 opacity-40 cursor-default",
+                    )}
+                  >
+                    <span className={cn("text-sm font-bold leading-none", isActive ? "text-white" : "text-gray-800 dark:text-gray-100")}>{String(v)}</span>
+                    <img src="/fab/symbols/block.png" alt="" className="w-4 h-4 object-contain" />
+                  </button>
+                );
+              })}
+
+              {highlightFilters.some(f => f.stat === 'power' || f.stat === 'defense') && (
+                <button
+                  onClick={() => setHighlightFilters(f => f.filter(x => x.stat !== 'power' && x.stat !== 'defense'))}
+                  aria-label="Clear attack/defense filter"
+                  className="ml-auto flex items-center px-2.5 py-1.5 rounded-full border-2 border-gray-400 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 shrink-0 active:bg-gray-200 dark:active:bg-gray-600 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Cost filter — number overlaid in center of swirl icon */}
-          <div className="flex items-center gap-1">
-            {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
-              const count = getStatCount('cost', v);
-              const isActive = highlightFilters.some(f => f.stat === 'cost' && f.value === v);
-              return (
-                <button
-                  key={String(v)}
-                  onClick={() => count > 0 && toggleHighlight('cost', v)}
-                  className={cn(
-                    "flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
-                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default",
-                  )}
-                >
-                  <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
-                    <img src="/fab/symbols/cost.png" alt="Cost" className="w-5 h-5 object-contain" />
-                    <span className="absolute font-bold text-[8px] leading-none text-white drop-shadow-[0_0_2px_rgba(0,0,0,1)]">
-                      {String(v)}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          {/* ── Desktop highlight bar: existing full layout ── */}
+          <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 px-2 py-1.5 bg-gray-100 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700/50 text-[10px]">
+            <span className="font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide shrink-0">Highlight</span>
 
-          {/* Power filter — number to left of symbol */}
-          <div className="flex items-center gap-1">
-            {([1, 2, 3, 4, 5, 6, '7+'] as const).map(v => {
-              const count = getStatCount('power', v);
-              const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
-              return (
-                <button
-                  key={String(v)}
-                  onClick={() => count > 0 && toggleHighlight('power', v)}
-                  className={cn(
-                    "flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
-                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default",
-                  )}
-                >
-                  <span className={cn("font-medium", isActive ? "text-white" : "text-gray-700 dark:text-gray-200")}>{String(v)}</span>
-                  <img src="/fab/symbols/power.png" alt="Power" className="w-4 h-4 object-contain" />
-                </button>
-              );
-            })}
-          </div>
+            {/* Pitch */}
+            <div className="flex items-center gap-1">
+              {([1, 2, 3] as const).map(v => {
+                const count = getStatCount('pitch', v);
+                const isActive = highlightFilters.some(f => f.stat === 'pitch' && f.value === v);
+                return (
+                  <button key={v} onClick={() => count > 0 && toggleHighlight('pitch', v)}
+                    className={cn("flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
+                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+                  >
+                    <img src={`/fab/symbols/pitch${v}.png`} alt={`Pitch ${v}`} className="w-5 h-5 object-contain" />
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Block filter — number to left of symbol */}
-          <div className="flex items-center gap-1">
-            {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
-              const count = getStatCount('defense', v);
-              const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
-              return (
-                <button
-                  key={String(v)}
-                  onClick={() => count > 0 && toggleHighlight('defense', v)}
-                  className={cn(
-                    "flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
-                    isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default",
-                  )}
-                >
-                  <span className={cn("font-medium", isActive ? "text-white" : "text-gray-700 dark:text-gray-200")}>{String(v)}</span>
-                  <img src="/fab/symbols/block.png" alt="Block" className="w-4 h-4 object-contain" />
-                </button>
-              );
-            })}
-          </div>
+            {/* Cost */}
+            <div className="flex items-center gap-1">
+              {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
+                const count = getStatCount('cost', v);
+                const isActive = highlightFilters.some(f => f.stat === 'cost' && f.value === v);
+                return (
+                  <button key={String(v)} onClick={() => count > 0 && toggleHighlight('cost', v)}
+                    className={cn("flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
+                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+                  >
+                    <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+                      <img src="/fab/symbols/cost.png" alt="Cost" className="w-5 h-5 object-contain" />
+                      <span className="absolute font-bold text-[8px] leading-none text-white drop-shadow-[0_0_2px_rgba(0,0,0,1)]">{String(v)}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
-          {highlightFilters.length > 0 && (
-            <button
-              onClick={() => setHighlightFilters([])}
-              className="ml-auto flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <X className="h-3 w-3" />clear
-            </button>
-          )}
-        </div>
+            {/* Power */}
+            <div className="flex items-center gap-1">
+              {([1, 2, 3, 4, 5, 6, '7+'] as const).map(v => {
+                const count = getStatCount('power', v);
+                const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
+                return (
+                  <button key={String(v)} onClick={() => count > 0 && toggleHighlight('power', v)}
+                    className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
+                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+                  >
+                    <span className={cn("font-medium", isActive ? "text-white" : "text-gray-700 dark:text-gray-200")}>{String(v)}</span>
+                    <img src="/fab/symbols/power.png" alt="Power" className="w-4 h-4 object-contain" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Defense */}
+            <div className="flex items-center gap-1">
+              {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
+                const count = getStatCount('defense', v);
+                const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
+                return (
+                  <button key={String(v)} onClick={() => count > 0 && toggleHighlight('defense', v)}
+                    className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
+                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+                  >
+                    <span className={cn("font-medium", isActive ? "text-white" : "text-gray-700 dark:text-gray-200")}>{String(v)}</span>
+                    <img src="/fab/symbols/block.png" alt="Block" className="w-4 h-4 object-contain" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {highlightFilters.length > 0 && (
+              <button onClick={() => setHighlightFilters([])}
+                className="ml-auto flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                <X className="h-3 w-3" />clear
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       {viewMode === 'list' ? (

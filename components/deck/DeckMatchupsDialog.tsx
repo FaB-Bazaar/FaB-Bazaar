@@ -429,6 +429,25 @@ export default function DeckMatchupsDialog({
     return map;
   }, [deckGalleryCards, inventoryGalleryCards]);
 
+  // Set of talisharIds that belong to equipment/hero slots (used for mobile section grouping)
+  const equipmentTalisharIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of [...(deck?.equipment || []), ...(deck?.hero || [])]) {
+      set.add(buildTalisharIdentifier(p));
+    }
+    return set;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deck]);
+
+  // Derive deck section from a talishar ID
+  const getCardSection = useCallback((id: string): 'equipment' | 'red' | 'yellow' | 'blue' | 'unpitched' => {
+    if (equipmentTalisharIds.has(id)) return 'equipment';
+    if (id.endsWith('_red')) return 'red';
+    if (id.endsWith('_yellow')) return 'yellow';
+    if (id.endsWith('_blue')) return 'blue';
+    return 'unpitched';
+  }, [equipmentTalisharIds]);
+
   // Fetch hero images for matchup list thumbnails
   const fetchHeroImages = async () => {
     try {
@@ -958,7 +977,7 @@ export default function DeckMatchupsDialog({
     const galleryTotal = galleryCards.reduce((s, c) => s + c.count, 0);
     const galleryLabel = gallery?.section === 'deck'
       ? 'Full Deck'
-      : `Put these ${galleryTotal} cards in your inventory!`;
+      : 'Sideboard Plan';
     const galleryAccent = gallery?.section === 'deck' ? 'text-blue-400' : 'text-amber-400';
     const isInventory = gallery?.section === 'inventory';
     const galleryLabelSize = isInventory ? 'text-xl' : 'text-sm';
@@ -999,39 +1018,147 @@ export default function DeckMatchupsDialog({
               </button>
             </div>
 
-            {/* Card grid — vertically scrollable, centered */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {galleryCards.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500 italic font-sans">No cards in this section</p>
+            {/* ── Mobile: sectioned sideboard view (only for "Side These Out") ── */}
+            {isInventory && (() => {
+              const currentMatchup = matchups.find(m => m.heroId === gallery?.heroId);
+              const SECTION_CONFIG = [
+                { key: 'equipment' as const, label: 'Equipment & Weapons', dot: 'bg-gray-400' },
+                { key: 'red'       as const, label: 'Library — Red',       dot: 'bg-red-500' },
+                { key: 'yellow'    as const, label: 'Library — Yellow',    dot: 'bg-yellow-400' },
+                { key: 'blue'      as const, label: 'Library — Blue',      dot: 'bg-blue-500' },
+                { key: 'unpitched' as const, label: 'Library',             dot: 'bg-gray-500' },
+              ];
+
+              // Dedup sideboard.out into { talisharId, count } grouped by section
+              const outBySection = new Map<string, Map<string, number>>();
+              for (const s of SECTION_CONFIG) outBySection.set(s.key, new Map());
+              for (const id of currentMatchup?.sideboard?.out ?? []) {
+                const section = getCardSection(id);
+                const m = outBySection.get(section)!;
+                m.set(id, (m.get(id) ?? 0) + 1);
+              }
+
+              // Dedup sideboard.in
+              const inCounts = new Map<string, number>();
+              for (const id of currentMatchup?.sideboard?.in ?? []) {
+                inCounts.set(id, (inCounts.get(id) ?? 0) + 1);
+              }
+
+              const CardImg = ({ card }: { card: GalleryCard }) => (
+                <div className="flex flex-col gap-1">
+                  <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                      alt={card.displayName}
+                      className="w-full h-full object-cover object-top"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-300 font-sans text-center leading-tight truncate">
+                    {card.count > 1 && <span className="text-gray-400 font-bold">{card.count}× </span>}
+                    {card.displayName}
+                  </span>
                 </div>
-              ) : (
-                <div className={isInventory
-                  ? "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3"
-                  : "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2"
-                }>
-                  {galleryCards.map((card) => (
-                    <div key={card.talisharId} className="flex flex-col gap-1.5">
-                      <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
-                          alt={card.displayName}
-                          className="w-full h-full object-cover object-top"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
-                        />
-                      </div>
-                      <span className={`${isInventory ? 'text-xs' : 'text-[10px]'} text-gray-300 font-sans text-center leading-tight truncate`}>
-                        {(!isInventory || card.count > 1) && (
-                          <span className="text-gray-400 font-bold">{card.count}× </span>
-                        )}
-                        {card.displayName}
-                      </span>
+              );
+
+              return (
+                <>
+                  {/* Mobile sectioned view */}
+                  <div className="md:hidden flex-1 overflow-y-scroll overscroll-contain p-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div>
+                      <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Side Out</p>
+                      {SECTION_CONFIG.every(s => (outBySection.get(s.key)?.size ?? 0) === 0) ? (
+                        <p className="text-sm text-gray-400 italic">No cards to side out.</p>
+                      ) : SECTION_CONFIG.map(s => {
+                        const cards = outBySection.get(s.key)!;
+                        if (cards.size === 0) return null;
+                        return (
+                          <div key={s.key} className="mb-4">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+                              <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">{s.label}</p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {Array.from(cards.entries()).map(([id, qty]) => {
+                                const gc = galleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
+                                return <CardImg key={id} card={{ ...gc, count: qty }} />;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
+                    {inCounts.size > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3">Bring In</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {Array.from(inCounts.entries()).map(([id, qty]) => {
+                            const gc = inventoryGalleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
+                            return <CardImg key={id} card={{ ...gc, count: qty }} />;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop: existing flat grid */}
+                  <div className="hidden md:block flex-1 overflow-y-scroll overscroll-contain p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                      {galleryCards.map((card) => (
+                        <div key={card.talisharId} className="flex flex-col gap-1.5">
+                          <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                              alt={card.displayName}
+                              className="w-full h-full object-cover object-top"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-300 font-sans text-center leading-tight truncate">
+                            {card.count > 1 && <span className="text-gray-400 font-bold">{card.count}× </span>}
+                            {card.displayName}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* Non-inventory gallery (deck view) — flat grid on all screen sizes */}
+            {!isInventory && (
+              <div className="flex-1 overflow-y-scroll overscroll-contain p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                {galleryCards.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500 italic font-sans">No cards in this section</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                    {galleryCards.map((card) => (
+                      <div key={card.talisharId} className="flex flex-col gap-1.5">
+                        <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                            alt={card.displayName}
+                            className="w-full h-full object-cover object-top"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-gray-300 font-sans text-center leading-tight truncate">
+                          {card.count > 1 && <span className="text-gray-400 font-bold">{card.count}× </span>}
+                          {card.displayName}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </>
