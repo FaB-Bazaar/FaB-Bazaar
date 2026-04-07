@@ -5,6 +5,8 @@ export const saveDeckMatchupTool = {
   name: 'save_deck_matchup',
   description: `⚔️ SAVE DECK MATCHUP: Create or update a sideboard plan for a specific opponent hero
 
+  📖 PREREQUISITE: Read resource fab://hero-ids to get the full list of valid heroId values before calling this tool.
+
   Saves a matchup configuration to a deck: which cards to swap in/out against a specific hero,
   preferred turn order, and strategy notes.
 

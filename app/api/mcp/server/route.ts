@@ -4,6 +4,7 @@ import { searchCapabilitiesResource } from '../resource/searchCapabilities';
 import { fabConstantsResource } from '../resource/fabConstants';
 import { articleFormattingResource } from '../resource/articleFormatting';
 import { cardIndexResource } from '../resource/cardIndex';
+import { heroIdsResource } from '../resource/heroIds';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService } from '@/lib/services';
 
@@ -397,7 +398,7 @@ export async function POST(req: Request) {
                 available: ['read_mandatory_constants_first', 'search_printings', 'extract_printing_ids', 'list_binders', 'get_binder', 'update_binder', 'get_wants', 'update_wants', 'who_has', 'get_article', 'add_article_section', 'update_article_section', 'list_decks', 'get_deck']
               },
               resources: {
-                available: ['searchable://card/fields', 'fab://constants', 'article://formatting']
+                available: ['searchable://card/fields', 'fab://constants', 'article://formatting', 'fab://hero-ids']
               }
             },
             serverInfo: { 
@@ -1906,6 +1907,12 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
                 mimeType: 'application/json'
               },
               {
+                uri: heroIdsResource.uri,
+                name: heroIdsResource.name,
+                description: `⚔️ MATCHUP PLANNING: ${heroIdsResource.description}`,
+                mimeType: 'application/json'
+              },
+              {
                 uri: cardIndexResource.uri,
                 name: cardIndexResource.name,
                 description: `🃏 DECKLIST IMPORT: ${cardIndexResource.description}`,
@@ -1965,6 +1972,17 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
                   text: JSON.stringify(resourceData, null, 2)
                 }
               ]
+            }
+          }, { headers: corsHeaders() });
+        }
+
+        if (uri === heroIdsResource.uri) {
+          const resourceData = heroIdsResource.handler();
+          return NextResponse.json({
+            jsonrpc: "2.0",
+            id: id,
+            result: {
+              contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(resourceData, null, 2) }]
             }
           }, { headers: corsHeaders() });
         }

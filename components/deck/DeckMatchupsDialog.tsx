@@ -421,6 +421,14 @@ export default function DeckMatchupsDialog({
     [deck, buildGalleryCards]
   );
 
+  // Lookup map: talisharId → display name (deck + inventory cards)
+  const cardNameMap = useMemo<Map<string, string>>(() => {
+    const map = new Map<string, string>();
+    for (const c of deckGalleryCards) map.set(c.talisharId, c.displayName);
+    for (const c of inventoryGalleryCards) if (!map.has(c.talisharId)) map.set(c.talisharId, c.displayName);
+    return map;
+  }, [deckGalleryCards, inventoryGalleryCards]);
+
   // Fetch hero images for matchup list thumbnails
   const fetchHeroImages = async () => {
     try {
@@ -699,7 +707,7 @@ export default function DeckMatchupsDialog({
                               <Swords className="h-4 w-4 text-gray-400" />
                             </div>
                           )}
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                               {getHeroDisplayName(matchup.heroId)}
                               {isCore && (
@@ -711,36 +719,43 @@ export default function DeckMatchupsDialog({
                                 </Badge>
                               )}
                             </CardTitle>
-                            {matchup.notes && (
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 truncate">
-                                {matchup.notes}
-                              </p>
-                            )}
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0
-                                ? `${matchup.sideboard.out.length} out, ${matchup.sideboard.in.length} in`
-                                : 'No sideboard changes'}
-                            </p>
+                            {/* Notes + chevron on the same row so the chevron signals "expand to read more" */}
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <div className="flex-1 min-w-0">
+                                {matchup.notes && (
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    {matchup.notes}
+                                  </p>
+                                )}
+                                <p className="text-xs text-gray-400">
+                                  {matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0
+                                    ? `${matchup.sideboard.out.length} out, ${matchup.sideboard.in.length} in`
+                                    : 'No sideboard changes'}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => toggleExpand(matchup.heroId)}
+                                className="h-6 w-6 p-0 flex-shrink-0 self-start"
+                                aria-label={expandedMatchups.has(matchup.heroId) ? 'Collapse matchup details' : 'Expand matchup details'}
+                              >
+                                {expandedMatchups.has(matchup.heroId) ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setGallery({ heroId: matchup.heroId, section: 'deck' })}
-                            aria-label={`View full deck for ${getHeroDisplayName(matchup.heroId)} matchup`}
-                            className="text-xs px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                            onClick={() => handleDelete(matchup.heroId)}
                           >
-                            Deck
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setGallery({ heroId: matchup.heroId, section: 'inventory' })}
-                            aria-label={`View inventory for ${getHeroDisplayName(matchup.heroId)} matchup`}
-                            className="text-xs px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                          >
-                            Inv
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
@@ -752,38 +767,80 @@ export default function DeckMatchupsDialog({
                           >
                             Edit
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(matchup.heroId)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleExpand(matchup.heroId)}
-                          >
-                            {expandedMatchups.has(matchup.heroId) ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
                         </div>
                       </div>
+
+                      {/* Side These Out CTA — full-width, only when sideboard changes configured */}
+                      {(matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setGallery({ heroId: matchup.heroId, section: 'inventory' })}
+                          aria-label={`View sideboard cards for ${getHeroDisplayName(matchup.heroId)} matchup`}
+                          className="w-full mt-2 border-amber-500/50 text-amber-400 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        >
+                          Side These Out →
+                        </Button>
+                      )}
                     </CardHeader>
 
                     {expandedMatchups.has(matchup.heroId) && (
-                      <CardContent className="pt-0">
-                        <MatchupSideboardEditor
-                          key={`review-${matchup.heroId}`}
-                          deck={deck}
-                          format={deck?.format}
-                          initialSwaps={matchup.sideboard}
-                          onChange={() => {}}
-                          readOnly
-                        />
+                      <CardContent className="pt-0 space-y-3">
+                        {/* Full notes */}
+                        {matchup.notes && (
+                          <p className="text-sm text-gray-300 leading-relaxed">{matchup.notes}</p>
+                        )}
+
+                        {/* Sideboard changes — simple text lists */}
+                        {(matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0) ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Side Out */}
+                            <div>
+                              <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-1.5">Side Out</p>
+                              {matchup.sideboard.out.length === 0 ? (
+                                <p className="text-xs text-gray-300 italic">None</p>
+                              ) : (
+                                <ul className="space-y-0.5">
+                                  {(() => {
+                                    const counts = new Map<string, number>();
+                                    for (const id of matchup.sideboard.out) counts.set(id, (counts.get(id) ?? 0) + 1);
+                                    return Array.from(counts.entries()).map(([id, qty]) => (
+                                      <li key={id} className="text-sm text-gray-300 flex items-baseline gap-1">
+                                        <span className="text-gray-400 text-xs font-sans font-bold shrink-0">{qty}×</span>
+                                        <span className="truncate">{cardNameMap.get(id) ?? id}</span>
+                                      </li>
+                                    ));
+                                  })()}
+                                </ul>
+                              )}
+                            </div>
+
+                            {/* Side In */}
+                            <div>
+                              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-1.5">Side In</p>
+                              {matchup.sideboard.in.length === 0 ? (
+                                <p className="text-xs text-gray-300 italic">None</p>
+                              ) : (
+                                <ul className="space-y-0.5">
+                                  {(() => {
+                                    const counts = new Map<string, number>();
+                                    for (const id of matchup.sideboard.in) counts.set(id, (counts.get(id) ?? 0) + 1);
+                                    return Array.from(counts.entries()).map(([id, qty]) => (
+                                      <li key={id} className="text-sm text-gray-300 flex items-baseline gap-1">
+                                        <span className="text-gray-400 text-xs font-sans font-bold shrink-0">{qty}×</span>
+                                        <span className="truncate">{cardNameMap.get(id) ?? id}</span>
+                                      </li>
+                                    ));
+                                  })()}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          !matchup.notes && (
+                            <p className="text-sm text-gray-300 italic">No sideboard changes.</p>
+                          )
+                        )}
                       </CardContent>
                     )}
                   </Card>
