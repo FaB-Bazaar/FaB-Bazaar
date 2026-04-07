@@ -166,7 +166,7 @@ export interface LocationSubmissionDTO {
   id: string;
 
   submitterName: string;
-  submitterEmail: string;
+  submittedByUserId?: string | null;
   submitterPhone?: string | null;
   submitterRelationship: SubmitterRelationship;
 
@@ -310,7 +310,7 @@ export interface UpdateEventDTO {
 
 export interface CreateSubmissionDTO {
   submitterName: string;
-  submitterEmail: string;
+  submittedByUserId?: string;
   submitterPhone?: string;
   submitterRelationship: SubmitterRelationship;
   storeName: string;

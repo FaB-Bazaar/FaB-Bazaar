@@ -965,7 +965,7 @@ export const locationSubmissions = pgTable('location_submissions', {
 
   // Submitter info
   submitterName: text('submitter_name').notNull(),
-  submitterEmail: text('submitter_email').notNull(),
+  submittedByUserId: text('submitted_by_user_id').references(() => users.id),
   submitterPhone: text('submitter_phone'),
   submitterRelationship: submitterRelationshipEnum('submitter_relationship').notNull(),
 
@@ -999,7 +999,6 @@ export const locationSubmissions = pgTable('location_submissions', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   statusCreatedIdx: index('idx_location_submissions_status').on(table.status, table.createdAt),
-  emailIdx: index('idx_location_submissions_email').on(table.submitterEmail),
 }));
 
 // ============================================================================

@@ -672,7 +672,7 @@ export class PostgresLocationService implements ILocationService {
       await db.insert(locationSubmissions).values({
         id,
         submitterName: data.submitterName,
-        submitterEmail: data.submitterEmail,
+        submittedByUserId: data.submittedByUserId,
         submitterPhone: data.submitterPhone ?? null,
         submitterRelationship: data.submitterRelationship,
         storeName: data.storeName,
@@ -818,7 +818,7 @@ export class PostgresLocationService implements ILocationService {
     return {
       id: row.id,
       submitterName: row.submitterName,
-      submitterEmail: row.submitterEmail,
+      submittedByUserId: row.submittedByUserId,
       submitterPhone: row.submitterPhone,
       submitterRelationship: row.submitterRelationship,
       storeName: row.storeName,

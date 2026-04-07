@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { locationsClient } from "@/lib/client";
 import type { SubmitterRelationship } from "@/types/location";
+import { useSession } from "next-auth/react";
 
 const RELATIONSHIPS: { value: SubmitterRelationship; label: string }[] = [
   { value: "owner", label: "Owner" },
@@ -38,6 +39,7 @@ function Field({
 }
 
 export default function SubmitStorePage() {
+  const { status } = useSession();
   const [step, setStep] = useState<"form" | "success">("form");
   const [submissionId, setSubmissionId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,7 +47,6 @@ export default function SubmitStorePage() {
 
   const [form, setForm] = useState({
     submitterName: "",
-    submitterEmail: "",
     submitterPhone: "",
     submitterRelationship: "customer" as SubmitterRelationship,
     storeName: "",
@@ -96,6 +97,22 @@ export default function SubmitStorePage() {
     } else {
       setError(result.error || "Something went wrong. Please try again.");
     }
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Sign in required</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+            You need to be logged in to submit a store.
+          </p>
+          <Link href="/auth/signin">
+            <Button className="w-full">Sign in</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (step === "success") {
@@ -150,15 +167,6 @@ export default function SubmitStorePage() {
                   onChange={(e) => set("submitterName", e.target.value)}
                   required
                   placeholder="Jane Smith"
-                />
-              </Field>
-              <Field label="Your email" required>
-                <Input
-                  type="email"
-                  value={form.submitterEmail}
-                  onChange={(e) => set("submitterEmail", e.target.value)}
-                  required
-                  placeholder="jane@example.com"
                 />
               </Field>
               <Field label="Your phone">
