@@ -18,6 +18,8 @@ interface ChecklistViewProps {
   onSortChange?: (field: string) => void;
   activeFilters?: { [key: string]: string[] };
   onFilterChange?: (field: string, values: string[]) => void;
+  onSelectAll?: () => void;
+  onDeselectAll?: () => void;
 }
 
 // Helper to get foiling display info
@@ -75,6 +77,8 @@ export function ChecklistView({
   onSortChange,
   activeFilters = {},
   onFilterChange,
+  onSelectAll,
+  onDeselectAll,
 }: ChecklistViewProps) {
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -248,11 +252,28 @@ export function ChecklistView({
       <table className="w-full text-sm md:text-base">
         <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700/50">
           <tr>
-            {selectionEnabled && (
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-12">
-                <span className="sr-only">Select</span>
-              </th>
-            )}
+            {selectionEnabled && (() => {
+              const allSelected = printings.length > 0 && printings.every(p => isCardSelected(p.printing_id));
+              const someSelected = !allSelected && printings.some(p => isCardSelected(p.printing_id));
+              const showToggle = !!(onSelectAll || onDeselectAll);
+              return (
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-12">
+                  {showToggle ? (
+                    <Checkbox
+                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                      onCheckedChange={() => {
+                        if (allSelected) onDeselectAll?.();
+                        else onSelectAll?.();
+                      }}
+                      aria-label={allSelected ? 'Deselect all' : 'Select all'}
+                      className="focus-visible:ring-2 focus-visible:ring-blue-400"
+                    />
+                  ) : (
+                    <span className="sr-only">Select</span>
+                  )}
+                </th>
+              );
+            })()}
             {selectionEnabled && (
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">QTY</th>
             )}

@@ -598,6 +598,8 @@ export default function SearchPage() {
                 isCardSelected={selection.isCardSelected}
                 getCardQuantity={selection.getCardQuantity}
                 onUpdateQuantity={selection.updateQuantity}
+                onSelectAll={() => selection.selectAll(displayedPrintings)}
+                onDeselectAll={() => selection.deselectAll(displayedPrintings)}
               />
             ) : (
               <ImagesView

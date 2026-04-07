@@ -72,6 +72,30 @@ export function useSearchSelection() {
     });
   };
 
+  // Select all given printings (adds any not already selected, qty 1)
+  const selectAll = (printings: any[]) => {
+    setSelectedCards(prev => {
+      const newMap = new Map(prev);
+      for (const printing of printings) {
+        if (!newMap.has(printing.printing_id)) {
+          newMap.set(printing.printing_id, { printing, quantity: 1 });
+        }
+      }
+      return newMap;
+    });
+  };
+
+  // Deselect all given printings
+  const deselectAll = (printings: any[]) => {
+    setSelectedCards(prev => {
+      const newMap = new Map(prev);
+      for (const printing of printings) {
+        newMap.delete(printing.printing_id);
+      }
+      return newMap;
+    });
+  };
+
   // Clear all selections
   const clearSelection = () => {
     setSelectedCards(new Map());
@@ -214,6 +238,8 @@ export function useSearchSelection() {
     selectedBinderSlug,
     isImporting,
     toggleCardSelection,
+    selectAll,
+    deselectAll,
     updateQuantity,
     clearSelection,
     isCardSelected,
