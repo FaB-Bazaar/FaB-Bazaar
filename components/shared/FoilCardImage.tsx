@@ -371,7 +371,7 @@ export default function FoilCardImage({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/cardback.webp"
-              alt="Card back"
+              alt=""
               draggable={false}
             />
           </div>
