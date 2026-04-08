@@ -77,6 +77,8 @@ export default function FoilCardImage({
 
   useEffect(() => {
     if (!isFoilCard) return
+    // Touch devices: CSS already hides the effect; skip the rAF loop too
+    if (window.matchMedia('(hover: none)').matches) return
     const el = cardRef.current
     if (!el) return
 

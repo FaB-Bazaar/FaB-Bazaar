@@ -11,6 +11,24 @@
     "cold foil"     — silver grating, full card
 */
 
+/* ─── Mobile / touch: disable foil entirely ─────────────────────────────── */
+/*
+  iOS Safari renders preserve-3d children inside overflow:hidden as a blank
+  black layer. Touch devices also can't hover, so the effect adds no value.
+  (hover: none) matches touch screens; (pointer: coarse) catches hybrid devices.
+*/
+@media (hover: none), (pointer: coarse) {
+  .card[data-rarity] .card__translater,
+  .card[data-rarity] .card__rotator {
+    transform: none !important;
+    transform-style: flat !important;
+  }
+  .card__shine,
+  .card__glare {
+    display: none !important;
+  }
+}
+
 /* ─── Root defaults (overridden per-frame by JS) ─────────────────────────── */
 
 :root {
