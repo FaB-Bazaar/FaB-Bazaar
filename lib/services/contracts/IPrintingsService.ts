@@ -168,6 +168,10 @@ export interface PrintingDTO {
   ll_restricted: boolean;
   silver_age_suspended: boolean;
 
+  // Art
+  is_extended_art: boolean;
+  art_variations: string[];
+
   // Other
   played_horizontally: boolean;
   expansion_slot: boolean;

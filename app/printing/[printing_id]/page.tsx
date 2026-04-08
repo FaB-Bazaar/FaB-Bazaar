@@ -341,6 +341,7 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
           <div className="max-w-sm w-full">
             <FoilCardImage
               foiling={printing.foiling}
+              artStyle={printing.art_variations?.includes('FA') ? 'full-art' : printing.is_extended_art ? 'extended-art' : undefined}
               src={printing.image_url || "/placeholder.svg"}
               alt={printing.display_name || printing.name}
               className="w-full rounded-lg shadow-lg"

@@ -20,6 +20,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
         {!imageError && card.image_url ? (
           <FoilCardImage
             foiling={card.foiling}
+            artStyle={card.art_variations?.includes('FA') ? 'full-art' : card.is_extended_art ? 'extended-art' : undefined}
             src={card.image_url}
             alt={card.name}
             className="w-full h-full"

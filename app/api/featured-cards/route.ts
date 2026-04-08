@@ -18,6 +18,8 @@ interface FeaturedCard {
   set: string;
   foiling: string;
   rarity: string;
+  is_extended_art: boolean;
+  art_variations: string[];
   tcg_low?: number | null;
   tcg_market?: number | null;
   tcgplayer_url?: string | null;
@@ -33,6 +35,8 @@ function toFeaturedCard(p: PrintingDTO): FeaturedCard {
     set: p.set,
     foiling: p.foiling,
     rarity: p.rarity,
+    is_extended_art: p.is_extended_art ?? false,
+    art_variations: p.art_variations ?? [],
     tcg_low: p.tcg_low,
     tcg_market: p.tcg_market,
     tcgplayer_url: p.tcgplayer_url ?? null,

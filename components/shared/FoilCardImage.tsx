@@ -34,6 +34,13 @@ function tickSpring(s: Spring) {
 interface FoilCardImageProps {
   /** Raw foiling code from the database ('R', 'C', 'S', 'G', etc.) */
   foiling?: string
+  /**
+   * Art layout variant — controls how much of the card the shine is clipped to.
+   * Omit for standard cards (art panel occupies the top ~57% of the card).
+   * 'extended-art' — art reaches card edges horizontally, panel slightly taller (~67% height).
+   * 'full-art'     — art covers most of the card face; shine clips to ~88% height.
+   */
+  artStyle?: 'extended-art' | 'full-art'
   /** Card image src URL */
   src: string
   alt: string
@@ -49,6 +56,7 @@ interface FoilCardImageProps {
 
 export default function FoilCardImage({
   foiling,
+  artStyle,
   src,
   alt,
   className,
@@ -160,6 +168,7 @@ export default function FoilCardImage({
       ref={cardRef}
       className={cn("card", className)}
       data-rarity={isFoilCard ? foilRarity : undefined}
+      data-art={artStyle ?? undefined}
       style={style}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
