@@ -7,6 +7,7 @@ import AutoScroll from 'embla-carousel-auto-scroll'
 import WhoHasDropdown from "@/components/shared/WhoHasDropdown"
 import { getVariantStyles, getFoilingName } from "@/lib/fab-formatters"
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink"
+import FoilCardImage from "@/components/shared/FoilCardImage"
 
 // Smaller FeaturedCard Component for Carousels
 export function FeaturedCardSmall({ card }: { card: any }) {
@@ -17,10 +18,12 @@ export function FeaturedCardSmall({ card }: { card: any }) {
       {/* Card Image */}
       <div className="relative aspect-[63/88] bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-t-lg overflow-hidden">
         {!imageError && card.image_url ? (
-          <img
+          <FoilCardImage
+            foiling={card.foiling}
             src={card.image_url}
             alt={card.name}
-            className="w-full h-full object-contain"
+            className="w-full h-full"
+            imgClassName="w-full h-full object-contain"
             onError={() => setImageError(true)}
           />
         ) : (
@@ -32,9 +35,9 @@ export function FeaturedCardSmall({ card }: { card: any }) {
           </div>
         )}
 
-        {/* Foiling Badge - Using article carousel style */}
+        {/* Foiling Badge — rendered after FoilCardImage so it sits above the shine/glare layers */}
         {card.foiling && card.foiling !== 's' && (
-          <div className="absolute top-1 left-1">
+          <div className="absolute top-1 left-1" style={{ zIndex: 10 }}>
             <div className={`text-xs px-1.5 py-0.5 rounded font-medium text-center ${getVariantStyles(card.rarity, card.foiling)}`}>
               {getFoilingName(card.foiling, card.is_extended_art)}
             </div>

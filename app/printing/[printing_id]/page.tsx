@@ -17,6 +17,7 @@ import WhoHasDropdown from "@/components/shared/WhoHasDropdown"
 import BinderSelector from "@/components/printing/BinderSelector"
 import { useCookieConsent } from '@/contexts/CookieConsentContext'
 import { TcgAffiliateLink } from '@/components/tracking'
+import FoilCardImage from '@/components/shared/FoilCardImage'
 
 interface PrintingDetailPageProps {
   params: Promise<{
@@ -337,11 +338,13 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Card Image */}
         <div className="flex justify-center">
-          <div className="max-w-sm">
-            <img
+          <div className="max-w-sm w-full">
+            <FoilCardImage
+              foiling={printing.foiling}
               src={printing.image_url || "/placeholder.svg"}
               alt={printing.display_name || printing.name}
-              className="w-full h-auto rounded-lg shadow-lg border"
+              className="w-full rounded-lg shadow-lg"
+              imgClassName="w-full h-auto rounded-lg"
             />
           </div>
         </div>
