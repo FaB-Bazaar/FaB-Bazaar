@@ -1,9 +1,199 @@
 // app/api/decks/[deckId]/matchups/[heroId]/route.ts
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService } from '@/lib/services';
+import { deckService, userService } from '@/lib/services';
 import { validateMatchup, sanitizeMatchup } from '@/lib/validation/matchup-validation';
 import { DeckMatchup } from '@/types/deck';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': 'https://talishar.net',
+  'Access-Control-Allow-Methods': 'PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+const HASH_MAX_AGE_SECS = 300; // 5 minutes
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+/**
+ * PATCH /api/decks/[deckId]/matchups/[heroId]
+ *
+ * Talishar-initiated sideboard update for a specific matchup.
+ * Updates only the sideboard (in/out cards); preserves notes and preferredTurnOrder.
+ *
+ * Authentication: Hash-based (metafyId + FABBAZAAR_SALT + timestamp → SHA-256).
+ * Called directly from the Talishar frontend — no API key required.
+ *
+ * Query params: ?metafyId=<uuid>&metafyHash=<sha256hex>&timestamp=<unix_secs>
+ *
+ * Request Body:
+ * {
+ *   "sideboard": {
+ *     "in": ["card_id_1"],
+ *     "out": ["card_id_2"]
+ *   }
+ * }
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { deckId: string; heroId: string } }
+) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const metafyId = searchParams.get('metafyId');
+    const metafyHash = searchParams.get('metafyHash');
+    const timestamp = searchParams.get('timestamp');
+
+    if (!metafyId || !metafyHash || !timestamp) {
+      return NextResponse.json(
+        { success: false, error: 'metafyId, metafyHash, and timestamp are required' },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // Validate timestamp freshness
+    const salt = process.env.FABBAZAAR_SALT;
+    if (!salt) {
+      console.error('[Matchup Patch] FABBAZAAR_SALT not configured');
+      return NextResponse.json(
+        { success: false, error: 'Server misconfiguration' },
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
+    const ts = parseInt(timestamp, 10);
+    const nowSecs = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSecs - ts) > HASH_MAX_AGE_SECS) {
+      return NextResponse.json(
+        { success: false, error: 'Timestamp expired' },
+        { status: 403, headers: CORS_HEADERS }
+      );
+    }
+
+    // Validate hash
+    const expectedHash = crypto
+      .createHash('sha256')
+      .update(metafyId + salt + timestamp)
+      .digest('hex');
+
+    if (metafyHash !== expectedHash) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid hash' },
+        { status: 403, headers: CORS_HEADERS }
+      );
+    }
+
+    // Resolve metafyId → FaB Bazaar userId
+    const userResult = await userService.findByMetafyId(metafyId);
+    if (!userResult.success || !userResult.data) {
+      // Return 403 rather than 404 to avoid leaking user existence
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 403, headers: CORS_HEADERS }
+      );
+    }
+    const userId = userResult.data.id;
+
+    // Validate request body
+    const body = await request.json();
+    const { sideboard } = body;
+
+    if (
+      !sideboard ||
+      !Array.isArray(sideboard.in) ||
+      !Array.isArray(sideboard.out)
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'sideboard with in/out arrays is required' },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const resolvedParams = await params;
+
+    // Fetch deck — no fallback; owner-only access
+    const deckResult = await deckService.findByPublicId(resolvedParams.deckId, userId);
+
+    if (!deckResult.success || !deckResult.data) {
+      return NextResponse.json(
+        { success: false, error: 'Deck not found' },
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
+    const deck = deckResult.data;
+
+    // Strict ownership check — owner only, not co-owners
+    if (deck.userId?.toString() !== userId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 403, headers: CORS_HEADERS }
+      );
+    }
+
+    // Find existing matchup
+    const metadata = deck.metadata || {};
+    const matchups: DeckMatchup[] = metadata.matchups || [];
+    const existingIndex = matchups.findIndex(
+      (m: DeckMatchup) => m.heroId === resolvedParams.heroId
+    );
+
+    if (existingIndex < 0) {
+      return NextResponse.json(
+        { success: false, error: 'Matchup not found' },
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
+    // Merge sideboard into existing matchup — preserve notes and preferredTurnOrder
+    const existing = matchups[existingIndex];
+    const updated: DeckMatchup = {
+      ...existing,
+      sideboard: { in: sideboard.in, out: sideboard.out },
+    };
+
+    // Strip stale card references then validate
+    const sanitized = sanitizeMatchup(updated, deck);
+    const validation = validateMatchup(sanitized, deck);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.errors[0], errors: validation.errors },
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    matchups[existingIndex] = sanitized;
+    metadata.matchups = matchups;
+
+    const updateResult = await deckService.updateDeck(
+      resolvedParams.deckId,
+      userId,
+      { metadata }
+    );
+
+    if (!updateResult.success) {
+      return NextResponse.json(
+        { success: false, error: updateResult.error },
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, data: { matchup: sanitized } },
+      { headers: CORS_HEADERS }
+    );
+
+  } catch (error) {
+    console.error('[Matchup Patch] Error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
+}
 
 /**
  * PUT /api/decks/[deckId]/matchups/[heroId]
