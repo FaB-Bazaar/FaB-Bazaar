@@ -124,7 +124,7 @@ export default function EnhancedBinderCard({
     return (
       <div className={`${isLow ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'} text-xs`}>
         <div className="flex justify-between items-center">
-          <span className="text-gray-500 dark:text-gray-400">{label}:</span>
+          <span className="text-gray-500 dark:text-gray-300">{label}:</span>
           <span>
             {quantity > 1 ? `$${price.toFixed(2)} × ${quantity} = $${totalValue.toFixed(2)}` : `$${price.toFixed(2)}`}
           </span>
@@ -163,7 +163,7 @@ export default function EnhancedBinderCard({
     <div
       className={cn(
         "w-full sm:w-[200px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
-        isSelected ? "shadow-lg bg-blue-50 dark:bg-blue-900/20" : "shadow-md",
+        isSelected ? "shadow-lg bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500" : "shadow-md",
         isSelected && selectedQty >= maxQty && "opacity-70"
       )}
     >
@@ -188,7 +188,7 @@ export default function EnhancedBinderCard({
 
         {/* Overlays — sit above the foil layers */}
         {!editable && !card.forTrade && (
-          <div className="absolute top-2 right-2 bg-red-600/90 text-white text-xs px-2 py-1 rounded font-semibold shadow-lg" style={{ zIndex: 10 }}>
+          <div className="absolute top-2 right-2 bg-red-600/90 text-white text-sm px-2 py-1 rounded font-semibold shadow-lg" style={{ zIndex: 10 }}>
             Not For Trade
           </div>
         )}
@@ -210,7 +210,7 @@ export default function EnhancedBinderCard({
             <div className="bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg border-2 border-white shadow-lg">
               <div className="text-center">
                 <div className="text-2xl font-bold">{selectedQty || 1}</div>
-                <div className="text-xs font-medium opacity-90">Selected</div>
+                <div className="text-sm font-medium opacity-90">Selected</div>
               </div>
             </div>
           </div>
@@ -229,14 +229,14 @@ export default function EnhancedBinderCard({
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               {collector_number && <span className="font-mono uppercase tracking-wide text-blue-600 dark:text-blue-400">{collector_number}</span>}
-              {editionDisplay && <span className="text-gray-500 dark:text-gray-400 uppercase">• {editionDisplay}</span>}
+              {editionDisplay && <span className="text-gray-500 dark:text-gray-300 uppercase">• {editionDisplay}</span>}
             </div>
             {card.forTrade && (
               <div className="font-semibold text-green-600 dark:text-green-400">For Trade</div>
             )}
           </div>
 
-          {type_text_display && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{type_text_display}</div>}
+          {type_text_display && <div className="text-xs text-gray-500 dark:text-gray-300 truncate">{type_text_display}</div>}
 
           {!compactMode && (
             <div className="space-y-1">
@@ -248,14 +248,14 @@ export default function EnhancedBinderCard({
             </div>
           )}
 
-          {card.notes && <div className="text-xs text-gray-600 dark:text-gray-400 italic truncate">{card.notes}</div>}
+          {card.notes && <div className="text-xs text-gray-600 dark:text-gray-300 italic truncate">{card.notes}</div>}
 
           <div className="flex items-center gap-2">
             {rarity && <RarityIcon rarityCode={rarity} size="sm" />}
             {foiling && (
               <button
                 onClick={(e) => { e.stopPropagation(); if (editable && onOpenPrintingSwap) onOpenPrintingSwap(card) }}
-                className={`text-xs px-2 py-0.5 rounded-full text-center flex-1 transition-all no-select ${foilingInfo.className} ${editable && onOpenPrintingSwap ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+                className={`text-sm px-2 py-0.5 rounded-full text-center flex-1 transition-all no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${foilingInfo.className} ${editable && onOpenPrintingSwap ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
                 disabled={!editable || !onOpenPrintingSwap}
                 title={editable && onOpenPrintingSwap ? "Click to change printing" : undefined}
               >
@@ -269,7 +269,7 @@ export default function EnhancedBinderCard({
           <div className="flex justify-center mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
             <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 ${card.forTrade ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-100 dark:bg-gray-700'}`}>
               <Switch checked={!!card.forTrade} onCheckedChange={onToggleForTrade ? (checked => onToggleForTrade(card, checked)) : undefined} size="sm" className="no-select" />
-              <span className={`text-xs font-medium ${card.forTrade ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-400'}`}>For Trade</span>
+              <span className={`text-xs font-medium ${card.forTrade ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-300'}`}>For Trade</span>
             </div>
           </div>
         )}
@@ -278,11 +278,11 @@ export default function EnhancedBinderCard({
           <div className="flex items-center gap-2">
             {editable && (
               <div className="flex items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); onQuantityDecrease(card.id || card._id) }} disabled={quantity <= 1} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 flex items-center justify-center no-select">
+                <button onClick={(e) => { e.stopPropagation(); onQuantityDecrease(card.id || card._id) }} disabled={quantity <= 1} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 flex items-center justify-center no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                   <Minus className="w-3 h-3" />
                 </button>
                 <div className="text-center text-sm font-medium">{quantity}</div>
-                <button onClick={(e) => { e.stopPropagation(); onQuantityIncrease(card.id || card._id) }} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center no-select">
+                <button onClick={(e) => { e.stopPropagation(); onQuantityIncrease(card.id || card._id) }} className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                   <Plus className="w-3 h-3" />
                 </button>
               </div>
@@ -292,14 +292,14 @@ export default function EnhancedBinderCard({
           {editable && (
             <div className="flex gap-1">
               {printingId && (
-                <Link href={`/printing/${printingId}`} onClick={(e) => e.stopPropagation()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select" title="View Printing Details">
+                <Link href={`/printing/${printingId}`} onClick={(e) => e.stopPropagation()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" title="View Printing Details">
                   <ExternalLink className="w-4 h-4 text-blue-500 hover:text-blue-600" />
                 </Link>
               )}
-              <button onClick={(e) => { e.stopPropagation(); onEdit(card) }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select">
+              <button onClick={(e) => { e.stopPropagation(); onEdit(card) }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 <Edit3 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onRemove(card.id || card._id) }} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 text-red-500 dark:text-red-400 no-select">
+              <button onClick={(e) => { e.stopPropagation(); onRemove(card.id || card._id) }} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900 text-red-500 dark:text-red-400 no-select focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
