@@ -136,8 +136,11 @@ export default function SearchPage() {
   }, []);
 
   // ── Derived filter object + results ──────────────────────────────────────────
+  // Require at least 2 characters before using query as a filter (single char scans full catalog for minimal value)
+  const effectiveQuery = query.trim().length >= 2 ? query.trim() : '';
+
   const hasAnyFilter = !!(
-    selectedType || selectedPitch !== null || query ||
+    selectedType || selectedPitch !== null || effectiveQuery ||
     selectedKeywords.length || selectedRarities.length || selectedFoilings.length ||
     selectedEditions.length || selectedSets.length ||
     costMin || costMax || powerMin || powerMax || defenseMin || defenseMax || priceMax
@@ -150,7 +153,7 @@ export default function SearchPage() {
     const isClass = selectedType ? ALL_CLASSES.includes(selectedType as typeof ALL_CLASSES[number]) : false;
 
     const filters: BrowseFilters = {};
-    if (query.trim())              filters.name     = query.trim();
+    if (effectiveQuery)            filters.name     = effectiveQuery;
     if (typeChip)                  filters.types    = [typeChip.apiType];
     if (isClass && selectedType)   filters.classFlag = `is_${selectedType}` as keyof BrowsePrinting;
     if (selectedPitch !== null)    filters.pitch    = selectedPitch;
@@ -168,7 +171,7 @@ export default function SearchPage() {
     if (priceMax)   filters.priceMax   = parseFloat(priceMax);
 
     return sortPrintings(filterPrintings(allPrintings, filters), sortBy, sortOrder as 'asc' | 'desc');
-  }, [allPrintings, hasAnyFilter, query, selectedType, selectedPitch, selectedKeywords,
+  }, [allPrintings, hasAnyFilter, effectiveQuery, selectedType, selectedPitch, selectedKeywords,
       selectedRarities, selectedFoilings, selectedEditions, selectedSets,
       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
       sortBy, sortOrder]);

@@ -27,6 +27,7 @@
   .card__glare {
     display: none !important;
   }
+  /* Flip animation still works on touch — handled via JS translate/scale only */
 }
 
 /* ─── Root defaults (overridden per-frame by JS) ─────────────────────────── */
@@ -38,6 +39,9 @@
   --card-opacity: 0;
   --rotate-x: 0deg;
   --rotate-y: 0deg;
+  --flip-deg: 0deg;
+  --translate-x: 0px;
+  --translate-y: 0px;
   --background-x: 50%;
   --background-y: 50%;
   --pointer-from-center: 0;
@@ -45,31 +49,44 @@
   --pointer-from-left: 0;
 }
 
-/* ─── Card wrapper — only active when data-rarity is set ─────────────────── */
+/* ─── Card wrapper — foil cards + active popover ────────────────────────── */
 
-.card[data-rarity] {
+.card[data-rarity],
+.card-popover-active {
   transform-style: preserve-3d;
   will-change: transform;
+}
+
+/* ─── Popover card (portaled to body) ───────────────────────────────────── */
+
+.card-popover-active {
+  position: fixed;
+  z-index: 10000;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 /* ─── Translater: handles scale + translate ──────────────────────────────── */
 
-.card[data-rarity] .card__translater {
+.card[data-rarity] .card__translater,
+.card-popover-active .card__translater {
   display: grid;
   transform-origin: center;
   transform-style: preserve-3d;
-  transform: translate3d(0px, 0px, 0.01px) scale(var(--card-scale));
+  transform: translate3d(var(--translate-x, 0px), var(--translate-y, 0px), 0.01px) scale(var(--card-scale, 1));
   will-change: transform;
 }
 
-/* ─── Rotator: handles the 3-D tilt ─────────────────────────────────────── */
+/* ─── Rotator: handles the 3-D tilt + flip ─────────────────────────────── */
 
-.card[data-rarity] .card__rotator {
+.card[data-rarity] .card__rotator,
+.card-popover-active .card__rotator {
   display: grid;
   transform-origin: center;
   transform-style: preserve-3d;
-  transform: rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
+  transform: rotateY(calc(var(--rotate-x, 0deg) + var(--flip-deg, 0deg))) rotateX(var(--rotate-y, 0deg));
   will-change: transform;
+  position: relative;
   /* Ensure pointer events reach children */
   pointer-events: auto;
 }
@@ -83,10 +100,53 @@
   width: 100%;
   height: 100%;
   transform: translate3d(0px, 0px, 0.01px);
+  grid-area: 1 / 1;
 }
 
-.card[data-rarity] .card__front > * {
+.card-popover-active .card__front {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: translate3d(0px, 0px, 0.01px);
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+}
+
+.card[data-rarity] .card__front > *,
+.card-popover-active .card__front > * {
   grid-area: 1/1;
+}
+
+/* ─── Back face: FaB card back, visible during flip ─────────────────────── */
+
+.card__back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.card__back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  user-select: none;
+}
+
+/* ─── Popover backdrop ──────────────────────────────────────────────────── */
+
+.card-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
 }
 
 /* ─── Shared shine / glare settings ─────────────────────────────────────── */
@@ -146,7 +206,7 @@
   --rf-space: 5%;
   --rf-angle: -22deg;
 
-  clip-path: inset(3% 5% 43% 5% round 1.5%);
+  clip-path: inset(3% 5% 38% 5% round 1.5%);
 
   background-image:
     /*
@@ -207,7 +267,7 @@
 
   background-size: 300% 400%;
   background-position: var(--background-x) 0%;
-  clip-path: inset(3% 5% 43% 5% round 1.5%);
+  clip-path: inset(3% 5% 38% 5% round 1.5%);
   filter: brightness(calc((var(--pointer-from-center) * 0.3) + 0.35)) contrast(2) saturate(1.0);
   mix-blend-mode: color-dodge;
   opacity: 0.7;
@@ -219,7 +279,7 @@
   background-size: 180px 180px;
   filter: brightness(0.5) contrast(1.8) saturate(1.2);
   mix-blend-mode: soft-light;
-  clip-path: inset(3% 5% 43% 5% round 1.5%);
+  clip-path: inset(3% 5% 38% 5% round 1.5%);
 }
 
 .card[data-rarity="rainbow foil"] .card__glare {

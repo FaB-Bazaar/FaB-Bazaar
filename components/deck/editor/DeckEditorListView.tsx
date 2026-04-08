@@ -2339,7 +2339,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                   }}
                   className="relative cursor-pointer group"
                   style={{ width: isMeld ? Math.round(focusCardWidth * 1.64) : focusCardWidth, opacity: 0 }}
-                  onClick={(e) => { e.stopPropagation(); tile.imageUrl && setEnlargedImage({ url: tile.imageUrl, name: tile.name }); }}
                 >
                   <FoilCardImage
                     foiling={tile.foiling}
@@ -2348,6 +2347,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                     className="w-full rounded-lg shadow-xl ring-1 ring-white/10 group-hover:ring-amber-400/70 group-hover:scale-[1.04] transition-transform duration-150"
                     imgClassName="w-full"
                     style={{ aspectRatio: isMeld ? '4/3' : '3/4', display: 'block' }}
+                    expandable
                   />
                   <div className="mt-1.5 text-center">
                     <span className="text-xs font-bold text-white font-mono">{count}×</span>

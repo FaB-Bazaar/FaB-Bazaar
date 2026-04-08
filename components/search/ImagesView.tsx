@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TcgAffiliateLink } from '@/components/tracking';
 import { FOILING_STYLES, EDITION_MAP } from '@/lib/fab-constants';
 import { Minus, Plus } from 'lucide-react';
+import FoilCardImage from '@/components/shared/FoilCardImage';
 
 interface ImagesViewProps {
   printings: any[];
@@ -104,12 +104,13 @@ export function ImagesView({
                 }`}
               >
                   {printing.image_url ? (
-                    <Image
+                    <FoilCardImage
+                      foiling={printing.foiling}
+                      artStyle={printing.art_variations?.includes('FA') ? 'full-art' : printing.is_extended_art ? 'extended-art' : undefined}
                       src={printing.image_url}
                       alt={printing.display_name || printing.name}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform"
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+                      className="w-full h-full"
+                      imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">

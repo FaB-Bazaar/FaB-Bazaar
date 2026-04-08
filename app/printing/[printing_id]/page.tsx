@@ -346,6 +346,7 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
               alt={printing.display_name || printing.name}
               className="w-full rounded-lg shadow-lg"
               imgClassName="w-full h-auto rounded-lg"
+              expandable
             />
           </div>
         </div>
