@@ -21,8 +21,9 @@ export async function OPTIONS() {
 /**
  * PATCH /api/decks/[deckId]/matchups/[heroId]
  *
- * Talishar-initiated sideboard update for a specific matchup.
- * Updates only the sideboard (in/out cards); preserves notes and preferredTurnOrder.
+ * Talishar-initiated upsert of a matchup's sideboard.
+ * Updates the sideboard (in/out cards) if the matchup exists; creates it if it doesn't.
+ * Preserves notes and preferredTurnOrder on existing matchups.
  *
  * Authentication: Hash-based (metafyId + FABBAZAAR_SALT + timestamp → SHA-256).
  * Called directly from the Talishar frontend — no API key required.
@@ -134,24 +135,19 @@ export async function PATCH(
       );
     }
 
-    // Find existing matchup
+    // Upsert matchup — create if missing, update sideboard if existing
     const metadata = deck.metadata || {};
     const matchups: DeckMatchup[] = metadata.matchups || [];
     const existingIndex = matchups.findIndex(
       (m: DeckMatchup) => m.heroId === resolvedParams.heroId
     );
 
-    if (existingIndex < 0) {
-      return NextResponse.json(
-        { success: false, error: 'Matchup not found' },
-        { status: 404, headers: CORS_HEADERS }
-      );
-    }
+    const base: DeckMatchup = existingIndex >= 0
+      ? matchups[existingIndex]
+      : { heroId: resolvedParams.heroId, preferredTurnOrder: null, notes: null, sideboard: { in: [], out: [] } };
 
-    // Merge sideboard into existing matchup — preserve notes and preferredTurnOrder
-    const existing = matchups[existingIndex];
     const updated: DeckMatchup = {
-      ...existing,
+      ...base,
       sideboard: { in: sideboard.in, out: sideboard.out },
     };
 
@@ -165,7 +161,11 @@ export async function PATCH(
       );
     }
 
-    matchups[existingIndex] = sanitized;
+    if (existingIndex >= 0) {
+      matchups[existingIndex] = sanitized;
+    } else {
+      matchups.push(sanitized);
+    }
     metadata.matchups = matchups;
 
     const updateResult = await deckService.updateDeck(

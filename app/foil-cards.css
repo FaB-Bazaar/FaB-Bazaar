@@ -133,84 +133,88 @@
 
 /* ─── Rainbow Foil ───────────────────────────────────────────────────────── */
 /*
-  Oil-slick / CD iridescence — the full spectrum shifts as the viewing angle changes.
-  Real RF is SUBTLE: colours are present but not garish (~65% saturation).
-  Clipped to the art panel only. The key visual signature: different hues come
-  into view as the pointer moves (large background panning range = angle-shift illusion).
+  Diffraction-grating iridescence, clipped to the art panel only.
+  Technique adapted from simeydotme/pokemon-cards-css trainer-gallery-holo approach:
+  - repeating-linear-gradient with tight stops (~5%) creates the physical grating look
+  - main stripe layer pans on Y only (0% X fixed) — accurate to how a grating shifts hue
+  - a crossing ::before layer at the perpendicular angle adds thin-film depth
+  - a radial depth gradient inside the shine stack anchors the effect to the pointer
+  - brightness is dynamic: vivid at oblique angles, dim at center (pointer-from-center)
 */
 
 .card[data-rarity="rainbow foil"] .card__shine {
+  --rf-space: 5%;
+  --rf-angle: -22deg;
+
   clip-path: inset(3% 5% 43% 5% round 1.5%);
 
-  /*
-    Layer 1: large smooth hue sweep — pans dramatically with pointer so the
-    spectrum appears to shift as if you're rotating the card under light.
-    Size is intentionally huge (700%) so a large portion of the spectrum is
-    always visible and the pan range is wide.
-  */
   background-image:
-    linear-gradient(
-      105deg,
-      hsl(0,   65%, 62%),
-      hsl(35,  65%, 63%),
-      hsl(70,  65%, 61%),
-      hsl(110, 65%, 59%),
-      hsl(155, 65%, 60%),
-      hsl(195, 65%, 62%),
-      hsl(235, 65%, 63%),
-      hsl(275, 65%, 61%),
-      hsl(315, 65%, 62%),
-      hsl(360, 65%, 62%)
+    /*
+      Layer 1 (top): repeating spectrum grating — the physical diffraction-grating look.
+      Tight stops create fine stripes; large background-size spreads them across the art.
+      X is pinned to 0% so only the Y axis shifts as the card tilts, matching real foil.
+    */
+    repeating-linear-gradient(
+      var(--rf-angle),
+      hsla(283, 60%, 58%, 0.85) calc(var(--rf-space) * 1),
+      hsla(2,   75%, 58%, 0.85) calc(var(--rf-space) * 2),
+      hsla(53,  68%, 52%, 0.85) calc(var(--rf-space) * 3),
+      hsla(93,  57%, 50%, 0.85) calc(var(--rf-space) * 4),
+      hsla(176, 45%, 50%, 0.85) calc(var(--rf-space) * 5),
+      hsla(228, 80%, 72%, 0.85) calc(var(--rf-space) * 6),
+      hsla(283, 60%, 58%, 0.85) calc(var(--rf-space) * 7)
     ),
-    url("/grain.webp");
+    /*
+      Layer 2: radial depth gradient anchored to pointer position.
+      Gives the illusion that the foil surface curves toward the light source.
+    */
+    radial-gradient(
+      farthest-corner ellipse at var(--pointer-x) var(--pointer-y),
+      hsla(0, 0%, 100%, 0.15)  5%,
+      hsla(0, 0%, 0%,   0.25) 80%
+    );
 
-  background-size: 700% 700%, 180px 180px;
-  background-blend-mode: overlay, soft-light;
-
-  /*
-    Pan range: 0%–100% of the large gradient travels across the card.
-    This is much wider than CF, creating the "different hues at different angles" feel.
-  */
+  background-blend-mode: color-dodge, soft-light;
+  background-size: 300% 400%, 200% 200%;
   background-position:
-    calc(var(--pointer-from-left) * 100%) calc(var(--pointer-from-top) * 100%),
-    center center;
+    0% var(--background-y),
+    var(--background-x) var(--background-y);
 
-  filter: brightness(0.42) contrast(2.2) saturate(1.5);
+  filter: brightness(calc((var(--pointer-from-center) * 0.35) + 0.45)) contrast(2.3) saturate(1.1);
   mix-blend-mode: color-dodge;
 }
 
 .card[data-rarity="rainbow foil"] .card__shine::before {
   /*
-    Layer 2: perpendicular interference gradient — creates the thin-film
-    iridescence look by crossing the main sweep at ~90°.
-    Pans in the opposite direction to the main layer for a cross-polarised shimmer.
+    Perpendicular crossing grating — adds thin-film interference depth.
+    Pans on X only (Y pinned) to cross the main layer's Y-only pan.
+    Result: two crossing grating patterns that shift independently, creating
+    the colour-mixing shimmer visible when physically rotating real RF cards.
   */
+  --rf-cross-angle: 68deg; /* ~90° from main layer */
+
   background-image:
-    linear-gradient(
-      -75deg,
-      hsl(180, 60%, 60%),
-      hsl(220, 60%, 62%),
-      hsl(260, 60%, 60%),
-      hsl(300, 60%, 62%),
-      hsl(340, 60%, 60%),
-      hsl(20,  60%, 62%),
-      hsl(60,  60%, 60%),
-      hsl(100, 60%, 62%),
-      hsl(140, 60%, 60%),
-      hsl(180, 60%, 60%)
+    repeating-linear-gradient(
+      var(--rf-cross-angle),
+      hsla(180, 55%, 58%, 0.6) calc(var(--rf-space) * 1),
+      hsla(220, 60%, 60%, 0.6) calc(var(--rf-space) * 2),
+      hsla(260, 55%, 58%, 0.6) calc(var(--rf-space) * 3),
+      hsla(300, 60%, 60%, 0.6) calc(var(--rf-space) * 4),
+      hsla(340, 55%, 58%, 0.6) calc(var(--rf-space) * 5),
+      hsla(20,  60%, 60%, 0.6) calc(var(--rf-space) * 6),
+      hsla(180, 55%, 58%, 0.6) calc(var(--rf-space) * 7)
     );
-  background-size: 500% 500%;
-  /* Opposite pan direction for cross-iridescence */
-  background-position:
-    calc((1 - var(--pointer-from-left)) * 100%) calc(var(--pointer-from-top) * 100%);
-  filter: brightness(0.38) contrast(2) saturate(1.3);
-  mix-blend-mode: color-dodge;
+
+  background-size: 300% 400%;
+  background-position: var(--background-x) 0%;
   clip-path: inset(3% 5% 43% 5% round 1.5%);
-  opacity: 0.65;
+  filter: brightness(calc((var(--pointer-from-center) * 0.3) + 0.35)) contrast(2) saturate(1.0);
+  mix-blend-mode: color-dodge;
+  opacity: 0.7;
 }
 
 .card[data-rarity="rainbow foil"] .card__shine::after {
-  /* Grain physical texture — tones down the digital look */
+  /* Grain physical texture — softens the digital stripe pattern */
   background-image: url("/grain.webp");
   background-size: 180px 180px;
   filter: brightness(0.5) contrast(1.8) saturate(1.2);
@@ -219,15 +223,15 @@
 }
 
 .card[data-rarity="rainbow foil"] .card__glare {
-  /* Softer spotlight than CF — RF cards have a broader diffuse sheen */
+  /* Broader diffuse sheen — RF glare spreads more than cold foil's tight spotlight */
   background-image: radial-gradient(
     farthest-corner ellipse at var(--pointer-x) var(--pointer-y),
-    hsla(0, 0%, 100%, 0.7) 5%,
-    hsla(60, 40%, 80%, 0.3) 35%,
-    hsla(0, 0%, 0%, 0.4) 100%
+    hsla(0,  0%, 100%, 0.75) 5%,
+    hsla(60, 40%, 80%, 0.35) 35%,
+    hsla(0,  0%,   0%, 0.45) 110%
   );
   filter: brightness(1) contrast(1.3);
-  opacity: calc(var(--card-opacity) * (0.3 + var(--pointer-from-center) * 0.7));
+  opacity: calc(var(--card-opacity) * (0.25 + var(--pointer-from-center) * 0.75));
   mix-blend-mode: overlay;
 }
 
