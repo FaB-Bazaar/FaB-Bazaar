@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye } from "lucide-react";
 import { TcgAffiliateLink } from "@/components/tracking";
+import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -321,6 +322,8 @@ interface DeckTileCard {
   tcgplayerUrl?: string;
   tcgLow?: number;
   otherFaceImageUrl?: string;
+  /** Raw foiling code ('R', 'C', 'S', 'G', etc.) — used for foil shimmer effect */
+  foiling?: string;
 }
 
 interface DeckTileSectionData {
@@ -375,6 +378,7 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
           tcgplayerUrl: pd?.tcgplayer_url ?? undefined,
           tcgLow: pd?.tcg_low ?? undefined,
           otherFaceImageUrl: pd?.other_face_image_url ?? undefined,
+          foiling: pd?.foiling ?? undefined,
         });
       }
     }
@@ -2337,13 +2341,13 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                   style={{ width: isMeld ? Math.round(focusCardWidth * 1.64) : focusCardWidth, opacity: 0 }}
                   onClick={(e) => { e.stopPropagation(); tile.imageUrl && setEnlargedImage({ url: tile.imageUrl, name: tile.name }); }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={tile.imageUrl}
+                  <FoilCardImage
+                    foiling={tile.foiling}
+                    src={tile.imageUrl || '/cardback.webp'}
                     alt={tile.name}
                     className="w-full rounded-lg shadow-xl ring-1 ring-white/10 group-hover:ring-amber-400/70 group-hover:scale-[1.04] transition-transform duration-150"
-                    style={{ aspectRatio: isMeld ? '4/3' : '3/4', objectFit: 'cover', display: 'block' }}
-                    draggable={false}
+                    imgClassName="w-full"
+                    style={{ aspectRatio: isMeld ? '4/3' : '3/4', display: 'block' }}
                   />
                   <div className="mt-1.5 text-center">
                     <span className="text-xs font-bold text-white font-mono">{count}×</span>
