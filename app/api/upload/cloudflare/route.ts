@@ -41,6 +41,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Optional custom image ID (e.g. a printing_id to use as the Cloudflare image ID)
+    const customId = formData.get('customId') as string | null;
+
     // Prepare Cloudflare upload
     const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
     const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
@@ -56,6 +59,10 @@ export async function POST(request: NextRequest) {
     // Upload to Cloudflare Images
     const uploadFormData = new FormData();
     uploadFormData.append('file', file);
+    // Pass custom ID if provided — Cloudflare will use it as the image ID
+    if (customId && /^[a-zA-Z0-9_\-]+$/.test(customId)) {
+      uploadFormData.append('id', customId);
+    }
 
     const cloudflareResponse = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
@@ -71,9 +78,10 @@ export async function POST(request: NextRequest) {
     const cloudflareData = await cloudflareResponse.json();
 
     if (!cloudflareResponse.ok || !cloudflareData.success) {
+      const cfErrors = cloudflareData?.errors?.map((e: { message: string }) => e.message).join('; ') || 'Unknown Cloudflare error';
       console.error('Cloudflare upload failed:', cloudflareData);
       return NextResponse.json(
-        { success: false, error: 'Failed to upload image to Cloudflare' },
+        { success: false, error: `Cloudflare: ${cfErrors}` },
         { status: 500 }
       );
     }
