@@ -96,7 +96,6 @@ export default function FoilCardImage({
   const [active, setActive] = useState(false)
   const portalRef      = useRef<HTMLDivElement>(null)
   const popoverRafRef  = useRef<number | null>(null)
-  const firstPopRef    = useRef(true)
   const origRectRef    = useRef<DOMRect | null>(null)
   const popoverSprings = useRef({
     tx:    makeSpring(0, 0.065, 0.68),
@@ -238,19 +237,16 @@ export default function FoilCardImage({
     s.ty.stiffness = 0.065; s.ty.damping = 0.68
     s.scale.stiffness = 0.065; s.scale.damping = 0.68
 
-    // First click: 360° Y-axis flip to show card back
-    if (firstPopRef.current) {
-      s.flip.target = 360
-      s.flip.stiffness = 0.045; s.flip.damping = 0.42
-      firstPopRef.current = false
+    // 360° Y-axis flip to show card back
+    s.flip.target = 360
+    s.flip.stiffness = 0.045; s.flip.damping = 0.42
 
-      // After the flip settles, snap rotation back to 0
-      setTimeout(() => {
-        s.flip.stiffness = 0.3; s.flip.damping = 0.7
-        s.flip.target = 0
-        startPopoverLoop()
-      }, 1200)
-    }
+    // After the flip settles, snap rotation back to 0
+    setTimeout(() => {
+      s.flip.stiffness = 0.3; s.flip.damping = 0.7
+      s.flip.target = 0
+      startPopoverLoop()
+    }, 1200)
 
     startPopoverLoop()
   }, [active, startPopoverLoop])
