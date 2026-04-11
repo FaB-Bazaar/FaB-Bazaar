@@ -438,6 +438,8 @@ export const printings = pgTable('printings', {
   foilInsetLeft: real('foil_inset_left'),
   // border-radius portion of inset(), e.g. "1.5%", "0%", "8px". NULL = "1.5%"
   foilInsetRound: text('foil_inset_round'),
+  // When true, bulk foil mask operations skip this printing
+  foilInsetLocked: boolean('foil_inset_locked').default(false).notNull(),
 
   // Double-faced card linking
   otherFacePrintingId: text('other_face_printing_id'),

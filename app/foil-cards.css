@@ -310,10 +310,10 @@
 .card[data-rarity="rainbow foil"] .card__shine::before,
 .card[data-rarity="rainbow foil"] .card__shine::after {
   clip-path: inset(
-    var(--foil-inset-top,    3%)
-    var(--foil-inset-right,  5%)
-    var(--foil-inset-bottom, 38%)
-    var(--foil-inset-left,   5%)
+    var(--foil-inset-top,    12.5%)
+    var(--foil-inset-right,  9.5%)
+    var(--foil-inset-bottom, 41.5%)
+    var(--foil-inset-left,   9.5%)
     round var(--foil-inset-round, 1.5%)
   );
 }

@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Upload, CheckCircle, XCircle, Loader2, ImageOff, ChevronLeft, ChevronRight, Sparkles, X, RefreshCw } from 'lucide-react';
+import { Search, Upload, CheckCircle, XCircle, Loader2, ImageOff, ChevronLeft, ChevronRight, Sparkles, X, RefreshCw, Lock, LockOpen } from 'lucide-react';
 import { SET_MAP, FOILING_MAP, RARITY_MAP, EDITION_MAP } from '@/lib/fab-constants';
+import FoilCardImage from '@/components/shared/FoilCardImage';
 
 const PITCH_COLORS: Record<number, string> = {
   1: 'bg-red-500',
@@ -50,6 +51,7 @@ interface PrintingRow {
   foilInsetBottom: number | null;
   foilInsetLeft: number | null;
   foilInsetRound: string | null;
+  foilInsetLocked: boolean;
 }
 
 interface FoilMaskValues {
@@ -58,9 +60,10 @@ interface FoilMaskValues {
   bottom: number;
   left: number;
   round: string;
+  locked: boolean;
 }
 
-const DEFAULT_MASK: FoilMaskValues = { top: 3, right: 5, bottom: 38, left: 5, round: '1.5%' };
+const DEFAULT_MASK: FoilMaskValues = { top: 12.5, right: 9.5, bottom: 41.5, left: 9.5, round: '1.5%', locked: false };
 const CF_BASE_URL = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
 
 function FoilMaskEditor({
@@ -75,16 +78,19 @@ function FoilMaskEditor({
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [bulkApplying, setBulkApplying] = useState(false);
+  const [locked, setLocked] = useState(row.foilInsetLocked);
   const [mask, setMask] = useState<FoilMaskValues>(() => ({
     top:    row.foilInsetTop    ?? DEFAULT_MASK.top,
     right:  row.foilInsetRight  ?? DEFAULT_MASK.right,
     bottom: row.foilInsetBottom ?? DEFAULT_MASK.bottom,
     left:   row.foilInsetLeft   ?? DEFAULT_MASK.left,
     round:  row.foilInsetRound  ?? DEFAULT_MASK.round,
+    locked: row.foilInsetLocked,
   }));
 
   const clipPath = `inset(${mask.top}% ${mask.right}% ${mask.bottom}% ${mask.left}% round ${mask.round})`;
   const imgSrc = `${CF_BASE_URL}/${row.printingId}/public`;
+  const hasDbValues = row.foilInsetBottom != null;
 
   // Build a human-readable description of what the bulk apply will match
   const bulkLabel = (() => {
@@ -125,19 +131,48 @@ function FoilMaskEditor({
     }
   }
 
+  async function handleGlobalNoVariationApply(overwrite = false) {
+    setBulkApplying(true);
+    try {
+      const res = await fetch('/api/admin/foil-mask/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // No set — applies across all sets
+          foiling: row.foiling,
+          isExtendedArt: false,
+          artVariations: [],
+          overwrite,
+          top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Global apply failed');
+      const verb = overwrite ? 'Overwritten' : 'Applied';
+      const foilName = row.foiling === 'r' ? 'Rainbow Foil' : row.foiling.toUpperCase();
+      toast({ title: verb, description: `Updated ${json.updated} ${foilName} printings with no art variations (all sets)` });
+      fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Global apply failed';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setBulkApplying(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/foil-mask/${encodeURIComponent(row.printingId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round }),
+        body: JSON.stringify({ top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round, locked }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Save failed');
-      toast({ title: 'Saved', description: `Foil mask updated for ${row.name}` });
+      toast({ title: 'Saved', description: `Foil mask updated for ${row.name}${locked ? ' · locked' : ''}` });
       fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
-      onSaved(mask);
+      onSaved({ ...mask, locked });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Save failed';
       toast({ title: 'Error', description: msg, variant: 'destructive' });
@@ -146,7 +181,13 @@ function FoilMaskEditor({
     }
   }
 
-  function SliderRow({ label, field, value }: { label: string; field: keyof Omit<FoilMaskValues, 'round'>; value: number }) {
+  function SliderRow({ label, field, value }: { label: string; field: keyof Omit<FoilMaskValues, 'round' | 'locked'>; value: number }) {
+    const [inputVal, setInputVal] = useState(String(value));
+
+    useEffect(() => {
+      setInputVal(String(value));
+    }, [value]);
+
     return (
       <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground w-16 shrink-0">{label}</span>
@@ -165,10 +206,21 @@ function FoilMaskEditor({
           min={0}
           max={100}
           step={0.5}
-          value={value}
+          value={inputVal}
           onChange={e => {
+            setInputVal(e.target.value);
             const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v >= 0 && v <= 100) setMask(prev => ({ ...prev, [field]: v }));
+            if (!isNaN(v) && v >= 0 && v <= 100) {
+              setMask(prev => ({ ...prev, [field]: v }));
+            }
+          }}
+          onBlur={e => {
+            const v = parseFloat(e.target.value);
+            if (!isNaN(v) && v >= 0 && v <= 100) {
+              setMask(prev => ({ ...prev, [field]: v }));
+            } else {
+              setInputVal(String(value));
+            }
           }}
           className="w-16 shrink-0 px-2 py-1 rounded border border-input bg-background text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-yellow-500"
         />
@@ -183,7 +235,7 @@ function FoilMaskEditor({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative z-10 bg-background border rounded-xl shadow-2xl w-full max-w-3xl flex gap-6 p-6">
+      <div className="relative z-10 bg-background border rounded-xl shadow-2xl w-full max-w-4xl flex gap-8 p-6">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
@@ -192,25 +244,27 @@ function FoilMaskEditor({
           <X className="h-4 w-4" />
         </button>
 
-        {/* Card preview */}
-        <div className="flex-shrink-0 w-64">
-          <p className="text-xs text-muted-foreground mb-2 font-medium">Foil area preview</p>
+        {/* Card preview — live foil shimmer on hover */}
+        <div className="flex-shrink-0 w-96">
+          <p className="text-xs text-muted-foreground mb-2 font-medium">
+            Foil area preview <span className="text-[10px] opacity-60">(hover to preview shimmer)</span>
+          </p>
           <div className="relative rounded overflow-hidden aspect-[5/7] bg-muted">
-            <img src={imgSrc} alt={row.name} className="w-full h-full object-cover" />
-            {/* Golden overlay showing the foil area */}
+            <FoilCardImage
+              foiling={row.foiling}
+              foilInset={{ top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round }}
+              src={imgSrc}
+              alt={row.name}
+              className="w-full h-full"
+              imgClassName="w-full h-full object-cover"
+            />
+            {/* Golden overlay showing the foil clip boundary */}
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
-                background: 'rgba(255, 200, 0, 0.35)',
+                background: 'rgba(255, 200, 0, 0.25)',
                 clipPath,
-                boxShadow: 'inset 0 0 0 2px rgba(255, 200, 0, 0.8)',
-              }}
-            />
-            {/* Darkened overlay for clipped areas */}
-            <div
-              className="absolute inset-0 pointer-events-none bg-black/40"
-              style={{
-                clipPath: `polygon(evenodd, 0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${mask.left}% ${mask.top}%, ${mask.left}% ${100 - mask.bottom}%, ${100 - mask.right}% ${100 - mask.bottom}%, ${100 - mask.right}% ${mask.top}%, ${mask.left}% ${mask.top}%)`,
+                boxShadow: 'inset 0 0 0 2px rgba(255, 200, 0, 0.9)',
               }}
             />
           </div>
@@ -223,6 +277,13 @@ function FoilMaskEditor({
             <p className="text-sm font-semibold">{row.name}</p>
             <p className="text-xs text-muted-foreground">Rainbow Foil mask editor</p>
           </div>
+
+          {!hasDbValues && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400">
+              <span className="shrink-0 mt-0.5">ℹ</span>
+              <span>No mask saved for this printing — showing defaults. Hit <strong>Save mask</strong> to lock these values in.</span>
+            </div>
+          )}
 
           <div className="space-y-3">
             <SliderRow label="Top inset" field="top" value={mask.top} />
@@ -250,7 +311,22 @@ function FoilMaskEditor({
             <Button size="sm" variant="outline" onClick={() => setMask(DEFAULT_MASK)} disabled={saving || bulkApplying}>
               Reset
             </Button>
+            <Button
+              size="sm"
+              variant={locked ? 'default' : 'outline'}
+              className={locked ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600' : 'border-muted-foreground/30'}
+              onClick={() => setLocked(l => !l)}
+              disabled={saving || bulkApplying}
+              title={locked ? 'Locked — bulk operations skip this card. Click to unlock.' : 'Unlocked — bulk operations can update this card. Click to lock.'}
+            >
+              {locked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+            </Button>
           </div>
+          {locked && (
+            <p className="text-[11px] text-emerald-500">
+              Locked — bulk operations will skip this card. Save to persist.
+            </p>
+          )}
 
           <div className="pt-1 border-t border-border space-y-2">
             <p className="text-[11px] text-muted-foreground">
@@ -275,6 +351,22 @@ function FoilMaskEditor({
             >
               {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
               Overwrite all (including existing masks)
+            </Button>
+          </div>
+
+          <div className="pt-1 border-t border-border space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Apply to all <span className="font-semibold text-foreground">Rainbow Foil with no art variations</span> across every set (unset cards only).
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full border-blue-500/40 text-blue-500 hover:text-blue-400 hover:border-blue-400"
+              onClick={() => handleGlobalNoVariationApply(false)}
+              disabled={saving || bulkApplying}
+            >
+              {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
+              Apply globally (no art variation, unset only)
             </Button>
           </div>
         </div>
@@ -591,7 +683,9 @@ export function ImageUploadsClient() {
                     className="h-7 text-xs w-full border-yellow-500/40 text-yellow-600 hover:text-yellow-500 hover:border-yellow-500"
                     onClick={() => setMaskEditorRow(row)}
                   >
-                    <Sparkles className="h-3 w-3 mr-1" />
+                    {row.foilInsetLocked
+                      ? <Lock className="h-3 w-3 mr-1 text-emerald-500" />
+                      : <Sparkles className="h-3 w-3 mr-1" />}
                     {row.foilInsetBottom != null ? 'Edit mask' : 'Set mask'}
                   </Button>
                 )}
@@ -641,7 +735,7 @@ export function ImageUploadsClient() {
           onSaved={(values) => {
             setRows(prev => prev.map(r =>
               r.printingId === maskEditorRow.printingId
-                ? { ...r, foilInsetTop: values.top, foilInsetRight: values.right, foilInsetBottom: values.bottom, foilInsetLeft: values.left, foilInsetRound: values.round }
+                ? { ...r, foilInsetTop: values.top, foilInsetRight: values.right, foilInsetBottom: values.bottom, foilInsetLeft: values.left, foilInsetRound: values.round, foilInsetLocked: values.locked }
                 : r
             ));
             setMaskEditorRow(null);

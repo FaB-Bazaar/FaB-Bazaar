@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
 
   const { set, foiling, isExtendedArt, artVariations, overwrite, top, right, bottom, left, round } = body as Record<string, unknown>;
 
-  if (typeof set !== 'string' || !set) {
-    return NextResponse.json({ error: 'set is required' }, { status: 400 });
+  // set is optional — omit to apply across all sets
+  if (set !== undefined && set !== null && typeof set !== 'string') {
+    return NextResponse.json({ error: 'set must be a string' }, { status: 400 });
   }
   if (typeof foiling !== 'string' || !foiling) {
     return NextResponse.json({ error: 'foiling is required' }, { status: 400 });
@@ -49,9 +50,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const conditions = [
-      eq(printings.set, set.toLowerCase()),
-      eq(printings.foiling, foiling.toLowerCase()),
+      eq(printings.foiling, (foiling as string).toLowerCase()),
     ];
+
+    // set is optional — when omitted, applies across all sets
+    if (typeof set === 'string' && set) {
+      conditions.push(eq(printings.set, set.toLowerCase()));
+    }
 
     if (typeof isExtendedArt === 'boolean') {
       conditions.push(eq(printings.isExtendedArt, isExtendedArt));
@@ -63,7 +68,10 @@ export async function POST(request: NextRequest) {
       conditions.push(sql`art_variations = ARRAY[${sql.join(sorted.map(v => sql`${v}`), sql`, `)}]::text[]`);
     }
 
-    // Without overwrite: skip cards that already have a mask
+    // Always skip locked printings — bulk operations never touch them
+    conditions.push(eq(printings.foilInsetLocked, false));
+
+    // Without overwrite: also skip cards that already have a mask
     if (!overwrite) {
       conditions.push(isNull(printings.foilInsetBottom));
     }

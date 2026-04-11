@@ -42,7 +42,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const { top, right, bottom, left, round } = body as Record<string, unknown>;
+  const { top, right, bottom, left, round, locked } = body as Record<string, unknown>;
 
   // Validate numeric insets — must be null or a number in [0, 100]
   for (const [field, val] of [['top', top], ['right', right], ['bottom', bottom], ['left', left]] as const) {
@@ -60,6 +60,10 @@ export async function PATCH(
     }
   }
 
+  if (locked !== undefined && typeof locked !== 'boolean') {
+    return NextResponse.json({ error: 'locked must be a boolean' }, { status: 400 });
+  }
+
   try {
     await db
       .update(printings)
@@ -69,6 +73,7 @@ export async function PATCH(
         foilInsetBottom: bottom !== undefined ? (bottom as number | null) : undefined,
         foilInsetLeft:   left   !== undefined ? (left   as number | null) : undefined,
         foilInsetRound:  round  !== undefined ? (round  as string | null) : undefined,
+        foilInsetLocked: locked !== undefined ? (locked as boolean) : undefined,
         updatedAt: new Date(),
       })
       .where(eq(printings.printingId, printingId));

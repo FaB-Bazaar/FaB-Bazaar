@@ -92,7 +92,7 @@ function getInsetFromArtStyle(artStyle: string[] | undefined): Required<FoilInse
   if (hasBorder)                                return { top: 1,  right: 4, bottom: 20, left: 4, round: '12px' }
   if (hasAlternate)                             return { top: 1,  right: 4, bottom: 23, left: 4, round: '10px' }
   if (hasExtended)                              return { top: 1,  right: 0, bottom: 18, left: 0, round: '0%' }
-  return                                               { top: 3,  right: 5, bottom: 38, left: 5, round: '1.5%' }
+  return                                               { top: 12.5, right: 9.5, bottom: 41.5, left: 9.5, round: '1.5%' }
 }
 
 export default function FoilCardImage({
