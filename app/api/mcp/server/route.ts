@@ -387,6 +387,10 @@ export async function POST(req: Request) {
 
   try {
     switch (method) {
+      case 'notifications/initialized':
+        // MCP handshake notification — no response body required
+        return new NextResponse(null, { status: 200, headers: corsHeaders() });
+
       case 'initialize':
         return NextResponse.json({
           jsonrpc: "2.0",
