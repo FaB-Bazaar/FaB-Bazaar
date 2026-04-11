@@ -2118,7 +2118,7 @@ function unauthenticatedHeaders(req: Request) {
   const baseUrl = `${protocol}://${host}`;
   return {
     ...corsHeaders(),
-    'WWW-Authenticate': `Bearer as_uri="${baseUrl}"`,
+    'WWW-Authenticate': `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource", as_uri="${baseUrl}"`,
   };
 }
 

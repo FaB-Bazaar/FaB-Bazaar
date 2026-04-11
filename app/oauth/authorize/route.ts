@@ -29,26 +29,26 @@ export async function GET(req: Request) {
   // Validate required parameters
   if (!params.client_id || !params.response_type) {
     console.log('❌ Missing required parameters');
-    const error = new URL('/oauth/error', req.url);
+    const error = new URL('/oauth/error', baseUrl);
     error.searchParams.set('error', 'invalid_request');
     error.searchParams.set('error_description', 'Missing required parameters: client_id and response_type are required');
     return NextResponse.redirect(error);
   }
-  
+
   // Only support authorization code flow
   if (params.response_type !== 'code') {
     console.log(`❌ Unsupported response_type: ${params.response_type}`);
-    const error = new URL('/oauth/error', req.url);
+    const error = new URL('/oauth/error', baseUrl);
     error.searchParams.set('error', 'unsupported_response_type');
     error.searchParams.set('error_description', 'Only "code" response_type is supported');
     return NextResponse.redirect(error);
   }
-  
+
   // Validate client using service layer
   const clientResult = await oauthFlowService.validateClient(params.client_id, params.redirect_uri);
   if (!clientResult.success) {
     console.log(`❌ Client validation failed for: ${params.client_id}`);
-    const error = new URL('/oauth/error', req.url);
+    const error = new URL('/oauth/error', baseUrl);
     error.searchParams.set('error', 'invalid_client');
     error.searchParams.set('error_description', clientResult.error || 'Invalid client_id or redirect_uri');
     return NextResponse.redirect(error);
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
 
   // OAuth 2.1 requires PKCE for public clients (token_endpoint_auth_method = 'none')
   if (client.token_endpoint_auth_method === 'none' && !params.code_challenge) {
-    const error = new URL('/oauth/error', req.url);
+    const error = new URL('/oauth/error', baseUrl);
     error.searchParams.set('error', 'invalid_request');
     error.searchParams.set('error_description', 'PKCE required for public clients');
     return NextResponse.redirect(error);
