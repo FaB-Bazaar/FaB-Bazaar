@@ -259,7 +259,7 @@ export async function POST(req: Request) {
             error: tokenValidation.error
           }
         }
-      }, { status: 401, headers: corsHeaders() });
+      }, { status: 401, headers: unauthenticatedHeaders(req) });
     }
 
     authenticatedUser = tokenValidation.user;
@@ -283,7 +283,7 @@ export async function POST(req: Request) {
           code: -32001,
           message: `OAuth 2.1 authentication failed: ${oauthValidation.error}`
         }
-      }, { status: 401, headers: corsHeaders() });
+      }, { status: 401, headers: unauthenticatedHeaders(req) });
     }
   } else {
     // No valid Authorization header
@@ -298,7 +298,7 @@ export async function POST(req: Request) {
           hint: "Generate a token from your FabBazaar account settings and send it as an Authorization header"
         }
       }
-    }, { status: 401, headers: corsHeaders() });
+    }, { status: 401, headers: unauthenticatedHeaders(req) });
   }
 
   // Rate limiting check (with higher limits for authenticated users)
@@ -2106,6 +2106,19 @@ function corsHeaders() {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
     'Access-Control-Allow-Credentials': 'true'
+  };
+}
+
+function unauthenticatedHeaders(req: Request) {
+  const url = new URL(req.url);
+  const forwardedHost = (req.headers as Headers).get('x-forwarded-host');
+  const forwardedProto = (req.headers as Headers).get('x-forwarded-proto');
+  const host = forwardedHost || url.host;
+  const protocol = forwardedProto || url.protocol.replace(':', '');
+  const baseUrl = `${protocol}://${host}`;
+  return {
+    ...corsHeaders(),
+    'WWW-Authenticate': `Bearer as_uri="${baseUrl}"`,
   };
 }
 
