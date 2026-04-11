@@ -3,7 +3,7 @@ import { userService } from '@/lib/services';
 import { authenticateSession } from '@/lib/auth/multi-auth';
 import { getRedisClient } from '@/lib/redis';
 
-const CACHE_KEY = 'browse:all_printings:v2';
+const CACHE_KEYS = ['browse:all_printings:v2', 'featured_cards'];
 
 export async function POST() {
   const authResult = await authenticateSession();
@@ -20,6 +20,6 @@ export async function POST() {
     return NextResponse.json({ error: 'Redis not available' }, { status: 503 });
   }
 
-  await redis.del(CACHE_KEY);
-  return NextResponse.json({ success: true, message: 'Browse cache cleared — next search load will fetch fresh data.' });
+  await redis.del(...CACHE_KEYS);
+  return NextResponse.json({ success: true, message: 'Browse + featured cards cache cleared.' });
 }
