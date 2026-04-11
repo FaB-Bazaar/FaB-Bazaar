@@ -342,6 +342,13 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
             <FoilCardImage
               foiling={printing.foiling}
               artStyle={printing.art_variations?.includes('FA') ? 'full-art' : printing.is_extended_art ? 'extended-art' : undefined}
+              foilInset={printing.foil_inset_bottom != null ? {
+                top: printing.foil_inset_top,
+                right: printing.foil_inset_right,
+                bottom: printing.foil_inset_bottom,
+                left: printing.foil_inset_left,
+                round: printing.foil_inset_round ?? '1.5%',
+              } : undefined}
               src={printing.image_url || "/placeholder.svg"}
               alt={printing.display_name || printing.name}
               className="w-full rounded-lg shadow-lg"
