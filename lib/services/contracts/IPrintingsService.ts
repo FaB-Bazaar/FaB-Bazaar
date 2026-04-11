@@ -172,6 +172,13 @@ export interface PrintingDTO {
   is_extended_art: boolean;
   art_variations: string[];
 
+  // Foil mask (rainbow foil clip-path, data-driven)
+  foil_inset_top: number | null;
+  foil_inset_right: number | null;
+  foil_inset_bottom: number | null;
+  foil_inset_left: number | null;
+  foil_inset_round: string | null;
+
   // Other
   played_horizontally: boolean;
   expansion_slot: boolean;

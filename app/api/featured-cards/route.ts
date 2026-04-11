@@ -20,6 +20,11 @@ interface FeaturedCard {
   rarity: string;
   is_extended_art: boolean;
   art_variations: string[];
+  foil_inset_top: number | null;
+  foil_inset_right: number | null;
+  foil_inset_bottom: number | null;
+  foil_inset_left: number | null;
+  foil_inset_round: string | null;
   tcg_low?: number | null;
   tcg_market?: number | null;
   tcgplayer_url?: string | null;
@@ -37,6 +42,11 @@ function toFeaturedCard(p: PrintingDTO): FeaturedCard {
     rarity: p.rarity,
     is_extended_art: p.is_extended_art ?? false,
     art_variations: p.art_variations ?? [],
+    foil_inset_top: p.foil_inset_top ?? null,
+    foil_inset_right: p.foil_inset_right ?? null,
+    foil_inset_bottom: p.foil_inset_bottom ?? null,
+    foil_inset_left: p.foil_inset_left ?? null,
+    foil_inset_round: p.foil_inset_round ?? null,
     tcg_low: p.tcg_low,
     tcg_market: p.tcg_market,
     tcgplayer_url: p.tcgplayer_url ?? null,

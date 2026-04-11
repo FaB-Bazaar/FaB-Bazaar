@@ -16,7 +16,7 @@ import { db } from '@/lib/postgres/db';
 import { printings, cards } from '@/lib/postgres/schema';
 import { getRedisClient } from '@/lib/redis';
 
-const CACHE_KEY = 'browse:all_printings:v1';
+const CACHE_KEY = 'browse:all_printings:v2';
 const CACHE_TTL_SECONDS = 3600; // 1 hour
 
 export async function GET() {
@@ -73,12 +73,19 @@ export async function GET() {
         is_mechanologist:cards.isMechanologist,
 
         // Printing display (printings table)
-        image_url:       printings.imageUrl,
-        printing_card_id:printings.collectorNumber,   // collector number for checklist
-        set:             printings.set,
-        edition:         printings.edition,
-        foiling:         printings.foiling,
-        rarity:          printings.rarity,
+        image_url:        printings.imageUrl,
+        printing_card_id: printings.collectorNumber,   // collector number for checklist
+        set:              printings.set,
+        edition:          printings.edition,
+        foiling:          printings.foiling,
+        rarity:           printings.rarity,
+        is_extended_art:  printings.isExtendedArt,
+        art_variations:   printings.artVariations,
+        foil_inset_top:   printings.foilInsetTop,
+        foil_inset_right: printings.foilInsetRight,
+        foil_inset_bottom:printings.foilInsetBottom,
+        foil_inset_left:  printings.foilInsetLeft,
+        foil_inset_round: printings.foilInsetRound,
 
         // Price (printings table)
         tcg_low:        printings.tcgLow,

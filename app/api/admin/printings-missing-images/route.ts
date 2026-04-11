@@ -51,6 +51,11 @@ export async function GET(request: NextRequest) {
         rarity: printings.rarity,
         collectorNumber: printings.collectorNumber,
         pitch: cards.pitch,
+        foilInsetTop: printings.foilInsetTop,
+        foilInsetRight: printings.foilInsetRight,
+        foilInsetBottom: printings.foilInsetBottom,
+        foilInsetLeft: printings.foilInsetLeft,
+        foilInsetRound: printings.foilInsetRound,
       })
       .from(printings)
       .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))

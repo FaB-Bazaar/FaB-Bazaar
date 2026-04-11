@@ -37,16 +37,30 @@ function springSettled(s: Spring) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** DB-stored foil clip-path inset values for a rainbow-foil card. */
+export interface FoilInset {
+  top: number | null
+  right: number | null
+  bottom: number | null
+  left: number | null
+  /** CSS length for the round corner, e.g. "1.5%", "0%", "8px". Null → "1.5%" */
+  round: string | null
+}
+
 interface FoilCardImageProps {
   /** Raw foiling code from the database ('R', 'C', 'S', 'G', etc.) */
   foiling?: string
   /**
    * Art layout variant — controls how much of the card the shine is clipped to.
-   * Omit for standard cards (art panel occupies the top ~57% of the card).
-   * 'extended-art' — art reaches card edges horizontally, panel slightly taller (~67% height).
-   * 'full-art'     — art covers most of the card face; shine clips to ~88% height.
+   * Used as fallback when foilInset is not provided or incomplete.
+   * 'extended-art' | 'alternate-art' | 'alternate-border' | 'full-art'
    */
-  artStyle?: 'extended-art' | 'full-art'
+  artStyle?: string[]
+  /**
+   * DB-stored foil inset values. When provided and non-null, these take
+   * precedence over artStyle-derived defaults.
+   */
+  foilInset?: FoilInset | null
   /** Card image src URL */
   src: string
   alt: string
@@ -62,9 +76,29 @@ interface FoilCardImageProps {
   expandable?: boolean
 }
 
+/**
+ * Derives foil clip-path inset values from the artStyle array.
+ * This is the fallback used when no DB-stored foilInset exists.
+ */
+function getInsetFromArtStyle(artStyle: string[] | undefined): Required<FoilInset> {
+  const hasExtended = artStyle?.includes('extended-art') ?? false
+  const hasAlternate = artStyle?.includes('alternate-art') ?? false
+  const hasBorder   = artStyle?.includes('alternate-border') ?? false
+  const hasFull     = artStyle?.includes('full-art') ?? false
+
+  if (hasExtended && hasAlternate && hasBorder) return { top: 0,  right: 0, bottom: 30, left: 0, round: '0%' }
+  if (hasExtended && hasAlternate)              return { top: 0,  right: 0, bottom: 26, left: 0, round: '0%' }
+  if (hasFull)                                  return { top: 1,  right: 2, bottom: 20, left: 2, round: '8px' }
+  if (hasBorder)                                return { top: 1,  right: 4, bottom: 20, left: 4, round: '12px' }
+  if (hasAlternate)                             return { top: 1,  right: 4, bottom: 23, left: 4, round: '10px' }
+  if (hasExtended)                              return { top: 1,  right: 0, bottom: 18, left: 0, round: '0%' }
+  return                                               { top: 3,  right: 5, bottom: 38, left: 5, round: '1.5%' }
+}
+
 export default function FoilCardImage({
   foiling,
   artStyle,
+  foilInset,
   src,
   alt,
   className,
@@ -74,9 +108,11 @@ export default function FoilCardImage({
   onError,
   expandable = false,
 }: FoilCardImageProps) {
+
   const foilingUpper = foiling?.toUpperCase()
   const isFoilCard  = foilingUpper === 'R' || foilingUpper === 'C'
-  const foilRarity  = foilingUpper === 'R' ? 'rainbow foil' : 'cold foil'
+  const isRainbowFoil = foilingUpper === 'R'
+  const foilRarity  = isRainbowFoil ? 'rainbow foil' : 'cold foil'
 
   const cardRef     = useRef<HTMLDivElement>(null)
   const rafRef      = useRef<number | null>(null)
@@ -91,6 +127,30 @@ export default function FoilCardImage({
     bgX:    makeSpring(50),
     bgY:    makeSpring(50),
   })
+
+  // Resolve foil inset: prefer DB values, fall back to artStyle-derived defaults
+  const resolvedInset = isRainbowFoil
+    ? (foilInset != null
+        ? {
+            top:   foilInset.top    ?? getInsetFromArtStyle(artStyle).top,
+            right: foilInset.right  ?? getInsetFromArtStyle(artStyle).right,
+            bottom:foilInset.bottom ?? getInsetFromArtStyle(artStyle).bottom,
+            left:  foilInset.left   ?? getInsetFromArtStyle(artStyle).left,
+            round: foilInset.round  ?? getInsetFromArtStyle(artStyle).round,
+          }
+        : getInsetFromArtStyle(artStyle))
+    : null
+
+  // CSS custom properties for the foil clip-path (written to the card element style)
+  const foilInsetVars: React.CSSProperties = resolvedInset
+    ? {
+        ['--foil-inset-top' as string]:    `${resolvedInset.top}%`,
+        ['--foil-inset-right' as string]:  `${resolvedInset.right}%`,
+        ['--foil-inset-bottom' as string]: `${resolvedInset.bottom}%`,
+        ['--foil-inset-left' as string]:   `${resolvedInset.left}%`,
+        ['--foil-inset-round' as string]:  resolvedInset.round,
+      }
+    : {}
 
   // ─── Popover / flip state ──────────────────────────────────────────────
   const [active, setActive] = useState(false)
@@ -382,8 +442,7 @@ export default function FoilCardImage({
         ref={cardRef}
         className={cn("card", expandable && "cursor-pointer", className)}
         data-rarity={isFoilCard ? foilRarity : undefined}
-        data-art={artStyle ?? undefined}
-        style={style}
+        style={{ ...foilInsetVars, ...style }}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
         onClick={handleCardClick}
@@ -401,7 +460,7 @@ export default function FoilCardImage({
             ref={portalRef}
             className={cn("card card-popover-active")}
             data-rarity={isFoilCard ? foilRarity : undefined}
-            data-art={artStyle ?? undefined}
+            style={foilInsetVars}
             data-active
             onClick={e => e.stopPropagation()}
             onPointerMove={handlePointerMove}

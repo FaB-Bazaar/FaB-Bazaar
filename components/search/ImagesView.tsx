@@ -55,7 +55,15 @@ export function ImagesView({
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+
+
       {printings.map((printing: any) => {
+  console.log('--- PRINTING START ---');
+  console.log(JSON.stringify(printing, null, 2)); // Prettify the JSON
+  console.log('--- PRINTING END ---');
+
+        console.log('DEBUG printing:', printing)
+        
         const isSelected = selectionEnabled && isCardSelected(printing.printing_id);
         const quantity = selectionEnabled ? getCardQuantity(printing.printing_id) : 1;
 
@@ -104,9 +112,22 @@ export function ImagesView({
                 }`}
               >
                   {printing.image_url ? (
+                    
                     <FoilCardImage
                       foiling={printing.foiling}
-                      artStyle={printing.art_variations?.includes('FA') ? 'full-art' : printing.is_extended_art ? 'extended-art' : undefined}
+                      artStyle={[
+                        printing.is_extended_art && 'extended-art',
+                        (printing.art_variations?.includes('AA') || printing.art_variations?.includes('AB')) && 'alternate-art',
+                        printing.art_variations?.includes('AB') && 'alternate-border',
+                        printing.art_variations?.includes('FA') && 'full-art',
+                      ].filter((s): s is string => Boolean(s))}
+                      foilInset={printing.foil_inset_bottom != null ? {
+                        top: printing.foil_inset_top,
+                        right: printing.foil_inset_right,
+                        bottom: printing.foil_inset_bottom,
+                        left: printing.foil_inset_left,
+                        round: printing.foil_inset_round,
+                      } : null}
                       src={printing.image_url}
                       alt={printing.display_name || printing.name}
                       className="w-full h-full"

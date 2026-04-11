@@ -430,6 +430,15 @@ export const printings = pgTable('printings', {
   expansionSlot: boolean('expansion_slot').default(false).notNull(),
   contentHash: text('content_hash'),
 
+  // Foil mask (rainbow foil clip-path, data-driven — overrides artStyle fallback)
+  // Values are percentages (0–100). NULL = use artStyle-derived defaults.
+  foilInsetTop: real('foil_inset_top'),
+  foilInsetRight: real('foil_inset_right'),
+  foilInsetBottom: real('foil_inset_bottom'),
+  foilInsetLeft: real('foil_inset_left'),
+  // border-radius portion of inset(), e.g. "1.5%", "0%", "8px". NULL = "1.5%"
+  foilInsetRound: text('foil_inset_round'),
+
   // Double-faced card linking
   otherFacePrintingId: text('other_face_printing_id'),
   isFrontFace: boolean('is_front_face').default(true).notNull(),

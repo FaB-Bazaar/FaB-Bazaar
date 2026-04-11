@@ -279,6 +279,12 @@ export interface InventoryCardDTO {
   foiling: string;
   rarity: string;
   is_extended_art: boolean;
+  art_variations: string[];
+  foil_inset_top: number | null;
+  foil_inset_right: number | null;
+  foil_inset_bottom: number | null;
+  foil_inset_left: number | null;
+  foil_inset_round: string | null;
   type_text: string;
   type_text_display: string;
   image_url: string;

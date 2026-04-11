@@ -171,7 +171,19 @@ export default function EnhancedBinderCard({
       <div className="relative w-full h-[200px] sm:h-[280px] bg-gray-50 dark:bg-gray-800 overflow-hidden flex items-center justify-center p-2">
         <FoilCardImage
           foiling={foiling}
-          artStyle={card.art_variations?.includes('FA') ? 'full-art' : card.is_extended_art ? 'extended-art' : undefined}
+          artStyle={[
+            card.is_extended_art && 'extended-art',
+            (card.art_variations?.includes('AA') || card.art_variations?.includes('AB')) && 'alternate-art',
+            card.art_variations?.includes('AB') && 'alternate-border',
+            card.art_variations?.includes('FA') && 'full-art',
+          ].filter((s): s is string => Boolean(s))}
+          foilInset={card.foil_inset_bottom != null ? {
+            top: card.foil_inset_top,
+            right: card.foil_inset_right,
+            bottom: card.foil_inset_bottom,
+            left: card.foil_inset_left,
+            round: card.foil_inset_round,
+          } : null}
           src={getImageUrl()}
           alt={display_name}
           className={cn(

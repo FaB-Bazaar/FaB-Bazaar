@@ -295,34 +295,28 @@
   mix-blend-mode: overlay;
 }
 
-/* ─── Rainbow Foil — Extended Art variant ───────────────────────────────── */
+/* ==========================================================================
+   RAINBOW FOIL - DATA-DRIVEN CLIP PATH
+   ========================================================================== */
+
 /*
-  EA cards have art that goes edge-to-edge horizontally and extends slightly
-  lower than a standard card's art panel. Reduce side insets from 5% → 1%
-  (art reaches the card edge) and bottom inset from 43% → 33% (taller panel).
-  Triggered by data-art="extended-art" on the .card wrapper.
+  The clip-path is driven by CSS custom properties set on the card element.
+  JS sets --foil-inset-* vars from DB-stored values (foil_inset_top/right/bottom/left/round).
+  When no DB value exists, JS falls back to art-style-derived values.
+  All data-attribute override rules have been removed in favour of this single declaration.
 */
 
-.card[data-rarity="rainbow foil"][data-art="extended-art"] .card__shine,
-.card[data-rarity="rainbow foil"][data-art="extended-art"] .card__shine::before,
-.card[data-rarity="rainbow foil"][data-art="extended-art"] .card__shine::after {
-  clip-path: inset(1% 0% 24% 0% round 0%);
+.card[data-rarity="rainbow foil"] .card__shine,
+.card[data-rarity="rainbow foil"] .card__shine::before,
+.card[data-rarity="rainbow foil"] .card__shine::after {
+  clip-path: inset(
+    var(--foil-inset-top,    3%)
+    var(--foil-inset-right,  5%)
+    var(--foil-inset-bottom, 38%)
+    var(--foil-inset-left,   5%)
+    round var(--foil-inset-round, 1.5%)
+  );
 }
-
-/* ─── Rainbow Foil — Full Art variant ───────────────────────────────────── */
-/*
-  Full Art cards have the artwork covering ~88% of the card face, with only a
-  thin stats strip at the bottom. Override the clip-path on all three shine
-  pseudo-elements so the effect covers the taller art area.
-  Triggered by data-art="full-art" on the .card wrapper.
-*/
-
-.card[data-rarity="rainbow foil"][data-art="full-art"] .card__shine,
-.card[data-rarity="rainbow foil"][data-art="full-art"] .card__shine::before,
-.card[data-rarity="rainbow foil"][data-art="full-art"] .card__shine::after {
-  clip-path: inset(2% 3% 10% 3% round 1%);
-}
-
 /* ─── Cold Foil ──────────────────────────────────────────────────────────── */
 /*
   Cool-toned iridescent foil across the full card (no clip).
