@@ -16,7 +16,7 @@ import { db } from '@/lib/postgres/db';
 import { printings, cards } from '@/lib/postgres/schema';
 import { getRedisClient } from '@/lib/redis';
 
-const CACHE_KEY = 'browse:all_printings:v2';
+const CACHE_KEY = 'browse:all_printings:v3';
 const CACHE_TTL_SECONDS = 3600; // 1 hour
 
 export async function GET() {
@@ -60,7 +60,7 @@ export async function GET() {
         defense:  cards.defense,
         keywords: cards.keywords,
 
-        // Filtering — class boolean flags (cards table)
+        // Filtering — class/type boolean flags (cards table)
         is_generic:      cards.isGeneric,
         is_guardian:     cards.isGuardian,
         is_warrior:      cards.isWarrior,
@@ -71,6 +71,7 @@ export async function GET() {
         is_runeblade:    cards.isRuneblade,
         is_necromancer:  cards.isNecromancer,
         is_mechanologist:cards.isMechanologist,
+        is_weapon:       cards.isWeapon,
 
         // Printing display (printings table)
         image_url:        printings.imageUrl,

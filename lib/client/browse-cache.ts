@@ -27,7 +27,7 @@ export interface BrowsePrinting {
   defense: number | null;
   keywords: string[] | null;
 
-  // Class flags
+  // Class/type flags
   is_generic: boolean;
   is_guardian: boolean;
   is_warrior: boolean;
@@ -38,6 +38,7 @@ export interface BrowsePrinting {
   is_runeblade: boolean;
   is_necromancer: boolean;
   is_mechanologist: boolean;
+  is_weapon: boolean;
 
   // Printing attributes
   set: string;
@@ -98,7 +99,11 @@ export async function getAllPrintings(): Promise<BrowsePrinting[]> {
       return r.json();
     })
     .then((data: { success: boolean; data: { printings: BrowsePrinting[] } }) => {
-      cache = data.data.printings;
+      cache = data.data.printings.map(p => ({
+        ...p,
+        image_url: p.image_url?.replace(/^http:\/\//i, 'https://') ?? null,
+        tcgplayer_url: p.tcgplayer_url?.replace(/^http:\/\//i, 'https://') ?? null,
+      }));
       inflight = null;
       return cache;
     })
@@ -130,8 +135,13 @@ export function filterPrintings(
 
     // Type filter (e.g. chip value 'attack' → types includes 'attack')
     if (filters.types?.length) {
-      const t = p.types ?? [];
-      if (!filters.types.some(ft => t.includes(ft))) return false;
+      const t = (p.types ?? []).map(v => v.toLowerCase());
+      const passes = filters.types.some(ft => {
+        // Use the dedicated boolean flag for weapon as the reliable source
+        if (ft === 'weapon') return p.is_weapon === true || t.includes('weapon');
+        return t.includes(ft.toLowerCase());
+      });
+      if (!passes) return false;
       // Special case: 'non-attack-action' chip excludes attacks
       if (filters.types.includes('action') && t.includes('attack')) return false;
     }

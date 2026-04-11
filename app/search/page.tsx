@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useDebounce } from 'use-debounce';
+import { useInView } from 'react-intersection-observer';
 import { Search, X, ChevronDown, ChevronUp, SlidersHorizontal, List, Images, Heart, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
@@ -98,6 +100,7 @@ export default function SearchPage() {
   // ── Filter state ──
   const [query, setQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
@@ -115,32 +118,43 @@ export default function SearchPage() {
   // ── Data + UI state ──
   const [allPrintings, setAllPrintings] = useState<BrowsePrinting[]>([]);
   const [loading, setLoading] = useState(true); // true until initial catalog load completes
+  const [catalogError, setCatalogError] = useState(false);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
 
+  const [debouncedQuery] = useDebounce(query, 250);
+  const [displayLimit, setDisplayLimit] = useState(60);
+  const { ref: sentinelRef, inView } = useInView({ threshold: 0 });
+
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
 
   // ── Load full card catalog once on mount ──────────────────────────────────────
-  useEffect(() => {
+  const loadCatalog = () => {
+    setCatalogError(false);
     setLoading(true);
     getAllPrintings()
       .then(data => { setAllPrintings(data); setLoading(false); })
-      .catch(() => setLoading(false));
-    // Also fire prefetch in case the module singleton isn't populated yet
+      .catch(() => { setLoading(false); setCatalogError(true); });
+  };
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    loadCatalog();
     prefetchAllPrintings();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Derived filter object + results ──────────────────────────────────────────
   // Require at least 2 characters before using query as a filter (single char scans full catalog for minimal value)
-  const effectiveQuery = query.trim().length >= 2 ? query.trim() : '';
+  // Debounced so rapid typing doesn't re-run the filter on every keystroke
+  const effectiveQuery = debouncedQuery.trim().length >= 2 ? debouncedQuery.trim() : '';
 
   const hasAnyFilter = !!(
-    selectedType || selectedPitch !== null || effectiveQuery ||
+    selectedType || selectedClass || selectedPitch !== null || effectiveQuery ||
     selectedKeywords.length || selectedRarities.length || selectedFoilings.length ||
     selectedEditions.length || selectedSets.length ||
     costMin || costMax || powerMin || powerMax || defenseMin || defenseMax || priceMax
@@ -150,13 +164,12 @@ export default function SearchPage() {
     if (!hasAnyFilter || allPrintings.length === 0) return [];
 
     const typeChip = selectedType ? [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType) : null;
-    const isClass = selectedType ? ALL_CLASSES.includes(selectedType as typeof ALL_CLASSES[number]) : false;
 
     const filters: BrowseFilters = {};
-    if (effectiveQuery)            filters.name     = effectiveQuery;
-    if (typeChip)                  filters.types    = [typeChip.apiType];
-    if (isClass && selectedType)   filters.classFlag = `is_${selectedType}` as keyof BrowsePrinting;
-    if (selectedPitch !== null)    filters.pitch    = selectedPitch;
+    if (effectiveQuery)   filters.name      = effectiveQuery;
+    if (typeChip)         filters.types     = [typeChip.apiType];
+    if (selectedClass)    filters.classFlag = `is_${selectedClass}` as keyof BrowsePrinting;
+    if (selectedPitch !== null) filters.pitch = selectedPitch;
     if (selectedKeywords.length)   filters.keywords = selectedKeywords;
     if (selectedRarities.length)   filters.rarities = selectedRarities;
     if (selectedFoilings.length)   filters.foilings = selectedFoilings;
@@ -171,13 +184,23 @@ export default function SearchPage() {
     if (priceMax)   filters.priceMax   = parseFloat(priceMax);
 
     return sortPrintings(filterPrintings(allPrintings, filters), sortBy, sortOrder as 'asc' | 'desc');
-  }, [allPrintings, hasAnyFilter, effectiveQuery, selectedType, selectedPitch, selectedKeywords,
-      selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+  }, [allPrintings, hasAnyFilter, effectiveQuery, selectedType, selectedClass, selectedPitch,
+      selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
       sortBy, sortOrder]);
 
+  // Reset to first page whenever the filtered result set changes
+  useEffect(() => { setDisplayLimit(60); }, [displayedPrintings]);
+
+  // Load next page when the sentinel scrolls into view
+  useEffect(() => {
+    if (inView && displayLimit < displayedPrintings.length) {
+      setDisplayLimit(l => l + 60);
+    }
+  }, [inView, displayLimit, displayedPrintings.length]);
+
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedClass(null); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -187,6 +210,8 @@ export default function SearchPage() {
 
   const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
+
+  const visiblePrintings = displayedPrintings.slice(0, displayLimit);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -286,9 +311,9 @@ export default function SearchPage() {
                     label={cls}
                     iconUrl={icon?.iconUrl}
                     iconPosition={icon?.iconPosition}
-                    active={selectedType === cls}
+                    active={selectedClass === cls}
                     activeClass="bg-indigo-900/50 border-indigo-600"
-                    onClick={() => setSelectedType(t => t === cls ? null : cls)}
+                    onClick={() => setSelectedClass(c => c === cls ? null : cls)}
                   />
                 );
               })}
@@ -482,9 +507,9 @@ export default function SearchPage() {
 
           <span className="text-sm text-gray-400 font-medium">
             {loading ? (
-              <span className="text-gray-400 animate-pulse">
-                {allPrintings.length === 0 ? 'Loading card catalog…' : 'Filtering…'}
-              </span>
+              <span className="text-gray-400 animate-pulse">Loading card catalog…</span>
+            ) : catalogError ? (
+              <span className="text-red-400">Catalog failed to load</span>
             ) : hasAnyFilter ? (
               <>{displayedPrintings.length.toLocaleString()} printings</>
             ) : allPrintings.length > 0 ? (
@@ -588,31 +613,51 @@ export default function SearchPage() {
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
-          {loading && allPrintings.length === 0 ? (
+          {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
               <p className="text-sm">Loading card catalog…</p>
+              {hasAnyFilter && <p className="text-xs mt-1 text-gray-400">Your search will run when ready.</p>}
+            </div>
+          ) : catalogError ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+              <Search className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm">Failed to load card catalog.</p>
+              <button
+                onClick={loadCatalog}
+                className="mt-3 text-xs text-blue-500 hover:text-blue-400 underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+              >
+                Try again
+              </button>
             </div>
           ) : displayedPrintings.length > 0 ? (
-            viewMode === 'checklist' ? (
-              <ChecklistView
-                printings={displayedPrintings}
-                onToggleSelection={selection.toggleCardSelection}
-                isCardSelected={selection.isCardSelected}
-                getCardQuantity={selection.getCardQuantity}
-                onUpdateQuantity={selection.updateQuantity}
-                onSelectAll={() => selection.selectAll(displayedPrintings)}
-                onDeselectAll={() => selection.deselectAll(displayedPrintings)}
-              />
-            ) : (
-              <ImagesView
-                printings={displayedPrintings}
-                onToggleSelection={selection.toggleCardSelection}
-                isCardSelected={selection.isCardSelected}
-                getCardQuantity={selection.getCardQuantity}
-                onUpdateQuantity={selection.updateQuantity}
-              />
-            )
+            <>
+              {viewMode === 'checklist' ? (
+                <ChecklistView
+                  printings={visiblePrintings}
+                  onToggleSelection={selection.toggleCardSelection}
+                  isCardSelected={selection.isCardSelected}
+                  getCardQuantity={selection.getCardQuantity}
+                  onUpdateQuantity={selection.updateQuantity}
+                  onSelectAll={() => selection.selectAll(displayedPrintings)}
+                  onDeselectAll={() => selection.deselectAll(displayedPrintings)}
+                />
+              ) : (
+                <ImagesView
+                  printings={visiblePrintings}
+                  onToggleSelection={selection.toggleCardSelection}
+                  isCardSelected={selection.isCardSelected}
+                  getCardQuantity={selection.getCardQuantity}
+                  onUpdateQuantity={selection.updateQuantity}
+                />
+              )}
+              {/* Infinite scroll sentinel — triggers next page load when scrolled into view */}
+              {displayLimit < displayedPrintings.length && (
+                <div ref={sentinelRef} className="flex items-center justify-center py-6">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </>
           ) : hasAnyFilter ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
               <Search className="w-10 h-10 mb-3 opacity-30" />
