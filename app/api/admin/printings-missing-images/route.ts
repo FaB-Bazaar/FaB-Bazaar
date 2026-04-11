@@ -59,6 +59,9 @@ export async function GET(request: NextRequest) {
         foilInsetLeft: printings.foilInsetLeft,
         foilInsetRound: printings.foilInsetRound,
         foilInsetLocked: printings.foilInsetLocked,
+        tcgplayerProductId: printings.tcgplayerProductId,
+        tcgplayerUrl: printings.tcgplayerUrl,
+        tcgplayerSubtypeName: printings.tcgplayerSubtypeName,
       })
       .from(printings)
       .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))

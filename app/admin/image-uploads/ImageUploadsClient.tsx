@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Upload, CheckCircle, XCircle, Loader2, ImageOff, ChevronLeft, ChevronRight, Sparkles, X, RefreshCw, Lock, LockOpen } from 'lucide-react';
+import { Search, Upload, CheckCircle, XCircle, Loader2, ImageOff, ChevronLeft, ChevronRight, Sparkles, X, RefreshCw, Lock, LockOpen, Link } from 'lucide-react';
 import { SET_MAP, FOILING_MAP, RARITY_MAP, EDITION_MAP } from '@/lib/fab-constants';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 
@@ -52,6 +52,9 @@ interface PrintingRow {
   foilInsetLeft: number | null;
   foilInsetRound: string | null;
   foilInsetLocked: boolean;
+  tcgplayerProductId: string | null;
+  tcgplayerUrl: string | null;
+  tcgplayerSubtypeName: string | null;
 }
 
 interface FoilMaskValues {
@@ -375,6 +378,146 @@ function FoilMaskEditor({
   );
 }
 
+const SUBTYPE_OPTIONS = [
+  { value: '', label: '— None —' },
+  { value: 'Rainbow Foil', label: 'Rainbow Foil' },
+  { value: 'Cold Foil', label: 'Cold Foil' },
+];
+
+function TcgplayerEditor({
+  row,
+  onClose,
+  onSaved,
+}: {
+  row: PrintingRow;
+  onClose: () => void;
+  onSaved: (values: { tcgplayerProductId: string | null; tcgplayerUrl: string | null; tcgplayerSubtypeName: string | null }) => void;
+}) {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [productId, setProductId] = useState(row.tcgplayerProductId ?? '');
+  const [url, setUrl] = useState(row.tcgplayerUrl ?? '');
+  const [subtype, setSubtype] = useState(row.tcgplayerSubtypeName ?? '');
+
+  // Auto-fill product ID from URL when URL is pasted
+  function handleUrlChange(val: string) {
+    setUrl(val);
+    const match = val.match(/tcgplayer\.com\/product\/(\d+)/);
+    if (match) setProductId(match[1]);
+  }
+
+  async function handleSave() {
+    if (!productId && !url && !subtype) {
+      toast({ title: 'Nothing to save', description: 'Enter at least one field.', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      // Strip query params from URL before saving
+      let cleanUrl: string | null = null;
+      if (url.trim()) {
+        try {
+          const u = new URL(url.trim());
+          cleanUrl = `${u.origin}${u.pathname}`;
+        } catch {
+          cleanUrl = url.trim();
+        }
+      }
+
+      const res = await fetch(`/api/admin/printings/${encodeURIComponent(row.printingId)}/tcgplayer`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tcgplayerProductId: productId.trim() || null,
+          tcgplayerUrl: cleanUrl,
+          tcgplayerSubtypeName: subtype || null,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Save failed');
+      toast({ title: 'Saved', description: `TCGplayer data updated for ${row.name}` });
+      onSaved({
+        tcgplayerProductId: productId.trim() || null,
+        tcgplayerUrl: cleanUrl,
+        tcgplayerSubtypeName: subtype || null,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Save failed';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 bg-background border rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div>
+          <p className="text-sm font-semibold">{row.name}</p>
+          <p className="text-xs text-muted-foreground font-mono">{row.printingId}</p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-sm text-muted-foreground">TCGplayer URL</label>
+            <Input
+              value={url}
+              onChange={e => handleUrlChange(e.target.value)}
+              placeholder="https://www.tcgplayer.com/product/..."
+              className="text-sm font-mono"
+            />
+            <p className="text-[10px] text-muted-foreground">Paste the full URL — query params will be stripped automatically and the product ID filled in.</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm text-muted-foreground">Product ID</label>
+            <Input
+              value={productId}
+              onChange={e => setProductId(e.target.value.replace(/\D/g, ''))}
+              placeholder="e.g. 657480"
+              className="text-sm font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm text-muted-foreground">Foil type (subtype name)</label>
+            <select
+              className={selectClass}
+              value={subtype}
+              onChange={e => setSubtype(e.target.value)}
+            >
+              {SUBTYPE_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
+            {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+            Save
+          </Button>
+          <Button size="sm" variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
 
 interface CardUploadState {
@@ -396,6 +539,7 @@ export function ImageUploadsClient() {
   const [uploadStates, setUploadStates] = useState<Record<string, CardUploadState>>({});
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const [maskEditorRow, setMaskEditorRow] = useState<PrintingRow | null>(null);
+  const [tcgEditorRow, setTcgEditorRow] = useState<PrintingRow | null>(null);
   const [bustingCache, setBustingCache] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadId = useRef<string | null>(null);
@@ -689,6 +833,18 @@ export function ImageUploadsClient() {
                     {row.foilInsetBottom != null ? 'Edit mask' : 'Set mask'}
                   </Button>
                 )}
+
+                {/* TCGplayer button */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 text-xs w-full ${row.tcgplayerProductId ? 'border-emerald-500/40 text-emerald-600 hover:text-emerald-500 hover:border-emerald-500' : 'border-muted-foreground/30 text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setTcgEditorRow(row)}
+                  title={row.tcgplayerProductId ? `TCGplayer #${row.tcgplayerProductId}` : 'No TCGplayer link set'}
+                >
+                  <Link className="h-3 w-3 mr-1" />
+                  {row.tcgplayerProductId ? 'Edit TCG' : 'Set TCG'}
+                </Button>
               </div>
             );
           })}
@@ -739,6 +895,22 @@ export function ImageUploadsClient() {
                 : r
             ));
             setMaskEditorRow(null);
+          }}
+        />
+      )}
+
+      {/* TCGplayer editor modal */}
+      {tcgEditorRow && (
+        <TcgplayerEditor
+          row={tcgEditorRow}
+          onClose={() => setTcgEditorRow(null)}
+          onSaved={(values) => {
+            setRows(prev => prev.map(r =>
+              r.printingId === tcgEditorRow.printingId
+                ? { ...r, ...values }
+                : r
+            ));
+            setTcgEditorRow(null);
           }}
         />
       )}
