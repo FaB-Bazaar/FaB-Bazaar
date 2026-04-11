@@ -5,6 +5,6 @@
 
 ALTER TABLE decks ADD COLUMN IF NOT EXISTS event_name text;
 ALTER TABLE decks ADD COLUMN IF NOT EXISTS event_date date;
-ALTER TABLE decks ADD COLUMN IF NOT EXISTS placing integer;
+ALTER TABLE decks ADD COLUMN IF NOT EXISTS "placing" integer;
 
 CREATE INDEX IF NOT EXISTS idx_decks_event_date ON decks (event_date) WHERE event_date IS NOT NULL;
