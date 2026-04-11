@@ -296,6 +296,8 @@ export interface PublicDeckFilters {
   /** Filter by event_date month (1–12) and year (e.g. 2026) — only matches decks with an explicit event_date set */
   month?: number;
   year?: number;
+  /** Filter by event name (exact match) */
+  eventName?: string;
 }
 
 /**
@@ -614,6 +616,14 @@ export interface IDeckService {
     publicId: string,
     featured: boolean
   ): AsyncResult<boolean>;
+
+  /**
+   * Get distinct events for featured decks in a given month/year.
+   */
+  getEventSummaries(
+    year: number,
+    month: number
+  ): AsyncResult<{ eventName: string; eventDate: string; format: string; count: number }[]>;
 
   // ====================================
   // Card Management

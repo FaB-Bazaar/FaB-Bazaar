@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 50);
 
+    const eventName = url.searchParams.get('eventName');
+
     const filters = {
       ...(format && { format }),
       ...(heroName && { heroName }),
@@ -27,6 +29,7 @@ export async function GET(request: NextRequest) {
         month: parseInt(monthParam, 10),
         year: parseInt(yearParam, 10),
       }),
+      ...(eventName && { eventName }),
     };
 
     const result = await deckService.listPublicDecks(filters, {

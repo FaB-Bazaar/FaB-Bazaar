@@ -820,6 +820,9 @@ export class PostgresDeckService implements IDeckService {
         const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
         conditions.push(sql`${decks.eventDate} >= ${start} AND ${decks.eventDate} < ${end}`);
       }
+      if (filters?.eventName) {
+        conditions.push(eq(decks.eventName, filters.eventName));
+      }
 
       const whereClause = and(...conditions);
       const needsUserJoin = !!filters?.username;
@@ -975,6 +978,58 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to toggle featured',
+      };
+    }
+  }
+
+  /**
+   * Get distinct events for featured decks in a given month/year,
+   * grouped by format with deck count.
+   */
+  async getEventSummaries(
+    year: number,
+    month: number
+  ): AsyncResult<{ eventName: string; eventDate: string; format: string; count: number }[]> {
+    try {
+      const mm = String(month).padStart(2, '0');
+      const start = `${year}-${mm}-01`;
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+      const rows = await db
+        .select({
+          eventName: decks.eventName,
+          eventDate: decks.eventDate,
+          format: decks.format,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(decks)
+        .where(
+          and(
+            eq(decks.featured, true),
+            eq(decks.visibility, 'public'),
+            sql`${decks.eventDate} >= ${start} AND ${decks.eventDate} < ${end}`,
+            sql`${decks.eventName} IS NOT NULL`
+          )
+        )
+        .groupBy(decks.eventName, decks.eventDate, decks.format)
+        .orderBy(decks.format, decks.eventDate);
+
+      return {
+        success: true,
+        data: rows.map((r) => ({
+          eventName: r.eventName!,
+          eventDate: r.eventDate!,
+          format: r.format!,
+          count: r.count,
+        })),
+      };
+    } catch (error) {
+      console.error('[PostgresDeckService.getEventSummaries] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get event summaries',
       };
     }
   }

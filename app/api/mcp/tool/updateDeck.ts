@@ -15,7 +15,7 @@ export const updateDeckTool = {
   📖 EXAMPLES:
   Rename:      deckName: "Old Name", updates: { name: "New Name" }
   Make public: deckName: "My Deck", updates: { isPublic: true }
-  Add notes:   deckName: "My Deck", updates: { notes: "Tournament deck for Spring 2026" }
+  Add desc:    deckName: "My Deck", updates: { description: "Tournament deck for Spring 2026" }
   Set event:   deckName: "My Deck", updates: { eventName: "Pro Tour Indianapolis", eventDate: "2026-03-15", placing: 1 }`,
 
   parameters: {
@@ -41,9 +41,9 @@ export const updateDeckTool = {
             type: 'boolean',
             description: 'Whether the deck is publicly visible'
           },
-          notes: {
+          description: {
             type: 'string',
-            description: 'Freeform notes about the deck'
+            description: 'Deck description shown on the deck card (max 500 chars)'
           },
           eventName: {
             type: 'string',
