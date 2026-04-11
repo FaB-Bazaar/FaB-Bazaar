@@ -35,6 +35,9 @@ interface DeckSettingsProps {
     isPublic: boolean;
     availableOnTalishar?: boolean;
     metafyGuideId?: string | null;
+    eventName?: string | null;
+    eventDate?: string | null;
+    placing?: number | null;
   };
   onSave: (settings: {
     name: string;
@@ -45,6 +48,9 @@ interface DeckSettingsProps {
     isPublic: boolean;
     availableOnTalishar: boolean;
     metafyGuideId: string | null;
+    eventName: string | null;
+    eventDate: string | null;
+    placing: number | null;
   }) => Promise<void>;
   loading?: boolean;
   open?: boolean;
@@ -65,6 +71,9 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [visibility, setVisibility] = useState<'private' | 'unlisted' | 'public'>(deck.visibility || 'unlisted');
   const [availableOnTalishar, setAvailableOnTalishar] = useState(deck.availableOnTalishar ?? false);
   const [metafyGuideId, setMetafyGuideId] = useState(deck.metafyGuideId || "");
+  const [eventName, setEventName] = useState(deck.eventName ?? "");
+  const [eventDate, setEventDate] = useState(deck.eventDate ?? "");
+  const [placing, setPlacing] = useState(deck.placing != null ? String(deck.placing) : "");
   const [saving, setSaving] = useState(false);
   const [featuredLocal, setFeaturedLocal] = useState(featuredProp ?? false);
   const [matchupsOpen, setMatchupsOpen] = useState(false);
@@ -99,7 +108,10 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     format !== deck.format ||
     visibility !== (deck.visibility || 'unlisted') ||
     availableOnTalishar !== (deck.availableOnTalishar ?? false) ||
-    metafyGuideId !== (deck.metafyGuideId || "");
+    metafyGuideId !== (deck.metafyGuideId || "") ||
+    eventName !== (deck.eventName ?? "") ||
+    eventDate !== (deck.eventDate ?? "") ||
+    placing !== (deck.placing != null ? String(deck.placing) : "");
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -115,6 +127,9 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         isPublic: visibility !== 'private',
         availableOnTalishar,
         metafyGuideId: metafyGuideId.trim() || null,
+        eventName: eventName.trim() || null,
+        eventDate: eventDate || null,
+        placing: placing ? parseInt(placing, 10) : null,
       });
     } catch (error) {
       console.error('Failed to save deck settings:', error);
@@ -130,6 +145,9 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     setVisibility(deck.visibility || 'unlisted');
     setAvailableOnTalishar(deck.availableOnTalishar ?? false);
     setMetafyGuideId(deck.metafyGuideId || "");
+    setEventName(deck.eventName ?? "");
+    setEventDate(deck.eventDate ?? "");
+    setPlacing(deck.placing != null ? String(deck.placing) : "");
   };
 
   // Fetch co-owners
@@ -399,6 +417,45 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
               <Star className="h-3 w-3 text-amber-500" />
             </span>
           </button>
+        </div>
+      )}
+
+      {/* Event metadata (curator-only) */}
+      {isCurator && (
+        <div className="space-y-3 pt-3 border-t">
+          <Label className="text-sm font-medium">Event Details</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="event-name" className="text-xs text-muted-foreground">Event Name</Label>
+            <Input
+              id="event-name"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              placeholder="e.g. Pro Tour Indianapolis"
+              maxLength={200}
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="space-y-1.5 flex-1">
+              <Label htmlFor="event-date" className="text-xs text-muted-foreground">Event Date</Label>
+              <Input
+                id="event-date"
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5 w-24">
+              <Label htmlFor="placing" className="text-xs text-muted-foreground">Placing</Label>
+              <Input
+                id="placing"
+                type="number"
+                min={1}
+                value={placing}
+                onChange={(e) => setPlacing(e.target.value)}
+                placeholder="1"
+              />
+            </div>
+          </div>
         </div>
       )}
 

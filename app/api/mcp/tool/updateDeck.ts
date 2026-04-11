@@ -15,7 +15,8 @@ export const updateDeckTool = {
   📖 EXAMPLES:
   Rename:      deckName: "Old Name", updates: { name: "New Name" }
   Make public: deckName: "My Deck", updates: { isPublic: true }
-  Add notes:   deckName: "My Deck", updates: { notes: "Tournament deck for Spring 2026" }`,
+  Add notes:   deckName: "My Deck", updates: { notes: "Tournament deck for Spring 2026" }
+  Set event:   deckName: "My Deck", updates: { eventName: "Pro Tour Indianapolis", eventDate: "2026-03-15", placing: 1 }`,
 
   parameters: {
     type: 'object',
@@ -43,6 +44,18 @@ export const updateDeckTool = {
           notes: {
             type: 'string',
             description: 'Freeform notes about the deck'
+          },
+          eventName: {
+            type: 'string',
+            description: 'Tournament/event name (e.g. "Pro Tour Indianapolis", "Battle Hardened Sydney")'
+          },
+          eventDate: {
+            type: 'string',
+            description: 'Event date in ISO format (YYYY-MM-DD). Drives the Decks to Beat month filter.'
+          },
+          placing: {
+            type: 'number',
+            description: 'Finishing position at the event (1 = 1st place, 2 = 2nd, etc.)'
           }
         }
       }

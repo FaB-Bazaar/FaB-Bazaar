@@ -176,6 +176,9 @@ export default function DeckEditorPage() {
     isPublic: boolean;
     availableOnTalishar: boolean;
     metafyGuideId: string | null;
+    eventName: string | null;
+    eventDate: string | null;
+    placing: number | null;
   }) => {
     setSettingsSaving(true);
     try {
@@ -187,6 +190,9 @@ export default function DeckEditorPage() {
         visibility: settings.visibility,
         availableOnTalishar: settings.availableOnTalishar,
         metafyGuideId: settings.metafyGuideId,
+        eventName: settings.eventName,
+        eventDate: settings.eventDate,
+        placing: settings.placing,
       } as any);
       if (!result.success) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -1866,6 +1872,9 @@ export default function DeckEditorPage() {
             isPublic: state.deck.visibility === 'public',
             availableOnTalishar: state.deck.availableOnTalishar,
             metafyGuideId: state.deck.metafyGuideId,
+            eventName: state.deck.eventName,
+            eventDate: state.deck.eventDate,
+            placing: state.deck.placing,
           }}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
