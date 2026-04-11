@@ -43,6 +43,8 @@ interface PrintingRow {
   rarity: string;
   collectorNumber: string | null;
   pitch: number | null;
+  isExtendedArt: boolean;
+  artVariations: string[] | null;
   foilInsetTop: number | null;
   foilInsetRight: number | null;
   foilInsetBottom: number | null;
@@ -72,6 +74,7 @@ function FoilMaskEditor({
 }) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [bulkApplying, setBulkApplying] = useState(false);
   const [mask, setMask] = useState<FoilMaskValues>(() => ({
     top:    row.foilInsetTop    ?? DEFAULT_MASK.top,
     right:  row.foilInsetRight  ?? DEFAULT_MASK.right,
@@ -82,6 +85,45 @@ function FoilMaskEditor({
 
   const clipPath = `inset(${mask.top}% ${mask.right}% ${mask.bottom}% ${mask.left}% round ${mask.round})`;
   const imgSrc = `${CF_BASE_URL}/${row.printingId}/public`;
+
+  // Build a human-readable description of what the bulk apply will match
+  const bulkLabel = (() => {
+    const setUpper = row.set.toUpperCase();
+    const foilName = row.foiling === 'r' ? 'Rainbow Foil' : row.foiling === 'c' ? 'Cold Foil' : row.foiling.toUpperCase();
+    const variants = [
+      row.isExtendedArt && 'EA',
+      ...(row.artVariations?.filter(v => v !== 'EA') ?? []),
+    ].filter(Boolean).join(' + ');
+    return `${setUpper} · ${foilName}${variants ? ` · ${variants}` : ''}`;
+  })();
+
+  async function handleBulkApply(overwrite = false) {
+    setBulkApplying(true);
+    try {
+      const res = await fetch('/api/admin/foil-mask/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          set: row.set,
+          foiling: row.foiling,
+          isExtendedArt: row.isExtendedArt,
+          artVariations: row.artVariations ?? [],
+          overwrite,
+          top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Bulk apply failed');
+      const verb = overwrite ? 'Overwritten' : 'Applied';
+      toast({ title: verb, description: `Updated ${json.updated} printings matching ${bulkLabel}` });
+      fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Bulk apply failed';
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
+    } finally {
+      setBulkApplying(false);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -94,7 +136,6 @@ function FoilMaskEditor({
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Save failed');
       toast({ title: 'Saved', description: `Foil mask updated for ${row.name}` });
-      // Bust the browse cache so search picks up the new inset values immediately
       fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
       onSaved(mask);
     } catch (err) {
@@ -202,12 +243,38 @@ function FoilMaskEditor({
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
+            <Button size="sm" onClick={handleSave} disabled={saving || bulkApplying} className="flex-1">
               {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
               Save mask
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setMask(DEFAULT_MASK)}>
+            <Button size="sm" variant="outline" onClick={() => setMask(DEFAULT_MASK)} disabled={saving || bulkApplying}>
               Reset
+            </Button>
+          </div>
+
+          <div className="pt-1 border-t border-border space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Bulk apply to all <span className="font-semibold text-foreground">{bulkLabel}</span> printings with exactly matching art variations.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full border-yellow-500/40 text-yellow-600 hover:text-yellow-500 hover:border-yellow-500"
+              onClick={() => handleBulkApply(false)}
+              disabled={saving || bulkApplying}
+            >
+              {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
+              Apply to unset cards
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full border-orange-500/40 text-orange-600 hover:text-orange-500 hover:border-orange-500"
+              onClick={() => handleBulkApply(true)}
+              disabled={saving || bulkApplying}
+            >
+              {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
+              Overwrite all (including existing masks)
             </Button>
           </div>
         </div>

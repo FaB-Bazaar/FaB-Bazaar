@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
         rarity: printings.rarity,
         collectorNumber: printings.collectorNumber,
         pitch: cards.pitch,
+        isExtendedArt: printings.isExtendedArt,
+        artVariations: printings.artVariations,
         foilInsetTop: printings.foilInsetTop,
         foilInsetRight: printings.foilInsetRight,
         foilInsetBottom: printings.foilInsetBottom,
