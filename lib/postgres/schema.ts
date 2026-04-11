@@ -9,6 +9,7 @@ import {
   pgTable,
   text,
   timestamp,
+  date,
   boolean,
   integer,
   real,
@@ -547,6 +548,11 @@ export const decks = pgTable('decks', {
 
   // Featured flag for "Decks to Beat" section (curators/superadmins can toggle)
   featured: boolean('featured').notNull().default(false),
+
+  // Event metadata (optional — drives the to-beat month filter, distinct from updatedAt)
+  eventName: text('event_name'),
+  eventDate: date('event_date'),
+  placing: integer('placing'),
 
   // Optional metadata
   tags: text('tags').array(),

@@ -198,6 +198,9 @@ export class PostgresDeckService implements IDeckService {
       tags: deckRow.tags || undefined,
       metadata: deckRow.metadata || undefined,
       coOwners: deckRow.coOwners || [],
+      eventName: deckRow.eventName ?? null,
+      eventDate: deckRow.eventDate ?? null,
+      placing: deckRow.placing ?? null,
     };
   }
 
@@ -591,6 +594,9 @@ export class PostgresDeckService implements IDeckService {
       if (updates.metadata !== undefined) updateFields.metadata = updates.metadata;
       if (updates.metafyGuideId !== undefined) updateFields.metafyGuideId = updates.metafyGuideId;
       if (updates.availableOnTalishar !== undefined) updateFields.availableOnTalishar = Boolean(updates.availableOnTalishar);
+      if (updates.eventName !== undefined) updateFields.eventName = updates.eventName;
+      if (updates.eventDate !== undefined) updateFields.eventDate = updates.eventDate;
+      if (updates.placing !== undefined) updateFields.placing = updates.placing;
 
       // Backfill hero_name from the hero printing when enabling Talishar and hero_name is null
       if (updates.availableOnTalishar === true && updates.heroName === undefined) {
@@ -807,9 +813,12 @@ export class PostgresDeckService implements IDeckService {
         conditions.push(eq(decks.featured, filters.featured));
       }
       if (filters?.month !== undefined && filters?.year !== undefined) {
-        const start = new Date(filters.year, filters.month - 1, 1);
-        const end = new Date(filters.year, filters.month, 1);
-        conditions.push(sql`${decks.updatedAt} >= ${start} AND ${decks.updatedAt} < ${end}`);
+        const mm = String(filters.month).padStart(2, '0');
+        const start = `${filters.year}-${mm}-01`;
+        const nextMonth = filters.month === 12 ? 1 : filters.month + 1;
+        const nextYear = filters.month === 12 ? filters.year + 1 : filters.year;
+        const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+        conditions.push(sql`${decks.eventDate} >= ${start} AND ${decks.eventDate} < ${end}`);
       }
 
       const whereClause = and(...conditions);
@@ -838,6 +847,9 @@ export class PostgresDeckService implements IDeckService {
           visibility: decks.visibility,
           featured: decks.featured,
           updatedAt: decks.updatedAt,
+          eventName: decks.eventName,
+          eventDate: decks.eventDate,
+          placing: decks.placing,
           creatorUsername: users.username,
           creatorDisplayUsername: users.displayUsername,
           cardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
@@ -876,6 +888,9 @@ export class PostgresDeckService implements IDeckService {
         totalCards: row.cardCount,
         estimatedValue: row.totalValue,
         updatedAt: row.updatedAt ?? undefined,
+        eventName: row.eventName ?? null,
+        eventDate: row.eventDate ?? null,
+        placing: row.placing ?? null,
         creatorUsername: row.creatorUsername ?? undefined,
         creatorDisplayUsername: row.creatorDisplayUsername ?? undefined,
         heroPrintingId: row.heroPrintingId ?? undefined,

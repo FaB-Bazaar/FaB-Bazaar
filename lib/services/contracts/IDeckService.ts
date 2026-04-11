@@ -108,6 +108,11 @@ export interface DeckDTO {
   isFormatLegal?: boolean;
   formatErrors?: string[];
 
+  // Event metadata (optional — drives the to-beat month filter, distinct from updatedAt)
+  eventName?: string | null;
+  eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
+  placing?: number | null;
+
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
@@ -142,6 +147,9 @@ export interface DeckSummaryDTO {
   updatedAt?: Date;
   isCoOwned?: boolean;  // True when the requesting user is a co-owner (not the primary owner)
   ownerUsername?: string;  // Display username of the primary owner (populated for co-owned decks)
+  eventName?: string | null;
+  eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
+  placing?: number | null;
 }
 
 /**
@@ -173,6 +181,9 @@ export interface UpdateDeckDTO {
   metadata?: Record<string, any>;
   metafyGuideId?: string | null;
   availableOnTalishar?: boolean;
+  eventName?: string | null;
+  eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
+  placing?: number | null;
 }
 
 /**
@@ -282,7 +293,7 @@ export interface PublicDeckFilters {
   search?: string;
   username?: string;
   featured?: boolean;
-  /** Filter by updatedAt month (1–12) and year (e.g. 2026) */
+  /** Filter by event_date month (1–12) and year (e.g. 2026) — only matches decks with an explicit event_date set */
   month?: number;
   year?: number;
 }
@@ -297,6 +308,9 @@ export interface PublicDeckSummaryDTO extends DeckSummaryDTO {
   heroPrintingId?: string;
   featured?: boolean;
   articleReferences?: { publicId: string; title: string }[];
+  eventName?: string | null;
+  eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
+  placing?: number | null;
 }
 
 /**
