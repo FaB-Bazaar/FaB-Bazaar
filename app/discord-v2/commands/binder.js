@@ -191,7 +191,7 @@ export async function handleSpecificBinder(requestingDiscordId, targetDiscordId,
     const truncated = paginationResult.content.substring(0, 1900) + '\n... (truncated, use pagination)';
     return NextResponse.json({
       type: 4,
-      data: { content: truncated, components: paginationResult.components, flags: 64 }
+      data: { content: truncated, components: paginationResult.components, flags: 68 }
     });
   }
 
@@ -199,9 +199,8 @@ export async function handleSpecificBinder(requestingDiscordId, targetDiscordId,
     type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
     data: {
       content: paginationResult.content,
-      embeds: paginationResult.embeds,
       components: paginationResult.components,
-      flags: 64
+      flags: 68 // EPHEMERAL (64) + SUPPRESS_EMBEDS (4)
     }
   });
 }

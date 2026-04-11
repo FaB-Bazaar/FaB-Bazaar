@@ -79,7 +79,7 @@ export async function handlePublicBinderPage(customId, body) {
   
   return NextResponse.json({
     type: InteractionResponseType.UPDATE_MESSAGE,
-    data: { content, components: publicComponents },
+    data: { content, components: publicComponents, flags: 4 }, // SUPPRESS_EMBEDS
   });
 }
 
