@@ -868,9 +868,9 @@ export class PostgresDeckService implements IDeckService {
         .groupBy(decks.id, users.username, users.displayUsername)
         .having(
           sql`NOT (
-            (${decks.format} = 'Classic Constructed' AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) < 80) OR
-            (${decks.format} = 'Silver Age'           AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) < 55) OR
-            (${decks.format} = 'Blitz'                AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) < 55)
+            (${decks.format} = 'Classic Constructed' AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 60 AND 80) OR
+            (${decks.format} = 'Silver Age'           AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 55) OR
+            (${decks.format} = 'Blitz'                AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 52)
           )`
         )
         .orderBy(desc(decks.updatedAt))

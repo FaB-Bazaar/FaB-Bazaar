@@ -6,7 +6,7 @@
  * Key format: "card name (lowercase)|pitch" where pitch 0 = no pitch.
  * Updated: 2026-03-22
  */
-const CURATED_GENERICS: Record<string, string> = {
+export const CURATED_GENERICS: Record<string, string> = {
   'amulet of echoes|3':           'tDRtGtktggHNrtgjqDtb7', // EVR f s r
   'arcane lantern|0':             'LNGhR9bGMLMq88WnDfrhw', // EVR f s r
   'arcanite skullcap|0':          '7kMqDtwzcWgPpQNnCdWGn', // ARC u r l

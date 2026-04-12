@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Calendar, User, BookOpen, ChevronDown, ChevronUp, Swords } from "lucide-react";
+import { Copy, Calendar, User, BookOpen, ChevronDown, ChevronUp, Swords, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PublicDeckSummaryDTO } from "@/lib/services/contracts/IDeckService";
 import { displayUsername, profileHref } from "@/lib/utils/display-username";
@@ -24,6 +24,19 @@ const formatColors: Record<string, string> = {
   'Living Legend': 'bg-purple-500',
   'Silver Age': 'bg-indigo-500',
 };
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+function placementStyle(placing: number): string {
+  if (placing === 1) return 'bg-yellow-500 text-white';
+  if (placing === 2) return 'bg-gray-400 text-white';
+  if (placing === 3) return 'bg-amber-700 text-white';
+  return 'bg-gray-600 text-white';
+}
 
 function timeAgo(date: Date | string | undefined): string {
   if (!date) return '';
@@ -74,10 +87,16 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
                 {deck.name}
               </Link>
 
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <Badge className={cn("text-white text-xs", formatColors[deck.format] || 'bg-gray-500')}>
                   {deck.format}
                 </Badge>
+                {deck.placing != null && (
+                  <Badge className={cn("text-xs flex items-center gap-1", placementStyle(deck.placing))}>
+                    <Trophy className="h-3 w-3" aria-hidden="true" />
+                    {ordinal(deck.placing)}
+                  </Badge>
+                )}
               </div>
 
               {deck.heroName && (

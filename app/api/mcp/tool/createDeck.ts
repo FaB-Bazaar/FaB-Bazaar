@@ -3,6 +3,13 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { printingsService } from '@/lib/services';
 import { sortPrintings } from '@/lib/fab-constants/sets';
 import { isHeroLivingLegend } from '@/lib/fab-banned-cards';
+import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
+import { CURATED_GENERICS } from '@/app/api/mcp/resource/cardIndex';
+
+const ALL_HERO_NAMES = [...new Set([
+  ...Object.keys(HERO_INFO),
+  ...Object.keys(YOUNG_HERO_INFO),
+])].sort() as string[];
 
 const VALID_FORMATS = [
   'Classic Constructed',
@@ -24,9 +31,9 @@ export const createDeckTool = {
   📋 REQUIRED (always ask for all three together):
   - name: deck name (e.g. "Fai Aggro")
   - format: exact enum value — see formats below
-  - heroName: hero card name
-    • CC / Living Legend: use the full adult name  (e.g. "Fai, Rising Rebellion")
-    • Silver Age / Blitz: use the short young name (e.g. "Fai")
+  - heroName: pick from enum values (all lowercase)
+    • CC / Living Legend: adult name  (e.g. "fai, rising rebellion")
+    • Silver Age / Blitz: young name  (e.g. "fai")
 
   🎯 FORMATS (exact values required):
   Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual
@@ -54,7 +61,8 @@ export const createDeckTool = {
       },
       heroName: {
         type: 'string',
-        description: 'Hero card name. For CC use the full adult name (e.g. "Fai, Rising Rebellion"). For Silver Age / Blitz use the short young name (e.g. "Fai"). Auto-resolves to the correct legal printing.',
+        enum: ALL_HERO_NAMES,
+        description: 'Hero name — pick from enum. CC/LL: use adult name (e.g. "fai, rising rebellion"). Silver Age/Blitz: use young name (e.g. "fai").',
       },
       visibility: {
         type: 'string',
@@ -107,31 +115,38 @@ export const createDeckTool = {
       let heroPrintingId: string | undefined = explicitId?.trim() || undefined;
 
       if (!heroPrintingId && heroName?.trim()) {
-        const result = await printingsService.searchPrintings(
-          { name: heroName.trim(), exact: true },
-          { limit: 50 }
-        );
+        // Fast path: static map lookup (no DB call)
+        const mapKey = `${heroName.trim().toLowerCase()}|0`;
+        heroPrintingId = CURATED_GENERICS[mapKey];
 
-        if (!result.success || !(result.data as any[])?.length) {
-          return { success: false, error: `Hero "${heroName}" not found. Check the spelling or use heroPrintingId instead.` };
+        // Slow path: DB search fallback for heroes not yet in the static map
+        if (!heroPrintingId) {
+          const result = await printingsService.searchPrintings(
+            { name: heroName.trim(), exact: true },
+            { limit: 50 }
+          );
+
+          if (!result.success || !(result.data as any[])?.length) {
+            return { success: false, error: `Hero "${heroName}" not found. Check the spelling or use heroPrintingId instead.` };
+          }
+
+          const legalityField =
+            format === 'Silver Age' ? 'silver_age_legal' :
+            format === 'Blitz' ? 'blitz_legal' :
+            'cc_legal';
+
+          const eligible = (result.data as any[]).filter((p: any) => {
+            if (!p[legalityField]) return false;
+            if (p.card_unique_id && isHeroLivingLegend(p.card_unique_id, format)) return false;
+            return true;
+          });
+
+          if (!eligible.length) {
+            return { success: false, error: `Hero "${heroName}" has no legal printing in ${format} (may be Living Legend status).` };
+          }
+
+          heroPrintingId = sortPrintings(eligible)[0].printing_id;
         }
-
-        const legalityField =
-          format === 'Silver Age' ? 'silver_age_legal' :
-          format === 'Blitz' ? 'blitz_legal' :
-          'cc_legal';
-
-        const eligible = (result.data as any[]).filter((p: any) => {
-          if (!p[legalityField]) return false;
-          if (p.card_unique_id && isHeroLivingLegend(p.card_unique_id, format)) return false;
-          return true;
-        });
-
-        if (!eligible.length) {
-          return { success: false, error: `Hero "${heroName}" has no legal printing in ${format} (may be Living Legend status).` };
-        }
-
-        heroPrintingId = sortPrintings(eligible)[0].printing_id;
       }
 
       const body: Record<string, string> = {
