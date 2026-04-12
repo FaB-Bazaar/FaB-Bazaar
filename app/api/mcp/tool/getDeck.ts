@@ -153,6 +153,13 @@ export const getDeckTool = {
       if (deck.heroName) message += ` — ${deck.heroName}`;
       if (deck.format) message += ` (${deck.format})`;
       message += '\n\n';
+      if (deck.description) message += `📝 ${deck.description}\n\n`;
+      if (deck.eventName) {
+        message += `🏆 **${deck.eventName}**`;
+        if (deck.eventDate) message += ` — ${deck.eventDate}`;
+        if (deck.placing) message += ` | ${deck.placing}${['st','nd','rd'][((deck.placing+90)%100-10)%10-1]||'th'} place`;
+        message += '\n\n';
+      }
 
       let totalCards = 0;
       let totalUnique = 0;
@@ -185,6 +192,10 @@ export const getDeckTool = {
           heroName: deck.heroName,
           format: deck.format,
           isPublic: deck.isPublic,
+          description: deck.description ?? null,
+          eventName: deck.eventName ?? null,
+          eventDate: deck.eventDate ?? null,
+          placing: deck.placing ?? null,
           totalCards,
           categories
         }
