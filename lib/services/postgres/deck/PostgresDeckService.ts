@@ -104,6 +104,17 @@ export class PostgresDeckService implements IDeckService {
       }
     }
 
+    return this.buildDeckDTO(deckRow, deckCardsWithDetails, otherFaceImageMap);
+  }
+
+  /**
+   * Build a DeckDTO from pre-fetched card data (used by batched list operations)
+   */
+  private buildDeckDTO(
+    deckRow: any,
+    deckCardsWithDetails: any[],
+    otherFaceImageMap: Map<string, string>
+  ): DeckDTO {
     // Group cards by category
     const categorizeCards = (category: DeckCategory): DeckPrintingDTO[] => {
       const categoryCards = deckCardsWithDetails
@@ -717,7 +728,76 @@ export class PostgresDeckService implements IDeckService {
 
       const deckRows = await query;
 
-      const deckDTOs = await Promise.all(deckRows.map((row) => this.toDeckDTO(row)));
+      // Batch-fetch all deck cards for all decks in a single query (avoids N+1)
+      let deckDTOs: DeckDTO[] = [];
+      if (deckRows.length > 0) {
+        const deckIds = deckRows.map(r => r.id);
+        const allDeckCards = await db
+          .select({
+            deckId: deckCards.deckId,
+            id: deckCards.id,
+            printingId: deckCards.printingId,
+            quantity: deckCards.quantity,
+            category: deckCards.category,
+            notes: deckCards.notes,
+            addedAt: deckCards.addedAt,
+            cardName: cards.name,
+            cardDisplayName: cards.displayName,
+            cardUniqueId: cards.cardUniqueId,
+            types: cards.types,
+            classes: cards.classes,
+            talents: cards.talents,
+            keywords: cards.keywords,
+            pitch: cards.pitch,
+            cost: cards.cost,
+            defense: cards.defense,
+            power: cards.power,
+            text: cards.text,
+            set: printings.set,
+            edition: printings.edition,
+            foiling: printings.foiling,
+            rarity: printings.rarity,
+            collectorNumber: printings.collectorNumber,
+            imageUrl: printings.imageUrl,
+            tcgMarket: printings.tcgMarket,
+            tcgLow: printings.tcgLow,
+            tcgMid: printings.tcgMid,
+            tcgHigh: printings.tcgHigh,
+            tcgplayerUrl: printings.tcgplayerUrl,
+            otherFacePrintingId: printings.otherFacePrintingId,
+            isFrontFace: printings.isFrontFace,
+          })
+          .from(deckCards)
+          .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+          .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+          .where(inArray(deckCards.deckId, deckIds));
+
+        // Batch-fetch other face images for DFC cards across all decks
+        const otherFaceIds = [...new Set(
+          allDeckCards.map(dc => dc.otherFacePrintingId).filter(Boolean) as string[]
+        )];
+        const otherFaceImageMap = new Map<string, string>();
+        if (otherFaceIds.length > 0) {
+          const otherFaceRows = await db
+            .select({ printingId: printings.printingId, imageUrl: printings.imageUrl })
+            .from(printings)
+            .where(inArray(printings.printingId, otherFaceIds));
+          for (const row of otherFaceRows) {
+            if (row.imageUrl) otherFaceImageMap.set(row.printingId, row.imageUrl);
+          }
+        }
+
+        // Group cards by deckId and build DTOs
+        const cardsByDeckId = new Map<string, typeof allDeckCards>();
+        for (const card of allDeckCards) {
+          if (!cardsByDeckId.has(card.deckId)) cardsByDeckId.set(card.deckId, []);
+          cardsByDeckId.get(card.deckId)!.push(card);
+        }
+
+        deckDTOs = deckRows.map(row =>
+          this.buildDeckDTO(row, cardsByDeckId.get(row.id) ?? [], otherFaceImageMap)
+        );
+      }
 
       return {
         success: true,
@@ -736,37 +816,90 @@ export class PostgresDeckService implements IDeckService {
   }
 
   async listUserDecksBasic(
-    userId: string
+    userId: string,
+    filters?: { includeSystemDecks?: boolean }
   ): AsyncResult<DeckSummaryDTO[]> {
     try {
+      const whereClause = and(
+        or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`),
+        ...(filters?.includeSystemDecks ? [] : [eq(decks.isSystemDeck, false)])
+      );
+
       const deckRows = await db
         .select()
         .from(decks)
-        .where(and(
-          or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`),
-          eq(decks.isSystemDeck, false)
-        ))
+        .where(whereClause)
         .orderBy(desc(decks.updatedAt));
 
-      // For each deck, get card count and value
-      const summaries = await Promise.all(
-        deckRows.map(async (row) => {
-          const [{ cardCount, totalValue }] = await db
-            .select({
-              cardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
-              totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
-            })
-            .from(deckCards)
-            .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
-            .where(eq(deckCards.deckId, row.id));
+      if (deckRows.length === 0) {
+        return { success: true, data: [] };
+      }
 
-          return this.toSummaryDTO({
-            ...row,
-            totalCards: cardCount,
-            estimatedValue: totalValue,
-          }, userId);
+      const deckIds = deckRows.map(r => r.id);
+
+      // Single aggregation query for all decks: per-category counts, value, unique card count
+      const aggregates = await db
+        .select({
+          deckId: deckCards.deckId,
+          totalCards: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} NOT IN ('hero','benched') THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          estimatedValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * COALESCE(${printings.tcgMarket}, 0)), 0)::real`,
+          heroCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          equipmentCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'equipment' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          maindeckCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'maindeck' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          inventoryCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'inventory' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          benchedCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'benched' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
+          uniqueCardCount: sql<number>`COUNT(DISTINCT CASE WHEN ${deckCards.category} NOT IN ('hero','benched') THEN ${printings.cardUniqueId} END)::int`,
         })
-      );
+        .from(deckCards)
+        .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .where(inArray(deckCards.deckId, deckIds))
+        .groupBy(deckCards.deckId);
+
+      const aggByDeckId = new Map(aggregates.map(a => [a.deckId, a]));
+
+      // Single query for hero card images across all decks
+      const heroCards = await db
+        .select({
+          deckId: deckCards.deckId,
+          imageUrl: printings.imageUrl,
+          displayName: cards.displayName,
+          cardName: cards.name,
+        })
+        .from(deckCards)
+        .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(and(
+          inArray(deckCards.deckId, deckIds),
+          eq(deckCards.category, 'hero')
+        ));
+
+      // Take first hero per deck
+      const heroByDeckId = new Map<string, { imageUrl: string | null; displayName: string | null; cardName: string | null }>();
+      for (const h of heroCards) {
+        if (!heroByDeckId.has(h.deckId)) heroByDeckId.set(h.deckId, h);
+      }
+
+      const summaries: DeckSummaryDTO[] = deckRows.map(row => {
+        const agg = aggByDeckId.get(row.id);
+        const hero = heroByDeckId.get(row.id);
+        return {
+          ...this.toSummaryDTO(row, userId),
+          description: row.description || undefined,
+          metafyGuideId: row.metafyGuideId ?? null,
+          coOwners: row.coOwners || [],
+          createdAt: row.createdAt,
+          totalCards: agg?.totalCards ?? 0,
+          estimatedValue: agg?.estimatedValue ?? 0,
+          heroCount: agg?.heroCount ?? 0,
+          equipmentCount: agg?.equipmentCount ?? 0,
+          maindeckCount: agg?.maindeckCount ?? 0,
+          inventoryCount: agg?.inventoryCount ?? 0,
+          benchedCount: agg?.benchedCount ?? 0,
+          uniqueCardCount: agg?.uniqueCardCount ?? 0,
+          heroImageUrl: hero?.imageUrl ?? undefined,
+          heroDisplayName: hero?.displayName ?? hero?.cardName ?? undefined,
+        };
+      });
 
       return { success: true, data: summaries };
     } catch (error) {

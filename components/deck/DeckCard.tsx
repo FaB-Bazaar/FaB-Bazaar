@@ -112,15 +112,15 @@ export default function DeckCard({
     return colors[format as keyof typeof colors] || 'bg-gray-500';
   };
 
-  // Calculate deck composition from new structure
+  // Calculate deck composition — prefer pre-computed counts, fall back to array lengths
   const deckStats = {
-    heroes: deck.heroCount || (deck.hero || []).length,
-    equipment: deck.equipmentCount || (deck.equipment || []).length,
-    maindeck: deck.maindeckCount || (deck.maindeck || []).length,
-    inventory: deck.inventoryCount || (deck.inventory || []).length,
-    benched: deck.benchedCount || 0,
-    maybeboard: deck.maybeboardCount || (deck.maybeboard || []).length,
-    tokens: deck.tokensCount || (deck.tokens || []).length
+    heroes: deck.heroCount ?? (deck.hero || []).length,
+    equipment: deck.equipmentCount ?? (deck.equipment || []).length,
+    maindeck: deck.maindeckCount ?? (deck.maindeck || []).length,
+    inventory: deck.inventoryCount ?? (deck.inventory || []).length,
+    benched: deck.benchedCount ?? 0,
+    maybeboard: deck.maybeboardCount ?? (deck.maybeboard || []).length,
+    tokens: deck.tokensCount ?? (deck.tokens || []).length
   };
 
   // Use pre-calculated values from the new structure
@@ -143,19 +143,25 @@ export default function DeckCard({
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 overflow-visible">
         <div className="flex items-start gap-3">
           {/* Hero image with hover expand */}
-          {deck.hero && deck.hero.length > 0 && (() => {
-            const hero = deck.hero[0];
-            const imgUrl = hero.printingDetails?.image_url ||
-              `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${hero.printingId}/public`;
+          {(() => {
+            // Support both summary DTOs (heroImageUrl) and full DTOs (hero[0].printingDetails)
+            const heroImgUrl = deck.heroImageUrl
+              || deck.hero?.[0]?.printingDetails?.image_url
+              || (deck.hero?.[0]?.printingId ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.hero[0].printingId}/public` : null);
+            const heroDisplayName = deck.heroDisplayName
+              || deck.hero?.[0]?.printingDetails?.display_name
+              || deck.hero?.[0]?.printingDetails?.name
+              || deck.heroName;
+            if (!heroImgUrl) return null;
             return (
               <div className="flex-shrink-0">
                 <img
-                  src={imgUrl}
-                  alt={hero.printingDetails?.display_name || "Hero"}
+                  src={heroImgUrl}
+                  alt={heroDisplayName || "Hero"}
                   className="w-12 h-16 object-cover rounded cursor-pointer"
                   onMouseEnter={(e) => {
                     const rect = (e.target as HTMLElement).getBoundingClientRect();
-                    setHeroPreview({ url: imgUrl, x: rect.right + 8, y: rect.top });
+                    setHeroPreview({ url: heroImgUrl, x: rect.right + 8, y: rect.top });
                   }}
                   onMouseLeave={() => setHeroPreview(null)}
                 />
@@ -226,9 +232,9 @@ export default function DeckCard({
             </div>
 
             {/* Hero name */}
-            {deck.hero && deck.hero.length > 0 && (
+            {(deck.heroDisplayName || deck.hero?.[0]?.printingDetails?.display_name || deck.hero?.[0]?.printingDetails?.name || deck.heroName) && (
               <p className="text-sm text-gray-700 dark:text-gray-300 truncate mb-1">
-                {deck.hero[0].printingDetails?.display_name || deck.hero[0].printingDetails?.name}
+                {deck.heroDisplayName || deck.hero?.[0]?.printingDetails?.display_name || deck.hero?.[0]?.printingDetails?.name || deck.heroName}
               </p>
             )}
 

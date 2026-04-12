@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
     const adminCheck = await userService.hasRole(authResult.userId!, 'isSuperAdmin');
     const includeSystemDecks = adminCheck.success && adminCheck.data;
 
-    // Use service layer to fetch decks
-    const result = await deckService.listUserDecks(authResult.userId!, { includeSystemDecks });
+    // Use lightweight summary query — full card arrays are only needed on the deck detail page
+    const result = await deckService.listUserDecksBasic(authResult.userId!, { includeSystemDecks });
 
     if (!result.success) {
       console.error('[DeckAPI] Error fetching decks:', result.error);
@@ -37,11 +37,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`[DeckAPI] Retrieved ${result.data.decks.length} decks for user ${authResult.username}`);
+    console.log(`[DeckAPI] Retrieved ${result.data.length} decks for user ${authResult.username}`);
 
     return NextResponse.json({
       success: true,
-      decks: result.data.decks,
+      decks: result.data,
       authMethod: authResult.authMethod,
       authenticatedUser: authResult.username,
     });

@@ -138,20 +138,34 @@ export interface DeckSummaryDTO {
   userId: string;
   name: string;
   slug?: string;
+  description?: string;
   format: DeckFormat;
   heroName?: string;
+  heroImageUrl?: string;
+  heroDisplayName?: string;
   visibility: DeckVisibility;
   isPublic: boolean;  // Computed: visibility !== 'private'
+  availableOnTalishar?: boolean;
+  featured?: boolean;
+  isSystemDeck?: boolean;
   totalCards?: number;
   estimatedValue?: number;
   matchupCount?: number;
+  heroCount?: number;
+  equipmentCount?: number;
+  maindeckCount?: number;
+  inventoryCount?: number;
+  benchedCount?: number;
+  uniqueCardCount?: number;
+  coOwners?: string[];
+  createdAt?: Date;
   updatedAt?: Date;
   isCoOwned?: boolean;  // True when the requesting user is a co-owner (not the primary owner)
   ownerUsername?: string;  // Display username of the primary owner (populated for co-owned decks)
+  metafyGuideId?: string | null;
   eventName?: string | null;
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;
-  isSystemDeck?: boolean;
 }
 
 /**
@@ -581,7 +595,8 @@ export interface IDeckService {
    * @returns Array of deck summaries
    */
   listUserDecksBasic(
-    userId: string
+    userId: string,
+    filters?: { includeSystemDecks?: boolean }
   ): AsyncResult<DeckSummaryDTO[]>;
 
   /**

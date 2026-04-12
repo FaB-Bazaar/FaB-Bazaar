@@ -46,40 +46,44 @@ interface DeckPrinting {
 
 interface Deck {
   _id: string;
-  publicId: string;  // Globally unique identifier for URLs
+  publicId: string;
   userId: string;
   name: string;
   description?: string;
   format: string;
+  heroName?: string;
+  heroImageUrl?: string;
+  heroDisplayName?: string;
   visibility?: 'private' | 'unlisted' | 'public';
   isPublic: boolean;
   availableOnTalishar?: boolean;
   featured?: boolean;
   isSystemDeck?: boolean;
   metafyGuideId?: string | null;
-  // New structure - arrays by category
-  hero: DeckPrinting[];
-  equipment: DeckPrinting[];
-  maindeck: DeckPrinting[];
-  inventory: DeckPrinting[];
+  eventName?: string | null;
+  eventDate?: string | null;
+  placing?: number | null;
+  coOwners?: string[];
+  // Full card arrays — only present when deck detail is loaded; absent for list summaries
+  hero?: DeckPrinting[];
+  equipment?: DeckPrinting[];
+  maindeck?: DeckPrinting[];
+  inventory?: DeckPrinting[];
   maybeboard?: DeckPrinting[];
   tokens?: DeckPrinting[];
-  // Computed stats
+  // Computed stats (from summary or full deck)
   totalCards: number;
-  heroCount: number;
-  equipmentCount: number;
-  maindeckCount: number;
-  inventoryCount: number;
+  heroCount?: number;
+  equipmentCount?: number;
+  maindeckCount?: number;
+  inventoryCount?: number;
   benchedCount?: number;
   maybeboardCount?: number;
   tokensCount?: number;
+  uniqueCardCount?: number;
   estimatedValue: number;
-  createdAt: string;
+  createdAt?: string;
   updatedAt: string;
-  // Computed fields for backwards compatibility
-  uniqueCards?: number;
-  fabraryUrl?: string;
-  metadata?: Record<string, any>;
   isCoOwned?: boolean;
   ownerUsername?: string;
 }
@@ -398,24 +402,9 @@ export default function DecksPage() {
     toast({ title: "Settings saved" });
   };
 
-  // Calculate unique cards for a deck (excludes hero and bench)
+  // Use pre-computed uniqueCardCount from summary (falls back to 0 if not available)
   const calculateUniqueCards = (deck: Deck): number => {
-    const uniqueCardIds = new Set();
-
-    const allPrintings = [
-      ...(deck.equipment || []),
-      ...(deck.maindeck || []),
-      ...(deck.inventory || []),
-      ...(deck.maybeboard || []),
-      ...(deck.tokens || [])
-    ];
-    
-    allPrintings.forEach(printing => {
-      const cardId = printing.printingDetails?.card_unique_id || printing.printingId;
-      uniqueCardIds.add(cardId);
-    });
-    
-    return uniqueCardIds.size;
+    return deck.uniqueCardCount ?? 0;
   };
 
   // Filter and sort decks
@@ -442,7 +431,7 @@ export default function DecksPage() {
         case "name":
           return a.name.localeCompare(b.name);
         case "created":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return new Date(b.createdAt ?? b.updatedAt).getTime() - new Date(a.createdAt ?? a.updatedAt).getTime();
         case "value":
           return (b.estimatedValue || 0) - (a.estimatedValue || 0);
         case "updated":
@@ -692,8 +681,8 @@ export default function DecksPage() {
                   onChange={(e) => setFilterType(e.target.value)}
                   className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
                 >
-                  <option value="all">All Types</option>
-                  <option value="featured">⭐ Featured</option>
+                  <option value="all">My Decks</option>
+                  <option value="featured">⭐ Featured Only</option>
                   <option value="system">🛡 System</option>
                 </select>
               )}
