@@ -74,17 +74,8 @@ export const whoHasTool = {
         description: 'INTERNAL: Confirms required setup resources have been loaded. Do not set manually.'
       }
     },
-    // Require exactly one search type
-    oneOf: [
-      {
-        required: ['printingIds'],
-        description: 'Search by specific printing IDs'
-      },
-      {
-        required: ['cardUniqueIds'], 
-        description: 'Search by card unique IDs (any version)'
-      }
-    ]
+    // Note: exactly one of printingIds or cardUniqueIds is required (enforced in handler)
+    required: []
   },
 
   handler: async (toolInput: any, authenticatedUser?: any, token?: string) => {

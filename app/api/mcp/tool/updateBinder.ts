@@ -136,17 +136,8 @@ Update the MCP binder with selected printings and quantities using secure API en
         }
       }
     },
-    // Use oneOf to require at least one operation mode
-    oneOf: [
-      {
-        required: ['printings'],
-        description: 'Batch printing mode (primary)'
-      },
-      {
-        required: ['userSelection', 'selectionList'],
-        description: 'Selection interface mode'
-      }
-    ]
+    // Note: either printings (batch mode) or userSelection+selectionList (selection mode) is required (enforced in handler)
+    required: []
   },
 
   async handler(params: any, authenticatedUser?: any, mcpToken?: string) {
