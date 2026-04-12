@@ -265,7 +265,17 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
 
 export const extractPrintingIdsTool = {
   name: 'extract_printing_ids',
-  description: 'Extract printing IDs from search results with user-friendly selection interface for binder management. Present results to users as card names, set, edition, foiling, and price — never show raw printing ID strings to end users.',
+  description: `STEP 2 OF 2 — Run search_printings FIRST. This tool is for selecting a specific printing version after the user has already seen search results and confirmed which card they want.
+
+DO NOT use this tool to discover cards or search by name. Use search_printings for that.
+
+Correct workflow:
+1. search_printings (find the card, show options to user)
+2. User confirms which version they want
+3. extract_printing_ids (get the printingId for that specific version)
+4. add_to_binder or add_to_wants (commit)
+
+Present results to users as card name, set, edition, foiling, and price — never show raw printing ID strings to end users.`,
   parameters: {
     type: 'object',
     properties: {
@@ -277,7 +287,7 @@ export const extractPrintingIdsTool = {
       },
       filters: {
         type: 'object',
-        description: 'Same filters as search_printings'
+        description: 'Narrow filters to match the specific card version the user confirmed from search_printings results (e.g. name + set + edition + foiling). Do not use broad filters here — this should already be narrowed down.'
       },
       options: {
         type: 'object',
