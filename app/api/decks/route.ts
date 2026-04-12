@@ -2,7 +2,7 @@
 // app/api/decks/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService } from '@/lib/services';
+import { deckService, userService } from '@/lib/services';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,8 +22,12 @@ export async function GET(request: NextRequest) {
 
     console.log(`[DeckAPI] GET Authenticated user: ${authResult.username} via ${authResult.authMethod}`);
 
+    // Check if superadmin to include system decks
+    const adminCheck = await userService.hasRole(authResult.userId!, 'isSuperAdmin');
+    const includeSystemDecks = adminCheck.success && adminCheck.data;
+
     // Use service layer to fetch decks
-    const result = await deckService.listUserDecks(authResult.userId!);
+    const result = await deckService.listUserDecks(authResult.userId!, { includeSystemDecks });
 
     if (!result.success) {
       console.error('[DeckAPI] Error fetching decks:', result.error);

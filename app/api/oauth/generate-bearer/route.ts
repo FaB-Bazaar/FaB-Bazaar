@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { authTokenService } from '@/lib/services';
+import { authTokenService, userService } from '@/lib/services';
 
 export async function POST() {
   console.log('🔧 Bearer token generation endpoint hit!');
@@ -11,6 +11,11 @@ export async function POST() {
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const adminCheck = await userService.hasRole(session.user.id, 'isSuperAdmin');
+    if (!adminCheck.success || !adminCheck.data) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const result = await authTokenService.generateBearerToken(session.user.id);

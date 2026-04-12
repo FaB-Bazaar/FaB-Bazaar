@@ -42,6 +42,8 @@ export default function MCPIntegrationPage() {
   const [copiedServerUrl, setCopiedServerUrl] = useState(false);
   const [error, setError] = useState<string>('');
 
+  const isSuperAdmin = !!(session?.user?.roles as any)?.isSuperAdmin;
+
   const mcpServerUrl = 'https://fabbazaar.app/api/mcp/server';
   const mcpUrl = mcpServerUrl; // Token must be sent as Authorization: Bearer <token> header, not in URL
 
@@ -252,23 +254,25 @@ export default function MCPIntegrationPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="oauth" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-gray-100 dark:bg-gray-800">
+              <TabsList className={`grid w-full bg-gray-100 dark:bg-gray-800 ${isSuperAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <TabsTrigger
                   value="oauth"
                   className="data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-300"
                 >
                   OAuth (Recommended)
                 </TabsTrigger>
-                <TabsTrigger
-                  value="bearer"
-                  className="data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-300"
-                >
-                  Bearer Token (Simple)
-                </TabsTrigger>
+                {isSuperAdmin && (
+                  <TabsTrigger
+                    value="bearer"
+                    className="data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-300"
+                  >
+                    Bearer Token (Admin)
+                  </TabsTrigger>
+                )}
               </TabsList>
               
-              {/* Bearer Token Tab */}
-              <TabsContent value="bearer" className="space-y-6">
+              {/* Bearer Token Tab - Admin only */}
+              {isSuperAdmin && <TabsContent value="bearer" className="space-y-6">
                 <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50">
                   <Key className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   <AlertDescription className="text-blue-800 dark:text-blue-200">
@@ -373,7 +377,7 @@ export default function MCPIntegrationPage() {
                     </Alert>
                   )}
                 </div>
-              </TabsContent>
+              </TabsContent>}
 
               {/* OAuth Credentials Tab */}
               <TabsContent value="oauth" className="space-y-6">

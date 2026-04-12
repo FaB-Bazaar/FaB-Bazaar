@@ -680,7 +680,7 @@ export class PostgresDeckService implements IDeckService {
     try {
       let conditions = [
         or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`),
-        eq(decks.isSystemDeck, false),
+        ...(filters?.includeSystemDecks ? [] : [eq(decks.isSystemDeck, false)]),
       ];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));

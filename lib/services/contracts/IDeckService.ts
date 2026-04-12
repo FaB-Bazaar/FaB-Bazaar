@@ -284,6 +284,7 @@ export interface DeckListFilters {
   heroName?: string;
   search?: string;
   availableOnTalishar?: boolean;
+  includeSystemDecks?: boolean;
 }
 
 /**
