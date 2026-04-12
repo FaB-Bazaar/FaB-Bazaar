@@ -88,12 +88,16 @@ export async function handleSearchCommand(body, options) {
 
     const normalizedName = name.toLowerCase().trim();
 
-    
+    // Collector numbers are 3 letters + 3 digits (e.g. WTR001, MON224, DTD103).
+    // The broad search mode already handles collector number matching via an OR clause,
+    // but exact mode skips it — so we drop exact: true for collector number lookups.
+    const isCollectorNumber = /^[a-zA-Z]{3}\d{3}$/.test(normalizedName);
+
     const requestBody = {
       discordId: userId, // Add Discord ID for authentication
       filters: {
         name: normalizedName,
-        exact: true
+        ...(isCollectorNumber ? {} : { exact: true }),
       },
       options: {
         limit: 50,
