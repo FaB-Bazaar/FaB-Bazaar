@@ -356,6 +356,9 @@ export default function DecksPage() {
     isPublic: boolean;
     availableOnTalishar: boolean;
     metafyGuideId: string | null;
+    eventName: string | null;
+    eventDate: string | null;
+    placing: number | null;
   }) => {
     if (!settingsDeck) return;
     const result = await decksClient.updateDeck(settingsDeck.publicId, {
@@ -366,6 +369,9 @@ export default function DecksPage() {
       visibility: settings.visibility,
       availableOnTalishar: settings.availableOnTalishar,
       metafyGuideId: settings.metafyGuideId,
+      eventName: settings.eventName,
+      eventDate: settings.eventDate,
+      placing: settings.placing,
     } as any);
     if (!result.success) {
       toast({ title: "Error", description: result.error, variant: "destructive" });
