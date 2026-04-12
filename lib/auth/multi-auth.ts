@@ -11,7 +11,7 @@
 
 import { NextRequest } from 'next/server';
 import { auth } from '@/auth';
-import { userService } from '@/lib/services';
+import { userService, authTokenService } from '@/lib/services';
 import jwt from 'jsonwebtoken';
 
 /**
@@ -210,6 +210,22 @@ export async function authenticateRequest(
 
     // 3. Try OAuth token (if enabled)
     if (options.allowOAuth && oauthToken) {
+      // fab_ prefix = opaque bearer token stored in DB (MCP/admin-generated)
+      if (oauthToken.startsWith('fab_')) {
+        const result = await authTokenService.validateBearerToken(oauthToken);
+        if (!result.success || !result.data) {
+          return { success: false, error: 'OAuth token invalid or expired' };
+        }
+        const user = result.data;
+        return {
+          success: true,
+          userId: user._id,
+          username: user.username || user.discordUsername,
+          authMethod: 'oauth',
+        };
+      }
+
+      // Otherwise treat as JWT OAuth token
       const { valid, user } = await validateOAuthToken(oauthToken);
 
       if (!valid || !user) {
