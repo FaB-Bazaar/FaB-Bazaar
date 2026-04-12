@@ -108,16 +108,6 @@ export interface UserAuthDTO {
   username?: string;
   discordUsername?: string;
   discordId?: string;
-  mcpToken?: string;
-  mcpTokenExpiry?: Date;
-}
-
-/**
- * MCP token validation result
- */
-export interface McpTokenValidationDTO {
-  valid: boolean;
-  user?: UserAuthDTO;
 }
 
 /**
@@ -272,24 +262,6 @@ export interface IUserService {
   findByMetafyId(metafyId: string): AsyncResult<{ id: string } | null>;
 
   /**
-   * Find user by MCP token
-   *
-   * @param mcpToken - The MCP token to search for
-   * @returns Result containing user data or null if not found
-   */
-  findByMcpToken(mcpToken: string): AsyncResult<UserAuthDTO | null>;
-
-  /**
-   * Validate an MCP token and return the associated user
-   *
-   * Checks both token existence and expiry.
-   *
-   * @param mcpToken - The MCP token to validate
-   * @returns Validation result with user data if valid
-   */
-  validateMcpToken(mcpToken: string): AsyncResult<McpTokenValidationDTO>;
-
-  /**
    * Find user by email hash
    *
    * @param emailHash - SHA256 hash of the lowercase email
@@ -308,22 +280,6 @@ export interface IUserService {
   // ====================================
   // Update methods (for OAuth/auth flows)
   // ====================================
-
-  /**
-   * Update user's MCP token and expiry
-   *
-   * Used during OAuth login to generate/refresh MCP tokens.
-   *
-   * @param userId - The user's ID
-   * @param mcpToken - The new MCP token
-   * @param expiryDate - When the token expires
-   * @returns Result indicating success/failure
-   */
-  updateMcpToken(
-    userId: string,
-    mcpToken: string,
-    expiryDate: Date
-  ): AsyncResult<void>;
 
   /**
    * Update user's Discord info

@@ -27,12 +27,6 @@ interface BearerToken {
 export default function MCPIntegrationPage() {
   const { data: session, status } = useSession();
   
-  // Legacy MCP Token state
-  const [mcpToken, setMcpToken] = useState<string>('');
-  const [isGeneratingToken, setIsGeneratingToken] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  
   // Bearer Token state
   const [bearerToken, setBearerToken] = useState<BearerToken | null>(null);
   const [isGeneratingBearer, setIsGeneratingBearer] = useState(false);
@@ -53,46 +47,10 @@ export default function MCPIntegrationPage() {
 
   useEffect(() => {
     if (session?.user) {
-      fetchExistingToken();
       fetchOAuthClients();
       fetchBearerToken();
     }
   }, [session]);
-
-  // Legacy MCP Token functions
-  const fetchExistingToken = async () => {
-    try {
-      const response = await fetch('/api/mcp/get-token');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.token) {
-          setMcpToken(data.token);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching existing token:', error);
-    }
-  };
-
-  const generateToken = async () => {
-    setIsGeneratingToken(true);
-    setError('');
-    try {
-      const response = await fetch('/api/mcp/generate-token', {
-        method: 'POST',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to generate token');
-      }
-      const data = await response.json();
-      setMcpToken(data.token);
-    } catch (error) {
-      setError('Failed to generate MCP token. Please try again.');
-      console.error('Error generating token:', error);
-    } finally {
-      setIsGeneratingToken(false);
-    }
-  };
 
   // Bearer Token functions
   const fetchBearerToken = async () => {
@@ -294,7 +252,7 @@ export default function MCPIntegrationPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="oauth" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
+              <TabsList className="grid w-full grid-cols-2 bg-gray-100 dark:bg-gray-800">
                 <TabsTrigger
                   value="oauth"
                   className="data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-300"
@@ -306,12 +264,6 @@ export default function MCPIntegrationPage() {
                   className="data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-300"
                 >
                   Bearer Token (Simple)
-                </TabsTrigger>
-                <TabsTrigger
-                  value="legacy"
-                  className="data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-gray-100 text-gray-700 dark:text-gray-300"
-                >
-                  Legacy Token
                 </TabsTrigger>
               </TabsList>
               
@@ -603,84 +555,6 @@ export default function MCPIntegrationPage() {
                 </div>
               </TabsContent>
 
-              {/* Legacy Token Tab */}
-              <TabsContent value="legacy" className="space-y-6">
-                <Alert className="border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/50">
-                  <AlertDescription className="text-orange-800 dark:text-orange-200">
-                    <strong>Legacy Token (Not Recommended):</strong> Send this token as an <code className="bg-orange-100 dark:bg-orange-900/50 px-1 rounded">Authorization: Bearer &lt;token&gt;</code> header.
-                    We recommend using OAuth for Claude Desktop/Web as it provides better security with token refresh and expiry.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="token" className="text-gray-900 dark:text-gray-100">MCP Token</Label>
-                    <Button
-                      onClick={generateToken}
-                      disabled={isGeneratingToken}
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-300 dark:border-gray-600"
-                    >
-                      {isGeneratingToken ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        mcpToken ? 'Regenerate Token' : 'Generate Token'
-                      )}
-                    </Button>
-                  </div>
-
-                  {mcpToken && (
-                    <>
-                      <div className="space-y-2">
-                        <Label htmlFor="token" className="text-sm text-gray-600 dark:text-gray-400">
-                          Token
-                        </Label>
-                        <div className="flex space-x-2">
-                          <Input
-                            id="token"
-                            value={mcpToken}
-                            readOnly
-                            className="font-mono text-sm bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                          />
-                          <Button
-                            onClick={() => copyToClipboard(mcpToken, 'token')}
-                            variant="outline"
-                            size="sm"
-                            className="border-gray-300 dark:border-gray-600"
-                          >
-                            <Copy className="w-4 h-4" />
-                            {copiedToken ? 'Copied!' : 'Copy Token'}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-orange-50 dark:bg-orange-950/50 rounded-md border border-orange-200 dark:border-orange-800">
-                        <h5 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-2">
-                          MCP Client Configuration:
-                        </h5>
-                        <div className="space-y-2 text-xs">
-                          <div>
-                            <strong className="text-orange-900 dark:text-orange-100">Server URL:</strong>
-                            <code className="ml-2 bg-orange-100 dark:bg-orange-900/50 px-1 rounded text-orange-900 dark:text-orange-100">
-                              {mcpServerUrl}
-                            </code>
-                          </div>
-                          <div>
-                            <strong className="text-orange-900 dark:text-orange-100">Authorization Header:</strong>
-                            <code className="ml-2 bg-orange-100 dark:bg-orange-900/50 px-1 rounded text-orange-900 dark:text-orange-100">
-                              Bearer {mcpToken.substring(0, 20)}...
-                            </code>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </TabsContent>
             </Tabs>
 
             {error && (
@@ -695,7 +569,7 @@ export default function MCPIntegrationPage() {
                 <li>Generate your credentials using one of the methods above</li>
                 <li>Configure your MCP client with the appropriate authentication method</li>
                 <li><strong>For Claude Desktop/Web (Recommended):</strong> Use OAuth Credentials tab with redirect URI <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">https://claude.ai/api/mcp/auth_callback</code></li>
-                <li><strong>For quick setup:</strong> Use Bearer Token (simple) or Legacy Token (Authorization header)</li>
+                <li><strong>For quick setup:</strong> Use the Bearer Token tab</li>
                 <li>Add the remote MCP server in Claude via Settings → Connectors</li>
                 <li>Verify FabBazaar appears in your available tools</li>
               </ol>

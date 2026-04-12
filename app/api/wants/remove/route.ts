@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Hybrid authentication - tries session first, then discordId, then mcpToken
+    // Hybrid authentication - tries session first, then discordId, then OAuth
     const authResult = await authenticateRequest(req, body);
 
     if (!authResult.success || !authResult.userId) {

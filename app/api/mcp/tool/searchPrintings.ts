@@ -1,6 +1,7 @@
 // app/api/mcp/tool/searchPrintings.ts - ENHANCED VERSION with human-readable output
 import { printingsService } from '@/lib/services';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
+import { getHeroInfo } from '@/lib/fab-constants/heroes';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
 // Create single instance to reuse
@@ -99,7 +100,30 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
   if (mcpFilters.cardUniqueIds) searchFilters.cardUniqueIds = mcpFilters.cardUniqueIds;
   
   // Hero-based filtering
-  if (mcpFilters.heroLegal) searchFilters.heroLegal = mcpFilters.heroLegal;
+  // heroLegal accepts nicknames/full names (e.g. "gravy", "Gravy Bones") — resolve to
+  // heroClasses + heroTalents so the precise AND+subset logic fires instead of the broken
+  // legacy OR path that checks cards.classes && ARRAY['gravy'] (which matches nothing).
+  if (mcpFilters.heroLegal) {
+    const heroNames = Array.isArray(mcpFilters.heroLegal)
+      ? mcpFilters.heroLegal
+      : [mcpFilters.heroLegal];
+    const allClasses = new Set<string>();
+    const allTalents = new Set<string>();
+    for (const name of heroNames) {
+      const info = getHeroInfo(name);
+      if (info) {
+        info.classes.forEach(c => allClasses.add(c));
+        info.talents.forEach(t => allTalents.add(t));
+      } else {
+        // Unknown hero — fall back to legacy path
+        searchFilters.heroLegal = mcpFilters.heroLegal;
+      }
+    }
+    if (allClasses.size > 0 || allTalents.size > 0) {
+      (searchFilters as any).heroClasses = [...allClasses];
+      (searchFilters as any).heroTalents = [...allTalents];
+    }
+  }
   if (mcpFilters.heroClasses) (searchFilters as any).heroClasses = mcpFilters.heroClasses;
   if (mcpFilters.heroTalents) (searchFilters as any).heroTalents = mcpFilters.heroTalents;
   if (mcpFilters.heroEssences) (searchFilters as any).heroEssences = mcpFilters.heroEssences;
@@ -164,7 +188,7 @@ function formatPrintingForDisplay(printing: any): string {
   
   return `• ${name} (${printingCardId})
     Printing ID: ${printing.printing_id}
-    Card Unique ID: ${printing.card_unique_id})
+    Card Unique ID: ${printing.card_unique_id}
     Set: ${set} • Edition: ${edition} • Foiling: ${foiling}
     Rarity: ${rarity} • Price: ${price}`;
 }
@@ -580,22 +604,7 @@ ${parseResult.remainingText ? `📋 Remaining Text: "${parseResult.remainingText
             type: 'text',
             text: responseMessage
           }
-        ],
-        // Also include raw data for programmatic access
-        _metadata: {
-          printings: result.printings,
-          total: result.total,
-          page: result.page,
-          pages: result.pages,
-          queryInfo: {
-            ...result.queryInfo,
-            parseInfo: parseInfo.trim(),
-            searchType: query ? 'shorthand' : 'structured',
-            originalQuery: query || null,
-            finalFilters: finalFilters
-          },
-          searchDuration: duration
-        }
+        ]
       };
 
     } catch (error) {

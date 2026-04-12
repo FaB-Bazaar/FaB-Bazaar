@@ -103,9 +103,6 @@ export const users = pgTable('users', {
   discordAvatar: text('discord_avatar'),
   avatarUrl: text('avatar_url'),
 
-  // MCP authentication
-  mcpToken: text('mcp_token'),
-  mcpTokenExpiry: timestamp('mcp_token_expiry'),
   clientHash: text('client_hash'),
 
   // Metafy account linking
@@ -145,7 +142,6 @@ export const users = pgTable('users', {
   discordIdIdx: index('idx_users_discord_id').on(table.discordId),
   usernameIdx: index('idx_users_username').on(table.username),
   emailHashIdx: index('idx_users_email_hash').on(table.emailHash),
-  mcpTokenIdx: index('idx_users_mcp_token').on(table.mcpToken),
 }));
 
 // ============================================================================

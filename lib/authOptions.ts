@@ -2,7 +2,6 @@ import DiscordProvider from "next-auth/providers/discord"
 import crypto from "crypto"
 import type { JWT } from "next-auth/jwt"
 import type { Session } from "next-auth"
-import { generateMcpToken } from './generateMcpToken';
 import { userService } from '@/lib/services';
 
 export const authOptions = {
@@ -65,22 +64,14 @@ export const authOptions = {
                 console.log('[NextAuth][jwt] Updated existing user with new Discord info', { userId: existingUser._id });
               }
 
-              // Generate and store a new MCP token
-              const mcpToken = generateMcpToken();
-              const mcpTokenExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days expiry
-              await userService.updateMcpToken(existingUser._id, mcpToken, mcpTokenExpiry);
-
-              token.mcpToken = mcpToken;
               token.id = existingUser._id;
               token.username = existingUser.username;
               token.discordUsername = existingUser.discordUsername;
-              console.log('[NextAuth][jwt] Returning existing user', { userId: existingUser._id, mcpToken });
+              console.log('[NextAuth][jwt] Returning existing user', { userId: existingUser._id });
             } else {
               console.log('[NextAuth][jwt] Creating new user for Discord profile', { profile });
               try {
                 const username = `dc_${profile?.username || Math.random().toString(36).substring(2, 8)}`;
-                const mcpToken = generateMcpToken();
-                const mcpTokenExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days expiry
 
                 const createResult = await userService.create({
                   username: username,
@@ -90,12 +81,9 @@ export const authOptions = {
                 });
 
                 if (createResult.success && createResult.data) {
-                  // Update the new user with Discord ID and MCP token
                   await userService.updateDiscordInfo(createResult.data._id, profile?.id, profile?.username);
-                  await userService.updateMcpToken(createResult.data._id, mcpToken, mcpTokenExpiry);
 
-                  console.log('[NextAuth][jwt] New user created', { userId: createResult.data._id, username: createResult.data.username, mcpToken });
-                  token.mcpToken = mcpToken;
+                  console.log('[NextAuth][jwt] New user created', { userId: createResult.data._id, username: createResult.data.username });
                   token.id = createResult.data._id;
                   token.username = createResult.data.username;
                   token.discordUsername = createResult.data.discordUsername;

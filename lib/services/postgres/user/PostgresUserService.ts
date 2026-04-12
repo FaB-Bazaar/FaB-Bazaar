@@ -210,39 +210,6 @@ export class PostgresUserService implements IUserService {
   }
 
   /**
-   * Update user's MCP token
-   */
-  async updateMcpToken(
-    userId: string,
-    mcpToken: string,
-    expiryDate: Date
-  ): AsyncResult<void> {
-    try {
-      const result = await db
-        .update(users)
-        .set({
-          mcpToken,
-          mcpTokenExpiry: expiryDate,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId))
-        .returning();
-
-      if (result.length === 0) {
-        return { success: false, error: 'User not found' };
-      }
-
-      return { success: true, data: undefined };
-    } catch (error) {
-      console.error('[PostgresUserService] updateMcpToken error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to update MCP token',
-      };
-    }
-  }
-
-  /**
    * Update user's Discord info
    */
   async updateDiscordInfo(

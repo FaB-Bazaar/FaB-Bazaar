@@ -11,13 +11,12 @@
 
 import { db } from '@/lib/postgres/db';
 import { users, oauthAccessTokens } from '@/lib/postgres/schema';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
 import { eq, or, and, gt, isNull } from 'drizzle-orm';
 import type {
   IAuthTokenService,
-  McpTokenDTO,
   BearerTokenDTO,
   ValidatedUserDTO,
   TokenValidationDTO,
@@ -27,108 +26,6 @@ import type { AsyncResult } from '../../contracts/common';
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 export class PostgresAuthTokenService implements IAuthTokenService {
-  // ========================================
-  // MCP Token Methods
-  // ========================================
-
-  /**
-   * Get MCP token for a user
-   */
-  async getMcpToken(
-    userId?: string,
-    username?: string,
-    discordUsername?: string
-  ): AsyncResult<McpTokenDTO | null> {
-    try {
-      if (!userId && !username && !discordUsername) {
-        return { success: false, error: 'Must provide userId, username, or discordUsername' };
-      }
-
-      // Build WHERE clause based on provided identifiers
-      const conditions = [];
-      if (userId) conditions.push(eq(users.id, userId));
-      if (username) conditions.push(eq(users.username, username));
-      if (discordUsername) conditions.push(eq(users.discordUsername, discordUsername));
-
-      const [user] = await db
-        .select({
-          mcpToken: users.mcpToken,
-          mcpTokenExpiry: users.mcpTokenExpiry,
-        })
-        .from(users)
-        .where(or(...conditions));
-
-      if (!user || !user.mcpToken) {
-        return { success: true, data: null };
-      }
-
-      // Check expiration
-      if (user.mcpTokenExpiry && new Date() > user.mcpTokenExpiry) {
-        return { success: true, data: null };
-      }
-
-      return {
-        success: true,
-        data: {
-          token: user.mcpToken,
-          expiresAt: user.mcpTokenExpiry,
-        },
-      };
-    } catch (error) {
-      console.error('[PostgresAuthTokenService] getMcpToken error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get MCP token',
-      };
-    }
-  }
-
-  /**
-   * Validate MCP token and return associated user
-   */
-  async validateMcpToken(token: string): AsyncResult<ValidatedUserDTO | null> {
-    try {
-      // Hash the incoming token before lookup — DB stores SHA-256 hashes, not raw tokens
-      const tokenHash = createHash('sha256').update(token).digest('hex');
-
-      const [user] = await db
-        .select({
-          id: users.id,
-          username: users.username,
-          email: users.email,
-          discordUsername: users.discordUsername,
-          mcpTokenExpiry: users.mcpTokenExpiry,
-        })
-        .from(users)
-        .where(eq(users.mcpToken, tokenHash));
-
-      if (!user) {
-        return { success: true, data: null };
-      }
-
-      // Check expiration
-      if (user.mcpTokenExpiry && new Date() > user.mcpTokenExpiry) {
-        return { success: true, data: null };
-      }
-
-      return {
-        success: true,
-        data: {
-          _id: user.id,
-          username: user.username,
-          email: user.email ?? undefined,
-          discordUsername: user.discordUsername ?? undefined,
-        },
-      };
-    } catch (error) {
-      console.error('[PostgresAuthTokenService] validateMcpToken error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to validate MCP token',
-      };
-    }
-  }
-
   // ========================================
   // Bearer Token Methods
   // ========================================

@@ -22,7 +22,7 @@ export interface AuthResult {
   userId?: string;
   username?: string;
   discordId?: string;
-  authMethod?: 'session' | 'discordId' | 'mcpToken' | 'oauth';
+  authMethod?: 'session' | 'discordId' | 'oauth';
   error?: string;
 }
 
@@ -30,7 +30,6 @@ export interface AuthResult {
  * Parameters extracted from request for authentication
  */
 interface AuthParams {
-  mcpToken?: string | null;
   discordId?: string | null;
   discordBotToken?: string | null;
   oauthToken?: string | null;
@@ -44,10 +43,6 @@ export function extractAuthParams(req: NextRequest, body: any = {}): AuthParams 
   const authHeader = req.headers.get('Authorization') || '';
 
   return {
-    // MCP token must come from Authorization: Bearer mcp_... header only
-    mcpToken:
-      (authHeader.startsWith('Bearer mcp_') ? authHeader.substring(7) : null),
-
     // Discord ID from header (preferred for Discord bot) or body
     // X-Discord-User-Id header is the requester's Discord ID for bot auth
     discordId:
@@ -155,8 +150,7 @@ async function validateOAuthToken(
  * Authenticate a request using multiple methods in priority order:
  * 1. NextAuth session (web client)
  * 2. Discord bot token + Discord ID (server-to-server from Discord bot)
- * 3. MCP token (machine client protocol)
- * 4. OAuth 2.1 Bearer token (optional, for wants/get)
+ * 3. OAuth 2.1 Bearer token (optional, for wants/get)
  *
  * @param req - The Next.js request object
  * @param body - Optional parsed request body (for POST/PUT/PATCH requests)
@@ -184,7 +178,7 @@ export async function authenticateRequest(
     }
 
     // Extract auth params from request
-    const { mcpToken, discordId, discordBotToken, oauthToken } = extractAuthParams(req, body);
+    const { discordId, discordBotToken, oauthToken } = extractAuthParams(req, body);
 
     // 2. Try Discord bot auth (server-to-server)
     if (discordId && discordBotToken) {
@@ -214,24 +208,7 @@ export async function authenticateRequest(
       };
     }
 
-    // 3. Try MCP token auth
-    if (mcpToken) {
-      const result = await userService.validateMcpToken(mcpToken);
-
-      if (!result.success || !result.data?.valid || !result.data?.user) {
-        return { success: false, error: 'MCP token expired or invalid' };
-      }
-
-      return {
-        success: true,
-        userId: result.data.user._id,
-        username: result.data.user.username || result.data.user.discordUsername,
-        discordId: result.data.user.discordId,
-        authMethod: 'mcpToken',
-      };
-    }
-
-    // 4. Try OAuth token (if enabled)
+    // 3. Try OAuth token (if enabled)
     if (options.allowOAuth && oauthToken) {
       const { valid, user } = await validateOAuthToken(oauthToken);
 

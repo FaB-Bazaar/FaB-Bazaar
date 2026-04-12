@@ -55,16 +55,7 @@ const RATE_LIMIT_CONFIG = {
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const DEBUG_MCP = !IS_PRODUCTION;
 
-// Helper to extract MCP token from Authorization header only
-function extractMCPToken(req: Request): string | null {
-  const authHeader = req.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer mcp_')) {
-    return authHeader.substring(7);
-  }
-  return null;
-}
-
-// NEW: OAuth 2.1 Bearer token validation (uses service layer)
+// OAuth 2.1 Bearer token validation (uses service layer)
 async function validateOAuth2Token(token: string): Promise<{ isValid: boolean; user?: any; clientId?: string; scope?: string; error?: string }> {
   if (DEBUG_MCP) {
     console.log('=== OAUTH TOKEN VALIDATION START ===');
@@ -95,30 +86,6 @@ async function validateOAuth2Token(token: string): Promise<{ isValid: boolean; u
     return { isValid: false, error: "Token validation error" };
   } finally {
     if (DEBUG_MCP) console.log('=== OAUTH TOKEN VALIDATION END ===');
-  }
-}
-
-// Validate MCP token against user database (uses service layer)
-async function isValidMCPToken(token: string | null): Promise<{ isValid: boolean; user?: any; error?: string }> {
-  if (!token) {
-    return { isValid: false, error: "No token provided" };
-  }
-
-  try {
-    const result = await authTokenService.validateMcpToken(token);
-
-    if (!result.success) {
-      return { isValid: false, error: result.error };
-    }
-
-    if (result.data) {
-      return { isValid: true, user: result.data };
-    }
-
-    return { isValid: false, error: "Invalid token" };
-  } catch (error) {
-    console.error('Error validating MCP token:', error);
-    return { isValid: false, error: "Database error" };
   }
 }
 
@@ -228,7 +195,7 @@ export async function POST(req: Request) {
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
   }
   if (DEBUG_MCP) {
-    console.log('=== MCP SERVER ENDPOINT HIT (OAuth + Legacy Support) ===');
+    console.log('=== MCP SERVER ENDPOINT HIT ===');
     console.log('Timestamp:', timestamp);
   }
 
@@ -236,43 +203,16 @@ export async function POST(req: Request) {
   const clientIP = getClientIP(req);
   if (DEBUG_MCP) console.log('Client IP:', clientIP);
 
-  // ENHANCED AUTHENTICATION - Support both OAuth and legacy MCP tokens
+  // OAuth 2.1 Bearer Token Authentication
   const authHeader = req.headers.get('Authorization');
   let authenticatedUser = null;
-  let authMethod = 'none';
 
-  if (authHeader?.startsWith('Bearer mcp_')) {
-    // Legacy MCP token via Authorization header (checked first to avoid OAuth validator confusion)
-    const mcpToken = extractMCPToken(req);
-    const tokenValidation = await isValidMCPToken(mcpToken);
-
-    if (!tokenValidation.isValid) {
-      if (DEBUG_MCP) console.log(`❌ MCP token authentication failed: ${tokenValidation.error} from IP: ${clientIP}`);
-      return NextResponse.json({
-        jsonrpc: "2.0",
-        id: null,
-        error: {
-          code: -32001,
-          message: `Authentication failed: ${tokenValidation.error}. Provide a valid MCP token via Authorization: Bearer <mcp_token>.`,
-          data: {
-            hint: "Generate a new token from your FabBazaar account settings, or use OAuth client credentials",
-            error: tokenValidation.error
-          }
-        }
-      }, { status: 401, headers: unauthenticatedHeaders(req) });
-    }
-
-    authenticatedUser = tokenValidation.user;
-    authMethod = 'mcp_token';
-    if (DEBUG_MCP) console.log(`✅ MCP token validated for user: ${authenticatedUser.username} from IP: ${clientIP}`);
-  } else if (authHeader?.startsWith('Bearer ')) {
-    // OAuth 2.1 Bearer Token Authentication
+  if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
     const oauthValidation = await validateOAuth2Token(token);
 
     if (oauthValidation.isValid) {
-      authenticatedUser = oauthValidation.user; // May be null for general client credentials
-      authMethod = 'oauth2';
+      authenticatedUser = oauthValidation.user;
       if (DEBUG_MCP) console.log(`✅ OAuth 2.1 authenticated: ${authenticatedUser ? authenticatedUser.username : 'Client Credentials'} from IP: ${clientIP}`);
     } else {
       if (DEBUG_MCP) console.log(`❌ OAuth token validation failed: ${oauthValidation.error}`);
@@ -286,20 +226,23 @@ export async function POST(req: Request) {
       }, { status: 401, headers: unauthenticatedHeaders(req) });
     }
   } else {
-    // No valid Authorization header
     if (DEBUG_MCP) console.log(`❌ Authentication failed: No Authorization header from IP: ${clientIP}`);
     return NextResponse.json({
       jsonrpc: "2.0",
       id: null,
       error: {
         code: -32001,
-        message: "Authentication required. Provide Authorization: Bearer <mcp_token> or Authorization: Bearer <oauth_token>.",
+        message: "Authentication required. Provide Authorization: Bearer <oauth_token>.",
         data: {
-          hint: "Generate a token from your FabBazaar account settings and send it as an Authorization header"
+          hint: "Obtain an OAuth 2.1 token via the client credentials or authorization code flow"
         }
       }
     }, { status: 401, headers: unauthenticatedHeaders(req) });
   }
+
+  // Bearer token for downstream tool calls (auth already validated above)
+  const bearerToken = authHeader.substring(7);
+  const authMethod = 'oauth2';
 
   // Rate limiting check (with higher limits for authenticated users)
   try {
@@ -405,10 +348,9 @@ export async function POST(req: Request) {
                 available: ['searchable://card/fields', 'fab://constants', 'article://formatting', 'fab://hero-ids']
               }
             },
-            serverInfo: { 
-              name: 'FabBazaar Printings MCP (OAuth + Legacy)', 
-              version: '4.0.0',
-              authMethod: authMethod,
+            serverInfo: {
+              name: 'FabBazaar MCP',
+              version: '4.1.0',
               user: authenticatedUser ? authenticatedUser.username : 'Client Credentials'
             }
           }          
@@ -846,17 +788,8 @@ The new tool provides the same functionality with better guidance for proper wor
           if (DEBUG_MCP) console.log('📚 Executing list binders');
 
           try {
-            // Get token based on auth method
-            let tokenToPass = null;
-            if (authMethod === 'oauth2') {
-              const authHeader = req.headers.get('Authorization');
-              tokenToPass = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-            } else {
-              tokenToPass = extractMCPToken(req);
-            }
-
-            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
-            const result = await listBindersTool.handler(toolInput, userWithToken, tokenToPass);
+            const userWithToken = { ...authenticatedUser, mcpToken: bearerToken };
+            const result = await listBindersTool.handler(toolInput, userWithToken, bearerToken);
 
             if (!result.success) {
               console.error('💥 list_binders tool returned an error:', result.error);
@@ -914,21 +847,8 @@ The new tool provides the same functionality with better guidance for proper wor
   if (DEBUG_MCP) console.log('📋 Executing binder retrieval');
 
   try {
-    // Get token based on auth method
-    let tokenToPass = null;
-    if (authMethod === 'oauth2') {
-      // Extract OAuth Bearer token
-      const authHeader = req.headers.get('Authorization');
-      tokenToPass = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-    } else {
-      // Extract MCP token from query params
-      tokenToPass = extractMCPToken(req);
-    }
-
-    const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
-
-    // Pass the authenticated user with token to the tool's handler
-    const result = await getBinderTool.handler(toolInput, userWithToken, tokenToPass);
+    const userWithToken = { ...authenticatedUser, mcpToken: bearerToken };
+    const result = await getBinderTool.handler(toolInput, userWithToken, bearerToken);
 
     // Check for tool failure
     if (!result.success) {
@@ -989,10 +909,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'create_deck') {
           if (DEBUG_MCP) console.log('🆕 Executing create deck');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await createDeckTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1015,10 +932,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'list_decks') {
           if (DEBUG_MCP) console.log('🃏 Executing list decks');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await listDecksTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1041,10 +955,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'get_deck') {
           if (DEBUG_MCP) console.log('🃏 Executing get deck');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await getDeckTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1067,10 +978,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'add_cards_to_deck') {
           if (DEBUG_MCP) console.log('🃏 Executing add_cards_to_deck');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await addCardsToDeckTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1093,10 +1001,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'remove_cards_from_deck') {
           if (DEBUG_MCP) console.log('🃏 Executing remove_cards_from_deck');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await removeCardsFromDeckTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1119,10 +1024,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'update_deck') {
           if (DEBUG_MCP) console.log('✏️ Executing update_deck');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await updateDeckTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1145,10 +1047,7 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'save_deck_matchup') {
           if (DEBUG_MCP) console.log('⚔️ Executing save_deck_matchup');
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await saveDeckMatchupTool.handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
@@ -1172,20 +1071,7 @@ The new tool provides the same functionality with better guidance for proper wor
           if (DEBUG_MCP) console.log('📋 Executing wants list retrieval');
 
           try {
-            // Extract OAuth token from Authorization header
-            const authHeader = req.headers.get('Authorization');
-            const oauthToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-            // Also extract MCP token as fallback
-            const mcpToken = extractMCPToken(req);
-
-            if (DEBUG_MCP) {
-              console.log(`[GetWants] OAuth token: ${oauthToken ? oauthToken.substring(0, 20) + '...' : 'None'}`);
-              console.log(`[GetWants] MCP token: ${mcpToken ? mcpToken.substring(0, 20) + '...' : 'None'}`);
-            }
-            
-            // Pass both tokens to the tool - let the tool decide which to use
-            const result = await getWantsTool.handler(toolInput, authenticatedUser, oauthToken || mcpToken);
+            const result = await getWantsTool.handler(toolInput, authenticatedUser, bearerToken);
             
             return NextResponse.json({
               jsonrpc: '2.0',
@@ -1227,17 +1113,8 @@ The new tool provides the same functionality with better guidance for proper wor
   if (DEBUG_MCP) console.log('📋 Executing binder update');
 
   try {
-    // Get token based on auth method
-    let tokenToPass = null;
-    if (authMethod === 'oauth2') {
-      const authHeader = req.headers.get('Authorization');
-      tokenToPass = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-    } else {
-      tokenToPass = extractMCPToken(req);
-    }
-
-    const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
-    const result = await updateBinderTool.handler(toolInput, userWithToken, tokenToPass);
+    const userWithToken = { ...authenticatedUser, mcpToken: bearerToken };
+    const result = await updateBinderTool.handler(toolInput, userWithToken, bearerToken);
     
     // Build detailed response message
     let responseText = '';
@@ -1396,17 +1273,8 @@ The new tool provides the same functionality with better guidance for proper wor
           if (DEBUG_MCP) console.log('🔍 Executing who has search');
 
           try {
-            // Get token based on auth method
-            let tokenToPass = null;
-            if (authMethod === 'oauth2') {
-              const authHeader = req.headers.get('Authorization');
-              tokenToPass = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-            } else {
-              tokenToPass = extractMCPToken(req);
-            }
-
-            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
-            const result = await whoHasTool.handler(toolInput, userWithToken, tokenToPass);
+            const userWithToken = { ...authenticatedUser, mcpToken: bearerToken };
+            const result = await whoHasTool.handler(toolInput, userWithToken, bearerToken);
             
             return NextResponse.json({
               jsonrpc: '2.0',
@@ -1452,20 +1320,7 @@ The new tool provides the same functionality with better guidance for proper wor
           if (DEBUG_MCP) console.log('📝 Executing wants list update');
 
           try {
-            // Extract OAuth token from Authorization header
-            const authHeader = req.headers.get('Authorization');
-            const oauthToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-            // Also extract MCP token as fallback
-            const mcpToken = extractMCPToken(req);
-
-            if (DEBUG_MCP) {
-              console.log(`[UpdateWants] OAuth token: ${oauthToken ? oauthToken.substring(0, 20) + '...' : 'None'}`);
-              console.log(`[UpdateWants] MCP token: ${mcpToken ? mcpToken.substring(0, 20) + '...' : 'None'}`);
-            }
-            
-            // Pass both the user and the appropriate token
-            const result = await updateWantsTool.handler(toolInput, authenticatedUser, oauthToken || mcpToken);
+            const result = await updateWantsTool.handler(toolInput, authenticatedUser, bearerToken);
             
             return NextResponse.json({
               jsonrpc: '2.0',
@@ -1533,26 +1388,13 @@ The new tool provides the same functionality with better guidance for proper wor
           try {
             if (DEBUG_MCP) console.log('🚀 About to call search handler');
             const result = await searchPrintingsTool.handler(toolInput);
-            
+
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
               result: {
-                content: [{
-                  type: 'text',
-                  text: `✅ Search completed! Found ${result.total || 0} results.
-
-                    ${result.printings?.map(p => 
-                      `• ${p.name} (${p.printing_card_id})
-                        Printing ID: ${p.printing_id}
-                        Card Unique ID: ${p.card_unique_id})
-                        Details: ${p.set} ${p.edition} ${p.foiling} - ${p.tcg_low || 'N/A'}`
-                    ).join('\n\n') || ''}
-
-                    📊 Query info: ${result.queryInfo?.parseInfo || 'Direct search'}`
-                }],
-                isError: false,
-                ...result
+                ...result,
+                isError: false
               }
             }, { headers: corsHeaders() });
             
@@ -1688,7 +1530,7 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
           if (DEBUG_MCP) console.log('📄 Executing get article');
 
           try {
-            const result = await getArticleTool.handler(toolInput, authenticatedUser, extractMCPToken(req));
+            const result = await getArticleTool.handler(toolInput, authenticatedUser, bearerToken);
 
             return NextResponse.json({
               jsonrpc: '2.0',
@@ -1730,7 +1572,7 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
           if (DEBUG_MCP) console.log('➕ Executing add article section');
 
           try {
-            const result = await addArticleSectionTool.handler(toolInput, authenticatedUser, extractMCPToken(req));
+            const result = await addArticleSectionTool.handler(toolInput, authenticatedUser, bearerToken);
 
             return NextResponse.json({
               jsonrpc: '2.0',
@@ -1772,7 +1614,7 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
           if (DEBUG_MCP) console.log('✏️ Executing update article section');
 
           try {
-            const result = await updateArticleSectionTool.handler(toolInput, authenticatedUser, extractMCPToken(req));
+            const result = await updateArticleSectionTool.handler(toolInput, authenticatedUser, bearerToken);
 
             return NextResponse.json({
               jsonrpc: '2.0',
@@ -1817,10 +1659,7 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
             toolName === 'remove_card_from_list') {
           if (DEBUG_MCP) console.log(`📋 Executing curation tool: ${toolName}`);
           try {
-            const authHeader = req.headers.get('Authorization');
-            const tokenToPass = authMethod === 'oauth2'
-              ? (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null)
-              : extractMCPToken(req);
+            const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
 
             const toolMap: Record<string, any> = {
@@ -2141,7 +1980,7 @@ export async function GET(req: Request) {
     capabilities: ["OAuth 2.1 Bearer tokens", "Legacy MCP tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "update_binder", "remove_from_binder", "scan_printing", "get_wants", "update_wants", "get_article", "add_article_section", "update_article_section", "list_decks", "get_deck"],
     hint: "Use POST with method/params structure. Always start with 'read_mandatory_constants_first' tool!",
     mode: "OAUTH_AND_LEGACY_SUPPORT",
-    authMethods: ["Bearer <oauth_token>", "Bearer <mcp_token>"],
+    authMethods: ["Bearer <oauth_token>"],
     workflow: "🚨 MANDATORY: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → update_binder",
     setup_sequence: [
       "1️⃣ read_mandatory_constants_first({\"uri\": \"fab://constants\"})",

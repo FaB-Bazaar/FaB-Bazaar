@@ -77,10 +77,6 @@ export async function GET(req: NextRequest) {
 
       let bindersWithStats = statsResult.data;
 
-      if (authMethod === 'mcpToken') {
-        bindersWithStats = bindersWithStats.filter(b => b.slug === 'mcp-binder');
-      }
-
       if (limit) bindersWithStats = bindersWithStats.slice(0, limit);
 
       return NextResponse.json(
@@ -123,11 +119,6 @@ export async function GET(req: NextRequest) {
         if (level === undefined) return b.isPublic === true;
         return false;
       });
-    }
-
-    // Filter by slug if authenticated via MCP token (NOTE: Could move this to service layer later)
-    if (authMethod === 'mcpToken' || mcpToken) {
-      binders = binders.filter(b => b.slug === 'mcp-binder');
     }
 
     // For summary requests, return cached response
