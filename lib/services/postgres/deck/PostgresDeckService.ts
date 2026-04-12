@@ -173,6 +173,7 @@ export class PostgresDeckService implements IDeckService {
       metafyGuideId: deckRow.metafyGuideId || undefined,
       availableOnTalishar: deckRow.availableOnTalishar ?? false,
       featured: deckRow.featured ?? false,
+      isSystemDeck: deckRow.isSystemDeck ?? false,
 
       // Category arrays (JOINed data, not embedded)
       hero: categorizeCards('hero'),
