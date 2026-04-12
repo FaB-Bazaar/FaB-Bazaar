@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fabby": {
+      "type": "http",
+      "url": "https://fabbazaar.app/api/mcp/server"
+    }
+  }
+}

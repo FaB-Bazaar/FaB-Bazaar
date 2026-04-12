@@ -349,7 +349,7 @@ export async function POST(req: Request) {
               }
             },
             serverInfo: {
-              name: 'FabBazaar MCP',
+              name: 'FabBazaar MCP [DEV]',
               version: '4.1.0',
               user: authenticatedUser ? authenticatedUser.username : 'Client Credentials'
             }

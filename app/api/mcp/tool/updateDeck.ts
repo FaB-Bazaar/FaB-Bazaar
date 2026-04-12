@@ -72,9 +72,13 @@ export const updateDeckTool = {
         return { success: false, error: 'Authentication failed: No token found.' };
       }
 
-      const { deckName, updates } = params;
+      const { deckName } = params;
+      let updates = params.updates;
+      if (typeof updates === 'string') {
+        try { updates = JSON.parse(updates); } catch { return { success: false, error: 'updates must be a valid JSON object.' }; }
+      }
       if (!deckName) return { success: false, error: 'deckName is required.' };
-      if (!updates || Object.keys(updates).length === 0) return { success: false, error: 'updates object must not be empty.' };
+      if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) return { success: false, error: 'updates object must not be empty.' };
 
       // Resolve deck by name
       const listRes = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
