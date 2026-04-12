@@ -265,7 +265,7 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
 
 export const extractPrintingIdsTool = {
   name: 'extract_printing_ids',
-  description: 'Extract printing IDs from search results with user-friendly selection interface for binder management.',
+  description: 'Extract printing IDs from search results with user-friendly selection interface for binder management. Present results to users as card names, set, edition, foiling, and price — never show raw printing ID strings to end users.',
   parameters: {
     type: 'object',
     properties: {

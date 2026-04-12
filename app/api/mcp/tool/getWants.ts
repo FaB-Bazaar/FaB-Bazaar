@@ -1,38 +1,22 @@
-// app/api/mcp/tool/getWants.ts - MCP tool for retrieving wants list contents (OAuth + MCP Token support)
+// app/api/mcp/tool/getWants.ts - MCP tool for retrieving wants list contents
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const getWantsTool = {
   name: 'get_wants',
-  description: `📋 WANTS LIST RETRIEVAL TOOL (MCP Token Authentication)
+  description: `📋 WANTS LIST RETRIEVAL TOOL
 
-Retrieve the contents of a wants list with pagination, search, and filtering support.
+Retrieve the contents of your wants list with pagination, search, and filtering support.
 
 🔍 FEATURES:
-• Get wants list contents for authenticated user
 • Pagination support for large wants lists
 • Search filtering by card name
 • Priority filtering (high, medium, low)
-• Multiple authentication methods supported
 • Detailed printing information (set, edition, foiling, rarity, price)
 
-📚 USAGE:
-• View wants list contents
-• Search for specific cards in wants list
-• Filter by priority level
-• Export/analyze wants data
-• Verify card additions after using update_wants
-
-🔐 AUTHENTICATION (Multiple Methods Supported):
-• MCP token (primary for MCP clients)
-• Session authentication (web users)
-• Discord ID parameter (discordId=123456)
-
 📖 EXAMPLES:
-• Basic: getWants({})
-• Paginated: getWants({ page: 2, limit: 50 })
-• Filtered: getWants({ search: "command", priority: "high" })
-
-💡 Note: This tool works independently and doesn't require the search setup steps.`,
+• Basic: get_wants({})
+• Paginated: get_wants({ page: 2, limit: 50 })
+• Filtered: get_wants({ search: "command", priority: "high" })`,
 
   parameters: {
     type: 'object',
@@ -58,16 +42,6 @@ Retrieve the contents of a wants list with pagination, search, and filtering sup
         type: 'string',
         enum: ['high', 'medium', 'low'],
         description: 'Optional priority filter (high, medium, low)'
-      },
-      authParams: {
-        type: 'object',
-        description: 'Optional authentication parameters (if not using OAuth/MCP token)',
-        properties: {
-          discordId: {
-            type: 'string',
-            description: 'Discord user ID for authentication'
-          }
-        }
       }
     },
     required: []
@@ -86,71 +60,33 @@ Retrieve the contents of a wants list with pagination, search, and filtering sup
         page = 1,
         limit = 100,
         search,
-        priority,
-        authParams = {}
+        priority
       } = params;
-      
+
+      const tokenToUse = authenticatedUser?.mcpToken || tokenFromAuth;
+
+      if (!tokenToUse) {
+        return {
+          success: false,
+          error: 'Authentication required: no bearer token found.'
+        };
+      }
+
       // Build query parameters
       const queryParams = new URLSearchParams();
       queryParams.append('page', page.toString());
       queryParams.append('limit', limit.toString());
-      
-      if (search) {
-        queryParams.append('search', search);
-      }
-      
+      if (search) queryParams.append('search', search);
       if (priority && ['high', 'medium', 'low'].includes(priority.toLowerCase())) {
         queryParams.append('priority', priority.toLowerCase());
       }
-      
-      // Add Discord ID if provided in authParams
-      if (authParams.discordId) {
-        queryParams.append('discordId', authParams.discordId);
-        console.log(`[GetWants] Using Discord ID: ${authParams.discordId}`);
-      }
-      
-      // Determine authentication method and setup
-      let authMethod = 'none';
-      let hasToken = false;
 
-      // Check if we have a token (MCP tokens from this deployment)
-      if (tokenFromAuth) {
-        hasToken = true;
-        authMethod = 'mcp_token';
-        console.log(`[GetWants] Using MCP token: ${tokenFromAuth.substring(0, 20)}...`);
-      } else if (authParams.discordId) {
-        authMethod = 'discordId';
-      }
-      
       const url = `${endpoint}?${queryParams.toString()}`;
-      
-      console.log(`[GetWants] Fetching wants list (page ${page}, limit ${limit})`);
-      console.log(`[GetWants] Authentication method: ${authMethod}`);
-      console.log(`[GetWants] Full URL: ${url}`);
-      if (search) console.log(`[GetWants] Search filter: "${search}"`);
-      if (priority) console.log(`[GetWants] Priority filter: "${priority}"`);
-      
-      // Prepare headers
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tokenToUse}`
       };
-
-      // Add Authorization header if we have a token
-      if (hasToken && tokenFromAuth) {
-        headers['Authorization'] = `Bearer ${tokenFromAuth}`;
-        console.log(`[GetWants] Added Authorization Bearer header`);
-      }
-      
-      // Validate authentication
-      if (authMethod === 'none') {
-        console.warn('[GetWants] No authentication method provided');
-        return {
-          success: false,
-          error: 'Authentication required: provide MCP token or Discord ID',
-          authMethod: 'none',
-          availableAuthMethods: ['mcp_token', 'discordId']
-        };
-      }
       
       const response = await mcpFetch(url, {
         method: 'GET',
@@ -167,11 +103,7 @@ Retrieve the contents of a wants list with pagination, search, and filtering sup
           status: response.status,
           debug: {
             url,
-            headers: Object.keys(headers),
-            authenticatedUser: authenticatedUser ? `${authenticatedUser.username} (${authenticatedUser.email})` : 'Token User',
-            authMethod,
-            hasDiscordId: !!authParams.discordId,
-            hasToken: hasToken
+            authenticatedUser: authenticatedUser ? `${authenticatedUser.username} (${authenticatedUser.email})` : 'Token User'
           }
         };
       }
@@ -257,13 +189,12 @@ Retrieve the contents of a wants list with pagination, search, and filtering sup
         }
         
         detailedMessage += `\n\n📊 Wants list owned by: ${result.authenticatedUser}`;
-        detailedMessage += `\n🔐 Authentication: ${authMethod === 'mcp_token' ? 'MCP Token' : result.authMethod}`;
+        detailedMessage += `\n🔐 Authentication: OAuth Bearer`;
         detailedMessage += `\n📁 List: ${metadata.wants_list_name}`;
       }
       
       return {
         success: true,
-        authMethod,
         authenticatedUser: result.authenticatedUser,
         wantsList: {
           name: metadata.wants_list_name,

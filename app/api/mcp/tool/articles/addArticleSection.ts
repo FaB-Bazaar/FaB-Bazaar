@@ -26,10 +26,7 @@ Append new sections to the end of an article. Supports all section types includi
 1. mode: "preview" - Show what will be added (default)
 2. mode: "confirm" - Actually add the section(s)
 
-🔐 AUTHENTICATION:
-• MCP token via query parameter
-• OAuth 2.1 Bearer token
-• Requires article ownership or SuperAdmin role
+🔐 AUTHENTICATION: OAuth 2.1 Bearer token required. Requires article ownership or SuperAdmin role.
 
 📖 EXAMPLES:
 • By slug: { articleId: "briar-guide", section: { type: "text", content: "# Strategy Guide\\n\\nThis is..." } }
@@ -76,20 +73,6 @@ Append new sections to the end of an article. Supports all section types includi
           }
         }
       },
-      authParams: {
-        type: 'object',
-        description: 'Optional authentication parameters',
-        properties: {
-          mcpToken: {
-            type: 'string',
-            description: 'MCP authentication token'
-          },
-          discordId: {
-            type: 'string',
-            description: 'Discord user ID for authentication'
-          }
-        }
-      }
     },
     required: ['articleId']
   },
@@ -104,8 +87,7 @@ Append new sections to the end of an article. Supports all section types includi
         mode = 'preview',
         articleId,
         section,
-        sections,
-        authParams = {}
+        sections
       } = params;
 
       // Validate input
@@ -147,14 +129,12 @@ Append new sections to the end of an article. Supports all section types includi
 
       const endpoint = `${API_BASE_URL}/api/articles/${articleId}`;
 
-      // Build query parameters
-      const queryParams = new URLSearchParams();
-      const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      if (authParams.discordId) {
-        queryParams.append('discordId', authParams.discordId);
+      const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
+      if (!tokenToUse) {
+        return { success: false, error: 'Authentication required: no bearer token found.' };
       }
 
-      const url = queryParams.toString() ? `${endpoint}?${queryParams.toString()}` : endpoint;
+      const url = endpoint;
 
       // Preview mode - don't make the API call
       if (mode === 'preview') {

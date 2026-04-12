@@ -26,10 +26,7 @@ Update an existing section in an article by its index. Replaces the entire secti
 1. mode: "preview" - Show what will be updated (default)
 2. mode: "confirm" - Actually update the section
 
-🔐 AUTHENTICATION:
-• MCP token via query parameter
-• OAuth 2.1 Bearer token
-• Requires article ownership or SuperAdmin role
+🔐 AUTHENTICATION: OAuth 2.1 Bearer token required. Requires article ownership or SuperAdmin role.
 
 💡 WORKFLOW:
 1. Use get_article to see current sections and their indices
@@ -72,20 +69,6 @@ Update an existing section in an article by its index. Replaces the entire secti
         },
         required: ['type']
       },
-      authParams: {
-        type: 'object',
-        description: 'Optional authentication parameters',
-        properties: {
-          mcpToken: {
-            type: 'string',
-            description: 'MCP authentication token'
-          },
-          discordId: {
-            type: 'string',
-            description: 'Discord user ID for authentication'
-          }
-        }
-      }
     },
     required: ['articleId', 'index', 'section']
   },
@@ -100,8 +83,7 @@ Update an existing section in an article by its index. Replaces the entire secti
         mode = 'preview',
         articleId,
         index,
-        section,
-        authParams = {}
+        section
       } = params;
 
       // Validate input
@@ -135,14 +117,12 @@ Update an existing section in an article by its index. Replaces the entire secti
 
       const endpoint = `${API_BASE_URL}/api/articles/${articleId}`;
 
-      // Build query parameters
-      const queryParams = new URLSearchParams();
-      const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      if (authParams.discordId) {
-        queryParams.append('discordId', authParams.discordId);
+      const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
+      if (!tokenToUse) {
+        return { success: false, error: 'Authentication required: no bearer token found.' };
       }
 
-      const url = queryParams.toString() ? `${endpoint}?${queryParams.toString()}` : endpoint;
+      const url = endpoint;
 
       // Preview mode - don't make the API call
       if (mode === 'preview') {

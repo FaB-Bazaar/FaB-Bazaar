@@ -289,6 +289,71 @@ export const fabConstantsResource = {
     power_ranges: POWER_RANGES,
     cost_ranges: COST_RANGES,
 
+    data_model: {
+      card: "Abstract game object. One row per pitch variant — red/yellow/blue Enlightened Strike are 3 separate cards with different stats and different card_unique_ids.",
+      printing: "A specific physical copy: one set + edition + foiling combination. Many printings per card. Identified by printingId.",
+      why_it_matters: "search_printings returns printings (not cards). add_cards_to_deck requires a printingId. Searching 'Enlightened Strike' returns multiple results because pitch variants × editions × foilings all have distinct printingIds.",
+      double_faced_cards: "Each face is its own printing, linked via other_face_printing_id."
+    },
+
+    deck_tools: {
+      description: "Reference for all deck-related MCP tools and their intended use:",
+      public_tools: {
+        get_decks_to_beat: {
+          purpose: "Browse curated meta reference decklists for a given month and year",
+          auth_required: false,
+          parameters: ["month (optional, defaults to current)", "year (optional, defaults to current)", "format", "heroName", "eventName"],
+          use_when: "You want to see what decks are strong in the current or a past meta"
+        }
+      },
+      binder_and_wants_tools: {
+        note: "All tools below require authentication and operate on your own data only",
+        add_to_binder: { purpose: "Add cards to your binder (add-only, never removes)", use_when: "Recording cards you own" },
+        remove_from_binder: { purpose: "Remove cards from your binder by inventory item ID", use_when: "Removing cards you no longer own — always confirm with user before calling" },
+        add_to_wants: { purpose: "Add cards to your wants list (add-only, never removes)", use_when: "Tracking cards you want to acquire" },
+        remove_from_wants: { purpose: "Remove cards from your wants list by printing ID", use_when: "Removing cards you no longer want — always confirm with user before calling" }
+      },
+      personal_deck_tools: {
+        note: "All tools below require authentication and operate on your own decks only",
+        list_decks: {
+          purpose: "View a summary of all decks in your account",
+          use_when: "You want to see what decks you have saved"
+        },
+        get_deck: {
+          purpose: "View the full decklist for one of your decks by name",
+          use_when: "You want to inspect cards, categories, or sideboard plans for a specific deck"
+        },
+        create_deck: {
+          purpose: "Create a new empty deck with a name, format, and hero",
+          use_when: "Starting a brand new deck from scratch"
+        },
+        add_cards_to_deck: {
+          purpose: "Add one or more cards to an existing deck by printing ID or card name",
+          use_when: "Building out or updating a decklist"
+        },
+        remove_cards_from_deck: {
+          purpose: "Remove cards from a deck by printing ID and category",
+          use_when: "Cutting cards from a decklist — always confirm with user first"
+        },
+        update_deck: {
+          purpose: "Update deck metadata: name, format, visibility, description, event name, event date, placing",
+          use_when: "Renaming a deck, logging a tournament result, or changing visibility"
+        },
+        save_deck_matchup: {
+          purpose: "Save a sideboard plan and notes for a specific opponent hero matchup",
+          use_when: "Preparing sideboard strategies for upcoming events"
+        }
+      },
+      typical_deck_workflow: [
+        "1. get_decks_to_beat → research the current meta",
+        "2. create_deck → start a new deck",
+        "3. search_printings → find specific card printings",
+        "4. add_cards_to_deck → build the list",
+        "5. update_deck → log event info after a tournament",
+        "6. save_deck_matchup → record sideboard plans"
+      ]
+    },
+
     important_notes: {
       workflow: "MANDATORY: Read fab://constants FIRST, then searchable://card/fields BEFORE using search_printings",
       case_sensitivity: "Card IDs are case-sensitive! Use 'WTR098' not 'wtr098'",

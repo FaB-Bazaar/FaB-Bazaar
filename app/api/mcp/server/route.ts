@@ -1,4 +1,4 @@
-// app/api/mcp/server/route.ts - WITH OAUTH 2.1 AND LEGACY MCP TOKEN SUPPORT
+// app/api/mcp/server/route.ts - OAuth 2.1 Bearer token authentication
 import { NextResponse } from "next/server";
 import { searchCapabilitiesResource } from '../resource/searchCapabilities';
 import { fabConstantsResource } from '../resource/fabConstants';
@@ -13,6 +13,7 @@ import { searchPrintingsTool } from '../tool/searchPrintings';
 import { extractPrintingIdsTool } from '../tool/extractPrintingIds';
 import { updateBinderTool } from '../tool/updateBinder';
 import { removeFromBinderTool } from '../tool/removeFromBinder';
+import { removeFromWantsTool } from '../tool/removeFromWants';
 import { getBinderTool } from '../tool/getBinder';
 import { listBindersTool } from '../tool/listBinders';
 import { getWantsTool } from '../tool/getWants';
@@ -29,6 +30,7 @@ import { addCardToListTool } from '../tool/curation/addCardToList';
 import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 
 // Import deck tools
+import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
 import { getDeckTool } from '../tool/getDeck';
 import { createDeckTool } from '../tool/createDeck';
@@ -39,7 +41,7 @@ import { saveDeckMatchupTool } from '../tool/saveDeckMatchup';
 import { getArticleTool } from '../tool/articles/getArticle';
 import { addArticleSectionTool } from '../tool/articles/addArticleSection';
 import { updateArticleSectionTool } from '../tool/articles/updateArticleSection';
-import { scanPrintingTool } from '../tool/scanPrinting';
+// import { scanPrintingTool } from '../tool/scanPrinting'; // removed — image scanning unreliable
 
 // Import the prompts
 import { mcpPrompts, getPromptByName } from '../prompt';
@@ -342,7 +344,7 @@ export async function POST(req: Request) {
             protocolVersion: '2025-06-18',
             capabilities: {
               tools: {
-                available: ['read_mandatory_constants_first', 'search_printings', 'extract_printing_ids', 'list_binders', 'get_binder', 'update_binder', 'get_wants', 'update_wants', 'who_has', 'get_article', 'add_article_section', 'update_article_section', 'list_decks', 'get_deck']
+                available: ['read_mandatory_constants_first', 'search_printings', 'extract_printing_ids', 'list_binders', 'get_binder', 'add_to_binder', 'remove_from_binder', 'get_wants', 'add_to_wants', 'remove_from_wants', 'who_has', 'get_article', 'add_article_section', 'update_article_section', 'get_decks_to_beat', 'list_decks', 'get_deck']
               },
               resources: {
                 available: ['searchable://card/fields', 'fab://constants', 'article://formatting', 'fab://hero-ids']
@@ -431,7 +433,7 @@ REQUIRED SEQUENCE:
 ⚡ Takes 30 seconds, saves hours of debugging!
 🔒 OTHER TOOLS ARE BLOCKED until you complete this setup!
 
-⚠️ WORKFLOW: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → update_binder
+⚠️ WORKFLOW: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → add_to_binder
 
 ✅ Always run this tool FIRST in any session!`,
                 inputSchema: {
@@ -468,7 +470,7 @@ REQUIRED SEQUENCE:
                 2. YOU: Call search_printings to find and verify the card
                 3. Show user what was found
                 4. User confirms or refines search
-                5. Then use extract_printing_ids → update_binder
+                5. Then use extract_printing_ids → add_to_binder
 
                 🔒 This tool is BLOCKED until setup complete!`,
                   inputSchema: searchPrintingsTool.parameters
@@ -487,7 +489,7 @@ REQUIRED SEQUENCE:
                 ${extractPrintingIdsTool.description}
 
                 🎯 WORKFLOW POSITION:
-                search_printings (explore) → extract_printing_ids (select) → update_binder (commit)
+                search_printings (explore) → extract_printing_ids (select) → add_to_binder (commit)
 
                 🔒 This tool is BLOCKED until setup complete!`,
                   inputSchema: extractPrintingIdsTool.parameters
@@ -503,26 +505,14 @@ REQUIRED SEQUENCE:
                 inputSchema: removeFromBinderTool.parameters
               },
               {
-                name: scanPrintingTool.name,
-                description: scanPrintingTool.description,
-                inputSchema: scanPrintingTool.parameters
+                name: updateWantsTool.name,
+                description: updateWantsTool.description,
+                inputSchema: updateWantsTool.parameters
               },
               {
-                name: updateWantsTool.name,
-                description: `📝 WANTS LIST MANAGEMENT TOOL (Works independently)
-              
-              ${updateWantsTool.description}
-              
-              💡 Note: This tool works independently and doesn't require the search setup steps.
-              
-              📚 Perfect companion to get_wants:
-              Step 1: get_wants (view current wants)
-              Step 2: search_printings (find new cards) [optional]
-              Step 3: update_wants (add cards to wants list)
-              Step 4: get_wants (verify additions)
-              
-              ✅ This tool works without any setup requirements!`,
-                inputSchema: updateWantsTool.parameters
+                name: removeFromWantsTool.name,
+                description: removeFromWantsTool.description,
+                inputSchema: removeFromWantsTool.parameters
               },
               {
                 name: listBindersTool.name,
@@ -541,11 +531,16 @@ ${getBinderTool.description}
 Step 1: list_binders (see all your binders)
 Step 2: get_binder (view specific binder contents using slug from step 1)
 Step 3: search_printings (find new cards) [optional]
-Step 4: update_binder (add cards to collection)
+Step 4: add_to_binder (add cards to collection)
 Step 5: get_binder (verify additions)
 
 ✅ This tool works without any setup requirements!`,
                 inputSchema: getBinderTool.parameters
+              },
+              {
+                name: getDecksToBeatTool.name,
+                description: getDecksToBeatTool.description,
+                inputSchema: getDecksToBeatTool.parameters
               },
               {
                 name: listDecksTool.name,
@@ -590,10 +585,10 @@ Step 5: get_binder (verify additions)
               
               💡 Note: This tool works independently and doesn't require the search setup steps.
               
-              📚 Perfect companion to update_wants:
+              📚 Perfect companion to add_to_wants:
               Step 1: get_wants (view current wants)
               Step 2: search_printings (find new cards) [optional]
-              Step 3: update_wants (add cards to wants list)
+              Step 3: add_to_wants (add cards to wants list)
               Step 4: get_wants (verify additions)
               
               ✅ This tool works without any setup requirements!`,
@@ -929,6 +924,27 @@ The new tool provides the same functionality with better guidance for proper wor
           }
         }
 
+        if (toolName === 'get_decks_to_beat') {
+          if (DEBUG_MCP) console.log('🏆 Executing get_decks_to_beat');
+          try {
+            const result = await getDecksToBeatTool.handler(toolInput);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Decks to Beat retrieved.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in get_decks_to_beat:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error fetching Decks to Beat: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
         if (toolName === 'list_decks') {
           if (DEBUG_MCP) console.log('🃏 Executing list decks');
           try {
@@ -1099,7 +1115,7 @@ The new tool provides the same functionality with better guidance for proper wor
                     type: 'text',
                     text: `💥 Error retrieving wants list: ${err instanceof Error ? err.message : 'Unknown error'}
         
-        This tool supports both OAuth 2.1 Bearer token and MCP token authentication.`
+        This tool requires OAuth 2.1 Bearer token authentication.`
                   }
                 ],
                 isError: true,
@@ -1109,8 +1125,8 @@ The new tool provides the same functionality with better guidance for proper wor
           }
         }
 
-        if (toolName === 'update_binder') {
-  if (DEBUG_MCP) console.log('📋 Executing binder update');
+        if (toolName === 'add_to_binder') {
+  if (DEBUG_MCP) console.log('📋 Executing add_to_binder');
 
   try {
     const userWithToken = { ...authenticatedUser, mcpToken: bearerToken };
@@ -1172,7 +1188,7 @@ The new tool provides the same functionality with better guidance for proper wor
     
   } catch (err) {
     // Handle unexpected errors
-    console.error('💥 Error in update_binder:', err);
+    console.error('💥 Error in add_to_binder:', err);
     return NextResponse.json({
       jsonrpc: '2.0',
       id,
@@ -1239,36 +1255,6 @@ The new tool provides the same functionality with better guidance for proper wor
           }
         }
 
-        if (toolName === 'scan_printing') {
-          if (DEBUG_MCP) console.log('🔍 Executing scan_printing');
-
-          try {
-            const result = await scanPrintingTool.handler(toolInput);
-
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-                isError: !result.success,
-                ...result
-              }
-            }, { headers: corsHeaders() });
-
-          } catch (err) {
-            console.error('💥 Error in scan_printing:', err);
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [{ type: 'text', text: `💥 Unexpected Error: ${err instanceof Error ? err.message : 'Unknown error'}` }],
-                isError: true,
-                error: err instanceof Error ? err.message : 'Unknown error'
-              }
-            }, { headers: corsHeaders() });
-          }
-        }
-
         if (toolName === 'who_has') {
           if (DEBUG_MCP) console.log('🔍 Executing who has search');
 
@@ -1316,8 +1302,8 @@ The new tool provides the same functionality with better guidance for proper wor
           }
         }
 
-        if (toolName === 'update_wants') {
-          if (DEBUG_MCP) console.log('📝 Executing wants list update');
+        if (toolName === 'add_to_wants') {
+          if (DEBUG_MCP) console.log('📝 Executing add_to_wants');
 
           try {
             const result = await updateWantsTool.handler(toolInput, authenticatedUser, bearerToken);
@@ -1338,7 +1324,7 @@ The new tool provides the same functionality with better guidance for proper wor
             }, { headers: corsHeaders() });
             
           } catch (err) {
-            console.error('💥 Error in update_wants:', err);
+            console.error('💥 Error in add_to_wants:', err);
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
@@ -1348,12 +1334,33 @@ The new tool provides the same functionality with better guidance for proper wor
                     type: 'text',
                     text: `💥 Error updating wants list: ${err instanceof Error ? err.message : 'Unknown error'}
         
-        This tool supports both OAuth 2.1 Bearer token and MCP token authentication.`
+        This tool requires OAuth 2.1 Bearer token authentication.`
                   }
                 ],
                 isError: true,
                 error: err instanceof Error ? err.message : 'Unknown error'
               }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'remove_from_wants') {
+          if (DEBUG_MCP) console.log('🗑️ Executing remove_from_wants');
+          try {
+            const result = await removeFromWantsTool.handler(toolInput, authenticatedUser, bearerToken);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Removed from wants list.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in remove_from_wants:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error removing from wants: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }
@@ -1705,9 +1712,9 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
       • read_mandatory_constants_first (🚨 USE THIS FIRST! Run twice with different URIs)
       - search_printings (🔍 START HERE for "add X to binder" requests)
       - extract_printing_ids (after confirming search results)
-      - update_binder (final step to add cards)
+      - add_to_binder (final step to add cards)
       - get_binder (view current collection)
-      - get_wants / update_wants (wants list management)
+      - get_wants / add_to_wants (wants list management)
       - who_has (find card owners)
       - get_article (retrieve article by slug)
       - add_article_section (append sections to article)
@@ -1716,7 +1723,7 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
       - get_deck (view full decklist by name)
 
       💡 Always start with "read_mandatory_constants_first" for best results.
-      💡 For "add cards" requests: search_printings → extract_printing_ids → update_binder
+      💡 For "add cards" requests: search_printings → extract_printing_ids → add_to_binder
       💡 For article editing: get_article → add_article_section / update_article_section
       
       📚 Required sequence:
@@ -1977,11 +1984,11 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "Legacy MCP tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "update_binder", "remove_from_binder", "scan_printing", "get_wants", "update_wants", "get_article", "add_article_section", "update_article_section", "list_decks", "get_deck"],
+    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "get_article", "add_article_section", "update_article_section", "get_decks_to_beat", "list_decks", "get_deck"],
     hint: "Use POST with method/params structure. Always start with 'read_mandatory_constants_first' tool!",
     mode: "OAUTH_AND_LEGACY_SUPPORT",
     authMethods: ["Bearer <oauth_token>"],
-    workflow: "🚨 MANDATORY: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → update_binder",
+    workflow: "🚨 MANDATORY: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → add_to_binder",
     setup_sequence: [
       "1️⃣ read_mandatory_constants_first({\"uri\": \"fab://constants\"})",
       "2️⃣ read_mandatory_constants_first({\"uri\": \"searchable://card/fields\"})",

@@ -66,20 +66,6 @@ export const getBinderTool = {
         type: 'boolean',
         default: true,
         description: 'Include detailed card information in response'
-      },
-      authParams: {
-        type: 'object',
-        description: 'Optional authentication parameters (if not using session)',
-        properties: {
-          discordId: {
-            type: 'string',
-            description: 'Discord user ID for authentication'
-          },
-          mcpToken: {
-            type: 'string', 
-            description: 'MCP authentication token'
-          }
-        }
       }
     },
     required: ['binderSlug']
@@ -95,16 +81,15 @@ export const getBinderTool = {
         page = 1,
         limit = 100,
         search = '',
-        showDetails = true,
-        authParams = {}
+        showDetails = true
       } = params;
 
-      const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      
+      const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
+
       if (!tokenToUse) {
         return {
           success: false,
-          error: 'Authentication failed: No MCP token was found for the user.'
+          error: 'Authentication required: no bearer token found.'
         };
       }
 

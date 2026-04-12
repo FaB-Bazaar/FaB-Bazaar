@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const updateBinderTool = {
-  name: 'update_binder',
+  name: 'add_to_binder',
   description: `📝 BINDER MANAGEMENT TOOL (Works independently)
 
 Update the MCP binder with selected printings and quantities using secure API endpoint. Now supports two operation modes:
@@ -29,12 +29,6 @@ Update the MCP binder with selected printings and quantities using secure API en
    Add cards selected from extract_printing_ids interface
    - Use: selectionList + userSelection parameters
    - Format: "2a,1b,3d" style selections
-
-🔐 **Authentication Options:**
-   • Automatic session detection (web users)
-   • Discord ID authentication
-   • MCP token authentication
-   • Manual auth params via authParams object
 
 📚 **Recommended Workflow:**
    Step 1-2: read_mandatory_constants_first (both URIs) [optional but improves search]
@@ -120,21 +114,6 @@ Update the MCP binder with selected printings and quantities using secure API en
         description: 'User selection in format like "2a,1b,3d" where number is quantity and letter is the option'
       },
       
-      // Authentication parameters (optional)
-      authParams: {
-        type: 'object',
-        description: 'Optional authentication parameters (if not using session)',
-        properties: {
-          discordId: {
-            type: 'string',
-            description: 'Discord user ID for authentication'
-          },
-          mcpToken: {
-            type: 'string', 
-            description: 'MCP authentication token'
-          }
-        }
-      }
     },
     // Note: either printings (batch mode) or userSelection+selectionList (selection mode) is required (enforced in handler)
     required: []
@@ -148,16 +127,15 @@ Update the MCP binder with selected printings and quantities using secure API en
         binderSlug = 'mcp-binder',
         printings,
         selectionList,
-        userSelection,
-        authParams = {}
+        userSelection
       } = params;
 
-      const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      
+      const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
+
       if (!tokenToUse) {
         return {
           success: false,
-          error: 'Authentication failed: No MCP token was found for the user.',
+          error: 'Authentication required: no bearer token found.',
           step: 'authentication'
         };
       }

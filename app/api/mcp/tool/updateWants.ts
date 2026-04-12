@@ -2,7 +2,7 @@
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const updateWantsTool = {
-    name: 'update_wants',
+    name: 'add_to_wants',
     description: `📝 WANTS LIST MANAGEMENT TOOL (Works independently)
   
   Update your wants list with selected printings, quantities, and priorities using secure API endpoint.
@@ -28,12 +28,6 @@ export const updateWantsTool = {
   🔄 **Two-Step Process:**
      1. mode: "preview" - Show what will be added
      2. mode: "confirm" - Actually execute the operation
-  
-  🔐 **Authentication Options:**
-     • Automatic session detection (web users)
-     • Discord ID authentication
-     • MCP token authentication
-     • Manual auth params via authParams object
   
   📚 **Recommended Workflow:**
      Step 1-2: read_mandatory_constants_first (both URIs) [optional but improves search]
@@ -92,21 +86,6 @@ export const updateWantsTool = {
           }
         },
         
-        // Authentication parameters (optional)
-        authParams: {
-          type: 'object',
-          description: 'Optional authentication parameters (if not using session)',
-          properties: {
-            discordId: {
-              type: 'string',
-              description: 'Discord user ID for authentication'
-            },
-            mcpToken: {
-              type: 'string', 
-              description: 'MCP authentication token'
-            }
-          }
-        }
       },
       required: ['printings']
     },
@@ -119,10 +98,9 @@ export const updateWantsTool = {
       try {
         const {
           mode = 'preview',
-          printings,
-          authParams = {}
+          printings
         } = params;
-  
+
         // Validate input
         if (!printings || !Array.isArray(printings) || printings.length === 0) {
           return {
@@ -130,7 +108,7 @@ export const updateWantsTool = {
             error: 'Must provide printings array with at least one item'
           };
         }
-  
+
         // Validate each printing
         for (const printing of printings) {
           if (!printing.printingId) {
@@ -140,31 +118,22 @@ export const updateWantsTool = {
             };
           }
         }
-  
-        // Get the token for authentication
-        const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
 
-        // Build query parameters for Discord ID if needed
-        const queryParams = new URLSearchParams();
-        if (authParams.discordId) {
-          queryParams.append('discordId', authParams.discordId);
-          console.log(`[UpdateWants] Using Discord ID: ${authParams.discordId}`);
+        const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
+
+        if (!tokenToUse) {
+          return {
+            success: false,
+            error: 'Authentication required: no bearer token found.'
+          };
         }
 
-        // Prepare headers with Authorization
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenToUse}`
         };
 
-        if (tokenToUse) {
-          headers['Authorization'] = `Bearer ${tokenToUse}`;
-          console.log(`[UpdateWants] Added Authorization header with MCP token`);
-        } else if (!authParams.discordId) {
-          console.warn('[UpdateWants] No authentication method available');
-        }
-
-        // Build the URL with query parameters (only for Discord ID)
-        const urlWithParams = queryParams.toString() ? `${endpoint}?${queryParams.toString()}` : endpoint;
+        const urlWithParams = endpoint;
         
         // Calculate summary info
         const totalCards = printings.reduce((sum, p) => sum + (p.quantity || 1), 0);

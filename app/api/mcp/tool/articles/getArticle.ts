@@ -20,16 +20,12 @@ Retrieve a full article by its slug, including all sections and metadata.
 • Prepare for section modifications
 • Set includeFullContent: true to see FULL section text (not just previews)
 
-🔐 AUTHENTICATION:
-• MCP token via query parameter
-• OAuth 2.1 Bearer token
-• Requires SuperAdmin or ContentCreator role
+🔐 AUTHENTICATION: OAuth 2.1 Bearer token required. Requires SuperAdmin or ContentCreator role.
 
 📖 EXAMPLES:
 • Preview mode: get_article({ slug: "briar-guide" })
 • Full content mode: get_article({ slug: "briar-guide", includeFullContent: true })
 • Debug mode (raw JSON): get_article({ slug: "briar-guide", showRawJson: true })
-• With auth: get_article({ slug: "iyslander-strategy", includeFullContent: true, authParams: { mcpToken: "..." } })
 
 💡 Use includeFullContent: true when you need to read/edit the complete text of sections.
 💡 Use showRawJson: true when debugging section structure or checking exact JSON format.`,
@@ -51,20 +47,6 @@ Retrieve a full article by its slug, including all sections and metadata.
         default: false,
         description: 'Show raw JSON structure of sections instead of formatted display. Useful for debugging exact section structure.'
       },
-      authParams: {
-        type: 'object',
-        description: 'Optional authentication parameters',
-        properties: {
-          mcpToken: {
-            type: 'string',
-            description: 'MCP authentication token'
-          },
-          discordId: {
-            type: 'string',
-            description: 'Discord user ID for authentication'
-          }
-        }
-      }
     },
     required: ['slug']
   },
@@ -79,7 +61,7 @@ Retrieve a full article by its slug, including all sections and metadata.
     console.log(`[GetArticle] Environment: ${process.env.NODE_ENV}, Using API base: ${API_BASE_URL}`);
 
     try {
-      const { slug, includeFullContent = false, showRawJson = false, authParams = {} } = params;
+      const { slug, includeFullContent = false, showRawJson = false } = params;
 
       if (!slug) {
         return {
@@ -88,16 +70,14 @@ Retrieve a full article by its slug, including all sections and metadata.
         };
       }
 
+      const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
+      if (!tokenToUse) {
+        return { success: false, error: 'Authentication required: no bearer token found.' };
+      }
+
       // Build query parameters
       const queryParams = new URLSearchParams();
       queryParams.append('slug', slug);
-
-      // Add authentication
-      const tokenToUse = authenticatedUser?.mcpToken || mcpToken || authParams.mcpToken;
-      if (authParams.discordId) {
-        queryParams.append('discordId', authParams.discordId);
-        console.log(`[GetArticle] Using Discord ID: ${authParams.discordId}`);
-      }
 
       const url = `${endpoint}?${queryParams.toString()}`;
 
