@@ -138,7 +138,7 @@ export default function DeckCard({
   return (
     <TooltipProvider delayDuration={300}>
     <>
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 overflow-visible">
         <div className="flex items-start gap-3">
@@ -173,19 +173,19 @@ export default function DeckCard({
               </Link>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {deck.isSystemDeck && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300 font-medium" title="System deck — hidden from personal views">
+                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 font-medium" title="System deck — hidden from personal views">
                     <Shield className="h-2.5 w-2.5" />
                     System
                   </span>
                 )}
                 {deck.featured && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-medium" title="Featured in Decks to Beat">
+                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 font-medium" title="Featured in Decks to Beat">
                     <Star className="h-2.5 w-2.5" />
                     Featured
                   </span>
                 )}
                 {deck.isCoOwned && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 font-medium" title="You are a co-owner of this deck">
+                  <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 font-medium" title="You are a co-owner of this deck">
                     Shared
                   </span>
                 )}
@@ -233,7 +233,7 @@ export default function DeckCard({
             )}
 
             {/* Stats */}
-            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
               <span>{totalCards} cards</span>
               {estimatedValue > 0 && (
                 <span className="text-green-600 dark:text-green-400 font-medium">
@@ -313,7 +313,7 @@ export default function DeckCard({
               <select
                 value={deck.visibility || 'unlisted'}
                 onChange={(e) => onChangeVisibility(deck.publicId ?? deck._id, e.target.value as 'private' | 'unlisted' | 'public')}
-                className="text-xs h-6 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5"
+                className="text-sm h-7 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5"
               >
                 <option value="private">Private</option>
                 <option value="unlisted">Unlisted</option>
@@ -357,7 +357,7 @@ export default function DeckCard({
             </div>
           )}
 
-          <div className="flex items-center gap-1 ml-auto text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-1 ml-auto text-xs text-gray-600 dark:text-gray-400">
             <Calendar className="h-3 w-3" />
             <span>{formatDate(deck.updatedAt)}</span>
           </div>
@@ -543,7 +543,7 @@ export default function DeckCard({
 //   };
 
 //   return (
-//     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col">
+//     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col">
 //       {/* Header */}
 //       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
 //         <div className="flex items-start justify-between mb-2">

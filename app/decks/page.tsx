@@ -486,7 +486,7 @@ export default function DecksPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Loading...</p>
@@ -497,7 +497,7 @@ export default function DecksPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Sign In Required</h2>
           <p className="text-gray-600 dark:text-gray-300 mb-4">Please sign in to manage your decks.</p>
@@ -511,7 +511,7 @@ export default function DecksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Loading decks...</p>
@@ -522,7 +522,7 @@ export default function DecksPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Error Loading Decks</h2>
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
@@ -535,7 +535,7 @@ export default function DecksPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-900 overflow-x-hidden">
       {/* Create Deck Dialog */}
       <CreateDeckDialog
         open={createDeckOpen}
@@ -1047,7 +1047,7 @@ export default function DecksPage() {
 
 //   if (authLoading) {
 //     return (
-//       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+//       <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
 //         <div className="text-center">
 //           <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
 //           <p className="text-gray-600 dark:text-gray-300">Loading...</p>
@@ -1058,7 +1058,7 @@ export default function DecksPage() {
 
 //   if (!user) {
 //     return (
-//       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+//       <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
 //         <div className="text-center">
 //           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Sign In Required</h2>
 //           <p className="text-gray-600 dark:text-gray-300 mb-4">Please sign in to manage your decks.</p>
@@ -1072,7 +1072,7 @@ export default function DecksPage() {
 
 //   if (loading) {
 //     return (
-//       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+//       <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
 //         <div className="text-center">
 //           <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
 //           <p className="text-gray-600 dark:text-gray-300">Loading decks...</p>
@@ -1083,7 +1083,7 @@ export default function DecksPage() {
 
 //   if (error) {
 //     return (
-//       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+//       <div className="min-h-screen bg-gray-200 dark:bg-gray-900 flex items-center justify-center">
 //         <div className="text-center">
 //           <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">Error Loading Decks</h2>
 //           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
@@ -1096,7 +1096,7 @@ export default function DecksPage() {
 //   }
 
 //   return (
-//     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+//     <div className="min-h-screen bg-gray-200 dark:bg-gray-900">
 //       {/* Create Deck Dialog */}
 //       <CreateDeckDialog
 //         open={createDeckOpen}
