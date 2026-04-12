@@ -430,8 +430,9 @@ export default function DecksPage() {
       const matchesVisibility = filterVisibility === "all" ||
         (deck.visibility || 'unlisted') === filterVisibility;
 
-      const matchesType = filterType === "all" ||
-        (filterType === "featured" && deck.featured) ||
+      const matchesType =
+        (filterType === "all" && !deck.isSystemDeck) ||
+        (filterType === "featured" && deck.featured && !deck.isSystemDeck) ||
         (filterType === "system" && deck.isSystemDeck);
 
       return matchesSearch && matchesFormat && matchesVisibility && matchesType;
@@ -451,35 +452,36 @@ export default function DecksPage() {
     });
 
   // Get available formats
-  const availableFormats = Array.from(new Set(decks.map(deck => deck.format)));
+  const personalDecks = decks.filter(deck => !deck.isSystemDeck);
+  const availableFormats = Array.from(new Set(personalDecks.map(deck => deck.format)));
 
-  // Calculate stats using new structure
+  // Calculate stats using new structure (personal decks only — excludes system/Decks to Beat)
   const stats = {
-    totalDecks: decks.length,
-    publicDecks: decks.filter(deck => deck.isPublic).length,
-    totalCards: decks.reduce((total, deck) => total + (deck.totalCards || 0), 0),
-    totalUniqueCards: decks.reduce((total, deck) => total + calculateUniqueCards(deck), 0),
-    totalEstimatedValue: decks.reduce((total, deck) => total + (deck.estimatedValue || 0), 0),
+    totalDecks: personalDecks.length,
+    publicDecks: personalDecks.filter(deck => deck.isPublic).length,
+    totalCards: personalDecks.reduce((total, deck) => total + (deck.totalCards || 0), 0),
+    totalUniqueCards: personalDecks.reduce((total, deck) => total + calculateUniqueCards(deck), 0),
+    totalEstimatedValue: personalDecks.reduce((total, deck) => total + (deck.estimatedValue || 0), 0),
     formatBreakdown: availableFormats.map(format => ({
       format,
-      count: decks.filter(deck => deck.format === format).length,
-      totalValue: decks
+      count: personalDecks.filter(deck => deck.format === format).length,
+      totalValue: personalDecks
         .filter(deck => deck.format === format)
         .reduce((total, deck) => total + (deck.estimatedValue || 0), 0),
-      totalCards: decks
+      totalCards: personalDecks
         .filter(deck => deck.format === format)
         .reduce((total, deck) => total + (deck.totalCards || 0), 0)
     })),
-    totalBenchedCards: decks.reduce((total, deck) => total + (deck.benchedCount || 0), 0),
+    totalBenchedCards: personalDecks.reduce((total, deck) => total + (deck.benchedCount || 0), 0),
     categoryBreakdown: {
-      equipment: decks.reduce((total, deck) => total + (deck.equipmentCount || 0), 0),
-      maindeck: decks.reduce((total, deck) => total + (deck.maindeckCount || 0), 0),
-      inventory: decks.reduce((total, deck) => total + (deck.inventoryCount || 0), 0),
-      benched: decks.reduce((total, deck) => total + (deck.benchedCount || 0), 0),
-      maybeboard: decks.reduce((total, deck) => total + (deck.maybeboardCount || 0), 0),
-      tokens: decks.reduce((total, deck) => total + (deck.tokensCount || 0), 0)
+      equipment: personalDecks.reduce((total, deck) => total + (deck.equipmentCount || 0), 0),
+      maindeck: personalDecks.reduce((total, deck) => total + (deck.maindeckCount || 0), 0),
+      inventory: personalDecks.reduce((total, deck) => total + (deck.inventoryCount || 0), 0),
+      benched: personalDecks.reduce((total, deck) => total + (deck.benchedCount || 0), 0),
+      maybeboard: personalDecks.reduce((total, deck) => total + (deck.maybeboardCount || 0), 0),
+      tokens: personalDecks.reduce((total, deck) => total + (deck.tokensCount || 0), 0)
     },
-    recentActivity: decks
+    recentActivity: personalDecks
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 5)
   };
