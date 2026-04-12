@@ -19,6 +19,9 @@ export const listDecksTool = {
   | 1 | Katsu Aggro     | Katsu         | CC     | 60    | Public     | 2 days ago  |
   | 2 | Bravo Control   | Bravo         | Blitz  | 40    | Private    | 1 week ago  |
 
+  Do NOT show publicId or url columns in the table — they are for internal use only.
+  However, when a deck is Public you may use its url field to provide a clickable link if relevant.
+
   Then follow with a tip: "Use get_deck with a deck name to view the full decklist."
 
   💡 WORKFLOW:
@@ -88,12 +91,14 @@ export const listDecksTool = {
         message,
         decks: decks.map((d: any) => ({
           name: d.name,
-          publicId: d.publicId,
           heroName: d.heroName,
           format: d.format,
           totalCards: d.totalCards || 0,
           isPublic: d.isPublic,
-          updatedAt: d.updatedAt
+          updatedAt: d.updatedAt,
+          // Internal use only — not for display; use url to link to public decks
+          publicId: d.publicId,
+          url: d.publicId ? `https://fabbazaar.app/decks/${d.publicId}` : undefined
         }))
       };
 

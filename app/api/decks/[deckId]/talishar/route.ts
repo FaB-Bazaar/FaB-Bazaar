@@ -41,7 +41,12 @@ const PITCH_COLOR_MAP: Record<number, string> = {
  */
 function buildTalisharIdentifier(printing: any, fallbackId: string): string {
   const cardName = printing.printingDetails?.name || '';
-  const baseIdentifier = toTalisharIdentifier(cardName) || fallbackId;
+  // Split on ' // ' (FaB double-faced card separator) and convert each face separately,
+  // then rejoin with '__' — Talishar requires double underscore between faces.
+  // e.g. "comet storm // shock" → "comet_storm__shock_red"
+  const parts = cardName.split(' // ');
+  const baseIdentifier =
+    parts.map((p: string) => toTalisharIdentifier(p)).filter(Boolean).join('__') || fallbackId;
 
   // Handle pitch value - can be direct number or MongoDB $numberInt wrapper
   const pitchValue = printing.printingDetails?.pitch;
