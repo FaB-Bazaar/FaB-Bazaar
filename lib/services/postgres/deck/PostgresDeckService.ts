@@ -219,6 +219,8 @@ export class PostgresDeckService implements IDeckService {
       visibility: deckRow.visibility || 'unlisted',
       isPublic: deckRow.visibility !== 'private',
       availableOnTalishar: deckRow.availableOnTalishar ?? false,
+      featured: deckRow.featured ?? false,
+      isSystemDeck: deckRow.isSystemDeck ?? false,
       totalCards: deckRow.totalCards || 0,
       estimatedValue: deckRow.estimatedValue || 0,
       updatedAt: deckRow.updatedAt,
@@ -676,7 +678,10 @@ export class PostgresDeckService implements IDeckService {
     pagination?: PaginationOptions
   ): AsyncResult<{ decks: DeckDTO[]; total: number }> {
     try {
-      let conditions = [or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)];
+      let conditions = [
+        or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`),
+        eq(decks.isSystemDeck, false),
+      ];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
       if (filters?.visibility) conditions.push(eq(decks.visibility, filters.visibility));
@@ -736,7 +741,10 @@ export class PostgresDeckService implements IDeckService {
       const deckRows = await db
         .select()
         .from(decks)
-        .where(or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`))
+        .where(and(
+          or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`),
+          eq(decks.isSystemDeck, false)
+        ))
         .orderBy(desc(decks.updatedAt));
 
       // For each deck, get card count and value
@@ -978,6 +986,30 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to toggle featured',
+      };
+    }
+  }
+
+  async toggleSystemDeck(
+    publicId: string,
+    isSystemDeck: boolean
+  ): AsyncResult<boolean> {
+    try {
+      const result = await db
+        .update(decks)
+        .set({ isSystemDeck, updatedAt: new Date() })
+        .where(eq(decks.publicId, publicId))
+        .returning({ id: decks.id });
+
+      if (result.length === 0) {
+        return { success: false, error: 'Deck not found' };
+      }
+      return { success: true, data: true };
+    } catch (error) {
+      console.error('[PostgresDeckService.toggleSystemDeck] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to toggle system deck',
       };
     }
   }

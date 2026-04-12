@@ -545,6 +545,11 @@ export const decks = pgTable('decks', {
   // Featured flag for "Decks to Beat" section (curators/superadmins can toggle)
   featured: boolean('featured').notNull().default(false),
 
+  // System deck flag — site-managed reference decks (e.g. Decks to Beat owned by superadmin).
+  // Hidden from owner's personal views (navbar, decks page, Discord, MCP, Talishar sync)
+  // but publicly accessible via direct URL and the Decks to Beat page.
+  isSystemDeck: boolean('is_system_deck').notNull().default(false),
+
   // Event metadata (optional — drives the to-beat month filter, distinct from updatedAt)
   eventName: text('event_name'),
   eventDate: date('event_date'),

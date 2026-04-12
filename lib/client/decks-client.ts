@@ -568,3 +568,19 @@ export async function toggleFeatured(
     return handleError(error);
   }
 }
+
+export async function toggleSystemDeck(
+  publicId: string,
+  isSystemDeck: boolean
+): Promise<ApiResponse<{ isSystemDeck: boolean }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/featured`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isSystemDeck }),
+    });
+    return await handleResponse<{ isSystemDeck: boolean }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}

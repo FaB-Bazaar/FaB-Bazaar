@@ -55,6 +55,7 @@ interface Deck {
   isPublic: boolean;
   availableOnTalishar?: boolean;
   featured?: boolean;
+  isSystemDeck?: boolean;
   metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
@@ -99,6 +100,7 @@ export default function DecksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFormat, setFilterFormat] = useState("all");
   const [filterVisibility, setFilterVisibility] = useState("all"); // all, public, private
+  const [filterType, setFilterType] = useState("all"); // all, featured, system
   const [sortBy, setSortBy] = useState("updated"); // updated, created, name, value
   const [activeTab, setActiveTab] = useState("decks");
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
@@ -338,6 +340,16 @@ export default function DecksPage() {
     }
   };
 
+  // Handle System Deck toggle (superadmin only)
+  const handleToggleSystemDeck = async (deckId: string, value: boolean) => {
+    setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, isSystemDeck: value } : d));
+    const result = await decksClient.toggleSystemDeck(deckId, value);
+    if (!result.success) {
+      setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, isSystemDeck: !value } : d));
+      toast({ title: "Error", description: "Failed to update system deck status.", variant: "destructive" });
+    }
+  };
+
   // Handle Metafy Guide ID update
   const handleUpdateMetafyGuideId = async (deckId: string, value: string | null) => {
     setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, metafyGuideId: value } : d));
@@ -418,7 +430,11 @@ export default function DecksPage() {
       const matchesVisibility = filterVisibility === "all" ||
         (deck.visibility || 'unlisted') === filterVisibility;
 
-      return matchesSearch && matchesFormat && matchesVisibility;
+      const matchesType = filterType === "all" ||
+        (filterType === "featured" && deck.featured) ||
+        (filterType === "system" && deck.isSystemDeck);
+
+      return matchesSearch && matchesFormat && matchesVisibility && matchesType;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -540,6 +556,9 @@ export default function DecksPage() {
           isCurator={user?.isCurator || user?.isSuperAdmin}
           featured={settingsDeck.featured}
           onToggleFeatured={handleToggleFeatured}
+          isSuperAdmin={user?.isSuperAdmin}
+          isSystemDeck={settingsDeck.isSystemDeck}
+          onToggleSystemDeck={handleToggleSystemDeck}
         />
       )}
 
@@ -665,6 +684,18 @@ export default function DecksPage() {
                 <option value="private">Private</option>
               </select>
 
+              {user?.isSuperAdmin && (
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
+                >
+                  <option value="all">All Types</option>
+                  <option value="featured">⭐ Featured</option>
+                  <option value="system">🛡 System</option>
+                </select>
+              )}
+
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -679,7 +710,7 @@ export default function DecksPage() {
           </div>
 
           {/* Active filters indicator */}
-          {(searchQuery || filterFormat !== "all" || filterVisibility !== "all") && (
+          {(searchQuery || filterFormat !== "all" || filterVisibility !== "all" || filterType !== "all") && (
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
               <Filter className="h-4 w-4 text-gray-500" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -692,6 +723,7 @@ export default function DecksPage() {
                   setSearchQuery("");
                   setFilterFormat("all");
                   setFilterVisibility("all");
+                  setFilterType("all");
                 }}
                 className="ml-auto text-xs"
               >

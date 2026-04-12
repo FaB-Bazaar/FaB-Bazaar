@@ -84,6 +84,7 @@ export interface DeckDTO {
   metafyGuideId?: string | null;
   availableOnTalishar?: boolean;
   featured?: boolean;
+  isSystemDeck?: boolean;
 
   // Category arrays
   hero: DeckPrintingDTO[];
@@ -150,6 +151,7 @@ export interface DeckSummaryDTO {
   eventName?: string | null;
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;
+  isSystemDeck?: boolean;
 }
 
 /**
@@ -615,6 +617,17 @@ export interface IDeckService {
   toggleFeatured(
     publicId: string,
     featured: boolean
+  ): AsyncResult<boolean>;
+
+  /**
+   * Toggle the isSystemDeck flag (superadmin only — enforced at API layer)
+   *
+   * @param publicId - The deck's public ID
+   * @param isSystemDeck - Whether to mark or unmark as a system deck
+   */
+  toggleSystemDeck(
+    publicId: string,
+    isSystemDeck: boolean
   ): AsyncResult<boolean>;
 
   /**

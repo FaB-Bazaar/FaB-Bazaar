@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2, Star } from "lucide-react";
+import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2, Star, Shield } from "lucide-react";
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
 import TalisharToggle from "./TalisharToggle";
 import { TALISHAR_HERO_IDS } from "@/lib/fab-constants/heroes";
@@ -62,9 +62,12 @@ interface DeckSettingsProps {
   isCurator?: boolean;
   featured?: boolean;
   onToggleFeatured?: (deckId: string, value: boolean) => void;
+  isSuperAdmin?: boolean;
+  isSystemDeck?: boolean;
+  onToggleSystemDeck?: (deckId: string, value: boolean) => void;
 }
 
-export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck, isCurator, featured: featuredProp, onToggleFeatured }: DeckSettingsProps) {
+export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck, isCurator, featured: featuredProp, onToggleFeatured, isSuperAdmin, isSystemDeck: isSystemDeckProp, onToggleSystemDeck }: DeckSettingsProps) {
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description || "");
   const [format, setFormat] = useState(deck.format);
@@ -76,6 +79,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [placing, setPlacing] = useState(deck.placing != null ? String(deck.placing) : "");
   const [saving, setSaving] = useState(false);
   const [featuredLocal, setFeaturedLocal] = useState(featuredProp ?? false);
+  const [isSystemDeckLocal, setIsSystemDeckLocal] = useState(isSystemDeckProp ?? false);
   const [matchupsOpen, setMatchupsOpen] = useState(false);
   const [matchupsCount, setMatchupsCount] = useState(0);
   const [talisharHeroError, setTalisharHeroError] = useState(false);
@@ -162,6 +166,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   useEffect(() => { fetchCoOwners(); }, [fetchCoOwners]);
 
   useEffect(() => { setFeaturedLocal(featuredProp ?? false); }, [featuredProp]);
+  useEffect(() => { setIsSystemDeckLocal(isSystemDeckProp ?? false); }, [isSystemDeckProp]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -415,6 +420,38 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
               }`}
             >
               <Star className="h-3 w-3 text-amber-500" />
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* System deck toggle (superadmin-only) */}
+      {isSuperAdmin && onToggleSystemDeck && deckId && (
+        <div className="flex items-center justify-between py-1">
+          <div>
+            <Label>System Deck</Label>
+            <p className="text-sm text-muted-foreground mt-0.5">Hide from your personal views (navbar, decks page, Discord, MCP, Talishar sync)</p>
+          </div>
+          <button
+            role="switch"
+            type="button"
+            aria-checked={isSystemDeckLocal}
+            onClick={() => {
+              const next = !isSystemDeckLocal;
+              setIsSystemDeckLocal(next);
+              onToggleSystemDeck(deckId, next);
+            }}
+            title={isSystemDeckLocal ? "Unmark as system deck" : "Mark as system deck"}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              isSystemDeckLocal ? "bg-blue-500 dark:bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          >
+            <span
+              className={`pointer-events-none flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 ${
+                isSystemDeckLocal ? "translate-x-5" : "translate-x-0"
+              }`}
+            >
+              <Shield className="h-3 w-3 text-blue-500" />
             </span>
           </button>
         </div>

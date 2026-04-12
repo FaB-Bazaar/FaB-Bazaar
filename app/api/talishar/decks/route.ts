@@ -29,7 +29,7 @@ const FORMAT_MAP: Record<string, string> = {
   'Casual': 'open',
 };
 
-const HASH_MAX_AGE_SECS = 300; // 5 minutes
+const HASH_MAX_AGE_SECS = 600; // 10 minutes
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

@@ -18,6 +18,8 @@ import {
   Settings,
   Swords,
   Info,
+  Star,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -50,6 +52,7 @@ interface Deck {
   ownerUsername?: string;
   availableOnTalishar?: boolean;
   featured?: boolean;
+  isSystemDeck?: boolean;
   metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
@@ -169,6 +172,18 @@ export default function DeckCard({
                 {deck.name}
               </Link>
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                {deck.isSystemDeck && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-900/60 text-blue-300 font-medium" title="System deck — hidden from personal views">
+                    <Shield className="h-2.5 w-2.5" />
+                    System
+                  </span>
+                )}
+                {deck.featured && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-300 font-medium" title="Featured in Decks to Beat">
+                    <Star className="h-2.5 w-2.5" />
+                    Featured
+                  </span>
+                )}
                 {deck.isCoOwned && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 font-medium" title="You are a co-owner of this deck">
                     Shared
