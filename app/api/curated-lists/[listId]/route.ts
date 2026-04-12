@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
 
 async function checkCuratorOrAdmin(req: NextRequest, body?: object) {
-  const authResult = await authenticateRequest(req, body ?? {});
+  const authResult = await authenticateRequest(req, body ?? {}, { allowOAuth: true });
   if (!authResult.success) {
     return { authorized: false, status: 401, error: 'Authentication required' };
   }

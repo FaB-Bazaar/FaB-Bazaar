@@ -7,7 +7,7 @@ export async function DELETE(
   { params }: { params: { listId: string; cardId: string } }
 ) {
   try {
-    const authResult = await authenticateRequest(req, {});
+    const authResult = await authenticateRequest(req, {}, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }

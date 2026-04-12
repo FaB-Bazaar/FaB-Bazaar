@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const viewPublic = searchParams.get('view') === 'public';
 
     // Try to authenticate — if it fails, return only published lists
-    const authResult = await authenticateRequest(req, {});
+    const authResult = await authenticateRequest(req, {}, { allowOAuth: true });
 
     if (authResult.success && !viewPublic) {
       // Check if user is curator or superadmin
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const authResult = await authenticateRequest(req, body);
+    const authResult = await authenticateRequest(req, body, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }

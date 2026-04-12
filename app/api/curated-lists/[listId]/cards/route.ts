@@ -9,7 +9,7 @@ export async function POST(
   try {
     const body = await req.json();
 
-    const authResult = await authenticateRequest(req, body);
+    const authResult = await authenticateRequest(req, body, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
