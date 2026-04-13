@@ -1,7 +1,6 @@
 // GET /api/talishar/decks?metafyId=xxx&metafyHash=xxx&timestamp=xxx
 // Called by the Talishar browser client to fetch a user's Talishar-enabled decks by Metafy ID.
-// Auth: hash validation (new) or API key (legacy fallback)
-import crypto from 'crypto';
+// Auth: hash validation (browser) or API key (backend fallback)
 import { NextRequest, NextResponse } from 'next/server';
 
 const CORS_HEADERS = {
@@ -13,7 +12,7 @@ const CORS_HEADERS = {
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
-import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
+import { validateTalisharRequest, validateTalisharHmac } from '@/lib/middleware/talishar-auth';
 import { userService, deckService } from '@/lib/services';
 import { TALISHAR_HERO_IDS } from '@/lib/fab-constants/heroes';
 import { hasTalisharMembership, hasFabBazaarMembership } from '@/lib/metafy/communities';
@@ -29,8 +28,6 @@ const FORMAT_MAP: Record<string, string> = {
   'Casual': 'open',
 };
 
-const HASH_MAX_AGE_SECS = 600; // 10 minutes
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const metafyId = searchParams.get('metafyId');
@@ -45,32 +42,13 @@ export async function GET(request: NextRequest) {
   }
 
   if (metafyHash && timestamp) {
-    const salt = process.env.FABBAZAAR_SALT;
-    if (!salt) {
-      console.error('[Talishar API] FABBAZAAR_SALT not configured');
-      return NextResponse.json({ success: false, error: 'Server misconfiguration' }, { status: 500, headers: CORS_HEADERS });
-    }
-
-    const ts = parseInt(timestamp, 10);
-    const nowSecs = Math.floor(Date.now() / 1000);
-    if (Math.abs(nowSecs - ts) > HASH_MAX_AGE_SECS) {
-      return NextResponse.json({ success: false, error: 'Timestamp expired' }, { status: 403, headers: CORS_HEADERS });
-    }
-
-    const expectedHash = crypto
-      .createHash('sha256')
-      .update(metafyId + salt + timestamp)
-      .digest('hex');
-
-    if (metafyHash !== expectedHash) {
-      return NextResponse.json({ success: false, error: 'Invalid hash' }, { status: 403, headers: CORS_HEADERS });
-    }
+    // Browser (Talishar frontend) path: time-limited HMAC, no API key needed
+    const hmacResult = validateTalisharHmac(metafyId, metafyHash, timestamp, CORS_HEADERS);
+    if (!hmacResult.valid) return hmacResult.response;
   } else {
-    // Legacy API key auth (until Talishar ships hash-based client)
+    // Backend (Talishar server) path: static API key
     const validation = await validateTalisharRequest(request);
-    if (!validation.valid) {
-      return validation.response;
-    }
+    if (!validation.valid) return validation.response;
   }
 
   // Resolve Metafy ID → internal user ID

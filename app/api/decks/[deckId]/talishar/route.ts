@@ -2,7 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { deckService, gameResultsService, printingsService } from '@/lib/services';
-import { validateTalisharRequest } from '@/lib/middleware/talishar-auth';
+import { validateTalisharRequest, validateTalisharHmac } from '@/lib/middleware/talishar-auth';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': 'https://talishar.net',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
 import { toTalisharIdentifier } from '@/lib/utils';
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 
@@ -251,14 +261,21 @@ export async function GET(
   { params }: { params: { deckId: string } }
 ) {
   try {
-    // 1. Validate Talishar API request (API key + rate limiting)
-    const validation = await validateTalisharRequest(request);
-    if (!validation.valid) {
-      return validation.response;
-    }
-
+    // 1. Authenticate: browser (Talishar frontend) uses HMAC, backend uses API key
     const resolvedParams = await params;
     const url = new URL(request.url);
+    const metafyHash = url.searchParams.get('metafyHash');
+    const timestamp = url.searchParams.get('timestamp');
+
+    if (metafyHash && timestamp) {
+      // Browser path: HMAC signed with deckId + FABBAZAAR_SALT + timestamp
+      const hmacResult = validateTalisharHmac(resolvedParams.deckId, metafyHash, timestamp, CORS_HEADERS);
+      if (!hmacResult.valid) return hmacResult.response;
+    } else {
+      // Backend path: static API key
+      const validation = await validateTalisharRequest(request);
+      if (!validation.valid) return validation.response;
+    }
 
     // Check authentication (optional for public decks)
     const authResult = await authenticateRequest(request, {});
@@ -387,8 +404,7 @@ export async function GET(
 
     // Check for matchupId query parameter (Talishar integration)
     // When present, apply the corresponding sideboard swap to the deck
-    const requestUrl = new URL(request.url);
-    const matchupId = requestUrl.searchParams.get('matchupId');
+    const matchupId = url.searchParams.get('matchupId');
 
     if (matchupId && validMatchups.length > 0) {
       // Find the requested matchup

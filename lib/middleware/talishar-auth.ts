@@ -1,5 +1,67 @@
 // lib/middleware/talishar-auth.ts
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+
+const HASH_MAX_AGE_SECS = 600; // 10 minutes
+
+/**
+ * Validates a Talishar HMAC hash request (used by Talishar browser clients).
+ *
+ * Hash is computed as sha256(identifier + FABBAZAAR_SALT + timestamp).
+ * The identifier is the resource key being requested (e.g. metafyId or deckId).
+ *
+ * @param identifier - The resource key that was hashed (metafyId, deckId, etc.)
+ * @param metafyHash - The hash sent by the client
+ * @param timestamp  - Unix timestamp (seconds) sent by the client
+ * @param corsHeaders - Optional CORS headers to include in error responses
+ */
+export function validateTalisharHmac(
+  identifier: string,
+  metafyHash: string,
+  timestamp: string,
+  corsHeaders: Record<string, string> = {}
+): { valid: true } | { valid: false; response: NextResponse } {
+  const salt = process.env.FABBAZAAR_SALT;
+  if (!salt) {
+    console.error('[Talishar API] FABBAZAAR_SALT not configured');
+    return {
+      valid: false,
+      response: NextResponse.json(
+        { success: false, error: 'Server misconfiguration' },
+        { status: 500, headers: corsHeaders }
+      ),
+    };
+  }
+
+  const ts = parseInt(timestamp, 10);
+  const nowSecs = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSecs - ts) > HASH_MAX_AGE_SECS) {
+    return {
+      valid: false,
+      response: NextResponse.json(
+        { success: false, error: 'Timestamp expired' },
+        { status: 403, headers: corsHeaders }
+      ),
+    };
+  }
+
+  const expectedHash = crypto
+    .createHash('sha256')
+    .update(identifier + salt + timestamp)
+    .digest('hex');
+
+  if (metafyHash !== expectedHash) {
+    return {
+      valid: false,
+      response: NextResponse.json(
+        { success: false, error: 'Invalid hash' },
+        { status: 403, headers: corsHeaders }
+      ),
+    };
+  }
+
+  return { valid: true };
+}
 
 /**
  * Rate limiting store (in-memory)
