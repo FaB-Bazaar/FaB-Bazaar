@@ -3,34 +3,40 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const addCardToListTool = {
   name: 'add_card_to_list',
-  description: `➕ ADD CARD TO LIST: Add a card printing to a curated list (curator/admin only)
+  description: `➕ ADD CARD TO LIST: Add one or many card printings to a curated list (curator/admin only)
 
-Adds a specific card printing to a curated list by its printing ID.
+Supports bulk adds — pass printingIds (array) to add multiple cards in one call.
 Use search_printings to find printing IDs before calling this tool.
 
-The response includes a card entry ID — save this if you may need to remove the card later
+The response includes card entry IDs — save these if you may need to remove cards later
 (remove_card_from_list uses the card entry ID, not the printing ID).
 
-Example workflow:
-1. search_printings({ filters: { name: "Enlightened Strike" }, _resourcesConfirmed: true })
-   → find the printing_id for the version you want
-2. add_card_to_list({ listId: "abc123", printingId: "WTR001" })
-   → card added, response includes card entry id
-3. Repeat for each card to add`,
+Example workflow (bulk):
+1. search_printings to collect all printing IDs you need
+2. add_card_to_list({ listId: "abc123", printingIds: ["id1", "id2", "id3"] })
+   → all cards added in one request
+
+Example workflow (single):
+1. add_card_to_list({ listId: "abc123", printingId: "WTR001" })`,
 
   parameters: {
     type: 'object',
     properties: {
       listId: {
         type: 'string',
-        description: 'The curated list ID to add the card to'
+        description: 'The curated list ID to add the card(s) to'
       },
       printingId: {
         type: 'string',
-        description: 'The printing ID of the card to add (e.g. "WTR001-CF" or internal UUID)'
+        description: 'Single printing ID to add (use printingIds for bulk)'
+      },
+      printingIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Array of printing IDs to add in bulk (preferred over repeated single calls)'
       }
     },
-    required: ['listId', 'printingId']
+    required: ['listId']
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -45,9 +51,15 @@ Example workflow:
       if (!params?.listId) {
         return { success: false, error: 'Missing required parameter: listId' };
       }
-      if (!params?.printingId) {
-        return { success: false, error: 'Missing required parameter: printingId' };
+
+      const isBulk = Array.isArray(params.printingIds) && params.printingIds.length > 0;
+      if (!isBulk && !params?.printingId) {
+        return { success: false, error: 'Missing required parameter: printingId or printingIds' };
       }
+
+      const body = isBulk
+        ? { printingIds: params.printingIds }
+        : { printingId: params.printingId };
 
       const response = await mcpFetch(
         `${API_BASE_URL}/api/curated-lists/${encodeURIComponent(params.listId)}/cards`,
@@ -57,7 +69,7 @@ Example workflow:
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${tokenToUse}`
           },
-          body: JSON.stringify({ printingId: params.printingId })
+          body: JSON.stringify(body)
         }
       );
 
@@ -70,12 +82,19 @@ Example workflow:
 
       if (!response.ok) {
         const errorText = await response.text();
-        return { success: false, error: `Failed to add card (HTTP ${response.status}): ${errorText}` };
+        return { success: false, error: `Failed to add card(s) (HTTP ${response.status}): ${errorText}` };
       }
 
       const result = await response.json();
       if (!result.success) {
         return { success: false, error: result.error || 'API returned an error.' };
+      }
+
+      if (isBulk) {
+        const cards = result.data as any[];
+        const message = `✅ Added **${cards.length} cards** to list\n`
+          + cards.map(c => `• ${c.displayName || c.printingId} (entry ID: \`${c.id}\`)`).join('\n');
+        return { success: true, message, cards };
       }
 
       const card = result.data;

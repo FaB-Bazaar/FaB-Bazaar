@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
+import { checkListOwnership } from '../curation-auth';
 
 async function checkCuratorOrAdmin(req: NextRequest, body?: object) {
   const authResult = await authenticateRequest(req, body ?? {}, { allowOAuth: true });
@@ -19,8 +20,9 @@ async function checkCuratorOrAdmin(req: NextRequest, body?: object) {
     return { authorized: false, status: 403, error: 'Curator or Super Admin role required' };
   }
 
-  return { authorized: true };
+  return { authorized: true, userId: authResult.userId!, isCurator, isSuperAdmin };
 }
+
 
 export async function GET(
   _req: NextRequest,
@@ -49,6 +51,13 @@ export async function PUT(
       return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
     }
 
+    if (auth.isCurator && !auth.isSuperAdmin) {
+      const ownership = await checkListOwnership(auth.userId, params.listId);
+      if (!ownership.allowed) {
+        return NextResponse.json({ success: false, error: ownership.error }, { status: 403 });
+      }
+    }
+
     const result = await curatedListService.updateList(params.listId, body);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
@@ -69,6 +78,13 @@ export async function DELETE(
     const auth = await checkCuratorOrAdmin(req);
     if (!auth.authorized) {
       return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    }
+
+    if (auth.isCurator && !auth.isSuperAdmin) {
+      const ownership = await checkListOwnership(auth.userId, params.listId);
+      if (!ownership.allowed) {
+        return NextResponse.json({ success: false, error: ownership.error }, { status: 403 });
+      }
     }
 
     const result = await curatedListService.deleteList(params.listId);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
+import { checkListOwnership } from '../../../curation-auth';
 
 export async function DELETE(
   req: NextRequest,
@@ -21,6 +22,13 @@ export async function DELETE(
 
     if (!isCurator && !isSuperAdmin) {
       return NextResponse.json({ success: false, error: 'Curator or Super Admin role required' }, { status: 403 });
+    }
+
+    if (isCurator && !isSuperAdmin) {
+      const ownership = await checkListOwnership(authResult.userId!, params.listId);
+      if (!ownership.allowed) {
+        return NextResponse.json({ success: false, error: ownership.error }, { status: 403 });
+      }
     }
 
     const result = await curatedListService.removeCard(params.cardId);

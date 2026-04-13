@@ -334,6 +334,35 @@ export class PostgresCuratedListService implements ICuratedListService {
     }
   }
 
+  async addCards(listId: string, printingIds: string[]): AsyncResult<CuratedListCardDTO[]> {
+    try {
+      const maxOrder = await db
+        .select({ max: sql<number>`COALESCE(MAX(sort_order), -1)` })
+        .from(curatedListCards)
+        .where(eq(curatedListCards.listId, listId));
+      let sortOrder = (maxOrder[0]?.max ?? -1) + 1;
+
+      const rows = printingIds.map(printingId => ({
+        id: nanoid(),
+        listId,
+        printingId,
+        sortOrder: sortOrder++,
+      }));
+
+      await db.insert(curatedListCards).values(rows);
+
+      const allCards = await this.fetchCardsForList(listId);
+      const insertedIds = new Set(rows.map(r => r.id));
+      const cards = allCards.filter(c => insertedIds.has(c.id));
+      return { success: true, data: cards };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to add cards',
+      };
+    }
+  }
+
   async removeCard(cardId: string): AsyncResult<void> {
     try {
       await db.delete(curatedListCards).where(eq(curatedListCards.id, cardId));

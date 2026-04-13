@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
+import { checkListOwnership } from '../../curation-auth';
 
 export async function POST(
   req: NextRequest,
@@ -25,9 +26,25 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Curator or Super Admin role required' }, { status: 403 });
     }
 
-    const { printingId } = body;
+    if (isCurator && !isSuperAdmin) {
+      const ownership = await checkListOwnership(authResult.userId!, params.listId);
+      if (!ownership.allowed) {
+        return NextResponse.json({ success: false, error: ownership.error }, { status: 403 });
+      }
+    }
+
+    const { printingId, printingIds } = body;
+
+    if (Array.isArray(printingIds) && printingIds.length > 0) {
+      const result = await curatedListService.addCards(params.listId, printingIds);
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data: result.data }, { status: 201 });
+    }
+
     if (!printingId) {
-      return NextResponse.json({ success: false, error: 'printingId is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'printingId or printingIds is required' }, { status: 400 });
     }
 
     const result = await curatedListService.addCard(params.listId, printingId);

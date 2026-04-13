@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Users } from 'lucide-react';
 import type { CuratedListDTO } from '@/lib/services/contracts/ICuratedListService';
+import { DeleteListButton } from './DeleteListButton';
 
 function toDisplayName(name: string): string {
   return name.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -34,12 +35,15 @@ function ListTable({ lists }: { lists: CuratedListDTO[] }) {
                 </Badge>
               </td>
               <td className="py-3 text-right">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/admin/curation/${list.id}`}>
-                    <Edit className="h-3.5 w-3.5 mr-1.5" />
-                    Edit
-                  </Link>
-                </Button>
+                <div className="flex items-center justify-end gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/admin/curation/${list.id}`}>
+                      <Edit className="h-3.5 w-3.5 mr-1.5" />
+                      Edit
+                    </Link>
+                  </Button>
+                  <DeleteListButton listId={list.id} listName={list.name} />
+                </div>
               </td>
             </tr>
           ))}

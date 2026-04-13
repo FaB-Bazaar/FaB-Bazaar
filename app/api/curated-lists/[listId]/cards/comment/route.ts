@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
+import { checkListOwnership } from '../../../curation-auth';
 
 export async function PUT(
   req: NextRequest,
@@ -18,8 +19,18 @@ export async function PUT(
     userService.hasRole(authResult.userId!, 'isCurator'),
     userService.hasRole(authResult.userId!, 'isSuperAdmin'),
   ]);
-  if (!(curatorCheck.success && curatorCheck.data) && !(adminCheck.success && adminCheck.data)) {
+  const isCurator = !!(curatorCheck.success && curatorCheck.data);
+  const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
+
+  if (!isCurator && !isSuperAdmin) {
     return NextResponse.json({ error: 'Curator or Super Admin role required' }, { status: 403 });
+  }
+
+  if (isCurator && !isSuperAdmin) {
+    const ownership = await checkListOwnership(authResult.userId!, listId);
+    if (!ownership.allowed) {
+      return NextResponse.json({ error: ownership.error }, { status: 403 });
+    }
   }
 
   const { cardName, comment } = body;
