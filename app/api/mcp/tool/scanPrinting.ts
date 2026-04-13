@@ -114,7 +114,7 @@ Use this tool after visually inspecting a FaB card image. You extract card detai
 
       if (collectorNumber) {
         // Collector number is the most precise filter — use it directly
-        filters.printingCardId = collectorNumber.trim().toUpperCase();
+        filters.collectorNumber = collectorNumber.trim().toUpperCase();
       } else {
         // Fall back to name + optional pitch
         filters.name = cardName.trim();
@@ -169,7 +169,7 @@ Use this tool after visually inspecting a FaB card image. You extract card detai
 
       const formattedPrintings = printings.map((p: any) => ({
         printingId: p.id || p._id || p.printingId,
-        printingCardId: p.printingCardId || p.printing_card_id,
+        collectorNumber: p.collectorNumber || p.collector_number,
         name: p.name || p.display_name,
         set: p.set,
         edition: p.edition ? (EDITION_DISPLAY[p.edition] || p.edition) : undefined,

@@ -384,10 +384,10 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                   <span className="text-blue-600 font-medium">{displayInfo.editionName}</span>
                 </div>
               )}
-              {printing.printing_card_id && (
+              {printing.collector_number && (
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Card Number:</span>
-                  <span className="font-mono text-sm">{printing.printing_card_id}</span>
+                  <span className="font-mono text-sm">{printing.collector_number}</span>
                 </div>
               )}
             </div>
@@ -662,9 +662,9 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                 <div>
                   <strong>Card Unique ID:</strong> {printing.card_unique_id || printing.cardId}
                 </div>
-                {printing.printing_card_id && (
+                {printing.collector_number && (
                   <div>
-                    <strong>Card Number:</strong> {printing.printing_card_id}
+                    <strong>Card Number:</strong> {printing.collector_number}
                   </div>
                 )}
                 <div>

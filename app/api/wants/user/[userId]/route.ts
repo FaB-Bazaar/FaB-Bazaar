@@ -93,6 +93,7 @@ export async function GET(
           rarity: item.rarity,
           color: item.color,
           image_url: item.image_url,
+          collector_number: item.collector_number,
           tcg_low: item.tcg_low,
           tcg_mid: item.tcg_mid,
           tcg_high: item.tcg_high,

@@ -73,9 +73,9 @@ export async function GET(request: NextRequest) {
     // Card ID filters
     if (searchParams.get('cardUniqueId')) filters.cardUniqueId = searchParams.get('cardUniqueId')!;
     if (searchParams.get('cardUniqueIds')) filters.cardUniqueIds = searchParams.get('cardUniqueIds')!.split(',');
-    if (searchParams.get('printingCardId')) {
-      const ids = searchParams.get('printingCardId')!.split(',');
-      filters.printingCardId = ids.length === 1 ? ids[0] : ids;
+    if (searchParams.get('collectorNumber')) {
+      const ids = searchParams.get('collectorNumber')!.split(',');
+      filters.collectorNumber = ids.length === 1 ? ids[0] : ids;
     }
     
     // ✅ SMART TALENT CONVERSION (REPLACE the old talent lines)

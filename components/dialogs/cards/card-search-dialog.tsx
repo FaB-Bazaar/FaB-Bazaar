@@ -321,7 +321,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     const editionDisplay = getEditionDisplayName(printing.edition);
     const foilingDisplay = getFoilingDisplayName(printing.foiling);
     const rarityDisplay = getRarityDisplayName(printing.rarity);
-    const cardIdDisplay = printing.printing_card_id ? `(${printing.printing_card_id})` : '';
+    const cardIdDisplay = printing.collector_number ? `(${printing.collector_number})` : '';
     
     let display = `${setDisplay} ${editionDisplay} ${foilingDisplay} ${cardIdDisplay}`.replace(/\s+/g, ' ').trim();
     if (printing.rarity !== 'c' && rarityDisplay !== 'Token') { 
@@ -451,7 +451,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                               const price = printing.tcgLow ? `$${Number(printing.tcgLow).toFixed(2)}` : '';
                               const displayName = getPrintingShortDisplay(printing);
                               const rarityDisplay = getRarityDisplayName(printing.rarity);
-                              const cardIdDisplay = printing.printing_card_id ? `(${printing.printing_card_id})` : '';
+                              const cardIdDisplay = printing.collector_number ? `(${printing.collector_number})` : '';
                               return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-500 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
                             })}
                           </SelectContent>

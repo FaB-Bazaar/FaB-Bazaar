@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Plus, Minus, Trash2 } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
+import FoilCardImage from '@/components/shared/FoilCardImage';
 import WhoHasDropdown from '@/components/shared/WhoHasDropdown';
 import PrintingSwapDialog from '@/components/dialogs/cards/printing-swap-dialog';
 import { getCardImageUrl } from '@/lib/utils';
@@ -30,6 +31,7 @@ interface WantsCardProps {
       foiling?: string;
       rarity?: string;
       color?: string;
+      collector_number?: string;
       type_text?: string;
       tcg_low?: number;
       tcg_mid?: number;
@@ -65,7 +67,15 @@ const WantsCard: React.FC<WantsCardProps> = ({
 
       {/* Image Section */}
       <div className="relative w-full h-[230px] sm:h-[322px] bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
-        <img src={getCardImageUrl(card)} alt={card.name} className="max-w-full max-h-full object-contain rounded" onError={(e) => (e.currentTarget.src = "/cardback.webp")} loading="lazy" />
+        <FoilCardImage
+          foiling={printingDetails?.foiling}
+          foilInset={null}
+          src={getCardImageUrl(card)}
+          alt={card.name}
+          className="w-full h-full"
+          imgClassName="max-w-full max-h-full object-contain rounded"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/cardback.webp" }}
+        />
         {card.quantity > 1 && <div className="absolute top-2 right-2 bg-blue-600 dark:bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">{card.quantity}x</div>}
         <div className="absolute bottom-2 left-2">
           <Tooltip>
@@ -93,10 +103,10 @@ const WantsCard: React.FC<WantsCardProps> = ({
         <div className="flex-1"></div>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-mono uppercase tracking-wide text-gray-500 dark:text-gray-400">{printingDetails?.printing_card_id?.toUpperCase() || ''}</span>
+            <span className="font-mono uppercase tracking-wide text-gray-600 dark:text-gray-400">{printingDetails?.collector_number?.toUpperCase() || ''}</span>
             {printingDetails?.color && <span className={`w-3 h-3 rounded-full ${getColorDot(printingDetails.color)}`}></span>}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{printingDetails?.type_text}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400 truncate">{printingDetails?.type_text}</div>
           <div className="space-y-1">
             {renderPriceLine(printingDetails?.tcg_market, "Market", card.quantity)}
             {renderPriceLine(printingDetails?.tcg_high, "High", card.quantity)}
@@ -110,7 +120,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
               <TooltipTrigger asChild>
                 <button
                   onClick={(e) => { e.stopPropagation(); setIsPrintingSwapOpen(true); }}
-                  className={`text-xs px-2 py-0.5 rounded-full text-center flex-1 transition-all hover:scale-105 cursor-pointer hover:opacity-80 ${foilingInfo.className}`}
+                  className={`text-sm px-2 py-0.5 rounded-full text-center flex-1 transition-all hover:scale-105 cursor-pointer hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${foilingInfo.className}`}
                 >
                   {foilingInfo.name}
                 </button>

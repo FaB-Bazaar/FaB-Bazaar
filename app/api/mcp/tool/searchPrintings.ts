@@ -44,12 +44,12 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
   if (mcpFilters.searchableText) searchFilters.searchableText = mcpFilters.searchableText;
   if (mcpFilters.exact !== undefined) searchFilters.exact = mcpFilters.exact;
   
-  // Handle printingCardId (can be string or comma-separated)
-  if (mcpFilters.printingCardId) {
-    if (typeof mcpFilters.printingCardId === 'string' && mcpFilters.printingCardId.includes(',')) {
-      searchFilters.printingCardId = mcpFilters.printingCardId.split(',').map(s => s.trim());
+  // Handle collectorNumber (can be string or comma-separated)
+  if (mcpFilters.collectorNumber) {
+    if (typeof mcpFilters.collectorNumber === 'string' && mcpFilters.collectorNumber.includes(',')) {
+      searchFilters.collectorNumber = mcpFilters.collectorNumber.split(',').map(s => s.trim());
     } else {
-      searchFilters.printingCardId = mcpFilters.printingCardId;
+      searchFilters.collectorNumber = mcpFilters.collectorNumber;
     }
   }
   
@@ -179,14 +179,14 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
 // Helper function to format printing for human-readable output
 function formatPrintingForDisplay(printing: any): string {
   const name = printing.name || 'Unknown Card';
-  const printingCardId = printing.printing_card_id || 'N/A';
+  const collectorNumber = printing.collector_number || 'N/A';
   const set = printing.set?.toUpperCase() || 'N/A';
   const edition = EDITION_DISPLAY[printing.edition] || printing.edition || 'N/A';
   const foiling = FOILING_DISPLAY[printing.foiling] || printing.foiling || 'N/A';
   const rarity = RARITY_DISPLAY[printing.rarity] || printing.rarity || 'N/A';
   const price = printing.tcg_market ? `$${printing.tcg_market.toFixed(2)}` : 'N/A';
-  
-  return `• ${name} (${printingCardId})
+
+  return `• ${name} (${collectorNumber})
     Printing ID: ${printing.printing_id}
     Card Unique ID: ${printing.card_unique_id}
     Set: ${set} • Edition: ${edition} • Foiling: ${foiling}
@@ -273,7 +273,7 @@ export const searchPrintingsTool = {
           exact: { type: 'boolean', description: 'Exact name match' },
           
           // Card identification
-          printingCardId: { type: 'string', description: 'Traditional printing ID (e.g. WTR216, ARC000) or comma-separated list' },
+          collectorNumber: { type: 'string', description: 'Collector number (e.g. WTR216, ARC000) or comma-separated list' },
           printingIds: { type: 'string', description: 'MongoDB-style printing IDs or comma-separated list' },
           cardUniqueId: { type: 'string', description: 'Unique card identifier' },
           cardUniqueIds: { type: 'string', description: 'Comma-separated list of unique card identifiers' },
@@ -479,7 +479,7 @@ export const searchPrintingsTool = {
           },
           sortBy: {
             type: 'string',
-            enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'printing_card_id', 'relevance'],
+            enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'relevance'],
             description: 'Field to sort results by'
           },
           sortOrder: {

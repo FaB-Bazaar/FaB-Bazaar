@@ -17,7 +17,7 @@ export interface BrowsePrinting {
   type_text_display: string | null;
   color: string | null;
   image_url: string | null;
-  printing_card_id: string | null;
+  collector_number: string | null;
 
   // Game stats (for filtering + sorting)
   types: string[] | null;

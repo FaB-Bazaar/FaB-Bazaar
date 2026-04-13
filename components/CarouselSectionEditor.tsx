@@ -22,7 +22,7 @@ interface CarouselSectionEditorProps {
 interface CardDetails {
   printing_id: string;
   display_name: string;
-  printing_card_id: string;
+  collector_number: string;
   foiling: string;
   edition: string;
   tcg_market?: number;
@@ -51,7 +51,7 @@ export function CarouselSectionEditor({ cards, onChange }: CarouselSectionEditor
     
     const foiling = foilingMap[card.foiling] || card.foiling?.toUpperCase() || 'Unknown';
     const edition = editionMap[card.edition] || card.edition?.toUpperCase() || 'Unknown';
-    const setCode = card.printing_card_id || 'Unknown';
+    const setCode = card.collector_number || 'Unknown';
     const price = card.tcg_market ? `$${Number(card.tcg_market).toFixed(2)}` : 'No price';
     
     return {

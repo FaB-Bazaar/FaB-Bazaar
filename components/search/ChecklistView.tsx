@@ -283,7 +283,7 @@ export function ChecklistView({
               className="text-left"
               getDisplayValue={(val) => SET_MAP[val?.toLowerCase()] || val?.toUpperCase() || ''}
             />
-            <SortableHeader field="printing_card_id" label="COLLECTOR" className="text-left" />
+            <SortableHeader field="collector_number" label="COLLECTOR" className="text-left" />
             <SortableHeader field="name" label="NAME" className="text-left" />
             <FilterableHeader
               field="color"
@@ -406,9 +406,9 @@ export function ChecklistView({
                   {printing.set ? printing.set.toUpperCase() : '-'}
                 </td>
 
-                {/* COLLECTOR (PRINTING CARD ID) */}
+                {/* COLLECTOR NUMBER */}
                 <td className="px-4 py-3 text-gray-700 dark:text-gray-200 font-mono text-xs md:text-sm">
-                  {printing.printing_card_id || printing.printing_data?.id || '-'}
+                  {printing.collector_number || printing.printing_data?.id || '-'}
                 </td>
 
                 {/* NAME */}

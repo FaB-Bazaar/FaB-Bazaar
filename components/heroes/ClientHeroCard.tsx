@@ -47,7 +47,7 @@ export default function ClientHeroCard({
             // Ensure tcgplayer_url is properly set (API returns null sometimes)
             tcgplayer_url: printing.tcgplayer_url || `https://www.tcgplayer.com/search/flesh-and-blood/product?q=${encodeURIComponent(printing.display_name)}`,
             // Add card_unique_id if your ViewPrintingsDialog needs it
-            card_unique_id: printing.card_unique_id || printing.printing_card_id
+            card_unique_id: printing.card_unique_id || printing.collector_number
           };
           
           setCardData(enhancedPrinting);
@@ -150,7 +150,7 @@ export default function ClientHeroCard({
 //             // Ensure tcgplayer_url is properly set (API returns null sometimes)
 //             tcgplayer_url: printing.tcgplayer_url || `https://www.tcgplayer.com/search/flesh-and-blood/product?q=${encodeURIComponent(printing.display_name)}`,
 //             // Add card_unique_id if your ViewPrintingsDialog needs it
-//             card_unique_id: printing.card_unique_id || printing.printing_card_id
+//             card_unique_id: printing.card_unique_id || printing.collector_number
 //           };
           
 //           setCardData(enhancedPrinting);

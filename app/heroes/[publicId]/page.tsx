@@ -68,7 +68,7 @@ async function fetchCarouselCards(cards: any[]) {
         card_unique_id: printing.card_unique_id,
         name: card.name || printing.display_name || printing.name,
         set: printing.set,
-        collector_number: printing.printing_card_id || printing.collector_number,
+        collector_number: printing.collector_number,
         edition: printing.edition,
         foiling: printing.foiling,
         rarity: printing.rarity,

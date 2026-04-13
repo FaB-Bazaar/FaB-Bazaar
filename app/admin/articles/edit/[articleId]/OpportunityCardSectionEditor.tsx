@@ -128,7 +128,7 @@ export function OpportunityCardSectionEditor({ section, onChange }: OpportunityC
     
     const foiling = foilingMap[card.foiling] || card.foiling?.toUpperCase() || 'Unknown';
     const edition = editionMap[card.edition] || card.edition?.toUpperCase() || 'Unknown';
-    const setCode = card.printing_card_id || card.set?.toUpperCase() || 'Unknown';
+    const setCode = card.collector_number || card.set?.toUpperCase() || 'Unknown';
     const price = card.tcg_market ? `${Number(card.tcg_market).toFixed(2)}` : 'No price';
     
     return {

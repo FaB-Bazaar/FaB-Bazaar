@@ -32,7 +32,7 @@ import { RarityIcon } from "@/components/shared/RarityIcon";
  */
 export interface PrintingOption {
   printing_id: string;
-  printing_card_id?: string;
+  collector_number?: string;
   card_unique_id?: string;
   name?: string;
   display_name?: string;
@@ -339,9 +339,9 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
                           <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         )}
                       </div>
-                      {printing.printing_card_id && (
+                      {printing.collector_number && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {printing.printing_card_id}
+                          {printing.collector_number}
                         </span>
                       )}
                     </div>

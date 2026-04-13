@@ -180,7 +180,7 @@ export default function NewWantsPage() {
           printingDetails: {
             printing_id: newPrinting.printing_id,
             card_unique_id: newPrinting.card_unique_id,
-            printing_card_id: newPrinting.printing_card_id,
+            collector_number: newPrinting.collector_number,
             display_name: newPrinting.name || newPrinting.display_name,
             name: (newPrinting.name || newPrinting.display_name)?.toLowerCase(),
             set: newPrinting.set,
@@ -418,7 +418,7 @@ export default function NewWantsPage() {
             <div className="md:hidden mb-4">
               <button
                 onClick={() => setMobileFiltersExpanded(v => !v)}
-                className="flex items-center justify-center gap-2 px-3 py-2 w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-900 dark:text-gray-100 mb-2"
+                className="flex items-center justify-center gap-2 px-3 py-2 w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-900 dark:text-gray-100 mb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 <Filter className="w-4 h-4" />
                 <span>Filters</span>
@@ -507,7 +507,7 @@ export default function NewWantsPage() {
               </div>
               <button
                 onClick={() => setFilterSidebarVisible(v => !v)}
-                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 whitespace-nowrap transition-colors"
+                className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 {filterSidebarVisible ? 'Hide Filters' : 'Show Filters'}
@@ -550,7 +550,7 @@ export default function NewWantsPage() {
             </div>
 
             {/* Count row */}
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Showing {sortedCards.length} of {cards.length}
             </p>
 

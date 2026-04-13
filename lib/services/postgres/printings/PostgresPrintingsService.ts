@@ -547,11 +547,11 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(inArray(printings.printingId, filters.printingIds));
     }
 
-    if (filters.printingCardId) {
-      if (Array.isArray(filters.printingCardId)) {
-        conditions.push(inArray(printings.collectorNumber, filters.printingCardId));
+    if (filters.collectorNumber) {
+      if (Array.isArray(filters.collectorNumber)) {
+        conditions.push(inArray(printings.collectorNumber, filters.collectorNumber));
       } else {
-        conditions.push(eq(printings.collectorNumber, filters.printingCardId));
+        conditions.push(eq(printings.collectorNumber, filters.collectorNumber));
       }
     }
 
@@ -1120,7 +1120,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         return [orderFn(printings.set), orderFn(cards.name)];
       case 'rarity':
         return [orderFn(printings.rarity), orderFn(cards.name)];
-      case 'printing_card_id':
+      case 'collector_number':
         return [orderFn(printings.collectorNumber), orderFn(cards.name)];
       default:
         return [orderFn(cards.name)];
@@ -1158,7 +1158,6 @@ export class PostgresPrintingsService implements IPrintingsService {
       cost_text: row.costText || '',
       defense_text: row.defenseText || '',
       pitch_text: row.pitchText || '',
-      printing_card_id: row.collectorNumber || '',
       collector_number: row.collectorNumber || '',
       set: row.set,
       edition: row.edition,

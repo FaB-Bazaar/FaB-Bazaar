@@ -4,7 +4,7 @@ export const RESPONSE_PROJECTIONS = {
     printing_id: 1,
     name: 1,
     display_name: 1,
-    printing_card_id: 1,
+    collector_number: 1,
     set: 1,
     edition: 1,
     foiling: 1,
@@ -37,7 +37,7 @@ export const RESPONSE_PROJECTIONS = {
     type_text_display: 1,
     color: 1,
     image_url: 1,
-    printing_card_id: 1,   // maps to printings.collector_number
+    collector_number: 1,
 
     // Filtering — game stats (cards table)
     types: 1,
@@ -74,7 +74,7 @@ export const RESPONSE_PROJECTIONS = {
     printing_id: 1,
     name: 1,
     display_name: 1,  
-    printing_card_id: 1,
+    collector_number: 1,
     text: 1,
     type_text: 1,
     color: 1,
@@ -185,7 +185,7 @@ export const RESPONSE_PROJECTIONS = {
     printing_id: 1,
     name: 1,
     display_name: 1,  
-    printing_card_id: 1,
+    collector_number: 1,
     card_unique_id: 1,
     set: 1,
     edition: 1,

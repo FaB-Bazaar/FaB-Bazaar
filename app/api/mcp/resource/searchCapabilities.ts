@@ -581,7 +581,7 @@ export const searchCapabilitiesResource = {
         boolean_filters: 'Always use is/has prefix (isEquipment, hasLight)',
         negation_filters: 'Always use Not suffix (raritiesNot, setsNot, classesNot)',
         array_fields: 'Always plural (rarities, not rarity)',
-        case_sensitivity: 'printingCardId values must match exactly'
+        case_sensitivity: 'collectorNumber values must match exactly'
       },
 
       filter_standardization: {

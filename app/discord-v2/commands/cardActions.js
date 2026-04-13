@@ -395,7 +395,7 @@ export async function handleWhoHas(body, cardUniqueId, cardName) {
   
       const printingOptions = printings.map((printing) => {
         // Use full collector number (e.g. "SEA123") instead of just set code
-        const collectorNumber = printing.printing_card_id || (printing.set_id || printing.set || 'Unknown').toUpperCase();
+        const collectorNumber = printing.collector_number || (printing.set_id || printing.set || 'Unknown').toUpperCase();
 
         // Get rarity name
         const rarityLabel = RARITY_MAP[printing.rarity?.toUpperCase()] || printing.rarity || 'Unknown';

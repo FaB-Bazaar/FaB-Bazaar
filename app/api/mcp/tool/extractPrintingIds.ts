@@ -235,15 +235,15 @@ function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilte
   if (mcpFilters.searchableText) searchFilters.searchableText = mcpFilters.searchableText;
   if (mcpFilters.exact !== undefined) searchFilters.exact = mcpFilters.exact;
   
-  // Handle printingCardId (can be string or comma-separated)
-  if (mcpFilters.printingCardId) {
-    if (typeof mcpFilters.printingCardId === 'string' && mcpFilters.printingCardId.includes(',')) {
-      searchFilters.printingCardId = mcpFilters.printingCardId.split(',').map(s => s.trim());
+  // Handle collectorNumber (can be string or comma-separated)
+  if (mcpFilters.collectorNumber) {
+    if (typeof mcpFilters.collectorNumber === 'string' && mcpFilters.collectorNumber.includes(',')) {
+      searchFilters.collectorNumber = mcpFilters.collectorNumber.split(',').map(s => s.trim());
     } else {
-      searchFilters.printingCardId = mcpFilters.printingCardId;
+      searchFilters.collectorNumber = mcpFilters.collectorNumber;
     }
   }
-  
+
   // Handle printingIds (comma-separated string to array)
   if (mcpFilters.printingIds) {
     if (typeof mcpFilters.printingIds === 'string') {
@@ -346,7 +346,7 @@ Present results to users as card name, set, edition, foiling, and price — neve
     // ENHANCED: Process each printing with embedded mappings formatting
     for (let index = 0; index < result.printings.length; index++) {
       const printing = result.printings[index];
-      const cardId = printing.printing_card_id;
+      const cardId = printing.collector_number;
       const printingId = printing.printing_id || printing._id;
       
       if (cardId) cardIds.push(cardId);
@@ -898,12 +898,12 @@ export function getSelectionPrintingIds(selections) {
 //   if (mcpFilters.searchableText) searchFilters.searchableText = mcpFilters.searchableText;
 //   if (mcpFilters.exact !== undefined) searchFilters.exact = mcpFilters.exact;
   
-//   // Handle printingCardId (can be string or comma-separated)
-//   if (mcpFilters.printingCardId) {
-//     if (typeof mcpFilters.printingCardId === 'string' && mcpFilters.printingCardId.includes(',')) {
-//       searchFilters.printingCardId = mcpFilters.printingCardId.split(',').map(s => s.trim());
+//   // Handle collectorNumber (can be string or comma-separated)
+//   if (mcpFilters.collectorNumber) {
+//     if (typeof mcpFilters.collectorNumber === 'string' && mcpFilters.collectorNumber.includes(',')) {
+//       searchFilters.collectorNumber = mcpFilters.collectorNumber.split(',').map(s => s.trim());
 //     } else {
-//       searchFilters.printingCardId = mcpFilters.printingCardId;
+//       searchFilters.collectorNumber = mcpFilters.collectorNumber;
 //     }
 //   }
   
@@ -985,7 +985,7 @@ export function getSelectionPrintingIds(selections) {
 //     // ENHANCED: Process each printing with embedded mappings formatting
 //     for (let index = 0; index < result.printings.length; index++) {
 //       const printing = result.printings[index];
-//       const cardId = printing.printing_card_id;
+//       const cardId = printing.collector_number;
 //       const printingId = printing.printing_id || printing._id;
       
 //       if (cardId) cardIds.push(cardId);

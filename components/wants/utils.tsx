@@ -2,15 +2,11 @@
 
 import React from 'react';
 import { TcgAffiliateLink } from '@/components/tracking';
+import { FOILING_STYLES } from '@/lib/fab-constants/foilings';
 
 export const getFoilingInfo = (foiling?: string): { name: string; className: string } => {
-  const map: Record<string, { name: string; className: string }> = {
-    R: { name: 'Rainbow Foil', className: 'bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 text-white' },
-    C: { name: 'Cold Foil', className: 'bg-blue-600 text-white' },
-    G: { name: 'Gold Foil', className: 'bg-yellow-500 text-black' },
-    S: { name: 'Non-foil', className: 'bg-gray-500 text-white' },
-  };
-  return map[foiling?.toUpperCase() ?? ''] ?? { name: 'Non-foil', className: 'bg-gray-500 text-white' };
+  const key = foiling?.toLowerCase() as keyof typeof FOILING_STYLES | undefined;
+  return (key && FOILING_STYLES[key]) ?? { name: 'Non-foil', className: 'bg-gray-500 text-white' };
 };
 
 export const getColorDot = (color?: string): string => {

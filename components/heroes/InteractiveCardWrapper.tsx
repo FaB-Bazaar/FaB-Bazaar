@@ -116,7 +116,7 @@ export default function InteractiveCardWrapper({ card }: InteractiveCardWrapperP
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         cardName={currentCard.name || currentCard.display_name}
-        cardUniqueId={currentCard.card_unique_id || currentCard.printing_card_id}
+        cardUniqueId={currentCard.card_unique_id || currentCard.collector_number}
         onSelectPrinting={handleSelectPrinting}
       />
     </div>

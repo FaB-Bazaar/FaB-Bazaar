@@ -125,7 +125,7 @@ export default function PublicHeroCardDisplay({
             open={dialogOpen}
             onOpenChange={setDialogOpen}
             cardName={display_name || name}
-            cardUniqueId={currentCard.card_unique_id || currentCard.printing_card_id}
+            cardUniqueId={currentCard.card_unique_id || currentCard.collector_number}
             onSelectPrinting={handleSelectPrinting}
           />
         )}
@@ -231,7 +231,7 @@ export default function PublicHeroCardDisplay({
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           cardName={display_name || name}
-          cardUniqueId={currentCard.card_unique_id || currentCard.printing_card_id}
+          cardUniqueId={currentCard.card_unique_id || currentCard.collector_number}
           onSelectPrinting={handleSelectPrinting}
         />
       )}

@@ -123,7 +123,7 @@ function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: st
     filters.name || 
     filters.sets?.length || 
     filters.types?.length ||
-    filters.printingCardId ||
+    filters.collectorNumber ||
     filters.printingIds ||
     filters.text
   );

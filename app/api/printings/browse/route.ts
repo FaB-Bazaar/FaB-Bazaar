@@ -75,7 +75,7 @@ export async function GET() {
 
         // Printing display (printings table)
         image_url:        printings.imageUrl,
-        printing_card_id: printings.collectorNumber,   // collector number for checklist
+        collector_number: printings.collectorNumber,
         set:              printings.set,
         edition:          printings.edition,
         foiling:          printings.foiling,

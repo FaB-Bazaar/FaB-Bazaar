@@ -54,8 +54,7 @@ export interface PrintingDTO {
   pitch_text: string;
 
   // Printing-specific
-  printing_card_id: string;
-  collector_number?: string;
+  collector_number: string;
   set: string;
   edition: string;
   foiling: string;
@@ -240,7 +239,7 @@ export interface PrintingsSearchFilters {
   pitch?: number | number[] | null;
 
   // Printing attributes
-  printingCardId?: string | string[];
+  collectorNumber?: string | string[];
   printingIds?: string[];
   sets?: string[];
   editions?: string[];
@@ -393,7 +392,7 @@ export interface PrintingsSearchOptions {
     | 'defense'
     | 'set'
     | 'rarity'
-    | 'printing_card_id'
+    | 'collector_number'
     | 'relevance'
     | 'color'
     | 'foiling'

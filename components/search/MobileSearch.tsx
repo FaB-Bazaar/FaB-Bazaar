@@ -11,7 +11,7 @@ interface SearchResult {
   name: string;
   tcg_low?: number | null;
   set: string;
-  printing_card_id: string;
+  collector_number: string;
   rarity: string;
   foiling: string;
   edition?: string;
@@ -225,7 +225,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
                             onClick={onClose}
                             className={`font-mono text-sm font-semibold min-w-[60px] hover:underline transition-colors ${getColorTextStyle(result.color)} hover:opacity-80`}
                           >
-                            {result.printing_card_id}
+                            {result.collector_number}
                           </Link>
                           <div className="flex gap-1 flex-wrap">
                             {result.foiling && result.foiling !== 's' && (
@@ -285,7 +285,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 //   name: string
 //   tcg_low?: number | null
 //   set: string
-//   printing_card_id: string
+//   collector_number: string
 //   rarity: string
 //   foiling: string
 //   edition?: string
@@ -550,7 +550,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 //                       onClick={onClose}
 //                       className={`font-mono text-sm font-semibold min-w-[60px] hover:underline transition-colors ${getColorTextStyle(result.color)} hover:opacity-80`}
 //                     >
-//                       {result.printing_card_id}
+//                       {result.collector_number}
 //                     </Link>
 
 //                     {/* Edition & Foiling badges */}
@@ -614,7 +614,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 // //   name: string
 // //   tcg_low?: number | null
 // //   set: string
-// //   printing_card_id: string
+// //   collector_number: string
 // //   rarity: string
 // //   foiling: string
 // //   edition?: string
@@ -874,7 +874,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 // //                   <div className="flex items-center gap-3 flex-1 min-w-0">
 // //                     {/* Card ID */}
 // //                     <div className={`font-mono text-sm font-semibold min-w-[60px] ${getColorTextStyle(result.color)}`}>
-// //                       {result.printing_card_id}
+// //                       {result.collector_number}
 // //                     </div>
                     
 // //                     {/* Edition & Foiling badges */}
