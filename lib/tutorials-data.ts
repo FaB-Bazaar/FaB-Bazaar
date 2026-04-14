@@ -114,9 +114,9 @@ export const tutorials: Tutorial[] = [
           "Open any deck and toggle the Talishar switch to make it available for online play. Your deck\u2019s hero, equipment, maindeck, and inventory are automatically converted to Talishar\u2019s format. Cards in your inventory section become your sideboard. Once enabled, the deck appears in your Talishar deck list when you start a game.",
       },
       {
-        title: "Setting Up Matchup Sideboarding",
+        title: "Sideboard Sync",
         description:
-          "Go to the Matchups tab in the deck editor and add a matchup for any hero you expect to face. For each matchup, choose which cards to swap in from your inventory and which to swap out of your maindeck. Set your preferred turn order and add notes for your game plan. When you select a matchup in Talishar before a game, your sideboard swaps are applied automatically.",
+          "Talishar automatically syncs your sideboard with your deck. Any changes you make to your sideboard in Talishar automatically update your deck's matchups, and your matchups are automatically applied according to your opponent's hero.",
       },
       {
         title: "Tracking Game Results",
