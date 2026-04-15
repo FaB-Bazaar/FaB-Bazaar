@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Minus, Check, ChevronDown, ChevronUp, Loader2, Search, ZoomIn } from "lucide-react";
+import { Plus, Minus, Check, ChevronDown, ChevronUp, Loader2, Search, ZoomIn, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
@@ -1189,6 +1189,13 @@ export default function QuickAddCardDialog({
             {/* Expansion panel — selected card printings + add */}
             {selectedCard && (
               <div className="shrink-0 border-t border-gray-700/60 bg-gray-900/80 px-5 py-4">
+                <button
+                  onClick={() => { setSelectedCard(null); setShowCardZoom(false); }}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  Back to search results
+                </button>
                 <div className="flex items-start gap-4">
                   {/* Thumbnail */}
                   <div
