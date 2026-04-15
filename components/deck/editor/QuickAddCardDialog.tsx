@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Plus, Minus, Check, ChevronDown, ChevronUp, Loader2, Search, ZoomIn, ArrowLeft } from "lucide-react";
@@ -9,6 +9,7 @@ import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import { getHeroInfo } from "@/lib/fab-constants";
 import { getApiFormatCode } from "@/lib/format-constants";
+import { sortPrintings } from "@/lib/fab-constants/sets";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import {
   type CardResult,
@@ -490,10 +491,12 @@ function CardRow({
 function CardGridTile({
   card,
   isSelected,
+  inDeckCount,
   onClick,
 }: {
   card: CardResult;
   isSelected: boolean;
+  inDeckCount: number;
   onClick: () => void;
 }) {
   const pitchStyle = card.pitch ? PITCH_STYLE[card.pitch] : null;
@@ -504,7 +507,7 @@ function CardGridTile({
       onClick={onClick}
       onKeyDown={e => e.key === 'Enter' && onClick()}
       className={cn(
-        "flex flex-col rounded overflow-hidden cursor-pointer transition-all border border-l-4",
+        "relative flex flex-col rounded overflow-hidden cursor-pointer transition-all border border-l-4",
         isSelected
           ? "border-blue-500/80 border-l-blue-400 ring-2 ring-blue-500/40"
           : cn("border-gray-700/60 hover:border-gray-500/60", pitchStyle ? pitchStyle.border : "border-l-gray-600"),
@@ -519,6 +522,12 @@ function CardGridTile({
           draggable={false}
         />
       </div>
+      {/* Already-in-deck badge */}
+      {inDeckCount > 0 && (
+        <div className="absolute top-1 left-1 bg-blue-600/90 text-white text-[9px] font-bold px-1 py-px rounded leading-tight">
+          {inDeckCount}
+        </div>
+      )}
       <div className={cn("px-1 py-1 text-center", isSelected ? "bg-blue-900/30" : "bg-gray-800/80")}>
         <p className="text-[9px] font-medium text-gray-200 truncate leading-tight">{card.name}</p>
         {card.printings.length > 1 && (
@@ -622,7 +631,7 @@ export default function QuickAddCardDialog({
       setQuery("");
       setDebouncedQuery("");
       setSelectedType(null);
-      setSelectedPitch(null);
+      setSelectedPitch(pitchFilter ?? null);
       setSelectedKeyword(null);
       setCards([]);
       setError(null);
@@ -630,7 +639,7 @@ export default function QuickAddCardDialog({
       setAvailableTypes(null);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open]);
+  }, [open, pitchFilter]);
 
   // Build pool params object (stable reference via memo-like pattern)
   const poolParams: PoolParams = {
@@ -679,8 +688,7 @@ export default function QuickAddCardDialog({
         let result = chip?.value === 'non-attack-action'
           ? cards.filter(c => !c.types.includes('attack'))
           : cards;
-        const effectivePitch = hasPitch ? selectedPitch : (targetCategory === "maindeck" ? pitchFilter ?? null : null);
-        if (effectivePitch != null) result = result.filter(c => c.pitch === effectivePitch);
+        if (selectedPitch != null) result = result.filter(c => c.pitch === selectedPitch);
         return result;
       };
 
@@ -726,8 +734,7 @@ export default function QuickAddCardDialog({
           params.set("types", chip ? chip.apiType : selectedType!);
         }
         if (hasKeyword) params.set("text", selectedKeyword!);
-        const effectivePitch = hasPitch ? selectedPitch : (targetCategory === "maindeck" ? pitchFilter ?? null : null);
-        if (effectivePitch != null) params.set("pitch", String(effectivePitch));
+        if (selectedPitch != null) params.set("pitch", String(selectedPitch));
       }
     }
     if (deckFormat) {
@@ -746,6 +753,10 @@ export default function QuickAddCardDialog({
             if (!map.has(id)) map.set(id, { unique_id: id, name: (p.display_name || p.name || 'Unknown') as string, types: ((p.types || []) as string[]).map(t => String(t).toLowerCase()), pitch: (p.pitch ?? null) as number | null, printings: [] });
             map.get(id)!.printings.push(p);
           }
+          // Sort printings within each card so carousel and default match sortPrintings order
+          for (const card of map.values()) {
+            card.printings = sortPrintings(card.printings) as typeof card.printings;
+          }
           setCards(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
         } else {
           setError("Search failed. Please try again.");
@@ -754,12 +765,13 @@ export default function QuickAddCardDialog({
       .catch(() => setError("Search failed. Please try again."))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, selectedType, selectedPitch, selectedKeyword, targetCategory, pitchFilter, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
+  }, [debouncedQuery, selectedType, selectedPitch, selectedKeyword, targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
 
-  // Sync selectedPrinting when card selection changes
+  // Sync selectedPrinting when card selection changes — use sortPrintings to pick the best default
   useEffect(() => {
     if (selectedCard) {
-      setSelectedPrinting(selectedCard.printings[0] ?? null);
+      const sorted = sortPrintings([...selectedCard.printings]);
+      setSelectedPrinting(sorted[0] ?? null);
       setQuantity(1);
       setJustAdded(false);
     }
@@ -798,6 +810,19 @@ export default function QuickAddCardDialog({
       setAdding(false);
     }
   }, [onAdd, selectedPrinting, quantity]);
+
+  // Build a map of card_unique_id → total qty across all deck zones for "already in deck" badge
+  const inDeckMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!currentDeck) return map;
+    for (const arr of [currentDeck.maindeck ?? [], currentDeck.equipment ?? [], currentDeck.inventory ?? []] as any[][]) {
+      for (const c of arr) {
+        const uid = c.printingDetails?.card_unique_id;
+        if (uid) map.set(uid, (map.get(uid) ?? 0) + (c.quantity ?? 1));
+      }
+    }
+    return map;
+  }, [currentDeck]);
 
   const zoneLabel = ZONE_LABELS[targetCategory] ?? targetCategory;
   const selectedPitchStyle = selectedCard?.pitch ? PITCH_STYLE[selectedCard.pitch] : null;
@@ -1133,6 +1158,7 @@ export default function QuickAddCardDialog({
                           key={card.unique_id}
                           card={card}
                           isSelected={selectedCard?.unique_id === card.unique_id}
+                          inDeckCount={inDeckMap.get(card.unique_id) ?? 0}
                           onClick={() => {
                             const isAlreadySelected = selectedCard?.unique_id === card.unique_id;
                             setSelectedCard(isAlreadySelected ? null : card);
@@ -1240,7 +1266,15 @@ export default function QuickAddCardDialog({
                           isSelected={p.printing_id === selectedPrinting?.printing_id}
                           onSelect={p => { setSelectedPrinting(p); setShowCardZoom(true); }}
                           onEnlarge={setEnlargedImage}
-                          onAdd={async (qty) => { setSelectedPrinting(p); await onAdd(p, qty); }}
+                          onAdd={async (qty) => {
+                            setSelectedPrinting(p);
+                            await onAdd(p, qty);
+                            // Clear search so user can immediately find the next card
+                            setSelectedCard(null);
+                            setShowCardZoom(false);
+                            setQuery("");
+                            setTimeout(() => inputRef.current?.focus(), 50);
+                          }}
                           didDrag={printingsDrag.didDrag}
                         />
                       ))}

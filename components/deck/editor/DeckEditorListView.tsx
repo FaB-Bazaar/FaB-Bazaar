@@ -630,16 +630,31 @@ function DeckTileSection({
         {isDragActive && isValidDropTarget && (
           <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
         )}
-        {isCollapsible && !isDragActive && (
-          <button
-            type="button"
-            className="ml-auto flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors px-1 py-0.5 rounded hover:bg-gray-700/50"
-            onClick={() => setIsCollapsed(v => !v)}
-            title={isCollapsed ? "Show equipment & weapons" : "Collapse equipment & weapons"}
-          >
-            {isCollapsed ? "show" : "collapse"}
-            <ChevronDown className={cn("h-3 w-3 transition-transform", isCollapsed && "-rotate-90")} />
-          </button>
+        {!isDragActive && (
+          <div className="ml-auto flex items-center gap-1">
+            {onAddCard && sectionToCategory(section.key) && (
+              <button
+                type="button"
+                onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
+                title={`Add card to ${section.title}`}
+                className="flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-blue-400 transition-colors px-1 py-0.5 rounded hover:bg-gray-700/50"
+              >
+                <Plus className="h-3 w-3" />
+                Add
+              </button>
+            )}
+            {isCollapsible && (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors px-1 py-0.5 rounded hover:bg-gray-700/50"
+                onClick={() => setIsCollapsed(v => !v)}
+                title={isCollapsed ? "Show equipment & weapons" : "Collapse equipment & weapons"}
+              >
+                {isCollapsed ? "show" : "collapse"}
+                <ChevronDown className={cn("h-3 w-3 transition-transform", isCollapsed && "-rotate-90")} />
+              </button>
+            )}
+          </div>
         )}
       </div>
       {!isCollapsed && <div className="flex flex-wrap gap-1">
@@ -871,7 +886,7 @@ function DeckTileSection({
           <button
             type="button"
             onClick={() => !isDragActive && onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
-            title={`Add card to ${section.title}`}
+            title="Add a card here"
             className="rounded border-2 border-dashed border-gray-600 hover:border-blue-500 text-gray-600 hover:text-blue-400 flex items-center justify-center transition-colors flex-shrink-0"
             style={{ width: tileWidth, aspectRatio: '63/53' }}
           >

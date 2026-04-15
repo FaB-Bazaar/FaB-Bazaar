@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Search, X, AlertCircle, HelpCircle, ArrowLeft } from "lucide-react"
+import { Search, X, AlertCircle, HelpCircle, ArrowLeft, Check } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Pagination } from "@/components/ui/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -61,6 +61,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
   const [activeTab, setActiveTab] = useState<"search" | "printing">("search")
   const [quantity, setQuantity] = useState(1)
   const [defaultForTrade, setDefaultForTrade] = useState(true)
+  const [lastAdded, setLastAdded] = useState<string | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [metadata, setMetadata] = useState<any>(null)
@@ -204,10 +205,13 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
       if (!shouldContinue) {
         onOpenChange(false);
       } else {
+        const addedName = selectedPrinting.display_name || selectedCard.name;
         setSelectedCard(null);
         setSelectedPrinting(null);
         setQuantity(1);
         setActiveTab("search");
+        setLastAdded(addedName);
+        setTimeout(() => setLastAdded(null), 1500);
         setTimeout(() => {
           searchInputRef.current?.focus();
           searchInputRef.current?.select();
@@ -219,7 +223,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
   const handleDialogClose = () => {
     setSelectedCard(null); setSelectedPrinting(null); setQuantity(1); setActiveTab("search"); setCards([]);
     setError(null); setSearchQuery(""); setDebouncedQuery(""); setPage(1); setTotalPages(1);
-    setDefaultForTrade(true);
+    setDefaultForTrade(true); setLastAdded(null);
   }
 
   const getSetDisplayName = (setCode: string): string => {
@@ -291,7 +295,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     return (
       <div className={`${showAffiliate ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'} text-xs`}>
         <div className="flex justify-between items-center">
-          <span className="text-gray-500 dark:text-gray-400">{label}:</span>
+          <span className="text-gray-600 dark:text-gray-400">{label}:</span>
           <div className="flex items-center gap-2">
             <span>${unitPrice.toFixed(2)}</span>
             {showAffiliate && tcgPlayerUrl && (
@@ -380,7 +384,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                 <div className="absolute right-8 top-2.5 flex gap-1">
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger asChild><button type="button" className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" aria-label="Search help"><HelpCircle className="h-4 w-4" /></button></TooltipTrigger>
+                      <TooltipTrigger asChild><button type="button" className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" aria-label="Search help"><HelpCircle className="h-4 w-4" /></button></TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         <div className="text-sm">
                           <p className="font-medium mb-2">Search Tips:</p>
@@ -401,9 +405,15 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  {searchQuery && (<button type="button" className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" onClick={() => setSearchQuery("")} aria-label="Clear search"><X className="h-4 w-4" /></button>)}
+                  {searchQuery && (<button type="button" className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" onClick={() => setSearchQuery("")} aria-label="Clear search"><X className="h-4 w-4" /></button>)}
                 </div>
               </div>
+              {lastAdded && (
+                <div className="mb-3 flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded px-3 py-1.5">
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  Added {lastAdded}
+                </div>
+              )}
               {error && (<Alert variant="destructive" className="mb-4"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>)}
             </div>
             <div className="flex-1 overflow-y-auto min-h-0">
@@ -435,14 +445,14 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                  <div className="flex-shrink-0">
                    <Button size="sm" className="mb-2" onClick={() => { setSelectedCard(null); setSelectedPrinting(null); setActiveTab("search"); setCards([]); setQuantity(1); setError(null); setTimeout(() => { searchInputRef.current?.focus(); searchInputRef.current?.select(); }, 100) }}><ArrowLeft className="h-4 w-4 mr-1" /> Back to search</Button>
                    <div className="mb-1 font-medium text-base md:text-lg">{selectedCard.name}</div>
-                   <div className="mb-2 text-xs md:text-sm text-gray-500 dark:text-gray-400">{selectedCard.type_text}</div>
+                   <div className="mb-2 text-xs md:text-sm text-gray-600 dark:text-gray-400">{selectedCard.type_text}</div>
                    <div className="mb-3 flex flex-wrap gap-1">{selectedCard.types?.map((type: string, index: number) => (<Badge key={index} variant="secondary" className="text-xs">{type}</Badge>))}</div>
                  </div>
 
                  <div className="flex flex-col md:flex-row md:items-start md:gap-4">
                    <div className="flex-1 min-w-0 mb-3 md:mb-0">
                      <div className="mb-3">
-                       <Label className="text-xs md:text-sm font-medium mb-1.5 block">Select Printing</Label>
+                       <Label className="text-sm font-medium mb-1.5 block">Select Printing</Label>
                         <Select value={selectedPrinting?.unique_id || selectedPrinting?.printing_id || ""} onValueChange={(value) => { if (value === "cheapest") { setSelectedPrinting(getCheapestPrinting(selectedCard.printings || [])) } else { const found = (selectedCard.printings || []).find((p: any) => p.unique_id === value || p.printing_id === value); setSelectedPrinting(found || null) }}}>
                           <SelectTrigger className="w-full text-sm"><SelectValue placeholder="Choose a printing..." /></SelectTrigger>
                           <SelectContent>
@@ -452,7 +462,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                               const displayName = getPrintingShortDisplay(printing);
                               const rarityDisplay = getRarityDisplayName(printing.rarity);
                               const cardIdDisplay = printing.collector_number ? `(${printing.collector_number})` : '';
-                              return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-500 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
+                              return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-600 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
                             })}
                           </SelectContent>
                         </Select>
@@ -463,7 +473,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
 
                           <div className="space-y-0.5 md:space-y-1">
                             {renderPriceLine(selectedPrinting, 'tcgLow', 'TCG Low', true)}
-                            {!selectedPrinting.tcgLow && (<div className="text-xs text-gray-500 dark:text-gray-400 italic">No pricing information available</div>)}
+                            {!selectedPrinting.tcgLow && (<div className="text-xs text-gray-600 dark:text-gray-400 italic">No pricing information available</div>)}
                           </div>
                         </div>
                       )}
@@ -490,7 +500,6 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                 <div className="flex gap-2 w-full">
                   <Button
                     className="flex-1"
-                    variant="outline"
                     onClick={() => handleConfirmSelection(false)}
                     disabled={!selectedPrinting}
                   >
@@ -498,6 +507,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                   </Button>
                   <Button
                     className="flex-1"
+                    variant="outline"
                     onClick={() => handleConfirmSelection(true)}
                     disabled={!selectedPrinting}
                   >
@@ -510,13 +520,6 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
           </TabsContent>
         </Tabs>
         
-        {/* This seems to be a redundant footer, as the actions are now inside the "printing" tab.
-            You may want to remove this or adjust the logic. I will leave it as is. */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   )
