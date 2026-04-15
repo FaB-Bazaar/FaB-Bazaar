@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ExternalLink, Settings, Copy, Download, Check } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -41,23 +41,47 @@ interface PackageCard {
 function PackageCardItem({
   card,
   defaultQty,
+  deckQty,
+  inventoryQty,
+  onDeckQtyChange,
+  onInventoryQtyChange,
   adding,
+  addingInventory,
+  addingBench,
   isOwner,
   inDeck,
   comment,
   onAdd,
+  onAddToInventory,
+  onAddToBench,
 }: {
   card: PackageCard;
   defaultQty: number;
+  deckQty: number;
+  inventoryQty: number;
+  onDeckQtyChange: (qty: number) => void;
+  onInventoryQtyChange: (qty: number) => void;
   adding: boolean;
+  addingInventory: boolean;
+  addingBench: boolean;
   isOwner: boolean;
   inDeck?: number;
   comment?: string;
   onAdd: (qty: number) => void;
+  onAddToInventory: (qty: number) => void;
+  onAddToBench: (qty: number) => void;
 }) {
-  const [qty, setQty] = useState(defaultQty);
+  const benchQty = defaultQty - deckQty - inventoryQty;
+  const busy = adding || addingInventory || addingBench;
+
+  const handleAdd = () => {
+    if (deckQty > 0) onAdd(deckQty);
+    if (inventoryQty > 0) onAddToInventory(inventoryQty);
+    if (benchQty > 0) onAddToBench(benchQty);
+  };
+
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 h-full">
       <img
         src={card.imageUrl || "/cardback.webp"}
         alt={card.displayName ?? card.printingId}
@@ -73,34 +97,67 @@ function PackageCardItem({
         <span className="text-xs text-gray-500">{inDeck} in deck</span>
       )}
       {isOwner && (
-        <div className="w-full flex items-center gap-1">
+        <div className="w-full flex flex-col gap-1 mt-auto">
+          {/* Deck row — ↓ send one to inventory, ↓↓ send one straight to bench */}
+          <div className="w-full flex items-center gap-1">
+            <span className="text-[10px] text-gray-400 w-8 shrink-0">Deck</span>
+            <span className={cn("flex-1 text-center text-xs font-semibold tabular-nums", deckQty > 0 ? "text-blue-400" : "text-gray-600")}>{deckQty}</span>
+            <button
+              onClick={() => { onDeckQtyChange(deckQty - 1); onInventoryQtyChange(inventoryQty + 1); }}
+              disabled={deckQty === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Move one to inventory"
+            ><ChevronDown className="h-3.5 w-3.5" /></button>
+            <button
+              onClick={() => onDeckQtyChange(deckQty - 1)}
+              disabled={deckQty === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Move one straight to bench"
+            ><ChevronsDown className="h-3.5 w-3.5" /></button>
+          </div>
+          {/* Inventory row — ↑ move one to deck, ↓ move one to bench */}
+          <div className="w-full flex items-center gap-1">
+            <span className="text-[10px] text-gray-400 w-8 shrink-0">Inv</span>
+            <span className={cn("flex-1 text-center text-xs font-semibold tabular-nums", inventoryQty > 0 ? "text-amber-400" : "text-gray-600")}>{inventoryQty}</span>
+            <button
+              onClick={() => { onInventoryQtyChange(inventoryQty - 1); onDeckQtyChange(deckQty + 1); }}
+              disabled={inventoryQty === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Move one to deck"
+            ><ChevronUp className="h-3.5 w-3.5" /></button>
+            <button
+              onClick={() => onInventoryQtyChange(inventoryQty - 1)}
+              disabled={inventoryQty === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Move one to bench"
+            ><ChevronDown className="h-3.5 w-3.5" /></button>
+          </div>
+          {/* Bench row — ↑ move one to inventory, ↑↑ move one straight to deck */}
+          <div className="w-full flex items-center gap-1">
+            <span className="text-[10px] text-gray-500 w-8 shrink-0">Bench</span>
+            <span className={cn("flex-1 text-center text-xs font-semibold tabular-nums", benchQty > 0 ? "text-gray-400" : "text-gray-600")}>{benchQty}</span>
+            <button
+              onClick={() => onInventoryQtyChange(inventoryQty + 1)}
+              disabled={benchQty === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Move one to inventory"
+            ><ChevronUp className="h-3.5 w-3.5" /></button>
+            <button
+              onClick={() => onDeckQtyChange(deckQty + 1)}
+              disabled={benchQty === 0 || busy}
+              className="w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 text-white flex items-center justify-center shrink-0"
+              title="Move one straight to deck"
+            ><ChevronsUp className="h-3.5 w-3.5" /></button>
+          </div>
           <button
-            onClick={() => setQty(q => Math.max(1, q - 1))}
-            className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold flex items-center justify-center shrink-0"
-          >−</button>
-          <input
-            type="number"
-            min={1}
-            max={99}
-            value={qty}
-            onChange={e => setQty(Math.max(1, Math.min(99, parseInt(e.target.value) || 1)))}
-            className="flex-1 min-w-0 text-center text-xs bg-gray-800 border border-gray-600 rounded text-white h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          <button
-            onClick={() => setQty(q => Math.min(99, q + 1))}
-            className="w-7 h-7 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold flex items-center justify-center shrink-0"
-          >+</button>
+            onClick={handleAdd}
+            disabled={busy}
+            className="w-full mt-0.5 text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center justify-center gap-1"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Add
+          </button>
         </div>
-      )}
-      {isOwner && (
-        <button
-          onClick={() => onAdd(qty)}
-          disabled={adding}
-          className="w-full text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center justify-center gap-1"
-        >
-          {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          Add to Deck
-        </button>
       )}
     </div>
   );
@@ -756,6 +813,32 @@ export default function DeckEditorPage() {
   } | null>(null);
   const [addingAll, setAddingAll] = useState(false);
   const [addingCard, setAddingCard] = useState<string | null>(null);
+  const [addingBenchCard, setAddingBenchCard] = useState<string | null>(null);
+  const [addingInventoryCard, setAddingInventoryCard] = useState<string | null>(null);
+  const [cardSplits, setCardSplits] = useState<Map<string, { deck: number; inventory: number }>>(new Map());
+
+  // Deduplicated cards from the active preview build
+  const seenCards = React.useMemo(() => {
+    if (!previewBuild) return [] as Array<{ card: { printingId: string; displayName?: string; color?: string; setCode?: string; imageUrl?: string; comment?: string | null }; qty: number }>;
+    const seen = new Map<string, { card: typeof previewBuild.cards[0]; qty: number }>();
+    for (const card of previewBuild.cards) {
+      const existing = seen.get(card.printingId);
+      if (existing) existing.qty++;
+      else seen.set(card.printingId, { card, qty: 1 });
+    }
+    return Array.from(seen.values());
+  }, [previewBuild]);
+
+  // Reset all splits to "all deck" when a new build is opened
+  useEffect(() => {
+    const splits = new Map<string, { deck: number; inventory: number }>();
+    for (const { card, qty } of seenCards) splits.set(card.printingId, { deck: qty, inventory: 0 });
+    setCardSplits(splits);
+  }, [previewBuild]);
+
+  const markAllForDeck = () => setCardSplits(new Map(seenCards.map(({ card, qty }) => [card.printingId, { deck: qty, inventory: 0 }])));
+  const markAllForInventory = () => setCardSplits(new Map(seenCards.map(({ card, qty }) => [card.printingId, { deck: 0, inventory: qty }])));
+  const markAllForBench = () => setCardSplits(new Map(seenCards.map(({ card }) => [card.printingId, { deck: 0, inventory: 0 }])));
 
   useEffect(() => {
     if (!previewBuild && !upgradeResult) return;
@@ -785,21 +868,56 @@ export default function DeckEditorPage() {
     }
   };
 
+  const addCardToBench = async (printingId: string, quantity: number, displayName?: string) => {
+    if (!canEdit || quantity < 1) return;
+    setAddingBenchCard(printingId);
+    try {
+      const result = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: 'benched' }]);
+      if (result.success) {
+        toast({ title: "Added to bench", description: `${quantity}x ${displayName ?? printingId}` });
+        await handlers.refreshDeck();
+      } else {
+        toast({ title: "Failed to add to bench", description: result.error, variant: "destructive" });
+      }
+    } finally {
+      setAddingBenchCard(null);
+    }
+  };
+
+  const addCardToInventory = async (printingId: string, quantity: number, displayName?: string) => {
+    if (!canEdit || quantity < 1) return;
+    setAddingInventoryCard(printingId);
+    try {
+      const result = await decksClient.addPrintings(deckId, [{ printingId, quantity, category: 'inventory' as DeckCategory }]);
+      if (result.success) {
+        toast({ title: "Added to inventory", description: `${quantity}x ${displayName ?? printingId}` });
+        await handlers.refreshDeck();
+      } else {
+        toast({ title: "Failed to add to inventory", description: result.error, variant: "destructive" });
+      }
+    } finally {
+      setAddingInventoryCard(null);
+    }
+  };
+
   const addAllToDeck = async () => {
     if (!canEdit || !previewBuild) return;
     setAddingAll(true);
     try {
-      const seen = new Map<string, { printingId: string; quantity: number }>();
-      for (const card of previewBuild.cards) {
-        const existing = seen.get(card.printingId);
-        if (existing) existing.quantity++;
-        else seen.set(card.printingId, { printingId: card.printingId, quantity: 1 });
-      }
-      const items = Array.from(seen.values());
+      const items = seenCards.flatMap(({ card, qty }) => {
+        const split = cardSplits.get(card.printingId) ?? { deck: qty, inventory: 0 };
+        const benchQty = qty - split.deck - split.inventory;
+        const result = [];
+        if (split.deck > 0) result.push({ printingId: card.printingId, quantity: split.deck });
+        if (split.inventory > 0) result.push({ printingId: card.printingId, quantity: split.inventory, category: 'inventory' as DeckCategory });
+        if (benchQty > 0) result.push({ printingId: card.printingId, quantity: benchQty, category: 'benched' as DeckCategory });
+        return result;
+      });
+      if (items.length === 0) return;
       const result = await decksClient.addPrintings(deckId, items);
       if (result.success) {
         const totalCards = items.reduce((sum, i) => sum + i.quantity, 0);
-        toast({ title: "Added all", description: `${totalCards} card${totalCards !== 1 ? "s" : ""} added to deck` });
+        toast({ title: "Added all", description: `${totalCards} card${totalCards !== 1 ? "s" : ""} added` });
         await handlers.refreshDeck();
       } else {
         toast({ title: "Failed to add cards", description: result.error, variant: "destructive" });
@@ -2052,23 +2170,47 @@ export default function DeckEditorPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+            {canEdit && (
+              <div className="px-6 py-3 border-b border-gray-700 flex items-center gap-2">
+                <div className="flex-1" />
+                <button
+                  onClick={markAllForDeck}
+                  className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
+                >
+                  Set all to Deck
+                </button>
+                <button
+                  onClick={markAllForInventory}
+                  className="text-xs px-3 py-1.5 rounded bg-amber-700 hover:bg-amber-600 text-white font-medium transition-colors"
+                >
+                  Set all to Inventory
+                </button>
+                <button
+                  onClick={markAllForBench}
+                  className="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium transition-colors"
+                >
+                  Set all to Bench
+                </button>
+                <button
+                  onClick={addAllToDeck}
+                  disabled={addingAll}
+                  className="text-sm px-4 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-medium transition-colors flex items-center gap-2"
+                >
+                  {addingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Import All
+                </button>
+              </div>
+            )}
             <div className="p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {(() => {
-                const seen = new Map<string, { card: typeof previewBuild.cards[0]; qty: number }>();
-                for (const card of previewBuild.cards) {
-                  const existing = seen.get(card.printingId);
-                  if (existing) existing.qty++;
-                  else seen.set(card.printingId, { card, qty: 1 });
-                }
                 const deckCopies = new Map<string, number>();
                 for (const category of ['hero', 'equipment', 'maindeck', 'inventory', 'benched', 'tokens'] as const) {
                   for (const c of state.deck?.[category] ?? []) {
                     deckCopies.set(c.printingId, (deckCopies.get(c.printingId) ?? 0) + (c.quantity ?? 1));
                   }
                 }
-                // Track which card names have had their comment shown already
                 const shownComments = new Set<string>();
-                return Array.from(seen.values()).map(({ card, qty }) => {
+                return seenCards.map(({ card, qty }) => {
                   const cardName = card.displayName ?? '';
                   const showComment = !!card.comment && cardName && !shownComments.has(cardName);
                   if (showComment) shownComments.add(cardName);
@@ -2077,28 +2219,24 @@ export default function DeckEditorPage() {
                       key={card.printingId}
                       card={card}
                       defaultQty={qty}
+                      deckQty={cardSplits.get(card.printingId)?.deck ?? qty}
+                      inventoryQty={cardSplits.get(card.printingId)?.inventory ?? 0}
+                      onDeckQtyChange={q => setCardSplits(prev => new Map(prev).set(card.printingId, { deck: q, inventory: prev.get(card.printingId)?.inventory ?? 0 }))}
+                      onInventoryQtyChange={q => setCardSplits(prev => new Map(prev).set(card.printingId, { deck: prev.get(card.printingId)?.deck ?? qty, inventory: q }))}
                       adding={addingCard === card.printingId}
+                      addingInventory={addingInventoryCard === card.printingId}
+                      addingBench={addingBenchCard === card.printingId}
                       isOwner={canEdit}
                       inDeck={deckCopies.get(card.printingId) ?? 0}
                       comment={showComment ? card.comment ?? undefined : undefined}
                       onAdd={q => addCardToDeck(card.printingId, q, card.displayName)}
+                      onAddToInventory={q => addCardToInventory(card.printingId, q, card.displayName)}
+                      onAddToBench={q => addCardToBench(card.printingId, q, card.displayName)}
                     />
                   );
                 });
               })()}
             </div>
-            {canEdit && (
-              <div className="px-6 pb-5 pt-2 border-t border-gray-700 flex justify-end">
-                <button
-                  onClick={addAllToDeck}
-                  disabled={addingAll}
-                  className="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center gap-2"
-                >
-                  {addingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Add All to Deck
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
