@@ -108,74 +108,52 @@ function getClientIP(req: Request): string {
 
 // Helper to validate query complexity
 function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: string } {
-  const { filters = {}, options = {} } = toolInput;
-  
-  // Prevent overly broad searches
-  if (filters.searchableText && filters.searchableText.length < 2) {
-    return { 
-      isValid: false, 
-      error: "Search text must be at least 2 characters" 
-    };
+  const options = toolInput.options || {};
+
+  // New schema: cards[] array — each entry carries its own filters/query
+  if (toolInput.cards?.length > 0) {
+    if (options.limit > 100) {
+      return { isValid: false, error: "Maximum limit is 100 results per request" };
+    }
+    return { isValid: true };
   }
-  
-  // Require some filtering for very large result sets
+
+  // Legacy schema: top-level filters/query (extract_printing_ids still uses this)
+  const filters = toolInput.filters || {};
+
+  if (filters.searchableText && filters.searchableText.length < 2) {
+    return { isValid: false, error: "Search text must be at least 2 characters" };
+  }
+
   const hasSpecificFilter = !!(
-    filters.name ||
-    filters.sets?.length ||
-    filters.types?.length ||
-    filters.classes?.length ||
-    filters.talents?.length ||
-    filters.rarities?.length ||
-    filters.foilings?.length ||
-    filters.editions?.length ||
-    filters.color ||
-    filters.collectorNumber ||
-    filters.printingIds ||
-    filters.cardUniqueId ||
-    filters.cardUniqueIds ||
-    filters.text ||
-    filters.searchableText ||
-    filters.heroLegal ||
-    filters.heroClasses?.length ||
-    filters.heroTalents?.length ||
+    filters.name || filters.sets?.length || filters.types?.length ||
+    filters.classes?.length || filters.talents?.length || filters.rarities?.length ||
+    filters.foilings?.length || filters.editions?.length || filters.color ||
+    filters.collectorNumber || filters.printingIds || filters.cardUniqueId ||
+    filters.cardUniqueIds || filters.text || filters.searchableText ||
+    filters.heroLegal || filters.heroClasses?.length || filters.heroTalents?.length ||
     filters.format
   );
-
-  // Also accept the shorthand query param as a specific filter
   const hasQuery = !!(toolInput.query?.trim());
-
-  // Treat missing limit as the default (12), not as "no limit"
   const effectiveLimit = options.limit || 12;
 
   if (!hasSpecificFilter && !hasQuery && effectiveLimit > 50) {
-    return {
-      isValid: false,
-      error: "Large queries require at least one specific filter (name, set, type, talent, class, rarity, etc.)"
-    };
+    return { isValid: false, error: "Large queries require at least one specific filter (name, set, type, talent, class, rarity, etc.)" };
   }
-  
-  // Cap limits
   if (options.limit > 100) {
-    return { 
-      isValid: false, 
-      error: "Maximum limit is 100 results per request" 
-    };
+    return { isValid: false, error: "Maximum limit is 100 results per request" };
   }
-  
   if (options.page > 1000) {
-    return { 
-      isValid: false, 
-      error: "Maximum page number is 1000" 
-    };
+    return { isValid: false, error: "Maximum page number is 1000" };
   }
-  
+
   return { isValid: true };
 }
 
 // Check if required resources have been confirmed
 function validateResourceRequirement(toolInput: any, toolName: string): { isValid: boolean; error?: string } {
-  // Only enforce for search-related tools
-  if (!['search_printings', 'extract_printing_ids'].includes(toolName)) {
+  // search_printings uses the self-documenting cards[] schema — no pre-setup required
+  if (!['extract_printing_ids'].includes(toolName)) {
     return { isValid: true };
   }
 
