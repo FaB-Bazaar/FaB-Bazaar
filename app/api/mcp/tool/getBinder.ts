@@ -27,11 +27,10 @@ export const getBinderTool = {
   - Omit Condition column if all cards are NM
   - Always show totals row: total unique entries and total card count
 
-  📖 EXAMPLES OF "arguments" OBJECT:
-  • View specific binder: { "binderSlug": "main-collection" }
-  • View MCP binder: { "binderSlug": "mcp-binder" }
-  • Paginated: { "binderSlug": "main-collection", "page": 2, "limit": 50 }
-  • Search within binder: { "binderSlug": "main-collection", "search": "command" }
+  📋 **CALL FORMAT:**
+  { "binderSlug": "mcp-binder" }
+  { "binderSlug": "main-collection", "page": 2, "limit": 50 }
+  { "binderSlug": "main-collection", "search": "command" }
 
   🔄 WORKFLOW:
   Step 1: list_binders (see all available binders)

@@ -13,10 +13,10 @@ Retrieve the contents of your wants list with pagination, search, and filtering 
 • Priority filtering (high, medium, low)
 • Detailed printing information (set, edition, foiling, rarity, price)
 
-📖 EXAMPLES:
-• Basic: get_wants({})
-• Paginated: get_wants({ page: 2, limit: 50 })
-• Filtered: get_wants({ search: "command", priority: "high" })`,
+📋 **CALL FORMAT:**
+{ }
+{ "page": 2, "limit": 50 }
+{ "search": "command", "priority": "high" }`,
 
   parameters: {
     type: 'object',

@@ -54,9 +54,12 @@ export const getDeckTool = {
 
   Then show: "Total: X cards across Y unique entries."
 
+  📋 **CALL FORMAT:**
+  { "deckName": "Katsu Aggro" }
+
   💡 WORKFLOW:
   Step 1: list_decks (find deck names)
-  Step 2: get_deck with the deck name`,
+  Step 2: get_deck with the exact deck name from list_decks`,
 
   parameters: {
     type: 'object',

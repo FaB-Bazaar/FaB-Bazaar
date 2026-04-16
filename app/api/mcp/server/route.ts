@@ -447,7 +447,7 @@ REQUIRED SEQUENCE:
                 }
               },
               
-              // SECONDARY TOOLS - Enhanced with BLOCKED warnings
+              // SECONDARY TOOLS
               {
                   name: searchPrintingsTool.name,
                   description: `🔍 CARD SEARCH AND DISCOVERY TOOL
@@ -467,9 +467,7 @@ REQUIRED SEQUENCE:
                 2. YOU: Call search_printings to find and verify the card
                 3. Show user what was found
                 4. User confirms or refines search
-                5. Then use extract_printing_ids → add_to_binder
-
-                🔒 This tool is BLOCKED until setup complete!`,
+                5. Then use extract_printing_ids → add_to_binder`,
                   inputSchema: searchPrintingsTool.parameters
                 },
                 {
@@ -672,7 +670,7 @@ read_mandatory_constants_first({"uri": "searchable://card/fields"})
 
 ⚠️ Do NOT use search_printings yet! Complete step 2 first.
 
-💡 After completing both steps, add "_resourcesConfirmed": true to your search_printings calls.
+💡 After completing both steps, use search_printings with the cards[] array format.
 
 🔄 Progress: [✅ Constants] [❌ Capabilities] → Complete step 2 next!`
                 }],
@@ -699,13 +697,13 @@ ${JSON.stringify(resourceData, null, 2)}
 
 🎉 SETUP COMPLETE! You can now use search tools.
 
-🔥 IMPORTANT: Add "_resourcesConfirmed": true to your search_printings calls!
-
-Example:
+Example — always use the cards[] array:
 search_printings({
-  "filters": {"name": "Head Jab"},
-  "options": {"show": "summary"},
-  "_resourcesConfirmed": true
+  "cards": [{ "query": "head jab red" }, { "query": "head jab blue" }]
+})
+search_printings({
+  "cards": [{ "filters": { "isEquipment": true, "heroLegal": "dash", "priceMax": 30 } }],
+  "options": { "limit": 20 }
 })
 
 🔄 Progress: [✅ Constants] [✅ Capabilities] → Ready for search!
@@ -1380,7 +1378,7 @@ The new tool provides the same functionality with better guidance for proper wor
         1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
         2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
 
-        Then add "_resourcesConfirmed": true to your search calls.`
+        Use the cards[] format: search_printings({ cards: [{ filters: { name: "..." }, query: "..." }] })`
                 }],
                 isError: true,
                 error: complexityCheck.error
@@ -1989,7 +1987,7 @@ export async function GET(req: Request) {
     setup_sequence: [
       "1️⃣ read_mandatory_constants_first({\"uri\": \"fab://constants\"})",
       "2️⃣ read_mandatory_constants_first({\"uri\": \"searchable://card/fields\"})",
-      "3️⃣ search_printings({..., \"_resourcesConfirmed\": true})"
+      "3️⃣ search_printings({ \"cards\": [{ \"filters\": { \"name\": \"...\" } }] })"
     ]
   }, {
     status: 405,

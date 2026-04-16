@@ -26,14 +26,22 @@ export const whoHasTool = {
   ❌ Without setup: Tool will be BLOCKED
   ✅ With setup: Find owners with accurate card matching
   
-  💡 Examples:
-  • who_has({"printingIds": "GtjztF7LT8kPDQ8w7GkRw"}) - Find who owns this specific Chum printing
-  • who_has({"printingIds": "cLHGKMCjPb89zwNPmMFBp,GtjztF7LT8kPDQ8w7GkRw"}) - Multiple specific printings
-  • who_has({"cardUniqueIds": "mwBrbdjPn7h8nPpCNzpMR"}) - Find ANY version of Chum
-  • who_has({"cardUniqueIds": "kMRjHHLzPtgLw7j7PmQqf", "forTradeOnly": true}) - Any Command and Conquer for trade
-  • who_has({"printingIds": "cLHGKMCjPb89zwNPmMFBp", "minCondition": "LP"}) - Only LP or better condition
-  
-  🔒 This tool is BLOCKED until setup complete!`,
+  📋 KEY DISTINCTION:
+  • printingIds   — specific printing (one set/edition/foil combo). Use printing_id from search_printings.
+  • cardUniqueIds — ANY version of the card (all sets/editions/foilings). Use card_unique_id from search_printings.
+  For "does anyone own X?" always use cardUniqueIds — it finds owners across all versions.
+
+  📋 **CALL FORMAT — any version (most common):**
+  { "cardUniqueIds": "kMRjHHLzPtgLw7j7PmQqf", "limit": 20 }
+
+  📋 **CALL FORMAT — specific printing:**
+  { "printingIds": "cLHGKMCjPb89zwNPmMFBp", "limit": 20 }
+
+  📋 **CALL FORMAT — multiple cards, for trade only:**
+  { "cardUniqueIds": "kMRjHHLzPtgLw7j7PmQqf,QDrWjRHBmBWBnJHmmbzRM", "forTradeOnly": true }
+
+  📋 **CALL FORMAT — minimum condition:**
+  { "cardUniqueIds": "kMRjHHLzPtgLw7j7PmQqf", "minCondition": "LP" }`,
   
   parameters: {
     type: 'object',

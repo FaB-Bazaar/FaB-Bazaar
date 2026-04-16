@@ -20,7 +20,13 @@ export const CARD_NAME_ABBREVIATIONS = {
   'sfas': 'Scar for a Scar',
   'warmongers': "Warmonger's Diplomacy",
   'sink': 'Sink Below',
-  'shelter': 'Shelter From the Storm'
+  'shelter': 'Shelter From the Storm',
+
+  // Community nicknames — common names that bear no resemblance to official card names
+  'cheeto': 'Kayo, Underhanded Cheat',
+  'cheetos': 'Kayo, Underhanded Cheat',
+  'ooh': 'Ooh La La',
+  'cata': 'Cataclysm',
 } as const;
 
 export const CARD_TYPES = [

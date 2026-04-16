@@ -76,32 +76,39 @@ export const searchCapabilitiesResource = {
           foiling_codes: {
             'CF': 'Cold Foil → "foilings": ["c"]',
             'RF': 'Rainbow Foil → "foilings": ["r"]',
-            'EA': 'Extended Art (First Edition) → "editions": ["f"]'
+            'EA': 'Extended Art → "isExtendedArt": true  (NOT editions: ["f"] — EA is an art treatment stored as is_extended_art=true, separate from edition/foiling)'
           },
           special_indicators: {
-            '(Marvel)': '"rarities": ["v"]',
+            '(Marvel)': [
+              'Primary: "rarities": ["v"] — actual Marvel rarity cards',
+              'Fallback if 0 results: "foilings": ["c"], "artVariations": ["FA"] — Full Art CF promos (e.g. TNP set) that the community calls "Marvel" but have rarity "p" (Promo)',
+              'When unsure, fire both searches in parallel and merge results'
+            ],
             '(WB)': '"sets": ["hp1"]',
             '(Promo)': 'Check for promo sets'
           },
           card_name_cleaning: [
             'Remove quantity prefixes/suffixes',
-            'Remove foiling abbreviations',
+            'Remove foiling abbreviations (CF, RF, NF, EA, Marvel)',
             'Remove parenthetical descriptions',
             'Handle dual cards with "/" or "//"',
-            'Trim whitespace'
+            'Trim whitespace',
+            'Name matching is case-insensitive — pass any case, the handler normalizes to lowercase before comparing against the name field'
           ]
         },
         recommended_structure: {
-          filters: {
-            name: 'cleaned_card_name',
-            exact: true,
-            foilings: ['c'],
-            rarities: ['v']
-          },
-          options: {
-            show: 'collection',
-            limit: 10
-          }
+          cards: [{
+            filters: {
+              name: 'cleaned_card_name',
+              exact: true,
+              foilings: ['c'],
+              rarities: ['v']
+            },
+            options: {
+              show: 'collection',
+              limit: 10
+            }
+          }]
         }
       },
 
@@ -120,17 +127,19 @@ export const searchCapabilitiesResource = {
           keyword_terms: 'go again → "keywords": ["go again"]'
         },
         recommended_structure: {
-          filters: {
-            types: ['brute'],
-            powerMin: 6,
-            rarities: ['m'],
-            priceMax: 10
-          },
-          options: {
-            show: 'summary',
-            sortBy: 'power',
-            sortOrder: 'desc'
-          }
+          cards: [{
+            filters: {
+              types: ['brute'],
+              powerMin: 6,
+              rarities: ['m'],
+              priceMax: 10
+            },
+            options: {
+              show: 'summary',
+              sortBy: 'power',
+              sortOrder: 'desc'
+            }
+          }]
         }
       },
 
@@ -173,20 +182,22 @@ export const searchCapabilitiesResource = {
           'Consistent results'
         ],
         template: {
-          filters: {
-            name: 'string (use exact: true for specific cards)',
-            types: ['array_of_strings'],
-            rarities: ['array_of_codes'],
-            foilings: ['array_of_codes'],
-            priceMax: 'number',
-            priceMin: 'number'
-          },
-          options: {
-            show: 'summary|gameplay',
-            limit: 'number (default 12)',
-            sortBy: 'name|price|power|cost|defense',
-            sortOrder: 'asc|desc'
-          }
+          cards: [{
+            filters: {
+              name: 'string (use exact: true for specific cards)',
+              types: ['array_of_strings'],
+              rarities: ['array_of_codes'],
+              foilings: ['array_of_codes'],
+              priceMax: 'number',
+              priceMin: 'number'
+            },
+            options: {
+              show: 'summary|gameplay',
+              limit: 'number (default 12)',
+              sortBy: 'name|price|power|cost|defense',
+              sortOrder: 'asc|desc'
+            }
+          }]
         }
       },
 
@@ -221,39 +232,45 @@ export const searchCapabilitiesResource = {
         from_natural_language: {
           input: 'majestic rainbow foil equipment under $50',
           structured: {
-            filters: {
-              types: ['equipment'],
-              rarities: ['m'],
-              foilings: ['r'],
-              priceMax: 50
-            },
-            options: {
-              show: 'summary'
-            }
+            cards: [{
+              filters: {
+                types: ['equipment'],
+                rarities: ['m'],
+                foilings: ['r'],
+                priceMax: 50
+              },
+              options: {
+                show: 'summary'
+              }
+            }]
           }
         },
         from_shorthand: {
           input: 't:equipment r:m f:rf p:<50',
           structured: {
-            filters: {
-              types: ['equipment'],
-              rarities: ['m'],
-              foilings: ['r'],
-              priceMax: 50
-            }
+            cards: [{
+              filters: {
+                types: ['equipment'],
+                rarities: ['m'],
+                foilings: ['r'],
+                priceMax: 50
+              }
+            }]
           }
         },
         from_collection_request: {
           input: '3x CF Art of Dragon: Blood',
           structured: {
-            filters: {
-              name: 'Art of Dragon: Blood',
-              exact: true,
-              foilings: ['c']
-            },
-            options: {
-              show: 'collection'
-            }
+            cards: [{
+              filters: {
+                name: 'Art of Dragon: Blood',
+                exact: true,
+                foilings: ['c']
+              },
+              options: {
+                show: 'collection'
+              }
+            }]
           },
           quantity: 3
         }
@@ -360,15 +377,28 @@ export const searchCapabilitiesResource = {
         complete_mapping: {
           'CF': { full: 'Cold Foil', code: 'c' },
           'RF': { full: 'Rainbow Foil', code: 'r' },
-          'EA': { full: 'Extended Art (usually First Edition)', code: 'f' },
+          'EA': { full: 'Extended Art', note: 'Use isExtendedArt: true — NOT editions: ["f"]. EA is an art treatment (is_extended_art=true on the printing), not an edition code.' },
           'NF': { full: 'Non-foil/Standard', code: 's' },
           'GF': { full: 'Gold Foil', code: 'g' }
         },
         structured_conversion: {
           'CF': '"foilings": ["c"]',
           'RF': '"foilings": ["r"]',
-          'EA': '"editions": ["f"]',
-          'NF': '"foilings": ["s"]'
+          'EA': '"isExtendedArt": true',
+          'NF': '"foilings": ["s"]',
+          'Marvel (community usage)': [
+            'Actual Marvel rarity → "rarities": ["v"]',
+            'Full Art CF promos (TNP set, etc.) also called "Marvel" by community → "foilings": ["c"], "artVariations": ["FA"]',
+            'If "rarities": ["v"] returns 0, retry with "foilings": ["c"], "artVariations": ["FA"]'
+          ]
+        },
+        art_variation_codes: {
+          'FA': 'Full Art → "artVariations": ["FA"]',
+          'EA': 'Extended Art → use "isExtendedArt": true (NOT artVariations)',
+          'AA': 'Alternate Art → "artVariations": ["AA"]',
+          'AB': 'Alternate Border → "artVariations": ["AB"]',
+          'AT': 'Alternate Text → "artVariations": ["AT"]',
+          'HS': 'Half Size → "artVariations": ["HS"]'
         }
       },
 
@@ -474,16 +504,18 @@ export const searchCapabilitiesResource = {
           dual_cards: '(.+?)\\s*[/]{1,2}\\s*(.+)'
         },
         output_structure: {
-          filters: {
-            name: 'extracted_card_name',
-            exact: true,
-            foilings: ['extracted_foiling_code'],
-            rarities: ['extracted_rarity_if_special']
-          },
-          options: {
-            show: 'collection',
-            limit: 10
-          },
+          cards: [{
+            filters: {
+              name: 'extracted_card_name',
+              exact: true,
+              foilings: ['extracted_foiling_code'],
+              rarities: ['extracted_rarity_if_special']
+            },
+            options: {
+              show: 'collection',
+              limit: 10
+            }
+          }],
           metadata: {
             quantity: 'extracted_quantity',
             original_input: 'user_input'
@@ -500,18 +532,20 @@ export const searchCapabilitiesResource = {
           rarity_phrases: 'majestic|legendary|rare|common|fabled'
         },
         output_structure: {
-          filters: {
-            types: ['extracted_types'],
-            powerMin: 'extracted_min_power',
-            priceMax: 'extracted_max_price',
-            rarities: ['extracted_rarities'],
-            keywords: ['extracted_keywords']
-          },
-          options: {
-            show: 'summary',
-            sortBy: 'power|price|name',
-            sortOrder: 'desc|asc'
-          }
+          cards: [{
+            filters: {
+              types: ['extracted_types'],
+              powerMin: 'extracted_min_power',
+              priceMax: 'extracted_max_price',
+              rarities: ['extracted_rarities'],
+              keywords: ['extracted_keywords']
+            },
+            options: {
+              show: 'summary',
+              sortBy: 'power|price|name',
+              sortOrder: 'desc|asc'
+            }
+          }]
         }
       }
     },

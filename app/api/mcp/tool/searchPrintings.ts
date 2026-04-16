@@ -69,6 +69,7 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
     'hasShadow', 'hasEarth', 'hasMystic', 'hasRevered', 'hasIce',
     'hasReviled', 'hasPirate', 'hasElemental',
     'isGenericOnly', 'hasClassAndTalent', 'hasClassOnly', 'hasTalentOnly',
+    'isExtendedArt', 'artVariations',
     'isFirstEdition', 'isUnlimited', 'isNormalEdition',
     'isNormalFoil', 'isRainbowFoil', 'isColdFoil',
     'isCommon', 'isRare', 'isSuperRare', 'isMajestic', 'isLegendary',
@@ -153,18 +154,38 @@ export const searchPrintingsTool = {
 
 Each entry in \`cards\` uses either a shorthand query string or a structured filters object:
 
-Option A — query string (recommended):
-  "pummel red" | "sink below pitch:2" | "rf cnc wtr alpha" | "hero:gravy r:m p:<50"
+Option A — shorthand query (best for trade posts):
+  Standalone tokens parsed automatically: rf cf nf gf ea alpha unlimited 1st red yellow blue
+  Prefixed tokens: foil:rf set:wtr edition:alpha color:red r:m t:equipment hero:gravy p:<25
+  Card name expansions: cnc aow es cheeto ooh cata (see fab://constants for full list)
 
-Option B — filters object:
-  { "isEquipment": true, "heroLegal": "dash", "priceMax": 20 }
+  Examples:
+    "rf warrior's valor blue"           → RF + pitch 3
+    "cf ea timesnap potion"             → CF + Extended Art
+    "nf enlightened strike set:pen"     → NF + PEN set
+    "alpha cnc"                         → Alpha Command and Conquer
+    "cheeto cf"                         → CF Kayo, Underhanded Cheat
+    "hero:gravy r:m p:<50"              → Majestic cards legal for Gravy under $50
 
-Shorthand: pitch:1/red/yellow/blue, t:attack/equipment, r:m/l, set:wtr, foil:rf/cf, hero:gravy, power>3, cost:2, p:<25
+Option B — filters object (best for programmatic/precise queries):
+  { name: "Pummel", exact: true, foilings: ["r"], pitch: 1 }
+  { isEquipment: true, heroLegal: "dash", priceMax: 20 }
+  { name: "Warrior's Valor", foilings: ["c"], artVariations: ["FA"] }
+
+Fallback when exact match returns 0 results:
+  1. Drop isExtendedArt/artVariations, retry exact: true
+  2. Switch to exact: false — inspect returned name for correct spelling (hyphens, plurals)
+  3. Drop all filters except name with exact: false to confirm the card exists at all
+
+Marvel disambiguation:
+  rarities: ["v"] = actual Marvel rarity
+  foilings: ["c"] + artVariations: ["FA"] = Full Art CF promos (also called "Marvel" by community)
+  → Fire both in parallel when unsure
 
 Examples:
 search_printings({ cards: [{ query: "pummel red" }, { query: "pummel yellow" }, { query: "sink below blue" }] })
 search_printings({ cards: [{ filters: { isEquipment: true, heroLegal: "dash", priceMax: 30 } }], options: { limit: 20 } })
-search_printings({ cards: [{ query: "command and conquer rf wtr alpha" }] })`,
+search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query: "nf es set:pen" }] })`,
 
   parameters: {
     type: 'object',
@@ -292,8 +313,18 @@ search_printings({ cards: [{ query: "command and conquer rf wtr alpha" }] })`,
     required: ['cards'],
   },
 
-  async handler({ cards, options = {} }: { cards: Array<{ query?: string; filters?: any }>; options?: any }) {
+  async handler(input: { cards?: Array<{ query?: string; filters?: any }>; options?: any; [key: string]: any }) {
     const startTime = Date.now();
+
+    // Backward-compat: old clients send { filters: {}, options: {} } at the top level.
+    // Wrap into the current cards[] format so the rest of the handler is unchanged.
+    let { cards, options = {} } = input;
+    if (!cards && (input.filters || input.query)) {
+      cards = [{ query: input.query, filters: input.filters }];
+    }
+    if (!cards?.length) {
+      return { success: false, message: 'cards array is required. Use: { cards: [{ query: "pummel red" }] }' };
+    }
 
     // Resolve each card to filters + simple/complex classification
     const resolved = cards.map(resolveCardFilters);

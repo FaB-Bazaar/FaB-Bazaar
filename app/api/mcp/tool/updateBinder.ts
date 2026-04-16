@@ -38,13 +38,23 @@ Update the MCP binder with selected printings and quantities using secure API en
 
 ✅ This tool works without setup, but setup improves card selection accuracy!
 
-📖 **Examples:**
-   • Single card: printings: [{ printingId: "89gRLdpT7fWp9FQCRLHnp", quantity: 2, condition: "LP" }]
-   • Multiple cards: printings: [{ printingId: "89gRLdpT7fWp9FQCRLHnp", quantity: 1 }, { printingId: "7kXmN2pQ9rTv8GHdSKJwx", quantity: 3 }]
-   • Selection: userSelection: "2a,1b,3d", selectionList: [...]
+⚠️ **Important:** printingId is the unique hex ID from search_printings results (e.g. "GnC8TwPjbFPDNrhDHFwQb"),
+   NOT the collector number (EVR014). Use search_printings or extract_printing_ids to get valid IDs.
 
-⚠️ **Important:** printingId is a unique hex string (like "89gRLdpT7fWp9FQCRLHnp"), NOT the collector number (WTR001).
-   Use search_printings or extract_printing_ids tools to get valid printingId values.`,
+📋 **CALL FORMAT — add one card:**
+{
+  "binderSlug": "mcp-binder",
+  "printings": [{ "printingId": "GnC8TwPjbFPDNrhDHFwQb", "quantity": 1, "condition": "NM", "forTrade": false }]
+}
+
+📋 **CALL FORMAT — add multiple cards:**
+{
+  "binderSlug": "mcp-binder",
+  "printings": [
+    { "printingId": "GnC8TwPjbFPDNrhDHFwQb", "quantity": 1 },
+    { "printingId": "cLHGKMCjPb89zwNPmMFBp", "quantity": 2, "forTrade": true }
+  ]
+}`,
   
   parameters: {
     type: 'object',

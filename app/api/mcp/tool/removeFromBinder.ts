@@ -20,12 +20,15 @@ identity is enforced server-side from your auth token, not from the parameters y
   Step 2: Confirm with user — show card names and quantities to be removed
   Step 3: remove_from_binder (pass those "id" values to remove specific cards)
 
-📖 EXAMPLES:
-  • Remove one card:    cardIds: ["abc123def456"]
-  • Remove multiple:   cardIds: ["abc123def456", "xyz789ghi012"]
+⚠️ The "id" field comes from get_binder card results. It is NOT the printing ID or collector number.
 
-⚠️ The "id" field is the inventory item ID returned by get_binder.
-   It is NOT the printing ID or collector number.`,
+📋 **CALL FORMAT — remove one card:**
+{ "binderSlug": "mcp-binder", "cardIds": ["<id from get_binder>"] }
+
+📋 **CALL FORMAT — remove multiple:**
+{ "binderSlug": "mcp-binder", "cardIds": ["<id1>", "<id2>", "<id3>"] }
+
+🔄 WORKFLOW: get_binder → copy "id" field from card row → remove_from_binder`,
 
   parameters: {
     type: 'object',

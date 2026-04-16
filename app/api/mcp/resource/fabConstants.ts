@@ -85,7 +85,20 @@ export const fabConstantsResource = {
       description: "Use these abbreviations for edition searches:",
       mappings: EDITION_MAP,
       search_codes: { a: 'Alpha', f: 'First Edition', u: 'Unlimited', n: 'Normal' },
-      shorthand_examples: ['edition:a', 'edition:f,u', 'edition:!n']
+      shorthand_examples: ['edition:a', 'edition:f,u', 'edition:!n', 'alpha', 'unlimited', '1st'],
+      border_terminology: {
+        'BB (Black Border)': [
+          'Means the original black-bordered print from the card\'s release set — NOT Alpha or 1st Edition specifically (those are also BB but expensive).',
+          'In trade posts, BB almost always means the CHEAPEST black-bordered version = Unlimited or Normal edition from original set.',
+          'Correct filter: editions: ["u","n"], setsNot: ["hp1","hp2"]',
+          'Do NOT use editions: ["a","f"] for BB — that targets expensive Alpha/1st prints the buyer usually doesn\'t want.',
+        ],
+        'WB (White Border)': [
+          'History Pack reprints ONLY — sets: ["hp1","hp2"].',
+          'Unlimited editions are NOT white-bordered. Only HP1 and HP2 are white-bordered.',
+        ],
+        note: 'When a post says "one BB one WB": BB = original-set Unlimited/Normal, WB = History Pack reprint.'
+      }
     },
     
     set_mappings: {
@@ -352,6 +365,63 @@ export const fabConstantsResource = {
         "5. update_deck → log event info after a tournament",
         "6. save_deck_matchup → record sideboard plans"
       ]
+    },
+
+    trade_post_parsing: {
+      description: 'How to parse community WTS/WTB/LF trade posts into search_printings queries',
+      foiling_prefixes: {
+        'RF': 'foilings: ["r"]  or shorthand standalone "rf"',
+        'CF': 'foilings: ["c"]  or shorthand standalone "cf"',
+        'NF': 'foilings: ["s"]  or shorthand standalone "nf"',
+        'EA': 'isExtendedArt: true  (NOT editions: ["f"])',
+        'EA RF': 'isExtendedArt: true + foilings: ["r"]',
+        'Treasure / Treasures': 'Cold Foil High Seas amulet — foilings: ["c"], sets: ["sea"]. If no CF/Treasure specified on an amulet, default to foilings: ["s"] (NF).',
+      },
+      rarity_prefixes: {
+        'Marvel / MARVEL': 'rarities: ["v"]  — but if 0 results, retry with foilings: ["c"], artVariations: ["FA"] (Full Art CF promos also called Marvel)',
+      },
+      color_pitch: {
+        'RED / red': 'pitch: 1  (or shorthand standalone "red")',
+        'BLUE / blue': 'pitch: 3  (or shorthand standalone "blue")',
+        'YELLOW / yellow': 'pitch: 2  (or shorthand standalone "yellow")',
+      },
+      set_hints: {
+        '(GEM)': 'sets: ["gem"]',
+        '(PEN)': 'sets: ["pen"]',
+        '(WTR)': 'sets: ["wtr"]',
+        '(promo)': 'no set filter — open to any promo; optionally try sets: ["fab","pen","lgs","tnp","tcc"]',
+      },
+      quantity_terms: {
+        'x2 / 2x': 'quantity = 2 (metadata only, not a search filter)',
+        'playset': 'quantity = 3 (FaB max 3 copies of a card)',
+        'one BB, one WB': 'two separate searches — see border_terminology in edition_mappings',
+      },
+      high_seas_amulets: {
+        description: 'High Seas (SEA) equipment amulets (Diamond Amulet, Sapphire Amulet, etc.) come in two versions with wildly different prices:',
+        'NF (Non-foil)': 'Standard print — ~$5–50. If no foiling is specified, assume NF.',
+        'CF (Cold Foil)': 'Nicknamed "Treasures" by the community — ~$500–2500+. Only search CF if the post says "CF" or "Treasure/Treasures".',
+        inference_rule: 'Amulet with no foiling spec → foilings: ["s"] (NF). "Treasure Diamond Amulet" or "Diamond Amulet CF" → foilings: ["c"].',
+        community_terms: {
+          'Treasure / Treasures': 'Cold Foil High Seas amulet — foilings: ["c"], sets: ["sea"]',
+        },
+      },
+      border_terms: {
+        'BB (Black Border)': 'editions: ["u","n"] — Unlimited/Normal edition (excludes expensive Alpha/1st). History Pack (set:1hp) is white-bordered but edition "n"; results may include it — buyer can distinguish visually.',
+        'WB (White Border)': 'sets: ["hp1","hp2"] — History Pack reprints only',
+      },
+      fallback_strategy: [
+        '1. Try exact: true with full name + all filters',
+        '2. If 0 results: drop isExtendedArt / artVariations filters, retry exact: true',
+        '3. If still 0: try exact: false — inspect returned name field for correct spelling (hyphens, plurals, apostrophes)',
+        '4. If still 0: try exact: false with just the name, no other filters — card may not exist in that variant',
+      ],
+      shorthand_examples: [
+        '"rf warrior\'s valor blue" → RF + pitch 3 + name search',
+        '"cf ea timesnap potion" → CF + isExtendedArt (ea token) + name search',
+        '"nf enlightened strike set:pen" → NF + PEN set + name search',
+        '"alpha cnc" → Alpha edition + Command and Conquer (cnc expands automatically)',
+        '"cheeto cf" → CF Kayo, Underhanded Cheat (cheeto expands automatically)',
+      ],
     },
 
     important_notes: {

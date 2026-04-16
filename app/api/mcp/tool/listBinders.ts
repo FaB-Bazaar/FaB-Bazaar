@@ -25,9 +25,11 @@ export const listBindersTool = {
 
   Then follow with a tip: "Use get_binder with a slug to view contents."
 
+  📋 **CALL FORMAT:** {}
+
   💡 WORKFLOW:
-  Step 1: list_binders (see what binders you have)
-  Step 2: get_binder (view specific binder contents using the slug from step 1)`,
+  Step 1: list_binders({}) — see all binders and their slugs
+  Step 2: get_binder({ "binderSlug": "<slug>" }) — view contents`,
 
   parameters: {
     type: 'object',

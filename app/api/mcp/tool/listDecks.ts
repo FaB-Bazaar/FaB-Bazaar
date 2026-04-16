@@ -24,9 +24,12 @@ export const listDecksTool = {
 
   Then follow with a tip: "Use get_deck with a deck name to view the full decklist."
 
+  📋 **CALL FORMAT:** {}
+  📋 **CALL FORMAT — filtered:** { "format": "CC" }
+
   💡 WORKFLOW:
-  Step 1: list_decks (see what decks you have)
-  Step 2: get_deck (view full decklist using the name from step 1)`,
+  Step 1: list_decks({}) — see all decks and their names
+  Step 2: get_deck({ "deckName": "<name from list>" }) — view full decklist`,
 
   parameters: {
     type: 'object',

@@ -4,12 +4,12 @@
 // FIXED: Improved text removal to prevent fragments
 
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
-import { HERO_NICKNAMES } from './fab-constants';
-import { TalentUtils } from './talent-constants'; 
+import { HERO_NICKNAMES, CARD_NAME_ABBREVIATIONS } from './fab-constants';
+import { TalentUtils } from './talent-constants';
 
 interface ShorthandPattern {
   pattern: RegExp;
-  parser: (match: RegExpMatchArray, filters: PrintingsSearchFilters) => void;
+  parser: (match: RegExpMatchArray, filters: PrintingsSearchFilters, workingQuery: string) => void;
   description: string;
   examples: string[];
 }
@@ -628,16 +628,99 @@ export class FABShorthandParser {
       },
       description: "Cards legal in format",
       examples: ["format:blitz", "format:cc", "format:commoner"]
-    }
+    },
+
+    // =====================================
+    // STANDALONE TRADE-POST TOKENS — lowest priority, no prefix required
+    // Handles common community shorthand seen in WTS/WTB/LF posts.
+    // Only safe tokens that don't appear in card names are matched here.
+    // =====================================
+
+    // Standalone foiling: rf / cf / nf / gf (without foil: prefix)
+    {
+      pattern: /\b(rf|cf|nf|gf)\b/gi,
+      parser: (match, filters) => {
+        const map: Record<string, string> = { rf: 'r', cf: 'c', nf: 's', gf: 'g' };
+        const code = map[match[1].toLowerCase()];
+        if (code) {
+          if (!filters.foilings) filters.foilings = [];
+          if (!filters.foilings.includes(code)) filters.foilings.push(code);
+        }
+      },
+      description: "Standalone foiling shorthand without prefix (rf/cf/nf/gf)",
+      examples: ["rf pummel", "cf warrior's valor", "nf sink below"],
+    },
+
+    // Standalone edition: alpha / unlimited / 1st (without edition: prefix)
+    {
+      pattern: /\b(alpha|unlimited|1st)\b/gi,
+      parser: (match, filters) => {
+        const map: Record<string, string> = { alpha: 'a', unlimited: 'u', '1st': 'f' };
+        const code = map[match[1].toLowerCase()];
+        if (code) {
+          if (!filters.editions) filters.editions = [];
+          if (!filters.editions.includes(code)) filters.editions.push(code);
+        }
+      },
+      description: "Standalone edition shorthand without prefix (alpha/unlimited/1st)",
+      examples: ["alpha cnc", "unlimited sink below", "1st edition aow"],
+    },
+
+    // BB (Black Border) — trade post shorthand meaning "cheap original black-bordered print"
+    // NOT Alpha/1st (also black-bordered but expensive). Maps to Unlimited or Normal edition.
+    // History Pack (1hp) is white-bordered but has edition 'n' — results may include it;
+    // buyer can distinguish visually. Alpha/1st are correctly excluded by this filter.
+    {
+      pattern: /\bbb\b/gi,
+      parser: (match, filters) => {
+        if (!filters.editions) filters.editions = [];
+        if (!filters.editions.includes('u')) filters.editions.push('u');
+        if (!filters.editions.includes('n')) filters.editions.push('n');
+      },
+      description: "BB = Black Border = Unlimited/Normal edition (excludes expensive Alpha/1st)",
+      examples: ["tectonic plating bb", "ancestral empowerment bb", "command and conquer bb"],
+    },
+
+    // Standalone pitch color: red / yellow / blue (without color: prefix)
+    // Only fired when the color word is NOT the first meaningful token — avoids
+    // false matches on card names like "Red Alert Boots" or "Blue Fin Harpoon".
+    // For first-position colors, use the explicit color: prefix instead.
+    {
+      pattern: /\b(red|yellow|blue)\b/gi,
+      parser: (match, filters, workingQuery) => {
+        // Skip if this is the first non-whitespace content — likely a card name prefix
+        const before = workingQuery.substring(0, match.index!).trim();
+        if (!before) return;
+        const map: Record<string, string> = { red: 'red', yellow: 'yellow', blue: 'blue' };
+        filters.color = map[match[1].toLowerCase()];
+      },
+      description: "Standalone pitch color shorthand (red=p1, yellow=p2, blue=p3)",
+      examples: ["pummel red", "sink below blue", "cf warrior's valor blue"],
+    },
   ];
 
-  // Keep simple expansions for common shortcuts
-  private expansions: { [key: string]: string } = {
-    'cnc': 'command and conquer',
-    'aow': 'art of war',
-    'ga': 'go again',
-    'dom': 'dominate'
-  };
+  // Card name expansions: community nicknames + abbreviations → full card names.
+  // Seeded from CARD_NAME_ABBREVIATIONS plus a few keyword shortcuts.
+  // Keys where the abbreviation is also a word in its own expansion are excluded
+  // to prevent double-expansion (e.g. 'enlightened' → 'Enlightened Strike' would
+  // re-match the word "enlightened" in the already-expanded text).
+  private expansions: { [key: string]: string } = (() => {
+    const result: { [key: string]: string } = {};
+    for (const [k, v] of Object.entries(CARD_NAME_ABBREVIATIONS)) {
+      const key = k.toLowerCase();
+      const val = (v as string).toLowerCase();
+      // Skip if the key appears as a standalone word inside its own expansion
+      // (would cause infinite re-expansion on subsequent passes)
+      const keyInExpansion = new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(val);
+      if (!keyInExpansion) {
+        result[key] = val;
+      }
+    }
+    // Keyword shortcuts (not card names)
+    result['ga'] = 'go again';
+    result['dom'] = 'dominate';
+    return result;
+  })();
 
   parseQuery(query: string): ParsedQuery {
     let workingQuery = query.toLowerCase().trim();
@@ -651,7 +734,7 @@ export class FABShorthandParser {
       
       while ((match = regex.exec(workingQuery)) !== null) {
         try {
-          pattern.parser(match, filters);
+          pattern.parser(match, filters, workingQuery);
           parsedTokens.push(`${match[0]} (${pattern.description})`);
           
           // Replace matched token with spaces to preserve indices (don't trim/collapse inside loop)

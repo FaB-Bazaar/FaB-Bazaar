@@ -5,7 +5,7 @@
  * Handles full card search with 50+ filters
  */
 
-import { eq, and, or, sql, inArray, desc, asc, gte, lte } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { printings, cards } from '@/lib/postgres/schema';
 import type {
@@ -1102,23 +1102,23 @@ export class PostgresPrintingsService implements IPrintingsService {
 
     // ===== NEGATION FILTERS =====
     if (filters.colorNot && filters.colorNot.length > 0) {
-      conditions.push(sql`NOT ${cards.color} = ANY(${filters.colorNot})`);
+      conditions.push(notInArray(cards.color, filters.colorNot));
     }
 
     if (filters.raritiesNot && filters.raritiesNot.length > 0) {
-      conditions.push(sql`NOT ${printings.rarity} = ANY(${filters.raritiesNot})`);
+      conditions.push(notInArray(printings.rarity, filters.raritiesNot));
     }
 
     if (filters.setsNot && filters.setsNot.length > 0) {
-      conditions.push(sql`NOT ${printings.set} = ANY(${filters.setsNot})`);
+      conditions.push(notInArray(printings.set, filters.setsNot.map((s) => s.toLowerCase())));
     }
 
     if (filters.foilingsNot && filters.foilingsNot.length > 0) {
-      conditions.push(sql`NOT ${printings.foiling} = ANY(${filters.foilingsNot})`);
+      conditions.push(notInArray(printings.foiling, filters.foilingsNot));
     }
 
     if (filters.editionsNot && filters.editionsNot.length > 0) {
-      conditions.push(sql`NOT ${printings.edition} = ANY(${filters.editionsNot})`);
+      conditions.push(notInArray(printings.edition, filters.editionsNot));
     }
 
     if (filters.typesNot && filters.typesNot.length > 0) {

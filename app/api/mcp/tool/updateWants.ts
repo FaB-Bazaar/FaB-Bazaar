@@ -37,12 +37,19 @@ export const updateWantsTool = {
   
   ✅ This tool works without setup, but setup improves card selection accuracy!
   
-  📖 **Examples:**
-     • Batch: printings: [
-         { printingId: "WTR001", quantity: 1, priority: "high" },
-         { printingId: "ARC002", quantity: 3, priority: "medium" },
-         { printingId: "MON003", quantity: 1, notes: "For Oldhim deck" }
-       ]`,
+  ⚠️ printingId is the unique hex ID from search_printings results (e.g. "GnC8TwPjbFPDNrhDHFwQb"),
+     NOT the collector number (EVR014) or card name.
+
+  📋 **CALL FORMAT:**
+  {
+    "mode": "confirm",
+    "printings": [
+      { "printingId": "GnC8TwPjbFPDNrhDHFwQb", "quantity": 1, "priority": "high" },
+      { "printingId": "cLHGKMCjPb89zwNPmMFBp", "quantity": 1, "priority": "medium", "notes": "For CnC deck" }
+    ]
+  }
+
+  Use mode "preview" first to see what will be added, then "confirm" to execute.`,
     
     parameters: {
       type: 'object',

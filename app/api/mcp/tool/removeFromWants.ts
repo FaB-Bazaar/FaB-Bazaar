@@ -23,10 +23,16 @@ identity is enforced server-side from your auth token.
   • quantity: how many copies to remove (default: 1)
   • removeAll: set to true to remove all copies of that printing regardless of quantity
 
-📖 EXAMPLES:
-  • Remove 1 copy:    printings: [{ printingId: "abc123", quantity: 1 }]
-  • Remove all:       printings: [{ printingId: "abc123", removeAll: true }]
-  • Batch remove:     printings: [{ printingId: "abc123", removeAll: true }, { printingId: "xyz789", quantity: 2 }]`,
+⚠️ printingId is the hex ID from search_printings / get_wants, NOT the collector number.
+
+📋 **CALL FORMAT — remove 1 copy:**
+{ "printings": [{ "printingId": "GnC8TwPjbFPDNrhDHFwQb", "quantity": 1 }] }
+
+📋 **CALL FORMAT — remove all copies:**
+{ "printings": [{ "printingId": "GnC8TwPjbFPDNrhDHFwQb", "removeAll": true }] }
+
+📋 **CALL FORMAT — batch:**
+{ "printings": [{ "printingId": "GnC8TwPjbFPDNrhDHFwQb", "removeAll": true }, { "printingId": "cLHGKMCjPb89zwNPmMFBp", "quantity": 1 }] }`,
 
   parameters: {
     type: 'object',

@@ -19,6 +19,9 @@ claude_auth.md
 oauth-testing.md
 scripts/db-permissions.sql
 
+# manual test scripts (local dev only, not for CI)
+**/*.manual-test.ts
+
 # explicitly allow .env.example (needed for Docker build)
 !.env.example
 
