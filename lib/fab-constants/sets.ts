@@ -108,6 +108,48 @@ export const SET_MAP = {
   'agb': 'Armory Deck: Gravy Bones',
   'asr': 'Armory Deck: Ira',
   'aps': 'Armory Deck: Pleiades',
+  'aac': 'Armory Deck: Arakni',
+  'arr': 'Armory Deck: Rhinar',
+  'aha': 'Armory Deck Origins: Hala',
+  'apr': 'Armory Deck Legends: Prism',
+  'avs': 'Armory Deck Legends: Viserai',
+  'azs': 'Armory Deck: Zyggy',
+
+  // Silver Age Decks - Chapter 1
+  'sbr': 'Silver Age Deck: Bravo',
+  'sda': 'Silver Age Deck: Dash',
+  'siy': 'Silver Age Deck: Iyslander',
+  'ska': 'Silver Age Deck: Kayo',
+  'svi': 'Silver Age Deck: Viserai',
+
+  // Silver Age Decks - Chapter 2
+  'sar': 'Silver Age Deck: Arakni',
+  'saz': 'Silver Age Deck: Azalea',
+  'sdo': 'Silver Age Deck: Dorinthea',
+  'sen': 'Silver Age Deck: Enigma',
+  'sfa': 'Silver Age Deck: Fai',
+
+  // Classic Battles (Rhinar side)
+  'rvd': 'Classic Battles: Rhinar vs Dorinthea - Rhinar',
+
+  // First Strike
+  'ter': 'First Strike: Terra',
+
+  // Supplemental
+  'smp': 'Smash Palace',
+  'mpw': 'Mastery Pack Warrior',
+  'omn': 'Omens of the Third Age',
+  'bdd': 'Bravo Demo Deck',
+
+  // Promo sets
+  'her': 'Hero Card Promos',
+  'jdg': 'Judge Promos',
+  'lgs': 'Local Game Store Promos',
+  'lss': 'LSS Promos',
+  'oxo': 'Slingshot Underground Promos',
+  'win': 'Worlds / Pro Tour Prize Cards',
+  'tnp': 'Tournament Prize Cards',
+  'xxx': 'OP Event Tokens',
 } as const;
 
 export type SetCode = keyof typeof SET_MAP;
@@ -261,14 +303,53 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   amx:  { code: 'AMX', name: 'Armory Deck: Maxx Nitro',    releaseDate: '2023-06-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
   agb:  { code: 'AGB', name: 'Armory Deck: Gravy Bones',   releaseDate: '2024-01-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
   aps:  { code: 'APS', name: 'Armory Deck: Pleiades',      releaseDate: '2024-06-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
+  aac:  { code: 'AAC', name: 'Armory Deck: Arakni',        releaseDate: '2025-12-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
+  arr:  { code: 'ARR', name: 'Armory Deck: Rhinar',        releaseDate: '2025-11-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
+  aha:  { code: 'AHA', name: 'Armory Deck Origins: Hala',  releaseDate: '2026-03-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
+  apr:  { code: 'APR', name: 'Armory Deck Legends: Prism', releaseDate: '2025-09-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
+  avs:  { code: 'AVS', name: 'Armory Deck Legends: Viserai', releaseDate: '2025-09-01', hasFirstEdition: false, category: 'armory',     tier: 4 },
+  azs:  { code: 'AZS', name: 'Armory Deck: Zyggy',        releaseDate: '2026-04-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
+
+  // Silver Age Decks — Chapter 1
+  sbr:  { code: 'SBR', name: 'Silver Age Deck: Bravo',      releaseDate: '2025-12-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  sda:  { code: 'SDA', name: 'Silver Age Deck: Dash',       releaseDate: '2025-12-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  siy:  { code: 'SIY', name: 'Silver Age Deck: Iyslander',  releaseDate: '2025-12-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  ska:  { code: 'SKA', name: 'Silver Age Deck: Kayo',       releaseDate: '2025-12-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  svi:  { code: 'SVI', name: 'Silver Age Deck: Viserai',    releaseDate: '2025-12-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+
+  // Silver Age Decks — Chapter 2
+  sar:  { code: 'SAR', name: 'Silver Age Deck: Arakni',     releaseDate: '2026-02-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  saz:  { code: 'SAZ', name: 'Silver Age Deck: Azalea',     releaseDate: '2026-02-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  sdo:  { code: 'SDO', name: 'Silver Age Deck: Dorinthea',  releaseDate: '2026-02-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  sen:  { code: 'SEN', name: 'Silver Age Deck: Enigma',     releaseDate: '2026-02-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+  sfa:  { code: 'SFA', name: 'Silver Age Deck: Fai',        releaseDate: '2026-02-01', hasFirstEdition: false, category: 'non-standard', tier: 3 },
+
+  // Classic Battles (Rhinar side — shares TCGPlayer group 3057 with dvr)
+  rvd:  { code: 'RVD', name: 'Classic Battles: Rhinar vs Dorinthea - Rhinar', releaseDate: '2022-08-05', hasFirstEdition: false, category: 'non-standard', tier: 2 },
+
+  // First Strike — Terra
+  ter:  { code: 'TER', name: 'First Strike: Terra',        releaseDate: '2025-06-01', hasFirstEdition: false, category: 'non-standard', tier: 2 },
+
+  // Supplemental
+  bdd:  { code: 'BDD', name: 'Bravo Demo Deck',            releaseDate: '2019-06-01', hasFirstEdition: false, category: 'excluded',     tier: 3 },
+  omn:  { code: 'OMN', name: 'Omens of the Third Age',     releaseDate: '2026-04-01', hasFirstEdition: false, category: 'standard',     tier: 1 },
 
   // ── Tier 5: Promos & non-standard ────────────────────────────────────────
   fab:  { code: 'FAB', name: 'Promos',                     releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   tcc:  { code: 'TCC', name: 'Round the Table: TCC X LSS', releaseDate: '2023-10-06', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   gem:  { code: 'GEM', name: 'GEM Pack',                   releaseDate: '2024-01-01', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   mpg:  { code: 'MPG', name: 'Mastery Pack Guardian',      releaseDate: '2025-08-08', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  mpw:  { code: 'MPW', name: 'Mastery Pack Warrior',       releaseDate: '2026-01-01', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   smp:  { code: 'SMP', name: 'Smash Palace',               releaseDate: '2025-08-29', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   sup:  { code: 'SUP', name: 'Super Slam',                 releaseDate: '2025-09-26', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  her:  { code: 'HER', name: 'Hero Card Promos',           releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  jdg:  { code: 'JDG', name: 'Judge Promos',               releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  lgs:  { code: 'LGS', name: 'Local Game Store Promos',    releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  lss:  { code: 'LSS', name: 'LSS Promos',                 releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  oxo:  { code: 'OXO', name: 'Slingshot Underground Promos', releaseDate: '2024-01-01', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  win:  { code: 'WIN', name: 'Worlds / Pro Tour Prize Cards', releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  tnp:  { code: 'TNP', name: 'Tournament Prize Cards',     releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
+  xxx:  { code: 'XXX', name: 'OP Event Tokens',            releaseDate: '2019-10-11', hasFirstEdition: false, category: 'excluded',     tier: 5 },
 };
 
 // Explicit ordering for categories
