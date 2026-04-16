@@ -171,7 +171,7 @@ export const cardIndexResource = {
         '2': 'yellow (pitch 2)',
         '3': 'blue (pitch 3)',
       },
-      usage: "Deck-building index only — covers common generic staples. Look up by 'cardname|pitch' (all lowercase). For cards not in this index, add_cards_to_deck will fall back to a DB search automatically. For binder/collection use, always use search_printings to find the specific printing you want.",
+      usage: "Covers common generic staples and heroes. Look up by 'cardname|pitch' (all lowercase). Useful for: (1) deck building — add_cards_to_deck falls back to DB search for unlisted cards; (2) bulk curation — look up IDs here then pass to add_card_to_list to avoid per-card search_printings calls. For binder/collection use where the user wants a specific printing, always use search_printings instead.",
     };
   },
 };

@@ -120,18 +120,37 @@ function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: st
   
   // Require some filtering for very large result sets
   const hasSpecificFilter = !!(
-    filters.name || 
-    filters.sets?.length || 
+    filters.name ||
+    filters.sets?.length ||
     filters.types?.length ||
+    filters.classes?.length ||
+    filters.talents?.length ||
+    filters.rarities?.length ||
+    filters.foilings?.length ||
+    filters.editions?.length ||
+    filters.color ||
     filters.collectorNumber ||
     filters.printingIds ||
-    filters.text
+    filters.cardUniqueId ||
+    filters.cardUniqueIds ||
+    filters.text ||
+    filters.searchableText ||
+    filters.heroLegal ||
+    filters.heroClasses?.length ||
+    filters.heroTalents?.length ||
+    filters.format
   );
-  
-  if (!hasSpecificFilter && (options.limit > 50 || !options.limit)) {
-    return { 
-      isValid: false, 
-      error: "Large queries require at least one specific filter (name, set, type, or text)" 
+
+  // Also accept the shorthand query param as a specific filter
+  const hasQuery = !!(toolInput.query?.trim());
+
+  // Treat missing limit as the default (12), not as "no limit"
+  const effectiveLimit = options.limit || 12;
+
+  if (!hasSpecificFilter && !hasQuery && effectiveLimit > 50) {
+    return {
+      isValid: false,
+      error: "Large queries require at least one specific filter (name, set, type, talent, class, rarity, etc.)"
     };
   }
   

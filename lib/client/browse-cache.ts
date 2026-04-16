@@ -127,10 +127,12 @@ export function filterPrintings(
   filters: BrowseFilters,
 ): BrowsePrinting[] {
   return all.filter(p => {
-    // Name text search
+    // Name / collector-number text search
     if (filters.name) {
       const q = filters.name.toLowerCase();
-      if (!p.display_name?.toLowerCase().includes(q)) return false;
+      const matchesName = p.display_name?.toLowerCase().includes(q) ?? false;
+      const matchesCollector = p.collector_number?.toLowerCase().includes(q) ?? false;
+      if (!matchesName && !matchesCollector) return false;
     }
 
     // Type filter (e.g. chip value 'attack' → types includes 'attack')

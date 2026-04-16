@@ -14,14 +14,14 @@ export class FABPrintingsSearchUtility {
     options: PrintingsSearchOptions = {}
   ): Promise<{ printings: PrintingDTO[]; total: number; page: number; pages: number }> {
     const result = await printingsService.searchPrintings(filters, options);
-    const printings = result.success ? result.data : [];
+    const data = result.success ? result.data : null;
+    const printings = data?.printings ?? [];
     const limit = options.limit || 12;
-    const page = options.page || 1;
     return {
       printings,
-      total: printings.length,
-      page,
-      pages: Math.ceil(printings.length / limit),
+      total: data?.total ?? 0,
+      page: data?.page ?? (options.page || 1),
+      pages: data?.pages ?? 0,
     };
   }
 }
