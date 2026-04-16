@@ -11,13 +11,12 @@ export default function SetsLandingPage() {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   // Get sets grouped by category in display order
-  const { standard, armory, nonStandard } = getOrderedSets();
+  const { standard, nonStandard } = getOrderedSets();
 
   // Reverse standard sets for display (newest first on sets page)
   const standardSets = [...standard].reverse();
 
-  // Combine armory and non-standard for display
-  const nonStandardSets = [...armory, ...nonStandard];
+  const nonStandardSets = nonStandard;
 
   const handleImageError = (setCode: string) => {
     setImageErrors(prev => ({ ...prev, [setCode]: true }));

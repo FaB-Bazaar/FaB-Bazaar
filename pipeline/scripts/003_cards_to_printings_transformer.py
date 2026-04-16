@@ -404,7 +404,7 @@ class CardsToPrintingsTransformer:
             printing_id = printing.get('unique_id')
             new_image_url = None
             if printing_id:
-                new_image_url = f"http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/{printing_id}/public"
+                new_image_url = f"https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/{printing_id}/public"
             
             # Normalize printing-specific fields
             set_code = self.normalize_string(printing.get('set_id', ''))

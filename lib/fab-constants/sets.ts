@@ -208,6 +208,9 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   out: { code: 'OUT', name: 'Outsiders',            releaseDate: '2023-03-24', hasFirstEdition: false, category: 'standard',     tier: 1 },
   dtd: { code: 'DTD', name: 'Dusk till Dawn',       releaseDate: '2023-07-14', hasFirstEdition: false, category: 'standard',     tier: 1 },
 
+  // 2023 (cont.)
+  evo: { code: 'EVO', name: 'Bright Lights',        releaseDate: '2023-10-06', hasFirstEdition: false, category: 'standard',     tier: 1 },
+
   // 2024
   hvy: { code: 'HVY', name: 'Heavy Hitters',        releaseDate: '2024-02-02', hasFirstEdition: false, category: 'standard',     tier: 1 },
   mst: { code: 'MST', name: 'Part the Mistveil',    releaseDate: '2024-05-31', hasFirstEdition: false, category: 'standard',     tier: 1 },
@@ -215,6 +218,8 @@ export const SET_METADATA: Record<string, SetMetadata> = {
 
   // 2025
   hnt: { code: 'HNT', name: 'The Hunted',           releaseDate: '2025-01-31', hasFirstEdition: false, category: 'standard',     tier: 1, defaultRarity: 'L' },
+  mpg: { code: 'MPG', name: 'Mastery Pack Guardian', releaseDate: '2025-08-08', hasFirstEdition: false, category: 'standard',     tier: 1 },
+  sup: { code: 'SUP', name: 'Super Slam',           releaseDate: '2025-09-26', hasFirstEdition: false, category: 'standard',     tier: 1 },
   sea: { code: 'SEA', name: 'High Seas',            releaseDate: '2025-06-06', hasFirstEdition: false, category: 'standard',     tier: 1, defaultRarity: 'L' },
 
   // 2026
@@ -292,7 +297,6 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   cin:  { code: 'CIN', name: 'Blitz Deck: Cindra',                 releaseDate: '2025-01-31', hasFirstEdition: false, category: 'non-standard', tier: 3 },
 
   // ── Tier 4: Armory decks ──────────────────────────────────────────────────
-  evo:  { code: 'EVO', name: 'Bright Lights',              releaseDate: '2022-05-27', hasFirstEdition: false, category: 'armory',       tier: 4 },
   asr:  { code: 'ASR', name: 'Armory Deck: Ira',           releaseDate: '2019-10-11', hasFirstEdition: false, category: 'armory',       tier: 4 },
   aaz:  { code: 'AAZ', name: 'Armory Deck: Azalea',        releaseDate: '2020-06-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
   aio:  { code: 'AIO', name: 'Armory Deck: Dash',          releaseDate: '2020-10-01', hasFirstEdition: false, category: 'armory',       tier: 4 },
@@ -338,10 +342,8 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   fab:  { code: 'FAB', name: 'Promos',                     releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   tcc:  { code: 'TCC', name: 'Round the Table: TCC X LSS', releaseDate: '2023-10-06', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   gem:  { code: 'GEM', name: 'GEM Pack',                   releaseDate: '2024-01-01', hasFirstEdition: false, category: 'non-standard', tier: 5 },
-  mpg:  { code: 'MPG', name: 'Mastery Pack Guardian',      releaseDate: '2025-08-08', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   mpw:  { code: 'MPW', name: 'Mastery Pack Warrior',       releaseDate: '2026-01-01', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   smp:  { code: 'SMP', name: 'Smash Palace',               releaseDate: '2025-08-29', hasFirstEdition: false, category: 'non-standard', tier: 5 },
-  sup:  { code: 'SUP', name: 'Super Slam',                 releaseDate: '2025-09-26', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   her:  { code: 'HER', name: 'Hero Card Promos',           releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   jdg:  { code: 'JDG', name: 'Judge Promos',               releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
   lgs:  { code: 'LGS', name: 'Local Game Store Promos',    releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },
@@ -352,9 +354,11 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   xxx:  { code: 'XXX', name: 'OP Event Tokens',            releaseDate: '2019-10-11', hasFirstEdition: false, category: 'excluded',     tier: 5 },
 };
 
-// Explicit ordering for categories
-const ARMORY_ORDER = ['evo'];
-const NON_STANDARD_ORDER = ['tcc', 'mpg', 'smp', 'sup', 'gem', 'fab'];
+// Explicit ordering for non-standard sets on the /sets page
+const NON_STANDARD_ORDER = [
+  'tcc', 'smp', 'mpw', 'gem', 'dvr', 'aur',
+  'her', 'jdg', 'lgs', 'lss', 'win', 'tnp', 'oxo', 'fab',
+];
 
 /**
  * Maps tier number → display position in a printing carousel.
@@ -440,15 +444,11 @@ export function getSetsInDisplayOrder(): SetMetadata[] {
     .filter(s => s.category === 'standard')
     .sort((a, b) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime());
 
-  const armory = ARMORY_ORDER
-    .map(code => SET_METADATA[code])
-    .filter(s => s && s.category === 'armory');
-
   const nonStandard = NON_STANDARD_ORDER
     .map(code => SET_METADATA[code])
-    .filter(s => s && s.category === 'non-standard');
+    .filter(Boolean);
 
-  return [...standard, ...armory, ...nonStandard];
+  return [...standard, ...nonStandard];
 }
 
 export function getSetCodesInDisplayOrder(): string[] {
@@ -457,7 +457,6 @@ export function getSetCodesInDisplayOrder(): string[] {
 
 export function getOrderedSets(): {
   standard: SetMetadata[];
-  armory: SetMetadata[];
   nonStandard: SetMetadata[];
 } {
   const allSets = Object.values(SET_METADATA);
@@ -466,13 +465,9 @@ export function getOrderedSets(): {
     .filter(s => s.category === 'standard')
     .sort((a, b) => new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime());
 
-  const armory = ARMORY_ORDER
-    .map(code => SET_METADATA[code])
-    .filter(s => s && s.category === 'armory');
-
   const nonStandard = NON_STANDARD_ORDER
     .map(code => SET_METADATA[code])
-    .filter(s => s && s.category === 'non-standard');
+    .filter(Boolean);
 
-  return { standard, armory, nonStandard };
+  return { standard, nonStandard };
 }

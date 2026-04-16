@@ -49,7 +49,7 @@ class PriceSnapshotCreator:
         # Generate image_url from printing_id
         pid = full_printing.get('printing_id')
         if pid:
-            doc['image_url'] = f"http://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/{pid}/public"
+            doc['image_url'] = f"https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/{pid}/public"
 
         # Map printing_card_id → collector_number
         if 'printing_card_id' in full_printing:

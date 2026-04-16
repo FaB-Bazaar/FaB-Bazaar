@@ -4,7 +4,7 @@
 # Daily Automated Pipeline for FAB Card Data Processing
 #
 # Pipeline order:
-#   01 → 02 → 03 → 04 → 08 (PG, price diff vs old DB) → 05 (PG, full upsert) → 11 (analysis) → 12 (discord)
+#   01 → 02 → 03 → 03B (images) → 04 → 08 (PG, price diff vs old DB) → 05 (PG, full upsert) → 11 (analysis) → 12 (discord)
 #
 # Database: PostgreSQL (local Docker staging by default)
 #   Staging    = POSTGRES_URL_STAGING  (local Docker, fabbazaar_dev)
@@ -230,6 +230,18 @@ run_script "02" "TCG Price Enhancer - Add price data from TCGPlayer API" \
 
 run_script "03" "Cards to Printings Transformer - Transform to individual printings" \
     "python3 003_cards_to_printings_transformer.py ${CARDS_WITH_PRICES} --output ${PRINTINGS_SEED}"
+
+################################################################################
+# Step 03B: Image Uploader - Download & upload images for new printings
+################################################################################
+
+if [ "${DRY_RUN}" = true ]; then
+    run_script "03B" "Image Uploader - Download and upload images for new printings (DRY RUN)" \
+        "python3 003b_image_uploader.py ${PRINTINGS_SEED} --dry-run ${DB_FLAG}"
+else
+    run_script "03B" "Image Uploader - Download and upload images for new printings" \
+        "python3 003b_image_uploader.py ${PRINTINGS_SEED} ${DB_FLAG}"
+fi
 
 ################################################################################
 # Step 04: Price Snapshot Creator
