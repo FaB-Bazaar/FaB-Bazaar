@@ -169,31 +169,33 @@ export function useDeckEditor(deckId: string) {
       const heroFilter = resolveHeroFilter(deck);
       const formatCode = deck?.format ? FORMAT_TO_SEARCH[deck.format] : undefined;
 
-      const apiCallPromises = parsedCards.map(card => {
-        const filters: any = { name: card.name };
+      // Single request + single DB query for all cards, with hero/format constraints baked in
+      const bulkCards = parsedCards.map(card => ({
+        name: card.name,
+        color: card.color || undefined,
+        exact: !card.isPartialMatch,
+        isPartialMatch: card.isPartialMatch,
+        foiling: card.foiling || undefined,
+        set: card.set || undefined,
+        edition: card.edition || undefined,
+      }));
 
-        if (!card.isPartialMatch) filters.exact = true;
-        if (card.color) filters.color = card.color;
-        if (card.foiling) filters.foilings = [card.foiling];
-        if (card.set) filters.sets = [card.set];
-        if (card.edition) filters.editions = [card.edition];
+      const sharedFilters = {
+        ...(heroFilter ?? {}),
+        ...(formatCode ? { format: formatCode } : {}),
+      };
 
-        // Deck-building constraints
-        if (heroFilter) {
-          filters.heroClasses = heroFilter.heroClasses;
-          filters.heroTalents = heroFilter.heroTalents;
-        }
-        if (formatCode) filters.format = formatCode;
+      const bulkResponse = await searchClient.bulkSearchByNames(
+        bulkCards,
+        Object.keys(sharedFilters).length > 0 ? sharedFilters : undefined
+      );
+      if (!bulkResponse.success) throw new Error(bulkResponse.error || "Bulk search failed.");
 
-        return searchClient.searchPrintingsPost(filters, { limit: 50 });
-      });
-
-      const allResponses = await Promise.all(apiCallPromises);
       const allPrintings: any[] = [];
-      allResponses.forEach((response, index) => {
-        if (response.success && response.data?.printings) {
+      bulkResponse.data.results.forEach((result, index) => {
+        if (result.printings.length > 0) {
           const originalCard = parsedCards[index];
-          const printingsWithQuantity = response.data.printings.map((p: any) => ({
+          const printingsWithQuantity = result.printings.map((p: any) => ({
             ...p,
             importQuantity: originalCard.quantity,
           }));

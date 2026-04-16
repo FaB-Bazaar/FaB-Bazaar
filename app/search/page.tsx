@@ -21,6 +21,53 @@ import {
   getAllPrintings, prefetchAllPrintings, filterPrintings, sortPrintings,
   type BrowsePrinting, type BrowseFilters,
 } from '@/lib/client/browse-cache';
+import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
+import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
+
+// Module-level parser instance (stateless, safe to share)
+const shorthandParser = new FABShorthandParser();
+
+/**
+ * Maps FABShorthandParser output (PrintingsSearchFilters) to the simpler
+ * BrowseFilters used by the client-side filterPrintings engine.
+ * Only fields that BrowseFilters supports are translated.
+ */
+function parsedToBrowseFilters(pf: PrintingsSearchFilters): BrowseFilters {
+  const bf: BrowseFilters = {};
+
+  // Text search: parser puts remaining text in searchableText, or explicit name
+  if (pf.searchableText) bf.name = pf.searchableText;
+  else if (pf.name)       bf.name = pf.name;
+
+  // Types: normalize hyphens → spaces so 'defense-reaction' matches 'defense reaction'
+  if (pf.types?.length) bf.types = pf.types.map(t => t.replace(/-/g, ' '));
+
+  // Classes → classFlag boolean (only first class; BrowseFilters supports one at a time)
+  if (pf.classes?.length) bf.classFlag = `is_${pf.classes[0]}` as keyof BrowsePrinting;
+
+  // Numeric filters
+  // pitch can be number | number[] | null in PrintingsSearchFilters; BrowseFilters wants a single number
+  if (pf.pitch !== undefined && pf.pitch !== null) {
+    bf.pitch = Array.isArray(pf.pitch) ? pf.pitch[0] : pf.pitch;
+  }
+  if (pf.costMin   !== undefined) bf.costMin   = pf.costMin;
+  if (pf.costMax   !== undefined) bf.costMax   = pf.costMax;
+  if (pf.powerMin  !== undefined) bf.powerMin  = pf.powerMin;
+  if (pf.powerMax  !== undefined) bf.powerMax  = pf.powerMax;
+  if (pf.defenseMin !== undefined) bf.defenseMin = pf.defenseMin;
+  if (pf.defenseMax !== undefined) bf.defenseMax = pf.defenseMax;
+  if (pf.priceMax  !== undefined) bf.priceMax  = pf.priceMax;
+
+  // Categorical filters
+  if (pf.keywords?.length)  bf.keywords  = pf.keywords;
+  if (pf.rarities?.length)  bf.rarities  = pf.rarities;
+  if (pf.foilings?.length)  bf.foilings  = pf.foilings;
+  if (pf.editions?.length)  bf.editions  = pf.editions;
+  // Parser stores set codes lowercase; filterPrintings compares against p.set (uppercase)
+  if (pf.sets?.length)      bf.sets      = pf.sets.map(s => s.toUpperCase());
+
+  return bf;
+}
 
 const SECTION = 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
@@ -165,25 +212,55 @@ export default function SearchPage() {
 
     const typeChip = selectedType ? [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType) : null;
 
-    const filters: BrowseFilters = {};
-    if (effectiveQuery)   filters.name      = effectiveQuery;
-    if (typeChip)         filters.types     = [typeChip.apiType];
-    if (selectedClass)    filters.classFlag = `is_${selectedClass}` as keyof BrowsePrinting;
-    if (selectedPitch !== null) filters.pitch = selectedPitch;
-    if (selectedKeywords.length)   filters.keywords = selectedKeywords;
-    if (selectedRarities.length)   filters.rarities = selectedRarities;
-    if (selectedFoilings.length)   filters.foilings = selectedFoilings;
-    if (selectedEditions.length)   filters.editions = selectedEditions;
-    if (selectedSets.length)       filters.sets     = selectedSets;
-    if (costMin)    filters.costMin    = parseFloat(costMin);
-    if (costMax)    filters.costMax    = parseFloat(costMax);
-    if (powerMin)   filters.powerMin   = parseFloat(powerMin);
-    if (powerMax)   filters.powerMax   = parseFloat(powerMax);
-    if (defenseMin) filters.defenseMin = parseFloat(defenseMin);
-    if (defenseMax) filters.defenseMax = parseFloat(defenseMax);
-    if (priceMax)   filters.priceMax   = parseFloat(priceMax);
+    // Sidebar filters (chip/slider selections) — always applied
+    const sidebarFilters: BrowseFilters = {};
+    if (typeChip)         sidebarFilters.types     = [typeChip.apiType];
+    if (selectedClass)    sidebarFilters.classFlag = `is_${selectedClass}` as keyof BrowsePrinting;
+    if (selectedPitch !== null) sidebarFilters.pitch = selectedPitch;
+    if (selectedKeywords.length)   sidebarFilters.keywords = selectedKeywords;
+    if (selectedRarities.length)   sidebarFilters.rarities = selectedRarities;
+    if (selectedFoilings.length)   sidebarFilters.foilings = selectedFoilings;
+    if (selectedEditions.length)   sidebarFilters.editions = selectedEditions;
+    if (selectedSets.length)       sidebarFilters.sets     = selectedSets;
+    if (costMin)    sidebarFilters.costMin    = parseFloat(costMin);
+    if (costMax)    sidebarFilters.costMax    = parseFloat(costMax);
+    if (powerMin)   sidebarFilters.powerMin   = parseFloat(powerMin);
+    if (powerMax)   sidebarFilters.powerMax   = parseFloat(powerMax);
+    if (defenseMin) sidebarFilters.defenseMin = parseFloat(defenseMin);
+    if (defenseMax) sidebarFilters.defenseMax = parseFloat(defenseMax);
+    if (priceMax)   sidebarFilters.priceMax   = parseFloat(priceMax);
 
-    return sortPrintings(filterPrintings(allPrintings, filters), sortBy, sortOrder as 'asc' | 'desc');
+    // No text query — just apply sidebar filters
+    if (!effectiveQuery) {
+      return sortPrintings(filterPrintings(allPrintings, sidebarFilters), sortBy, sortOrder as 'asc' | 'desc');
+    }
+
+    // Split on ' | ' for OR queries (e.g. "command and conquer | t:instant")
+    const queryParts = effectiveQuery.split(' | ').map(p => p.trim()).filter(Boolean);
+
+    if (queryParts.length <= 1) {
+      // Single part: parse shorthand, merge with sidebar, run filter
+      const { filters: pf } = shorthandParser.parseQuery(effectiveQuery);
+      const merged: BrowseFilters = { ...sidebarFilters, ...parsedToBrowseFilters(pf) };
+      return sortPrintings(filterPrintings(allPrintings, merged), sortBy, sortOrder as 'asc' | 'desc');
+    }
+
+    // Multiple parts: union of per-part results, deduplicated by printing_id
+    const seen = new Set<string>();
+    const union: BrowsePrinting[] = [];
+
+    for (const part of queryParts) {
+      const { filters: pf } = shorthandParser.parseQuery(part);
+      const merged: BrowseFilters = { ...sidebarFilters, ...parsedToBrowseFilters(pf) };
+      for (const p of filterPrintings(allPrintings, merged)) {
+        if (!seen.has(p.printing_id)) {
+          seen.add(p.printing_id);
+          union.push(p);
+        }
+      }
+    }
+
+    return sortPrintings(union, sortBy, sortOrder as 'asc' | 'desc');
   }, [allPrintings, hasAnyFilter, effectiveQuery, selectedType, selectedClass, selectedPitch,
       selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
@@ -234,7 +311,7 @@ export default function SearchPage() {
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Name, shorthand, keyword:…"
+              placeholder="Name or t:type — use | for OR queries"
               className="w-full pl-8 pr-7 py-2 bg-white dark:bg-gray-800 border border-[#C4D0DF] dark:border-gray-700 rounded-lg shadow-sm text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
             {query && (

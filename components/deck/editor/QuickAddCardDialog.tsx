@@ -7,9 +7,9 @@ import { Plus, Minus, Check, ChevronDown, ChevronUp, Loader2, Search, ZoomIn, Ar
 import { cn } from "@/lib/utils";
 import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
-import { getHeroInfo } from "@/lib/fab-constants";
+import { getHeroInfo, SET_MAP } from "@/lib/fab-constants";
 import { getApiFormatCode } from "@/lib/format-constants";
-import { sortPrintings } from "@/lib/fab-constants/sets";
+import { sortPrintings, CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import {
   type CardResult,
@@ -554,6 +554,7 @@ export default function QuickAddCardDialog({
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
+  const [selectedSets, setSelectedSets] = useState<string[]>([]);
   // null = probes not yet run, Set = available chip values for this hero
   const [availableTypes, setAvailableTypes] = useState<Set<string> | null>(null);
   const [cards, setCards] = useState<CardResult[]>([]);
@@ -563,6 +564,27 @@ export default function QuickAddCardDialog({
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 40; // multiple of grid columns
+
+  // Reflect shorthand filter tokens (e.g. "pitch:2", "type:block") back onto the sidebar chips
+  const parsedQueryFilters = useMemo(() => {
+    const q = debouncedQuery.trim();
+    if (!q) return {};
+    return shorthandParser.parseQuery(q).filters;
+  }, [debouncedQuery]);
+  // Use pitch from the typed query when present; fall back to manually-clicked chip
+  const queryPitch = typeof parsedQueryFilters.pitch === 'number' ? parsedQueryFilters.pitch : null;
+  const effectivePitch: number | null = queryPitch ?? selectedPitch;
+  // Use type from the typed query when present; match against chip.value or chip.apiType
+  const queryTypes = parsedQueryFilters.types ?? [];
+  const queryTypeChip = queryTypes.length > 0
+    ? [...TYPE_CHIPS, GENERIC_CHIP].find(chip =>
+        queryTypes.some(qt => qt === chip.value || qt === chip.apiType)
+      ) ?? null
+    : null;
+  const effectiveType: string | null = queryTypeChip?.value ?? selectedType;
+  // Merge set codes from parser with manually clicked set chips
+  const querySets: string[] = parsedQueryFilters.sets ?? [];
+  const effectiveSets: string[] = [...new Set([...querySets, ...selectedSets])];
 
   // Selected card expansion panel
   const [selectedCard, setSelectedCard] = useState<CardResult | null>(null);
@@ -633,6 +655,7 @@ export default function QuickAddCardDialog({
       setSelectedType(null);
       setSelectedPitch(pitchFilter ?? null);
       setSelectedKeyword(null);
+      setSelectedSets([]);
       setCards([]);
       setError(null);
       setEnlargedImage(null);
@@ -661,12 +684,13 @@ export default function QuickAddCardDialog({
 
   useEffect(() => {
     const hasQuery = !!debouncedQuery.trim();
-    const hasType = !!selectedType;
-    const hasPitch = selectedPitch != null;
+    const hasType = !!effectiveType;
+    const hasPitch = effectivePitch != null;
     const hasKeyword = !!selectedKeyword;
+    const hasSets = effectiveSets.length > 0;
 
     // Nothing to search — clear results and wait for user input
-    if (!hasQuery && !hasType && !hasPitch && !hasKeyword) {
+    if (!hasQuery && !hasType && !hasPitch && !hasKeyword && !hasSets) {
       setCards([]);
       setError(null);
       return;
@@ -677,18 +701,18 @@ export default function QuickAddCardDialog({
     setSelectedCard(null);
     setPage(1);
 
-    // Browse by type chip — check cache first (skip when keyword filter active)
-    if (!hasQuery && hasType && !hasKeyword && targetCategory !== 'hero' && targetCategory !== 'equipment') {
-      const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType);
-      const apiType = chip ? chip.apiType : selectedType!;
-      const chipValue = selectedType!;
+    // Browse by type chip — check cache first (skip when keyword or set filter active)
+    if (!hasQuery && hasType && !hasKeyword && !hasSets && targetCategory !== 'hero' && targetCategory !== 'equipment') {
+      const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === effectiveType);
+      const apiType = chip ? chip.apiType : effectiveType!;
+      const chipValue = effectiveType!;
 
       const applyFilters = (cards: CardResult[]) => {
         // Action chip excludes cards that are also attacks (non-attack actions only)
         let result = chip?.value === 'non-attack-action'
           ? cards.filter(c => !c.types.includes('attack'))
           : cards;
-        if (selectedPitch != null) result = result.filter(c => c.pitch === selectedPitch);
+        if (effectivePitch != null) result = result.filter(c => c.pitch === effectivePitch);
         return result;
       };
 
@@ -730,13 +754,14 @@ export default function QuickAddCardDialog({
         params.set("types", "equipment,weapon");
       } else {
         if (hasType) {
-          const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType);
-          params.set("types", chip ? chip.apiType : selectedType!);
+          const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === effectiveType);
+          params.set("types", chip ? chip.apiType : effectiveType!);
         }
         if (hasKeyword) params.set("text", selectedKeyword!);
-        if (selectedPitch != null) params.set("pitch", String(selectedPitch));
+        if (effectivePitch != null) params.set("pitch", String(effectivePitch));
       }
     }
+    if (hasSets) params.set("sets", effectiveSets.join(","));
     if (deckFormat) {
       const code = getApiFormatCode(deckFormat);
       if (code) params.set("format", code);
@@ -765,7 +790,7 @@ export default function QuickAddCardDialog({
       .catch(() => setError("Search failed. Please try again."))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, selectedType, selectedPitch, selectedKeyword, targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
+  }, [debouncedQuery, selectedType, effectiveType, selectedPitch, effectivePitch, selectedKeyword, selectedSets.join(","), effectiveSets.join(","), targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
 
   // Sync selectedPrinting when card selection changes — use sortPrintings to pick the best default
   useEffect(() => {
@@ -882,7 +907,7 @@ export default function QuickAddCardDialog({
                   <div className="flex items-center gap-1">
                     <span className="text-[9px] text-gray-600 uppercase tracking-wider mr-0.5">Pitch</span>
                     {PITCH_CHIPS.map(chip => {
-                      const isActive = selectedPitch === chip.value;
+                      const isActive = effectivePitch === chip.value;
                       return (
                         <button
                           key={chip.value}
@@ -915,7 +940,7 @@ export default function QuickAddCardDialog({
                 ) : (
                 <div className="grid grid-cols-4 gap-1.5">
                   {TYPE_CHIPS.filter(chip => availableTypes.has(chip.value)).map(chip => {
-                    const isActive = selectedType === chip.value;
+                    const isActive = effectiveType === chip.value;
                     return (
                       <button
                         key={chip.value}
@@ -963,7 +988,7 @@ export default function QuickAddCardDialog({
                   <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Class</p>
                   <div className="grid grid-cols-4 gap-1.5">
                     {[...heroClasses, ...heroTalents].map(cls => {
-                      const isActive = selectedType === cls;
+                      const isActive = effectiveType === cls;
                       const icon = CLASS_ICONS[cls];
                       const isTalent = heroTalents.includes(cls);
                       return (
@@ -992,7 +1017,9 @@ export default function QuickAddCardDialog({
                               "w-full rounded flex items-center justify-center ring-1 transition-all bg-gray-800",
                               isActive ? "ring-current opacity-100" : "ring-gray-700 opacity-55 group-hover:opacity-85",
                             )} style={{ aspectRatio: '1 / 1' }}>
-                              <span className={cn("w-2 h-2 rounded-full", isActive ? (isTalent ? "bg-violet-400" : "bg-indigo-400") : "bg-gray-600")} />
+                              <span className={cn("text-[10px] font-bold uppercase", isActive ? (isTalent ? "text-violet-300" : "text-indigo-300") : "text-gray-500")}>
+                                {cls.slice(0, 2)}
+                              </span>
                             </div>
                           )}
                           <span className="text-[9px] leading-tight truncate w-full text-center capitalize">{cls}</span>
@@ -1001,7 +1028,7 @@ export default function QuickAddCardDialog({
                     })}
                     {/* Generic — playable by all classes */}
                     {(availableTypes !== null && availableTypes.has(GENERIC_CHIP.value)) && (() => {
-                      const isActive = selectedType === GENERIC_CHIP.value;
+                      const isActive = effectiveType === GENERIC_CHIP.value;
                       return (
                         <button type="button" title="Generic"
                           onClick={() => setSelectedType(t => t === GENERIC_CHIP.value ? null : GENERIC_CHIP.value)}
@@ -1040,24 +1067,20 @@ export default function QuickAddCardDialog({
               {targetCategory !== 'hero' && targetCategory !== 'equipment' && (
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Keyword</p>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {KEYWORD_CHIPS.map(kw => {
                       const isActive = selectedKeyword === kw.value;
                       return (
-                        <button key={kw.value} type="button" title={kw.label}
+                        <button key={kw.value} type="button"
                           onClick={() => setSelectedKeyword(k => k === kw.value ? null : kw.value)}
                           className={cn(
-                            "group flex flex-col items-center gap-1 p-1.5 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-                            isActive ? "bg-teal-900/50 border-teal-600 text-teal-300" : "bg-transparent border-transparent text-gray-500 hover:text-gray-200 hover:bg-gray-800"
+                            "px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400",
+                            isActive
+                              ? "border-gray-100 bg-gray-100 text-gray-900"
+                              : "border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200",
                           )}
                         >
-                          <div className={cn(
-                            "w-full rounded flex items-center justify-center ring-1 transition-all",
-                            isActive ? "ring-teal-500 bg-teal-900/30" : "ring-gray-700 opacity-55 group-hover:opacity-85 bg-gray-800",
-                          )} style={{ aspectRatio: '1 / 1' }}>
-                            <span className={cn("text-sm font-bold", isActive ? "text-teal-300" : "text-gray-300")}>{kw.abbr}</span>
-                          </div>
-                          <span className="text-xs leading-tight truncate w-full text-center">{kw.label}</span>
+                          {kw.label}
                         </button>
                       );
                     })}
@@ -1065,7 +1088,42 @@ export default function QuickAddCardDialog({
                 </div>
               )}
 
-              {/* Pitch filters */}
+              {/* Set filters */}
+              {targetCategory !== 'hero' && targetCategory !== 'equipment' && (
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Set</p>
+                  <div className="flex flex-wrap gap-1">
+                    {CARD_FILTER_SETS.map(code => {
+                      const isActive = effectiveSets.includes(code);
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          title={SET_MAP[code] ?? code.toUpperCase()}
+                          onClick={() => setSelectedSets(s => s.includes(code) ? s.filter(x => x !== code) : [...s, code])}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded border text-[10px] font-mono font-medium uppercase transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400",
+                            isActive
+                              ? "bg-blue-700 border-blue-500 text-white"
+                              : "border-gray-600 text-gray-400 hover:border-gray-400 hover:text-gray-200",
+                          )}
+                        >
+                          {code.toUpperCase()}
+                        </button>
+                      );
+                    })}
+                    {selectedSets.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSets([])}
+                        className="px-1.5 py-0.5 rounded text-[10px] text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                      >
+                        clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1123,20 +1181,20 @@ export default function QuickAddCardDialog({
                 </div>
               )}
               {error && <p className="text-sm text-red-400 py-4 text-center">{error}</p>}
-              {!loading && !error && (debouncedQuery || selectedType || selectedPitch != null || selectedKeyword) && cards.length === 0 && (
+              {!loading && !error && (debouncedQuery || effectiveType || effectivePitch != null || selectedKeyword || effectiveSets.length > 0) && cards.length === 0 && (
                 <div className="py-10 text-center flex flex-col items-center gap-2">
                   <p className="text-sm text-gray-300 font-medium">No cards found</p>
                   <p className="text-xs text-gray-500">
-                    {(selectedType || selectedKeyword) && debouncedQuery
+                    {(effectiveType || selectedKeyword) && debouncedQuery
                       ? "Try removing the type or keyword filter, or broaden your search."
-                      : selectedType || selectedKeyword
+                      : effectiveType || selectedKeyword
                       ? "No matching cards for this filter combination — try a different type or keyword."
                       : "Try a different name or check your spelling."}
                   </p>
-                  {(selectedType || selectedKeyword || selectedPitch != null) && (
+                  {(effectiveType || selectedKeyword || effectivePitch != null || selectedSets.length > 0) && (
                     <button
                       type="button"
-                      onClick={() => { setSelectedType(null); setSelectedKeyword(null); setSelectedPitch(null); }}
+                      onClick={() => { setSelectedType(null); setSelectedKeyword(null); setSelectedPitch(null); setSelectedSets([]); }}
                       className="mt-1 text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
                     >
                       Clear all filters
@@ -1144,7 +1202,7 @@ export default function QuickAddCardDialog({
                   )}
                 </div>
               )}
-              {!loading && !debouncedQuery && !selectedType && selectedPitch == null && !selectedKeyword && (
+              {!loading && !debouncedQuery && !effectiveType && effectivePitch == null && !selectedKeyword && effectiveSets.length === 0 && (
                 <p className="text-sm text-gray-500 py-8 text-center">Pick a filter or search by name</p>
               )}
               {!loading && cards.length > 0 && (() => {

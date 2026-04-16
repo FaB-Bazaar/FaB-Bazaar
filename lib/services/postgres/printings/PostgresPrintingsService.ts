@@ -89,6 +89,77 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
+   * Resolve multiple cards by name+pitch in a single DB query.
+   * One round-trip regardless of how many cards are passed.
+   */
+  async bulkResolveByName(
+    inputCards: Array<{ name: string; pitch?: number }>,
+    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
+  ): AsyncResult<Array<{ name: string; pitch?: number; printings: PrintingDTO[] }>> {
+    try {
+      if (inputCards.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // Normalize names and build per-entry conditions
+      const normalized = inputCards.map(c => ({
+        ...c,
+        normalizedName: c.name
+          .replace(/[\u2018\u2019\u0027\u0060]/g, "'")
+          .toLowerCase()
+          .trim(),
+      }));
+
+      // Per-card OR clause: (name = 'a' AND pitch = 1) OR (name = 'b' AND pitch = 2) OR ...
+      const rowConditions = normalized.map(c => {
+        const nameCond = eq(cards.name, c.normalizedName);
+        if (c.pitch === undefined || c.pitch === 0) {
+          return nameCond;
+        }
+        return and(nameCond, eq(cards.pitch, c.pitch))!;
+      });
+
+      // Shared AND constraints (hero legality, format legality)
+      const sharedConditions = sharedFilters
+        ? this.buildWhereConditions(sharedFilters)
+        : [];
+
+      // Final: AND(shared..., OR(perCard...))
+      const whereClause = sharedConditions.length > 0
+        ? and(...sharedConditions, or(...rowConditions))
+        : or(...rowConditions);
+
+      const results = await db
+        .select(this.buildSelectFields())
+        .from(printings)
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(whereClause)
+        .orderBy(...this.buildOrderBy(undefined, undefined, {}));
+
+      const dtos = results.map(row => this.mapToPrintingDTO(row));
+
+      // Group results back to each input entry
+      return {
+        success: true,
+        data: normalized.map(c => ({
+          name: c.name,
+          pitch: c.pitch,
+          printings: dtos.filter(p => {
+            const nameMatch = (p.name ?? '').toLowerCase() === c.normalizedName;
+            if (c.pitch === undefined || c.pitch === 0) return nameMatch;
+            return nameMatch && p.pitch === c.pitch;
+          }),
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to bulk resolve cards',
+      };
+    }
+  }
+
+  /**
    * Get single printing by printing_id
    */
   async getPrintingById(printingId: string): AsyncResult<PrintingDTO | null> {

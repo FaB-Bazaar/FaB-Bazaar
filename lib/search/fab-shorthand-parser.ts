@@ -439,6 +439,25 @@ export class FABShorthandParser {
       examples: ["edition:f", "edition:!u", "edition:a,f,!n", "edition:first,-unlimited"]
     },
 
+    // Pitch searches (pitch:1, pitch:red, pitch:2, pitch:yellow, pitch:3, pitch:blue)
+    {
+      pattern: /\bpitch:([1-3]|red|yellow|blue|r|y|b)\b/gi,
+      parser: (match, filters) => {
+        const val = match[1].toLowerCase();
+        const pitchMap: { [key: string]: number } = {
+          '1': 1, 'red': 1, 'r': 1,
+          '2': 2, 'yellow': 2, 'y': 2,
+          '3': 3, 'blue': 3, 'b': 3,
+        };
+        const pitch = pitchMap[val];
+        if (pitch !== undefined) {
+          filters.pitch = pitch;
+        }
+      },
+      description: "Card pitch value (1/red, 2/yellow, 3/blue)",
+      examples: ["pitch:1", "pitch:red", "pitch:2", "pitch:yellow", "pitch:3", "pitch:blue"]
+    },
+
     // Color searches
     {
       pattern: /\bcolor:([!-]?)(red|blue|yellow|r|b|y)/gi,

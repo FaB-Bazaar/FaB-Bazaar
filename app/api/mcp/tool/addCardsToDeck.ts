@@ -2,6 +2,7 @@
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { printingsService } from '@/lib/services';
 import { sortPrintings } from '@/lib/fab-constants/sets';
+import { resolveDeckByName } from './helpers';
 
 export const addCardsToDeckTool = {
   name: 'add_cards_to_deck',
@@ -103,50 +104,50 @@ export const addCardsToDeckTool = {
       if (!printings?.length) return { success: false, error: 'printings array is required and must not be empty.' };
 
       // Resolve deck by name
-      const listRes = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
-      });
-      if (!listRes.ok) return { success: false, error: `Failed to fetch deck list (HTTP ${listRes.status}).` };
-      const listData = await listRes.json();
-      if (!listData.success) return { success: false, error: listData.error || 'Could not load deck list.' };
+      const deckResult = await resolveDeckByName(deckName, tokenToUse);
+      if (!deckResult.ok) return { success: false, error: deckResult.error };
+      const deck = deckResult.deck;
 
-      const deck = (listData.decks || []).find((d: any) => d.name?.toLowerCase() === deckName.toLowerCase());
-      if (!deck) {
-        const available = (listData.decks || []).map((d: any) => d.name).join(', ');
-        return { success: false, error: `No deck named "${deckName}" found. Available: ${available}` };
-      }
-
-      // Resolve card names → printingIds for items that don't have a printingId
+      // Separate cards that already have printingIds from those needing name resolution
       const resolvedPrintings: Array<{ printingId: string; quantity: number; category: string; resolvedFrom?: string }> = [];
       const resolutionFailures: string[] = [];
+      const needsResolution: Array<{ cardName: string; pitch: number; quantity: number; category: string }> = [];
 
       for (const p of printings) {
         if (p.printingId) {
           resolvedPrintings.push({ printingId: p.printingId, quantity: p.quantity || 1, category: p.category || 'maindeck' });
-          continue;
-        }
-        if (!p.cardName) {
+        } else if (p.cardName) {
+          needsResolution.push({ cardName: p.cardName, pitch: p.pitch ?? 0, quantity: p.quantity || 1, category: p.category || 'maindeck' });
+        } else {
           resolutionFailures.push(`An item is missing both printingId and cardName — skipped.`);
-          continue;
         }
-        const pitch = p.pitch ?? 0;
-        const searchResult = await printingsService.searchPrintings(
-          { name: p.cardName, exact: true, ...(pitch > 0 ? { pitch } : {}) },
-          { limit: 50 }
+      }
+
+      // Bulk-resolve all name+pitch lookups in a single DB query
+      if (needsResolution.length > 0) {
+        const bulkResult = await printingsService.bulkResolveByName(
+          needsResolution.map(p => ({ name: p.cardName, pitch: p.pitch || undefined }))
         );
-        if (!searchResult.success || !searchResult.data?.printings?.length) {
-          resolutionFailures.push(`No printings found for "${p.cardName}"${pitch > 0 ? ` (pitch ${pitch})` : ''} — skipped.`);
-          continue;
+        if (!bulkResult.success) {
+          return { success: false, error: `Card name resolution failed: ${bulkResult.error}` };
         }
-        const sorted = sortPrintings(searchResult.data.printings);
-        const best = sorted[0];
-        const pitchLabel = pitch === 1 ? ' (red)' : pitch === 2 ? ' (yellow)' : pitch === 3 ? ' (blue)' : '';
-        resolvedPrintings.push({
-          printingId: best.printing_id,
-          quantity: p.quantity || 1,
-          category: p.category || 'maindeck',
-          resolvedFrom: `${p.cardName}${pitchLabel} → ${best.set} ${best.edition ?? ''} ${best.foiling ?? ''}`.trim(),
-        });
+        for (let i = 0; i < needsResolution.length; i++) {
+          const input = needsResolution[i];
+          const entry = bulkResult.data[i];
+          if (!entry.printings.length) {
+            const pitchLabel = input.pitch === 1 ? ' (red)' : input.pitch === 2 ? ' (yellow)' : input.pitch === 3 ? ' (blue)' : '';
+            resolutionFailures.push(`No printings found for "${input.cardName}"${pitchLabel} — skipped.`);
+            continue;
+          }
+          const best = sortPrintings(entry.printings)[0];
+          const pitchLabel = input.pitch === 1 ? ' (red)' : input.pitch === 2 ? ' (yellow)' : input.pitch === 3 ? ' (blue)' : '';
+          resolvedPrintings.push({
+            printingId: best.printing_id,
+            quantity: input.quantity,
+            category: input.category,
+            resolvedFrom: `${input.cardName}${pitchLabel} → ${best.set} ${best.edition ?? ''} ${best.foiling ?? ''}`.trim(),
+          });
+        }
       }
 
       if (resolvedPrintings.length === 0) {

@@ -478,6 +478,51 @@ export async function searchPrintingsPost(
   }
 }
 
+export interface BulkSearchCard {
+  name: string;
+  color?: string;
+  exact?: boolean;
+  isPartialMatch?: boolean;
+  foiling?: string;
+  set?: string;
+  edition?: string;
+}
+
+export interface BulkSearchResult {
+  index: number;
+  printings: PrintingDTO[];
+}
+
+export interface BulkSearchSharedFilters {
+  heroClasses?: string[];
+  heroTalents?: string[];
+  heroEssences?: string[];
+  format?: string;
+}
+
+/**
+ * Bulk search printings by card descriptors — single HTTP request, single DB query.
+ * Replaces N parallel searchPrintingsPost calls on the bulk-import page and deck editor.
+ *
+ * Pass `sharedFilters` for deck-building contexts to apply hero/format legality
+ * constraints across all cards in the same query.
+ */
+export async function bulkSearchByNames(
+  cards: BulkSearchCard[],
+  sharedFilters?: BulkSearchSharedFilters
+): Promise<ApiResponse<{ results: BulkSearchResult[] }>> {
+  try {
+    const response = await fetch('/api/printings/bulk-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards, ...sharedFilters }),
+    });
+    return await handleResponse<{ results: BulkSearchResult[] }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 /**
  * Search attack action cards
  *

@@ -7,6 +7,7 @@ import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { selectDefaultPrinting } from '@/lib/browse/utils';
 import { getSetName } from "@/lib/fab-formatters";
 import { bindersClient, wantsClient, searchClient } from "@/lib/client";
+import type { BulkSearchCard } from "@/lib/client/search-client";
 
 const groupPrintingsByCard = (printings: any[], key: string) => {
   if (!printings || printings.length === 0) return new Map();
@@ -60,42 +61,25 @@ export function useBulkImportPage() {
       const parsedCards = parseBulkInput(bulkInput, 'cardlist');
       if (parsedCards.length === 0) throw new Error("Input is empty or could not be parsed.");
 
-      const apiCallPromises = parsedCards.map(card => {
-        const filters: any = { name: card.name };
+      // Single request + single DB query for all cards
+      const bulkCards: BulkSearchCard[] = parsedCards.map(card => ({
+        name: card.name,
+        color: card.color || undefined,
+        exact: !card.isPartialMatch,
+        isPartialMatch: card.isPartialMatch,
+        foiling: card.foiling || undefined,
+        set: card.set || undefined,
+        edition: card.edition || undefined,
+      }));
 
-        if (!card.isPartialMatch) {
-          filters.exact = true;
-        }
+      const bulkResponse = await searchClient.bulkSearchByNames(bulkCards);
+      if (!bulkResponse.success) throw new Error(bulkResponse.error || "Bulk search failed.");
 
-        if (card.color) {
-          filters.color = card.color;
-        }
-
-        // Add foiling filter if present (supports RF, NF, CF)
-        if (card.foiling) {
-          filters.foilings = [card.foiling];
-        }
-
-        // Add set filter if present
-        if (card.set) {
-          filters.sets = [card.set];
-        }
-
-        // Add edition filter if present
-        if (card.edition) {
-          filters.editions = [card.edition];
-        }
-
-        const options = { limit: 50 };
-        return searchClient.searchPrintingsPost(filters, options);
-      });
-
-      const allResponses = await Promise.all(apiCallPromises);
       const allPrintings: any[] = [];
-      allResponses.forEach((response, index) => {
-        if (response.success && response.data?.printings) {
+      bulkResponse.data.results.forEach((result, index) => {
+        if (result.printings.length > 0) {
           const originalCard = parsedCards[index];
-          const printingsWithQuantity = response.data.printings.map((p: any) => ({ ...p, importQuantity: originalCard.quantity }));
+          const printingsWithQuantity = result.printings.map((p: any) => ({ ...p, importQuantity: originalCard.quantity }));
           allPrintings.push(...printingsWithQuantity);
         }
       });

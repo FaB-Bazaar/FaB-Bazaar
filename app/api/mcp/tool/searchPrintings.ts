@@ -1,615 +1,391 @@
-// app/api/mcp/tool/searchPrintings.ts - ENHANCED VERSION with human-readable output
+// app/api/mcp/tool/searchPrintings.ts
 import { printingsService } from '@/lib/services';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { getHeroInfo } from '@/lib/fab-constants/heroes';
+import { sortPrintings } from '@/lib/fab-constants/sets';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
-// Create single instance to reuse
 const shorthandParser = new FABShorthandParser();
 
-// Human-readable translation maps
-const FOILING_DISPLAY: { [key: string]: string } = {
-  's': 'Non-foil',
-  'r': 'Rainbow Foil',
-  'c': 'Cold Foil',
-  'g': 'Gold Foil'
+const FOILING_DISPLAY: Record<string, string> = {
+  s: 'Non-foil', r: 'Rainbow Foil', c: 'Cold Foil', g: 'Gold Foil',
 };
-
-const EDITION_DISPLAY: { [key: string]: string } = {
-  'n': 'Normal',
-  'f': 'First Edition',
-  'u': 'Unlimited',
-  'a': 'Alpha'
+const EDITION_DISPLAY: Record<string, string> = {
+  n: 'Normal', f: 'First Edition', u: 'Unlimited', a: 'Alpha',
 };
-
-const RARITY_DISPLAY: { [key: string]: string } = {
-  'c': 'Common',
-  'r': 'Rare',
-  's': 'Super Rare',
-  'm': 'Majestic',
-  'l': 'Legendary',
-  'f': 'Fabled',
-  't': 'Token',
-  'p': 'Promo',
-  'v': 'Marvel'
+const RARITY_DISPLAY: Record<string, string> = {
+  c: 'Common', r: 'Rare', s: 'Super Rare', m: 'Majestic',
+  l: 'Legendary', f: 'Fabled', t: 'Token', p: 'Promo', v: 'Marvel',
 };
+const COLOR_TO_PITCH: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
 
-// Inline helper function to convert MCP filters to search filters
-function convertMCPFiltersToSearchFilters(mcpFilters: any): PrintingsSearchFilters {
-  const searchFilters: PrintingsSearchFilters = {};
-  
-  // Direct mappings for all the existing fields
-  if (mcpFilters.name) searchFilters.name = mcpFilters.name;
-  if (mcpFilters.text) searchFilters.text = mcpFilters.text;
-  if (mcpFilters.searchableText) searchFilters.searchableText = mcpFilters.searchableText;
-  if (mcpFilters.exact !== undefined) searchFilters.exact = mcpFilters.exact;
-  
-  // Handle collectorNumber (can be string or comma-separated)
-  if (mcpFilters.collectorNumber) {
-    if (typeof mcpFilters.collectorNumber === 'string' && mcpFilters.collectorNumber.includes(',')) {
-      searchFilters.collectorNumber = mcpFilters.collectorNumber.split(',').map(s => s.trim());
-    } else {
-      searchFilters.collectorNumber = mcpFilters.collectorNumber;
-    }
-  }
-  
-  // Handle printingIds (comma-separated string to array)
-  if (mcpFilters.printingIds) {
-    if (typeof mcpFilters.printingIds === 'string') {
-      searchFilters.printingIds = mcpFilters.printingIds.split(',').map(s => s.trim());
-    } else {
-      searchFilters.printingIds = mcpFilters.printingIds;
-    }
-  }
-  
-  // Basic fields
-  if (mcpFilters.sets) searchFilters.sets = mcpFilters.sets;
-  if (mcpFilters.types) searchFilters.types = mcpFilters.types;
-  if (mcpFilters.classes) searchFilters.classes = mcpFilters.classes;
-  if (mcpFilters.talents) searchFilters.talents = mcpFilters.talents;
-  if (mcpFilters.talentsAll) (searchFilters as any).talentsAll = mcpFilters.talentsAll;
-  if (mcpFilters.rarities) searchFilters.rarities = mcpFilters.rarities;
-  if (mcpFilters.foilings) searchFilters.foilings = mcpFilters.foilings;
-  if (mcpFilters.editions) searchFilters.editions = mcpFilters.editions;
-  if (mcpFilters.color) searchFilters.color = mcpFilters.color;
-  if (mcpFilters.traits) searchFilters.traits = mcpFilters.traits;
-  if (mcpFilters.keywords) searchFilters.keywords = mcpFilters.keywords;
-  if (mcpFilters.artists) searchFilters.artists = mcpFilters.artists;
-  
-  // Stats
-  if (mcpFilters.power !== undefined) searchFilters.power = mcpFilters.power;
-  if (mcpFilters.powerMin !== undefined) searchFilters.powerMin = mcpFilters.powerMin;
-  if (mcpFilters.powerMax !== undefined) searchFilters.powerMax = mcpFilters.powerMax;
-  if (mcpFilters.powerNot !== undefined) (searchFilters as any).powerNot = mcpFilters.powerNot;
-  if (mcpFilters.cost !== undefined) searchFilters.cost = mcpFilters.cost;
-  if (mcpFilters.costs !== undefined) (searchFilters as any).costs = mcpFilters.costs;
-  if (mcpFilters.costMin !== undefined) searchFilters.costMin = mcpFilters.costMin;
-  if (mcpFilters.costMax !== undefined) searchFilters.costMax = mcpFilters.costMax;
-  if (mcpFilters.costNot !== undefined) (searchFilters as any).costNot = mcpFilters.costNot;
-  if (mcpFilters.defense !== undefined) searchFilters.defense = mcpFilters.defense;
-  if (mcpFilters.defenseMin !== undefined) searchFilters.defenseMin = mcpFilters.defenseMin;
-  if (mcpFilters.defenseMax !== undefined) searchFilters.defenseMax = mcpFilters.defenseMax;
-  if (mcpFilters.defenseNot !== undefined) (searchFilters as any).defenseNot = mcpFilters.defenseNot;
-  if (mcpFilters.pitch !== undefined) searchFilters.pitch = mcpFilters.pitch;
-  
-  // Price filters
-  if (mcpFilters.priceMin !== undefined) searchFilters.priceMin = mcpFilters.priceMin;
-  if (mcpFilters.priceMax !== undefined) searchFilters.priceMax = mcpFilters.priceMax;
-  if (mcpFilters.priceField) searchFilters.priceField = mcpFilters.priceField;
-  if (mcpFilters.cardUniqueId) searchFilters.cardUniqueId = mcpFilters.cardUniqueId;
-  if (mcpFilters.cardUniqueIds) searchFilters.cardUniqueIds = mcpFilters.cardUniqueIds;
-  
-  // Hero-based filtering
-  // heroLegal accepts nicknames/full names (e.g. "gravy", "Gravy Bones") — resolve to
-  // heroClasses + heroTalents so the precise AND+subset logic fires instead of the broken
-  // legacy OR path that checks cards.classes && ARRAY['gravy'] (which matches nothing).
-  if (mcpFilters.heroLegal) {
-    const heroNames = Array.isArray(mcpFilters.heroLegal)
-      ? mcpFilters.heroLegal
-      : [mcpFilters.heroLegal];
-    const allClasses = new Set<string>();
-    const allTalents = new Set<string>();
-    for (const name of heroNames) {
-      const info = getHeroInfo(name);
-      if (info) {
-        info.classes.forEach(c => allClasses.add(c));
-        info.talents.forEach(t => allTalents.add(t));
-      } else {
-        // Unknown hero — fall back to legacy path
-        searchFilters.heroLegal = mcpFilters.heroLegal;
-      }
-    }
-    if (allClasses.size > 0 || allTalents.size > 0) {
-      (searchFilters as any).heroClasses = [...allClasses];
-      (searchFilters as any).heroTalents = [...allTalents];
-    }
-  }
-  if (mcpFilters.heroClasses) (searchFilters as any).heroClasses = mcpFilters.heroClasses;
-  if (mcpFilters.heroTalents) (searchFilters as any).heroTalents = mcpFilters.heroTalents;
-  if (mcpFilters.heroEssences) (searchFilters as any).heroEssences = mcpFilters.heroEssences;
-  if (mcpFilters.excludeClasses) searchFilters.excludeClasses = mcpFilters.excludeClasses;
-  if (mcpFilters.excludeTalents) searchFilters.excludeTalents = mcpFilters.excludeTalents;
-  
-  // Format legality
-  if (mcpFilters.format) searchFilters.format = mcpFilters.format;
-  if (mcpFilters.includeBanned !== undefined) searchFilters.includeBanned = mcpFilters.includeBanned;
-  if (mcpFilters.includeSuspended !== undefined) searchFilters.includeSuspended = mcpFilters.includeSuspended;
-  
-  // Add all boolean filters
-  const booleanFields = [
-    'isAction', 'isAttack', 'isDefenseReaction', 'isInstant', 'isEquipment', 
-    'isWeapon', 'isHero', 'isMentor', 'isToken',
-    'isFirstEdition', 'isUnlimited', 'isNormalEdition',
-    'isNormalFoil', 'isRainbowFoil', 'isColdFoil',
-    'isCommon', 'isRare', 'isSuperRare', 'isMajestic', 'isLegendary', 'isFabled', 'isPromo',
-    'isBudget', 'isUnder5', 'isUnder10', 'isUnder25', 'isUnder50', 'isUnder100', 'isExpensive', 'isPremium',
-    'hasProductId',
-    // Class boolean filters
-    'isGeneric', 'isBrute', 'isGuardian', 'isMechanologist', 'isRanger', 'isRuneblade', 
-    'isAssassin', 'isWarrior', 'isNinja', 'isWizard', 'isMerchant', 'isBard', 
-    'isAdjudicator', 'isIllusionist', 'isThief', 'isShapeshifter', 'isNecromancer',
-    // Talent boolean filters
-    'hasChaos', 'hasLight', 'hasRoyal', 'hasDraconic', 'hasLightning', 'hasShadow', 
-    'hasEarth', 'hasMystic', 'hasRevered', 'hasIce', 'hasReviled', 'hasPirate', 'hasElemental',
-    // Combination filters
-    'isGenericOnly', 'hasClassAndTalent', 'hasClassOnly', 'hasTalentOnly'
-  ];
-  
-  booleanFields.forEach(field => {
-    if (mcpFilters[field] !== undefined) {
-      (searchFilters as any)[field] = mcpFilters[field];
-    }
-  });
-
-  // Add negation filters
-  const negationFields = [
-    'colorNot', 'raritiesNot', 'setsNot', 'foilingsNot', 'editionsNot',
-    'typesNot', 'keywordsNot', 'textNot', 'talentsNot', 'classesNot'
-  ];
-  
-  negationFields.forEach(field => {
-    if (mcpFilters[field] !== undefined) {
-      (searchFilters as any)[field] = mcpFilters[field];
-    }
-  });
-  
-  return searchFilters;
+function formatPrinting(p: any): string {
+  return `• ${p.display_name || p.name || 'Unknown'} (${p.collector_number || 'N/A'})
+    Printing ID: ${p.printing_id}
+    Card Unique ID: ${p.card_unique_id}
+    Set: ${(p.set || '?').toUpperCase()} | ${EDITION_DISPLAY[p.edition] || p.edition || '?'} | ${FOILING_DISPLAY[p.foiling] || p.foiling || '?'}
+    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${p.tcg_market ? `$${p.tcg_market.toFixed(2)}` : 'N/A'}`;
 }
 
-// Helper function to format printing for human-readable output
-function formatPrintingForDisplay(printing: any): string {
-  const name = printing.name || 'Unknown Card';
-  const collectorNumber = printing.collector_number || 'N/A';
-  const set = printing.set?.toUpperCase() || 'N/A';
-  const edition = EDITION_DISPLAY[printing.edition] || printing.edition || 'N/A';
-  const foiling = FOILING_DISPLAY[printing.foiling] || printing.foiling || 'N/A';
-  const rarity = RARITY_DISPLAY[printing.rarity] || printing.rarity || 'N/A';
-  const price = printing.tcg_market ? `$${printing.tcg_market.toFixed(2)}` : 'N/A';
+function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
+  const f: PrintingsSearchFilters = {};
 
-  return `• ${name} (${collectorNumber})
-    Printing ID: ${printing.printing_id}
-    Card Unique ID: ${printing.card_unique_id}
-    Set: ${set} • Edition: ${edition} • Foiling: ${foiling}
-    Rarity: ${rarity} • Price: ${price}`;
+  if (mcpFilters.name)             f.name             = mcpFilters.name;
+  if (mcpFilters.text)             f.text             = mcpFilters.text;
+  if (mcpFilters.searchableText)   f.searchableText   = mcpFilters.searchableText;
+  if (mcpFilters.exact != null)    f.exact            = mcpFilters.exact;
+
+  if (mcpFilters.collectorNumber) {
+    f.collectorNumber = typeof mcpFilters.collectorNumber === 'string' && mcpFilters.collectorNumber.includes(',')
+      ? mcpFilters.collectorNumber.split(',').map((s: string) => s.trim())
+      : mcpFilters.collectorNumber;
+  }
+  if (mcpFilters.printingIds) {
+    f.printingIds = typeof mcpFilters.printingIds === 'string'
+      ? mcpFilters.printingIds.split(',').map((s: string) => s.trim())
+      : mcpFilters.printingIds;
+  }
+  if (mcpFilters.cardUniqueId)  f.cardUniqueId  = mcpFilters.cardUniqueId;
+  if (mcpFilters.cardUniqueIds) f.cardUniqueIds = mcpFilters.cardUniqueIds;
+
+  const passThrough = [
+    'sets', 'types', 'classes', 'talents', 'talentsAll', 'rarities', 'foilings',
+    'editions', 'color', 'traits', 'keywords', 'artists',
+    'power', 'powerMin', 'powerMax', 'powerNot',
+    'cost', 'costs', 'costMin', 'costMax', 'costNot',
+    'defense', 'defenseMin', 'defenseMax', 'defenseNot',
+    'pitch', 'priceMin', 'priceMax', 'priceField',
+    'heroClasses', 'heroTalents', 'heroEssences', 'excludeClasses', 'excludeTalents',
+    'format', 'includeBanned', 'includeSuspended',
+    'colorNot', 'raritiesNot', 'setsNot', 'foilingsNot', 'editionsNot',
+    'typesNot', 'classesNot', 'keywordsNot', 'textNot', 'talentsNot',
+    'isAction', 'isAttack', 'isDefenseReaction', 'isInstant', 'isEquipment',
+    'isWeapon', 'isHero', 'isMentor', 'isToken',
+    'isGeneric', 'isBrute', 'isGuardian', 'isMechanologist', 'isRanger',
+    'isRuneblade', 'isAssassin', 'isWarrior', 'isNinja', 'isWizard',
+    'isMerchant', 'isBard', 'isAdjudicator', 'isIllusionist', 'isThief',
+    'isShapeshifter', 'isNecromancer',
+    'hasChaos', 'hasLight', 'hasRoyal', 'hasDraconic', 'hasLightning',
+    'hasShadow', 'hasEarth', 'hasMystic', 'hasRevered', 'hasIce',
+    'hasReviled', 'hasPirate', 'hasElemental',
+    'isGenericOnly', 'hasClassAndTalent', 'hasClassOnly', 'hasTalentOnly',
+    'isFirstEdition', 'isUnlimited', 'isNormalEdition',
+    'isNormalFoil', 'isRainbowFoil', 'isColdFoil',
+    'isCommon', 'isRare', 'isSuperRare', 'isMajestic', 'isLegendary',
+    'isFabled', 'isPromo', 'isBudget', 'isUnder5', 'isUnder10', 'isUnder25',
+    'isUnder50', 'isUnder100', 'isExpensive', 'isPremium', 'hasProductId',
+  ];
+  passThrough.forEach(k => { if (mcpFilters[k] != null) (f as any)[k] = mcpFilters[k]; });
+
+  // heroLegal → resolve to heroClasses + heroTalents for precise filtering
+  if (mcpFilters.heroLegal) {
+    const names = Array.isArray(mcpFilters.heroLegal) ? mcpFilters.heroLegal : [mcpFilters.heroLegal];
+    const allClasses = new Set<string>();
+    const allTalents = new Set<string>();
+    let usedLegacy = false;
+    for (const name of names) {
+      const info = getHeroInfo(name);
+      if (info) {
+        info.classes.forEach((c: string) => allClasses.add(c));
+        info.talents.forEach((t: string) => allTalents.add(t));
+      } else {
+        f.heroLegal = mcpFilters.heroLegal;
+        usedLegacy = true;
+      }
+    }
+    if (!usedLegacy && (allClasses.size > 0 || allTalents.size > 0)) {
+      (f as any).heroClasses = [...allClasses];
+      (f as any).heroTalents = [...allTalents];
+    }
+  }
+
+  return f;
+}
+
+/**
+ * Resolve a single card descriptor (query string or filters object) to a
+ * PrintingsSearchFilters object, plus a hint whether it's simple enough for
+ * the bulk path (name + optional pitch, no other constraints).
+ */
+function resolveCardFilters(card: { query?: string; filters?: any }): {
+  filters: PrintingsSearchFilters;
+  isSimple: boolean;
+  simpleName?: string;
+  simplePitch?: number;
+} {
+  let filters: PrintingsSearchFilters = {};
+
+  if (card.query?.trim()) {
+    try {
+      filters = shorthandParser.parseQuery(card.query.trim()).filters;
+    } catch {
+      filters = { name: card.query.trim() };
+    }
+  }
+
+  if (card.filters && Object.keys(card.filters).length > 0) {
+    filters = { ...filters, ...convertMCPFilters(card.filters) };
+  }
+
+  // Determine if this is a simple name+pitch lookup (eligible for bulk path)
+  const keys = Object.keys(filters).filter(k => (filters as any)[k] != null);
+  const simpleKeys = new Set(['name', 'exact', 'pitch', 'color']);
+  const isSimple =
+    !!filters.name &&
+    filters.exact !== false &&
+    keys.every(k => simpleKeys.has(k));
+
+  const pitch = filters.pitch != null
+    ? (Array.isArray(filters.pitch) ? undefined : (filters.pitch as number))
+    : (filters.color ? COLOR_TO_PITCH[filters.color] : undefined);
+
+  return {
+    filters,
+    isSimple,
+    simpleName: isSimple ? filters.name : undefined,
+    simplePitch: isSimple ? pitch : undefined,
+  };
 }
 
 export const searchPrintingsTool = {
   name: 'search_printings',
-  description: `🔍 ENHANCED SEARCH: Natural language and shorthand query support!
+  description: `Search card printings. Always pass ALL cards you need in one call — never loop.
 
-⚡ NEW FEATURES:
-- Natural shorthand queries: "talent:light p:<25 rarity:m type:equipment"
-- Intelligent query parsing with abbreviations and operators
-- Enhanced talent/essence system support
-- Flexible negation syntax (!, -, "Not" operators)
+Each entry in \`cards\` uses either a shorthand query string or a structured filters object:
 
-🎯 QUERY FORMATS SUPPORTED:
+Option A — query string (recommended):
+  "pummel red" | "sink below pitch:2" | "rf cnc wtr alpha" | "hero:gravy r:m p:<50"
 
-1️⃣ SHORTHAND QUERIES (Recommended):
-   Use the "query" parameter for natural language searches:
-   • "rf cnc alpha wtr" → Rainbow foil Command and Conquer from Alpha WTR
-   • "talent:light,ice type:equipment p:>50" → Light/Ice elemental equipment over $50
-   • "hero:gravy p:<100 rarity:!c" → Gravy-legal cards under $100, exclude commons
-   • "set:wtr,arc talent:!shadow foil:rf" → WTR/ARC sets, exclude shadow, rainbow foil
+Option B — filters object:
+  { "isEquipment": true, "heroLegal": "dash", "priceMax": 20 }
 
-2️⃣ STRUCTURED FILTERS (Advanced):
-   Use individual filter parameters for programmatic searches
+Shorthand: pitch:1/red/yellow/blue, t:attack/equipment, r:m/l, set:wtr, foil:rf/cf, hero:gravy, power>3, cost:2, p:<25
 
-📚 SHORTHAND SYNTAX GUIDE:
-- Price: p:<10, p:>50, p:25 
-- Types: type:equipment, t:!generic, type:necromancer,!weapon
-- Talents: talent:light, tal:i,e, talent:!shadow
-- Rarities: r:m,l, rarity:!c, r!f
-- Sets: set:wtr,arc, set:!out
-- Foiling: foil:rf,cf, f:!s
-- Heroes: hero:gravy, hero:oldhim
-- Colors: color:red, color:!blue
-- Stats: power>3, cost:2, defense<4
+Examples:
+search_printings({ cards: [{ query: "pummel red" }, { query: "pummel yellow" }, { query: "sink below blue" }] })
+search_printings({ cards: [{ filters: { isEquipment: true, heroLegal: "dash", priceMax: 30 } }], options: { limit: 20 } })
+search_printings({ cards: [{ query: "command and conquer rf wtr alpha" }] })`,
 
-🚨 REQUIREMENTS: Complete setup first!
-1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
-2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
-
-💡 The shorthand parser automatically handles abbreviations, operators, and converts natural queries into optimized database searches.
-
-⭐ Use shorthand for human-readable queries, structured filters for programmatic access.`,
-  
   parameters: {
     type: 'object',
     properties: {
-      // REQUIRED: Setup confirmation parameter
-      _resourcesConfirmed: {
-        type: 'boolean',
-        description: 'REQUIRED: Must be set to true after reading both fab://constants and searchable://card/fields resources via read_mandatory_constants_first tool. This confirms you have loaded the necessary abbreviations and search capabilities.',
-        default: false
+      cards: {
+        type: 'array',
+        minItems: 1,
+        description: 'One entry per card. Batch everything — never call in a loop.',
+        items: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Shorthand query string. e.g. "pummel red", "rf cnc wtr alpha", "hero:gravy r:m".',
+            },
+            filters: {
+              type: 'object',
+              description: 'Structured filters for complex searches.',
+              properties: {
+                name:             { type: 'string' },
+                text:             { type: 'string' },
+                searchableText:   { type: 'string' },
+                exact:            { type: 'boolean' },
+                collectorNumber:  { type: 'string' },
+                printingIds:      { type: 'string' },
+                cardUniqueId:     { type: 'string' },
+                cardUniqueIds:    { type: 'string' },
+                sets:             { type: 'array', items: { type: 'string' } },
+                types:            { type: 'array', items: { type: 'string' } },
+                classes:          { type: 'array', items: { type: 'string' } },
+                talents:          { type: 'array', items: { type: 'string' } },
+                talentsAll:       { type: 'array', items: { type: 'string' } },
+                keywords:         { type: 'array', items: { type: 'string' } },
+                traits:           { type: 'array', items: { type: 'string' } },
+                color:            { type: 'string', enum: ['red', 'yellow', 'blue'] },
+                pitch:            { type: ['number', 'array'], description: '1=red, 2=yellow, 3=blue' },
+                power:            { type: ['number', 'array'] },
+                powerMin:         { type: 'number' },
+                powerMax:         { type: 'number' },
+                cost:             { type: ['number', 'array'] },
+                costs:            { type: 'array', items: { type: 'number' } },
+                costMin:          { type: 'number' },
+                costMax:          { type: 'number' },
+                defense:          { type: ['number', 'array'] },
+                defenseMin:       { type: 'number' },
+                defenseMax:       { type: 'number' },
+                rarities:         { type: 'array', items: { type: 'string' } },
+                foilings:         { type: 'array', items: { type: 'string' } },
+                editions:         { type: 'array', items: { type: 'string' } },
+                artists:          { type: 'array', items: { type: 'string' } },
+                priceMin:         { type: 'number' },
+                priceMax:         { type: 'number' },
+                priceField:       { type: 'string', enum: ['tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market'] },
+                heroLegal:        { type: 'string', description: 'Hero name — returns cards legal for that hero' },
+                heroClasses:      { type: 'array', items: { type: 'string' } },
+                heroTalents:      { type: 'array', items: { type: 'string' } },
+                heroEssences:     { type: 'array', items: { type: 'string' } },
+                excludeClasses:   { type: 'array', items: { type: 'string' } },
+                excludeTalents:   { type: 'array', items: { type: 'string' } },
+                format:           { type: 'string', enum: ['blitz', 'cc', 'commoner', 'll', 'silver_age'] },
+                includeBanned:    { type: 'boolean' },
+                includeSuspended: { type: 'boolean' },
+                // Negation
+                setsNot:      { type: 'array', items: { type: 'string' } },
+                typesNot:     { type: 'array', items: { type: 'string' } },
+                raritiesNot:  { type: 'array', items: { type: 'string' } },
+                foilingsNot:  { type: 'array', items: { type: 'string' } },
+                editionsNot:  { type: 'array', items: { type: 'string' } },
+                colorNot:     { type: 'array', items: { type: 'string' } },
+                classesNot:   { type: 'array', items: { type: 'string' } },
+                keywordsNot:  { type: 'array', items: { type: 'string' } },
+                textNot:      { type: 'string' },
+                talentsNot:   { type: 'array', items: { type: 'string' } },
+                // Boolean convenience filters
+                isAction: { type: 'boolean' }, isAttack: { type: 'boolean' },
+                isDefenseReaction: { type: 'boolean' }, isInstant: { type: 'boolean' },
+                isEquipment: { type: 'boolean' }, isWeapon: { type: 'boolean' },
+                isHero: { type: 'boolean' }, isMentor: { type: 'boolean' }, isToken: { type: 'boolean' },
+                isGeneric: { type: 'boolean' }, isBrute: { type: 'boolean' },
+                isGuardian: { type: 'boolean' }, isMechanologist: { type: 'boolean' },
+                isRanger: { type: 'boolean' }, isRuneblade: { type: 'boolean' },
+                isAssassin: { type: 'boolean' }, isWarrior: { type: 'boolean' },
+                isNinja: { type: 'boolean' }, isWizard: { type: 'boolean' },
+                isMerchant: { type: 'boolean' }, isBard: { type: 'boolean' },
+                isAdjudicator: { type: 'boolean' }, isIllusionist: { type: 'boolean' },
+                isThief: { type: 'boolean' }, isShapeshifter: { type: 'boolean' },
+                isNecromancer: { type: 'boolean' },
+                hasChaos: { type: 'boolean' }, hasLight: { type: 'boolean' },
+                hasRoyal: { type: 'boolean' }, hasDraconic: { type: 'boolean' },
+                hasLightning: { type: 'boolean' }, hasShadow: { type: 'boolean' },
+                hasEarth: { type: 'boolean' }, hasMystic: { type: 'boolean' },
+                hasRevered: { type: 'boolean' }, hasIce: { type: 'boolean' },
+                hasReviled: { type: 'boolean' }, hasPirate: { type: 'boolean' },
+                hasElemental: { type: 'boolean' },
+                isGenericOnly: { type: 'boolean' }, hasClassAndTalent: { type: 'boolean' },
+                hasClassOnly: { type: 'boolean' }, hasTalentOnly: { type: 'boolean' },
+                isFirstEdition: { type: 'boolean' }, isUnlimited: { type: 'boolean' },
+                isNormalEdition: { type: 'boolean' },
+                isNormalFoil: { type: 'boolean' }, isRainbowFoil: { type: 'boolean' },
+                isColdFoil: { type: 'boolean' },
+                isCommon: { type: 'boolean' }, isRare: { type: 'boolean' },
+                isSuperRare: { type: 'boolean' }, isMajestic: { type: 'boolean' },
+                isLegendary: { type: 'boolean' }, isFabled: { type: 'boolean' },
+                isPromo: { type: 'boolean' }, isBudget: { type: 'boolean' },
+                isUnder5: { type: 'boolean' }, isUnder10: { type: 'boolean' },
+                isUnder25: { type: 'boolean' }, isUnder50: { type: 'boolean' },
+                isUnder100: { type: 'boolean' }, isExpensive: { type: 'boolean' },
+                isPremium: { type: 'boolean' }, hasProductId: { type: 'boolean' },
+              },
+            },
+          },
+        },
       },
-
-      // NEW: Primary shorthand query parameter
-      query: {
-        type: 'string',
-        description: `Natural language shorthand query string. Examples:
-        • "talent:light p:<25 rarity:m type:equipment"
-        • "rf cnc alpha wtr" 
-        • "hero:gravy p:<100 rarity:!c"
-        • "set:wtr,arc talent:!shadow foil:rf"
-        • "blue wizard instant under $10"
-        
-        Supports all shorthand syntax from FABShorthandParser including:
-        - Price operators: p:<10, p:>50, p:25
-        - Type filters: type:equipment, t:!generic  
-        - Talent filters: talent:light, tal:i,e
-        - Negation: !, -, "not" keywords
-        - Abbreviations: rf=rainbow foil, cnc=command and conquer, etc.`
-      },
-      
-      // EXISTING: All structured filter parameters (unchanged for backward compatibility)
-      filters: {
-        type: 'object',
-        properties: {
-          // Text searches
-          name: { type: 'string', description: 'Card name' },
-          text: { type: 'string', description: 'Search in card text' },
-          searchableText: { type: 'string', description: 'Search across all text fields' },
-          exact: { type: 'boolean', description: 'Exact name match' },
-          
-          // Card identification
-          collectorNumber: { type: 'string', description: 'Collector number (e.g. WTR216, ARC000) or comma-separated list' },
-          printingIds: { type: 'string', description: 'MongoDB-style printing IDs or comma-separated list' },
-          cardUniqueId: { type: 'string', description: 'Unique card identifier' },
-          cardUniqueIds: { type: 'string', description: 'Comma-separated list of unique card identifiers' },
-          
-          // Card attributes
-          types: { 
-            type: 'array', 
-            items: { type: 'string' },
-            description: 'Card types including classes'
-          },
-          classes: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Specific classes (guardian, necromancer, etc.)'
-          },
-          talents: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Talents/essences — card must have ANY of these (OR logic). Use talentsAll for AND logic.'
-          },
-          talentsAll: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Card must have ALL of these talents (AND logic / subset match). Use for multi-talent requirements like ["light", "ice"].'
-          },
-          traits: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Card traits'
-          },
-          keywords: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Card keywords (go again, dominate, stealth, phantasm, etc.)'
-          },
-          color: {
-            type: 'string', 
-            enum: ['blue', 'red', 'yellow'],
-            description: 'Card color'
-          },
-          
-          // Stats
-          power: { type: ['number', 'array'], description: 'Exact power value(s)' },
-          powerMin: { type: 'number', description: 'Minimum power' },
-          powerMax: { type: 'number', description: 'Maximum power' },
-          powerNot: { type: 'array', items: { type: 'number' }, description: 'Power values to exclude' },
-          cost: { type: ['number', 'array'], description: 'Exact cost value(s)' },
-          costs: { type: 'array', items: { type: 'number' }, description: 'Match any of these exact cost values (e.g. [0,1,2] for budget cards)' },
-          costMin: { type: 'number', description: 'Minimum cost' },
-          costMax: { type: 'number', description: 'Maximum cost' },
-          costNot: { type: 'array', items: { type: 'number' }, description: 'Cost values to exclude' },
-          defense: { type: ['number', 'array'], description: 'Exact defense value(s)' },
-          defenseMin: { type: 'number', description: 'Minimum defense' },
-          defenseMax: { type: 'number', description: 'Maximum defense' },
-          defenseNot: { type: 'array', items: { type: 'number' }, description: 'Defense values to exclude' },
-          pitch: { type: ['number', 'array'], description: 'Pitch value(s) — 1=red, 2=yellow, 3=blue' },
-          
-          // Printing attributes
-          sets: { type: 'array', items: { type: 'string' }, description: 'Set codes' },
-          editions: { type: 'array', items: { type: 'string' }, description: 'Edition types' },
-          foilings: { type: 'array', items: { type: 'string' }, description: 'Foiling types' },
-          rarities: { type: 'array', items: { type: 'string' }, description: 'Rarity codes' },
-          artists: { type: 'array', items: { type: 'string' }, description: 'Artist names' },
-          
-          // Price filters
-          priceMin: { type: 'number', description: 'Minimum price in USD' },
-          priceMax: { type: 'number', description: 'Maximum price in USD' },
-          priceField: {
-            type: 'string',
-            enum: ['tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market'],
-            description: 'Price field to use for filtering'
-          },
-          
-          // Hero-based filtering
-          heroLegal: { type: 'string', description: 'Hero name — returns cards legal for that hero (OR logic across hero classes/talents)' },
-          heroClasses: { type: 'array', items: { type: 'string' }, description: 'Precise hero filtering: card classes must overlap with these (use with heroTalents for deck legality)' },
-          heroTalents: { type: 'array', items: { type: 'string' }, description: 'Precise hero filtering: card talents must be a subset of these' },
-          heroEssences: { type: 'array', items: { type: 'string' }, description: 'Elemental essences the hero supports' },
-          excludeClasses: { type: 'array', items: { type: 'string' }, description: 'Classes to exclude from results' },
-          excludeTalents: { type: 'array', items: { type: 'string' }, description: 'Talents to exclude from results' },
-
-          // Format legality
-          format: {
-            type: 'string',
-            enum: ['blitz', 'cc', 'commoner', 'll', 'silver_age'],
-            description: 'Format legality filter'
-          },
-          includeBanned: { type: 'boolean', description: 'Include banned cards' },
-          includeSuspended: { type: 'boolean', description: 'Include suspended cards' },
-          
-          // Negation filters
-          colorNot: { type: 'array', items: { type: 'string' }, description: 'Colors to exclude' },
-          raritiesNot: { type: 'array', items: { type: 'string' }, description: 'Rarities to exclude' },
-          setsNot: { type: 'array', items: { type: 'string' }, description: 'Sets to exclude' },
-          foilingsNot: { type: 'array', items: { type: 'string' }, description: 'Foilings to exclude' },
-          editionsNot: { type: 'array', items: { type: 'string' }, description: 'Editions to exclude' },
-          typesNot: { type: 'array', items: { type: 'string' }, description: 'Types to exclude' },
-          classesNot: { type: 'array', items: { type: 'string' }, description: 'Classes to exclude' },
-          keywordsNot: { type: 'array', items: { type: 'string' }, description: 'Keywords to exclude' },
-          textNot: { type: 'string', description: 'Text to exclude (substring match)' },
-          talentsNot: { type: 'array', items: { type: 'string' }, description: 'Talents to exclude' },
-          
-          // Boolean convenience filters (extensive list maintained for backward compatibility)
-          isAction: { type: 'boolean' },
-          isAttack: { type: 'boolean' },
-          isDefenseReaction: { type: 'boolean' },
-          isInstant: { type: 'boolean' },
-          isEquipment: { type: 'boolean' },
-          isWeapon: { type: 'boolean' },
-          isHero: { type: 'boolean' },
-          isMentor: { type: 'boolean' },
-          isToken: { type: 'boolean' },
-          
-          // Boolean class filters
-          isGeneric: { type: 'boolean' },
-          isBrute: { type: 'boolean' },
-          isGuardian: { type: 'boolean' },
-          isMechanologist: { type: 'boolean' },
-          isRanger: { type: 'boolean' },
-          isRuneblade: { type: 'boolean' },
-          isAssassin: { type: 'boolean' },
-          isWarrior: { type: 'boolean' },
-          isNinja: { type: 'boolean' },
-          isWizard: { type: 'boolean' },
-          isMerchant: { type: 'boolean' },
-          isBard: { type: 'boolean' },
-          isAdjudicator: { type: 'boolean' },
-          isIllusionist: { type: 'boolean' },
-          isThief: { type: 'boolean' },
-          isShapeshifter: { type: 'boolean' },
-          isNecromancer: { type: 'boolean' },
-          
-          // Boolean talent filters
-          hasChaos: { type: 'boolean' },
-          hasLight: { type: 'boolean' },
-          hasRoyal: { type: 'boolean' },
-          hasDraconic: { type: 'boolean' },
-          hasLightning: { type: 'boolean' },
-          hasShadow: { type: 'boolean' },
-          hasEarth: { type: 'boolean' },
-          hasMystic: { type: 'boolean' },
-          hasRevered: { type: 'boolean' },
-          hasIce: { type: 'boolean' },
-          hasReviled: { type: 'boolean' },
-          hasPirate: { type: 'boolean' },
-          hasElemental: { type: 'boolean' },
-          
-          // Boolean combination filters
-          isGenericOnly: { type: 'boolean' },
-          hasClassAndTalent: { type: 'boolean' },
-          hasClassOnly: { type: 'boolean' },
-          hasTalentOnly: { type: 'boolean' },
-          
-          // Boolean edition filters
-          isFirstEdition: { type: 'boolean' },
-          isUnlimited: { type: 'boolean' },
-          isNormalEdition: { type: 'boolean' },
-          
-          // Boolean foiling filters
-          isNormalFoil: { type: 'boolean' },
-          isRainbowFoil: { type: 'boolean' },
-          isColdFoil: { type: 'boolean' },
-          
-          // Boolean rarity filters
-          isCommon: { type: 'boolean' },
-          isRare: { type: 'boolean' },
-          isSuperRare: { type: 'boolean' },
-          isMajestic: { type: 'boolean' },
-          isLegendary: { type: 'boolean' },
-          isFabled: { type: 'boolean' },
-          isPromo: { type: 'boolean' },
-          
-          // Boolean price filters
-          isBudget: { type: 'boolean' },
-          isUnder5: { type: 'boolean' },
-          isUnder10: { type: 'boolean' },
-          isUnder25: { type: 'boolean' },
-          isUnder50: { type: 'boolean' },
-          isUnder100: { type: 'boolean' },
-          isExpensive: { type: 'boolean' },
-          isPremium: { type: 'boolean' },
-          
-          // Data availability filters
-          hasProductId: { type: 'boolean' }
-        }
-      },
-      
       options: {
         type: 'object',
+        description: 'Pagination/sort for complex filter searches.',
         properties: {
-          limit: { 
-            type: 'number', 
-            default: 12, 
-            minimum: 1,
-            maximum: 100,
-            description: 'Number of results to return (1-100)' 
-          },
-          page: { 
-            type: 'number', 
-            default: 1, 
-            minimum: 1,
-            description: 'Page number for pagination' 
-          },
-          sortBy: {
-            type: 'string',
-            enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'relevance'],
-            description: 'Field to sort results by'
-          },
-          sortOrder: {
-            type: 'string',
-            enum: ['asc', 'desc'],
-            description: 'Sort order: ascending or descending'
-          },
-          show: {
-            type: 'string',
-            enum: ['all', 'summary', 'gameplay', 'identifiers'],
-            default: 'summary',
-            description: 'Hint for response verbosity (note: currently all modes return full data — use limit to control token usage)'
-          }
-        }
-      }
+          limit:     { type: 'number', default: 12, minimum: 1, maximum: 100 },
+          page:      { type: 'number', default: 1, minimum: 1 },
+          sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'relevance'] },
+          sortOrder: { type: 'string', enum: ['asc', 'desc'] },
+        },
+      },
     },
-    required: ['_resourcesConfirmed']
+    required: ['cards'],
   },
 
-  handler: async ({ query, filters = {}, options = {} }) => {
-    console.log('🔍 ENHANCED SEARCH PRINTINGS TOOL EXECUTION START');
-    console.log('📥 Raw query string:', query);
-    console.log('📥 Structured filters:', JSON.stringify(filters, null, 2));
-    console.log('📥 Options:', JSON.stringify(options, null, 2));
+  async handler({ cards, options = {} }: { cards: Array<{ query?: string; filters?: any }>; options?: any }) {
+    const startTime = Date.now();
 
-    try {
-      const startTime = Date.now();
-      let finalFilters: PrintingsSearchFilters = {};
-      let parseInfo = '';
+    // Resolve each card to filters + simple/complex classification
+    const resolved = cards.map(resolveCardFilters);
 
-      // PRIMARY: Handle shorthand query if provided
-      if (query && query.trim()) {
-        console.log('🎯 Processing shorthand query:', query);
-        
-        try {
-          const parseResult = shorthandParser.parseQuery(query.trim());
-          finalFilters = parseResult.filters;
-          
-          parseInfo = `
-🎯 Shorthand Query Parsed: "${query}"
-📝 Extracted Filters: ${JSON.stringify(parseResult.parsedTokens, null, 2)}
-${parseResult.remainingText ? `📋 Remaining Text: "${parseResult.remainingText}"` : ''}
-`;
+    // ── Tier 1: simple name+pitch cards → one bulkResolveByName query ─────────
+    const simpleIndices = resolved
+      .map((r, i) => (r.isSimple && r.simpleName ? i : -1))
+      .filter(i => i >= 0);
 
-          console.log('✅ Shorthand parsing successful:', parseResult);
-        } catch (parseError) {
-          console.warn('⚠️ Shorthand parsing failed, falling back to name search:', parseError);
-          // Fallback: treat query as name search
-          finalFilters = { name: query.trim() };
-          parseInfo = `
-⚠️ Shorthand parsing failed, using as name search: "${query}"
-`;
-        }
+    const complexIndices = resolved
+      .map((r, i) => (!r.isSimple ? i : -1))
+      .filter(i => i >= 0);
+
+    const bulkInputs = simpleIndices.map(i => ({
+      name: resolved[i].simpleName!,
+      pitch: resolved[i].simplePitch,
+    }));
+
+    const [bulkResult, ...complexResults] = await Promise.all([
+      bulkInputs.length > 0
+        ? printingsService.bulkResolveByName(bulkInputs)
+        : Promise.resolve({ success: true as const, data: [] as any[] }),
+      ...complexIndices.map(i =>
+        printingsService.searchPrintings(resolved[i].filters, {
+          limit: options.limit || 12,
+          page: options.page || 1,
+          sortBy: options.sortBy,
+          sortOrder: options.sortOrder,
+        })
+      ),
+    ]);
+
+    // ── Assemble output ───────────────────────────────────────────────────────
+    const output: Array<{ index: number; query: string; printings: any[]; total: number }> = [];
+
+    simpleIndices.forEach((originalIdx, bulkIdx) => {
+      if (!bulkResult.success) {
+        output.push({ index: originalIdx, query: cards[originalIdx].query || JSON.stringify(cards[originalIdx].filters), printings: [], total: 0 });
+        return;
       }
-
-      // SECONDARY: Merge with structured filters (structured filters override shorthand)
-      if (Object.keys(filters).length > 0) {
-        console.log('🔧 Merging with structured filters');
-        const structuredFilters = convertMCPFiltersToSearchFilters(filters);
-        
-        // Structured filters take precedence over shorthand
-        finalFilters = {
-          ...finalFilters,
-          ...structuredFilters
-        };
-        
-        console.log('🔄 Final merged filters:', JSON.stringify(finalFilters, null, 2));
-      }
-
-      // Search options
-      const searchOptions: PrintingsSearchOptions = {
-        limit: options.limit || 12,
-        page: options.page || 1,
-        sortBy: options.sortBy,
-        sortOrder: options.sortOrder,
-        show: options.show,
-        returnSimplified: options.returnSimplified
-      };
-      
-      console.log('🔄 Search options:', JSON.stringify(searchOptions, null, 2));
-
-      // Execute search using the service layer (PostgreSQL)
-      const serviceResult = await printingsService.searchPrintings(finalFilters, searchOptions);
-
-      if (!serviceResult.success) {
-        throw new Error(serviceResult.error || 'Search failed');
-      }
-
-      const result = serviceResult.data;
-      const duration = Date.now() - startTime;
-      
-      console.log('✅ ENHANCED SEARCH COMPLETED');
-      console.log('📈 Performance metrics:', {
-        totalResults: result.total,
-        returnedResults: result.printings.length,
-        searchDuration: duration,
-        dbQueryTime: result.queryInfo.executionTime,
-        responseMode: options.show || 'all',
-        hadShorthandQuery: !!query,
-        hadStructuredFilters: Object.keys(filters).length > 0
+      const entry = bulkResult.data[bulkIdx];
+      const printings = entry?.printings ?? [];
+      output.push({
+        index: originalIdx,
+        query: cards[originalIdx].query || resolved[originalIdx].simpleName!,
+        printings,
+        total: printings.length,
       });
-      
-      // 🎯 NEW: Format printings with human-readable output
-      const formattedPrintings = result.printings.map(formatPrintingForDisplay).join('\n\n');
-      
-      // Create user-friendly response
-      const responseMessage = result.total === 0 
-        ? `✅ Search completed! Found 0 results.
+    });
 
-                    ${parseInfo}
+    complexIndices.forEach((originalIdx, complexIdx) => {
+      const res = complexResults[complexIdx];
+      const printings = res.success ? (res.data?.printings ?? []) : [];
+      output.push({
+        index: originalIdx,
+        query: cards[originalIdx].query || JSON.stringify(cards[originalIdx].filters),
+        printings,
+        total: res.success ? (res.data?.total ?? printings.length) : 0,
+      });
+    });
 
-                    📊 Query info: ${query ? 'Shorthand query' : 'Direct search'}`
-        : `✅ Search completed! Found ${result.total} result${result.total !== 1 ? 's' : ''}.
+    // Sort back to original input order
+    output.sort((a, b) => a.index - b.index);
 
-                    ${formattedPrintings}
+    const duration = Date.now() - startTime;
+    const totalFound = output.reduce((sum, r) => sum + r.total, 0);
+    const dbPath = simpleIndices.length > 0 && complexIndices.length === 0
+      ? '1 bulk query'
+      : simpleIndices.length > 0
+        ? `1 bulk query + ${complexIndices.length} parallel query${complexIndices.length > 1 ? 's' : ''}`
+        : `${complexIndices.length} parallel query${complexIndices.length > 1 ? 's' : ''}`;
 
-                    📊 Query info: ${query ? 'Shorthand query' : 'Direct search'}`;
-      
-      return {
-        content: [
-          {
-            type: 'text',
-            text: responseMessage
-          }
-        ]
-      };
+    const sections = output.map(r => {
+      const label = r.query;
+      if (r.printings.length === 0) {
+        return `🔍 **${label}** — no results`;
+      }
+      const best = sortPrintings(r.printings)[0];
+      const others = r.total > 1 ? ` (+${r.total - 1} more printings)` : '';
+      return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}\n${formatPrinting(best)}${others}`;
+    });
 
-    } catch (error) {
-      console.error('💥 Error in enhanced search_printings:', error);
-      throw new Error(`Enhanced search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
+    return {
+      success: true,
+      message: `Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
+      results: output.map(r => ({
+        index: r.index,
+        query: r.query,
+        total: r.total,
+        printings: r.printings,
+        bestPrinting: r.printings.length > 0 ? sortPrintings(r.printings)[0] : null,
+      })),
+    };
+  },
 };

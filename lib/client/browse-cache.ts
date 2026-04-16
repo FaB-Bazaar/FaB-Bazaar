@@ -99,11 +99,7 @@ export async function getAllPrintings(): Promise<BrowsePrinting[]> {
       return r.json();
     })
     .then((data: { success: boolean; data: { printings: BrowsePrinting[] } }) => {
-      cache = data.data.printings.map(p => ({
-        ...p,
-        image_url: p.image_url?.replace(/^http:\/\//i, 'https://') ?? null,
-        tcgplayer_url: p.tcgplayer_url?.replace(/^http:\/\//i, 'https://') ?? null,
-      }));
+      cache = data.data.printings;
       inflight = null;
       return cache;
     })

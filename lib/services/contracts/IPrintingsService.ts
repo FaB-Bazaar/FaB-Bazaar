@@ -507,6 +507,22 @@ export interface IPrintingsService {
   ): AsyncResult<PrintingsSearchResult>;
 
   /**
+   * Resolve multiple cards by name+pitch in a single DB query.
+   * Returns one best-match printing per input entry.
+   * Entries that match nothing are included with an empty printings array.
+   *
+   * Avoids N sequential searchPrintings calls — use this whenever you need to
+   * look up a batch of cards by name (e.g., MCP deck import, curated list bulk-add).
+   *
+   * `sharedFilters` are applied as AND constraints that wrap the per-card OR clause,
+   * e.g. heroClasses/heroTalents/format for deck-building legality checks.
+   */
+  bulkResolveByName(
+    cards: Array<{ name: string; pitch?: number }>,
+    sharedFilters?: Pick<PrintingsSearchFilters, 'heroClasses' | 'heroTalents' | 'heroEssences' | 'format'>
+  ): AsyncResult<Array<{ name: string; pitch?: number; printings: PrintingDTO[] }>>;
+
+  /**
    * Get single printing by printing_id
    *
    * @param printingId - The printing unique ID

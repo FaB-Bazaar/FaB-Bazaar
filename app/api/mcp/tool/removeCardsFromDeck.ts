@@ -1,5 +1,6 @@
 // app/api/mcp/tool/removeCardsFromDeck.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { resolveDeckByName } from './helpers';
 
 export const removeCardsFromDeckTool = {
   name: 'remove_cards_from_deck',
@@ -80,18 +81,9 @@ export const removeCardsFromDeckTool = {
       if (!printings?.length) return { success: false, error: 'printings array is required and must not be empty.' };
 
       // Resolve deck by name
-      const listRes = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
-      });
-      if (!listRes.ok) return { success: false, error: `Failed to fetch deck list (HTTP ${listRes.status}).` };
-      const listData = await listRes.json();
-      if (!listData.success) return { success: false, error: listData.error || 'Could not load deck list.' };
-
-      const deck = (listData.decks || []).find((d: any) => d.name?.toLowerCase() === deckName.toLowerCase());
-      if (!deck) {
-        const available = (listData.decks || []).map((d: any) => d.name).join(', ');
-        return { success: false, error: `No deck named "${deckName}" found. Available: ${available}` };
-      }
+      const deckResult = await resolveDeckByName(deckName, tokenToUse);
+      if (!deckResult.ok) return { success: false, error: deckResult.error };
+      const deck = deckResult.deck;
 
       // Remove cards
       const res = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/printings/remove`, {
