@@ -13,10 +13,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { generateUniqueBinderSlug } from "@/lib/utils"
-import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2 } from "lucide-react"
+import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus } from "lucide-react"
 
 import { CollectionTile } from "@/components/collection/CollectionTile"
 import BulkTransferDialog from "@/components/collection/BulkTransferDialog"
+import FabraryImportDialog from "@/components/collection/FabraryImportDialog"
 import { CollectionHighlights } from "@/components/collection/EnhancedCollectionDashboard"
 import { InlineCardSearch } from "@/components/collection/InlineCardSearch"
 
@@ -184,6 +185,8 @@ export default function CollectionPage() {
   const [binderToDelete, setBinderToDelete] = useState<any>(null)
   const [transferModalOpen, setTransferModalOpen] = useState(false)
   const [binderToTransfer, setBinderToTransfer] = useState<any>(null)
+  const [importChooserOpen, setImportChooserOpen] = useState(false)
+  const [fabraryImportOpen, setFabraryImportOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -381,6 +384,10 @@ export default function CollectionPage() {
               All Cards
             </Button>
           </Link>
+          <Button variant="outline" onClick={() => setImportChooserOpen(true)} className="w-full sm:w-auto">
+            <Upload className="h-4 w-4 mr-2" />
+            Import Cards
+          </Button>
           <Button onClick={() => setCreateModalOpen(true)} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             New Binder
@@ -643,6 +650,54 @@ export default function CollectionPage() {
         sourceBinder={binderToTransfer}
         binders={binders}
         onTransferComplete={handleTransferComplete}
+      />
+
+      {/* Import method chooser */}
+      <Dialog open={importChooserOpen} onOpenChange={setImportChooserOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Import Cards</DialogTitle>
+          <DialogDescription>Choose how you&apos;d like to add cards.</DialogDescription>
+          <div className="flex flex-col gap-2 mt-2">
+            <Link href="/browse" onClick={() => setImportChooserOpen(false)}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3">
+                <ListPlus className="h-5 w-5 shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium">Bulk Import</div>
+                  <div className="text-xs text-muted-foreground">Paste a decklist or card list</div>
+                </div>
+              </Button>
+            </Link>
+            <Link href="/search" onClick={() => setImportChooserOpen(false)}>
+              <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3">
+                <Search className="h-5 w-5 shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium">Card Search</div>
+                  <div className="text-xs text-muted-foreground">Browse and add individual cards</div>
+                </div>
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-auto py-3"
+              onClick={() => { setImportChooserOpen(false); setFabraryImportOpen(true); }}
+            >
+              <FileText className="h-5 w-5 shrink-0" />
+              <div className="text-left">
+                <div className="font-medium">CSV Import</div>
+                <div className="text-xs text-muted-foreground">Upload a Fabrary collection export</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <FabraryImportDialog
+        open={fabraryImportOpen}
+        onOpenChange={setFabraryImportOpen}
+        onImportComplete={async (binderId) => {
+          const result = await bindersClient.getUserBinders({ includeStats: true })
+          if (result.success) setBinders(result.data.binders || [])
+        }}
       />
     </div>
   )
