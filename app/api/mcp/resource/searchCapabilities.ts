@@ -74,9 +74,12 @@ export const searchCapabilitiesResource = {
         parsing_approach: {
           quantity_extraction: 'Extract numbers like "3x" or "x2" - store for binder use',
           foiling_codes: {
-            'CF': 'Cold Foil → "foilings": ["c"]',
+            'NF': 'Non-Foil / Standard → "foilings": ["s"]  ← most common; also use isNormalFoil: true',
             'RF': 'Rainbow Foil → "foilings": ["r"]',
-            'EA': 'Extended Art → "isExtendedArt": true  (NOT editions: ["f"] — EA is an art treatment stored as is_extended_art=true, separate from edition/foiling)'
+            'CF': 'Cold Foil → "foilings": ["c"]',
+            'GF': 'Gold Foil → "foilings": ["g"]',
+            'EA': 'Extended Art → "isExtendedArt": true  (NOT editions: ["f"] — EA is an art treatment stored as is_extended_art=true, separate from edition/foiling)',
+            'WARNING': 'r = Rainbow Foil, NOT non-foil. Non-foil is "s" (Standard). Using "r" for non-foil will return RF cards or 0 results.'
           },
           special_indicators: {
             '(Marvel)': [

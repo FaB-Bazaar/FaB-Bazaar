@@ -77,8 +77,15 @@ export const fabConstantsResource = {
     foiling_mappings: {
       description: "Use these abbreviations for foiling searches:",
       mappings: FOILING_MAP,
-      search_codes: { r: 'Rainbow Foil', c: 'Cold Foil', s: 'Standard/Non-foil', g: 'Gold Foil' },
-      shorthand_examples: ['foil:rf', 'foil:cf', 'f:!s', 'foil:r,c']
+      search_codes: { s: 'Standard/Non-foil (NF)', r: 'Rainbow Foil (RF)', c: 'Cold Foil (CF)', g: 'Gold Foil (GF)' },
+      CRITICAL_WARNING: 'r = Rainbow Foil, NOT non-foil. NF/non-foil must use "s" (Standard). Using "r" for non-foil cards will return Rainbow Foil printings or 0 results.',
+      filters_array_values: {
+        'foilings: ["s"]': 'Non-foil / Standard (most common deck cards)',
+        'foilings: ["r"]': 'Rainbow Foil only',
+        'foilings: ["c"]': 'Cold Foil only',
+        'foilings: ["g"]': 'Gold Foil only',
+      },
+      shorthand_query_tokens: { nf: '→ foilings:["s"]', rf: '→ foilings:["r"]', cf: '→ foilings:["c"]', gf: '→ foilings:["g"]' },
     },
     
     edition_mappings: {

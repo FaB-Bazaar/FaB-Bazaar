@@ -1395,8 +1395,9 @@ The new tool provides the same functionality with better guidance for proper wor
               jsonrpc: '2.0',
               id,
               result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Search complete.' : 'Search returned no results.') }],
+                isError: !result.success,
                 ...result,
-                isError: false
               }
             }, { headers: corsHeaders() });
             
