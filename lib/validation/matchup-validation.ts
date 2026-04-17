@@ -173,12 +173,15 @@ function buildValidationContext(deck: any): ValidationContext {
   const sideboardCards = new Map<string, number>();
   let mainDeckTotal = 0;
 
-  // Count main deck cards (hero + equipment + maindeck) — respect quantity field
+  // Build mainDeckCards map from hero + equipment + maindeck (for out[] validation)
+  // but mainDeckTotal only counts non-hero cards — hero is not part of the library size
   [...(deck.hero || []), ...(deck.equipment || []), ...(deck.maindeck || [])].forEach(printing => {
     const cardId = buildTalisharIdentifier(printing, printing.printingId);
     const qty = printing.quantity || 1;
     mainDeckCards.set(cardId, (mainDeckCards.get(cardId) || 0) + qty);
-    mainDeckTotal += qty;
+  });
+  [...(deck.equipment || []), ...(deck.maindeck || [])].forEach(printing => {
+    mainDeckTotal += printing.quantity || 1;
   });
 
   // Count sideboard cards (inventory) — respect quantity field
