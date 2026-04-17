@@ -29,28 +29,7 @@ def load_printings_data(filepath: Path) -> Optional[Dict]:
         print(f"Error: File not found at {filepath}")
         return None
     print(f" -> Loaded {len(data):,} records.")
-
-    # Deduplicate double-sided cards: both faces share set_printing_unique_id
-    # but have different printing_ids. Keep the face with the higher tcg_low.
-    seen = {}
-    deduped = {}
-    for pid, record in data.items():
-        dedup_key = record.get('set_printing_unique_id') or \
-            f"{record.get('card_unique_id')}|{record.get('set')}|{record.get('foiling')}|{record.get('rarity')}"
-        if dedup_key in seen:
-            existing = deduped[seen[dedup_key]]
-            if (record.get('tcg_low') or 0) > (existing.get('tcg_low') or 0):
-                deduped.pop(seen[dedup_key])
-                deduped[pid] = record
-                seen[dedup_key] = pid
-        else:
-            seen[dedup_key] = pid
-            deduped[pid] = record
-
-    dupes = len(data) - len(deduped)
-    if dupes:
-        print(f" -> Removed {dupes} duplicate face(s) of double-sided cards.")
-    return deduped
+    return data
 
 def analyze_price_changes(old_data: Dict, new_data: Dict) -> Dict:
     """Analyze price changes between two datasets using tcg_low only."""
