@@ -11,6 +11,7 @@ export const saveDeckMatchupTool = {
   preferred turn order, and strategy notes.
 
   Use heroId "core" for a special baseline/stripped-down list configuration (no specific opponent).
+  Use heroId "aggro", "fatigue", "combo", or "midrange" for archetype/strategy-based matchup plans.
 
   💡 WORKFLOW:
   Step 1: get_deck — view the decklist (maindeck cards can go in "out", inventory/sideboard cards go in "in")
@@ -19,6 +20,7 @@ export const saveDeckMatchupTool = {
   📦 HERO IDs use Talishar format (lowercase, underscores):
   Examples: "briar_warden_of_thorns", "fai_rising_rebellion", "iyslander_stormbind"
   Special:  "core" — baseline list (no opponent hero)
+            "aggro", "fatigue", "combo", "midrange" — archetype matchup plans
 
   📖 EXAMPLE:
   {
@@ -45,7 +47,7 @@ export const saveDeckMatchupTool = {
       },
       heroId: {
         type: 'string',
-        description: 'Opponent hero in Talishar format, or "core" for the baseline list'
+        description: 'Opponent hero in Talishar format (e.g. "briar_warden_of_thorns"), or one of the special strategy identifiers: "core" (baseline list), "aggro", "fatigue", "combo", "midrange"'
       },
       preferredTurnOrder: {
         type: 'string',

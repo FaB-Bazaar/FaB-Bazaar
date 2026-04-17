@@ -19,6 +19,18 @@ const PITCH_COLOR_MAP: Record<number, string> = {
 };
 
 /**
+ * Special non-hero matchup strategy identifiers allowed in addition to hero IDs.
+ * "core" = baseline/stripped-down list. Others represent archetypal strategies.
+ */
+export const SPECIAL_MATCHUP_IDS = new Set([
+  'core',
+  'aggro',
+  'fatigue',
+  'combo',
+  'midrange',
+]);
+
+/**
  * Build set of valid hero IDs from both HERO_INFO (adult) and YOUNG_HERO_INFO (young)
  * Converts hero names to Talishar format
  */
@@ -86,8 +98,8 @@ export function validateMatchup(
 ): ValidationResult {
   const errors: string[] = [];
 
-  // 1. Hero ID validation ("core" is a special reserved ID for baseline list)
-  if (!matchup.heroId || (matchup.heroId !== 'core' && !VALID_HERO_IDS.has(matchup.heroId))) {
+  // 1. Hero ID validation — allow specific hero IDs or special strategy identifiers
+  if (!matchup.heroId || (!SPECIAL_MATCHUP_IDS.has(matchup.heroId) && !VALID_HERO_IDS.has(matchup.heroId))) {
     errors.push(`Invalid hero ID: ${matchup.heroId}`);
   }
 
