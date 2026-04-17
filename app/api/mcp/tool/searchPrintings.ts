@@ -392,6 +392,34 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
     // Sort back to original input order
     output.sort((a, b) => a.index - b.index);
 
+    // ── Foiling fallback ──────────────────────────────────────────────────────
+    // Some cards (Legendary, Promo) are printed in foil only and return 0
+    // results when foilings: ["s"] is applied. Retry those without the foiling
+    // filter so the client always gets a result, with a note that NF doesn't exist.
+    const foilingFallbackItems = output
+      .filter(r => r.total === 0 && resolved[r.index].filters.foilings?.length);
+
+    if (foilingFallbackItems.length > 0) {
+      const fallbackResults = await Promise.all(
+        foilingFallbackItems.map(r => {
+          const { foilings: _f, foilingsNot: _fn, ...noFoilFilter } = resolved[r.index].filters as any;
+          return printingsService.searchPrintings(noFoilFilter, {
+            limit: options.limit || 12,
+            sortBy: options.sortBy,
+            sortOrder: options.sortOrder,
+          });
+        })
+      );
+      foilingFallbackItems.forEach((r, i) => {
+        const res = fallbackResults[i];
+        if (res.success && res.data.total > 0) {
+          r.printings = res.data.printings;
+          r.total = res.data.total;
+          (r as any).foilingFallback = true;
+        }
+      });
+    }
+
     const duration = Date.now() - startTime;
     const totalFound = output.reduce((sum, r) => sum + r.total, 0);
     const dbPath = simpleIndices.length > 0 && complexIndices.length === 0
@@ -407,7 +435,10 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       }
       const best = sortPrintings(r.printings)[0];
       const others = r.total > 1 ? ` (+${r.total - 1} more printings)` : '';
-      return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}\n${formatPrinting(best)}${others}`;
+      const fallbackNote = (r as any).foilingFallback
+        ? '\n  ⚠️ No non-foil printing exists — showing available foil printing(s) instead'
+        : '';
+      return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${fallbackNote}\n${formatPrinting(best)}${others}`;
     });
 
     return {
@@ -419,6 +450,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
         total: r.total,
         printings: r.printings,
         bestPrinting: r.printings.length > 0 ? sortPrintings(r.printings)[0] : null,
+        foilingFallback: (r as any).foilingFallback ?? false,
       })),
     };
   },

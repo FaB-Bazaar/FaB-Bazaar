@@ -787,8 +787,14 @@ export default function DeckEditorPage() {
   };
 
   const [upgradeResult, setUpgradeResult] = useState<Array<{ cardName: string; color: string | null }> | null>(null);
+  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
-  const handleUpgradePrintings = async () => {
+  const handleUpgradePrintings = () => {
+    setShowUpgradeConfirm(true);
+  };
+
+  const doUpgradePrintings = async () => {
+    setShowUpgradeConfirm(false);
     const result = await upgradeToOwnedPrintings(deckId);
     if (result.success) {
       if (result.data.total === 0) {
@@ -2101,6 +2107,32 @@ export default function DeckEditorPage() {
         deckFormat={state.deck?.format}
         currentDeck={state.deck ?? undefined}
       />
+
+      {/* Upgrade printings — confirmation */}
+      {showUpgradeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowUpgradeConfirm(false)}>
+          <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+              <span className="text-white font-semibold">Update to Owned Printings</span>
+              <button onClick={() => setShowUpgradeConfirm(false)} className="text-gray-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-gray-300 text-sm">This will replace the current printings in your deck with printings you own in your binders, for any card where you have a matching owned printing.</p>
+              <p className="text-gray-400 text-sm mt-2">Cards without an owned alternative will not be changed.</p>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-700 flex gap-2 justify-end">
+              <button onClick={() => setShowUpgradeConfirm(false)} className="text-sm px-4 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                Cancel
+              </button>
+              <button onClick={doUpgradePrintings} className="text-sm px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upgrade printings result modal */}
       {upgradeResult && (

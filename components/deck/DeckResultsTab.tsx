@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { Loader2, Sword, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Sword, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GameResultDTO } from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
 import type { DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
@@ -101,6 +101,7 @@ interface GameRowProps {
   isExpanded: boolean;
   onToggle: () => void;
   onHover: (data: HoverCard | null) => void;
+  onDelete?: (id: string) => Promise<void>;
   playerHeroName?: string;
 }
 
@@ -110,8 +111,22 @@ interface TableCellTooltip {
   y: number;
 }
 
-function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, playerHeroName }: GameRowProps) {
+function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, playerHeroName }: GameRowProps) {
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const allCardResults = (game.cardResults as CardResult[] | null) ?? [];
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(game.id);
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  };
   const [tableCellTooltip, setTableCellTooltip] = useState<TableCellTooltip | null>(null);
 
   const cardResultMap = useMemo(() => {
@@ -182,36 +197,69 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
 
   return (
     <div>
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-3 w-full py-2.5 px-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-      >
-        <span className={cn(
-          "shrink-0 w-7 text-center text-xs font-bold px-1.5 py-1 rounded-full",
-          game.result === "win"
-            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
-            : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
-        )}>
-          {game.result === "win" ? "W" : "L"}
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-gray-900 dark:text-white truncate">
-              vs {game.opponentHero ? formatHeroName(game.opponentHero) : "Unknown"}
-            </span>
-            {game.conceded && <span className="text-xs text-gray-400">(conceded)</span>}
+      <div className="group flex items-stretch">
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-3 flex-1 min-w-0 py-2.5 pl-3 pr-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          <span className={cn(
+            "shrink-0 w-7 text-center text-xs font-bold px-1.5 py-1 rounded-full",
+            game.result === "win"
+              ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+              : "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"
+          )}>
+            {game.result === "win" ? "W" : "L"}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium text-gray-900 dark:text-white truncate">
+                vs {game.opponentHero ? formatHeroName(game.opponentHero) : "Unknown"}
+              </span>
+              {game.conceded && <span className="text-xs text-gray-400">(conceded)</span>}
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+              {game.format && <span>Format {game.format}</span>}
+              {game.totalTurns != null && <span>{game.totalTurns} turns</span>}
+              {game.firstPlayer != null && <span>{game.firstPlayer ? "went first" : "went second"}</span>}
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-            {game.format && <span>Format {game.format}</span>}
-            {game.totalTurns != null && <span>{game.totalTurns} turns</span>}
-            {game.firstPlayer != null && <span>{game.firstPlayer ? "went first" : "went second"}</span>}
+          <span className="shrink-0 text-xs text-gray-400">
+            {new Date(game.playedAt).toLocaleDateString()}
+          </span>
+          {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
+        </button>
+
+        {onDelete && (
+          <div className="flex items-center pr-3 pl-2 shrink-0">
+            {deleteConfirm ? (
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Delete?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-red-500 hover:text-red-400 font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400 rounded px-0.5"
+                >
+                  {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setDeleteConfirm(false); }}
+                  className="text-gray-400 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded px-0.5"
+                >
+                  No
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={e => { e.stopPropagation(); setDeleteConfirm(true); }}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                title="Delete this game"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-        </div>
-        <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-          {new Date(game.playedAt).toLocaleDateString()}
-        </span>
-        {isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
-      </button>
+        )}
+      </div>
 
       {isExpanded && (
         <div className="border-t border-gray-100 dark:border-gray-800 px-3 pb-4 pt-3 space-y-4">
@@ -527,6 +575,14 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
   const toggleSection = (id: string) =>
     setCollapsedSections(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+
+  const handleDeleteGame = async (resultId: string) => {
+    const res = await fetch(`/api/decks/${deckId}/results/${resultId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error ?? 'Failed to delete game');
+    setResults(prev => prev.filter(r => r.id !== resultId));
+    setTotal(prev => prev - 1);
+  };
 
   const cardLookup = useMemo(() => buildCardLookup(deck), [deck]);
   const cardSlugLookup = useMemo(() => buildCardSlugLookup(deck), [deck]);
@@ -932,6 +988,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
                 isExpanded={expandedGameId === r.id}
                 onToggle={() => setExpandedGameId(expandedGameId === r.id ? null : r.id)}
                 onHover={setHoveredCard}
+                onDelete={handleDeleteGame}
                 playerHeroName={deck?.hero?.[0]?.printingDetails?.display_name ?? (deck?.heroName ? formatHeroName(deck.heroName) : undefined)}
               />
             ))}

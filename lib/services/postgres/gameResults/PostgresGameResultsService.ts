@@ -1,6 +1,6 @@
 import { db, pool } from '@/lib/postgres/db';
 import { gameResults } from '@/lib/postgres/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { AsyncResult } from '../../contracts/common';
 
@@ -178,6 +178,27 @@ export class PostgresGameResultsService {
         hint: e?.hint,
       });
       return { success: false, error: e?.message ?? String(error) };
+    }
+  }
+
+  async deleteGameResult(
+    resultId: string,
+    deckId: string
+  ): Promise<AsyncResult<void>> {
+    try {
+      const result = await db
+        .delete(gameResults)
+        .where(and(eq(gameResults.id, resultId), eq(gameResults.deckId, deckId)))
+        .returning({ id: gameResults.id });
+
+      if (result.length === 0) {
+        return { success: false, error: 'Game result not found' };
+      }
+      return { success: true, data: undefined };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] Delete failed:', message);
+      return { success: false, error: message };
     }
   }
 }
