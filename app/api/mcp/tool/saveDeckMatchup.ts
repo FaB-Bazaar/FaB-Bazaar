@@ -32,9 +32,15 @@ export const saveDeckMatchupTool = {
     sideboardOut: ["pummel_red", "pummel_yellow"]
   }
 
-  ⚠️ Card IDs in sideboardIn/Out use Talishar format: "{card_name}_{pitch_color}"
+  ⚠️ CRITICAL — sideboardIn and sideboardOut MUST be arrays of card ID strings, NOT prose text:
+  ✅ CORRECT:   sideboardOut: ["pummel_red", "pummel_yellow"]
+  ❌ WRONG:     sideboardOut: "-1x Pummel (red), -1x Pummel (yellow)"   ← never do this
+  ❌ WRONG:     notes: "-2x Pummel, +1x Sink Below"                     ← notes is for strategy text only
+
+  Card IDs use Talishar format: "{card_name}_{pitch_color}"
   e.g. "sink_below_red", "pummel_yellow", "command_and_conquer_blue"
   Non-pitched cards use just the name: "fyendal_spring_tunic"
+  Repeat an ID multiple times to include multiple copies: ["pummel_red", "pummel_red"] = 2× Pummel (red)
 
   If a matchup for this heroId already exists it will be updated (not duplicated).`,
 
@@ -56,17 +62,17 @@ export const saveDeckMatchupTool = {
       },
       notes: {
         type: 'string',
-        description: 'Strategy notes for this matchup (max 500 characters)'
+        description: 'Strategy notes for this matchup (max 500 characters). Plain text only — do NOT put card lists here; use sideboardIn/sideboardOut for card swaps.'
       },
       sideboardIn: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Card IDs to bring in from inventory/sideboard (Talishar format)'
+        description: 'Array of card IDs to bring IN from inventory (Talishar format). Each element is one copy — repeat to include multiples: ["pummel_red","pummel_red"] = 2 copies. MUST be an array, never a string.'
       },
       sideboardOut: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Card IDs to take out of the main deck (Talishar format)'
+        description: 'Array of card IDs to take OUT of the main deck (Talishar format). Each element is one copy — repeat to include multiples. MUST be an array, never a string.'
       }
     },
     required: ['deckName', 'heroId']
@@ -83,15 +89,41 @@ export const saveDeckMatchupTool = {
 
       const {
         deckName,
-        heroId,
+        heroId: rawHeroId,
         preferredTurnOrder = null,
-        notes = null,
-        sideboardIn = [],
-        sideboardOut = [],
+        notes: rawNotes = null,
+        sideboardIn: rawSideboardIn = [],
+        sideboardOut: rawSideboardOut = [],
       } = params;
 
       if (!deckName) return { success: false, error: 'deckName is required.' };
-      if (!heroId) return { success: false, error: 'heroId is required.' };
+      if (!rawHeroId) return { success: false, error: 'heroId is required.' };
+
+      // Normalize and validate heroId — only lowercase letters, digits, underscores allowed
+      const heroId = String(rawHeroId).toLowerCase().trim();
+      if (!/^[a-z0-9_]+$/.test(heroId)) {
+        return { success: false, error: `Invalid heroId "${rawHeroId}". Use lowercase letters, numbers, and underscores only (e.g. "briar_warden_of_thorns", "aggro").` };
+      }
+
+      // Normalize sideboardIn/Out — coerce comma-separated strings into arrays, then sanitize each ID
+      const normalizeCardList = (raw: unknown): string[] => {
+        if (typeof raw === 'string' && raw.trim()) {
+          return raw.split(',').map(s => s.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')).filter(Boolean);
+        }
+        if (Array.isArray(raw)) {
+          return raw.map(s => String(s).trim().toLowerCase().replace(/[^a-z0-9_]/g, '')).filter(Boolean);
+        }
+        return [];
+      };
+      const sideboardIn = normalizeCardList(rawSideboardIn);
+      const sideboardOut = normalizeCardList(rawSideboardOut);
+
+      // Truncate notes to 500 chars
+      const notes = rawNotes ? String(rawNotes).slice(0, 500) : null;
+
+      // Validate valid turn order value
+      const validTurnOrders = [null, 'First', 'Second', 'NoPreference'];
+      const turnOrder = validTurnOrders.includes(preferredTurnOrder) ? preferredTurnOrder : null;
 
       // Resolve deck by name
       const listRes = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
@@ -107,11 +139,17 @@ export const saveDeckMatchupTool = {
         return { success: false, error: `No deck named "${deckName}" found. Available: ${available}` };
       }
 
+      // Validate publicId is safe before using in URL path
+      const publicId = String(deck.publicId || '');
+      if (!/^[a-zA-Z0-9_-]+$/.test(publicId)) {
+        return { success: false, error: 'Unexpected deck ID format.' };
+      }
+
       const matchupPayload = {
         matchup: {
           heroId,
-          preferredTurnOrder: preferredTurnOrder || null,
-          notes: notes || null,
+          preferredTurnOrder: turnOrder,
+          notes,
           sideboard: {
             in: sideboardIn,
             out: sideboardOut,
@@ -120,7 +158,7 @@ export const saveDeckMatchupTool = {
       };
 
       // Try PUT (update) first, fall back to POST (create)
-      const putRes = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/matchups/${heroId}`, {
+      const putRes = await mcpFetch(`${API_BASE_URL}/api/decks/${publicId}/matchups/${heroId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` },
         body: JSON.stringify(matchupPayload)
@@ -131,7 +169,7 @@ export const saveDeckMatchupTool = {
       if (!putRes.ok || !data.success) {
         // If not found (404), create it
         if (putRes.status === 404) {
-          const postRes = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/matchups`, {
+          const postRes = await mcpFetch(`${API_BASE_URL}/api/decks/${publicId}/matchups`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` },
             body: JSON.stringify(matchupPayload)
@@ -154,7 +192,7 @@ export const saveDeckMatchupTool = {
         success: true,
         message: `Saved matchup for "${heroLabel}" on deck "${deck.name}" (${swapSummary})${notes ? `\nNotes: ${notes}` : ''}`,
         deckName: deck.name,
-        publicId: deck.publicId,
+        publicId,
         heroId,
       };
 

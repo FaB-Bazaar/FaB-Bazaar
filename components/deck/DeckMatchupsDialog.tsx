@@ -91,6 +91,13 @@ const TURN_ORDER_OPTIONS = [
 
 const CORE_HERO_ID = "core";
 
+const STRATEGY_MATCHUP_IDS: Record<string, string> = {
+  aggro:    'Aggro',
+  fatigue:  'Fatigue',
+  combo:    'Combo',
+  midrange: 'Midrange',
+};
+
 // ─────────────────────────────────────────────────────────
 // Config panel — collapsible sidebar on all breakpoints
 // ─────────────────────────────────────────────────────────
@@ -609,6 +616,7 @@ export default function DeckMatchupsDialog({
 
   const getHeroDisplayName = (heroId: string) => {
     if (heroId === CORE_HERO_ID) return "Core";
+    if (STRATEGY_MATCHUP_IDS[heroId]) return STRATEGY_MATCHUP_IDS[heroId];
 
     // First try current format's hero options
     let hero = HERO_OPTIONS.find(h => h.talisharId === heroId);
@@ -697,20 +705,29 @@ export default function DeckMatchupsDialog({
                 .sort((a, b) => {
                   if (a.heroId === CORE_HERO_ID) return -1;
                   if (b.heroId === CORE_HERO_ID) return 1;
+                  const aIsStrategy = !!STRATEGY_MATCHUP_IDS[a.heroId];
+                  const bIsStrategy = !!STRATEGY_MATCHUP_IDS[b.heroId];
+                  if (aIsStrategy && !bIsStrategy) return -1;
+                  if (!aIsStrategy && bIsStrategy) return 1;
                   return getHeroDisplayName(a.heroId).localeCompare(getHeroDisplayName(b.heroId));
                 })
                 .map((matchup) => {
                 const isCore = matchup.heroId === CORE_HERO_ID;
-                const heroImg = !isCore ? heroImageMap.get(matchup.heroId) : undefined;
+                const isStrategy = !!STRATEGY_MATCHUP_IDS[matchup.heroId];
+                const heroImg = !isCore && !isStrategy ? heroImageMap.get(matchup.heroId) : undefined;
                 return (
                   <Card key={matchup.heroId}>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
-                          {/* Hero card art thumbnail (cropped to top) — or Bookmark for Core */}
+                          {/* Hero card art thumbnail (cropped to top) — or icon for Core/Strategy */}
                           {isCore ? (
                             <div className="w-10 h-12 flex-shrink-0 rounded bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center border border-blue-200 dark:border-blue-800">
                               <Bookmark className="h-5 w-5 text-blue-400" />
+                            </div>
+                          ) : isStrategy ? (
+                            <div className="w-10 h-12 flex-shrink-0 rounded bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center border border-purple-200 dark:border-purple-800">
+                              <Swords className="h-5 w-5 text-purple-400" />
                             </div>
                           ) : heroImg ? (
                             <div className="w-10 h-12 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700">
