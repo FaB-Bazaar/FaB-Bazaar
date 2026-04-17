@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import { getHeroInfo, SET_MAP } from "@/lib/fab-constants";
+import { SET_IMAGES } from "@/lib/set-images";
 import { getApiFormatCode } from "@/lib/format-constants";
 import { sortPrintings, CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
@@ -37,6 +38,8 @@ interface QuickAddCardDialogProps {
   pitchFilter?: 1 | 2 | 3;
   deckFormat?: string;
   currentDeck?: any;
+  /** If set, pre-fills the search input when the dialog opens */
+  initialSearch?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -234,7 +237,7 @@ function PrintingTile({
         onMouseUp={() => { if (!didDrag.current) onSelect(p); }}
         onKeyDown={e => e.key === "Enter" && onSelect(p)}
       >
-        <div className="rounded overflow-hidden w-full" style={{ aspectRatio: "63/88" }}>
+        <div className="relative rounded overflow-hidden w-full" style={{ aspectRatio: "63/88" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={p.image_url || "/cardback.webp"}
@@ -242,6 +245,11 @@ function PrintingTile({
             className="w-full h-full object-cover object-top"
             draggable={false}
           />
+          {isSelected && (
+            <div className="absolute top-1.5 right-1.5 bg-blue-500 rounded-full p-0.5">
+              <Check className="h-3 w-3 text-white" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -259,10 +267,19 @@ function PrintingTile({
 
       {/* Info */}
       <div className="flex flex-col items-center gap-0.5 py-1.5 flex-1">
-        <span className="text-[9px] font-mono text-gray-300 text-center leading-tight w-full truncate px-0.5">
+        <span className="text-xs font-mono text-gray-300 leading-tight truncate w-full px-1">
           {collectorLabel(p)}
         </span>
-        <PrintingBadges p={p} />
+        <div className="flex items-center justify-center gap-2 w-full px-1">
+          {SET_IMAGES[(p.set || '').toLowerCase()] && (
+            <img
+              src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${SET_IMAGES[(p.set || '').toLowerCase()]}/public`}
+              alt={p.set || ''}
+              className="w-14 h-14 object-contain flex-shrink-0"
+            />
+          )}
+          <PrintingBadges p={p} />
+        </div>
         {price != null && price > 0 ? (
           <span className="text-[10px] text-green-400 font-medium">${price.toFixed(2)}</span>
         ) : (
@@ -548,6 +565,7 @@ export default function QuickAddCardDialog({
   pitchFilter,
   deckFormat,
   currentDeck,
+  initialSearch,
 }: QuickAddCardDialogProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -595,6 +613,7 @@ export default function QuickAddCardDialog({
   const [justAdded, setJustAdded] = useState(false);
   const printingsDrag = useDragScroll();
   const inputRef = useRef<HTMLInputElement>(null);
+  const didAutoSelectRef = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Derive hero classes + talents for precise legal filtering.
@@ -650,8 +669,8 @@ export default function QuickAddCardDialog({
 
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setDebouncedQuery("");
+      setQuery(initialSearch ?? "");
+      setDebouncedQuery(initialSearch ?? "");
       setSelectedType(null);
       setSelectedPitch(pitchFilter ?? null);
       setSelectedKeyword(null);
@@ -660,7 +679,11 @@ export default function QuickAddCardDialog({
       setError(null);
       setEnlargedImage(null);
       setAvailableTypes(null);
+      didAutoSelectRef.current = false;
       setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setQuery("");
+      setDebouncedQuery("");
     }
   }, [open, pitchFilter]);
 
@@ -735,11 +758,21 @@ export default function QuickAddCardDialog({
     // Name search or hero/equipment — always fetch fresh (no cache)
     const params = new URLSearchParams();
     const rawQuery = debouncedQuery.trim();
-    if (hasQuery) params.set("q", rawQuery);
+    if (hasQuery) {
+      if (initialSearch) {
+        // Swap mode: use name= directly so exact flag applies — shorthand parser puts
+        // plain text into searchableText which bypasses the exact check in the service
+        params.set("name", rawQuery);
+        params.set("exact", "true");
+      } else {
+        params.set("q", rawQuery);
+      }
+    }
     // Pure filter queries (e.g. "color:blue keyword:go again") get a full browse limit;
     // name searches get a smaller limit so closest matches surface first.
-    const isFilterOnly = hasQuery && shorthandParser.parseQuery(rawQuery).remainingText.trim() === "";
-    params.set("limit", (!hasQuery || isFilterOnly) ? "500" : "15");
+    // Swap mode (initialSearch) needs a higher limit to show all printings of one card.
+    const isFilterOnly = hasQuery && !initialSearch && shorthandParser.parseQuery(rawQuery).remainingText.trim() === "";
+    params.set("limit", initialSearch ? "100" : (!hasQuery || isFilterOnly) ? "500" : "15");
     params.set("sortBy", "name");
     params.set("sortOrder", "asc");
     params.set("show", "all");
@@ -791,6 +824,15 @@ export default function QuickAddCardDialog({
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery, selectedType, effectiveType, selectedPitch, effectivePitch, selectedKeyword, selectedSets.join(","), effectiveSets.join(","), targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
+
+  // Auto-select card when opening in swap mode and search returns exactly one result.
+  // Uses a ref so Escape can clear selectedCard without triggering re-selection.
+  useEffect(() => {
+    if (initialSearch && cards.length === 1 && !didAutoSelectRef.current) {
+      didAutoSelectRef.current = true;
+      setSelectedCard(cards[0]);
+    }
+  }, [cards, initialSearch]);
 
   // Sync selectedPrinting when card selection changes — use sortPrintings to pick the best default
   useEffect(() => {
@@ -1149,8 +1191,8 @@ export default function QuickAddCardDialog({
               </div>
             )}
 
-            {/* Card grid */}
-            <div className="flex-1 min-h-0 relative">
+            {/* Card grid — hidden while a card's printings are showing */}
+            <div className={cn("flex-1 min-h-0 relative", selectedCard && "hidden")}>
             {showCardZoom && selectedCard && (
               // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
               <div
@@ -1272,7 +1314,7 @@ export default function QuickAddCardDialog({
 
             {/* Expansion panel — selected card printings + add */}
             {selectedCard && (
-              <div className="shrink-0 border-t border-gray-700/60 bg-gray-900/80 px-5 py-4">
+              <div className="flex-1 min-h-0 border-t border-gray-700/60 bg-gray-900/80 px-5 py-4 overflow-y-auto">
                 <button
                   onClick={() => { setSelectedCard(null); setShowCardZoom(false); }}
                   className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
@@ -1322,7 +1364,7 @@ export default function QuickAddCardDialog({
                           key={p.printing_id}
                           p={p}
                           isSelected={p.printing_id === selectedPrinting?.printing_id}
-                          onSelect={p => { setSelectedPrinting(p); setShowCardZoom(true); }}
+                          onSelect={p => { setSelectedPrinting(p); }}
                           onEnlarge={setEnlargedImage}
                           onAdd={async (qty) => {
                             setSelectedPrinting(p);
