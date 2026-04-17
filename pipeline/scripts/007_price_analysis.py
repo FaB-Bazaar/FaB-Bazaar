@@ -47,7 +47,11 @@ def analyze_price_changes(old_data: Dict, new_data: Dict) -> Dict:
         
         if old_price is None or new_price is None or old_price <= 0:
             continue
-            
+        # Filter out placeholder TCGPlayer listings (e.g. $1337 with no real sales)
+        # A >85% drop from a price over $200 is almost always a placeholder being replaced
+        if old_price > 200 and new_price > 0 and ((old_price - new_price) / old_price) > 0.85:
+            continue
+
         net_change = new_price - old_price
         percent_change = ((net_change / old_price) * 100) if old_price > 0 else 0
         stats['total_comparisons'] += 1
