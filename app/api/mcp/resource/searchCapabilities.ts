@@ -55,7 +55,8 @@ export const searchCapabilitiesResource = {
       },
       consistency_rules: [
         'Always use structured filters for multi-parameter searches',
-        'Use exact: true when users request specific cards',
+        'name + exact: true is the default — omitting exact does NOT mean exact. Without exact:true the service uses fuzzy/word_similarity matching and WILL return wrong cards for common words (e.g. "Aether Hail" → "Absorb in Aether"). The handler now defaults exact=true when name is provided, but always set it explicitly.',
+        'Only use exact: false intentionally — when the card name might be misspelled or partially known',
         'Convert all natural language to structured equivalents',
         'Prefer arrays over comma-separated strings',
         'Use proper negation fields (raritiesNot, setsNot, etc.)'

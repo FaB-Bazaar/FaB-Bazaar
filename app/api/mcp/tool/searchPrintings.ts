@@ -33,7 +33,10 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
   if (mcpFilters.name)             f.name             = mcpFilters.name;
   if (mcpFilters.text)             f.text             = mcpFilters.text;
   if (mcpFilters.searchableText)   f.searchableText   = mcpFilters.searchableText;
+  // Default exact=true when a name is provided — prevents fuzzy matching from returning wrong cards.
+  // The client can explicitly pass exact: false to opt into fuzzy/typo-tolerant matching.
   if (mcpFilters.exact != null)    f.exact            = mcpFilters.exact;
+  else if (mcpFilters.name)        f.exact            = true;
 
   if (mcpFilters.collectorNumber) {
     f.collectorNumber = typeof mcpFilters.collectorNumber === 'string' && mcpFilters.collectorNumber.includes(',')
@@ -205,10 +208,10 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
               type: 'object',
               description: 'Structured filters for complex searches.',
               properties: {
-                name:             { type: 'string' },
+                name:             { type: 'string', description: 'Card name. Defaults to exact matching when provided — set exact: false only for fuzzy/typo-tolerant search.' },
                 text:             { type: 'string' },
-                searchableText:   { type: 'string' },
-                exact:            { type: 'boolean' },
+                searchableText:   { type: 'string', description: 'Broad search across all text fields. Use for discovery when exact card name is unknown.' },
+                exact:            { type: 'boolean', description: 'Default: true when name is set. Set false to enable fuzzy/similarity matching (may return wrong cards for common words).' },
                 collectorNumber:  { type: 'string' },
                 printingIds:      { type: 'string' },
                 cardUniqueId:     { type: 'string' },
