@@ -86,7 +86,6 @@ services:
     tmpfs:
       - /tmp
       - /app/.next/cache
-      - /app/.next/server/app
     networks:
       - fabbazaar
     healthcheck:
