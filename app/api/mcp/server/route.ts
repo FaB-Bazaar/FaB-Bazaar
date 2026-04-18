@@ -442,34 +442,62 @@ export async function POST(req: Request) {
               // PRIORITY TOOL - Listed first with MAXIMUM emphasis
               {
                 name: 'read_mandatory_constants_first',
-                description: `🚨 STEP 1: MANDATORY SETUP (99% of users need this first!) 🚨
+                description: `🚨 MANDATORY FIRST READ — Run this BEFORE any search, deck, or curation work.
 
-⭐ CRITICAL: Run this TWICE with different URIs ⭐
+This tool is the gateway to every server resource. Call it multiple times with different URIs.
 
-REQUIRED SEQUENCE:
-1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})  
+REQUIRED AT SESSION START:
+1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
 2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
 
-📋 What this provides:
-• Step 1: Set codes (wtr=Welcome to Rathe, arc=Arcane Rising, etc.)
-• Step 1: Foiling types (r=Rainbow Foil, c=Cold Foil, s=Standard, g=Gold)
-• Step 1: Edition codes (a=Alpha, f=First Edition, u=Unlimited, n=Normal)
-• Step 1: Rarity codes (m=Majestic, l=Legendary, r=Rare, c=Common, f=Fabled)
-• Step 2: Complete API documentation and search field reference
+CONDITIONALLY REQUIRED (read these when relevant):
+3️⃣ {"uri": "fab://card-index"}        — BEFORE working with decklists (card name → printingId lookup)
+4️⃣ {"uri": "fab://hero-ids"}          — BEFORE calling save_deck_matchup
+5️⃣ {"uri": "article://formatting"}    — BEFORE editing articles
 
-⚡ Takes 30 seconds, saves hours of debugging!
-🔒 OTHER TOOLS ARE BLOCKED until you complete this setup!
+═══════════════════════════════════════════════════════════════════
+CRITICAL RULES (read these — do not skip):
+═══════════════════════════════════════════════════════════════════
 
-⚠️ WORKFLOW: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → add_to_binder
+ERROR CONVENTION:
+  All tools return { success: true, data, message? } OR { success: false, error: "..." }.
+  On success: false, do NOT retry blindly — the error message states what to fix.
 
-✅ Always run this tool FIRST in any session!`,
+ID SYSTEMS (three distinct shapes — do not mix):
+  • List ID:      21-char nanoid, e.g. "_efFPE1ErJtaRo3H8_Vnq"       (curated-list tools)
+  • Printing ID:  "set###-variant",  e.g. "sor004-rainbow"            (search_printings, add_to_binder, add_cards_to_deck)
+  • Talishar ID:  lowercase_snake_pitch, e.g. "pummel_red"            (Talishar sideboard export)
+
+HERO NAMES:
+  When passing \`heroName\` to create_curated_list / update_curated_list / create_deck,
+  use the LOWERCASE CANONICAL name from fab://constants → heroes_by_format.*.by_class[*].name
+  (e.g. "rhinar, reckless rampage", NOT "Rhinar").
+  Show users the displayName value from that same structure.
+
+CURATED LISTS:
+  • Target by \`id\` (preferred) OR \`listName\` + \`heroName\` (for name disambiguation).
+  • If listName matches multiple heroes, server returns all candidates — ask user or pass heroName.
+  • \`format\` is required on create and cannot be cleared on update.
+
+CURATOR/ADMIN TOOLS:
+  Curated-list management tools (list/create/update/delete_curated_list, add/remove_card_from_list)
+  are only visible to curator/admin accounts. If you don't see them in tools/list, you don't have access.
+
+⚡ Takes 30 seconds, saves hours of debugging.
+✅ Always run the first two in any session.`,
                 inputSchema: {
                   type: 'object',
                   properties: {
-                    uri: { 
-                      type: 'string', 
-                      description: 'Resource URI to read: "fab://constants" for abbreviations or "searchable://card/fields" for search capabilities',
-                      enum: ['fab://constants', 'searchable://card/fields'],
+                    uri: {
+                      type: 'string',
+                      description: 'Resource URI to read. See the tool description for when to use each.',
+                      enum: [
+                        'fab://constants',
+                        'searchable://card/fields',
+                        'fab://card-index',
+                        'fab://hero-ids',
+                        'article://formatting'
+                      ],
                       default: 'fab://constants'
                     }
                   },
@@ -676,84 +704,79 @@ Step 5: get_binder (verify additions)
             console.log('🔧 Tool input:', JSON.stringify(toolInput, null, 2));
           }
 
-        // Handle the priority resource reading tool
+        // Handle the priority resource reading tool — gateway to all 5 advertised resources
         if (toolName === 'read_mandatory_constants_first') {
-          if (DEBUG_MCP) console.log('📚 PRIORITY: Reading mandatory resource first');
+          if (DEBUG_MCP) console.log('📚 Resource gateway:', toolInput.uri);
           const uri = toolInput.uri || 'fab://constants';
-          
+
+          const buildResponse = (resourceData: unknown, header: string, nextStep: string, flags: Record<string, unknown>) => NextResponse.json({
+            jsonrpc: '2.0',
+            id,
+            result: {
+              content: [{
+                type: 'text',
+                text: `${header}\n\n${JSON.stringify(resourceData, null, 2)}\n\n${nextStep}`
+              }],
+              ...flags,
+            }
+          }, { headers: corsHeaders() });
+
           if (uri === 'fab://constants') {
             const resourceData = await fabConstantsResource.handler();
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [{ 
-                  type: 'text', 
-                  text: `✅ STEP 1/2 COMPLETE - FAB Constants Loaded!
-
-You now have access to essential abbreviations and search terms:
-
-${JSON.stringify(resourceData, null, 2)}
-
-🎯 NEXT REQUIRED STEP: 
-read_mandatory_constants_first({"uri": "searchable://card/fields"})
-
-⚠️ Do NOT use search_printings yet! Complete step 2 first.
-
-💡 After completing both steps, use search_printings with the cards[] array format.
-
-🔄 Progress: [✅ Constants] [❌ Capabilities] → Complete step 2 next!`
-                }],
-                _step1Complete: true,
-                _nextStep: 'read_mandatory_constants_first({"uri": "searchable://card/fields"})',
-                _progress: "Step 1/2 complete"
-              }
-            }, { headers: corsHeaders() });
+            return buildResponse(
+              resourceData,
+              `✅ Loaded fab://constants — abbreviations, codes, shorthand syntax, heroes_by_format.`,
+              `🎯 NEXT: read_mandatory_constants_first({"uri": "searchable://card/fields"}) before calling search_printings.`,
+              { _step1Complete: true, _nextStep: 'read_mandatory_constants_first({"uri": "searchable://card/fields"})' }
+            );
           }
-          
+
           if (uri === 'searchable://card/fields') {
             const resourceData = await searchCapabilitiesResource.handler();
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [{ 
-                  type: 'text', 
-                  text: `✅ STEP 2/2 COMPLETE - Search Capabilities Loaded!
-
-You now understand available search fields and capabilities:
-
-${JSON.stringify(resourceData, null, 2)}
-
-🎉 SETUP COMPLETE! You can now use search tools.
-
-Example — always use the cards[] array:
-search_printings({
-  "cards": [{ "query": "head jab red" }, { "query": "head jab blue" }]
-})
-search_printings({
-  "cards": [{ "filters": { "isEquipment": true, "heroLegal": "dash", "priceMax": 30 } }],
-  "options": { "limit": 20 }
-})
-
-🔄 Progress: [✅ Constants] [✅ Capabilities] → Ready for search!
-
-✅ All systems ready for accurate card searches!`
-                }],
-                _step2Complete: true,
-                _setupComplete: true,
-                _readyForSearch: true,
-                _progress: "Setup complete - ready for search!"
-              }
-            }, { headers: corsHeaders() });
+            return buildResponse(
+              resourceData,
+              `✅ Loaded searchable://card/fields — search API reference and filter fields.`,
+              `🎉 Core setup complete. For decklist work, also read fab://card-index. For matchups, fab://hero-ids. For articles, article://formatting.`,
+              { _step2Complete: true, _setupComplete: true, _readyForSearch: true }
+            );
           }
-          
+
+          if (uri === 'fab://card-index') {
+            const resourceData = cardIndexResource.handler();
+            return buildResponse(
+              resourceData,
+              `✅ Loaded fab://card-index — card name + pitch → printingId map. Use this to resolve card names before add_cards_to_deck / add_card_to_list.`,
+              `💡 Keep this in context for the rest of the session; you won't need to re-read it.`,
+              { _cardIndexLoaded: true }
+            );
+          }
+
+          if (uri === 'fab://hero-ids') {
+            const resourceData = heroIdsResource.handler();
+            return buildResponse(
+              resourceData,
+              `✅ Loaded fab://hero-ids — full list of valid heroId values for save_deck_matchup.`,
+              `💡 Use these exact IDs when recording matchups.`,
+              { _heroIdsLoaded: true }
+            );
+          }
+
+          if (uri === 'article://formatting') {
+            const resourceData = await articleFormattingResource.handler();
+            return buildResponse(
+              resourceData,
+              `✅ Loaded article://formatting — formatting rules for article editing (inline cards, sections, etc.).`,
+              `💡 Required reading before add_article_section / update_article_section.`,
+              { _articleFormattingLoaded: true }
+            );
+          }
+
           return NextResponse.json({
             jsonrpc: '2.0',
             id,
             error: {
               code: -32602,
-              message: `Unknown resource URI: ${uri}. Use "fab://constants" or "searchable://card/fields"`
+              message: `Unknown resource URI: ${uri}. Valid URIs: fab://constants, searchable://card/fields, fab://card-index, fab://hero-ids, article://formatting.`
             }
           }, { headers: corsHeaders() });
         }
