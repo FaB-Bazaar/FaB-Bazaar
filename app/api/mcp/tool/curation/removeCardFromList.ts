@@ -2,7 +2,7 @@
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { printingsService } from '@/lib/services';
 import { sortPrintings } from '@/lib/fab-constants/sets';
-import { resolveList } from '../helpers';
+import { resolveList, validateListIdentifierParams, validatePrintingIds, validateCardEntryIds } from '../helpers';
 
 export const removeCardFromListTool = {
   name: 'remove_card_from_list',
@@ -10,9 +10,10 @@ export const removeCardFromListTool = {
 
 No need to call get_curated_list first — this tool resolves card entry IDs internally.
 
-📋 TWO WAYS TO IDENTIFY THE LIST:
-Option A — listId: exact UUID
-Option B — listName: case-insensitive name match
+📋 THREE WAYS TO IDENTIFY THE LIST (preferred order):
+Option A — listId: exact list ID (nanoid). UNAMBIGUOUS.
+Option B — listName + heroName: scoped to one hero — safe when the name is shared.
+Option C — listName alone: only safe for generic (hero-less) lists. Errors on ambiguity.
 
 🃏 THREE WAYS TO IDENTIFY CARDS TO REMOVE:
 Option A — cardEntryIds: exact card entry row IDs (fastest, use if you already have them from add_card_to_list)
@@ -36,11 +37,15 @@ remove_card_from_list({ listId: "abc123", cardEntryIds: ["eid1", "eid2"] })`,
     properties: {
       listId: {
         type: 'string',
-        description: 'Exact curated list UUID. Use listName instead if you only know the name.'
+        description: 'Exact curated list ID (nanoid from list_curated_lists). PREFERRED — unambiguous.'
       },
       listName: {
         type: 'string',
-        description: 'Curated list name (case-insensitive). Resolves automatically — no prior list_curated_lists call needed.'
+        description: 'Curated list name (case-insensitive). Pair with heroName when the name is shared across heroes. Errors with all matches if ambiguous.'
+      },
+      heroName: {
+        type: 'string',
+        description: 'Hero to scope listName lookup (e.g. "Dorinthea Ironsong"). Use when multiple heroes share the same list name.'
       },
       cardEntryIds: {
         type: 'array',
@@ -96,9 +101,19 @@ remove_card_from_list({ listId: "abc123", cardEntryIds: ["eid1", "eid2"] })`,
         return { success: false, error: 'Missing required parameter: cardEntryIds, printingIds, or cards' };
       }
 
+      const shapeErr = validateListIdentifierParams(params);
+      if (shapeErr) return { success: false, error: shapeErr };
+      const entryShapeErr = validateCardEntryIds(params.cardEntryIds);
+      if (entryShapeErr) return { success: false, error: entryShapeErr };
+      const printingShapeErr = validatePrintingIds(params.printingIds);
+      if (printingShapeErr) return { success: false, error: printingShapeErr };
+
       // Resolve list (needed for name→ID, and for printingId/card-name → entry ID lookup)
-      const needsListFetch = !hasEntryIds || !params.listId; // always fetch if resolving by name or by printing ID
-      const listResult = await resolveList(params.listId ?? params.listName, tokenToUse);
+      const listResult = await resolveList(
+        params.listId ?? params.listName,
+        tokenToUse,
+        { heroName: params.heroName },
+      );
       if (!listResult.ok) return { success: false, error: listResult.error };
       const { id: resolvedListId, name: resolvedListName, cards: listCards } = listResult.list;
 

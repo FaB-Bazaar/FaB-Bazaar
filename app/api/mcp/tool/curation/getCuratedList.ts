@@ -1,5 +1,6 @@
 // app/api/mcp/tool/curation/getCuratedList.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { classifyIdentifier, resolveList, validateListIdentifierParams } from '../helpers';
 
 export const getCuratedListTool = {
   name: 'get_curated_list',
@@ -8,7 +9,10 @@ export const getCuratedListTool = {
 Returns the full list metadata plus an ordered list of cards with printing IDs,
 display names, set codes, and image URLs.
 
-Use list_curated_lists first to find the list ID.
+📋 THREE WAYS TO IDENTIFY THE LIST (preferred order):
+Option A — id (or listId): exact list ID (nanoid from list_curated_lists). PREFERRED.
+Option B — listName + heroName: name scoped to one hero.
+Option C — listName alone: only for generic lists. Errors on ambiguity.
 
 Example workflow:
 1. list_curated_lists() → find the list
@@ -20,10 +24,21 @@ Example workflow:
     properties: {
       id: {
         type: 'string',
-        description: 'The curated list ID (from list_curated_lists)'
+        description: 'Curated list ID (nanoid from list_curated_lists). Alias: listId.'
+      },
+      listId: {
+        type: 'string',
+        description: 'Alias for id.'
+      },
+      listName: {
+        type: 'string',
+        description: 'Curated list name (case-insensitive). Pair with heroName when shared across heroes.'
+      },
+      heroName: {
+        type: 'string',
+        description: 'Hero to scope listName lookup.'
       }
-    },
-    required: ['id']
+    }
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -35,17 +50,40 @@ Example workflow:
         return { success: false, error: 'Authentication required: no token found.' };
       }
 
-      if (!params?.id) {
-        return { success: false, error: 'Missing required parameter: id' };
+      const rawId = params?.listId ?? params?.id;
+      if (!rawId && !params?.listName) {
+        return { success: false, error: 'Missing required parameter: id (listId) or listName' };
       }
 
-      const response = await mcpFetch(`${API_BASE_URL}/api/curated-lists/${encodeURIComponent(params.id)}`, {
+      // If the caller passed a human-name-looking value into `id`, hint them.
+      if (rawId) {
+        const shape = classifyIdentifier(rawId);
+        if (shape === 'humanName') {
+          return {
+            success: false,
+            error: `"${rawId}" looks like a list name, not an ID. Retry with \`listName: "${rawId}"\` (add \`heroName\` to disambiguate if needed).`,
+          };
+        }
+      } else {
+        const shapeErr = validateListIdentifierParams({ listName: params.listName });
+        if (shapeErr) return { success: false, error: shapeErr };
+      }
+
+      // Resolve via name+hero if id not given
+      let resolvedId = rawId as string | undefined;
+      if (!resolvedId) {
+        const listResult = await resolveList(params.listName, tokenToUse, { heroName: params.heroName });
+        if (!listResult.ok) return { success: false, error: listResult.error };
+        resolvedId = listResult.list.id;
+      }
+
+      const response = await mcpFetch(`${API_BASE_URL}/api/curated-lists/${encodeURIComponent(resolvedId)}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${tokenToUse}` }
       });
 
       if (response.status === 404) {
-        return { success: false, error: `List not found: ${params.id}` };
+        return { success: false, error: `List not found: ${resolvedId}. Call list_curated_lists() to see valid IDs.` };
       }
 
       if (!response.ok) {

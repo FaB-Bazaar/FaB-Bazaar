@@ -1,7 +1,7 @@
 import { db } from '@/lib/postgres/db';
 import { curatedLists, curatedListCards, curatorHeroAssignments, printings, cards, users } from '@/lib/postgres/schema';
 import { eq, asc, or, isNull, and, inArray, sql } from 'drizzle-orm';
-import { getHeroInfo } from '@/lib/fab-constants/heroes';
+import { getHeroInfo, HERO_INFO } from '@/lib/fab-constants/heroes';
 import { displayUsername } from '@/lib/utils/display-username';
 import { nanoid } from 'nanoid';
 import type {
@@ -16,10 +16,26 @@ import type {
 import type { AsyncResult } from '../../contracts/common';
 
 export class PostgresCuratedListService implements ICuratedListService {
+  // Canonical casing = the lowercase key used by HERO_INFO / getHeroesGroupedByClass.
+  // Write paths normalize so the admin UI and MCP produce identical values.
+  private normalizeHeroName(input?: string | null): string | null {
+    if (input == null) return null;
+    const key = input.trim().toLowerCase();
+    if (!key) return null;
+    return HERO_INFO[key] ? key : input.trim();
+  }
+
+  private normalizeClassName(input?: string | null): string | null {
+    if (input == null) return null;
+    const trimmed = input.trim();
+    return trimmed ? trimmed.toLowerCase() : null;
+  }
+
   private toDTO(
     row: typeof curatedLists.$inferSelect,
     cardList?: CuratedListCardDTO[],
     curatorUser?: CuratorAttributionDTO | null,
+    cardCount?: number,
   ): CuratedListDTO {
     return {
       id: row.id,
@@ -38,7 +54,21 @@ export class PostgresCuratedListService implements ICuratedListService {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       cards: cardList,
+      cardCount: cardCount ?? cardList?.length,
     };
+  }
+
+  private async fetchCardCounts(listIds: string[]): Promise<Map<string, number>> {
+    if (listIds.length === 0) return new Map();
+    const rows = await db
+      .select({
+        listId: curatedListCards.listId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(curatedListCards)
+      .where(inArray(curatedListCards.listId, listIds))
+      .groupBy(curatedListCards.listId);
+    return new Map(rows.map(r => [r.listId, Number(r.count)]));
   }
 
   private async fetchCardsForList(listId: string): Promise<CuratedListCardDTO[]> {
@@ -149,7 +179,8 @@ export class PostgresCuratedListService implements ICuratedListService {
         .from(curatedLists)
         .orderBy(asc(curatedLists.sortOrder));
 
-      return { success: true, data: rows.map(row => this.toDTO(row)) };
+      const counts = await this.fetchCardCounts(rows.map(r => r.id));
+      return { success: true, data: rows.map(row => this.toDTO(row, undefined, undefined, counts.get(row.id) ?? 0)) };
     } catch (error) {
       return {
         success: false,
@@ -191,12 +222,13 @@ export class PostgresCuratedListService implements ICuratedListService {
         metafyProductUrl: null,
       } : null;
 
+      const counts = await this.fetchCardCounts(rows.map(r => r.id));
       return {
         success: true,
         data: rows.map(row => {
           const heroKey = (row.heroName ?? '').toLowerCase();
           const withMetafy = curatorUser ? { ...curatorUser, metafyProductUrl: metafyMap.get(heroKey) ?? null } : null;
-          return this.toDTO(row, undefined, withMetafy);
+          return this.toDTO(row, undefined, withMetafy, counts.get(row.id) ?? 0);
         }),
       };
     } catch (error) {
@@ -230,6 +262,13 @@ export class PostgresCuratedListService implements ICuratedListService {
 
   async createList(userId: string, input: CreateCuratedListInput): AsyncResult<CuratedListDTO> {
     try {
+      if (!input.name?.trim()) {
+        return { success: false, error: 'name is required' };
+      }
+      if (!input.format?.trim()) {
+        return { success: false, error: 'format is required (Classic Constructed, Silver Age, Living Legend, Blitz)' };
+      }
+
       const id = nanoid();
       const now = new Date();
 
@@ -237,11 +276,11 @@ export class PostgresCuratedListService implements ICuratedListService {
         .insert(curatedLists)
         .values({
           id,
-          name: input.name,
+          name: input.name.trim(),
           description: input.description ?? null,
-          heroName: input.heroName ?? null,
-          className: input.className ?? null,
-          format: input.format ?? null,
+          heroName: this.normalizeHeroName(input.heroName),
+          className: this.normalizeClassName(input.className),
+          format: input.format.trim(),
           tags: input.tags ?? [],
           isPublished: false,
           sortOrder: input.sortOrder ?? 0,
@@ -268,11 +307,19 @@ export class PostgresCuratedListService implements ICuratedListService {
         updatedAt: new Date(),
       };
 
-      if (input.name !== undefined) updateData.name = input.name;
+      if (input.name !== undefined) {
+        if (!input.name?.trim()) return { success: false, error: 'name cannot be empty' };
+        updateData.name = input.name.trim();
+      }
       if (input.description !== undefined) updateData.description = input.description;
-      if (input.heroName !== undefined) updateData.heroName = input.heroName;
-      if (input.className !== undefined) updateData.className = input.className ?? null;
-      if (input.format !== undefined) updateData.format = input.format;
+      if (input.heroName !== undefined) updateData.heroName = this.normalizeHeroName(input.heroName);
+      if (input.className !== undefined) updateData.className = this.normalizeClassName(input.className);
+      if (input.format !== undefined) {
+        if (!input.format?.trim()) {
+          return { success: false, error: 'format cannot be cleared (Classic Constructed, Silver Age, Living Legend, Blitz)' };
+        }
+        updateData.format = input.format.trim();
+      }
       if (input.tags !== undefined) updateData.tags = input.tags;
       if (input.isPublished !== undefined) updateData.isPublished = input.isPublished;
       if (input.sortOrder !== undefined) updateData.sortOrder = input.sortOrder;

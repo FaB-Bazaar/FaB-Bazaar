@@ -72,7 +72,8 @@ Example workflow:
         const status = list.isPublished ? '✅ Published' : '📝 Draft';
         const variant = list.variantType ? ` [${list.variantType}]` : '';
         message += `${i + 1}. **${list.name}**${variant} | ${scope} | ${list.format || 'CC'} | ${status}\n`;
-        message += `   ID: \`${list.id}\` | Cards: ${list.cards?.length ?? 0}\n`;
+        const count = list.cardCount ?? list.cards?.length ?? 0;
+        message += `   ID: \`${list.id}\` | Cards: ${count}\n`;
       });
 
       message += `\nUse get_curated_list({ id }) to see full card contents.`;

@@ -184,6 +184,24 @@ export default function CurationListEditorPage() {
   }, [cards]);
 
   const handleSave = async () => {
+    // Client-side validation — matches server rules so users see errors immediately
+    if (!name.trim()) {
+      toast({ title: 'Name required', description: 'Please enter a list name.', variant: 'destructive' });
+      return;
+    }
+    if (!format.trim()) {
+      toast({ title: 'Format required', description: 'Select a format (Classic Constructed, Silver Age, Living Legend, Blitz).', variant: 'destructive' });
+      return;
+    }
+    if (scope === 'hero' && !heroName) {
+      toast({ title: 'Hero required', description: 'Pick a hero, or switch scope to Class / General.', variant: 'destructive' });
+      return;
+    }
+    if (scope === 'class' && !className) {
+      toast({ title: 'Class required', description: 'Pick a class, or switch scope to Hero / General.', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
       const body = {
@@ -191,7 +209,7 @@ export default function CurationListEditorPage() {
         description: description || null,
         heroName: scope === 'hero' ? (heroName || null) : null,
         className: scope === 'class' ? (className || null) : null,
-        format: format || null,
+        format,
         tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
         isPublished,
       };

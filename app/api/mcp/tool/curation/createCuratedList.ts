@@ -17,7 +17,7 @@ Variant types (optional): "budget", "mid", "premium"
   Use parentId to link variants to a parent list.
 
 Example workflow:
-1. create_curated_list({ name: "Rhinar Core", scope: "hero", heroName: "Rhinar", format: "CC" })
+1. create_curated_list({ name: "Rhinar Core", scope: "hero", heroName: "Rhinar", format: "Classic Constructed" })
 2. search_printings to find card printing IDs
 3. add_card_to_list (×N) to populate
 4. update_curated_list({ id, isPublished: true }) to publish`,
@@ -48,7 +48,7 @@ Example workflow:
       },
       format: {
         type: 'string',
-        description: 'Game format (e.g. "CC", "Blitz", "Commoner"). Defaults to "CC"'
+        description: 'Game format — REQUIRED. One of: "Classic Constructed", "Silver Age", "Living Legend", "Blitz", "Limited", "Commoner".'
       },
       tags: {
         type: 'array',
@@ -69,7 +69,7 @@ Example workflow:
         description: 'Optional: display sort order (lower = first)'
       }
     },
-    required: ['name', 'scope']
+    required: ['name', 'scope', 'format']
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -87,6 +87,9 @@ Example workflow:
       if (!params?.scope) {
         return { success: false, error: 'Missing required parameter: scope' };
       }
+      if (!params?.format) {
+        return { success: false, error: 'Missing required parameter: format (Classic Constructed, Silver Age, Living Legend, Blitz)' };
+      }
       if (params.scope === 'hero' && !params.heroName) {
         return { success: false, error: 'heroName is required when scope is "hero"' };
       }
@@ -96,7 +99,7 @@ Example workflow:
 
       const body: Record<string, any> = {
         name: params.name,
-        format: params.format || 'CC',
+        format: params.format,
       };
       if (params.description) body.description = params.description;
       if (params.scope === 'hero') body.heroName = params.heroName;

@@ -2,7 +2,7 @@
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { printingsService } from '@/lib/services';
 import { sortPrintings } from '@/lib/fab-constants/sets';
-import { resolveList } from '../helpers';
+import { resolveList, validateListIdentifierParams, validatePrintingIds } from '../helpers';
 
 export const addCardToListTool = {
   name: 'add_card_to_list',
@@ -14,9 +14,13 @@ Option A — printingIds (array): exact printing IDs from search_printings or fa
 Option B — cards array with cardName + pitch: auto-resolves to the default printing
            (same priority as deck editor: main set → oldest → non-foil → standard edition)
 
-📋 TWO WAYS TO IDENTIFY THE LIST:
-Option A — listId: exact UUID from list_curated_lists
-Option B — listName: case-insensitive name match (resolves automatically — no prior list_curated_lists call needed)
+📋 THREE WAYS TO IDENTIFY THE LIST (preferred order):
+Option A — listId: exact list ID (nanoid from list_curated_lists). UNAMBIGUOUS.
+Option B — listName + heroName: name scoped to one hero. Safe even when the name
+           is shared across heroes (e.g. every hero has an "Equipment & Weapons" list).
+Option C — listName alone: only safe for generic (hero-less) lists. If multiple
+           heroes share the name, the tool errors with the list of matches — it
+           NEVER silently picks one.
 
 💡 BULK CURATION WORKFLOW (recommended for staple lists):
 1. Read fab://card-index resource once per session — pre-built name+pitch → printingId map
@@ -45,11 +49,15 @@ add_card_to_list({ listId: "abc123", printingIds: ["id1"] })`,
     properties: {
       listId: {
         type: 'string',
-        description: 'Exact curated list UUID. Use listName instead if you only know the name.'
+        description: 'Exact curated list ID (nanoid from list_curated_lists). PREFERRED — unambiguous.'
       },
       listName: {
         type: 'string',
-        description: 'Curated list name (case-insensitive). Resolves to the list automatically — no prior list_curated_lists call needed.'
+        description: 'Curated list name (case-insensitive). Pair with heroName when the name is shared across heroes. Errors with all matches if ambiguous.'
+      },
+      heroName: {
+        type: 'string',
+        description: 'Hero to scope listName lookup (e.g. "Dorinthea Ironsong"). Use when multiple heroes share the same list name like "Equipment & Weapons".'
       },
       printingIds: {
         type: 'array',
@@ -91,8 +99,18 @@ add_card_to_list({ listId: "abc123", printingIds: ["id1"] })`,
         return { success: false, error: 'Missing required parameter: listId or listName' };
       }
 
-      // Resolve list (by ID or name)
-      const listResult = await resolveList(params.listId ?? params.listName, tokenToUse);
+      const shapeErr = validateListIdentifierParams(params);
+      if (shapeErr) return { success: false, error: shapeErr };
+
+      const printingShapeErr = validatePrintingIds(params.printingIds);
+      if (printingShapeErr) return { success: false, error: printingShapeErr };
+
+      // Resolve list (by ID or name — name lookups can be heroName-scoped)
+      const listResult = await resolveList(
+        params.listId ?? params.listName,
+        tokenToUse,
+        { heroName: params.heroName },
+      );
       if (!listResult.ok) return { success: false, error: listResult.error };
       const { id: resolvedListId, name: resolvedListName } = listResult.list;
 

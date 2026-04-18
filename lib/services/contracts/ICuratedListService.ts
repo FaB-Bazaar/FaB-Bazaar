@@ -39,6 +39,7 @@ export interface CuratedListDTO {
   createdAt: Date;
   updatedAt: Date;
   cards?: CuratedListCardDTO[];
+  cardCount?: number;
   children?: CuratedListDTO[];
 }
 

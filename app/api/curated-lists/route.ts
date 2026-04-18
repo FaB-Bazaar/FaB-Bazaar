@@ -73,8 +73,11 @@ export async function POST(req: NextRequest) {
 
     const { name, description, heroName, className, format, tags, sortOrder, parentId, variantType } = body;
 
-    if (!name) {
+    if (!name?.trim()) {
       return NextResponse.json({ success: false, error: 'name is required' }, { status: 400 });
+    }
+    if (!format?.trim()) {
+      return NextResponse.json({ success: false, error: 'format is required (Classic Constructed, Silver Age, Living Legend, Blitz)' }, { status: 400 });
     }
 
     // Non-superadmin curators can only create lists for their assigned heroes

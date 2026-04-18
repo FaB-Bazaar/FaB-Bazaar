@@ -1,5 +1,6 @@
 // app/api/mcp/tool/curation/updateCuratedList.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { classifyIdentifier, resolveList } from '../helpers';
 
 export const updateCuratedListTool = {
   name: 'update_curated_list',
@@ -11,6 +12,10 @@ All fields are optional — only provided fields are updated.
 To publish a list: update_curated_list({ id, isPublished: true })
 To unpublish: update_curated_list({ id, isPublished: false })
 
+📋 You can target the list by id (preferred), or listName + targetHeroName.
+(targetHeroName is lookup-only — it does NOT change the list's hero scope.
+ To change the list's hero scope, set the \`heroName\` field below.)
+
 Use list_curated_lists to find list IDs.`,
 
   parameters: {
@@ -18,7 +23,15 @@ Use list_curated_lists to find list IDs.`,
     properties: {
       id: {
         type: 'string',
-        description: 'The curated list ID to update'
+        description: 'Curated list ID (nanoid from list_curated_lists). PREFERRED.'
+      },
+      listName: {
+        type: 'string',
+        description: 'Curated list name — case-insensitive. Pair with heroName when the name is shared across heroes.'
+      },
+      targetHeroName: {
+        type: 'string',
+        description: 'Hero to scope listName lookup. Not to be confused with `heroName` below, which CHANGES the list\'s hero scope.'
       },
       name: {
         type: 'string',
@@ -59,7 +72,7 @@ Use list_curated_lists to find list IDs.`,
         description: 'Display sort order'
       }
     },
-    required: ['id']
+    required: []
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -71,8 +84,27 @@ Use list_curated_lists to find list IDs.`,
         return { success: false, error: 'Authentication required: no token found.' };
       }
 
-      if (!params?.id) {
-        return { success: false, error: 'Missing required parameter: id' };
+      if (!params?.id && !params?.listName) {
+        return { success: false, error: 'Missing required parameter: id or listName' };
+      }
+
+      // Shape hint: treat a name-looking `id` as a typo.
+      if (params?.id) {
+        const shape = classifyIdentifier(params.id);
+        if (shape === 'humanName') {
+          return {
+            success: false,
+            error: `"${params.id}" looks like a list name, not an ID. Retry with \`listName: "${params.id}"\` (add \`targetHeroName\` to disambiguate).`,
+          };
+        }
+      }
+
+      // Resolve via name+hero if id not given
+      let resolvedId = params.id as string | undefined;
+      if (!resolvedId) {
+        const listResult = await resolveList(params.listName, tokenToUse, { heroName: params.targetHeroName });
+        if (!listResult.ok) return { success: false, error: listResult.error };
+        resolvedId = listResult.list.id;
       }
 
       const body: Record<string, any> = {};
@@ -90,7 +122,7 @@ Use list_curated_lists to find list IDs.`,
         return { success: false, error: 'No fields to update. Provide at least one field to change.' };
       }
 
-      const response = await mcpFetch(`${API_BASE_URL}/api/curated-lists/${encodeURIComponent(params.id)}`, {
+      const response = await mcpFetch(`${API_BASE_URL}/api/curated-lists/${encodeURIComponent(resolvedId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +135,7 @@ Use list_curated_lists to find list IDs.`,
         return { success: false, error: 'Access denied: curator or admin role required.' };
       }
       if (response.status === 404) {
-        return { success: false, error: `List not found: ${params.id}` };
+        return { success: false, error: `List not found: ${resolvedId}. Call list_curated_lists() to see valid IDs.` };
       }
 
       if (!response.ok) {
