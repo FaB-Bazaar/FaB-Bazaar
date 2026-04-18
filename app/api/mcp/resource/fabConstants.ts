@@ -20,43 +20,9 @@ import {
 import {
   HERO_NICKNAMES,
   HERO_INFO,
-  YOUNG_HERO_INFO,
   getHeroInfo,
-  getHeroesGroupedByClass,
-  getYoungHeroesGroupedByClass,
+  getHeroesByFormatDetailed,
 } from '@/lib/fab-constants';
-
-// Reverse HERO_NICKNAMES: shortName ("rhinar") → displayName ("Rhinar, Reckless Rampage")
-const SHORTNAME_TO_DISPLAY: Record<string, string> = HERO_NICKNAMES as any;
-
-function toDisplayName(canonicalKey: string, shortName?: string): string {
-  if (shortName && SHORTNAME_TO_DISPLAY[shortName]) return SHORTNAME_TO_DISPLAY[shortName];
-  // Fallback: title-case each word in the canonical key
-  return canonicalKey
-    .split(' ')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
-interface HeroEntry {
-  name: string;          // canonical lowercase — pass as heroName
-  displayName: string;   // properly-cased for UI
-  shortName?: string;    // nickname (e.g. "dori")
-}
-
-function enrichGrouped(
-  grouped: Record<string, string[]>,
-  source: Record<string, { shortName?: string }>,
-): Record<string, HeroEntry[]> {
-  const out: Record<string, HeroEntry[]> = {};
-  for (const [className, heroes] of Object.entries(grouped)) {
-    out[className] = heroes.map(name => {
-      const shortName = source[name]?.shortName;
-      return { name, displayName: toDisplayName(name, shortName), shortName };
-    });
-  }
-  return out;
-}
 
 export const fabConstantsResource = {
   type: 'resource',
@@ -252,20 +218,23 @@ export const fabConstantsResource = {
       usage_note: "Hero filtering automatically determines legal cards based on class and talent restrictions"
     },
 
-    heroes_by_format: {
-      description: "Full hero roster segmented by format legality. Use this when creating a curated list so the hero matches the list's format.",
-      usage_note: "Pass `name` (lowercase canonical) as the `heroName` argument to create_curated_list / update_curated_list. Show `displayName` to users.",
-      adult_heroes: {
-        formats: ["Classic Constructed", "Living Legend"],
-        description: "Adult heroes — legal in CC and Living Legend.",
-        by_class: enrichGrouped(getHeroesGroupedByClass(), HERO_INFO),
-      },
-      young_heroes: {
-        formats: ["Silver Age", "Blitz", "Commoner"],
-        description: "Young heroes — legal in Silver Age, Blitz, and Commoner.",
-        by_class: enrichGrouped(getYoungHeroesGroupedByClass(), YOUNG_HERO_INFO),
-      },
-    },
+    heroes_by_format: (() => {
+      const segmented = getHeroesByFormatDetailed();
+      return {
+        description: "Full hero roster segmented by format legality. Use this when creating a curated list so the hero matches the list's format.",
+        usage_note: "Pass `name` (lowercase canonical) as the `heroName` argument to create_curated_list / update_curated_list. Show `displayName` to users.",
+        adult_heroes: {
+          formats: ["Classic Constructed", "Living Legend"],
+          description: "Adult heroes — legal in CC and Living Legend.",
+          by_class: segmented.adult,
+        },
+        young_heroes: {
+          formats: ["Silver Age", "Blitz", "Commoner"],
+          description: "Young heroes — legal in Silver Age, Blitz, and Commoner.",
+          by_class: segmented.young,
+        },
+      };
+    })(),
 
     talent_system: {
       description: "Complete talent and essence system for elemental and thematic cards:",

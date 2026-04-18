@@ -765,6 +765,66 @@ export function getYoungHeroesGroupedByClass(): Record<string, string[]> {
   return sortedGrouped;
 }
 
+// Canonical casing = the lowercase key used by HERO_INFO / YOUNG_HERO_INFO.
+// Used on write paths (services, admin, MCP) so values stored in the DB match keys here.
+export function normalizeHeroName(input?: string | null): string | null {
+  if (input == null) return null;
+  const key = input.trim().toLowerCase();
+  if (!key) return null;
+  if (HERO_INFO[key] || YOUNG_HERO_INFO[key]) return key;
+  return input.trim();
+}
+
+export function normalizeClassName(input?: string | null): string | null {
+  if (input == null) return null;
+  const trimmed = input.trim();
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+// Properly-cased display name for a hero. Falls back to title-casing the canonical key
+// if the hero has no shortName nickname mapping.
+export function toHeroDisplayName(canonicalKey: string, shortName?: string): string {
+  if (shortName && HERO_NICKNAMES[shortName as keyof typeof HERO_NICKNAMES]) {
+    return HERO_NICKNAMES[shortName as keyof typeof HERO_NICKNAMES];
+  }
+  return canonicalKey
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+export interface HeroEntry {
+  name: string;          // canonical lowercase — pass as heroName on writes
+  displayName: string;   // properly-cased for UI
+  shortName?: string;    // nickname (e.g. "dori")
+}
+
+// Segmented hero roster: adult (CC / Living Legend) and young (Silver Age / Blitz / Commoner),
+// each grouped by class, with display names and short names attached.
+export function getHeroesByFormatDetailed(): {
+  adult: Record<string, HeroEntry[]>;
+  young: Record<string, HeroEntry[]>;
+} {
+  const enrich = (
+    grouped: Record<string, string[]>,
+    source: Record<string, HeroInfo>,
+  ): Record<string, HeroEntry[]> => {
+    const out: Record<string, HeroEntry[]> = {};
+    for (const [className, heroes] of Object.entries(grouped)) {
+      out[className] = heroes.map(name => {
+        const shortName = source[name]?.shortName;
+        return { name, displayName: toHeroDisplayName(name, shortName), shortName };
+      });
+    }
+    return out;
+  };
+
+  return {
+    adult: enrich(getHeroesGroupedByClass(), HERO_INFO),
+    young: enrich(getYoungHeroesGroupedByClass(), YOUNG_HERO_INFO),
+  };
+}
+
 export function getAllClasses(): string[] {
   const classes = new Set<string>();
   for (const info of Object.values(HERO_INFO)) {

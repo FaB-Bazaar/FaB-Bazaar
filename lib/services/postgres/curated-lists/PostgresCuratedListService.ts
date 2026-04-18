@@ -1,7 +1,7 @@
 import { db } from '@/lib/postgres/db';
 import { curatedLists, curatedListCards, curatorHeroAssignments, printings, cards, users } from '@/lib/postgres/schema';
 import { eq, asc, or, isNull, and, inArray, sql } from 'drizzle-orm';
-import { getHeroInfo, HERO_INFO } from '@/lib/fab-constants/heroes';
+import { getHeroInfo, normalizeHeroName, normalizeClassName } from '@/lib/fab-constants/heroes';
 import { displayUsername } from '@/lib/utils/display-username';
 import { nanoid } from 'nanoid';
 import type {
@@ -16,21 +16,6 @@ import type {
 import type { AsyncResult } from '../../contracts/common';
 
 export class PostgresCuratedListService implements ICuratedListService {
-  // Canonical casing = the lowercase key used by HERO_INFO / getHeroesGroupedByClass.
-  // Write paths normalize so the admin UI and MCP produce identical values.
-  private normalizeHeroName(input?: string | null): string | null {
-    if (input == null) return null;
-    const key = input.trim().toLowerCase();
-    if (!key) return null;
-    return HERO_INFO[key] ? key : input.trim();
-  }
-
-  private normalizeClassName(input?: string | null): string | null {
-    if (input == null) return null;
-    const trimmed = input.trim();
-    return trimmed ? trimmed.toLowerCase() : null;
-  }
-
   private toDTO(
     row: typeof curatedLists.$inferSelect,
     cardList?: CuratedListCardDTO[],
@@ -278,8 +263,8 @@ export class PostgresCuratedListService implements ICuratedListService {
           id,
           name: input.name.trim(),
           description: input.description ?? null,
-          heroName: this.normalizeHeroName(input.heroName),
-          className: this.normalizeClassName(input.className),
+          heroName: normalizeHeroName(input.heroName),
+          className: normalizeClassName(input.className),
           format: input.format.trim(),
           tags: input.tags ?? [],
           isPublished: false,
@@ -312,8 +297,8 @@ export class PostgresCuratedListService implements ICuratedListService {
         updateData.name = input.name.trim();
       }
       if (input.description !== undefined) updateData.description = input.description;
-      if (input.heroName !== undefined) updateData.heroName = this.normalizeHeroName(input.heroName);
-      if (input.className !== undefined) updateData.className = this.normalizeClassName(input.className);
+      if (input.heroName !== undefined) updateData.heroName = normalizeHeroName(input.heroName);
+      if (input.className !== undefined) updateData.className = normalizeClassName(input.className);
       if (input.format !== undefined) {
         if (!input.format?.trim()) {
           return { success: false, error: 'format cannot be cleared (Classic Constructed, Silver Age, Living Legend, Blitz)' };

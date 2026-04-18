@@ -340,19 +340,49 @@ export async function POST(req: Request) {
           result: {
             protocolVersion: '2025-06-18',
             capabilities: {
-              tools: {
-                available: ['read_mandatory_constants_first', 'search_printings', 'extract_printing_ids', 'list_binders', 'get_binder', 'add_to_binder', 'remove_from_binder', 'get_wants', 'add_to_wants', 'remove_from_wants', 'who_has', 'get_article', 'add_article_section', 'update_article_section', 'get_decks_to_beat', 'list_decks', 'get_deck']
-              },
-              resources: {
-                available: ['searchable://card/fields', 'fab://constants', 'article://formatting', 'fab://hero-ids']
-              }
+              tools: { listChanged: false },
+              resources: { listChanged: false, subscribe: false },
+              prompts: { listChanged: false }
             },
             serverInfo: {
               name: 'FabBazaar MCP [DEV]',
               version: '4.1.0',
               user: authenticatedUser ? authenticatedUser.username : 'Client Credentials'
-            }
-          }          
+            },
+            instructions: [
+              'FabBazaar MCP — Flesh and Blood trading card platform.',
+              '',
+              'READ FIRST (session setup):',
+              '  1. Call resources/list to see all available resources.',
+              '  2. Read `fab://constants` before any search or list-creation work. It contains:',
+              '     - foiling / edition / set / rarity / keyword codes used by search_printings',
+              '     - shorthand query syntax',
+              '     - `heroes_by_format`: adult heroes (Classic Constructed, Living Legend) vs young heroes (Silver Age, Blitz, Commoner), grouped by class, with { name, displayName, shortName }',
+              '  3. Read `searchable://card/fields` before calling search_printings.',
+              '  4. Read `fab://card-index` once per session before working with decklists (card name → printing ID lookup).',
+              '',
+              'ERROR CONVENTION:',
+              '  All tools return either { success: true, data, message? } or { success: false, error: "..." }.',
+              '  On success: false, do NOT retry blindly — the error message states what to fix.',
+              '',
+              'ID SYSTEMS (three distinct shapes — do not mix):',
+              '  - List ID: 21-char nanoid, e.g. `_efFPE1ErJtaRo3H8_Vnq` (used by curated-list tools).',
+              '  - Printing ID: `set###-variant`, e.g. `sor004-rainbow` (used by search_printings, add_to_binder, add_cards_to_deck).',
+              '  - Talishar identifier: `lowercase_snake_pitch`, e.g. `pummel_red` (used for Talishar sideboard export).',
+              '',
+              'HERO NAMES:',
+              '  When passing `heroName` to create_curated_list / update_curated_list / create_deck, use the lowercase canonical name from `fab://constants` → `heroes_by_format.*.by_class[*].name` (e.g. `"rhinar, reckless rampage"`, not `"Rhinar"`).',
+              '  Show users the `displayName` value from that same structure.',
+              '',
+              'CURATED LISTS:',
+              '  - Lists are targeted by `id` (preferred) OR `listName` + `heroName` (for name disambiguation).',
+              '  - If a listName matches multiple heroes, the server returns all candidates — ask the user or pass `heroName` to narrow.',
+              '  - `format` is required on create and cannot be cleared on update.',
+              '',
+              'DEFAULTS:',
+              '  - Prefer calling tools/list and resources/list at session start to see what is available to the current user (curator/admin tools are visibility-gated).',
+            ].join('\n')
+          }
         }, { headers: corsHeaders() });
 
       case 'tools/list': {
