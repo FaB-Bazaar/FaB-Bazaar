@@ -84,6 +84,8 @@ export default function CurationListEditorPage() {
   const [hoveredCard, setHoveredCard] = useState<{ imageUrl: string; name: string } | null>(null);
   const [adjustingQty, setAdjustingQty] = useState<string | null>(null); // cardName being adjusted
   const [swappingGroup, setSwappingGroup] = useState<{ name: string; cards: CuratedListCard[] } | null>(null);
+  const [peerLists, setPeerLists] = useState<Array<{ id: string; name: string }>>([]);
+  const [movingGroup, setMovingGroup] = useState<string | null>(null);
 
   const [assignedHeroNames, setAssignedHeroNames] = useState<string[] | null>(null); // null = no restriction (superadmin)
   const allHeroesUnfiltered = useMemo(() => getHeroesGroupedByClass(), []);
@@ -145,6 +147,24 @@ export default function CurationListEditorPage() {
       .catch(() => toast({ title: 'Error', description: 'Failed to load list', variant: 'destructive' }))
       .finally(() => setLoading(false));
   }, [listId, isNew]);
+
+  useEffect(() => {
+    if (isNew) return;
+    fetch('/api/curated-lists')
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) return;
+        const peers = (data.data as Array<{ id: string; name: string; heroName?: string | null; className?: string | null }>)
+          .filter(l => {
+            if (l.id === listId) return false;
+            if (scope === 'hero') return l.heroName?.toLowerCase() === heroName.toLowerCase();
+            if (scope === 'class') return l.className?.toLowerCase() === className.toLowerCase();
+            return !l.heroName && !l.className;
+          });
+        setPeerLists(peers.map(l => ({ id: l.id, name: l.name })));
+      })
+      .catch(() => {});
+  }, [isNew, listId, scope, heroName, className]);
 
   useEffect(() => {
     const uniqueIds = [...new Set(cards.map(c => c.printingId))];
@@ -242,6 +262,36 @@ export default function CurationListEditorPage() {
       }
     } finally {
       setAdjustingQty(null);
+    }
+  };
+
+  const handleMoveGroup = async (group: { name: string; cards: CuratedListCard[] }, targetListId: string) => {
+    setMovingGroup(group.name);
+    try {
+      const addResults = await Promise.all(
+        group.cards.map(c =>
+          fetch(`/api/curated-lists/${targetListId}/cards`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ printingId: c.printingId }),
+          }).then(r => r.json())
+        )
+      );
+      const failed = addResults.find(d => !d.success);
+      if (failed) {
+        toast({ title: 'Error', description: failed.error, variant: 'destructive' });
+        return;
+      }
+      await Promise.all(
+        group.cards.map(c =>
+          fetch(`/api/curated-lists/${listId}/cards/${c.id}`, { method: 'DELETE' })
+        )
+      );
+      setCards(prev => prev.filter(c => !group.cards.some(gc => gc.id === c.id)));
+      const target = peerLists.find(l => l.id === targetListId);
+      toast({ title: 'Moved', description: `"${group.name}" moved to "${target?.name}"` });
+    } finally {
+      setMovingGroup(null);
     }
   };
 
@@ -456,6 +506,9 @@ export default function CurationListEditorPage() {
                         <th className="text-left px-3 py-2 font-medium text-xs text-muted-foreground">Types</th>
                         <th className="text-left px-3 py-2 font-medium text-xs text-muted-foreground">Set</th>
                         <th className="text-center px-3 py-2 font-medium text-xs text-muted-foreground w-24">Qty</th>
+                        {peerLists.length > 0 && (
+                          <th className="text-left px-3 py-2 font-medium text-xs text-muted-foreground">Move to</th>
+                        )}
                         <th className="px-2 py-2" />
                       </tr>
                     </thead>
@@ -501,6 +554,26 @@ export default function CurationListEditorPage() {
                                 >+</button>
                               </div>
                             </td>
+                            {peerLists.length > 0 && (
+                              <td className="px-2 py-1">
+                                <Select
+                                  value=""
+                                  onValueChange={targetId => handleMoveGroup(group, targetId)}
+                                  disabled={movingGroup === group.name}
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-36 px-2">
+                                    {movingGroup === group.name
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <SelectValue placeholder="Move to…" />}
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {peerLists.map(l => (
+                                      <SelectItem key={l.id} value={l.id} className="text-xs">{l.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                            )}
                             <td className="px-2 py-2 text-right">
                               <button
                                 onClick={() => handleRemoveCard(group.cards[group.cards.length - 1].id)}
