@@ -20,6 +20,8 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           bash scripts/run-migrations.sh
-          docker compose build nextjs python-pipeline
-          docker compose up -d --no-deps nextjs python-pipeline
+          docker compose build nextjs
+          docker compose up -d --no-deps nextjs
+          docker compose build python-pipeline
+          docker compose up -d --no-deps python-pipeline
           docker compose restart caddy
