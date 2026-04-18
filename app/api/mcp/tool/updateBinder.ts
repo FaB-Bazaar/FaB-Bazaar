@@ -4,50 +4,21 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const updateBinderTool = {
   name: 'add_to_binder',
-  description: `📝 BINDER MANAGEMENT TOOL (Works independently)
+  description: `📝 ADD CARDS TO A BINDER.
 
-Update the MCP binder with selected printings and quantities using secure API endpoint. Now supports two operation modes:
+Add one or more printings to a binder in a single call. Resolves the binder by slug (default "mcp-binder").
 
-🔥 FEATURES:
-- Batch printing mode (add single or multiple cards at once)
-- Selection interface mode (existing functionality)
-- Automatic binder ID resolution from slug
+⚠️ \`printingId\` is the 21-char nanoid from search_printings (e.g. "GnC8TwPjbFPDNrhDHFwQb") — NOT a collector number (e.g. "EVR014"). Each printingId identifies one specific printing (set × edition × foiling).
 
-💡 Note: This tool works independently but gets MUCH better results when you use the resource-dependent search tools to find cards first.
+Workflow: search_printings → pick printing_id(s) → add_to_binder.
 
-📝 OPERATION MODES:
-
-1️⃣ **Batch Printing Mode** (Recommended):
-   Add one or more printings in a single operation
-   - Use: printings parameter (array)
-   - Format: [{ printingId, quantity, condition?, forTrade?, notes? }]
-   - Works for single cards too: [{ printingId: "89gRLdpT7fWp9FQCRLHnp", quantity: 1 }]
-   - More efficient for all operations
-   - Note: printingId is a unique hex string from search results, not a collector number
-
-2️⃣ **Selection Interface Mode**:
-   Add cards selected from extract_printing_ids interface
-   - Use: selectionList + userSelection parameters
-   - Format: "2a,1b,3d" style selections
-
-📚 **Recommended Workflow:**
-   Step 1-2: read_mandatory_constants_first (both URIs) [optional but improves search]
-   Step 3: search_printings (find your cards) [optional]
-   Step 4: extract_printing_ids (get selection interface) [for selection mode]
-   Step 5: update_binder (add to collection)
-
-✅ This tool works without setup, but setup improves card selection accuracy!
-
-⚠️ **Important:** printingId is the unique hex ID from search_printings results (e.g. "GnC8TwPjbFPDNrhDHFwQb"),
-   NOT the collector number (EVR014). Use search_printings or extract_printing_ids to get valid IDs.
-
-📋 **CALL FORMAT — add one card:**
+📋 CALL FORMAT — add one card:
 {
   "binderSlug": "mcp-binder",
   "printings": [{ "printingId": "GnC8TwPjbFPDNrhDHFwQb", "quantity": 1, "condition": "NM", "forTrade": false }]
 }
 
-📋 **CALL FORMAT — add multiple cards:**
+📋 CALL FORMAT — add multiple cards:
 {
   "binderSlug": "mcp-binder",
   "printings": [
@@ -102,31 +73,8 @@ Update the MCP binder with selected printings and quantities using secure API en
         }
       },
       
-      // Selection interface mode
-      selectionList: {
-        type: 'array',
-        description: 'The selection list from extract_printing_ids with letter mappings',
-        items: {
-          type: 'object',
-          properties: {
-            cardId: { type: 'string' },
-            details: { type: 'string' },
-            letter: { type: 'string' },
-            name: { type: 'string' },
-            price: { type: 'string' },
-            printingId: { type: 'string' }
-          }
-        }
-      },
-      
-      userSelection: {
-        type: 'string',
-        description: 'User selection in format like "2a,1b,3d" where number is quantity and letter is the option'
-      },
-      
     },
-    // Note: either printings (batch mode) or userSelection+selectionList (selection mode) is required (enforced in handler)
-    required: []
+    required: ['printings']
   },
 
   async handler(params: any, authenticatedUser?: any, mcpToken?: string) {
@@ -136,8 +84,6 @@ Update the MCP binder with selected printings and quantities using secure API en
       const {
         binderSlug = 'mcp-binder',
         printings,
-        selectionList,
-        userSelection
       } = params;
 
       const tokenToUse = authenticatedUser?.mcpToken || mcpToken;
@@ -197,38 +143,25 @@ Update the MCP binder with selected printings and quantities using secure API en
 
       const actualBinderId = targetBinder._id;
 
-      // STEP 2: Prepare request body based on operation mode
-      let requestBody: any = {};
-      let operationType = '';
+      // STEP 2: Prepare request body
+      if (!printings || !Array.isArray(printings) || printings.length === 0) {
+        return {
+          success: false,
+          error: 'printings array is required. Format: [{ printingId, quantity, condition?, forTrade?, notes? }]',
+          step: 'validate_input'
+        };
+      }
 
-      if (selectionList && userSelection) {
-        // Selection interface mode
-        operationType = 'selection';
-        const selections = parseUserSelection(userSelection, selectionList);
-        requestBody.printings = selections.map(sel => ({
-          printingId: sel.printingId,
-          quantity: sel.quantity,
-          condition: 'NM',
-          forTrade: true,
-          notes: ''
-        }));
-      } else if (printings && Array.isArray(printings)) {
-        // Batch printing mode (works for single or multiple cards)
-        operationType = 'batch';
-        requestBody.printings = printings.map(p => ({
+      const operationType = 'batch';
+      const requestBody: any = {
+        printings: printings.map(p => ({
           printingId: p.printingId,
           quantity: p.quantity || 1,
           condition: p.condition || 'NM',
           forTrade: p.forTrade !== undefined ? p.forTrade : true,
           notes: p.notes || ''
-        }));
-      } else {
-        return {
-          success: false,
-          error: 'Must provide either printings array or selectionList+userSelection',
-          step: 'validate_input'
-        };
-      }
+        }))
+      };
       
       // STEP 3: Make the cards API call using the actual MongoDB ObjectId
       const cardsEndpoint = `${API_BASE_URL}/api/binders/${actualBinderId}/cards`;
@@ -313,37 +246,5 @@ Update the MCP binder with selected printings and quantities using secure API en
     }
   }
 };
-
-/**
- * Parse user selection string like "2a,1b,3d" with selection list
- */
-function parseUserSelection(userSelection: string, selectionList: any[]) {
-  const selections = [];
-  const parts = userSelection.split(',').map(s => s.trim());
-  
-  for (const part of parts) {
-    const match = part.match(/^(\d+)([a-z]+)$/i);
-    if (!match) continue;
-    
-    const quantity = parseInt(match[1]);
-    const letter = match[2].toLowerCase();
-    
-    const option = selectionList.find(item => 
-      item.letter && item.letter.toLowerCase() === letter
-    );
-    
-    if (option && option.printingId) {
-      selections.push({
-        quantity,
-        letter,
-        printingId: option.printingId,
-        name: option.name,
-        details: option.details
-      });
-    }
-  }
-  
-  return selections;
-}
 
 export default updateBinderTool;

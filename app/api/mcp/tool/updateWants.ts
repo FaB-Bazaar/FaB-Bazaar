@@ -29,15 +29,9 @@ export const updateWantsTool = {
      1. mode: "preview" - Show what will be added
      2. mode: "confirm" - Actually execute the operation
   
-  📚 **Recommended Workflow:**
-     Step 1-2: read_mandatory_constants_first (both URIs) [optional but improves search]
-     Step 3: search_printings (find your cards) [optional]
-     Step 4: extract_printing_ids (get selection interface) [optional]
-     Step 5: update_wants (add to wants list)
-  
-  ✅ This tool works without setup, but setup improves card selection accuracy!
-  
-  ⚠️ printingId is the unique hex ID from search_printings results (e.g. "GnC8TwPjbFPDNrhDHFwQb"),
+  📚 Workflow: search_printings → pick printing_id(s) → add_to_wants.
+
+  ⚠️ printingId is the 21-char nanoid from search_printings (e.g. "GnC8TwPjbFPDNrhDHFwQb"),
      NOT the collector number (EVR014) or card name.
 
   📋 **CALL FORMAT:**

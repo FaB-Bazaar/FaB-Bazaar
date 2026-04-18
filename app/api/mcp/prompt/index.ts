@@ -203,17 +203,11 @@ Format the results clearly with price comparisons across different versions.`
               text: `I want to add these cards to my collection binder: ${cards}${quantities}
 
 Please help me:
-1. If I provided card names (not IDs), first complete the setup and find the specific printings:
-   - read_mandatory_constants_first({"uri": "fab://constants"})
-   - read_mandatory_constants_first({"uri": "searchable://card/fields"})
-   - search_printings to find the exact cards with "_resourcesConfirmed": true
-   - extract_printing_ids to get the proper IDs with "_resourcesConfirmed": true
+1. If I provided card names (not IDs), call search_printings to find the exact printings and grab each printing_id.
+2. Then use add_to_binder to add the cards to my collection.
+3. Confirm what was added and show my updated collection status.
 
-2. Then use update_binder to add the cards to my collection
-
-3. Confirm what was added and show my updated collection status
-
-If I provided specific printing IDs, you can skip directly to the update_binder step.`
+If I provided specific printing IDs, you can skip directly to add_to_binder.`
             }
           }
         ]

@@ -27,6 +27,33 @@ function formatPrinting(p: any): string {
     Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${p.tcg_market ? `$${p.tcg_market.toFixed(2)}` : 'N/A'}`;
 }
 
+// Compact projection for MCP clients — keeps only fields needed to act on a
+// printing (add to binder/wants/deck/list, display to user, who_has). Drops
+// ~40 redundant booleans/metadata fields per printing to save tokens.
+type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean };
+function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
+  if (!p) return p;
+  const out: any = {
+    printing_id: p.printing_id,
+    card_unique_id: p.card_unique_id,
+    collector_number: p.collector_number || null,
+    name: p.display_name || p.name,
+    set: p.set,
+    edition: p.edition,
+    foiling: p.foiling,
+    rarity: p.rarity,
+    pitch: p.pitch ?? null,
+    color: p.color || null,
+    price: p.tcg_market ?? null,
+  };
+  if (p.is_extended_art) out.ea = true;
+  if (Array.isArray(p.art_variations) && p.art_variations.length > 0) out.art = p.art_variations;
+  if (opts.includeImage && p.image_url) out.image_url = p.image_url;
+  if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) out.artists = p.artists;
+  if (opts.includeText && p.text) out.text = p.text;
+  return out;
+}
+
 function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
   const f: PrintingsSearchFilters = {};
 
@@ -153,7 +180,14 @@ function resolveCardFilters(card: { query?: string; filters?: any }): {
 
 export const searchPrintingsTool = {
   name: 'search_printings',
-  description: `Search card printings. Always pass ALL cards you need in one call — never loop.
+  description: `🔍 PRIMARY CARD SEARCH TOOL — find cards, look up printings, discover card versions, harvest IDs.
+
+Use this for ANY card lookup: by name, by set, by rarity, by price, by hero legality, by keyword, by type.
+This is the tool for queries like: "find Command and Conquer red", "look up Pummel printings", "what equipment does Dash play", "show me cheap Majestics", "search for Enlightened Strike", "any blue attacks under $5".
+
+Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText to opt into extra fields.
+
+Always pass ALL cards you need in one call — never loop.
 
 Each entry in \`cards\` uses either a shorthand query string or a structured filters object:
 
@@ -304,12 +338,15 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       },
       options: {
         type: 'object',
-        description: 'Pagination/sort for complex filter searches.',
+        description: 'Pagination/sort and optional extra fields per printing.',
         properties: {
           limit:     { type: 'number', default: 12, minimum: 1, maximum: 100 },
           page:      { type: 'number', default: 1, minimum: 1 },
           sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'relevance'] },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] },
+          includeImage:   { type: 'boolean', description: 'Include image_url per printing. Default false.' },
+          includeArtists: { type: 'boolean', description: 'Include artists[] per printing. Default false.' },
+          includeText:    { type: 'boolean', description: 'Include card text per printing. Default false.' },
         },
       },
     },
@@ -441,17 +478,26 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${fallbackNote}\n${formatPrinting(best)}${others}`;
     });
 
+    const projectOpts: ProjectOptions = {
+      includeImage: !!options.includeImage,
+      includeArtists: !!options.includeArtists,
+      includeText: !!options.includeText,
+    };
+
     return {
       success: true,
       message: `Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
-      results: output.map(r => ({
-        index: r.index,
-        query: r.query,
-        total: r.total,
-        printings: r.printings,
-        bestPrinting: r.printings.length > 0 ? sortPrintings(r.printings)[0] : null,
-        foilingFallback: (r as any).foilingFallback ?? false,
-      })),
+      results: output.map(r => {
+        const sorted = r.printings.length > 0 ? sortPrintings(r.printings) : [];
+        return {
+          index: r.index,
+          query: r.query,
+          total: r.total,
+          printings: r.printings.map(p => projectPrintingForMcp(p, projectOpts)),
+          bestPrinting: sorted.length > 0 ? projectPrintingForMcp(sorted[0], projectOpts) : null,
+          foilingFallback: (r as any).foilingFallback ?? false,
+        };
+      }),
     };
   },
 };

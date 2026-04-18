@@ -222,8 +222,7 @@ export const articleFormattingResource = {
 
       // BEST PRACTICES
       bestPractices: [
-        'Always search for cards first using search_printings to get correct printingIds',
-        'Use extract_printing_ids to get a list of printingIds for inline cards',
+        'Always search for cards first using search_printings — each result exposes printing_id ready to paste into InlineCard',
         'Bold card names when using InlineCard syntax: **<InlineCard>...</InlineCard>**',
         'Include pitch color in card name when applicable: (Red), (Yellow), (Blue)',
         'Use card-carousel sections for visual card showcases',
@@ -235,11 +234,10 @@ export const articleFormattingResource = {
       // WORKFLOW
       recommendedWorkflow: [
         '1. Get article structure: get_article({ slug: "...", includeFullContent: true })',
-        '2. Search for cards: search_printings({ filters: { name: "Card Name" } })',
-        '3. Extract IDs: extract_printing_ids({ filters: { name: "Card Name" } })',
-        '4. Update section with InlineCard syntax: update_article_section({ ... })',
-        '5. Preview changes: mode: "preview"',
-        '6. Confirm changes: mode: "confirm"'
+        '2. Search for cards: search_printings({ cards: [{ query: "card name" }] }) — grab printing_id from the result',
+        '3. Update section with InlineCard syntax: update_article_section({ ... })',
+        '4. Preview changes: mode: "preview"',
+        '5. Confirm changes: mode: "confirm"'
       ]
     };
   }

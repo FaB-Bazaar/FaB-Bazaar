@@ -1,7 +1,7 @@
 {
   "name": "FabBazaar",
   "description": "Search Flesh and Blood card printings and manage wants lists with comprehensive filtering for editions, foilings, and pricing.",
-  "description_for_model": "Comprehensive Flesh and Blood card database with advanced search capabilities and personal collection management. Features: (1) Card search with traditional IDs (WTR216), MongoDB printing IDs, price filters, editions, foilings, rarities, and format legality. (2) Personal wants list management with Bearer token authentication - view, search, and filter your wants by priority and card name. (3) Specialized ID extraction for bulk operations. (4) Binder management for collection tracking. User-specific features require Bearer token authentication.",
+  "description_for_model": "Comprehensive Flesh and Blood card database with advanced search capabilities and personal collection management. Features: (1) Card search (search_printings) returning printing_id + card_unique_id, with filters for sets, foilings, editions, rarities, pricing, and format legality. (2) Personal wants list management with Bearer token authentication. (3) Binder management for collection tracking. (4) Who-has lookups across all users. User-specific features require Bearer token authentication.",
   "logo_url": "https://fabbazaar.app/icon-1024x1024.png",
   "contact_email": "support@fabbazaar.app",
   "legal_info_url": "https://fabbazaar.app/privacy",
@@ -16,8 +16,7 @@
   "capabilities": [
     "Card search and filtering",
     "Wants list management (Bearer token required)",
-    "Binder management (Bearer token required)", 
-    "Printing ID extraction",
+    "Binder management (Bearer token required)",
     "Price and market data",
     "Format legality checking"
   ],
@@ -27,12 +26,8 @@
       "description": "Load essential constants and setup data (required first step)"
     },
     {
-      "name": "search_printings", 
-      "description": "Search card printings with advanced filtering"
-    },
-    {
-      "name": "extract_printing_ids",
-      "description": "Extract printing IDs for bulk operations"
+      "name": "search_printings",
+      "description": "Search card printings with advanced filtering — returns printing_id + card_unique_id"
     },
     {
       "name": "get_wants",

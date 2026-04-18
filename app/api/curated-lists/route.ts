@@ -8,6 +8,11 @@ export async function GET(req: NextRequest) {
     const heroName = searchParams.get('heroName');
     const viewPublic = searchParams.get('view') === 'public';
 
+    // Hero names are stored lowercase-canonical; compare case-insensitively.
+    const heroFilter = heroName?.trim().toLowerCase() || null;
+    const filterByHero = <T extends { heroName?: string | null }>(lists: T[]): T[] =>
+      heroFilter ? lists.filter(l => (l.heroName ?? '').toLowerCase() === heroFilter) : lists;
+
     // Try to authenticate — if it fails, return only published lists
     const authResult = await authenticateRequest(req, {}, { allowOAuth: true });
 
@@ -26,7 +31,7 @@ export async function GET(req: NextRequest) {
         if (!result.success) {
           return NextResponse.json({ success: false, error: result.error }, { status: 500 });
         }
-        return NextResponse.json({ success: true, data: result.data });
+        return NextResponse.json({ success: true, data: filterByHero(result.data) });
       }
 
       if (isCurator) {
@@ -35,7 +40,7 @@ export async function GET(req: NextRequest) {
         if (!result.success) {
           return NextResponse.json({ success: false, error: result.error }, { status: 500 });
         }
-        return NextResponse.json({ success: true, data: result.data });
+        return NextResponse.json({ success: true, data: filterByHero(result.data) });
       }
     }
 

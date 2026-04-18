@@ -12,22 +12,11 @@ export const whoHasTool = {
   • Get owner details and card quantities
   • View total values and conditions
   
-  📚 WORKFLOW INTEGRATION:
-  Perfect integration with search tools:
-  Step 1-2: read_mandatory_constants_first (both URIs) [REQUIRED]
-  Step 3: search_printings (find cards)
-  Step 4: extract_printing_ids (get specific IDs) 
-  Step 5: who_has (find owners)
-  
-  🔴 HARD REQUIREMENT: Complete the 2-step setup first!
-     1. read_mandatory_constants_first({"uri": "fab://constants"})
-     2. read_mandatory_constants_first({"uri": "searchable://card/fields"})
-  
-  ❌ Without setup: Tool will be BLOCKED
-  ✅ With setup: Find owners with accurate card matching
-  
+  📚 WORKFLOW:
+  search_printings (returns printing_id + card_unique_id) → who_has (find owners)
+
   📋 KEY DISTINCTION:
-  • printingIds   — specific printing (one set/edition/foil combo). Use printing_id from search_printings.
+  • printingIds   — specific printing (one set/edition/foiling combo). Use printing_id from search_printings.
   • cardUniqueIds — ANY version of the card (all sets/editions/foilings). Use card_unique_id from search_printings.
   For "does anyone own X?" always use cardUniqueIds — it finds owners across all versions.
 

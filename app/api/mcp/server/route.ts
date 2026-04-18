@@ -10,7 +10,6 @@ import { authTokenService, userService } from '@/lib/services';
 
 // Import the tools
 import { searchPrintingsTool } from '../tool/searchPrintings';
-import { extractPrintingIdsTool } from '../tool/extractPrintingIds';
 import { updateBinderTool } from '../tool/updateBinder';
 import { removeFromBinderTool } from '../tool/removeFromBinder';
 import { removeFromWantsTool } from '../tool/removeFromWants';
@@ -118,7 +117,7 @@ function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: st
     return { isValid: true };
   }
 
-  // Legacy schema: top-level filters/query (extract_printing_ids still uses this)
+  // Legacy schema: top-level filters/query (backwards-compat path)
   const filters = toolInput.filters || {};
 
   if (filters.searchableText && filters.searchableText.length < 2) {
@@ -145,39 +144,6 @@ function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: st
   }
   if (options.page > 1000) {
     return { isValid: false, error: "Maximum page number is 1000" };
-  }
-
-  return { isValid: true };
-}
-
-// Check if required resources have been confirmed
-function validateResourceRequirement(toolInput: any, toolName: string): { isValid: boolean; error?: string } {
-  // search_printings uses the self-documenting cards[] schema — no pre-setup required
-  if (!['extract_printing_ids'].includes(toolName)) {
-    return { isValid: true };
-  }
-
-  if (!toolInput._resourcesConfirmed) {
-    return {
-      isValid: false,
-      error: `🚨 ${toolName.toUpperCase()} BLOCKED - MISSING REQUIRED SETUP 🚨
-
-This tool is BLOCKED until you complete the mandatory setup:
-
-REQUIRED STEPS (in order):
-1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
-2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
-3️⃣ Then retry with: ${toolName}({..., "_resourcesConfirmed": true})
-
-🔴 Why this is required:
-• Without constants: Wrong set codes, foiling types, edition codes
-• Without capabilities: Missing filters, wrong parameters, failed queries
-• Result: Inaccurate or failed searches
-
-📚 The setup takes 30 seconds and prevents hours of frustration!
-
-❌ Blocked: ${toolName} until setup complete`
-    };
   }
 
   return { isValid: true };
@@ -365,10 +331,21 @@ export async function POST(req: Request) {
               '  All tools return either { success: true, data, message? } or { success: false, error: "..." }.',
               '  On success: false, do NOT retry blindly — the error message states what to fix.',
               '',
-              'ID SYSTEMS (three distinct shapes — do not mix):',
-              '  - List ID: 21-char nanoid, e.g. `_efFPE1ErJtaRo3H8_Vnq` (used by curated-list tools).',
-              '  - Printing ID: `set###-variant`, e.g. `sor004-rainbow` (used by search_printings, add_to_binder, add_cards_to_deck).',
-              '  - Talishar identifier: `lowercase_snake_pitch`, e.g. `pummel_red` (used for Talishar sideboard export).',
+              'ID GLOSSARY — which ID goes where (do not mix shapes):',
+              '  • `printing_id`       — 21-char nanoid (e.g. `cLHGKMCjPb89zwNPmMFBp`). One specific physical printing (set × edition × foiling × art).',
+              '                          Required by: add_to_binder, remove_from_binder, add_to_wants, remove_from_wants, add_cards_to_deck,',
+              '                          remove_cards_from_deck, add_card_to_list, remove_card_from_list, who_has (printingIds).',
+              '  • `card_unique_id`    — 21-char nanoid. One card at one pitch, across all printings. Use for "does anyone own X?" queries.',
+              '                          Required by: who_has (cardUniqueIds).',
+              '  • `collector_number`  — human-readable reference (e.g. `WTR171`). Shown to users; not used as a primary key for any write tool.',
+              '                          Can be filtered on via search_printings({ filters: { collectorNumber: "WTR171" } }).',
+              '  • `set_printing_unique_id` — internal DB field; not accepted by any MCP tool. Ignore.',
+              '  • Curated list id     — 21-char nanoid (e.g. `_efFPE1ErJtaRo3H8_Vnq`). Required by: get/update/delete_curated_list,',
+              '                          add/remove_card_from_list. Can also target by `listName` + `heroName`.',
+              '  • Talishar hero id    — `lowercase_snake_pitch` (e.g. `pummel_red`). Only used for save_deck_matchup sideboard export.',
+              '                          Read `fab://hero-ids` before calling save_deck_matchup.',
+              '',
+              'Every search_printings result row carries printing_id AND card_unique_id — pick whichever the next tool needs.',
               '',
               'HERO NAMES:',
               '  When passing `heroName` to create_curated_list / update_curated_list / create_deck, use the lowercase canonical name from `fab://constants` → `heroes_by_format.*.by_class[*].name` (e.g. `"rhinar, reckless rampage"`, not `"Rhinar"`).',
@@ -463,10 +440,24 @@ ERROR CONVENTION:
   All tools return { success: true, data, message? } OR { success: false, error: "..." }.
   On success: false, do NOT retry blindly — the error message states what to fix.
 
-ID SYSTEMS (three distinct shapes — do not mix):
-  • List ID:      21-char nanoid, e.g. "_efFPE1ErJtaRo3H8_Vnq"       (curated-list tools)
-  • Printing ID:  "set###-variant",  e.g. "sor004-rainbow"            (search_printings, add_to_binder, add_cards_to_deck)
-  • Talishar ID:  lowercase_snake_pitch, e.g. "pummel_red"            (Talishar sideboard export)
+ID GLOSSARY — which ID goes where (do not mix shapes):
+  • printing_id           21-char nanoid (e.g. "cLHGKMCjPb89zwNPmMFBp")
+                          → one specific physical printing (set × edition × foiling × art).
+                          → Used by: add_to_binder, remove_from_binder, add_to_wants, remove_from_wants,
+                            add_cards_to_deck, remove_cards_from_deck, add_card_to_list, remove_card_from_list,
+                            who_has (as printingIds).
+  • card_unique_id        21-char nanoid. One card at one pitch, across all printings.
+                          → Used by: who_has (as cardUniqueIds) — for "does anyone own X?" queries.
+  • collector_number      "SET###" e.g. "WTR171". Human-readable reference. Shown to users.
+                          → Not a primary key for any write tool. Filter via search_printings filters.collectorNumber.
+  • set_printing_unique_id   Internal DB field — not accepted by any MCP tool. Ignore.
+  • Curated list id       21-char nanoid (e.g. "_efFPE1ErJtaRo3H8_Vnq").
+                          → Used by: get/update/delete_curated_list, add/remove_card_from_list.
+                            Can also target by listName + heroName.
+  • Talishar hero id      lowercase_snake_pitch (e.g. "pummel_red").
+                          → Used by: save_deck_matchup sideboard export. Read fab://hero-ids first.
+
+Every search_printings result row carries both printing_id AND card_unique_id — pick whichever the next tool needs.
 
 HERO NAMES:
   When passing \`heroName\` to create_curated_list / update_curated_list / create_deck,
@@ -507,47 +498,11 @@ CURATOR/ADMIN TOOLS:
               
               // SECONDARY TOOLS
               {
-                  name: searchPrintingsTool.name,
-                  description: `🔍 CARD SEARCH AND DISCOVERY TOOL
-
-                Use this tool when users want to:
-                - Search for cards by name, type, set, etc.
-                - Verify cards exist before adding to binder/wants
-                - Explore different printings/versions of a card
-                - Find cards with specific criteria
-
-                PERFECT FOR: "add 3 nf enlightened strike" - search first to verify the card exists and show options
-
-                ${searchPrintingsTool.description}
-
-                🎯 TYPICAL WORKFLOW:
-                1. User: "add X to my binder" 
-                2. YOU: Call search_printings to find and verify the card
-                3. Show user what was found
-                4. User confirms or refines search
-                5. Then use extract_printing_ids → add_to_binder`,
-                  inputSchema: searchPrintingsTool.parameters
-                },
-                {
-                  name: extractPrintingIdsTool.name,
-                  description: `🆔 PRINTING ID EXTRACTION - For confirmed card selections
-
-                Use this tool AFTER search_printings when:
-                - User has confirmed which cards they want
-                - Ready to prepare for binder/wants updates
-                - Need selection interface for multiple printings
-
-                NOT for initial searches - use search_printings first!
-
-                ${extractPrintingIdsTool.description}
-
-                🎯 WORKFLOW POSITION:
-                search_printings (explore) → extract_printing_ids (select) → add_to_binder (commit)
-
-                🔒 This tool is BLOCKED until setup complete!`,
-                  inputSchema: extractPrintingIdsTool.parameters
-                },
-                    {
+                name: searchPrintingsTool.name,
+                description: searchPrintingsTool.description,
+                inputSchema: searchPrintingsTool.parameters
+              },
+              {
                 name: updateBinderTool.name,
                 description: updateBinderTool.description,
                 inputSchema: updateBinderTool.parameters
@@ -649,24 +604,7 @@ Step 5: get_binder (verify additions)
               },
               {
                 name: whoHasTool.name,
-                description: `🔍 FIND CARD OWNERS (Works with setup)
-      
-      ${whoHasTool.description}
-      
-      🔴 HARD REQUIREMENT: Complete the 2-step setup first!
-         1. read_mandatory_constants_first({"uri": "fab://constants"})
-         2. read_mandatory_constants_first({"uri": "searchable://card/fields"})
-      
-      ❌ Without setup: Tool will be BLOCKED
-      ✅ With setup: Accurate owner matching with proper card identification
-      
-      📚 WORKFLOW INTEGRATION: 
-         Step 1-2: Complete setup (see read_mandatory_constants_first)
-         Step 3: search_printings (find cards)
-         Step 4: extract_printing_ids (get IDs)
-         Step 5: who_has (find owners)
-      
-      🔒 This tool is BLOCKED until setup complete!`,
+                description: whoHasTool.description,
                 inputSchema: whoHasTool.parameters
               },
 
@@ -800,29 +738,6 @@ The new tool provides the same functionality with better guidance for proper wor
 1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
 2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})`
               }]
-            }
-          }, { headers: corsHeaders() });
-        }
-
-        // RESOURCE REQUIREMENT VALIDATION for search tools
-        const resourceCheck = validateResourceRequirement(toolInput, toolName);
-        if (!resourceCheck.isValid) {
-          return NextResponse.json({
-            jsonrpc: '2.0',
-            id,
-            result: {
-              content: [
-                {
-                  type: 'text',
-                  text: resourceCheck.error
-                }
-              ],
-              isError: true,
-              errorType: 'MISSING_REQUIRED_RESOURCES',
-              requiredSteps: [
-                'read_mandatory_constants_first({"uri": "fab://constants"})',
-                'read_mandatory_constants_first({"uri": "searchable://card/fields"})'
-              ]
             }
           }, { headers: corsHeaders() });
         }
@@ -1340,7 +1255,7 @@ The new tool provides the same functionality with better guidance for proper wor
         1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
         2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
 
-        💡 Make sure you have valid printing IDs from search_printings or extract_printing_ids tools.`
+        💡 Make sure you have valid IDs from search_printings (printing_id for a specific printing, card_unique_id for any version).`
                   }
                 ],
                 isError: true,
@@ -1466,114 +1381,6 @@ The new tool provides the same functionality with better guidance for proper wor
 
         🔄 This might be a database connection issue or invalid search parameters.`
                 }],
-                isError: true,
-                error: err instanceof Error ? err.message : 'Unknown error'
-              }
-            }, { headers: corsHeaders() });
-          }
-        }
-
-        if (toolName === 'extract_printing_ids') {
-          if (DEBUG_MCP) console.log('🆔 Executing database printing ID extraction');
-          
-          // Validate query complexity for ID extraction too
-          const complexityCheck = validateQueryComplexity(toolInput);
-          if (!complexityCheck.isValid) {
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [
-                  {
-                    type: 'text',
-                    text: `❌ Query validation failed: ${complexityCheck.error}
-
-🔄 Did you complete the required setup? Run these first:
-1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
-2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
-
-Then add "_resourcesConfirmed": true to your extraction calls.`
-                  }
-                ],
-                isError: true,
-                error: complexityCheck.error
-              }
-            }, { headers: corsHeaders() });
-          }
-          
-          try {
-            // Apply safe defaults for ID extraction
-            const safeToolInput = {
-              ...toolInput,
-              options: {
-                ...toolInput.options,
-                limit: Math.min(toolInput.options?.limit || 100, 500) // Cap at 500 for ID extraction
-              }
-            };
-            
-            const result = await extractPrintingIdsTool.handler(safeToolInput);
-            
-            let responseText = `✅ ${result.message}\n\n`;
-            
-            if (result.ids) {
-              // Single type response
-              responseText += `🆔 IDs (${result.ids.length}):\n${result.ids.join('\n')}`;
-            } else {
-              // Combined response
-              if (result.card_ids?.length) {
-                responseText += `🎴 Traditional Card IDs (${result.card_ids.length}):\n${result.card_ids.join('\n')}\n\n`;
-              }
-              if (result.printing_ids?.length) {
-                responseText += `🔗 MongoDB Printing IDs (${result.printing_ids.length}):\n${result.printing_ids.join('\n')}\n\n`;
-              }
-              if (result.combined?.length) {
-                responseText += `📋 Combined List:\n${result.combined.map(item => `${item.type}: ${item.id} (${item.name})`).join('\n')}`;
-              }
-              if (result.selectionList) {
-                responseText += `🎯 Selection Interface:\n${result.selectionList.map(item => `${item.letter}. ${item.name} - ${item.details} - ${item.price}`).join('\n')}`;
-              }
-            }
-            
-            responseText += `\n\n📊 Data provided by FabBazaar.com`;
-            
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [
-                  {
-                    type: 'text',
-                    text: responseText
-                  }
-                ],
-                isError: false,
-                ...result
-              }
-            }, { 
-              headers: {
-                ...corsHeaders(),
-                'X-RateLimit-Limit': '500' // Updated for token users
-              }
-            });
-            
-          } catch (err) {
-            console.error('💥 Error in extract_printing_ids:', err);
-            return NextResponse.json({
-              jsonrpc: '2.0',
-              id,
-              result: {
-                content: [
-                  {
-                    type: 'text',
-                    text: `💥 Error extracting printing IDs: ${err instanceof Error ? err.message : 'Unknown error'}
-
-🔄 Did you complete the required setup? Run these first:
-1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
-2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})
-
-Then add "_resourcesConfirmed": true to your extraction calls.`
-                  }
-                ],
                 isError: true,
                 error: err instanceof Error ? err.message : 'Unknown error'
               }
@@ -1756,28 +1563,19 @@ Then add "_resourcesConfirmed": true to your extraction calls.`
           error: {
             code: -32601,
             message: `❌ Unknown tool: ${toolName}
-      
-      Available tools:
-      • read_mandatory_constants_first (🚨 USE THIS FIRST! Run twice with different URIs)
-      - search_printings (🔍 START HERE for "add X to binder" requests)
-      - extract_printing_ids (after confirming search results)
-      - add_to_binder (final step to add cards)
-      - get_binder (view current collection)
-      - get_wants / add_to_wants (wants list management)
-      - who_has (find card owners)
-      - get_article (retrieve article by slug)
-      - add_article_section (append sections to article)
-      - update_article_section (update existing section)
-      - list_decks (view all your decks)
-      - get_deck (view full decklist by name)
 
-      💡 Always start with "read_mandatory_constants_first" for best results.
-      💡 For "add cards" requests: search_printings → extract_printing_ids → add_to_binder
-      💡 For article editing: get_article → add_article_section / update_article_section
-      
-      📚 Required sequence:
-      1️⃣ read_mandatory_constants_first({"uri": "fab://constants"})
-      2️⃣ read_mandatory_constants_first({"uri": "searchable://card/fields"})`
+      Available tools:
+      • read_mandatory_constants_first (🚨 Read fab://constants once per session)
+      - search_printings (🔍 find cards, look up printings — returns printing_id + card_unique_id)
+      - add_to_binder / remove_from_binder / list_binders / get_binder
+      - add_to_wants / remove_from_wants / get_wants
+      - who_has (find card owners — use card_unique_id for any version, printing_id for a specific version)
+      - get_article / add_article_section / update_article_section
+      - list_decks / get_deck / create_deck / add_cards_to_deck / remove_cards_from_deck / update_deck / save_deck_matchup
+      - get_decks_to_beat
+      - Curator tools (visible only to curators/admins): list_curated_lists, get_curated_list, create_curated_list, update_curated_list, delete_curated_list, add_card_to_list, remove_card_from_list
+
+      💡 Start with read_mandatory_constants_first({"uri": "fab://constants"}) to load set/foiling/edition/rarity codes and the hero roster.`
         }
       }, { headers: corsHeaders() });
 
@@ -2033,15 +1831,13 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "extract_printing_ids", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "get_article", "add_article_section", "update_article_section", "get_decks_to_beat", "list_decks", "get_deck"],
-    hint: "Use POST with method/params structure. Always start with 'read_mandatory_constants_first' tool!",
-    mode: "OAUTH_AND_LEGACY_SUPPORT",
+    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "add_article_section", "update_article_section", "get_decks_to_beat", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
+    hint: "Use POST with JSON-RPC. Read fab://constants once per session, then use search_printings for all card lookups.",
     authMethods: ["Bearer <oauth_token>"],
-    workflow: "🚨 MANDATORY: read_mandatory_constants_first (2x) → search_printings → extract_printing_ids → add_to_binder",
+    workflow: "read_mandatory_constants_first({uri:'fab://constants'}) → search_printings → add_to_binder / add_to_wants / add_cards_to_deck",
     setup_sequence: [
       "1️⃣ read_mandatory_constants_first({\"uri\": \"fab://constants\"})",
-      "2️⃣ read_mandatory_constants_first({\"uri\": \"searchable://card/fields\"})",
-      "3️⃣ search_printings({ \"cards\": [{ \"filters\": { \"name\": \"...\" } }] })"
+      "2️⃣ search_printings({ \"cards\": [{ \"query\": \"pummel red\" }] })"
     ]
   }, {
     status: 405,
