@@ -55,6 +55,7 @@ function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
     rarity: p.rarity,
     pitch: p.pitch ?? null,
     color: p.color || null,
+    types: Array.isArray(p.types) ? p.types : [],
     price: p.tcg_market ?? null,
   };
   if (p.is_extended_art) out.ea = true;
@@ -196,7 +197,7 @@ export const searchPrintingsTool = {
 Use this for ANY card lookup: by name, by set, by rarity, by price, by hero legality, by keyword, by type.
 This is the tool for queries like: "find Command and Conquer red", "look up Pummel printings", "what equipment does Dash play", "show me cheap Majestics", "search for Enlightened Strike", "any blue attacks under $5".
 
-Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText to opt into extra fields.
+Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText to opt into extra fields.
 
 Always pass ALL cards you need in one call — never loop.
 
