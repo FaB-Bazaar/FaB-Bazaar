@@ -19,18 +19,29 @@ const RARITY_DISPLAY: Record<string, string> = {
 };
 const COLOR_TO_PITCH: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
 
-function formatPrinting(p: any): string {
-  return `• ${p.display_name || p.name || 'Unknown'} (${p.collector_number || 'N/A'})
-    Printing ID: ${p.printing_id}
-    Card Unique ID: ${p.card_unique_id}
-    Set: ${(p.set || '?').toUpperCase()} | ${EDITION_DISPLAY[p.edition] || p.edition || '?'} | ${FOILING_DISPLAY[p.foiling] || p.foiling || '?'}
-    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${p.tcg_market ? `$${p.tcg_market.toFixed(2)}` : 'N/A'}`;
-}
-
 // Compact projection for MCP clients — keeps only fields needed to act on a
 // printing (add to binder/wants/deck/list, display to user, who_has). Drops
 // ~40 redundant booleans/metadata fields per printing to save tokens.
 type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean };
+
+function formatPrinting(p: any, opts: ProjectOptions = {}): string {
+  const lines = [
+    `• ${p.display_name || p.name || 'Unknown'} (${p.collector_number || 'N/A'})`,
+    `    Printing ID: ${p.printing_id}`,
+    `    Card Unique ID: ${p.card_unique_id}`,
+    `    Set: ${(p.set || '?').toUpperCase()} | ${EDITION_DISPLAY[p.edition] || p.edition || '?'} | ${FOILING_DISPLAY[p.foiling] || p.foiling || '?'}`,
+    `    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${p.tcg_market ? `$${p.tcg_market.toFixed(2)}` : 'N/A'}`,
+  ];
+  if (opts.includeImage && p.image_url) lines.push(`    Image: ${p.image_url}`);
+  if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) {
+    lines.push(`    Artists: ${p.artists.join(', ')}`);
+  }
+  if (opts.includeText && p.text) {
+    const text = String(p.text).replace(/\s+/g, ' ').trim();
+    lines.push(`    Text: ${text}`);
+  }
+  return lines.join('\n');
+}
 function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   if (!p) return p;
   const out: any = {
@@ -465,6 +476,12 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
         ? `1 bulk query + ${complexIndices.length} parallel query${complexIndices.length > 1 ? 's' : ''}`
         : `${complexIndices.length} parallel query${complexIndices.length > 1 ? 's' : ''}`;
 
+    const projectOpts: ProjectOptions = {
+      includeImage: !!options.includeImage,
+      includeArtists: !!options.includeArtists,
+      includeText: !!options.includeText,
+    };
+
     const sections = output.map(r => {
       const label = r.query;
       if (r.printings.length === 0) {
@@ -475,14 +492,8 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       const fallbackNote = (r as any).foilingFallback
         ? '\n  ⚠️ No non-foil printing exists — showing available foil printing(s) instead'
         : '';
-      return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${fallbackNote}\n${formatPrinting(best)}${others}`;
+      return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${fallbackNote}\n${formatPrinting(best, projectOpts)}${others}`;
     });
-
-    const projectOpts: ProjectOptions = {
-      includeImage: !!options.includeImage,
-      includeArtists: !!options.includeArtists,
-      includeText: !!options.includeText,
-    };
 
     return {
       success: true,
