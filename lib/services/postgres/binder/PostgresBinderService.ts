@@ -774,11 +774,13 @@ export class PostgresBinderService implements IBinderService {
             .for('update');
 
           if (targetCard) {
-            // Merge quantities
+            // Merge quantities into target and remove source
             await tx
               .update(inventoryItems)
               .set({ quantity: targetCard.quantity + card.quantity, updatedAt: new Date() })
               .where(eq(inventoryItems.id, targetCard.id));
+
+            await tx.delete(inventoryItems).where(eq(inventoryItems.id, card.id));
 
             merged++;
           } else {
