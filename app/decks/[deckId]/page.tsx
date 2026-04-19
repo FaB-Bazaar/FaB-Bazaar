@@ -1677,21 +1677,8 @@ export default function DeckEditorPage() {
 
             {/* Curated build buttons — collapsible, always reserves space while loading */}
             {canEdit && (buildsLoading || curatedBuilds.length > 0) && (() => {
-              const FABLAZING_FORMAT_MAP: Record<string, string> = {
-                'Classic Constructed': 'cc',
-                'Blitz': 'blitz',
-                'Living Legend': 'll',
-                'Silver Age': 'sage',
-              };
-              const heroDisplayName = state.deck?.hero?.[0]?.printingDetails?.display_name ?? state.deck?.heroName ?? null;
-              const fablazingFormat = state.deck?.format ? FABLAZING_FORMAT_MAP[state.deck.format] : undefined;
-              const fablazingUrl = heroDisplayName ? (() => {
-                const params: Record<string, string> = { hero_name: heroDisplayName, page: '1' };
-                if (fablazingFormat) params.format = fablazingFormat;
-                return `https://fablazing.com/decklists?${new URLSearchParams(params)}`;
-              })() : null;
               return (
-              <div className="hidden sm:block mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
+              <div className="mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
                 <button
                   onClick={() => !buildsLoading && setBuildsExpanded(v => !v)}
                   className="flex items-center gap-2 w-full px-3 py-2 text-left rounded-t-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
@@ -1717,7 +1704,7 @@ export default function DeckEditorPage() {
                       <button
                         key={build.id}
                         onClick={() => setPreviewBuild({ name: build.name, description: build.description, cards: build.cards, curatorUser: build.curatorUser })}
-                        className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm flex items-center gap-1.5"
+                        className="text-sm sm:text-xs px-3 py-2 sm:py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm flex items-center gap-1.5"
                       >
                         {build.curatorUser?.avatarUrl && (
                           <img src={build.curatorUser.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />
@@ -1731,42 +1718,27 @@ export default function DeckEditorPage() {
                 {(() => {
                   const curatorsWithMetafy = heroCurators.filter(c => c.metafyProductUrl);
 
-                  if (curatorsWithMetafy.length > 0) {
-                    return (
-                      <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5 flex flex-col gap-1">
-                        {curatorsWithMetafy.map(c => (
-                          <a
-                            key={c.metafyProductUrl}
-                            href={c.metafyProductUrl!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
-                          >
-                            {c.avatarUrl && <img src={c.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />}
-                            <img src="/metafy-white.svg" alt="Metafy" className="hidden dark:block h-3.5 w-auto shrink-0" />
-                            <img src="/metafy-black.svg" alt="Metafy" className="block dark:hidden h-3.5 w-auto shrink-0 opacity-70" />
-                            <span>{c.metafyLinkLabel || `${c.displayUsername}'s Metafy guide`}</span>
-                            <ExternalLink className="h-3 w-3 shrink-0" />
-                          </a>
-                        ))}
-                      </div>
-                    );
-                  }
+                  if (curatorsWithMetafy.length === 0) return null;
 
-                  return fablazingUrl ? (
-                    <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5">
-                      <a
-                        href={fablazingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
-                      >
-                        <img src="/fablazing-logo.svg" alt="Fablazing" className="h-3.5 w-auto bg-gray-900 rounded px-1" />
-                        <span>View latest {heroDisplayName} decklists</span>
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
+                  return (
+                    <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5 flex flex-col gap-1">
+                      {curatorsWithMetafy.map(c => (
+                        <a
+                          key={c.metafyProductUrl}
+                          href={c.metafyProductUrl!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+                        >
+                          {c.avatarUrl && <img src={c.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />}
+                          <img src="/metafy-white.svg" alt="Metafy" className="hidden dark:block h-3.5 w-auto shrink-0" />
+                          <img src="/metafy-black.svg" alt="Metafy" className="block dark:hidden h-3.5 w-auto shrink-0 opacity-70" />
+                          <span>{c.metafyLinkLabel || `${c.displayUsername}'s Metafy guide`}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      ))}
                     </div>
-                  ) : null;
+                  );
                 })()}
               </div>
               );
