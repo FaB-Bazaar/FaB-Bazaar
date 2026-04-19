@@ -70,7 +70,7 @@ export default function CurationListEditorPage() {
   const [scope, setScope] = useState<Scope>('general');
   const [heroName, setHeroName] = useState('');
   const [className, setClassName] = useState('');
-  const [format, setFormat] = useState('');
+  const [format, setFormat] = useState('Classic Constructed');
   const [tagsInput, setTagsInput] = useState('');
   const [isPublished, setIsPublished] = useState(false);
   const [cards, setCards] = useState<CuratedListCard[]>([]);
@@ -449,7 +449,6 @@ export default function CurationListEditorPage() {
               format="Classic Constructed"
               value={heroName || undefined}
               onSelect={setHeroName}
-              showGeneric
             />
           </div>
         )}

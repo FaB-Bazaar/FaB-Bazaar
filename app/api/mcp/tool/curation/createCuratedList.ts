@@ -3,21 +3,17 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const createCuratedListTool = {
   name: 'create_curated_list',
-  description: `✨ CREATE CURATED LIST: Create a new curated card list (curator/admin only)
+  description: `✨ CREATE CURATED LIST: Create a new hero-scoped curated card list (curator/admin only)
 
-Creates a draft list scoped to a specific hero, class, or general use.
-New lists start unpublished — use update_curated_list to publish when ready.
+Lists are always scoped to a specific hero. New lists start unpublished — use update_curated_list to publish when ready.
 
-Scope options:
-- "general": applies to all heroes/classes
-- "class": requires className (e.g. "Warrior")
-- "hero": requires heroName (e.g. "Rhinar")
+heroName must be the lowercase canonical name from fab://constants → heroes_by_format (e.g. "rhinar, reckless rampage").
 
 Variant types (optional): "budget", "mid", "premium"
   Use parentId to link variants to a parent list.
 
 Example workflow:
-1. create_curated_list({ name: "Rhinar Core", scope: "hero", heroName: "Rhinar", format: "Classic Constructed" })
+1. create_curated_list({ name: "Rhinar Core", heroName: "rhinar, reckless rampage", format: "Classic Constructed" })
 2. search_printings to find card printing IDs
 3. add_card_to_list (×N) to populate
 4. update_curated_list({ id, isPublished: true }) to publish`,
@@ -29,26 +25,18 @@ Example workflow:
         type: 'string',
         description: 'List name (e.g. "Rhinar Core Cards")'
       },
-      description: {
-        type: 'string',
-        description: 'Optional description of the list purpose'
-      },
-      scope: {
-        type: 'string',
-        enum: ['general', 'class', 'hero'],
-        description: 'Scope: "general" (all), "class" (requires className), or "hero" (requires heroName)'
-      },
       heroName: {
         type: 'string',
-        description: 'Required when scope is "hero" (e.g. "Rhinar")'
-      },
-      className: {
-        type: 'string',
-        description: 'Required when scope is "class" (e.g. "Warrior")'
+        description: 'Lowercase canonical hero name from fab://constants (e.g. "rhinar, reckless rampage")'
       },
       format: {
         type: 'string',
-        description: 'Game format — REQUIRED. One of: "Classic Constructed", "Silver Age", "Living Legend", "Blitz", "Limited", "Commoner".'
+        enum: ['Classic Constructed', 'Silver Age', 'Living Legend', 'Blitz', 'Limited', 'Commoner'],
+        description: 'Game format. Defaults to "Classic Constructed" if omitted.'
+      },
+      description: {
+        type: 'string',
+        description: 'Optional description of the list purpose'
       },
       tags: {
         type: 'array',
@@ -69,7 +57,7 @@ Example workflow:
         description: 'Optional: display sort order (lower = first)'
       }
     },
-    required: ['name', 'scope', 'format']
+    required: ['name', 'heroName']
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -84,26 +72,16 @@ Example workflow:
       if (!params?.name) {
         return { success: false, error: 'Missing required parameter: name' };
       }
-      if (!params?.scope) {
-        return { success: false, error: 'Missing required parameter: scope' };
-      }
-      if (!params?.format) {
-        return { success: false, error: 'Missing required parameter: format (Classic Constructed, Silver Age, Living Legend, Blitz)' };
-      }
-      if (params.scope === 'hero' && !params.heroName) {
-        return { success: false, error: 'heroName is required when scope is "hero"' };
-      }
-      if (params.scope === 'class' && !params.className) {
-        return { success: false, error: 'className is required when scope is "class"' };
+      if (!params?.heroName) {
+        return { success: false, error: 'Missing required parameter: heroName (e.g. "rhinar, reckless rampage")' };
       }
 
       const body: Record<string, any> = {
         name: params.name,
-        format: params.format,
+        heroName: params.heroName,
+        format: params.format ?? 'Classic Constructed',
       };
       if (params.description) body.description = params.description;
-      if (params.scope === 'hero') body.heroName = params.heroName;
-      if (params.scope === 'class') body.className = params.className;
       if (params.tags) body.tags = params.tags;
       if (params.variantType) body.variantType = params.variantType;
       if (params.parentId) body.parentId = params.parentId;
@@ -133,11 +111,10 @@ Example workflow:
       }
 
       const list = result.data;
-      const scope = list.heroName ? `Hero: ${list.heroName}` : list.className ? `Class: ${list.className}` : 'General';
 
       const message = `✅ Created list: **${list.name}**\n`
         + `ID: \`${list.id}\`\n`
-        + `Scope: ${scope} | Format: ${list.format || 'CC'} | Status: 📝 Draft\n\n`
+        + `Hero: ${list.heroName} | Format: ${list.format} | Status: 📝 Draft\n\n`
         + `Next steps:\n`
         + `1. Use search_printings to find card printing IDs\n`
         + `2. Use add_card_to_list({ listId: "${list.id}", printingId: "..." }) to add cards\n`
