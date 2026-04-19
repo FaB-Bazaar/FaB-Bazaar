@@ -31,6 +31,7 @@ function formatPrinting(p: any, opts: ProjectOptions = {}): string {
     `    Card Unique ID: ${p.card_unique_id}`,
     `    Set: ${(p.set || '?').toUpperCase()} | ${EDITION_DISPLAY[p.edition] || p.edition || '?'} | ${FOILING_DISPLAY[p.foiling] || p.foiling || '?'}`,
     `    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${p.tcg_market ? `$${p.tcg_market.toFixed(2)}` : 'N/A'}`,
+    `    Types: ${Array.isArray(p.types) && p.types.length > 0 ? p.types.join(', ') : '—'}`,
   ];
   if (opts.includeImage && p.image_url) lines.push(`    Image: ${p.image_url}`);
   if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) {
