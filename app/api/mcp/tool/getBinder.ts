@@ -70,6 +70,10 @@ export const getBinderTool = {
     required: ['binderSlug']
   },
 
+  _meta: {
+    ui: { resourceUri: 'ui://binder/viewer.html' },
+  },
+
   // NO CHANGES ARE NEEDED TO THE HANDLER LOGIC. IT IS CORRECT.
   async handler(params: any, authenticatedUser?: any, mcpToken?: string) {
     const API_BASE_URL = getMcpApiBaseUrl();
@@ -237,3 +241,32 @@ export const getBinderTool = {
 };
 
 export default getBinderTool;
+
+type McpAppResult = {
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent?: Record<string, any>;
+  isError?: boolean;
+};
+
+export function shapeForMcpApp(raw: any): McpAppResult {
+  if (!raw || raw.success === false) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: `Error retrieving binder: ${raw?.error ?? 'unknown error'}` }],
+    };
+  }
+
+  const name = raw.binder?.name ?? raw.binder?.slug ?? 'binder';
+  const count = Array.isArray(raw.cards) ? raw.cards.length : 0;
+  const total = raw.pagination?.total ?? count;
+  const summary = `Binder '${name}': ${count} rows shown, ${total} total.`;
+
+  return {
+    content: [{ type: 'text', text: summary }],
+    structuredContent: {
+      binder: raw.binder,
+      cards: raw.cards ?? [],
+      pagination: raw.pagination,
+    },
+  };
+}

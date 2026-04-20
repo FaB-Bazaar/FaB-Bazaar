@@ -5,6 +5,7 @@ import { fabConstantsResource } from '../resource/fabConstants';
 import { articleFormattingResource } from '../resource/articleFormatting';
 import { cardIndexResource } from '../resource/cardIndex';
 import { heroIdsResource } from '../resource/heroIds';
+import { binderViewerResource } from '../resource/binderViewer';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService } from '@/lib/services';
 
@@ -13,7 +14,7 @@ import { searchPrintingsTool } from '../tool/searchPrintings';
 import { updateBinderTool } from '../tool/updateBinder';
 import { removeFromBinderTool } from '../tool/removeFromBinder';
 import { removeFromWantsTool } from '../tool/removeFromWants';
-import { getBinderTool } from '../tool/getBinder';
+import { getBinderTool, shapeForMcpApp } from '../tool/getBinder';
 import { listBindersTool } from '../tool/listBinders';
 import { getWantsTool } from '../tool/getWants';
 import { updateWantsTool } from '../tool/updateWants';
@@ -543,7 +544,8 @@ Step 4: add_to_binder (add cards to collection)
 Step 5: get_binder (verify additions)
 
 ✅ This tool works without any setup requirements!`,
-                inputSchema: getBinderTool.parameters
+                inputSchema: getBinderTool.parameters,
+                _meta: (getBinderTool as any)._meta
               },
               {
                 name: getDecksToBeatTool.name,
@@ -830,16 +832,7 @@ The new tool provides the same functionality with better guidance for proper wor
     return NextResponse.json({
       jsonrpc: '2.0',
       id,
-      result: {
-        content: [
-          {
-            type: 'text',
-            text: result.message || 'Binder retrieval completed'
-          }
-        ],
-        isError: false,
-        ...result
-      }
+      result: shapeForMcpApp(result)
     }, { headers: corsHeaders() });
     
             
@@ -1614,6 +1607,12 @@ The new tool provides the same functionality with better guidance for proper wor
                 name: cardIndexResource.name,
                 description: `🃏 DECKLIST IMPORT: ${cardIndexResource.description}`,
                 mimeType: 'application/json'
+              },
+              {
+                uri: binderViewerResource.uri,
+                name: binderViewerResource.name,
+                description: binderViewerResource.description,
+                mimeType: binderViewerResource.mimeType
               }
             ]
           }
@@ -1695,6 +1694,23 @@ The new tool provides the same functionality with better guidance for proper wor
                   uri: uri,
                   mimeType: 'application/json',
                   text: JSON.stringify(resourceData, null, 2)
+                }
+              ]
+            }
+          }, { headers: corsHeaders() });
+        }
+
+        if (uri === binderViewerResource.uri) {
+          const html = await binderViewerResource.handler();
+          return NextResponse.json({
+            jsonrpc: "2.0",
+            id: id,
+            result: {
+              contents: [
+                {
+                  uri: uri,
+                  mimeType: binderViewerResource.mimeType,
+                  text: html
                 }
               ]
             }
