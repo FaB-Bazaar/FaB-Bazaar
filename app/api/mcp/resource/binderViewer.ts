@@ -27,6 +27,9 @@ export const binderViewerResource = {
                 protocolVersion: '2025-06-18',
                 capabilities: {},
                 clientInfo: { name: 'fab-bazaar-binder', version: '0.1.0' },
+                appCapabilities: {
+                  availableDisplayModes: ['inline'],
+                },
               },
             }, '*');
           } catch (_) {}
@@ -36,10 +39,12 @@ export const binderViewerResource = {
       window.addEventListener('message', function (ev) {
         var msg = ev.data;
         if (!msg || msg.jsonrpc !== '2.0') return;
-        if (msg.method !== 'ui/notifications/tool-result') return;
-        var data = msg.params && msg.params.structuredContent;
-        if (!data) return;
-        render(data);
+        console.log('[binder-viewer] message:', msg);
+        var data =
+          (msg.params && msg.params.structuredContent) ||
+          (msg.result && msg.result.structuredContent) ||
+          (msg.params && msg.params.toolResult && msg.params.toolResult.structuredContent);
+        if (data) render(data);
       });
 
       function escapeHtml(s) {
