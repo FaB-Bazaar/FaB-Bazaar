@@ -233,6 +233,28 @@ export interface IInventoryService {
     storeId: string,
     userId: string
   ): AsyncResult<StoreTradeMatchDTO[]>;
+
+  /**
+   * Sum owned quantity per printingId for a user.
+   *
+   * Returns a map of printingId → total owned across all the user's binders.
+   * Missing keys = user owns 0 of that printing. Empty input returns {}.
+   */
+  getOwnedCountsByPrintingId(
+    userId: string,
+    printingIds: string[]
+  ): AsyncResult<Record<string, number>>;
+
+  /**
+   * Sum owned quantity per cardUniqueId for a user (any printing counts).
+   *
+   * Returns a map of cardUniqueId → total owned across all printings of that card.
+   * Missing keys = user owns 0. Empty input returns {}.
+   */
+  getOwnedCountsByCardUniqueId(
+    userId: string,
+    cardUniqueIds: string[]
+  ): AsyncResult<Record<string, number>>;
 }
 
 // ====================================

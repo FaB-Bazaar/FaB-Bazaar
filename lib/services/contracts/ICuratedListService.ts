@@ -6,11 +6,31 @@ export interface CuratedListCardDTO {
   id: string;
   listId: string;
   printingId: string;
+  cardUniqueId?: string;
   sortOrder: number;
   displayName?: string;
   imageUrl?: string;
   setCode?: string;
+  collectorNumber?: string;
   color?: string;
+  rarity?: string;
+  foiling?: string;
+  edition?: string;
+  types?: string[];
+  keywords?: string[];
+  typeTextDisplay?: string;
+  tcgLow?: number;
+  tcgMarket?: number;
+  tcgMid?: number;
+  tcgHigh?: number;
+  tcgplayerUrl?: string;
+  isExtendedArt?: boolean;
+  artVariations?: string[];
+  foilInsetTop?: number;
+  foilInsetRight?: number;
+  foilInsetBottom?: number;
+  foilInsetLeft?: number;
+  foilInsetRound?: string;
   comment?: string | null;
 }
 
@@ -70,6 +90,7 @@ export interface UpdateCuratedListInput {
 
 export interface ICuratedListService {
   getPublishedListsForHero(heroName?: string): AsyncResult<CuratedListDTO[]>;
+  getAllPublished(options?: { includeCards?: boolean }): AsyncResult<CuratedListDTO[]>;
   getAllLists(): AsyncResult<CuratedListDTO[]>;
   getListsForCurator(userId: string): AsyncResult<CuratedListDTO[]>;
   getListById(id: string): AsyncResult<CuratedListDTO>;

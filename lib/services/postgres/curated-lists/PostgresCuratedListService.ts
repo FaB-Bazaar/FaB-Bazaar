@@ -62,12 +62,32 @@ export class PostgresCuratedListService implements ICuratedListService {
         id: curatedListCards.id,
         listId: curatedListCards.listId,
         printingId: curatedListCards.printingId,
+        cardUniqueId: printings.cardUniqueId,
         sortOrder: curatedListCards.sortOrder,
         comment: curatedListCards.comment,
         displayName: cards.displayName,
         imageUrl: printings.imageUrl,
         setCode: printings.set,
+        collectorNumber: printings.collectorNumber,
+        rarity: printings.rarity,
+        foiling: printings.foiling,
+        edition: printings.edition,
+        types: cards.types,
+        keywords: cards.keywords,
         color: cards.color,
+        typeTextDisplay: cards.typeTextDisplay,
+        tcgLow: printings.tcgLow,
+        tcgMarket: printings.tcgMarket,
+        tcgMid: printings.tcgMid,
+        tcgHigh: printings.tcgHigh,
+        tcgplayerUrl: printings.tcgplayerUrl,
+        isExtendedArt: printings.isExtendedArt,
+        artVariations: printings.artVariations,
+        foilInsetTop: printings.foilInsetTop,
+        foilInsetRight: printings.foilInsetRight,
+        foilInsetBottom: printings.foilInsetBottom,
+        foilInsetLeft: printings.foilInsetLeft,
+        foilInsetRound: printings.foilInsetRound,
       })
       .from(curatedListCards)
       .leftJoin(printings, eq(curatedListCards.printingId, printings.printingId))
@@ -79,12 +99,32 @@ export class PostgresCuratedListService implements ICuratedListService {
       id: row.id,
       listId: row.listId,
       printingId: row.printingId,
+      cardUniqueId: row.cardUniqueId ?? undefined,
       sortOrder: row.sortOrder ?? 0,
       comment: row.comment ?? null,
       displayName: row.displayName ?? undefined,
       imageUrl: row.imageUrl ?? undefined,
       setCode: row.setCode ?? undefined,
+      collectorNumber: row.collectorNumber ?? undefined,
+      rarity: row.rarity ?? undefined,
+      foiling: row.foiling ?? undefined,
+      edition: row.edition ?? undefined,
+      types: row.types ?? undefined,
+      keywords: row.keywords ?? undefined,
       color: row.color ?? undefined,
+      typeTextDisplay: row.typeTextDisplay ?? undefined,
+      tcgLow: row.tcgLow ?? undefined,
+      tcgMarket: row.tcgMarket ?? undefined,
+      tcgMid: row.tcgMid ?? undefined,
+      tcgHigh: row.tcgHigh ?? undefined,
+      tcgplayerUrl: row.tcgplayerUrl ?? undefined,
+      isExtendedArt: row.isExtendedArt ?? undefined,
+      artVariations: row.artVariations ?? undefined,
+      foilInsetTop: row.foilInsetTop ?? undefined,
+      foilInsetRight: row.foilInsetRight ?? undefined,
+      foilInsetBottom: row.foilInsetBottom ?? undefined,
+      foilInsetLeft: row.foilInsetLeft ?? undefined,
+      foilInsetRound: row.foilInsetRound ?? undefined,
     }));
   }
 
@@ -153,6 +193,34 @@ export class PostgresCuratedListService implements ICuratedListService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get published lists for hero',
+      };
+    }
+  }
+
+  async getAllPublished(options: { includeCards?: boolean } = {}): AsyncResult<CuratedListDTO[]> {
+    try {
+      const rows = await db
+        .select()
+        .from(curatedLists)
+        .where(eq(curatedLists.isPublished, true))
+        .orderBy(asc(curatedLists.sortOrder));
+
+      if (options.includeCards) {
+        const data = await Promise.all(
+          rows.map(async row => {
+            const cardList = await this.fetchCardsForList(row.id);
+            return this.toDTO(row, cardList, undefined);
+          })
+        );
+        return { success: true, data };
+      }
+
+      const counts = await this.fetchCardCounts(rows.map(r => r.id));
+      return { success: true, data: rows.map(row => this.toDTO(row, undefined, undefined, counts.get(row.id) ?? 0)) };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get all published lists',
       };
     }
   }

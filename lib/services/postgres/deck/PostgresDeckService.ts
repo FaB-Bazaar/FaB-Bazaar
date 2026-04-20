@@ -12,6 +12,7 @@ import { decks, deckCards, printings, cards, inventoryItems, binders, users, art
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { getBannedCardIds } from '@/lib/fab-banned-cards';
 import { nanoid } from 'nanoid';
+import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
 import type {
   IDeckService,
   DeckDTO,
@@ -1619,35 +1620,18 @@ export class PostgresDeckService implements IDeckService {
     printingIds: string[]
   ): AsyncResult<OwnershipStatusDTO[]> {
     try {
-      // Use SQL aggregation to check ownership
-      const owned = await db
-        .select({
-          printingId: inventoryItems.printingId,
-          owned: sql<number>`COALESCE(SUM(${inventoryItems.quantity}), 0)::int`,
-          forTrade: sql<number>`COALESCE(SUM(CASE WHEN ${inventoryItems.forTrade} THEN ${inventoryItems.quantity} ELSE 0 END), 0)::int`,
-        })
-        .from(inventoryItems)
-        .leftJoin(binders, eq(inventoryItems.binderId, binders.id))
-        .where(
-          and(
-            eq(inventoryItems.userId, userId),
-            inArray(inventoryItems.printingId, printingIds)
-          )
-        )
-        .groupBy(inventoryItems.printingId);
+      const [ownedMap, forTradeMap] = await Promise.all([
+        sumOwnedByPrintingId(userId, printingIds),
+        sumForTradeByPrintingId(userId, printingIds),
+      ]);
 
-      const ownedMap = new Map(owned.map((o) => [o.printingId, o]));
-
-      const statuses: OwnershipStatusDTO[] = printingIds.map((printingId) => {
-        const status = ownedMap.get(printingId);
-        return {
-          printingId,
-          owned: status?.owned || 0,
-          forTrade: status?.forTrade || 0,
-          conditions: [],  // Can be enhanced later
-          binderNames: [],  // Can be enhanced later
-        };
-      });
+      const statuses: OwnershipStatusDTO[] = printingIds.map((printingId) => ({
+        printingId,
+        owned: ownedMap[printingId] ?? 0,
+        forTrade: forTradeMap[printingId] ?? 0,
+        conditions: [],
+        binderNames: [],
+      }));
 
       return { success: true, data: statuses };
     } catch (error) {

@@ -8,6 +8,7 @@
 import { eq, and, sql, inArray, gte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { inventoryItems, users, binders, printings, cards, wantsItems, userFollowedStores } from '@/lib/postgres/schema';
+import { sumOwnedByPrintingId, sumOwnedByCardUniqueId } from './ownership-queries';
 import type {
   IInventoryService,
   WhoHasFilters,
@@ -724,6 +725,30 @@ export class PostgresInventoryService implements IInventoryService {
       return { success: true, data: matches };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to get store trade matches' };
+    }
+  }
+
+  async getOwnedCountsByPrintingId(
+    userId: string,
+    printingIds: string[]
+  ): AsyncResult<Record<string, number>> {
+    try {
+      const data = await sumOwnedByPrintingId(userId, printingIds);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to get owned counts by printing' };
+    }
+  }
+
+  async getOwnedCountsByCardUniqueId(
+    userId: string,
+    cardUniqueIds: string[]
+  ): AsyncResult<Record<string, number>> {
+    try {
+      const data = await sumOwnedByCardUniqueId(userId, cardUniqueIds);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to get owned counts by card' };
     }
   }
 }

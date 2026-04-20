@@ -696,6 +696,147 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'tuffnut':                             'SUP002',
 };
 
+// Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.
+// Keys must match HERO_INFO / YOUNG_HERO_INFO keys (lowercase). Omit heroes with 0 points.
+export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-04-14';
+export const LIVING_LEGEND_POINTS_SOURCE_LABEL = 'Pro Tour and Calling: Yokohama';
+
+export const LIVING_LEGEND_POINTS: Record<string, number> = {
+  // Active Classic Constructed heroes (LL points < 1000)
+  'prism, awakener of sol': 951,
+  'fai, rising rebellion': 856,
+  'dash i/o': 830,
+  'victor goldmane, high and mighty': 824,
+  'cindra, dracai of retribution': 820,
+  'bravo, showstopper': 776,
+  'kassai of the golden sand': 764,
+  'katsu, the wanderer': 746,
+  'dorinthea ironsong': 743,
+  'arakni, marionette': 644,
+  'oscilio, constella intelligence': 536,
+  'ser boltyn, breaker of dawn': 417,
+  'gravy bones, shipwrecked looter': 409,
+  'uzuri, switchblade': 405,
+  'rhinar, reckless rampage': 362,
+  'vynnset, iron maiden': 259,
+  'arakni, huntsman': 244,
+  'jarl vetreiði': 203,
+  'levia, shadowborn abomination': 200,
+  'arakni, 5l!p3d 7hru 7h3 cr4x': 193,
+  'fang, dracai of blades': 153,
+  'ira, scarlet revenger': 126,
+  'riptide, lurker of the deep': 98,
+  "maxx 'the hype' nitro": 85,
+  'pleiades, superstar': 45,
+  'teklovossen, esteemed magnate': 41,
+  'kayo, underhanded cheat': 29,
+  'valda, seismic impact': 28,
+  'marlynn, treasure hunter': 21,
+  'puffin, hightail': 18,
+  'betsy, skin in the game': 7,
+  'olympia, prized fighter': 7,
+  'tuffnut, bumbling hulkster': 5,
+  'lyath goldmane, vile savant': 3,
+
+  // Graduated Living Legends (≥ 1000 points — no longer CC-legal)
+  'bravo, star of the show': 1582,
+  'lexi, livewire': 1276,
+  'oldhim, grandfather of eternity': 1186,
+  'briar, warden of thorns': 1158,
+  'chane, bound by shadow': 1102,
+  'prism, sculptor of arc light': 1098,
+  'dromai, ash artist': 1096,
+  'aurora, shooting star': 1051,
+  'enigma, ledger of ancestry': 1046,
+  'azalea, ace in the hole': 1036,
+  'florian, rotwood harbinger': 1029,
+  'kano, dracai of aether': 1028,
+  'verdance, thorn of the rose': 1019,
+  'viserai, rune blood': 1016,
+  'kayo, armed and dangerous': 1014,
+  'dash, inventor extraordinaire': 1013,
+  'iyslander, stormbind': 1012,
+  'nuu, alluring desire': 1004,
+  'zen, tamer of purpose': 1000,
+};
+
+export const LIVING_LEGEND_THRESHOLD = 1000;
+
+export function getLivingLegendPoints(heroName: string): number | null {
+  const key = heroName.toLowerCase();
+  return LIVING_LEGEND_POINTS[key] ?? null;
+}
+
+export function isLivingLegendGraduated(heroName: string): boolean {
+  const pts = getLivingLegendPoints(heroName);
+  return pts !== null && pts >= LIVING_LEGEND_THRESHOLD;
+}
+
+// Marvel (rarity='v') printings used for hero portraits on the Starter Kits page.
+// The Starter Kits index is decorative — unlike decklists it has no printing-legality
+// constraint, so we can surface the dramatic Marvel artwork. Adult hero cards only
+// (types do NOT include 'young'). Heroes without an adult Marvel fall back to their
+// regular printing in consumers.
+export const HERO_MARVEL_PRINTING_IDS: Record<string, string> = {
+  // Assassins
+  'arakni, huntsman': 'GkTQBCJzmJHgMTrKNd6qH',
+  'arakni, marionette': 'cMjgCqfBRmkwtGR6gCgt6',
+  'arakni, 5l!p3d 7hru 7h3 cr4x': 'ndhzmwPDnPNhRJBpPKWCd',
+  'nuu, alluring desire': 'QtMtcMzmcmbDpMJqcQLtW',
+
+  // Brutes
+  'kayo, armed and dangerous': 'FRC6K6BTNtzrrF6RRcwKc',
+  'kayo, underhanded cheat': 'hjN6TnDDzqJGBFmhmQR8N',
+  'tuffnut, bumbling hulkster': 'zkwNKBrhHmTnwMBrzhdfj',
+
+  // Guardians
+  'betsy, skin in the game': 't6MBPQL8MT7GBMTDcjPKb',
+  'valda, seismic impact': 'WCGGk8MTgKTBKzDMkwwqj',
+  'victor goldmane, high and mighty': 'RkQMDqD7TMffNzCBmzNMw',
+  'lyath goldmane, vile savant': 'wJHKFwtNgKwGcT6WcQWGg',
+
+  // Illusionists / Shapeshifters
+  'pleiades, superstar': '6qBpKJrfzhmgJhNRGrcbn',
+  'enigma, ledger of ancestry': 'HPKKdcJLbBRrpcKQt69gD',
+
+  // Mechanologists
+  'puffin, hightail': 'nfjHwhBfrKMKgwkFTCTmM',
+
+  // Ninjas
+  'gravy bones, shipwrecked looter': 'BFftmnPWFFTtNJTmRgw8W',
+  'cindra, dracai of retribution': 'zbnPRKjnn9HT8WphKjngw',
+  'zen, tamer of purpose': 'tQPKCjzwfPr7HMNtRWgCH',
+
+  // Rangers
+  'marlynn, treasure hunter': 'm8HzgzM789KRHdzfLkNz7',
+
+  // Runeblades
+  'aurora, shooting star': 'wT6TMjkLGcJ98HqCzwMdj',
+  'aurora, legacy of tempest': '8ttHnDjQjjLkrT9QtBcGT',
+  'briar, warden of thorns': 'B9TBh6dTQwQNnfqLfPpK9',
+  'florian, rotwood harbinger': 'mF7Tqd8J7Rnn6wLcNHq9D',
+
+  // Warriors
+  'fang, dracai of blades': 'Mph7NpNLFFLjB7wTMmbDb',
+  'kassai of the golden sand': 'JCFgtBGRdKtHDrQwQHLfD',
+  'olympia, prized fighter': '6KgBNNDCww6WL98w7CTTF',
+  'jarl vetreiði': 't8tntqfjrbbmCRdPnWGBL',
+
+  // Bards
+  'oscilio, constella intelligence': 'phb8MM8rg8gjtmJt6DTG6',
+  'oscilio, forked continuum': 'bWBMqq7qHpDhwwg6gbBpf',
+  'verdance, thorn of the rose': 'qKHDTdmJkCKnCj6WWT7Tf',
+};
+
+const MARVEL_IMAGE_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
+
+export function getHeroMarvelImageUrl(heroName: string): string | null {
+  const key = heroName.toLowerCase();
+  const printingId = HERO_MARVEL_PRINTING_IDS[key];
+  if (!printingId) return null;
+  return `${MARVEL_IMAGE_BASE}/${printingId}/public`;
+}
+
 // Helper functions
 export function getHeroInfo(nameOrNickname: string): HeroInfo | null {
   const lowerName = nameOrNickname.toLowerCase();
