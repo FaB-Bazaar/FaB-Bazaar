@@ -13,9 +13,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { generateUniqueBinderSlug } from "@/lib/utils"
-import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus } from "lucide-react"
+import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus, Globe, Lock, Link2 } from "lucide-react"
 
 import { CollectionTile } from "@/components/collection/CollectionTile"
+import { RarityIcon } from "@/components/shared/RarityIcon"
 import BulkTransferDialog from "@/components/collection/BulkTransferDialog"
 import FabraryImportDialog from "@/components/collection/FabraryImportDialog"
 import { CollectionHighlights } from "@/components/collection/EnhancedCollectionDashboard"
@@ -106,55 +107,171 @@ export interface BinderWithStats {
     image_url?: string
     printingId: string
   }>
+  showcaseCards?: Array<{
+    printingId: string
+    tcg_low: number
+    rarity: string
+  }>
+}
+
+// Rarity accent colors (matches RarityIcon palette)
+const RARITY_ACCENT: Record<string, string> = {
+  v: '#6E4D8C', V: '#6E4D8C',
+  f: '#DC9C52', F: '#DC9C52',
+  l: '#DC9C52', L: '#DC9C52',
+  m: '#A6120E', M: '#A6120E',
+  p: '#51A345', P: '#51A345',
+  s: '#6E4D8C', S: '#6E4D8C',
+  r: '#1888BF', R: '#1888BF',
+  c: '#949494', C: '#949494',
+}
+
+const getShowcaseImageUrl = (printingId: string) =>
+  `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`
+
+// Rarities to surface on binder cards (ordered by prestige, common/rare excluded as noise)
+const NOTABLE_RARITIES: Array<{ key: string; codes: string[] }> = [
+  { key: 'v', codes: ['v', 'V'] },
+  { key: 'f', codes: ['f', 'F'] },
+  { key: 'l', codes: ['l', 'L'] },
+  { key: 'm', codes: ['m', 'M'] },
+  { key: 's', codes: ['s', 'S'] },
+  { key: 'p', codes: ['p', 'P'] },
+]
+
+function sumRarity(counts: Record<string, number> | undefined, codes: string[]): number {
+  if (!counts) return 0
+  return codes.reduce((acc, code) => acc + (counts[code] || 0), 0)
+}
+
+function BinderVisibilityIcon({ binder }: { binder: BinderWithStats }) {
+  const level = binder.visibility?.level
+  const isPublic = level ? level === 'public' : binder.isPublic === true
+  const isUnlisted = level === 'unlisted'
+
+  if (isUnlisted) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs text-gray-700 dark:text-gray-200 bg-background/80 backdrop-blur-sm rounded px-1.5 py-0.5 border border-border/40"
+        title="Unlisted — accessible via link only"
+      >
+        <Link2 className="h-3 w-3" aria-hidden="true" />
+        <span className="sr-only">Unlisted</span>
+      </span>
+    )
+  }
+  if (isPublic) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs text-gray-700 dark:text-gray-200 bg-background/80 backdrop-blur-sm rounded px-1.5 py-0.5 border border-border/40"
+        title="Public"
+      >
+        <Globe className="h-3 w-3" aria-hidden="true" />
+        <span className="sr-only">Public</span>
+      </span>
+    )
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs text-gray-700 dark:text-gray-200 bg-background/80 backdrop-blur-sm rounded px-1.5 py-0.5 border border-border/40"
+      title="Private"
+    >
+      <Lock className="h-3 w-3" aria-hidden="true" />
+      <span className="sr-only">Private</span>
+    </span>
+  )
 }
 
 // Simple card for view mode
 function BinderViewCard({ binder, onDelete }: { binder: BinderWithStats; onDelete: (binder: BinderWithStats) => void }) {
+  const [imageFailed, setImageFailed] = useState(false)
   const totalValue = binder.totalValue?.tcg_low || binder.total_value || 0
+  const totalQty = binder.totalQuantity || 0
   const formatValue = (v: number) =>
     v >= 1000
       ? '$' + (v / 1000).toFixed(1) + 'K'
       : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(v)
 
+  const topCard = binder.showcaseCards?.[0]
+  const accent = topCard ? RARITY_ACCENT[topCard.rarity] ?? '#475569' : '#334155'
+  const isEmpty = totalQty === 0
+  const showImage = !!topCard && !imageFailed
+
+  const rarityPips = NOTABLE_RARITIES
+    .map(({ key, codes }) => ({ key, code: codes[0], count: sumRarity(binder.rarityCounts, codes) }))
+    .filter((r) => r.count > 0)
+    .slice(0, 5)
+
   return (
-    <Card className="hover:border-primary transition-colors h-full">
-      <CardContent className="p-4 flex flex-col h-full">
-        <div className="flex items-start justify-between mb-3">
-          <Link href={`/binder/${binder._id}`} className="flex-1 min-w-0 group">
-            <h3 className="font-semibold truncate text-foreground group-hover:text-primary transition-colors">{binder.name}</h3>
-            {(binder.slug || binder.discordExternalId) && (
-              <Badge variant="secondary" className="text-xs mt-1 font-mono">
-                {binder.slug || binder.discordExternalId}
-              </Badge>
-            )}
-          </Link>
-          <button
-            onClick={() => onDelete(binder)}
-            className="ml-2 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-            title="Delete binder"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-        <Link href={`/binder/${binder._id}`} className="flex-1">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="text-muted-foreground">Cards</div>
-              <div className="font-semibold text-foreground">{(binder.totalQuantity || 0).toLocaleString()}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Value</div>
-              <div className="font-semibold text-green-600 dark:text-green-500">{formatValue(totalValue)}</div>
-            </div>
+    <Card
+      className="group relative overflow-hidden hover:border-primary/60 hover:shadow-lg transition-all h-full"
+      style={{ borderLeft: `3px solid ${accent}` }}
+    >
+      {/* Banner — hero card art (first showcase card) */}
+      <Link href={`/binder/${binder._id}`} className="block relative h-24 overflow-hidden bg-gradient-to-br from-muted to-muted/40 dark:from-muted/40 dark:to-muted/10">
+        {showImage ? (
+          <>
+            <img
+              src={getShowcaseImageUrl(topCard.printingId)}
+              alt=""
+              loading="lazy"
+              onError={() => setImageFailed(true)}
+              className="absolute inset-0 w-full h-full object-cover object-[center_30%] opacity-100 group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Package className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
           </div>
-          {(binder.quantityForTrade || 0) > 0 && (
-            <div className="text-xs text-amber-600 dark:text-amber-500 mt-2 flex items-center gap-1">
-              <ArrowLeftRight className="h-3 w-3" />
-              {binder.quantityForTrade} for trade
+        )}
+        <div className="absolute bottom-0 left-0 right-0 p-3 pr-12">
+          <h3 className="font-semibold truncate text-foreground drop-shadow-sm group-hover:text-primary transition-colors">
+            {binder.name}
+          </h3>
+          {(binder.slug || binder.discordExternalId) && (
+            <div className="text-xs mt-0.5 font-mono text-muted-foreground truncate">
+              {binder.slug || binder.discordExternalId}
             </div>
           )}
-        </Link>
-      </CardContent>
+        </div>
+        <div className="absolute top-2 left-2">
+          <BinderVisibilityIcon binder={binder} />
+        </div>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(binder) }}
+          className="absolute top-2 right-2 p-1.5 text-muted-foreground bg-background/60 backdrop-blur-sm hover:text-destructive hover:bg-destructive/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 opacity-0 group-hover:opacity-100"
+          title="Delete binder"
+          aria-label={`Delete binder ${binder.name}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </Link>
+
+      {/* Stats row */}
+      <Link href={`/binder/${binder._id}`} className="block">
+        <CardContent className="px-4 py-3">
+          <div className={`flex items-baseline justify-between gap-2 ${isEmpty ? 'opacity-60' : ''}`}>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-semibold text-foreground tabular-nums">{totalQty.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground">cards</span>
+            </div>
+            <div className="font-semibold tabular-nums text-green-600 dark:text-green-500">
+              {formatValue(totalValue)}
+            </div>
+          </div>
+          {rarityPips.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {rarityPips.map((r) => (
+                <div key={r.key} className="inline-flex items-center gap-1">
+                  <RarityIcon rarityCode={r.code} size="sm" />
+                  <span className="text-xs text-gray-700 dark:text-gray-200 tabular-nums">{r.count.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Link>
     </Card>
   )
 }
@@ -401,49 +518,45 @@ export default function CollectionPage() {
         </div>
       )}
 
-      {/* Compact Stats Row */}
+      {/* Compact Stats Strip */}
       {collectionOverview && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">Total Cards</div>
-              <div className="text-2xl font-bold text-foreground">
-                {collectionOverview.collection.totalQuantity.toLocaleString()}
+        <Card className="mb-6">
+          <CardContent className="px-4 py-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 divide-x divide-border">
+              <div className="pr-6">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Cards</div>
+                <div className="text-xl font-semibold text-foreground tabular-nums">
+                  {collectionOverview.collection.totalQuantity.toLocaleString()}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground flex items-center gap-1">
-                <Coins className="h-3 w-3" /> Total Value
+              <div className="pl-6 pr-6 first:pl-0">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <Coins className="h-3 w-3" /> Value
+                </div>
+                <div className="text-xl font-semibold text-green-600 dark:text-green-500 tabular-nums">
+                  {formatCurrency(collectionOverview.collection.totalValues.tcg_low)}
+                </div>
               </div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-500">
-                {formatCurrency(collectionOverview.collection.totalValues.tcg_low)}
+              <div className="pl-6 pr-6">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <ArrowLeftRight className="h-3 w-3" /> For Trade
+                </div>
+                <div className="text-xl font-semibold text-foreground tabular-nums">
+                  {collectionOverview.collection.quantityForTrade.toLocaleString()}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground flex items-center gap-1">
-                <ArrowLeftRight className="h-3 w-3" /> For Trade
+              <div className="pl-6">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Binders</div>
+                <div className="text-xl font-semibold text-foreground tabular-nums">
+                  {collectionOverview.collection.binderCount}
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    · {collectionOverview.collection.publicBinderCount} public
+                  </span>
+                </div>
               </div>
-              <div className="text-2xl font-bold text-foreground">
-                {collectionOverview.collection.quantityForTrade.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-sm text-muted-foreground">Binders</div>
-              <div className="text-2xl font-bold text-foreground">
-                {collectionOverview.collection.binderCount}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {collectionOverview.collection.publicBinderCount} public
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Cross-Binder Search */}
