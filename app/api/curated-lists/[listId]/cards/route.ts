@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
 import { checkListOwnership } from '../../curation-auth';
@@ -40,6 +41,7 @@ export async function POST(
       if (!result.success) {
         return NextResponse.json({ success: false, error: result.error }, { status: 500 });
       }
+      revalidateTag('kits-summary');
       return NextResponse.json({ success: true, data: result.data }, { status: 201 });
     }
 
@@ -52,6 +54,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
+    revalidateTag('kits-summary');
     return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';

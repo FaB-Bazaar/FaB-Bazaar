@@ -12,6 +12,7 @@ import type {
   CreateCuratedListInput,
   UpdateCuratedListInput,
   VariantType,
+  HeroKitSummaryDTO,
 } from '../../contracts/ICuratedListService';
 import type { AsyncResult } from '../../contracts/common';
 
@@ -221,6 +222,83 @@ export class PostgresCuratedListService implements ICuratedListService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get all published lists',
+      };
+    }
+  }
+
+  async getHeroSummaries(format: string): AsyncResult<HeroKitSummaryDTO[]> {
+    try {
+      // Cap-aware per-hero aggregation done entirely in SQL to avoid shipping
+      // thousands of card rows. Cap logic mirrors `capForCard` in lib/utils/card-pool.ts:
+      //   weapon → 2, equipment+evo → 3, equipment (alone) → 1, else → 3
+      //
+      // Cards are grouped by card_unique_id within each hero; rawCount is the total
+      // copies across all that hero's kits. We use MIN(tcg_low) for the per-card price —
+      // close enough to the TS "first occurrence" semantic and deterministic in SQL.
+      const rows = await db.execute<{
+        hero_name: string | null;
+        kit_count: number;
+        total_tcg_low: number;
+      }>(sql`
+        WITH filtered_lists AS (
+          SELECT id, hero_name
+          FROM curated_lists
+          WHERE is_published = true
+            AND lower(coalesce(format, '')) = lower(${format})
+        ),
+        per_card AS (
+          SELECT
+            fl.hero_name,
+            p.card_unique_id,
+            COUNT(*)::int AS raw_count,
+            CASE
+              WHEN 'weapon' = ANY(c.types) THEN 2
+              WHEN 'equipment' = ANY(c.types) AND 'evo' = ANY(c.types) THEN 3
+              WHEN 'equipment' = ANY(c.types) THEN 1
+              ELSE 3
+            END AS cap,
+            MIN(p.tcg_low) AS tcg_low
+          FROM curated_list_cards clc
+          JOIN filtered_lists fl ON fl.id = clc.list_id
+          JOIN printings p ON p.printing_id = clc.printing_id
+          JOIN cards c ON c.card_unique_id = p.card_unique_id
+          GROUP BY fl.hero_name, p.card_unique_id, c.types
+        ),
+        hero_totals AS (
+          SELECT
+            hero_name,
+            SUM(LEAST(raw_count, cap) * COALESCE(tcg_low, 0))::float AS total_tcg_low
+          FROM per_card
+          GROUP BY hero_name
+        ),
+        kit_counts AS (
+          SELECT hero_name, COUNT(*)::int AS kit_count
+          FROM filtered_lists
+          GROUP BY hero_name
+        )
+        SELECT
+          kc.hero_name,
+          kc.kit_count,
+          COALESCE(ht.total_tcg_low, 0)::float AS total_tcg_low
+        FROM kit_counts kc
+        LEFT JOIN hero_totals ht USING (hero_name)
+      `);
+
+      // drizzle's `.execute()` returns `{ rows }` for pg driver.
+      const resultRows = (rows as unknown as { rows: Array<{ hero_name: string | null; kit_count: number; total_tcg_low: number }> }).rows
+        ?? (rows as unknown as Array<{ hero_name: string | null; kit_count: number; total_tcg_low: number }>);
+
+      const data: HeroKitSummaryDTO[] = resultRows.map(r => ({
+        heroName: r.hero_name,
+        kitCount: Number(r.kit_count),
+        totalTcgLow: Number(r.total_tcg_low),
+      }));
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get hero summaries',
       };
     }
   }

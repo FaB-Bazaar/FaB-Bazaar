@@ -1,4 +1,17 @@
+import { unstable_cache } from 'next/cache';
 import { curatedListService, printingsService } from '@/lib/services';
+import type { CuratedListDTO, HeroKitSummaryDTO } from '@/lib/services/contracts/ICuratedListService';
+
+// Prices refresh nightly; aggregate is invalidated via `revalidateTag('kits-summary')`
+// from the nightly price-refresh webhook and from admin kit CRUD routes.
+const getCachedHeroSummaries = unstable_cache(
+  async (format: string): Promise<HeroKitSummaryDTO[]> => {
+    const result = await curatedListService.getHeroSummaries(format);
+    return result.success ? result.data : [];
+  },
+  ['kits-hero-summaries'],
+  { tags: ['kits-summary'] }
+);
 import {
   getHeroInfo,
   toHeroDisplayName,
@@ -10,7 +23,6 @@ import {
   LIVING_LEGEND_POINTS_SOURCE_LABEL,
 } from '@/lib/fab-constants/heroes';
 import { FORMAT_SLUG_TO_NAME, heroNameToSlug, formatToSlug } from '@/lib/utils/kit-slugs';
-import { computeCardPool } from '@/lib/utils/card-pool';
 import KitsFormatTabs from '@/components/kits/KitsFormatTabs';
 import KitsViewToggle from '@/components/kits/KitsViewToggle';
 import KitPoolView from '@/components/kits/KitPoolView';
@@ -42,42 +54,36 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
   const selectedSlug = formatToSlug(selectedFormat) ?? 'cc';
   const view: 'heroes' | 'pool' = viewParam === 'pool' ? 'pool' : 'heroes';
 
-  const result = await curatedListService.getAllPublished({ includeCards: true });
-  const lists = result.success ? result.data : [];
-  const formatLists = lists.filter(l => (l.format ?? '').toLowerCase() === selectedFormat.toLowerCase());
-
-  // Group hero-scoped lists by hero (for heroes view)
-  const byHero = new Map<string, HeroSummary>();
-  let generalCount = 0;
-  for (const list of formatLists) {
-    if (!list.heroName) {
-      generalCount += 1;
-      continue;
-    }
-    const existing = byHero.get(list.heroName);
-    if (existing) {
-      existing.kitCount += 1;
-    } else {
-      const info = getHeroInfo(list.heroName);
-      byHero.set(list.heroName, {
-        heroName: list.heroName,
-        displayName: toHeroDisplayName(list.heroName, info?.shortName),
-        className: info?.classes?.[0] ?? 'other',
-        talents: info?.talents ?? [],
-        kitCount: 1,
-      });
-    }
+  // Pool view needs full card data; heroes view uses a fast SQL aggregate.
+  let formatLists: CuratedListDTO[] = [];
+  if (view === 'pool') {
+    const poolResult = await curatedListService.getAllPublished({ includeCards: true });
+    const lists = poolResult.success ? poolResult.data : [];
+    formatLists = lists.filter(
+      l => (l.format ?? '').toLowerCase() === selectedFormat.toLowerCase()
+    );
   }
 
-  // Attach LL points + total tcgLow per hero (sum of cappedCount * tcgLow across kits).
-  for (const summary of byHero.values()) {
-    summary.livingLegendPoints = getLivingLegendPoints(summary.heroName) ?? undefined;
-    const heroLists = formatLists.filter(l => l.heroName === summary.heroName);
-    const pool = computeCardPool(heroLists);
-    summary.totalTcgLow = pool.cards.reduce(
-      (sum, c) => sum + (c.tcgLow ?? 0) * c.cappedCount,
-      0
-    );
+  const byHero = new Map<string, HeroSummary>();
+  let generalCount = 0;
+  if (view === 'heroes') {
+    const summaries = await getCachedHeroSummaries(selectedFormat);
+    for (const row of summaries) {
+      if (row.heroName === null) {
+        generalCount = row.kitCount;
+        continue;
+      }
+      const info = getHeroInfo(row.heroName);
+      byHero.set(row.heroName, {
+        heroName: row.heroName,
+        displayName: toHeroDisplayName(row.heroName, info?.shortName),
+        className: info?.classes?.[0] ?? 'other',
+        talents: info?.talents ?? [],
+        kitCount: row.kitCount,
+        totalTcgLow: row.totalTcgLow,
+        livingLegendPoints: getLivingLegendPoints(row.heroName) ?? undefined,
+      });
+    }
   }
 
   // For CC format, also surface graduated Living Legends (>= 1000 pts) as a separate section.

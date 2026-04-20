@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, userService } from '@/lib/services';
 import { checkListOwnership } from '../curation-auth';
@@ -63,6 +64,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
+    revalidateTag('kits-summary');
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';
@@ -92,6 +94,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
+    revalidateTag('kits-summary');
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';

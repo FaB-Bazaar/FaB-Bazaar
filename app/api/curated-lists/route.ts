@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, curatorHeroAssignmentService, userService } from '@/lib/services';
 
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }
 
+    revalidateTag('kits-summary');
     return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal Server Error';

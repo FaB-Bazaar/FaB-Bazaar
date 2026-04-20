@@ -88,9 +88,23 @@ export interface UpdateCuratedListInput {
   variantType?: VariantType | null;
 }
 
+/**
+ * Aggregated per-hero view of published kits for a given format.
+ * Designed for the /kits index page — avoids shipping all card rows to Node
+ * by computing the cap-aware `totalTcgLow` on the DB side.
+ *
+ * `heroName = null` represents general (hero-agnostic) kits for the format.
+ */
+export interface HeroKitSummaryDTO {
+  heroName: string | null;
+  kitCount: number;
+  totalTcgLow: number;
+}
+
 export interface ICuratedListService {
   getPublishedListsForHero(heroName?: string): AsyncResult<CuratedListDTO[]>;
   getAllPublished(options?: { includeCards?: boolean }): AsyncResult<CuratedListDTO[]>;
+  getHeroSummaries(format: string): AsyncResult<HeroKitSummaryDTO[]>;
   getAllLists(): AsyncResult<CuratedListDTO[]>;
   getListsForCurator(userId: string): AsyncResult<CuratedListDTO[]>;
   getListById(id: string): AsyncResult<CuratedListDTO>;

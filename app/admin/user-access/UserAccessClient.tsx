@@ -10,7 +10,7 @@ import { updateUserFlag } from '@/app/actions/userActions';
 import { setAdsEnabled } from '@/app/actions/siteSettingsActions';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
-import { Loader2, Shield, Settings, User, Store, RefreshCw, Sparkles, MonitorOff } from 'lucide-react';
+import { Loader2, Shield, Settings, User, Store, RefreshCw, Sparkles, MonitorOff, Package } from 'lucide-react';
 
 // Define the full user type with all the new fields
 type UserType = {
@@ -113,6 +113,7 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
   const [users, setUsers] = useState<UserType[]>(initialUsers);
   const [saving, setSaving] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingKits, setRefreshingKits] = useState(false);
   const [adsEnabled, setAdsEnabledState] = useState(initialAdsEnabled);
   const [togglingAds, setTogglingAds] = useState(false);
   const { toast } = useToast();
@@ -202,6 +203,38 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
     }
   }
 
+  async function handleRefreshKitsCache() {
+    setRefreshingKits(true);
+    try {
+      const response = await fetch('/api/admin/refresh-kits-cache', { method: 'POST' });
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Success!",
+          description: data.message || "Kits cache invalidated.",
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to refresh kits cache",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "Network error - please try again",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setRefreshingKits(false);
+    }
+  }
+
   async function handleToggleAds(value: boolean) {
     setTogglingAds(true);
     try {
@@ -259,6 +292,42 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
               className="bg-primary hover:bg-primary/90"
             >
               {refreshing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Now
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Kits Cache Management Section */}
+      <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Package className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Starter Kits Cache</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Manually refresh the /kits page aggregate (kit counts, totals). Use after editing cards in a kit.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleRefreshKitsCache}
+              disabled={refreshingKits}
+              className="bg-primary hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              {refreshingKits ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Refreshing...
