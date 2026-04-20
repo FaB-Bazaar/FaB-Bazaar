@@ -40,6 +40,18 @@ export const binderViewerResource = {
         var msg = ev.data;
         if (!msg || msg.jsonrpc !== '2.0') return;
         console.log('[binder-viewer] message:', msg);
+
+        if (msg.id === 1 && msg.result) {
+          try {
+            host.postMessage({
+              jsonrpc: '2.0',
+              method: 'ui/notifications/initialized',
+              params: {},
+            }, '*');
+          } catch (_) {}
+          return;
+        }
+
         var data =
           (msg.params && msg.params.structuredContent) ||
           (msg.result && msg.result.structuredContent) ||
