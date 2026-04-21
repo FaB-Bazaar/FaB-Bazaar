@@ -368,6 +368,65 @@ export const deckViewerResource = {
     /* Sideboard card row (reuses card-row visuals in matchups panel) */
     .sb-list .card-row { padding: 3px 6px; }
     .sb-list .card-row .qty { min-width: 22px; }
+
+    /* Sankey / Flow tab */
+    .sankey-wrap {
+      background: var(--color-background-secondary, var(--fb-surface));
+      border: 1px solid var(--color-border-primary, var(--fb-border));
+      border-radius: 10px;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    .sankey-legend {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      font-size: var(--font-text-xs-size, 11px);
+      color: var(--color-text-secondary, var(--fb-text-muted));
+      margin-bottom: 8px;
+    }
+    .sankey-legend .swatch {
+      display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+      margin-right: 4px; vertical-align: middle;
+    }
+    .sankey-svg { display: block; width: 100%; min-width: 480px; }
+    .sankey-node { cursor: pointer; stroke: rgba(0,0,0,0.15); stroke-width: 0.5; }
+    .sankey-node:hover { stroke: var(--color-accent-primary, var(--fb-accent)); stroke-width: 1.5; }
+    .sankey-node.active { stroke: var(--color-accent-primary, var(--fb-accent)); stroke-width: 2; }
+    .sankey-link { cursor: pointer; transition: fill-opacity 120ms; }
+    .sankey-link:hover { fill-opacity: 0.55 !important; }
+    .sankey-link.dimmed { fill-opacity: 0.08 !important; }
+    .sankey-label {
+      font-size: 11px;
+      fill: var(--color-text-primary, var(--fb-text));
+      pointer-events: none;
+      font-family: inherit;
+    }
+    .sankey-label-count { fill: var(--color-text-tertiary, var(--fb-text-muted)); font-weight: 500; }
+    .sankey-detail {
+      margin-top: 12px;
+      background: var(--color-background-secondary, var(--fb-surface));
+      border: 1px solid var(--color-border-primary, var(--fb-border));
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .sankey-detail-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--color-border-primary, var(--fb-border));
+      font-size: var(--font-text-sm-size, 13px); font-weight: 600;
+    }
+    .sankey-detail-clear {
+      appearance: none; cursor: pointer;
+      background: none; border: none; padding: 4px 8px;
+      font-size: var(--font-text-xs-size, 11px);
+      color: var(--color-text-secondary, var(--fb-text-muted));
+      border-radius: 4px;
+    }
+    .sankey-detail-clear:hover { background: var(--color-surface-secondary, var(--fb-surface-hover)); color: var(--color-text-primary, var(--fb-text)); }
+    .sankey-empty-note {
+      font-size: var(--font-text-xs-size, 11px);
+      color: var(--color-text-tertiary, var(--fb-text-muted));
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -392,6 +451,7 @@ export const deckViewerResource = {
       <button class="tab active" data-tab="decklist" role="tab">Decklist</button>
       <button class="tab" data-tab="pitch" role="tab">Pitch View</button>
       <button class="tab" data-tab="stats" role="tab">Stats</button>
+      <button class="tab" data-tab="flow" role="tab">Flow</button>
       <button class="tab" data-tab="matchups" role="tab">Matchups <span id="matchup-badge" class="section-count"></span></button>
     </div>
 
@@ -412,6 +472,15 @@ export const deckViewerResource = {
 
     <section id="panel-stats" class="panel hidden">
       <div id="stats-grid" class="stats-grid"></div>
+    </section>
+
+    <section id="panel-flow" class="panel hidden">
+      <div class="sankey-legend" id="sankey-legend"></div>
+      <div class="sankey-wrap">
+        <div id="sankey-container"></div>
+      </div>
+      <div id="sankey-detail" class="hidden"></div>
+      <div class="sankey-empty-note">Click any node to see the cards that flow through it. Hero, ally, and token cards are excluded.</div>
     </section>
 
     <section id="panel-matchups" class="panel hidden">
@@ -800,6 +869,302 @@ export const deckViewerResource = {
         }).join('') + '</div>';
       }
 
+      // --- Sankey / Flow tab ---
+      var SANKEY_KEYWORD_PRIORITY = [
+        'go again', 'combo', 'dominate', 'intimidate', 'phantasm',
+        'reprise', 'crush', 'assault', 'blade break', 'opt', 'specialization',
+      ];
+      var SANKEY_TYPE_ORDER = [
+        ['attack reaction', 'Attack Reaction'],
+        ['defense reaction', 'Defense Reaction'],
+        ['instant', 'Instant'],
+        ['attack action', 'Attack Action'],
+        ['non-attack action', 'Non-Attack Action'],
+        ['action', 'Action'],
+        ['aura', 'Aura'],
+        ['weapon', 'Weapon'],
+        ['equipment', 'Equipment'],
+        ['item', 'Item'],
+        ['resource', 'Resource'],
+      ];
+      var SANKEY_PITCH_LABEL = { '3': 'Blue', '2': 'Yellow', '1': 'Red', '0': 'Non-pitch' };
+      var SANKEY_EXCLUDED = ['hero', 'ally', 'token'];
+      var SANKEY_SUPER_COLOR = {
+        'Defense':  '#3b82f6',
+        'Offense':  '#ef4444',
+        'Utility':  '#a1a1aa',
+        'Equipment':'#b45309',
+      };
+      var SANKEY_PITCH_COLOR = {
+        'Blue': '#3b82f6', 'Yellow': '#eab308', 'Red': '#ef4444', 'Non-pitch': '#9ca3af',
+      };
+
+      function sankeyType(types) {
+        var ts = (types || []).map(function (t) { return String(t).toLowerCase(); });
+        for (var i = 0; i < SANKEY_TYPE_ORDER.length; i++) {
+          var needle = SANKEY_TYPE_ORDER[i][0];
+          if (ts.some(function (t) { return t.indexOf(needle) !== -1; })) return SANKEY_TYPE_ORDER[i][1];
+        }
+        return 'Other';
+      }
+
+      function classifySupers(c) {
+        var types = (c.types || []).map(function (t) { return String(t).toLowerCase(); });
+        if (SANKEY_EXCLUDED.some(function (t) { return types.indexOf(t) !== -1; })) return [];
+        var isEquipment = types.indexOf('weapon') !== -1 ||
+          types.indexOf('equipment') !== -1 ||
+          ['head','chest','arms','legs','off-hand'].some(function (s) { return types.indexOf(s) !== -1; });
+        if (isEquipment) return ['Equipment'];
+        var hasAttack = types.some(function (t) { return t.indexOf('attack') !== -1; });
+        var hasDefense = (Number(c.defense) || 0) > 0;
+        var supers = [];
+        if (hasDefense) supers.push('Defense');
+        if (hasAttack) supers.push('Offense');
+        if (!supers.length) supers.push('Utility');
+        return supers;
+      }
+
+      function primaryKeyword(keywords) {
+        var kws = (keywords || []).map(function (k) { return String(k).toLowerCase(); });
+        for (var i = 0; i < SANKEY_KEYWORD_PRIORITY.length; i++) {
+          if (kws.indexOf(SANKEY_KEYWORD_PRIORITY[i]) !== -1) return SANKEY_KEYWORD_PRIORITY[i];
+        }
+        return kws.length ? kws[0] : 'No keyword';
+      }
+
+      function pitchLabel(p) { return SANKEY_PITCH_LABEL[String(p || 0)] || 'Non-pitch'; }
+
+      function collectSankeyCards(deck) {
+        return [].concat(
+          (deck.categories && deck.categories.maindeck) || [],
+          deck.weapon ? [deck.weapon] : [],
+          ((deck.equipment && deck.equipment.head) || []),
+          ((deck.equipment && deck.equipment.chest) || []),
+          ((deck.equipment && deck.equipment.arms) || []),
+          ((deck.equipment && deck.equipment.legs) || []),
+          ((deck.equipment && deck.equipment['off-hand']) || []),
+          ((deck.equipment && deck.equipment.other) || [])
+        );
+      }
+
+      function buildSankeyGraph(deck) {
+        var cards = collectSankeyCards(deck);
+        var nodes = {};
+        var links = {};
+        function ensureNode(col, label) {
+          var k = col + ':' + label;
+          if (!nodes[k]) nodes[k] = { key: k, col: col, label: label, count: 0, cards: [] };
+          return nodes[k];
+        }
+        function ensureLink(src, tgt) {
+          var k = src.key + '|' + tgt.key;
+          if (!links[k]) links[k] = { key: k, source: src, target: tgt, value: 0 };
+          return links[k];
+        }
+        function addCard(n, c) {
+          if (n.cards.indexOf(c) === -1) n.cards.push(c);
+        }
+
+        cards.forEach(function (c) {
+          var qty = c.quantity || 1;
+          var supers = classifySupers(c);
+          if (!supers.length) return;
+          var type = sankeyType(c.types);
+          var kw = primaryKeyword(c.keywords);
+          var p = pitchLabel(c.pitch);
+          supers.forEach(function (s) {
+            var n0 = ensureNode(0, s);
+            var n1 = ensureNode(1, type);
+            var n2 = ensureNode(2, kw);
+            var n3 = ensureNode(3, p);
+            [n0, n1, n2, n3].forEach(function (n) { n.count += qty; addCard(n, c); });
+            ensureLink(n0, n1).value += qty;
+            ensureLink(n1, n2).value += qty;
+            ensureLink(n2, n3).value += qty;
+          });
+        });
+
+        return {
+          nodes: Object.keys(nodes).map(function (k) { return nodes[k]; }),
+          links: Object.keys(links).map(function (k) { return links[k]; }),
+        };
+      }
+
+      function sankeyNodeColor(n) {
+        if (n.col === 0) return SANKEY_SUPER_COLOR[n.label] || '#737373';
+        if (n.col === 3) return SANKEY_PITCH_COLOR[n.label] || '#737373';
+        // Inherit supertype color: look at first incoming link's source
+        if (n._color) return n._color;
+        return '#6b7280';
+      }
+
+      function renderSankeyLegend() {
+        var legend = document.getElementById('sankey-legend');
+        var parts = ['Defense', 'Offense', 'Utility', 'Equipment'].map(function (label) {
+          return '<span><span class="swatch" style="background:' + SANKEY_SUPER_COLOR[label] + '"></span>' + label + '</span>';
+        });
+        legend.innerHTML = parts.join('');
+      }
+
+      function renderSankey(deck) {
+        var container = document.getElementById('sankey-container');
+        var graph = buildSankeyGraph(deck);
+        if (!graph.nodes.length) {
+          container.innerHTML = '<div class="empty">No cards to visualize.</div>';
+          return;
+        }
+
+        // Inherit supertype color for middle columns: for each mid-column node,
+        // find the super (col 0) that contributes the most flow.
+        var superOf = {}; // nodeKey -> {superLabel: value}
+        graph.links.forEach(function (l) {
+          if (l.source.col === 0) {
+            var tgt = l.target.key;
+            (superOf[tgt] = superOf[tgt] || {})[l.source.label] =
+              (superOf[tgt][l.source.label] || 0) + l.value;
+          }
+        });
+        // Propagate: type nodes get their dominant super. Keyword nodes inherit from type via links.
+        function dominantSuper(nodeKey) {
+          var m = superOf[nodeKey];
+          if (!m) return null;
+          var best = null, bestV = -1;
+          Object.keys(m).forEach(function (k) { if (m[k] > bestV) { best = k; bestV = m[k]; } });
+          return best;
+        }
+        graph.links.forEach(function (l) {
+          if (l.source.col === 1) {
+            var sup = dominantSuper(l.source.key);
+            if (!sup) return;
+            var tgt = l.target.key;
+            (superOf[tgt] = superOf[tgt] || {})[sup] = (superOf[tgt][sup] || 0) + l.value;
+          }
+        });
+        graph.nodes.forEach(function (n) {
+          if (n.col === 1 || n.col === 2) {
+            var sup = dominantSuper(n.key);
+            if (sup) n._color = SANKEY_SUPER_COLOR[sup];
+          }
+        });
+
+        var width = Math.max(container.clientWidth || 640, 480);
+        var height = Math.max(320, Math.min(560, graph.nodes.filter(function (n) { return n.col === 2; }).length * 22 + 120));
+        var pad = 6;
+        var nodeWidth = 12;
+        var colGap = 4;
+        var colCount = 4;
+        var colX = [];
+        for (var c = 0; c < colCount; c++) {
+          colX.push(pad + (width - pad * 2 - nodeWidth) * (c / (colCount - 1)));
+        }
+
+        var byCol = [[], [], [], []];
+        graph.nodes.forEach(function (n) { byCol[n.col].push(n); });
+        byCol.forEach(function (arr) { arr.sort(function (a, b) { return b.count - a.count; }); });
+
+        var maxTotal = 0;
+        byCol.forEach(function (arr) {
+          var sum = arr.reduce(function (s, n) { return s + n.count; }, 0);
+          if (sum > maxTotal) maxTotal = sum;
+        });
+        var maxNodes = Math.max.apply(null, byCol.map(function (arr) { return arr.length; }));
+        var available = height - Math.max(0, (maxNodes - 1) * colGap);
+        var heightPerUnit = maxTotal ? available / maxTotal : 0;
+
+        byCol.forEach(function (arr, ci) {
+          var y = 0;
+          arr.forEach(function (n) {
+            n.x = colX[ci];
+            n.h = Math.max(2, n.count * heightPerUnit);
+            n.y = y;
+            y += n.h + colGap;
+            n.inY = 0;
+            n.outY = 0;
+          });
+        });
+
+        var linksSorted = graph.links.slice().map(function (l) {
+          l.thickness = Math.max(1, l.value * heightPerUnit);
+          return l;
+        }).sort(function (a, b) {
+          return (a.source.y - b.source.y) || (a.target.y - b.target.y);
+        });
+
+        var svg = '<svg class="sankey-svg" viewBox="0 0 ' + width + ' ' + height + '" height="' + height + '" preserveAspectRatio="xMidYMid meet">';
+
+        linksSorted.forEach(function (l) {
+          var sx = l.source.x + nodeWidth;
+          var tx = l.target.x;
+          var sy = l.source.y + l.source.outY;
+          var ty = l.target.y + l.target.inY;
+          l.source.outY += l.thickness;
+          l.target.inY += l.thickness;
+          var midX = (sx + tx) / 2;
+          var th = l.thickness;
+          var color = sankeyNodeColor(l.source);
+          var path = 'M' + sx + ',' + sy +
+                     ' C' + midX + ',' + sy + ',' + midX + ',' + ty + ',' + tx + ',' + ty +
+                     ' L' + tx + ',' + (ty + th) +
+                     ' C' + midX + ',' + (ty + th) + ',' + midX + ',' + (sy + th) + ',' + sx + ',' + (sy + th) + ' Z';
+          svg += '<path class="sankey-link" d="' + path + '" fill="' + color + '" fill-opacity="0.3"' +
+                 ' data-source="' + escapeHtml(l.source.key) + '" data-target="' + escapeHtml(l.target.key) + '">' +
+                 '<title>' + escapeHtml(l.source.label + ' → ' + l.target.label + ': ' + l.value) + '</title></path>';
+        });
+
+        graph.nodes.forEach(function (n) {
+          var color = sankeyNodeColor(n);
+          svg += '<rect class="sankey-node" x="' + n.x + '" y="' + n.y + '" width="' + nodeWidth +
+                 '" height="' + n.h + '" fill="' + color + '" rx="2" ry="2" data-node-key="' + escapeHtml(n.key) + '">' +
+                 '<title>' + escapeHtml(n.label + ': ' + n.count) + '</title></rect>';
+          var labelOnRight = n.col < 2;
+          var labelX = labelOnRight ? (n.x + nodeWidth + 5) : (n.x - 5);
+          var anchor = labelOnRight ? 'start' : 'end';
+          var cap = n.label.length > 20 ? (n.label.slice(0, 19) + '…') : n.label;
+          svg += '<text class="sankey-label" x="' + labelX + '" y="' + (n.y + n.h / 2) +
+                 '" dominant-baseline="middle" text-anchor="' + anchor + '">' +
+                 escapeHtml(cap) + ' <tspan class="sankey-label-count">' + n.count + '</tspan></text>';
+        });
+
+        svg += '</svg>';
+        container.innerHTML = svg;
+        state.sankeyGraph = graph;
+        renderSankeyDetail();
+      }
+
+      function renderSankeyDetail() {
+        var panel = document.getElementById('sankey-detail');
+        var key = state.sankeySelectedKey;
+        if (!key || !state.sankeyGraph) {
+          panel.classList.add('hidden');
+          panel.innerHTML = '';
+          return;
+        }
+        var node = state.sankeyGraph.nodes.filter(function (n) { return n.key === key; })[0];
+        if (!node) {
+          panel.classList.add('hidden');
+          panel.innerHTML = '';
+          return;
+        }
+        panel.classList.remove('hidden');
+        panel.className = 'sankey-detail';
+        var rows = node.cards.slice().sort(function (a, b) {
+          return (b.quantity || 1) - (a.quantity || 1) || String(a.name).localeCompare(String(b.name));
+        }).map(rowHtml).join('');
+        panel.innerHTML = '<div class="sankey-detail-head">' +
+          '<span>' + escapeHtml(node.label) + ' · ' + node.count + ' card' + (node.count === 1 ? '' : 's') + '</span>' +
+          '<button type="button" class="sankey-detail-clear" id="sankey-detail-clear">Clear</button>' +
+          '</div>' +
+          '<div class="section-body">' + (rows || '<div class="empty">No cards.</div>') + '</div>';
+        var clearBtn = document.getElementById('sankey-detail-clear');
+        if (clearBtn) clearBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          state.sankeySelectedKey = null;
+          renderSankeyDetail();
+          document.querySelectorAll('.sankey-node.active').forEach(function (el) { el.classList.remove('active'); });
+          sendSize();
+        });
+      }
+
       function render() {
         if (!state.data || !state.data.deck) return;
         var deck = state.data.deck;
@@ -807,6 +1172,8 @@ export const deckViewerResource = {
         renderDecklist(deck);
         renderPitch(deck);
         renderStats(deck);
+        renderSankeyLegend();
+        renderSankey(deck);
         renderMatchups(deck);
         var badge = document.getElementById('matchup-badge');
         badge.textContent = (deck.matchups && deck.matchups.length) ? '(' + deck.matchups.length + ')' : '';
@@ -818,10 +1185,14 @@ export const deckViewerResource = {
         btn.addEventListener('click', function () {
           var target = btn.dataset.tab;
           document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t === btn); });
-          ['decklist', 'pitch', 'stats', 'matchups'].forEach(function (key) {
+          ['decklist', 'pitch', 'stats', 'flow', 'matchups'].forEach(function (key) {
             document.getElementById('panel-' + key).classList.toggle('hidden', key !== target);
           });
           state.activeTab = target;
+          // Re-layout Sankey once the container has a real width
+          if (target === 'flow' && state.data && state.data.deck) {
+            renderSankey(state.data.deck);
+          }
           sendSize();
         });
       });
@@ -852,6 +1223,23 @@ export const deckViewerResource = {
         return null;
       }
       document.addEventListener('click', function (e) {
+        // Sankey node selection (inside panel-flow). Check first — nodes live
+        // directly inside the svg and don't carry data-printing.
+        var flowPanel = document.getElementById('panel-flow');
+        if (flowPanel && !flowPanel.classList.contains('hidden')) {
+          var nodeEl = e.target.closest && e.target.closest('[data-node-key]');
+          if (nodeEl) {
+            var key = nodeEl.getAttribute('data-node-key');
+            state.sankeySelectedKey = (state.sankeySelectedKey === key) ? null : key;
+            document.querySelectorAll('.sankey-node.active').forEach(function (el) { el.classList.remove('active'); });
+            if (state.sankeySelectedKey) {
+              document.querySelectorAll('[data-node-key="' + state.sankeySelectedKey.replace(/"/g, '\\"') + '"].sankey-node').forEach(function (el) { el.classList.add('active'); });
+            }
+            renderSankeyDetail();
+            sendSize();
+            return;
+          }
+        }
         var row = e.target.closest && e.target.closest('[data-printing]');
         if (row) {
           var c = findCard(row.dataset.printing);
