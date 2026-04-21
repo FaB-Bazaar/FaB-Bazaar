@@ -5,6 +5,22 @@ const FOILING_MAP: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF'
 const EDITION_MAP: Record<string, string> = { f: '1st', a: 'A', u: 'UNL', n: '' };
 const PITCH_COLOR: Record<string, string> = { '1': 'Red', '2': 'Yellow', '3': 'Blue' };
 
+const EQUIPMENT_SLOTS = ['head', 'chest', 'arms', 'legs', 'off-hand'] as const;
+type EquipmentSlot = typeof EQUIPMENT_SLOTS[number];
+
+// Canonical type buckets used for maindeck grouping (first match wins).
+const MAIN_TYPE_PRIORITY: Array<[string, string]> = [
+  ['attack reaction', 'Attack Reactions'],
+  ['defense reaction', 'Defense Reactions'],
+  ['instant', 'Instants'],
+  ['attack action', 'Attack Actions'],
+  ['non-attack action', 'Non-Attack Actions'],
+  ['action', 'Actions'],
+  ['item', 'Items'],
+  ['ally', 'Allies'],
+  ['resource', 'Resources'],
+];
+
 function formatCardLine(card: any): string {
   const qty = card.quantity || 1;
   // Card fields are nested under printingDetails in the deck DTO
@@ -67,9 +83,19 @@ export const getDeckTool = {
       deckName: {
         type: 'string',
         description: 'The name of the deck to retrieve (case-insensitive match)'
+      },
+      showDetails: {
+        type: 'boolean',
+        default: true,
+        description:
+          'When true (default) the text response contains a full markdown decklist grouped by category. Set to false ONLY when the user just wants to browse the deck visually and you want to save context tokens. The interactive widget renders either way.'
       }
     },
     required: ['deckName']
+  },
+
+  _meta: {
+    ui: { resourceUri: 'ui://deck/viewer.html' },
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -199,8 +225,10 @@ export const getDeckTool = {
           eventName: deck.eventName ?? null,
           eventDate: deck.eventDate ?? null,
           placing: deck.placing ?? null,
+          estimatedValue: deck.estimatedValue ?? 0,
           totalCards,
-          categories
+          categories,
+          metadata: deck.metadata ?? null,
         }
       };
 
@@ -210,3 +238,263 @@ export const getDeckTool = {
     }
   }
 };
+
+// ---- MCP Apps shape helpers ----
+
+type McpAppResult = {
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent?: Record<string, any>;
+  isError?: boolean;
+};
+
+function lowerTypes(types: any): string[] {
+  if (!Array.isArray(types)) return [];
+  return types.map((t) => String(t).toLowerCase());
+}
+
+function primaryCategoryLabel(types: string[]): string {
+  for (const [needle, label] of MAIN_TYPE_PRIORITY) {
+    if (types.some((t) => t.includes(needle))) return label;
+  }
+  return 'Other';
+}
+
+function equipmentSlot(types: string[]): EquipmentSlot | null {
+  for (const slot of EQUIPMENT_SLOTS) {
+    if (types.includes(slot)) return slot;
+  }
+  return null;
+}
+
+function isWeapon(types: string[]): boolean {
+  return types.includes('weapon');
+}
+
+function shapeCard(raw: any): any {
+  const p = raw.printingDetails || {};
+  const types = lowerTypes(p.types ?? raw.types);
+  return {
+    printingId: raw.printingId,
+    quantity: raw.quantity ?? 1,
+    name: p.display_name || p.name || 'Unknown',
+    display_name: p.display_name || p.name || 'Unknown',
+    set: p.set ?? '',
+    collector_number: p.collector_number ?? '',
+    edition: p.edition ?? '',
+    foiling: p.foiling ?? '',
+    rarity: p.rarity ?? '',
+    image_url: p.image_url ?? '',
+    other_face_image_url: p.other_face_image_url ?? null,
+    tcg_market: p.tcg_market ?? null,
+    tcg_low: p.tcg_low ?? null,
+    pitch: p.pitch ?? 0,
+    cost: p.cost ?? null,
+    defense: p.defense ?? null,
+    power: p.power ?? null,
+    types,
+    keywords: Array.isArray(p.keywords) ? p.keywords : [],
+    classes: Array.isArray(p.classes) ? p.classes : [],
+    talents: Array.isArray(p.talents) ? p.talents : [],
+    text: p.text ?? '',
+  };
+}
+
+function humanizeHeroId(heroId: string): string {
+  return heroId
+    .replace(/_+/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+    .trim();
+}
+
+function computeStats(maindeck: any[]): {
+  byPitch: Record<string, number>;
+  byCost: Record<string, number>;
+  byType: Record<string, number>;
+  byKeyword: Record<string, number>;
+  totalCards: number;
+} {
+  const byPitch: Record<string, number> = { '0': 0, '1': 0, '2': 0, '3': 0 };
+  const byCost: Record<string, number> = {};
+  const byType: Record<string, number> = {};
+  const byKeyword: Record<string, number> = {};
+  let totalCards = 0;
+
+  for (const c of maindeck) {
+    const qty = c.quantity ?? 1;
+    totalCards += qty;
+
+    const pitch = String(c.pitch ?? 0);
+    byPitch[pitch] = (byPitch[pitch] ?? 0) + qty;
+
+    const cost = c.cost == null ? 'x' : String(c.cost);
+    byCost[cost] = (byCost[cost] ?? 0) + qty;
+
+    const typeLabel = primaryCategoryLabel(c.types);
+    byType[typeLabel] = (byType[typeLabel] ?? 0) + qty;
+
+    for (const kw of c.keywords ?? []) {
+      const key = String(kw).toLowerCase();
+      byKeyword[key] = (byKeyword[key] ?? 0) + qty;
+    }
+  }
+
+  return { byPitch, byCost, byType, byKeyword, totalCards };
+}
+
+function buildDeckText(deck: any, shaped: any, showDetails: boolean): string {
+  const lines: string[] = [];
+  lines.push(`🃏 **${deck.name}**${deck.heroName ? ` — ${deck.heroName}` : ''}${deck.format ? ` (${deck.format})` : ''}`);
+  if (deck.description) lines.push(`📝 ${deck.description}`);
+  if (deck.eventName) {
+    const place = deck.placing ? ` · ${deck.placing} place` : '';
+    const date = deck.eventDate ? ` · ${deck.eventDate}` : '';
+    lines.push(`🏆 ${deck.eventName}${date}${place}`);
+  }
+  lines.push(`Cards: ${shaped.meta.totalCards} · Est. value: $${(shaped.meta.estimatedValue ?? 0).toFixed(2)}`);
+
+  if (!showDetails) return lines.join('\n');
+
+  const printRow = (c: any) => {
+    const qty = c.quantity ?? 1;
+    const color = PITCH_COLOR[String(c.pitch)] ?? '—';
+    const cost = c.cost == null ? '—' : c.cost;
+    const name = c.display_name || c.name;
+    return `| ${qty} | ${name} | ${color} | ${cost} |`;
+  };
+
+  const section = (label: string, cards: any[]) => {
+    if (!cards.length) return;
+    const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
+    lines.push('');
+    lines.push(`**${label}** (${total})`);
+    lines.push('| Qty | Name | Pitch | Cost |');
+    lines.push('|----:|------|:-----:|:----:|');
+    cards.forEach((c) => lines.push(printRow(c)));
+  };
+
+  if (shaped.heroCard) section('Hero', [shaped.heroCard]);
+  const equipmentAll = [
+    ...(shaped.weapon ? [shaped.weapon] : []),
+    ...EQUIPMENT_SLOTS.flatMap((s) => shaped.equipment[s] ?? []),
+    ...(shaped.equipment.other ?? []),
+  ];
+  section('Equipment', equipmentAll);
+
+  // Group maindeck by primary type
+  const grouped: Record<string, any[]> = {};
+  for (const c of shaped.categories.maindeck) {
+    const label = primaryCategoryLabel(c.types);
+    (grouped[label] ||= []).push(c);
+  }
+  for (const [, label] of MAIN_TYPE_PRIORITY) {
+    if (grouped[label]) section(label, grouped[label]);
+  }
+  if (grouped['Other']) section('Other', grouped['Other']);
+
+  section('Inventory', shaped.categories.inventory ?? []);
+  section('Tokens', shaped.categories.tokens ?? []);
+
+  return lines.join('\n');
+}
+
+export function shapeDeckForMcp(
+  raw: any,
+  opts: { showDetails?: boolean } = {}
+): McpAppResult {
+  if (!raw || raw.success === false) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: `Error retrieving deck: ${raw?.error ?? 'unknown error'}` }],
+    };
+  }
+
+  const showDetails = opts.showDetails !== false;
+  const deck = raw.deck ?? {};
+  const categories = deck.categories ?? {};
+
+  const heroCardRaw = (categories.hero ?? [])[0];
+  const heroCard = heroCardRaw ? shapeCard(heroCardRaw) : null;
+
+  const equipmentRaw: any[] = categories.equipment ?? [];
+  const equipmentShaped = equipmentRaw.map(shapeCard);
+  let weapon: any = null;
+  const slots: Record<EquipmentSlot, any[]> = {
+    head: [], chest: [], arms: [], legs: [], 'off-hand': [],
+  };
+  const otherEquipment: any[] = [];
+  for (const card of equipmentShaped) {
+    if (!weapon && isWeapon(card.types)) {
+      weapon = card;
+      continue;
+    }
+    const slot = equipmentSlot(card.types);
+    if (slot) slots[slot].push(card);
+    else otherEquipment.push(card);
+  }
+
+  const maindeck = (categories.maindeck ?? []).map(shapeCard);
+  const inventory = (categories.inventory ?? []).map(shapeCard);
+  const benched = (categories.benched ?? []).map(shapeCard);
+  const tokens = (categories.tokens ?? []).map(shapeCard);
+
+  const stats = computeStats(maindeck);
+
+  const meta = {
+    name: deck.name,
+    heroName: deck.heroName ?? null,
+    heroDisplay: deck.heroName ?? null,
+    className: heroCard?.classes?.[0] ?? null,
+    talents: heroCard?.talents ?? [],
+    format: deck.format ?? null,
+    publicId: deck.publicId,
+    description: deck.description ?? null,
+    event: deck.eventName ?? null,
+    eventDate: deck.eventDate ?? null,
+    placing: deck.placing ?? null,
+    totalCards: deck.totalCards ?? stats.totalCards,
+    maindeckCount: stats.totalCards,
+    estimatedValue: raw.estimatedValue ?? deck.estimatedValue ?? 0,
+  };
+
+  const matchupsRaw: any[] = Array.isArray(deck.metadata?.matchups) ? deck.metadata.matchups : [];
+  const matchups = matchupsRaw.map((m) => ({
+    heroId: m.heroId,
+    heroDisplay: humanizeHeroId(m.heroId ?? ''),
+    turnOrder: m.preferredTurnOrder ?? null,
+    notes: m.notes ?? null,
+    sideboard: {
+      in: Array.isArray(m.sideboard?.in) ? m.sideboard.in : [],
+      out: Array.isArray(m.sideboard?.out) ? m.sideboard.out : [],
+    },
+  }));
+
+  const url = deck.publicId ? `https://fabbazaar.app/decks/${deck.publicId}` : undefined;
+  const subtitleParts: string[] = [];
+  if (meta.heroDisplay) subtitleParts.push(meta.heroDisplay);
+  if (meta.format) subtitleParts.push(meta.format);
+  subtitleParts.push(`${meta.totalCards} cards`);
+  const subtitle = subtitleParts.join(' · ');
+
+  const shaped = {
+    meta,
+    heroCard,
+    weapon,
+    equipment: { ...slots, other: otherEquipment },
+    categories: { maindeck, inventory, benched, tokens },
+    stats,
+    matchups,
+  };
+
+  const text = buildDeckText(deck, shaped, showDetails);
+
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: {
+      title: deck.name ?? 'Deck',
+      subtitle,
+      url,
+      deck: shaped,
+      tool: deck.name ? { name: 'get_deck', baseArgs: { deckName: deck.name } } : undefined,
+    },
+  };
+}

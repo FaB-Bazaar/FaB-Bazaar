@@ -6,6 +6,7 @@ import { articleFormattingResource } from '../resource/articleFormatting';
 import { cardIndexResource } from '../resource/cardIndex';
 import { heroIdsResource } from '../resource/heroIds';
 import { cardGridViewerResource } from '../resource/cardGridViewer';
+import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService } from '@/lib/services';
 
@@ -32,7 +33,7 @@ import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
-import { getDeckTool } from '../tool/getDeck';
+import { getDeckTool, shapeDeckForMcp } from '../tool/getDeck';
 import { createDeckTool } from '../tool/createDeck';
 import { addCardsToDeckTool } from '../tool/addCardsToDeck';
 import { removeCardsFromDeckTool } from '../tool/removeCardsFromDeck';
@@ -550,7 +551,8 @@ Step 5: get_binder (verify additions)
               {
                 name: getDeckTool.name,
                 description: getDeckTool.description,
-                inputSchema: getDeckTool.parameters
+                inputSchema: getDeckTool.parameters,
+                _meta: (getDeckTool as any)._meta
               },
               {
                 name: createDeckTool.name,
@@ -938,13 +940,20 @@ The new tool provides the same functionality with better guidance for proper wor
             const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const result = await getDeckTool.handler(toolInput, userWithToken, tokenToPass);
+            if (!result.success) {
+              return NextResponse.json({
+                jsonrpc: '2.0', id,
+                result: {
+                  content: [{ type: 'text', text: `❌ ${result.error}` }],
+                  isError: true,
+                }
+              }, { headers: corsHeaders() });
+            }
             return NextResponse.json({
               jsonrpc: '2.0', id,
-              result: {
-                content: [{ type: 'text', text: result.message || (result.success ? 'Deck retrieved.' : result.error) }],
-                isError: !result.success,
-                ...result
-              }
+              result: shapeDeckForMcp(result, {
+                showDetails: toolInput?.showDetails !== false,
+              })
             }, { headers: corsHeaders() });
           } catch (err) {
             console.error('💥 Error in get_deck:', err);
@@ -1626,6 +1635,13 @@ The new tool provides the same functionality with better guidance for proper wor
                 description: cardGridViewerResource.description,
                 mimeType: cardGridViewerResource.mimeType,
                 _meta: cardGridViewerResource._meta
+              },
+              {
+                uri: deckViewerResource.uri,
+                name: deckViewerResource.name,
+                description: deckViewerResource.description,
+                mimeType: deckViewerResource.mimeType,
+                _meta: deckViewerResource._meta
               }
             ]
           }
@@ -1728,6 +1744,25 @@ The new tool provides the same functionality with better guidance for proper wor
                 }
               ],
               _meta: cardGridViewerResource._meta
+            }
+          }, { headers: corsHeaders() });
+        }
+
+        if (uri === deckViewerResource.uri) {
+          const html = await deckViewerResource.handler();
+          return NextResponse.json({
+            jsonrpc: "2.0",
+            id: id,
+            result: {
+              contents: [
+                {
+                  uri: uri,
+                  mimeType: deckViewerResource.mimeType,
+                  text: html,
+                  _meta: deckViewerResource._meta
+                }
+              ],
+              _meta: deckViewerResource._meta
             }
           }, { headers: corsHeaders() });
         }
