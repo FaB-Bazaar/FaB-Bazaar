@@ -97,9 +97,23 @@ export const deckViewerResource = {
     .pill.accent { color: var(--color-accent-primary, var(--fb-accent)); border-color: var(--color-accent-primary, var(--fb-accent)); }
     .pill.trophy { color: #b45309; border-color: rgba(180,83,9,0.5); background: rgba(251,191,36,0.12); }
     @media (prefers-color-scheme: dark) { .pill.trophy { color: #fbbf24; } }
-    .hud-numbers { text-align: right; display: flex; flex-direction: column; gap: 2px; }
+    .hud-numbers { text-align: right; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
     .hud-num { font-size: var(--font-heading-sm-size, 18px); font-weight: 700; }
     .hud-num-label { font-size: 11px; color: var(--color-text-tertiary, var(--fb-text-muted)); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .btn {
+      appearance: none; cursor: pointer;
+      padding: 6px 12px;
+      font-size: var(--font-text-sm-size, 13px);
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid var(--color-border-primary, var(--fb-border-strong));
+      background: var(--color-surface-primary, var(--fb-surface));
+      color: var(--color-text-primary, var(--fb-text));
+      transition: background 120ms, border-color 120ms;
+    }
+    .btn:hover { background: var(--color-surface-secondary, var(--fb-surface-hover)); }
+    .btn:focus-visible { outline: 2px solid var(--color-accent-primary, var(--fb-accent)); outline-offset: 2px; }
 
     /* Tabs */
     .tabs {
@@ -305,6 +319,7 @@ export const deckViewerResource = {
         <div class="hud-num-label">Cards</div>
         <div id="hud-value" class="hud-num" style="margin-top:6px;">—</div>
         <div class="hud-num-label">Est. Value</div>
+        <button class="btn" id="expand-btn" type="button" style="margin-top:10px;">Expand</button>
       </div>
     </div>
 
@@ -342,8 +357,29 @@ export const deckViewerResource = {
       var host = window.parent;
       var IMG_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
       var state = { data: null, activeTab: 'decklist' };
+      var currentMode = 'inline';
+      var nextId = 100;
 
       function post(msg) { try { host.postMessage(msg, '*'); } catch (_) {} }
+
+      function requestDisplayMode(mode) {
+        var candidates = [
+          { method: 'ui/request-display-mode', params: { displayMode: mode } },
+          { method: 'ui/requestDisplayMode', params: { displayMode: mode } },
+          { method: 'ui/request-display-mode', params: { mode: mode } },
+          { method: 'ui/display-mode/request', params: { displayMode: mode } },
+          { method: 'ui/set-display-mode', params: { displayMode: mode } },
+          { method: 'ui/notifications/display-mode-change', params: { displayMode: mode } },
+        ];
+        candidates.forEach(function (c) {
+          post({ jsonrpc: '2.0', id: nextId++, method: c.method, params: c.params });
+        });
+      }
+
+      function updateExpandBtn() {
+        var btn = document.getElementById('expand-btn');
+        if (btn) btn.textContent = currentMode === 'fullscreen' ? 'Collapse' : 'Expand';
+      }
 
       function sendSize() {
         var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
@@ -367,6 +403,12 @@ export const deckViewerResource = {
         if (!msg || msg.jsonrpc !== '2.0') return;
         if (msg.id === 1 && msg.result) {
           post({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} });
+          sendSize();
+          return;
+        }
+        if (msg.method === 'ui/notifications/display-mode-change') {
+          currentMode = (msg.params && msg.params.displayMode) || currentMode;
+          updateExpandBtn();
           sendSize();
           return;
         }
@@ -714,6 +756,14 @@ export const deckViewerResource = {
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') modal.classList.remove('show');
       });
+
+      // Expand / collapse button
+      var expandBtn = document.getElementById('expand-btn');
+      if (expandBtn) {
+        expandBtn.addEventListener('click', function () {
+          requestDisplayMode(currentMode === 'fullscreen' ? 'inline' : 'fullscreen');
+        });
+      }
 
       window.addEventListener('resize', sendSize);
       connect();
