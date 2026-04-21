@@ -592,7 +592,8 @@ Step 5: get_binder (verify additions)
               Step 4: get_wants (verify additions)
               
               ✅ This tool works without any setup requirements!`,
-                inputSchema: getWantsTool.parameters
+                inputSchema: getWantsTool.parameters,
+                _meta: (getWantsTool as any)._meta
               },
               {
                 name: whoHasTool.name,
@@ -609,7 +610,8 @@ Step 5: get_binder (verify additions)
               {
                 name: getCuratedListTool.name,
                 description: getCuratedListTool.description,
-                inputSchema: getCuratedListTool.parameters
+                inputSchema: getCuratedListTool.parameters,
+                _meta: (getCuratedListTool as any)._meta
               },
 
               // ARTICLE MANAGEMENT TOOLS
