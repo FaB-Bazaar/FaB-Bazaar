@@ -17,14 +17,39 @@ export const binderViewerResource = {
   <meta charset="UTF-8" />
   <title>Binder</title>
   <style>
-    :root { color-scheme: light dark; }
+    :root {
+      color-scheme: light dark;
+      /* Light mode defaults (used when host does not inject --color-* tokens) */
+      --fb-bg: #ffffff;
+      --fb-surface: #f4f4f5;
+      --fb-surface-hover: #e4e4e7;
+      --fb-text: #18181b;
+      --fb-text-muted: #52525b;
+      --fb-border: rgba(0,0,0,0.12);
+      --fb-border-strong: rgba(0,0,0,0.24);
+      --fb-accent: #2563eb;
+      --fb-overlay: rgba(0,0,0,0.72);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fb-bg: #0f0f10;
+        --fb-surface: #1c1c1e;
+        --fb-surface-hover: #2a2a2d;
+        --fb-text: #f4f4f5;
+        --fb-text-muted: #a1a1aa;
+        --fb-border: rgba(255,255,255,0.10);
+        --fb-border-strong: rgba(255,255,255,0.22);
+        --fb-accent: #60a5fa;
+        --fb-overlay: rgba(0,0,0,0.82);
+      }
+    }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       padding: 0;
       font-family: var(--font-family-text, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
       font-size: var(--font-text-md-size, 14px);
-      color: var(--color-text-primary, #1a1a1a);
+      color: var(--color-text-primary, var(--fb-text));
       background: var(--color-background-primary, transparent);
     }
     .wrap {
@@ -46,7 +71,7 @@ export const binderViewerResource = {
       margin: 0;
     }
     .meta {
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, var(--fb-text-muted));
       font-size: var(--font-text-sm-size, 12px);
       display: flex;
       align-items: center;
@@ -61,13 +86,27 @@ export const binderViewerResource = {
     .controls input[type="search"],
     .controls select {
       appearance: none;
-      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.16));
-      background: var(--color-background-secondary, #fff);
-      color: var(--color-text-primary, #1a1a1a);
+      border: 1px solid var(--color-border-primary, var(--fb-border-strong));
+      background: var(--color-background-secondary, var(--fb-surface));
+      color: var(--color-text-primary, var(--fb-text));
       padding: 6px 10px;
       border-radius: 6px;
       font-size: var(--font-text-sm-size, 13px);
       min-width: 0;
+      outline: none;
+    }
+    .controls select {
+      padding-right: 28px;
+      background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+      background-size: 5px 5px;
+      background-repeat: no-repeat;
+    }
+    .controls input[type="search"]:focus,
+    .controls select:focus {
+      border-color: var(--color-accent-primary, var(--fb-accent));
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--fb-accent) 25%, transparent);
     }
     .controls input[type="search"] { flex: 1 1 180px; min-width: 140px; }
     .chip {
@@ -75,18 +114,19 @@ export const binderViewerResource = {
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
-      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.16));
+      border: 1px solid var(--color-border-primary, var(--fb-border-strong));
       border-radius: 999px;
       font-size: var(--font-text-sm-size, 13px);
       cursor: pointer;
       user-select: none;
-      background: var(--color-background-secondary, #fff);
+      background: var(--color-background-secondary, var(--fb-surface));
+      color: var(--color-text-primary, var(--fb-text));
     }
-    .chip input { accent-color: var(--color-accent-primary, #2563eb); margin: 0; }
+    .chip input { accent-color: var(--color-accent-primary, var(--fb-accent)); margin: 0; }
     .chip.active {
-      background: var(--color-accent-primary, #2563eb);
+      background: var(--color-accent-primary, var(--fb-accent));
       color: #fff;
-      border-color: var(--color-accent-primary, #2563eb);
+      border-color: var(--color-accent-primary, var(--fb-accent));
     }
     .grid {
       display: grid;
@@ -97,21 +137,22 @@ export const binderViewerResource = {
       position: relative;
       border-radius: 8px;
       overflow: hidden;
-      background: var(--color-background-secondary, #f4f4f5);
-      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.08));
+      background: var(--color-background-secondary, var(--fb-surface));
+      border: 1px solid var(--color-border-primary, var(--fb-border));
       display: flex;
       flex-direction: column;
       cursor: pointer;
-      transition: transform 120ms ease, box-shadow 120ms ease;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
     }
     .card:hover {
       transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      border-color: var(--color-border-primary, var(--fb-border-strong));
     }
     .card-art {
       aspect-ratio: 5 / 7;
       width: 100%;
-      background: var(--color-background-tertiary, #e4e4e7);
+      background: var(--color-background-tertiary, var(--fb-surface-hover));
       background-size: cover;
       background-position: center;
     }
@@ -133,7 +174,7 @@ export const binderViewerResource = {
     }
     .card-sub {
       font-size: var(--font-text-xs-size, 11px);
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, var(--fb-text-muted));
       display: flex;
       justify-content: space-between;
       gap: 4px;
@@ -144,10 +185,11 @@ export const binderViewerResource = {
       left: 6px;
       padding: 2px 6px;
       border-radius: 10px;
-      background: rgba(0, 0, 0, 0.72);
+      background: rgba(0, 0, 0, 0.78);
       color: #fff;
       font-size: 11px;
       font-weight: 600;
+      backdrop-filter: blur(2px);
     }
     .trade-badge {
       position: absolute;
@@ -155,7 +197,7 @@ export const binderViewerResource = {
       right: 6px;
       padding: 2px 6px;
       border-radius: 10px;
-      background: var(--color-accent-primary, #2563eb);
+      background: var(--color-accent-primary, var(--fb-accent));
       color: #fff;
       font-size: 10px;
       font-weight: 600;
@@ -164,14 +206,14 @@ export const binderViewerResource = {
     .price {
       font-variant-numeric: tabular-nums;
       font-weight: 600;
-      color: var(--color-text-primary, #1a1a1a);
+      color: var(--color-text-primary, var(--fb-text));
     }
     .skeleton .card-art,
     .skeleton .card-body {
       background: linear-gradient(90deg,
-        var(--color-background-secondary, #eee) 0%,
-        var(--color-background-tertiary, #f5f5f5) 50%,
-        var(--color-background-secondary, #eee) 100%);
+        var(--fb-surface) 0%,
+        var(--fb-surface-hover) 50%,
+        var(--fb-surface) 100%);
       background-size: 200% 100%;
       animation: shimmer 1.4s infinite;
     }
@@ -183,7 +225,7 @@ export const binderViewerResource = {
     .empty {
       padding: 24px;
       text-align: center;
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, var(--fb-text-muted));
     }
     .pager {
       display: flex;
@@ -194,20 +236,20 @@ export const binderViewerResource = {
     }
     .btn {
       appearance: none;
-      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.16));
-      background: var(--color-background-secondary, #fff);
-      color: var(--color-text-primary, #1a1a1a);
+      border: 1px solid var(--color-border-primary, var(--fb-border-strong));
+      background: var(--color-background-secondary, var(--fb-surface));
+      color: var(--color-text-primary, var(--fb-text));
       padding: 6px 12px;
       border-radius: 6px;
       font-size: var(--font-text-sm-size, 13px);
       cursor: pointer;
     }
-    .btn:hover { background: var(--color-background-tertiary, #eee); }
+    .btn:hover { background: var(--color-background-tertiary, var(--fb-surface-hover)); }
     .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.72);
+      background: var(--fb-overlay);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -233,7 +275,7 @@ export const binderViewerResource = {
       opacity: 0.8;
     }
     .count-pill {
-      color: var(--color-text-secondary, #666);
+      color: var(--color-text-secondary, var(--fb-text-muted));
       font-size: var(--font-text-xs-size, 11px);
     }
   </style>
@@ -254,12 +296,17 @@ export const binderViewerResource = {
 
       var FOIL_MAP = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
       var EDITION_MAP = { f: '1st', a: 'A', u: 'UNL', n: '' };
+      var RARITY_MAP = {
+        c: 'Common', r: 'Rare', s: 'Super Rare', m: 'Majestic',
+        l: 'Legendary', f: 'Fabled', t: 'Token', b: 'Basic',
+        v: 'Marvel', p: 'Promo',
+      };
 
       var state = {
         data: null,
         search: '',
         sort: 'default',
-        filters: { trade: false, foil: false, nm: false },
+        filters: { trade: false, rarity: '', foiling: '', set: '' },
       };
 
       var skelRoot = document.getElementById('skeleton-grid');
@@ -423,18 +470,33 @@ export const binderViewerResource = {
           cardId: cardIdLabel(c),
           price: priceRaw == null ? null : Number(priceRaw),
           art: cardArtUrl(c),
+          rarityKey: String(c.rarity || '').toLowerCase(),
+          setKey: String(c.set || '').toLowerCase(),
         };
       }
 
       function applyFilters(cards) {
         var q = state.search.trim().toLowerCase();
+        var f = state.filters;
         return cards.filter(function (c) {
           if (q && c.name.toLowerCase().indexOf(q) === -1) return false;
-          if (state.filters.trade && !c.forTrade) return false;
-          if (state.filters.foil && (c.foilKey === 's' || c.foilKey === '')) return false;
-          if (state.filters.nm && c.condition && c.condition !== 'NM') return false;
+          if (f.trade && !c.forTrade) return false;
+          if (f.rarity && c.rarityKey !== f.rarity) return false;
+          if (f.foiling && c.foilKey !== f.foiling) return false;
+          if (f.set && c.setKey !== f.set) return false;
           return true;
         });
+      }
+
+      function distinct(cards, key) {
+        var seen = Object.create(null);
+        cards.forEach(function (c) { if (c[key]) seen[c[key]] = true; });
+        return Object.keys(seen).sort();
+      }
+
+      function hasActiveFilters() {
+        var f = state.filters;
+        return !!(f.trade || f.rarity || f.foiling || f.set || state.search.trim());
       }
 
       function applySort(cards) {
@@ -482,10 +544,35 @@ export const binderViewerResource = {
             '</div>' +
           '</div>';
 
+        var rarities = distinct(cards, 'rarityKey');
+        var foilings = distinct(cards, 'foilKey');
+        var sets     = distinct(cards, 'setKey');
+
+        var rarityOpts = '<option value="">All rarities</option>' +
+          rarities.map(function (r) {
+            var label = RARITY_MAP[r] || r.toUpperCase();
+            return '<option value="' + escapeAttr(r) + '"' +
+              (state.filters.rarity === r ? ' selected' : '') +
+              '>' + escapeHtml(label) + '</option>';
+          }).join('');
+        var foilOpts = '<option value="">All foilings</option>' +
+          foilings.map(function (f) {
+            var label = FOIL_MAP[f] || f.toUpperCase();
+            return '<option value="' + escapeAttr(f) + '"' +
+              (state.filters.foiling === f ? ' selected' : '') +
+              '>' + escapeHtml(label) + '</option>';
+          }).join('');
+        var setOpts = '<option value="">All sets</option>' +
+          sets.map(function (s) {
+            return '<option value="' + escapeAttr(s) + '"' +
+              (state.filters.set === s ? ' selected' : '') +
+              '>' + escapeHtml(s.toUpperCase()) + '</option>';
+          }).join('');
+
         var controls =
           '<div class="controls">' +
             '<input type="search" id="search-input" placeholder="Search cards…" value="' + escapeAttr(state.search) + '" />' +
-            '<select id="sort-select">' +
+            '<select id="sort-select" title="Sort">' +
               option('default',    'Default order',   state.sort) +
               option('name-asc',   'Name A→Z',        state.sort) +
               option('price-desc', 'Price high→low',  state.sort) +
@@ -493,8 +580,10 @@ export const binderViewerResource = {
               option('qty-desc',   'Qty high→low',    state.sort) +
             '</select>' +
             chip('trade', 'For trade', state.filters.trade) +
-            chip('foil',  'Foil only', state.filters.foil) +
-            chip('nm',    'NM only',   state.filters.nm) +
+            '<select id="rarity-select" title="Rarity">' + rarityOpts + '</select>' +
+            '<select id="foiling-select" title="Foiling">' + foilOpts + '</select>' +
+            '<select id="set-select" title="Set">' + setOpts + '</select>' +
+            (hasActiveFilters() ? '<button class="btn" id="clear-btn" type="button">Clear</button>' : '') +
           '</div>';
 
         var body;
@@ -583,6 +672,25 @@ export const binderViewerResource = {
             render();
           });
         });
+
+        ['rarity', 'foiling', 'set'].forEach(function (key) {
+          var sel = document.getElementById(key + '-select');
+          if (sel) {
+            sel.addEventListener('change', function (e) {
+              state.filters[key] = e.target.value;
+              render();
+            });
+          }
+        });
+
+        var clearBtn = document.getElementById('clear-btn');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', function () {
+            state.search = '';
+            state.filters = { trade: false, rarity: '', foiling: '', set: '' };
+            render();
+          });
+        }
 
         var prev = document.getElementById('prev-btn');
         var next = document.getElementById('next-btn');

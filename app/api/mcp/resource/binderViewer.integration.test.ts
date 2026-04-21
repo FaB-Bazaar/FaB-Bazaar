@@ -185,6 +185,57 @@ describe('binder viewer iframe integration', () => {
     expect(names).toEqual(['Alpha']);
   });
 
+  it('filters by rarity, foiling, and set via dropdowns', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { name: 'Alpha', quantity: 1, rarity: 'l', foiling: 'r', set: 'ele' },
+        { name: 'Beta',  quantity: 1, rarity: 'c', foiling: 's', set: 'wtr' },
+        { name: 'Gamma', quantity: 1, rarity: 'l', foiling: 's', set: 'wtr' },
+      ],
+      pagination: { page: 1, limit: 100, total: 3, totalPages: 1 },
+    });
+
+    const rarity = dom.window.document.getElementById('rarity-select') as HTMLSelectElement;
+    rarity.value = 'l';
+    rarity.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    let names = Array.from(dom.window.document.querySelectorAll('.card-name')).map((el) => el.textContent);
+    expect(names.sort()).toEqual(['Alpha', 'Gamma']);
+
+    const set = dom.window.document.getElementById('set-select') as HTMLSelectElement;
+    set.value = 'wtr';
+    set.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    names = Array.from(dom.window.document.querySelectorAll('.card-name')).map((el) => el.textContent);
+    expect(names).toEqual(['Gamma']);
+
+    const clear = dom.window.document.getElementById('clear-btn') as HTMLButtonElement;
+    expect(clear).not.toBeNull();
+    clear.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    names = Array.from(dom.window.document.querySelectorAll('.card-name')).map((el) => el.textContent);
+    expect(names.length).toBe(3);
+  });
+
+  it('only lists rarity/foiling/set options that exist in the current cards', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { name: 'Alpha', quantity: 1, rarity: 'l', foiling: 'r', set: 'ele' },
+        { name: 'Beta',  quantity: 1, rarity: 'l', foiling: 'r', set: 'ele' },
+      ],
+      pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
+    });
+
+    const rarityOpts = Array.from(
+      dom.window.document.querySelectorAll('#rarity-select option')
+    ).map((o) => (o as HTMLOptionElement).value);
+    expect(rarityOpts).toEqual(['', 'l']);
+
+    const setOpts = Array.from(
+      dom.window.document.querySelectorAll('#set-select option')
+    ).map((o) => (o as HTMLOptionElement).value);
+    expect(setOpts).toEqual(['', 'ele']);
+  });
+
   it('sorts by price high→low', () => {
     dispatchToolResult(dom, {
       binder: { slug: 'b', name: 'B' },
