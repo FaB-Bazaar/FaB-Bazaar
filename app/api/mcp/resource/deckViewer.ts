@@ -303,6 +303,71 @@ export const deckViewerResource = {
     .modal-img { max-width: min(80vw, 450px); max-height: 85vh; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
 
     .hidden { display: none !important; }
+
+    /* Fullscreen: reserve room for the host chat composer */
+    body.is-fullscreen .wrap { padding-bottom: 180px; }
+
+    /* View toggle */
+    .view-toggle {
+      display: inline-flex; gap: 2px; padding: 2px;
+      background: var(--color-background-secondary, var(--fb-surface));
+      border: 1px solid var(--color-border-primary, var(--fb-border));
+      border-radius: 8px;
+    }
+    .view-toggle button {
+      appearance: none; cursor: pointer; border: none;
+      padding: 4px 10px; border-radius: 6px;
+      font-size: var(--font-text-xs-size, 12px);
+      color: var(--color-text-secondary, var(--fb-text-muted));
+      background: transparent;
+    }
+    .view-toggle button.active {
+      background: var(--color-surface-primary, var(--fb-surface-hover));
+      color: var(--color-text-primary, var(--fb-text));
+      font-weight: 600;
+    }
+    .decklist-toolbar {
+      display: flex; align-items: center; justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+
+    /* Card tile grid (image view) */
+    .card-tile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    .card-tile {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 6px 4px;
+      background: var(--color-background-secondary, var(--fb-surface));
+      border: 1px solid var(--color-border-primary, var(--fb-border));
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .card-tile:hover { border-color: var(--color-accent-primary, var(--fb-accent)); }
+    .card-tile .thumb {
+      width: 94px; height: 130px;
+      border-radius: 6px; overflow: hidden;
+      background: var(--color-background-tertiary, var(--fb-surface-hover));
+    }
+    .card-tile .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card-tile .qty-badge {
+      position: absolute; top: 4px; left: 4px;
+      padding: 2px 6px; border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+      background: rgba(0,0,0,0.75); color: #fff;
+    }
+    .card-tile .name {
+      font-size: var(--font-text-xs-size, 11px);
+      text-align: center; line-height: 1.2;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Sideboard card row (reuses card-row visuals in matchups panel) */
+    .sb-list .card-row { padding: 3px 6px; }
+    .sb-list .card-row .qty { min-width: 22px; }
   </style>
 </head>
 <body>
@@ -331,6 +396,12 @@ export const deckViewerResource = {
     </div>
 
     <section id="panel-decklist" class="panel">
+      <div class="decklist-toolbar">
+        <div class="view-toggle" role="tablist" aria-label="View mode">
+          <button id="view-list" class="active" data-view="list" type="button">List</button>
+          <button id="view-cards" data-view="cards" type="button">Cards</button>
+        </div>
+      </div>
       <div id="equip-strip" class="equip-strip"></div>
       <div id="decklist-sections" class="sections-grid"></div>
     </section>
@@ -356,7 +427,7 @@ export const deckViewerResource = {
     (function () {
       var host = window.parent;
       var IMG_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
-      var state = { data: null, activeTab: 'decklist' };
+      var state = { data: null, activeTab: 'decklist', viewMode: 'list' };
       var currentMode = 'inline';
       var nextId = 100;
 
@@ -379,6 +450,7 @@ export const deckViewerResource = {
       function updateExpandBtn() {
         var btn = document.getElementById('expand-btn');
         if (btn) btn.textContent = currentMode === 'fullscreen' ? 'Collapse' : 'Expand';
+        document.body.classList.toggle('is-fullscreen', currentMode === 'fullscreen');
       }
 
       function sendSize() {
@@ -452,6 +524,16 @@ export const deckViewerResource = {
                '<div class="thumb">' + (art ? '<img src="' + escapeHtml(art) + '" alt="' + escapeHtml(card.name) + '" />' : '') + '</div>' +
                '<div class="label">' + escapeHtml(label) + '</div>' +
                '<div class="name" title="' + escapeHtml(card.name) + '">' + escapeHtml(card.name) + '</div>' +
+               '</div>';
+      }
+
+      function cardTileHtml(c) {
+        var art = artUrl(c);
+        var qty = c.quantity || 1;
+        return '<div class="card-tile" data-printing="' + escapeHtml(c.printingId || '') + '">' +
+               '<div class="qty-badge">' + escapeHtml(String(qty)) + '×</div>' +
+               '<div class="thumb">' + (art ? '<img src="' + escapeHtml(art) + '" alt="' + escapeHtml(c.name) + '" loading="lazy" />' : '') + '</div>' +
+               '<div class="name" title="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</div>' +
                '</div>';
       }
 
@@ -539,6 +621,10 @@ export const deckViewerResource = {
         });
 
         var sections = document.getElementById('decklist-sections');
+        var bodyRenderer = state.viewMode === 'cards'
+          ? function (cards) { return '<div class="card-tile-grid">' + cards.map(cardTileHtml).join('') + '</div>'; }
+          : function (cards) { return cards.map(rowHtml).join(''); };
+
         var html = '';
         CATEGORY_ORDER.forEach(function (label) {
           var cards = grouped[label];
@@ -548,7 +634,7 @@ export const deckViewerResource = {
                   '<span>' + escapeHtml(label) + '</span>' +
                   '<span class="section-count">' + total + '</span>' +
                   '</div><div class="section-body">' +
-                  cards.map(rowHtml).join('') +
+                  bodyRenderer(cards) +
                   '</div></div>';
         });
 
@@ -557,14 +643,14 @@ export const deckViewerResource = {
           var invTotal = inv.reduce(function (s, c) { return s + (c.quantity || 1); }, 0);
           html += '<div class="section"><div class="section-header">' +
                   '<span>Inventory</span><span class="section-count">' + invTotal + '</span>' +
-                  '</div><div class="section-body">' + inv.map(rowHtml).join('') + '</div></div>';
+                  '</div><div class="section-body">' + bodyRenderer(inv) + '</div></div>';
         }
         var tokens = (deck.categories && deck.categories.tokens) || [];
         if (tokens.length) {
           var tokTotal = tokens.reduce(function (s, c) { return s + (c.quantity || 1); }, 0);
           html += '<div class="section"><div class="section-header">' +
                   '<span>Tokens</span><span class="section-count">' + tokTotal + '</span>' +
-                  '</div><div class="section-body">' + tokens.map(rowHtml).join('') + '</div></div>';
+                  '</div><div class="section-body">' + bodyRenderer(tokens) + '</div></div>';
         }
 
         if (!html) html = '<div class="empty">This deck has no cards yet.</div>';
@@ -660,6 +746,21 @@ export const deckViewerResource = {
         grid.innerHTML = html || '<div class="empty">No stats available.</div>';
       }
 
+      function sideboardRowHtml(entry) {
+        var pitch = String(entry.pitch || 0);
+        return '<div class="card-row" data-pitch="' + escapeHtml(pitch) + '">' +
+               '<div class="pitch-bar"></div>' +
+               '<div class="qty">' + escapeHtml(String(entry.quantity || 1)) + '×</div>' +
+               '<div class="name" title="' + escapeHtml(entry.name) + '">' + escapeHtml(entry.name) + '</div>' +
+               '<div></div>' +
+               '<div class="pitch-pip" aria-hidden="true"></div>' +
+               '</div>';
+      }
+
+      function sideboardTotal(list) {
+        return (list || []).reduce(function (s, e) { return s + (e.quantity || 1); }, 0);
+      }
+
       function renderMatchups(deck) {
         var list = document.getElementById('matchups-list');
         var ms = deck.matchups || [];
@@ -673,16 +774,20 @@ export const deckViewerResource = {
             : '';
           var inList = (m.sideboard && m.sideboard.in) || [];
           var outList = (m.sideboard && m.sideboard.out) || [];
+          var inCount = sideboardTotal(inList);
+          var outCount = sideboardTotal(outList);
+          var renderList = function (entries) {
+            if (!entries.length) return '<div class="empty" style="padding:6px 0;">—</div>';
+            return '<div class="sb-list">' + entries.map(sideboardRowHtml).join('') + '</div>';
+          };
           return '<div class="matchup">' +
                  '<div class="matchup-head">' +
                  '<div class="matchup-title">vs ' + escapeHtml(m.heroDisplay || m.heroId) + '</div>' +
                  turn + '</div>' +
                  (m.notes ? '<div class="matchup-notes">' + escapeHtml(m.notes) + '</div>' : '') +
                  '<div class="sideboard-grid">' +
-                 '<div><div class="sb-col-title in">In (' + inList.length + ')</div>' +
-                 '<ul class="sb-list">' + (inList.length ? inList.map(function (id) { return '<li>' + escapeHtml(id) + '</li>'; }).join('') : '<li>—</li>') + '</ul></div>' +
-                 '<div><div class="sb-col-title out">Out (' + outList.length + ')</div>' +
-                 '<ul class="sb-list">' + (outList.length ? outList.map(function (id) { return '<li>' + escapeHtml(id) + '</li>'; }).join('') : '<li>—</li>') + '</ul></div>' +
+                 '<div><div class="sb-col-title in">In (' + inCount + ')</div>' + renderList(inList) + '</div>' +
+                 '<div><div class="sb-col-title out">Out (' + outCount + ')</div>' + renderList(outList) + '</div>' +
                  '</div></div>';
         }).join('') + '</div>';
       }
@@ -764,6 +869,22 @@ export const deckViewerResource = {
           requestDisplayMode(currentMode === 'fullscreen' ? 'inline' : 'fullscreen');
         });
       }
+
+      // View-mode toggle (list vs. card tiles) for the Decklist tab
+      document.querySelectorAll('.view-toggle button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var mode = btn.dataset.view === 'cards' ? 'cards' : 'list';
+          if (state.viewMode === mode) return;
+          state.viewMode = mode;
+          document.querySelectorAll('.view-toggle button').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.view === mode);
+          });
+          if (state.data && state.data.deck) {
+            renderDecklist(state.data.deck);
+            sendSize();
+          }
+        });
+      });
 
       window.addEventListener('resize', sendSize);
       connect();
