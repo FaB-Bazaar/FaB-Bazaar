@@ -132,4 +132,111 @@ describe('binder viewer iframe integration', () => {
   it('declares the Cloudflare Images CDN in _meta.ui.csp.resourceDomains', () => {
     expect(binderViewerResource._meta?.ui?.csp?.resourceDomains).toContain('https://imagedelivery.net');
   });
+
+  it('does not double-prefix collector_number when it already starts with the set code', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { name: 'Alpha Instinct', quantity: 3, foiling: 'n', edition: 'n', collector_number: 'ARR022', set: 'arr', tcg_low: 2.89 },
+        { name: 'Bam Bam', quantity: 2, foiling: 'n', edition: 'n', collector_number: '250', set: 'sea', tcg_low: 0.1 },
+      ],
+      pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
+    });
+
+    const body = dom.window.document.body.textContent || '';
+    expect(body).toContain('ARR022');
+    expect(body).not.toContain('ARRARR022');
+    expect(body).toContain('SEA250');
+  });
+
+  it('filters cards by the search input', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { name: 'Alpha Instinct', quantity: 1, set: 'arr', collector_number: '022' },
+        { name: 'Bam Bam', quantity: 1, set: 'sea', collector_number: '250' },
+      ],
+      pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
+    });
+
+    const input = dom.window.document.getElementById('search-input') as HTMLInputElement;
+    input.value = 'bam';
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+
+    const names = Array.from(dom.window.document.querySelectorAll('.card-name')).map((el) => el.textContent);
+    expect(names).toEqual(['Bam Bam']);
+  });
+
+  it('filters to for-trade only when the chip is toggled', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { name: 'Alpha', quantity: 1, forTrade: true },
+        { name: 'Beta', quantity: 1, forTrade: false },
+      ],
+      pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
+    });
+
+    const trade = dom.window.document.querySelector('[data-filter="trade"]') as HTMLInputElement;
+    trade.checked = true;
+    trade.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+
+    const names = Array.from(dom.window.document.querySelectorAll('.card-name')).map((el) => el.textContent);
+    expect(names).toEqual(['Alpha']);
+  });
+
+  it('sorts by price high→low', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { name: 'Cheap', quantity: 1, tcg_low: 0.5 },
+        { name: 'Pricey', quantity: 1, tcg_low: 99 },
+        { name: 'Mid', quantity: 1, tcg_low: 10 },
+      ],
+      pagination: { page: 1, limit: 100, total: 3, totalPages: 1 },
+    });
+
+    const sort = dom.window.document.getElementById('sort-select') as HTMLSelectElement;
+    sort.value = 'price-desc';
+    sort.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+
+    const names = Array.from(dom.window.document.querySelectorAll('.card-name')).map((el) => el.textContent);
+    expect(names).toEqual(['Pricey', 'Mid', 'Cheap']);
+  });
+
+  it('opens a detail modal when a tile is clicked and closes it on backdrop click', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [{ name: 'Alpha', quantity: 1, image_url: 'https://imagedelivery.net/x/y/public' }],
+      pagination: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    });
+
+    const tile = dom.window.document.querySelector('.card[data-art]') as HTMLElement;
+    tile.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+    const backdrop = dom.window.document.getElementById('modal-backdrop');
+    expect(backdrop).not.toBeNull();
+    expect(dom.window.document.querySelector('.modal-art')).not.toBeNull();
+
+    backdrop!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    expect(dom.window.document.getElementById('modal-backdrop')).toBeNull();
+  });
+
+  it('renders Prev/Next pager only when there is more than one page', () => {
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [{ name: 'Alpha', quantity: 1 }],
+      pagination: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    });
+    expect(dom.window.document.getElementById('prev-btn')).toBeNull();
+
+    dispatchToolResult(dom, {
+      binder: { slug: 'b', name: 'B' },
+      cards: [{ name: 'Alpha', quantity: 1 }],
+      pagination: { page: 2, limit: 1, total: 5, totalPages: 5 },
+    });
+    expect(dom.window.document.getElementById('prev-btn')).not.toBeNull();
+    expect(dom.window.document.getElementById('next-btn')).not.toBeNull();
+    expect((dom.window.document.getElementById('prev-btn') as HTMLButtonElement).disabled).toBe(false);
+  });
 });

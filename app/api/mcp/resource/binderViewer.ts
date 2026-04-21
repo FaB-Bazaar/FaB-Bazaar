@@ -17,9 +17,7 @@ export const binderViewerResource = {
   <meta charset="UTF-8" />
   <title>Binder</title>
   <style>
-    :root {
-      color-scheme: light dark;
-    }
+    :root { color-scheme: light dark; }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
@@ -50,6 +48,45 @@ export const binderViewerResource = {
     .meta {
       color: var(--color-text-secondary, #666);
       font-size: var(--font-text-sm-size, 12px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .controls input[type="search"],
+    .controls select {
+      appearance: none;
+      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.16));
+      background: var(--color-background-secondary, #fff);
+      color: var(--color-text-primary, #1a1a1a);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: var(--font-text-sm-size, 13px);
+      min-width: 0;
+    }
+    .controls input[type="search"] { flex: 1 1 180px; min-width: 140px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.16));
+      border-radius: 999px;
+      font-size: var(--font-text-sm-size, 13px);
+      cursor: pointer;
+      user-select: none;
+      background: var(--color-background-secondary, #fff);
+    }
+    .chip input { accent-color: var(--color-accent-primary, #2563eb); margin: 0; }
+    .chip.active {
+      background: var(--color-accent-primary, #2563eb);
+      color: #fff;
+      border-color: var(--color-accent-primary, #2563eb);
     }
     .grid {
       display: grid;
@@ -64,6 +101,12 @@ export const binderViewerResource = {
       border: 1px solid var(--color-border-primary, rgba(0,0,0,0.08));
       display: flex;
       flex-direction: column;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
     }
     .card-art {
       aspect-ratio: 5 / 7;
@@ -142,21 +185,57 @@ export const binderViewerResource = {
       text-align: center;
       color: var(--color-text-secondary, #666);
     }
-    .actions {
+    .pager {
       display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 8px;
+      padding-top: 4px;
     }
     .btn {
       appearance: none;
-      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.12));
+      border: 1px solid var(--color-border-primary, rgba(0,0,0,0.16));
       background: var(--color-background-secondary, #fff);
       color: var(--color-text-primary, #1a1a1a);
-      padding: 4px 10px;
+      padding: 6px 12px;
       border-radius: 6px;
-      font-size: var(--font-text-sm-size, 12px);
+      font-size: var(--font-text-sm-size, 13px);
       cursor: pointer;
     }
     .btn:hover { background: var(--color-background-tertiary, #eee); }
+    .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 100;
+    }
+    .modal-art {
+      max-width: min(90vw, 480px);
+      max-height: 90vh;
+      aspect-ratio: 5 / 7;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    .modal-info {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      color: #fff;
+      font-size: var(--font-text-sm-size, 13px);
+      opacity: 0.8;
+    }
+    .count-pill {
+      color: var(--color-text-secondary, #666);
+      font-size: var(--font-text-xs-size, 11px);
+    }
   </style>
 </head>
 <body>
@@ -166,6 +245,7 @@ export const binderViewerResource = {
     </div>
     <div class="grid" id="skeleton-grid"></div>
   </div>
+  <div id="modal-root"></div>
   <script>
     (function () {
       var host = window.parent;
@@ -174,6 +254,13 @@ export const binderViewerResource = {
 
       var FOIL_MAP = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
       var EDITION_MAP = { f: '1st', a: 'A', u: 'UNL', n: '' };
+
+      var state = {
+        data: null,
+        search: '',
+        sort: 'default',
+        filters: { trade: false, foil: false, nm: false },
+      };
 
       var skelRoot = document.getElementById('skeleton-grid');
       if (skelRoot) {
@@ -208,7 +295,7 @@ export const binderViewerResource = {
           params: {
             protocolVersion: '2025-06-18',
             capabilities: {},
-            appInfo: { name: 'fab-bazaar-binder', version: '0.2.0' },
+            appInfo: { name: 'fab-bazaar-binder', version: '0.3.0' },
             appCapabilities: {
               availableDisplayModes: ['inline', 'fullscreen'],
             },
@@ -218,9 +305,6 @@ export const binderViewerResource = {
 
       var nextId = 100;
       function requestDisplayMode(mode) {
-        // We don't know the exact method name the host accepts, so try the
-        // common variants from the MCP Apps spec drafts. Whichever one the
-        // host implements wins; the rest get ignored / errored.
         var candidates = [
           { method: 'ui/request-display-mode', params: { displayMode: mode } },
           { method: 'ui/requestDisplayMode', params: { displayMode: mode } },
@@ -232,6 +316,24 @@ export const binderViewerResource = {
         candidates.forEach(function (c) {
           var id = nextId++;
           console.log('[binder-viewer] trying displayMode request:', c.method, id);
+          post({ jsonrpc: '2.0', id: id, method: c.method, params: c.params });
+        });
+      }
+
+      function callGetBinder(args) {
+        // Probe several method names for host-brokered tool calls — whichever
+        // the host implements will fire, and the rest will error back.
+        var payload = { name: 'get_binder', arguments: args };
+        var candidates = [
+          { method: 'tools/call', params: payload },
+          { method: 'ui/call-tool', params: payload },
+          { method: 'ui/tool-call', params: payload },
+          { method: 'ui/tools/call', params: payload },
+          { method: 'ui/invoke-tool', params: payload },
+        ];
+        candidates.forEach(function (c) {
+          var id = nextId++;
+          console.log('[binder-viewer] trying tool call:', c.method, id, args);
           post({ jsonrpc: '2.0', id: id, method: c.method, params: c.params });
         });
       }
@@ -261,7 +363,10 @@ export const binderViewerResource = {
           (msg.params && msg.params.structuredContent) ||
           (msg.result && msg.result.structuredContent) ||
           (msg.params && msg.params.toolResult && msg.params.toolResult.structuredContent);
-        if (data) render(data);
+        if (data) {
+          state.data = data;
+          render();
+        }
       });
 
       function escapeHtml(s) {
@@ -271,10 +376,7 @@ export const binderViewerResource = {
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
       }
-
-      function escapeAttr(s) {
-        return escapeHtml(s);
-      }
+      var escapeAttr = escapeHtml;
 
       function cardArtUrl(c) {
         if (c.image_url) return c.image_url;
@@ -293,12 +395,72 @@ export const binderViewerResource = {
         return EDITION_MAP[k] != null ? EDITION_MAP[k] : e;
       }
 
-      function render(data) {
+      function cardIdLabel(c) {
+        var setCode = String(c.set || '').toUpperCase();
+        var collectorRaw = c.collector_number != null ? c.collector_number : c.collectorNumber;
+        if (!collectorRaw) return '';
+        var collector = String(collectorRaw).toUpperCase();
+        // collector_number already includes the set prefix in some feeds
+        if (setCode && collector.indexOf(setCode) === 0) return collector;
+        return setCode ? setCode + collector : collector;
+      }
+
+      function decorate(c) {
+        var name = c.display_name || c.name || '';
+        var qty = c.quantity != null ? c.quantity : c.qty;
+        var foil = mapFoil(c.foiling != null ? c.foiling : c.foil);
+        var edition = mapEdition(c.edition);
+        var priceRaw = c.tcg_low != null ? c.tcg_low : c.price;
+        return {
+          raw: c,
+          name: name,
+          qty: qty,
+          foilCode: foil,
+          foilKey: String(c.foiling || c.foil || '').toLowerCase(),
+          edition: edition,
+          condition: c.condition || '',
+          forTrade: !!c.forTrade,
+          cardId: cardIdLabel(c),
+          price: priceRaw == null ? null : Number(priceRaw),
+          art: cardArtUrl(c),
+        };
+      }
+
+      function applyFilters(cards) {
+        var q = state.search.trim().toLowerCase();
+        return cards.filter(function (c) {
+          if (q && c.name.toLowerCase().indexOf(q) === -1) return false;
+          if (state.filters.trade && !c.forTrade) return false;
+          if (state.filters.foil && (c.foilKey === 's' || c.foilKey === '')) return false;
+          if (state.filters.nm && c.condition && c.condition !== 'NM') return false;
+          return true;
+        });
+      }
+
+      function applySort(cards) {
+        var arr = cards.slice();
+        switch (state.sort) {
+          case 'name-asc':
+            return arr.sort(function (a, b) { return a.name.localeCompare(b.name); });
+          case 'price-desc':
+            return arr.sort(function (a, b) { return (b.price || 0) - (a.price || 0); });
+          case 'price-asc':
+            return arr.sort(function (a, b) { return (a.price == null ? Infinity : a.price) - (b.price == null ? Infinity : b.price); });
+          case 'qty-desc':
+            return arr.sort(function (a, b) { return (b.qty || 0) - (a.qty || 0); });
+          default:
+            return arr;
+        }
+      }
+
+      function render() {
         var root = document.getElementById('binder-app');
         if (!root) return;
+        var data = state.data;
+        if (!data) return;
 
         var binder = data.binder || {};
-        var cards = Array.isArray(data.cards) ? data.cards : [];
+        var cards = (Array.isArray(data.cards) ? data.cards : []).map(decorate);
         var pagination = data.pagination || {};
 
         var total = pagination.total != null ? pagination.total
@@ -309,63 +471,158 @@ export const binderViewerResource = {
         var totalPages = pagination.totalPages
           || (total && limit ? Math.max(1, Math.ceil(total / limit)) : 1);
 
+        var filtered = applySort(applyFilters(cards));
+
         var header =
           '<div class="header">' +
             '<h2 class="title">' + escapeHtml(binder.name || binder.slug || 'Binder') + '</h2>' +
             '<div class="meta">' +
-              escapeHtml(cards.length + ' of ' + total + ' cards · page ' + page + ' of ' + totalPages) +
-              (cards.length > 0
-                ? ' <button class="btn" id="expand-btn" type="button">Expand</button>'
-                : '') +
+              '<span>' + escapeHtml(filtered.length + ' of ' + cards.length + ' shown · page ' + page + ' of ' + totalPages) + '</span>' +
+              '<button class="btn" id="expand-btn" type="button">' + (currentMode === 'fullscreen' ? 'Collapse' : 'Expand') + '</button>' +
             '</div>' +
           '</div>';
 
-        if (cards.length === 0) {
-          root.innerHTML = header + '<div class="empty">No cards to show.</div>';
-          sendSize();
-          return;
+        var controls =
+          '<div class="controls">' +
+            '<input type="search" id="search-input" placeholder="Search cards…" value="' + escapeAttr(state.search) + '" />' +
+            '<select id="sort-select">' +
+              option('default',    'Default order',   state.sort) +
+              option('name-asc',   'Name A→Z',        state.sort) +
+              option('price-desc', 'Price high→low',  state.sort) +
+              option('price-asc',  'Price low→high',  state.sort) +
+              option('qty-desc',   'Qty high→low',    state.sort) +
+            '</select>' +
+            chip('trade', 'For trade', state.filters.trade) +
+            chip('foil',  'Foil only', state.filters.foil) +
+            chip('nm',    'NM only',   state.filters.nm) +
+          '</div>';
+
+        var body;
+        if (filtered.length === 0) {
+          body = '<div class="empty">' + (cards.length === 0 ? 'No cards to show.' : 'No cards match your filters.') + '</div>';
+        } else {
+          body = '<div class="grid">' + filtered.map(tile).join('') + '</div>';
         }
 
-        var tiles = cards.map(function (c) {
-          var name = c.display_name || c.name || '';
-          var qty = c.quantity != null ? c.quantity : c.qty;
-          var foil = mapFoil(c.foiling != null ? c.foiling : c.foil);
-          var edition = mapEdition(c.edition);
-          var setCode = String(c.set || '').toUpperCase();
-          var collector = c.collector_number != null ? c.collector_number : c.collectorNumber;
-          var cardId = collector ? (setCode + collector) : '';
-          var priceRaw = c.tcg_low != null ? c.tcg_low : c.price;
-          var price = priceRaw == null ? '—' : '$' + Number(priceRaw).toFixed(2);
-          var art = cardArtUrl(c);
-          var artStyle = art ? 'background-image:url(' + escapeAttr(art) + ')' : '';
+        var pager = totalPages > 1
+          ? '<div class="pager">' +
+              '<button class="btn" id="prev-btn" type="button"' + (page <= 1 ? ' disabled' : '') + '>‹ Prev</button>' +
+              '<span class="count-pill">Page ' + page + ' of ' + totalPages + '</span>' +
+              '<button class="btn" id="next-btn" type="button"' + (page >= totalPages ? ' disabled' : '') + '>Next ›</button>' +
+            '</div>'
+          : '';
 
-          var subLeft = [foil, edition, cardId].filter(Boolean).join(' · ');
+        root.innerHTML = header + controls + body + pager;
+        wireControls(binder, pagination);
+        sendSize();
+      }
 
-          return '<div class="card">' +
-            (qty != null && qty !== '' ? '<span class="qty-badge">' + escapeHtml(qty) + '×</span>' : '') +
-            (c.forTrade ? '<span class="trade-badge">TRADE</span>' : '') +
-            '<div class="card-art" style="' + artStyle + '" role="img" aria-label="' + escapeAttr(name) + '"></div>' +
-            '<div class="card-body">' +
-              '<div class="card-name">' + escapeHtml(name) + '</div>' +
-              '<div class="card-sub">' +
-                '<span>' + escapeHtml(subLeft) + '</span>' +
-                '<span class="price">' + escapeHtml(price) + '</span>' +
-              '</div>' +
+      function option(value, label, current) {
+        return '<option value="' + value + '"' + (current === value ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+      }
+
+      function chip(key, label, active) {
+        return '<label class="chip' + (active ? ' active' : '') + '" data-chip="' + key + '">' +
+          '<input type="checkbox" data-filter="' + key + '"' + (active ? ' checked' : '') + ' />' +
+          escapeHtml(label) +
+        '</label>';
+      }
+
+      function tile(c) {
+        var artStyle = c.art ? 'background-image:url(' + escapeAttr(c.art) + ')' : '';
+        var subLeft = [c.foilCode, c.edition, c.cardId].filter(Boolean).join(' · ');
+        var price = c.price == null ? '—' : '$' + c.price.toFixed(2);
+        return '<div class="card" data-art="' + escapeAttr(c.art) + '" data-name="' + escapeAttr(c.name) + '" data-meta="' + escapeAttr(subLeft) + '">' +
+          (c.qty != null && c.qty !== '' ? '<span class="qty-badge">' + escapeHtml(c.qty) + '×</span>' : '') +
+          (c.forTrade ? '<span class="trade-badge">TRADE</span>' : '') +
+          '<div class="card-art" style="' + artStyle + '" role="img" aria-label="' + escapeAttr(c.name) + '"></div>' +
+          '<div class="card-body">' +
+            '<div class="card-name">' + escapeHtml(c.name) + '</div>' +
+            '<div class="card-sub">' +
+              '<span>' + escapeHtml(subLeft) + '</span>' +
+              '<span class="price">' + escapeHtml(price) + '</span>' +
             '</div>' +
-          '</div>';
-        }).join('');
+          '</div>' +
+        '</div>';
+      }
 
-        root.innerHTML = header + '<div class="grid">' + tiles + '</div>';
-
-        var btn = document.getElementById('expand-btn');
-        if (btn) {
-          btn.addEventListener('click', function () {
-            var next = currentMode === 'fullscreen' ? 'inline' : 'fullscreen';
-            requestDisplayMode(next);
+      function wireControls(binder, pagination) {
+        var expandBtn = document.getElementById('expand-btn');
+        if (expandBtn) {
+          expandBtn.addEventListener('click', function () {
+            requestDisplayMode(currentMode === 'fullscreen' ? 'inline' : 'fullscreen');
           });
         }
 
-        sendSize();
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) {
+          searchInput.addEventListener('input', function (e) {
+            state.search = e.target.value;
+            render();
+            var el = document.getElementById('search-input');
+            if (el) {
+              el.focus();
+              try { el.setSelectionRange(el.value.length, el.value.length); } catch (_) {}
+            }
+          });
+        }
+
+        var sortSelect = document.getElementById('sort-select');
+        if (sortSelect) {
+          sortSelect.addEventListener('change', function (e) {
+            state.sort = e.target.value;
+            render();
+          });
+        }
+
+        var filterInputs = document.querySelectorAll('[data-filter]');
+        filterInputs.forEach(function (el) {
+          el.addEventListener('change', function (e) {
+            var key = e.target.getAttribute('data-filter');
+            state.filters[key] = !!e.target.checked;
+            render();
+          });
+        });
+
+        var prev = document.getElementById('prev-btn');
+        var next = document.getElementById('next-btn');
+        var page = pagination.page || 1;
+        var slug = (binder && binder.slug) || (state.data && state.data.binder && state.data.binder.slug);
+        if (prev) prev.addEventListener('click', function () {
+          if (page > 1 && slug) callGetBinder({ binderSlug: slug, page: page - 1, limit: pagination.limit || 100 });
+        });
+        if (next) next.addEventListener('click', function () {
+          if (slug) callGetBinder({ binderSlug: slug, page: page + 1, limit: pagination.limit || 100 });
+        });
+
+        var tiles = document.querySelectorAll('.card[data-art]');
+        tiles.forEach(function (el) {
+          el.addEventListener('click', function () {
+            openModal(
+              el.getAttribute('data-art') || '',
+              el.getAttribute('data-name') || '',
+              el.getAttribute('data-meta') || ''
+            );
+          });
+        });
+      }
+
+      function openModal(art, name, meta) {
+        var mroot = document.getElementById('modal-root');
+        if (!mroot) return;
+        var artStyle = art ? 'background-image:url(' + escapeAttr(art) + ')' : '';
+        mroot.innerHTML =
+          '<div class="modal-backdrop" id="modal-backdrop">' +
+            '<div class="modal-info">' + escapeHtml(name) + (meta ? ' · ' + escapeHtml(meta) : '') + '</div>' +
+            '<div class="modal-art" style="' + artStyle + '" role="img" aria-label="' + escapeAttr(name) + '"></div>' +
+          '</div>';
+        var backdrop = document.getElementById('modal-backdrop');
+        if (backdrop) {
+          backdrop.addEventListener('click', function () {
+            mroot.innerHTML = '';
+            sendSize();
+          });
+        }
       }
 
       if (typeof ResizeObserver !== 'undefined') {
