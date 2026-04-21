@@ -832,7 +832,7 @@ The new tool provides the same functionality with better guidance for proper wor
     return NextResponse.json({
       jsonrpc: '2.0',
       id,
-      result: shapeForMcpApp(result)
+      result: shapeForMcpApp(result, { showDetails: toolInput?.showDetails !== false })
     }, { headers: corsHeaders() });
     
             

@@ -64,7 +64,8 @@ export const getBinderTool = {
       showDetails: {
         type: 'boolean',
         default: true,
-        description: 'Include detailed card information in response'
+        description:
+          'When true (default) the text response contains a full markdown table of every card on the page (Qty / Foil / Name / Set / Cond / Trade / Price), letting you answer follow-up questions without another call. Set to false ONLY when the user just wants to browse visually (the interactive widget always renders either way) and you want to save context tokens.'
       }
     },
     required: ['binderSlug']
@@ -248,7 +249,47 @@ type McpAppResult = {
   isError?: boolean;
 };
 
-export function shapeForMcpApp(raw: any): McpAppResult {
+const FOIL_LABELS: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
+
+function foilLabel(v: any): string {
+  if (!v) return '';
+  const k = String(v).toLowerCase();
+  return FOIL_LABELS[k] ?? String(v).toUpperCase();
+}
+
+function cardIdLabel(c: any): string {
+  const set = String(c.set ?? '').toUpperCase();
+  const collector = String(c.collector_number ?? c.collectorNumber ?? '').toUpperCase();
+  if (!collector) return set;
+  if (set && collector.startsWith(set)) return collector;
+  return set ? `${set}${collector}` : collector;
+}
+
+function escapePipe(s: string): string {
+  return s.replace(/\|/g, '\\|');
+}
+
+function buildDetailTable(cards: any[]): string {
+  const header = '| Qty | Foil | Name | Set | Cond | Trade | Price |\n' +
+                 '|----:|:----:|------|:---:|:----:|:-----:|------:|';
+  const rows = cards.map((c) => {
+    const qty = c.quantity ?? c.qty ?? '';
+    const foil = foilLabel(c.foiling ?? c.foil);
+    const name = escapePipe(String(c.display_name ?? c.name ?? ''));
+    const id = cardIdLabel(c);
+    const cond = c.condition && c.condition !== 'NM' ? c.condition : '';
+    const trade = c.forTrade ? '✅' : '❌';
+    const priceRaw = c.tcg_low ?? c.price;
+    const price = priceRaw == null ? '—' : `$${Number(priceRaw).toFixed(2)}`;
+    return `| ${qty} | ${foil} | ${name} | ${id} | ${cond} | ${trade} | ${price} |`;
+  });
+  return [header, ...rows].join('\n');
+}
+
+export function shapeForMcpApp(
+  raw: any,
+  opts: { showDetails?: boolean } = {}
+): McpAppResult {
   if (!raw || raw.success === false) {
     return {
       isError: true,
@@ -256,16 +297,26 @@ export function shapeForMcpApp(raw: any): McpAppResult {
     };
   }
 
+  const showDetails = opts.showDetails !== false;
   const name = raw.binder?.name ?? raw.binder?.slug ?? 'binder';
-  const count = Array.isArray(raw.cards) ? raw.cards.length : 0;
-  const total = raw.pagination?.total ?? count;
-  const summary = `Binder '${name}': ${count} rows shown, ${total} total.`;
+  const cards: any[] = Array.isArray(raw.cards) ? raw.cards : [];
+  const count = cards.length;
+  const total = raw.pagination?.total ?? raw.pagination?.totalCards ?? count;
+  const page = raw.pagination?.page ?? 1;
+  const totalPages = raw.pagination?.totalPages ??
+    (total && raw.pagination?.limit ? Math.max(1, Math.ceil(total / raw.pagination.limit)) : 1);
+
+  const heading = `Binder '${name}' — ${count} of ${total} cards (page ${page} of ${totalPages})`;
+
+  const text = showDetails && count > 0
+    ? `${heading}\n\n${buildDetailTable(cards)}`
+    : heading;
 
   return {
-    content: [{ type: 'text', text: summary }],
+    content: [{ type: 'text', text }],
     structuredContent: {
       binder: raw.binder,
-      cards: raw.cards ?? [],
+      cards,
       pagination: raw.pagination,
     },
   };

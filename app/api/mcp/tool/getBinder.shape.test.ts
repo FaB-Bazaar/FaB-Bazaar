@@ -2,31 +2,64 @@ import { describe, it, expect } from 'vitest';
 import { shapeForMcpApp } from './getBinder';
 
 describe('shapeForMcpApp', () => {
-  it('returns a compact text summary for the model and full data in structuredContent', () => {
+  it('returns a full markdown table in content.text when showDetails is true (default) and always returns structuredContent', () => {
     const raw = {
       success: true,
-      message: 'Binder retrieval completed',
       binder: { slug: 'mcp-binder', name: 'MCP Binder' },
       cards: [
-        { name: 'Channel Lake Frigid', qty: 3, foil: 'RF', edition: '1st', collectorNumber: 'ELE146', condition: 'NM', forTrade: true, price: 12.5 },
-        { name: 'Heart of Ice', qty: 1, foil: 'CF', edition: '1st', collectorNumber: 'ELE144', condition: 'NM', forTrade: false, price: 8 },
+        {
+          display_name: 'Channel Lake Frigid',
+          name: 'Channel Lake Frigid',
+          quantity: 3, foiling: 'r', edition: 'f',
+          collector_number: '146', set: 'ele',
+          condition: 'NM', forTrade: true, tcg_low: 12.5,
+        },
+        {
+          display_name: 'Heart of Ice',
+          name: 'Heart of Ice',
+          quantity: 1, foiling: 'c', edition: 'f',
+          collector_number: '144', set: 'ele',
+          condition: 'LP', forTrade: false, tcg_low: 8,
+        },
       ],
-      pagination: { page: 1, limit: 100, total: 2 },
+      pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
     };
 
     const out = shapeForMcpApp(raw);
 
-    expect(out.content).toEqual([
-      { type: 'text', text: expect.any(String) },
-    ]);
-    expect(out.content[0].text.length).toBeLessThanOrEqual(200);
-    expect(out.content[0].text).toContain('MCP Binder');
-    expect(out.content[0].text).toContain('2');
+    const text = out.content[0].text;
+    expect(out.content).toHaveLength(1);
+    expect(text).toContain("Binder 'MCP Binder'");
+    expect(text).toContain('2 of 2 cards');
+    expect(text).toMatch(/\| Qty \| Foil \| Name \| Set \| Cond \| Trade \| Price \|/);
+    expect(text).toContain('Channel Lake Frigid');
+    expect(text).toContain('RF');
+    expect(text).toContain('ELE146');
+    expect(text).toContain('$12.50');
+    expect(text).toContain('✅');
+    expect(text).toContain('❌');
+    expect(text).toContain('LP');
 
-    expect(out.structuredContent.cards).toHaveLength(2);
-    expect(out.structuredContent.cards[0].name).toBe('Channel Lake Frigid');
-    expect(out.structuredContent.pagination).toEqual({ page: 1, limit: 100, total: 2 });
-    expect(out.structuredContent.binder).toEqual({ slug: 'mcp-binder', name: 'MCP Binder' });
+    expect(out.structuredContent?.cards).toHaveLength(2);
+    expect(out.structuredContent?.binder).toEqual({ slug: 'mcp-binder', name: 'MCP Binder' });
+    expect(out.structuredContent?.pagination).toMatchObject({ page: 1, total: 2 });
+  });
+
+  it('returns only a compact one-liner when showDetails is false, but keeps full structuredContent', () => {
+    const raw = {
+      success: true,
+      binder: { slug: 'mcp-binder', name: 'MCP Binder' },
+      cards: [
+        { display_name: 'Channel Lake Frigid', quantity: 3, foiling: 'r', set: 'ele', collector_number: '146', tcg_low: 12.5 },
+      ],
+      pagination: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    };
+
+    const out = shapeForMcpApp(raw, { showDetails: false });
+
+    expect(out.content[0].text).toBe("Binder 'MCP Binder' — 1 of 1 cards (page 1 of 1)");
+    expect(out.content[0].text).not.toContain('|');
+    expect(out.structuredContent?.cards).toHaveLength(1);
   });
 
   it('handles an empty binder without inflating context', () => {
@@ -39,8 +72,27 @@ describe('shapeForMcpApp', () => {
 
     const out = shapeForMcpApp(raw);
 
-    expect(out.content[0].text).toContain('0');
-    expect(out.structuredContent.cards).toEqual([]);
+    expect(out.content[0].text).toContain('0 of 0 cards');
+    expect(out.content[0].text).not.toContain('| Qty |');
+    expect(out.structuredContent?.cards).toEqual([]);
+  });
+
+  it('does not double-prefix set code when collector_number already starts with it', () => {
+    const raw = {
+      success: true,
+      binder: { slug: 'b', name: 'B' },
+      cards: [
+        { display_name: 'Alpha Instinct', quantity: 3, collector_number: 'ARR022', set: 'arr' },
+        { display_name: 'Bam Bam', quantity: 2, collector_number: '250', set: 'sea' },
+      ],
+      pagination: { page: 1, limit: 100, total: 2, totalPages: 1 },
+    };
+
+    const out = shapeForMcpApp(raw);
+
+    expect(out.content[0].text).toContain('ARR022');
+    expect(out.content[0].text).not.toContain('ARRARR022');
+    expect(out.content[0].text).toContain('SEA250');
   });
 
   it('passes errors through as text content with isError flag, no structuredContent payload', () => {
