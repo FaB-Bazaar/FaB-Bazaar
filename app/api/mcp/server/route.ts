@@ -1612,7 +1612,8 @@ The new tool provides the same functionality with better guidance for proper wor
                 uri: binderViewerResource.uri,
                 name: binderViewerResource.name,
                 description: binderViewerResource.description,
-                mimeType: binderViewerResource.mimeType
+                mimeType: binderViewerResource.mimeType,
+                _meta: binderViewerResource._meta
               }
             ]
           }
@@ -1710,9 +1711,11 @@ The new tool provides the same functionality with better guidance for proper wor
                 {
                   uri: uri,
                   mimeType: binderViewerResource.mimeType,
-                  text: html
+                  text: html,
+                  _meta: binderViewerResource._meta
                 }
-              ]
+              ],
+              _meta: binderViewerResource._meta
             }
           }, { headers: corsHeaders() });
         }

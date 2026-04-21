@@ -17,6 +17,13 @@ describe('binderViewerResource', () => {
     expect(html.length).toBeGreaterThan(0);
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('id="binder-app"');
-    expect(html).toContain('app.connect()');
+    expect(html).toContain('connect();');
+    expect(html).toContain('ui/initialize');
+  });
+
+  it('declares imagedelivery.net in _meta.ui.csp.resourceDomains', () => {
+    expect(binderViewerResource._meta?.ui?.csp?.resourceDomains).toContain(
+      'https://imagedelivery.net'
+    );
   });
 });
