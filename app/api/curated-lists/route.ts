@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { curatedListService, curatorHeroAssignmentService, userService } from '@/lib/services';
+import { getHeroInfo } from '@/lib/fab-constants/heroes';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const heroName = searchParams.get('heroName');
+    const heroNameRaw = searchParams.get('heroName');
     const viewPublic = searchParams.get('view') === 'public';
 
-    // Hero names are stored lowercase-canonical; compare case-insensitively.
-    const heroFilter = heroName?.trim().toLowerCase() || null;
+    // Resolve input to canonical lowercase hero key (handles nicknames/shortnames/casing).
+    // Falls back to the raw trimmed lowercase string if no hero matches.
+    const heroFilter = heroNameRaw?.trim()
+      ? (getHeroInfo(heroNameRaw)?.name ?? heroNameRaw.trim().toLowerCase())
+      : null;
     const filterByHero = <T extends { heroName?: string | null }>(lists: T[]): T[] =>
       heroFilter ? lists.filter(l => (l.heroName ?? '').toLowerCase() === heroFilter) : lists;
 
@@ -46,7 +50,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Public: return published lists with cards, filtered by hero (or generic only if no hero)
-    const result = await curatedListService.getPublishedListsForHero(heroName ?? undefined);
+    const result = await curatedListService.getPublishedListsForHero(heroFilter ?? undefined);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }

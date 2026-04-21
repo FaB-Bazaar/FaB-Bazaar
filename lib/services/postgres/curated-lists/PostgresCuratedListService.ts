@@ -131,14 +131,17 @@ export class PostgresCuratedListService implements ICuratedListService {
 
   async getPublishedListsForHero(heroName?: string): AsyncResult<CuratedListDTO[]> {
     try {
-      // Resolve the hero's class to also include class-level lists
-      const heroClass = heroName ? (getHeroInfo(heroName)?.classes?.[0] ?? null) : null;
+      // Resolve input (nickname/shortname/any casing) to canonical lowercase hero key
+      // so exact DB matches work even when the caller passes "Dash" for "dash i/o".
+      const heroInfo = heroName ? getHeroInfo(heroName) : null;
+      const canonicalHero = heroInfo?.name ?? heroName?.trim().toLowerCase() ?? null;
+      const heroClass = heroInfo?.classes?.[0] ?? null;
 
       let heroFilter;
-      if (heroName) {
+      if (canonicalHero) {
         // Include: this specific hero OR general (no hero, no class) OR this hero's class
         const conditions = [
-          eq(sql`lower(${curatedLists.heroName})`, heroName.toLowerCase()),
+          eq(sql`lower(${curatedLists.heroName})`, canonicalHero),
           and(isNull(curatedLists.heroName), isNull(curatedLists.className)),
         ];
         if (heroClass) {
