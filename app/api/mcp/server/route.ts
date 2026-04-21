@@ -5,7 +5,7 @@ import { fabConstantsResource } from '../resource/fabConstants';
 import { articleFormattingResource } from '../resource/articleFormatting';
 import { cardIndexResource } from '../resource/cardIndex';
 import { heroIdsResource } from '../resource/heroIds';
-import { binderViewerResource } from '../resource/binderViewer';
+import { cardGridViewerResource } from '../resource/cardGridViewer';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService } from '@/lib/services';
 
@@ -16,13 +16,13 @@ import { removeFromBinderTool } from '../tool/removeFromBinder';
 import { removeFromWantsTool } from '../tool/removeFromWants';
 import { getBinderTool, shapeForMcpApp } from '../tool/getBinder';
 import { listBindersTool } from '../tool/listBinders';
-import { getWantsTool } from '../tool/getWants';
+import { getWantsTool, shapeWantsForMcp } from '../tool/getWants';
 import { updateWantsTool } from '../tool/updateWants';
 import { whoHasTool } from '../tool/whoHas';
 
 // Import curation tools (curator/admin only)
 import { listCuratedListsTool } from '../tool/curation/listCuratedLists';
-import { getCuratedListTool } from '../tool/curation/getCuratedList';
+import { getCuratedListTool, shapeCuratedListForMcp } from '../tool/curation/getCuratedList';
 import { createCuratedListTool } from '../tool/curation/createCuratedList';
 import { updateCuratedListTool } from '../tool/curation/updateCuratedList';
 import { deleteCuratedListTool } from '../tool/curation/deleteCuratedList';
@@ -376,16 +376,6 @@ export async function POST(req: Request) {
 
         const curatorTools = isCurator ? [
           {
-            name: listCuratedListsTool.name,
-            description: listCuratedListsTool.description,
-            inputSchema: listCuratedListsTool.parameters
-          },
-          {
-            name: getCuratedListTool.name,
-            description: getCuratedListTool.description,
-            inputSchema: getCuratedListTool.parameters
-          },
-          {
             name: createCuratedListTool.name,
             description: createCuratedListTool.description,
             inputSchema: createCuratedListTool.parameters
@@ -610,6 +600,18 @@ Step 5: get_binder (verify additions)
                 inputSchema: whoHasTool.parameters
               },
 
+              // CURATED LIST READ TOOLS (public — published lists only for non-curators)
+              {
+                name: listCuratedListsTool.name,
+                description: listCuratedListsTool.description,
+                inputSchema: listCuratedListsTool.parameters
+              },
+              {
+                name: getCuratedListTool.name,
+                description: getCuratedListTool.description,
+                inputSchema: getCuratedListTool.parameters
+              },
+
               // ARTICLE MANAGEMENT TOOLS
               {
                 name: getArticleTool.name,
@@ -832,7 +834,11 @@ The new tool provides the same functionality with better guidance for proper wor
     return NextResponse.json({
       jsonrpc: '2.0',
       id,
-      result: shapeForMcpApp(result, { showDetails: toolInput?.showDetails !== false })
+      result: shapeForMcpApp(result, {
+        showDetails: toolInput?.showDetails !== false,
+        binderSlug: toolInput?.binderSlug,
+        limit: toolInput?.limit,
+      })
     }, { headers: corsHeaders() });
     
             
@@ -1044,22 +1050,16 @@ The new tool provides the same functionality with better guidance for proper wor
 
           try {
             const result = await getWantsTool.handler(toolInput, authenticatedUser, bearerToken);
-            
+
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
-              result: {
-                content: [
-                  {
-                    type: 'text',
-                    text: result.message || 'Wants list retrieval completed'
-                  }
-                ],
-                isError: false,
-                ...result
-              }
+              result: shapeWantsForMcp(result, {
+                showDetails: toolInput?.showDetails !== false,
+                limit: toolInput?.limit,
+              })
             }, { headers: corsHeaders() });
-            
+
           } catch (err) {
             console.error('💥 Error in get_wants:', err);
             return NextResponse.json({
@@ -1529,6 +1529,15 @@ The new tool provides the same functionality with better guidance for proper wor
             };
             const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
 
+            if (toolName === 'get_curated_list') {
+              return NextResponse.json({
+                jsonrpc: '2.0', id,
+                result: shapeCuratedListForMcp(result, {
+                  showDetails: toolInput?.showDetails !== false,
+                })
+              }, { headers: corsHeaders() });
+            }
+
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: {
@@ -1566,7 +1575,8 @@ The new tool provides the same functionality with better guidance for proper wor
       - get_article / add_article_section / update_article_section
       - list_decks / get_deck / create_deck / add_cards_to_deck / remove_cards_from_deck / update_deck / save_deck_matchup
       - get_decks_to_beat
-      - Curator tools (visible only to curators/admins): list_curated_lists, get_curated_list, create_curated_list, update_curated_list, delete_curated_list, add_card_to_list, remove_card_from_list
+      - list_curated_lists / get_curated_list (public — published lists; 🎯 preferred entry point for deck recommendations)
+      - Curator-only tools: create_curated_list, update_curated_list, delete_curated_list, add_card_to_list, remove_card_from_list
 
       💡 Start with read_mandatory_constants_first({"uri": "fab://constants"}) to load set/foiling/edition/rarity codes and the hero roster.`
         }
@@ -1609,11 +1619,11 @@ The new tool provides the same functionality with better guidance for proper wor
                 mimeType: 'application/json'
               },
               {
-                uri: binderViewerResource.uri,
-                name: binderViewerResource.name,
-                description: binderViewerResource.description,
-                mimeType: binderViewerResource.mimeType,
-                _meta: binderViewerResource._meta
+                uri: cardGridViewerResource.uri,
+                name: cardGridViewerResource.name,
+                description: cardGridViewerResource.description,
+                mimeType: cardGridViewerResource.mimeType,
+                _meta: cardGridViewerResource._meta
               }
             ]
           }
@@ -1701,8 +1711,8 @@ The new tool provides the same functionality with better guidance for proper wor
           }, { headers: corsHeaders() });
         }
 
-        if (uri === binderViewerResource.uri) {
-          const html = await binderViewerResource.handler();
+        if (uri === cardGridViewerResource.uri) {
+          const html = await cardGridViewerResource.handler();
           return NextResponse.json({
             jsonrpc: "2.0",
             id: id,
@@ -1710,12 +1720,12 @@ The new tool provides the same functionality with better guidance for proper wor
               contents: [
                 {
                   uri: uri,
-                  mimeType: binderViewerResource.mimeType,
+                  mimeType: cardGridViewerResource.mimeType,
                   text: html,
-                  _meta: binderViewerResource._meta
+                  _meta: cardGridViewerResource._meta
                 }
               ],
-              _meta: binderViewerResource._meta
+              _meta: cardGridViewerResource._meta
             }
           }, { headers: corsHeaders() });
         }

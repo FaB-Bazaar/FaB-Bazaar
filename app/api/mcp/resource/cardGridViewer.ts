@@ -1,7 +1,7 @@
-export const binderViewerResource = {
-  uri: 'ui://binder/viewer.html',
-  name: 'Binder viewer',
-  description: 'Interactive binder grid rendered in the MCP host.',
+export const cardGridViewerResource = {
+  uri: 'ui://card-grid/viewer.html',
+  name: 'Card grid viewer',
+  description: 'Interactive card grid rendered in the MCP host (binder / wants / curated list).',
   mimeType: 'text/html;profile=mcp-app',
   _meta: {
     ui: {
@@ -15,11 +15,10 @@ export const binderViewerResource = {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Binder</title>
+  <title>Card grid</title>
   <style>
     :root {
       color-scheme: light dark;
-      /* Light mode defaults (used when host does not inject --color-* tokens) */
       --fb-bg: #ffffff;
       --fb-surface: #f4f4f5;
       --fb-surface-hover: #e4e4e7;
@@ -52,48 +51,27 @@ export const binderViewerResource = {
       color: var(--color-text-primary, var(--fb-text));
       background: var(--color-background-primary, transparent);
     }
-    .wrap {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .header {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .title {
-      font-size: var(--font-heading-lg-size, 20px);
-      font-weight: 600;
-      margin: 0;
-    }
+    .wrap { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .title-block { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .title { font-size: var(--font-heading-lg-size, 20px); font-weight: 600; margin: 0; }
+    .subtitle { font-size: var(--font-text-sm-size, 12px); color: var(--color-text-secondary, var(--fb-text-muted)); }
+    .subtitle a { color: var(--color-accent-primary, var(--fb-accent)); text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
     .meta {
       color: var(--color-text-secondary, var(--fb-text-muted));
       font-size: var(--font-text-sm-size, 12px);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: flex; align-items: center; gap: 8px;
     }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-    .controls input[type="search"],
-    .controls select {
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .controls input[type="search"], .controls select {
       appearance: none;
       border: 1px solid var(--color-border-primary, var(--fb-border-strong));
       background: var(--color-background-secondary, var(--fb-surface));
       color: var(--color-text-primary, var(--fb-text));
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 6px 10px; border-radius: 6px;
       font-size: var(--font-text-sm-size, 13px);
-      min-width: 0;
-      outline: none;
+      min-width: 0; outline: none;
     }
     .controls select {
       padding-right: 28px;
@@ -103,22 +81,18 @@ export const binderViewerResource = {
       background-size: 5px 5px;
       background-repeat: no-repeat;
     }
-    .controls input[type="search"]:focus,
-    .controls select:focus {
+    .controls input[type="search"]:focus, .controls select:focus {
       border-color: var(--color-accent-primary, var(--fb-accent));
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--fb-accent) 25%, transparent);
     }
     .controls input[type="search"] { flex: 1 1 180px; min-width: 140px; }
     .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      display: inline-flex; align-items: center; gap: 6px;
       padding: 4px 10px;
       border: 1px solid var(--color-border-primary, var(--fb-border-strong));
       border-radius: 999px;
       font-size: var(--font-text-sm-size, 13px);
-      cursor: pointer;
-      user-select: none;
+      cursor: pointer; user-select: none;
       background: var(--color-background-secondary, var(--fb-surface));
       color: var(--color-text-primary, var(--fb-text));
     }
@@ -128,20 +102,12 @@ export const binderViewerResource = {
       color: #fff;
       border-color: var(--color-accent-primary, var(--fb-accent));
     }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 10px;
-    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
     .card {
-      position: relative;
-      border-radius: 8px;
-      overflow: hidden;
+      position: relative; border-radius: 8px; overflow: hidden;
       background: var(--color-background-secondary, var(--fb-surface));
       border: 1px solid var(--color-border-primary, var(--fb-border));
-      display: flex;
-      flex-direction: column;
-      cursor: pointer;
+      display: flex; flex-direction: column; cursor: pointer;
       transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
     }
     .card:hover {
@@ -150,140 +116,79 @@ export const binderViewerResource = {
       border-color: var(--color-border-primary, var(--fb-border-strong));
     }
     .card-art {
-      aspect-ratio: 5 / 7;
-      width: 100%;
+      aspect-ratio: 5 / 7; width: 100%;
       background: var(--color-background-tertiary, var(--fb-surface-hover));
-      background-size: cover;
-      background-position: center;
+      background-size: cover; background-position: center;
     }
-    .card-body {
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
+    .card-body { padding: 8px; display: flex; flex-direction: column; gap: 2px; }
     .card-name {
-      font-size: var(--font-text-sm-size, 12px);
-      font-weight: 600;
-      line-height: 1.25;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+      font-size: var(--font-text-sm-size, 12px); font-weight: 600; line-height: 1.25;
+      overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
     .card-sub {
       font-size: var(--font-text-xs-size, 11px);
       color: var(--color-text-secondary, var(--fb-text-muted));
-      display: flex;
-      justify-content: space-between;
-      gap: 4px;
+      display: flex; justify-content: space-between; gap: 4px;
     }
     .qty-badge {
-      position: absolute;
-      top: 6px;
-      left: 6px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      background: rgba(0, 0, 0, 0.78);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 600;
-      backdrop-filter: blur(2px);
+      position: absolute; top: 6px; left: 6px;
+      padding: 2px 6px; border-radius: 10px;
+      background: rgba(0, 0, 0, 0.78); color: #fff;
+      font-size: 11px; font-weight: 600; backdrop-filter: blur(2px);
     }
-    .trade-badge {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      background: var(--color-accent-primary, var(--fb-accent));
-      color: #fff;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
+    .trade-badge, .priority-badge {
+      position: absolute; top: 6px; right: 6px;
+      padding: 2px 6px; border-radius: 10px;
+      color: #fff; font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
     }
-    .price {
-      font-variant-numeric: tabular-nums;
-      font-weight: 600;
-      color: var(--color-text-primary, var(--fb-text));
-    }
-    .skeleton .card-art,
-    .skeleton .card-body {
-      background: linear-gradient(90deg,
-        var(--fb-surface) 0%,
-        var(--fb-surface-hover) 50%,
-        var(--fb-surface) 100%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
+    .trade-badge { background: var(--color-accent-primary, var(--fb-accent)); }
+    .priority-badge.priority-high { background: #dc2626; }
+    .priority-badge.priority-medium { background: #d97706; }
+    .priority-badge.priority-low { background: #4b5563; }
+    .price { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--color-text-primary, var(--fb-text)); }
+    .skeleton .card-art, .skeleton .card-body {
+      background: linear-gradient(90deg, var(--fb-surface) 0%, var(--fb-surface-hover) 50%, var(--fb-surface) 100%);
+      background-size: 200% 100%; animation: shimmer 1.4s infinite;
     }
     .skeleton .card-body { height: 48px; }
-    @keyframes shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    .empty {
-      padding: 24px;
-      text-align: center;
-      color: var(--color-text-secondary, var(--fb-text-muted));
-    }
-    .pager {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding-top: 4px;
-    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .empty { padding: 24px; text-align: center; color: var(--color-text-secondary, var(--fb-text-muted)); }
+    .pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding-top: 4px; }
     .btn {
       appearance: none;
       border: 1px solid var(--color-border-primary, var(--fb-border-strong));
       background: var(--color-background-secondary, var(--fb-surface));
       color: var(--color-text-primary, var(--fb-text));
-      padding: 6px 12px;
-      border-radius: 6px;
+      padding: 6px 12px; border-radius: 6px;
       font-size: var(--font-text-sm-size, 13px);
       cursor: pointer;
     }
     .btn:hover { background: var(--color-background-tertiary, var(--fb-surface-hover)); }
     .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
     .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: var(--fb-overlay);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      z-index: 100;
+      position: fixed; inset: 0; background: var(--fb-overlay);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; z-index: 100;
     }
     .modal-art {
-      max-width: min(90vw, 480px);
-      max-height: 90vh;
-      aspect-ratio: 5 / 7;
-      background-size: contain;
-      background-position: center;
-      background-repeat: no-repeat;
-      border-radius: 12px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      max-width: min(90vw, 480px); max-height: 90vh; aspect-ratio: 5 / 7;
+      background-size: contain; background-position: center; background-repeat: no-repeat;
+      border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
     }
     .modal-info {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      color: #fff;
-      font-size: var(--font-text-sm-size, 13px);
-      opacity: 0.8;
+      position: absolute; top: 16px; right: 16px;
+      color: #fff; font-size: var(--font-text-sm-size, 13px); opacity: 0.8;
     }
-    .count-pill {
-      color: var(--color-text-secondary, var(--fb-text-muted));
-      font-size: var(--font-text-xs-size, 11px);
-    }
+    .count-pill { color: var(--color-text-secondary, var(--fb-text-muted)); font-size: var(--font-text-xs-size, 11px); }
   </style>
 </head>
 <body>
   <div id="binder-app" class="wrap">
     <div class="header">
-      <h2 class="title">Loading binder…</h2>
+      <div class="title-block">
+        <h2 class="title">Loading…</h2>
+      </div>
     </div>
     <div class="grid" id="skeleton-grid"></div>
   </div>
@@ -301,12 +206,13 @@ export const binderViewerResource = {
         l: 'Legendary', f: 'Fabled', t: 'Token', b: 'Basic',
         v: 'Marvel', p: 'Promo',
       };
+      var PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
       var state = {
         data: null,
         search: '',
         sort: 'default',
-        filters: { trade: false, rarity: '', foiling: '', set: '' },
+        filters: { trade: false, priority: '', rarity: '', foiling: '', set: '' },
       };
 
       var skelRoot = document.getElementById('skeleton-grid');
@@ -318,34 +224,21 @@ export const binderViewerResource = {
         skelRoot.innerHTML = skelHtml;
       }
 
-      function post(msg) {
-        try { host.postMessage(msg, '*'); } catch (_) {}
-      }
+      function post(msg) { try { host.postMessage(msg, '*'); } catch (_) {} }
 
       function sendSize() {
-        var h = Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight
-        );
-        post({
-          jsonrpc: '2.0',
-          method: 'ui/notifications/size-change',
-          params: { height: h },
-        });
+        var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+        post({ jsonrpc: '2.0', method: 'ui/notifications/size-change', params: { height: h } });
       }
 
       function connect() {
         post({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'ui/initialize',
+          jsonrpc: '2.0', id: 1, method: 'ui/initialize',
           params: {
             protocolVersion: '2025-06-18',
             capabilities: {},
-            appInfo: { name: 'fab-bazaar-binder', version: '0.3.0' },
-            appCapabilities: {
-              availableDisplayModes: ['inline', 'fullscreen'],
-            },
+            appInfo: { name: 'fab-bazaar-card-grid', version: '0.4.0' },
+            appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
           },
         });
       }
@@ -361,16 +254,12 @@ export const binderViewerResource = {
           { method: 'ui/notifications/display-mode-change', params: { displayMode: mode } },
         ];
         candidates.forEach(function (c) {
-          var id = nextId++;
-          console.log('[binder-viewer] trying displayMode request:', c.method, id);
-          post({ jsonrpc: '2.0', id: id, method: c.method, params: c.params });
+          post({ jsonrpc: '2.0', id: nextId++, method: c.method, params: c.params });
         });
       }
 
-      function callGetBinder(args) {
-        // Probe several method names for host-brokered tool calls — whichever
-        // the host implements will fire, and the rest will error back.
-        var payload = { name: 'get_binder', arguments: args };
+      function callTool(name, args) {
+        var payload = { name: name, arguments: args };
         var candidates = [
           { method: 'tools/call', params: payload },
           { method: 'ui/call-tool', params: payload },
@@ -379,23 +268,16 @@ export const binderViewerResource = {
           { method: 'ui/invoke-tool', params: payload },
         ];
         candidates.forEach(function (c) {
-          var id = nextId++;
-          console.log('[binder-viewer] trying tool call:', c.method, id, args);
-          post({ jsonrpc: '2.0', id: id, method: c.method, params: c.params });
+          post({ jsonrpc: '2.0', id: nextId++, method: c.method, params: c.params });
         });
       }
 
       window.addEventListener('message', function (ev) {
         var msg = ev.data;
         if (!msg || msg.jsonrpc !== '2.0') return;
-        console.log('[binder-viewer] message:', msg);
 
         if (msg.id === 1 && msg.result) {
-          post({
-            jsonrpc: '2.0',
-            method: 'ui/notifications/initialized',
-            params: {},
-          });
+          post({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} });
           sendSize();
           return;
         }
@@ -447,7 +329,6 @@ export const binderViewerResource = {
         var collectorRaw = c.collector_number != null ? c.collector_number : c.collectorNumber;
         if (!collectorRaw) return '';
         var collector = String(collectorRaw).toUpperCase();
-        // collector_number already includes the set prefix in some feeds
         if (setCode && collector.indexOf(setCode) === 0) return collector;
         return setCode ? setCode + collector : collector;
       }
@@ -458,6 +339,7 @@ export const binderViewerResource = {
         var foil = mapFoil(c.foiling != null ? c.foiling : c.foil);
         var edition = mapEdition(c.edition);
         var priceRaw = c.tcg_low != null ? c.tcg_low : c.price;
+        var priorityRaw = c.priority != null ? String(c.priority).toLowerCase() : '';
         return {
           raw: c,
           name: name,
@@ -472,18 +354,32 @@ export const binderViewerResource = {
           art: cardArtUrl(c),
           rarityKey: String(c.rarity || '').toLowerCase(),
           setKey: String(c.set || '').toLowerCase(),
+          priorityKey: priorityRaw,
+        };
+      }
+
+      function activeFilterFlags() {
+        var f = (state.data && state.data.filters) || {};
+        return {
+          trade: !!f.trade,
+          priority: !!f.priority,
+          rarity: !!f.rarity,
+          foiling: !!f.foiling,
+          set: !!f.set,
         };
       }
 
       function applyFilters(cards) {
         var q = state.search.trim().toLowerCase();
         var f = state.filters;
+        var show = activeFilterFlags();
         return cards.filter(function (c) {
           if (q && c.name.toLowerCase().indexOf(q) === -1) return false;
-          if (f.trade && !c.forTrade) return false;
-          if (f.rarity && c.rarityKey !== f.rarity) return false;
-          if (f.foiling && c.foilKey !== f.foiling) return false;
-          if (f.set && c.setKey !== f.set) return false;
+          if (show.trade && f.trade && !c.forTrade) return false;
+          if (show.priority && f.priority && c.priorityKey !== f.priority) return false;
+          if (show.rarity && f.rarity && c.rarityKey !== f.rarity) return false;
+          if (show.foiling && f.foiling && c.foilKey !== f.foiling) return false;
+          if (show.set && f.set && c.setKey !== f.set) return false;
           return true;
         });
       }
@@ -496,7 +392,7 @@ export const binderViewerResource = {
 
       function hasActiveFilters() {
         var f = state.filters;
-        return !!(f.trade || f.rarity || f.foiling || f.set || state.search.trim());
+        return !!(f.trade || f.priority || f.rarity || f.foiling || f.set || state.search.trim());
       }
 
       function applySort(cards) {
@@ -510,6 +406,11 @@ export const binderViewerResource = {
             return arr.sort(function (a, b) { return (a.price == null ? Infinity : a.price) - (b.price == null ? Infinity : b.price); });
           case 'qty-desc':
             return arr.sort(function (a, b) { return (b.qty || 0) - (a.qty || 0); });
+          case 'priority':
+            return arr.sort(function (a, b) {
+              var ap = PRIORITY_ORDER[a.priorityKey]; var bp = PRIORITY_ORDER[b.priorityKey];
+              return (ap == null ? 99 : ap) - (bp == null ? 99 : bp);
+            });
           default:
             return arr;
         }
@@ -521,79 +422,108 @@ export const binderViewerResource = {
         var data = state.data;
         if (!data) return;
 
-        var binder = data.binder || {};
         var cards = (Array.isArray(data.cards) ? data.cards : []).map(decorate);
-        var pagination = data.pagination || {};
+        var pagination = data.pagination || null;
+        var show = activeFilterFlags();
 
-        var total = pagination.total != null ? pagination.total
-                  : pagination.totalCards != null ? pagination.totalCards
-                  : cards.length;
-        var page = pagination.page || 1;
-        var limit = pagination.limit || cards.length || 1;
-        var totalPages = pagination.totalPages
-          || (total && limit ? Math.max(1, Math.ceil(total / limit)) : 1);
+        var total = pagination && pagination.total != null ? pagination.total : cards.length;
+        var page = pagination && pagination.page ? pagination.page : 1;
+        var totalPages = pagination && pagination.totalPages ? pagination.totalPages : 1;
 
         var filtered = applySort(applyFilters(cards));
 
+        var titleText = data.title || 'Cards';
+        var subtitle = data.subtitle ? escapeHtml(data.subtitle) : '';
+        if (data.url) {
+          var urlLink = '<a href="' + escapeAttr(data.url) + '" target="_blank" rel="noopener">Open on fabbazaar.app ↗</a>';
+          subtitle = subtitle ? subtitle + ' · ' + urlLink : urlLink;
+        }
+
+        var metaText = pagination
+          ? filtered.length + ' of ' + cards.length + ' shown · page ' + page + ' of ' + totalPages
+          : filtered.length + ' of ' + cards.length + ' shown';
+
         var header =
           '<div class="header">' +
-            '<h2 class="title">' + escapeHtml(binder.name || binder.slug || 'Binder') + '</h2>' +
+            '<div class="title-block">' +
+              '<h2 class="title">' + escapeHtml(titleText) + '</h2>' +
+              (subtitle ? '<div class="subtitle">' + subtitle + '</div>' : '') +
+            '</div>' +
             '<div class="meta">' +
-              '<span>' + escapeHtml(filtered.length + ' of ' + cards.length + ' shown · page ' + page + ' of ' + totalPages) + '</span>' +
+              '<span>' + escapeHtml(metaText) + '</span>' +
               '<button class="btn" id="expand-btn" type="button">' + (currentMode === 'fullscreen' ? 'Collapse' : 'Expand') + '</button>' +
             '</div>' +
           '</div>';
 
-        var rarities = distinct(cards, 'rarityKey');
-        var foilings = distinct(cards, 'foilKey');
-        var sets     = distinct(cards, 'setKey');
+        var controlsInner = '<input type="search" id="search-input" placeholder="Search cards…" value="' + escapeAttr(state.search) + '" />';
 
-        var rarityOpts = '<option value="">All rarities</option>' +
-          rarities.map(function (r) {
-            var label = RARITY_MAP[r] || r.toUpperCase();
-            return '<option value="' + escapeAttr(r) + '"' +
-              (state.filters.rarity === r ? ' selected' : '') +
-              '>' + escapeHtml(label) + '</option>';
-          }).join('');
-        var foilOpts = '<option value="">All foilings</option>' +
-          foilings.map(function (f) {
-            var label = FOIL_MAP[f] || f.toUpperCase();
-            return '<option value="' + escapeAttr(f) + '"' +
-              (state.filters.foiling === f ? ' selected' : '') +
-              '>' + escapeHtml(label) + '</option>';
-          }).join('');
-        var setOpts = '<option value="">All sets</option>' +
-          sets.map(function (s) {
-            return '<option value="' + escapeAttr(s) + '"' +
-              (state.filters.set === s ? ' selected' : '') +
-              '>' + escapeHtml(s.toUpperCase()) + '</option>';
-          }).join('');
+        var sortOpts =
+          option('default',    'Default order',   state.sort) +
+          option('name-asc',   'Name A→Z',        state.sort) +
+          option('price-desc', 'Price high→low',  state.sort) +
+          option('price-asc',  'Price low→high',  state.sort) +
+          option('qty-desc',   'Qty high→low',    state.sort);
+        if (show.priority) sortOpts += option('priority', 'Priority high→low', state.sort);
+        controlsInner += '<select id="sort-select" title="Sort">' + sortOpts + '</select>';
 
-        var controls =
-          '<div class="controls">' +
-            '<input type="search" id="search-input" placeholder="Search cards…" value="' + escapeAttr(state.search) + '" />' +
-            '<select id="sort-select" title="Sort">' +
-              option('default',    'Default order',   state.sort) +
-              option('name-asc',   'Name A→Z',        state.sort) +
-              option('price-desc', 'Price high→low',  state.sort) +
-              option('price-asc',  'Price low→high',  state.sort) +
-              option('qty-desc',   'Qty high→low',    state.sort) +
-            '</select>' +
-            chip('trade', 'For trade', state.filters.trade) +
-            '<select id="rarity-select" title="Rarity">' + rarityOpts + '</select>' +
-            '<select id="foiling-select" title="Foiling">' + foilOpts + '</select>' +
-            '<select id="set-select" title="Set">' + setOpts + '</select>' +
-            (hasActiveFilters() ? '<button class="btn" id="clear-btn" type="button">Clear</button>' : '') +
-          '</div>';
+        if (show.trade) controlsInner += chip('trade', 'For trade', state.filters.trade);
 
-        var body;
-        if (filtered.length === 0) {
-          body = '<div class="empty">' + (cards.length === 0 ? 'No cards to show.' : 'No cards match your filters.') + '</div>';
-        } else {
-          body = '<div class="grid">' + filtered.map(tile).join('') + '</div>';
+        if (show.priority) {
+          var prios = distinct(cards, 'priorityKey');
+          var prioOpts = '<option value="">All priorities</option>' +
+            prios.map(function (p) {
+              var label = p.charAt(0).toUpperCase() + p.slice(1);
+              return '<option value="' + escapeAttr(p) + '"' +
+                (state.filters.priority === p ? ' selected' : '') +
+                '>' + escapeHtml(label) + '</option>';
+            }).join('');
+          controlsInner += '<select id="priority-select" title="Priority">' + prioOpts + '</select>';
         }
 
-        var pager = totalPages > 1
+        if (show.rarity) {
+          var rarities = distinct(cards, 'rarityKey');
+          var rarityOpts = '<option value="">All rarities</option>' +
+            rarities.map(function (r) {
+              var label = RARITY_MAP[r] || r.toUpperCase();
+              return '<option value="' + escapeAttr(r) + '"' +
+                (state.filters.rarity === r ? ' selected' : '') +
+                '>' + escapeHtml(label) + '</option>';
+            }).join('');
+          controlsInner += '<select id="rarity-select" title="Rarity">' + rarityOpts + '</select>';
+        }
+
+        if (show.foiling) {
+          var foilings = distinct(cards, 'foilKey');
+          var foilOpts = '<option value="">All foilings</option>' +
+            foilings.map(function (f) {
+              var label = FOIL_MAP[f] || f.toUpperCase();
+              return '<option value="' + escapeAttr(f) + '"' +
+                (state.filters.foiling === f ? ' selected' : '') +
+                '>' + escapeHtml(label) + '</option>';
+            }).join('');
+          controlsInner += '<select id="foiling-select" title="Foiling">' + foilOpts + '</select>';
+        }
+
+        if (show.set) {
+          var sets = distinct(cards, 'setKey');
+          var setOpts = '<option value="">All sets</option>' +
+            sets.map(function (s) {
+              return '<option value="' + escapeAttr(s) + '"' +
+                (state.filters.set === s ? ' selected' : '') +
+                '>' + escapeHtml(s.toUpperCase()) + '</option>';
+            }).join('');
+          controlsInner += '<select id="set-select" title="Set">' + setOpts + '</select>';
+        }
+
+        if (hasActiveFilters()) controlsInner += '<button class="btn" id="clear-btn" type="button">Clear</button>';
+
+        var controls = '<div class="controls">' + controlsInner + '</div>';
+
+        var body = filtered.length === 0
+          ? '<div class="empty">' + (cards.length === 0 ? 'No cards to show.' : 'No cards match your filters.') + '</div>'
+          : '<div class="grid">' + filtered.map(tile).join('') + '</div>';
+
+        var pager = pagination && totalPages > 1
           ? '<div class="pager">' +
               '<button class="btn" id="prev-btn" type="button"' + (page <= 1 ? ' disabled' : '') + '>‹ Prev</button>' +
               '<span class="count-pill">Page ' + page + ' of ' + totalPages + '</span>' +
@@ -602,7 +532,7 @@ export const binderViewerResource = {
           : '';
 
         root.innerHTML = header + controls + body + pager;
-        wireControls(binder, pagination);
+        wireControls(pagination, page, totalPages);
         sendSize();
       }
 
@@ -621,9 +551,12 @@ export const binderViewerResource = {
         var artStyle = c.art ? 'background-image:url(' + escapeAttr(c.art) + ')' : '';
         var subLeft = [c.foilCode, c.edition, c.cardId].filter(Boolean).join(' · ');
         var price = c.price == null ? '—' : '$' + c.price.toFixed(2);
+        var badge = '';
+        if (c.forTrade) badge = '<span class="trade-badge">TRADE</span>';
+        else if (c.priorityKey) badge = '<span class="priority-badge priority-' + escapeAttr(c.priorityKey) + '">' + escapeHtml(c.priorityKey.toUpperCase()) + '</span>';
         return '<div class="card" data-art="' + escapeAttr(c.art) + '" data-name="' + escapeAttr(c.name) + '" data-meta="' + escapeAttr(subLeft) + '">' +
           (c.qty != null && c.qty !== '' ? '<span class="qty-badge">' + escapeHtml(c.qty) + '×</span>' : '') +
-          (c.forTrade ? '<span class="trade-badge">TRADE</span>' : '') +
+          badge +
           '<div class="card-art" style="' + artStyle + '" role="img" aria-label="' + escapeAttr(c.name) + '"></div>' +
           '<div class="card-body">' +
             '<div class="card-name">' + escapeHtml(c.name) + '</div>' +
@@ -635,7 +568,7 @@ export const binderViewerResource = {
         '</div>';
       }
 
-      function wireControls(binder, pagination) {
+      function wireControls(pagination, page, totalPages) {
         var expandBtn = document.getElementById('expand-btn');
         if (expandBtn) {
           expandBtn.addEventListener('click', function () {
@@ -673,7 +606,7 @@ export const binderViewerResource = {
           });
         });
 
-        ['rarity', 'foiling', 'set'].forEach(function (key) {
+        ['priority', 'rarity', 'foiling', 'set'].forEach(function (key) {
           var sel = document.getElementById(key + '-select');
           if (sel) {
             sel.addEventListener('change', function (e) {
@@ -687,21 +620,30 @@ export const binderViewerResource = {
         if (clearBtn) {
           clearBtn.addEventListener('click', function () {
             state.search = '';
-            state.filters = { trade: false, rarity: '', foiling: '', set: '' };
+            state.filters = { trade: false, priority: '', rarity: '', foiling: '', set: '' };
             render();
           });
         }
 
         var prev = document.getElementById('prev-btn');
         var next = document.getElementById('next-btn');
-        var page = pagination.page || 1;
-        var slug = (binder && binder.slug) || (state.data && state.data.binder && state.data.binder.slug);
-        if (prev) prev.addEventListener('click', function () {
-          if (page > 1 && slug) callGetBinder({ binderSlug: slug, page: page - 1, limit: pagination.limit || 100 });
-        });
-        if (next) next.addEventListener('click', function () {
-          if (slug) callGetBinder({ binderSlug: slug, page: page + 1, limit: pagination.limit || 100 });
-        });
+        var tool = state.data && state.data.tool;
+        if (tool && tool.name && pagination) {
+          var pageParam = tool.pageParam || 'page';
+          var base = tool.baseArgs || {};
+          if (prev) prev.addEventListener('click', function () {
+            if (page > 1) {
+              var args = Object.assign({}, base); args[pageParam] = page - 1;
+              callTool(tool.name, args);
+            }
+          });
+          if (next) next.addEventListener('click', function () {
+            if (page < totalPages) {
+              var args = Object.assign({}, base); args[pageParam] = page + 1;
+              callTool(tool.name, args);
+            }
+          });
+        }
 
         var tiles = document.querySelectorAll('.card[data-art]');
         tiles.forEach(function (el) {

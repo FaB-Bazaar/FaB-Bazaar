@@ -3,16 +3,19 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 
 export const listCuratedListsTool = {
   name: 'list_curated_lists',
-  description: `📋 LIST CURATED LISTS: View all curated card lists (curator/admin only)
+  description: `📋 LIST CURATED LISTS: View curated card lists (published lists visible to everyone)
 
-Shows all curated lists including drafts. Each list includes id, name, hero/class scope,
-format, published status, and variant type.
+Shows curated lists with id, name, hero/class scope, format, published status, and variant type.
+Non-curators see only published lists. Curators see their assigned heroes' lists (including drafts).
+Super admins see every list.
 
-Requires curator or admin role.
+🎯 DECK RECOMMENDATIONS — PREFERRED ENTRY POINT:
+When a user asks for deck or card recommendations for a specific hero (e.g. "what should I play with Prism?",
+"good cards for Rhinar?"), call list_curated_lists({ heroName: "Prism" }) first — curators publish
+hand-picked lists of format-legal staples, sideboard options, and variants for each hero. Follow up with
+get_curated_list({ id }) to view the actual cards.
 
-Use this to discover list IDs before calling get_curated_list, update_curated_list, or delete_curated_list.
-
-Example workflow:
+📖 EDIT WORKFLOW (curator/admin only):
 1. list_curated_lists() → find the list you want to edit
 2. get_curated_list({ id }) → view its current cards
 3. add_card_to_list / remove_card_from_list → modify cards

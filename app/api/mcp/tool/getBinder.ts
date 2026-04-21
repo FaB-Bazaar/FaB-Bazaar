@@ -72,7 +72,7 @@ export const getBinderTool = {
   },
 
   _meta: {
-    ui: { resourceUri: 'ui://binder/viewer.html' },
+    ui: { resourceUri: 'ui://card-grid/viewer.html' },
   },
 
   // NO CHANGES ARE NEEDED TO THE HANDLER LOGIC. IT IS CORRECT.
@@ -288,7 +288,7 @@ function buildDetailTable(cards: any[]): string {
 
 export function shapeForMcpApp(
   raw: any,
-  opts: { showDetails?: boolean } = {}
+  opts: { showDetails?: boolean; binderSlug?: string; limit?: number } = {}
 ): McpAppResult {
   if (!raw || raw.success === false) {
     return {
@@ -300,15 +300,19 @@ export function shapeForMcpApp(
   const showDetails = opts.showDetails !== false;
   const name = raw.binder?.name ?? raw.binder?.slug ?? 'binder';
   const binderId = raw.binder?._id ?? raw.binder?.id;
+  const slug = opts.binderSlug ?? raw.binder?.slug;
   const cards: any[] = Array.isArray(raw.cards) ? raw.cards : [];
   const count = cards.length;
   const total = raw.pagination?.total ?? raw.pagination?.totalCards ?? count;
   const page = raw.pagination?.page ?? 1;
+  const limit = raw.pagination?.limit ?? opts.limit ?? 100;
   const totalPages = raw.pagination?.totalPages ??
-    (total && raw.pagination?.limit ? Math.max(1, Math.ceil(total / raw.pagination.limit)) : 1);
+    (total && limit ? Math.max(1, Math.ceil(total / limit)) : 1);
+
+  const url = binderId ? `https://fabbazaar.app/binder/${binderId}` : undefined;
 
   const heading = `Binder '${name}' — ${count} of ${total} cards (page ${page} of ${totalPages})`;
-  const urlLine = binderId ? `View: https://fabbazaar.app/binder/${binderId}` : '';
+  const urlLine = url ? `View: ${url}` : '';
 
   const parts = [heading];
   if (urlLine) parts.push(urlLine);
@@ -318,9 +322,15 @@ export function shapeForMcpApp(
   return {
     content: [{ type: 'text', text }],
     structuredContent: {
+      // Generic card-grid widget fields
+      title: name,
+      url,
+      pagination: { page, totalPages, total, limit },
+      filters: { trade: true, rarity: true, foiling: true, set: true },
+      tool: slug ? { name: 'get_binder', baseArgs: { binderSlug: slug, limit }, pageParam: 'page' } : undefined,
+      // Preserved for LLM-facing callers and back-compat
       binder: raw.binder,
       cards,
-      pagination: raw.pagination,
     },
   };
 }

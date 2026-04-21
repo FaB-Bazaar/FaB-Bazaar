@@ -42,9 +42,19 @@ Retrieve the contents of your wants list with pagination, search, and filtering 
         type: 'string',
         enum: ['high', 'medium', 'low'],
         description: 'Optional priority filter (high, medium, low)'
+      },
+      showDetails: {
+        type: 'boolean',
+        default: true,
+        description:
+          'When true (default) the text response contains a full markdown table of every want on the page (Qty / Foil / Name / Set / Rarity / Price / Priority), letting you answer follow-up questions without another call. Set to false ONLY when the user just wants to browse visually and you want to save context tokens. The interactive widget renders either way.'
       }
     },
     required: []
+  },
+
+  _meta: {
+    ui: { resourceUri: 'ui://card-grid/viewer.html' },
   },
 
   async handler(params: any, authenticatedUser?: any, tokenFromAuth?: string) {
@@ -230,3 +240,86 @@ Retrieve the contents of your wants list with pagination, search, and filtering 
 };
 
 export default getWantsTool;
+
+type McpAppResult = {
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent?: Record<string, any>;
+  isError?: boolean;
+};
+
+const FOIL_LABELS: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
+const RARITY_LABELS: Record<string, string> = {
+  c: 'Common', r: 'Rare', s: 'Super Rare', m: 'Majestic',
+  l: 'Legendary', f: 'Fabled', t: 'Token', b: 'Basic', v: 'Marvel', p: 'Promo',
+};
+
+function wFoil(v: any): string {
+  if (!v) return '';
+  return FOIL_LABELS[String(v).toLowerCase()] ?? String(v);
+}
+function wRarity(v: any): string {
+  if (!v) return '';
+  return RARITY_LABELS[String(v).toLowerCase()] ?? String(v);
+}
+function wPipe(s: string): string { return s.replace(/\|/g, '\\|'); }
+
+function buildWantsTable(cards: any[]): string {
+  const header = '| Qty | Foil | Name | Set | Rarity | Price | Priority |\n' +
+                 '|----:|:----:|------|:---:|:------:|------:|:--------:|';
+  const rows = cards.map((c) => {
+    const qty = c.quantity ?? '';
+    const foil = wFoil(c.foiling);
+    const name = wPipe(String(c.display_name ?? c.name ?? ''));
+    const set = String(c.set ?? '').toUpperCase();
+    const rarity = wRarity(c.rarity);
+    const priceRaw = c.tcg_market ?? c.tcg_low;
+    const price = priceRaw == null ? '—' : `$${Number(priceRaw).toFixed(2)}`;
+    const priority = c.priority ? String(c.priority).toUpperCase() : '';
+    return `| ${qty} | ${foil} | ${name} | ${set} | ${rarity} | ${price} | ${priority} |`;
+  });
+  return [header, ...rows].join('\n');
+}
+
+export function shapeWantsForMcp(
+  raw: any,
+  opts: { showDetails?: boolean; limit?: number } = {}
+): McpAppResult {
+  if (!raw || raw.success === false) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: `Error retrieving wants list: ${raw?.error ?? 'unknown error'}` }],
+    };
+  }
+
+  const showDetails = opts.showDetails !== false;
+  const listName = raw.wantsList?.name ?? 'Wants';
+  const cards: any[] = Array.isArray(raw.cards) ? raw.cards : [];
+  const count = cards.length;
+  const total = raw.wantsList?.totalCards ?? count;
+  const unique = raw.wantsList?.totalUniqueCards ?? count;
+  const page = raw.pagination?.currentPage ?? 1;
+  const totalPages = raw.pagination?.totalPages ?? 1;
+  const limit = raw.pagination?.cardsPerPage ?? opts.limit ?? 100;
+
+  const url = 'https://fabbazaar.app/wants';
+  const subtitle = `${unique} unique · ${total} total cards`;
+
+  const heading = `Wants '${listName}' — ${count} shown (page ${page} of ${totalPages})`;
+  const parts = [heading, `View: ${url}`];
+  if (showDetails && count > 0) parts.push('', buildWantsTable(cards));
+  const text = parts.join('\n');
+
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: {
+      title: `Wants · ${listName}`,
+      subtitle,
+      url,
+      pagination: { page, totalPages, total, limit },
+      filters: { priority: true, rarity: true, set: true },
+      tool: { name: 'get_wants', baseArgs: { limit }, pageParam: 'page' },
+      cards,
+      wantsList: raw.wantsList,
+    },
+  };
+}

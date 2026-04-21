@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { binderViewerResource } from './binderViewer';
+import { cardGridViewerResource } from './cardGridViewer';
 
-describe('binderViewerResource', () => {
-  it('declares the ui:// URI expected by the get_binder tool meta', () => {
-    expect(binderViewerResource.uri).toBe('ui://binder/viewer.html');
+describe('cardGridViewerResource', () => {
+  it('declares the shared ui://card-grid/viewer.html URI', () => {
+    expect(cardGridViewerResource.uri).toBe('ui://card-grid/viewer.html');
   });
 
   it('uses the MCP Apps HTML profile mime type', () => {
-    expect(binderViewerResource.mimeType).toBe('text/html;profile=mcp-app');
+    expect(cardGridViewerResource.mimeType).toBe('text/html;profile=mcp-app');
   });
 
   it('serves a non-empty HTML document that mounts the app', async () => {
-    const html = await binderViewerResource.handler();
+    const html = await cardGridViewerResource.handler();
 
     expect(typeof html).toBe('string');
     expect(html.length).toBeGreaterThan(0);
@@ -22,7 +22,7 @@ describe('binderViewerResource', () => {
   });
 
   it('declares imagedelivery.net in _meta.ui.csp.resourceDomains', () => {
-    expect(binderViewerResource._meta?.ui?.csp?.resourceDomains).toContain(
+    expect(cardGridViewerResource._meta?.ui?.csp?.resourceDomains).toContain(
       'https://imagedelivery.net'
     );
   });
