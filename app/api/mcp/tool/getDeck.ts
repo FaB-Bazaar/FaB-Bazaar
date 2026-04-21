@@ -42,10 +42,14 @@ function formatCardLine(card: any): string {
 
 export const getDeckTool = {
   name: 'get_deck',
-  description: `🃏 VIEW DECK CONTENTS: Get the full decklist for one of your decks
+  description: `🃏 VIEW DECK CONTENTS: Get the full decklist for any deck you can read
 
   Retrieves all cards in a deck organised by category (Hero, Equipment, Maindeck, etc.)
   Look up by deck name — no need to know internal IDs.
+
+  Works for:
+    • Your own decks (personal list)
+    • Decks to Beat / featured community decks (read-only — write tools still owner-gated)
 
   This tool works independently - no setup required.
 
@@ -127,9 +131,30 @@ export const getDeckTool = {
         return { success: false, error: listResult.error || 'Could not load deck list.' };
       }
 
-      const match = (listResult.decks || []).find(
+      let match = (listResult.decks || []).find(
         (d: any) => d.name?.toLowerCase() === deckName.toLowerCase()
       );
+
+      // Fallback: Decks to Beat (system decks) aren't in the personal list, but
+      // non-owners can still read them. Search the public featured pool by name.
+      if (!match) {
+        const search = new URLSearchParams({
+          featured: 'true',
+          limit: '10',
+          search: deckName,
+        });
+        const communityResponse = await mcpFetch(
+          `${API_BASE_URL}/api/decks/community?${search}`,
+          { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+        );
+        if (communityResponse.ok) {
+          const communityResult = await communityResponse.json();
+          const communityDecks = communityResult?.data?.decks ?? [];
+          match = communityDecks.find(
+            (d: any) => d.name?.toLowerCase() === deckName.toLowerCase()
+          );
+        }
+      }
 
       if (!match) {
         const available = (listResult.decks || []).map((d: any) => d.name).join(', ');
@@ -306,6 +331,45 @@ function humanizeHeroId(heroId: string): string {
     .trim();
 }
 
+// Parse a talishar-like identifier (e.g. "evo_magneto_blue", "adaptive_dissolver")
+// into a human-friendly { name, pitch }. Pitch suffix maps: red=1, yellow=2, blue=3, else 0.
+function parseTalisharIdentifier(raw: string): { name: string; pitch: number } {
+  if (!raw) return { name: '', pitch: 0 };
+  const pitchMap: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
+  const parts = String(raw).split('_');
+  let pitch = 0;
+  const tail = parts[parts.length - 1]?.toLowerCase();
+  if (tail && pitchMap[tail] != null) {
+    pitch = pitchMap[tail];
+    parts.pop();
+  }
+  const name = parts
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+  return { name: name || raw, pitch };
+}
+
+// Aggregate an array of talishar ids into deduped entries with quantity.
+function aggregateSideboard(
+  ids: string[],
+): Array<{ id: string; name: string; pitch: number; quantity: number }> {
+  const map = new Map<string, { id: string; name: string; pitch: number; quantity: number }>();
+  for (const raw of ids) {
+    if (!raw) continue;
+    const id = typeof raw === 'string' ? raw : String((raw as any)?.printingId ?? '');
+    if (!id) continue;
+    const existing = map.get(id);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      const { name, pitch } = parseTalisharIdentifier(id);
+      map.set(id, { id, name, pitch, quantity: 1 });
+    }
+  }
+  return Array.from(map.values());
+}
+
 function computeStats(maindeck: any[]): {
   byPitch: Record<string, number>;
   byCost: Record<string, number>;
@@ -472,8 +536,8 @@ export function shapeDeckForMcp(
     turnOrder: m.preferredTurnOrder ?? null,
     notes: m.notes ?? null,
     sideboard: {
-      in: Array.isArray(m.sideboard?.in) ? m.sideboard.in : [],
-      out: Array.isArray(m.sideboard?.out) ? m.sideboard.out : [],
+      in: aggregateSideboard(Array.isArray(m.sideboard?.in) ? m.sideboard.in : []),
+      out: aggregateSideboard(Array.isArray(m.sideboard?.out) ? m.sideboard.out : []),
     },
   }));
 

@@ -45,8 +45,8 @@ const rawDeckResult = {
           preferredTurnOrder: 'second',
           notes: 'Block aggressively turn one.',
           sideboard: {
-            in: [{ printingId: 'p_in1', quantity: 2 }],
-            out: [{ printingId: 'p_out1', quantity: 2 }],
+            in: ['fabricate_red', 'fabricate_red', 'evo_magneto_blue'],
+            out: ['adaptive_dissolver', 'adaptive_dissolver', 'teklo_foundry_heart'],
           },
         },
       ],
@@ -191,8 +191,21 @@ describe('shapeDeckForMcp', () => {
     expect(m.heroDisplay).toBe('Dash Io');
     expect(m.turnOrder).toBe('second');
     expect(m.notes).toBe('Block aggressively turn one.');
-    expect(m.sideboard.in).toHaveLength(1);
-    expect(m.sideboard.out).toHaveLength(1);
+  });
+
+  it('aggregates talishar sideboard identifiers into human-readable entries', () => {
+    const { structuredContent: sc }: any = shapeDeckForMcp(rawDeckResult);
+    const m = sc.deck.matchups[0];
+    // in: fabricate_red ×2, evo_magneto_blue ×1
+    expect(m.sideboard.in).toEqual([
+      { id: 'fabricate_red', name: 'Fabricate', pitch: 1, quantity: 2 },
+      { id: 'evo_magneto_blue', name: 'Evo Magneto', pitch: 3, quantity: 1 },
+    ]);
+    // out: adaptive_dissolver ×2 (no pitch suffix), teklo_foundry_heart ×1
+    expect(m.sideboard.out).toEqual([
+      { id: 'adaptive_dissolver', name: 'Adaptive Dissolver', pitch: 0, quantity: 2 },
+      { id: 'teklo_foundry_heart', name: 'Teklo Foundry Heart', pitch: 0, quantity: 1 },
+    ]);
   });
 
   it('omits the full decklist text when showDetails is false', () => {
