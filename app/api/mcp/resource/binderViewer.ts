@@ -53,8 +53,8 @@ export const binderViewerResource = {
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
     }
     .card {
       position: relative;
@@ -216,12 +216,23 @@ export const binderViewerResource = {
         });
       }
 
-      function requestFullscreen() {
-        post({
-          jsonrpc: '2.0',
-          id: 2,
-          method: 'ui/request-display-mode',
-          params: { displayMode: 'fullscreen' },
+      var nextId = 100;
+      function requestDisplayMode(mode) {
+        // We don't know the exact method name the host accepts, so try the
+        // common variants from the MCP Apps spec drafts. Whichever one the
+        // host implements wins; the rest get ignored / errored.
+        var candidates = [
+          { method: 'ui/request-display-mode', params: { displayMode: mode } },
+          { method: 'ui/requestDisplayMode', params: { displayMode: mode } },
+          { method: 'ui/request-display-mode', params: { mode: mode } },
+          { method: 'ui/display-mode/request', params: { displayMode: mode } },
+          { method: 'ui/set-display-mode', params: { displayMode: mode } },
+          { method: 'ui/notifications/display-mode-change', params: { displayMode: mode } },
+        ];
+        candidates.forEach(function (c) {
+          var id = nextId++;
+          console.log('[binder-viewer] trying displayMode request:', c.method, id);
+          post({ jsonrpc: '2.0', id: id, method: c.method, params: c.params });
         });
       }
 
@@ -349,16 +360,8 @@ export const binderViewerResource = {
         var btn = document.getElementById('expand-btn');
         if (btn) {
           btn.addEventListener('click', function () {
-            if (currentMode === 'fullscreen') {
-              post({
-                jsonrpc: '2.0',
-                id: 2,
-                method: 'ui/request-display-mode',
-                params: { displayMode: 'inline' },
-              });
-            } else {
-              requestFullscreen();
-            }
+            var next = currentMode === 'fullscreen' ? 'inline' : 'fullscreen';
+            requestDisplayMode(next);
           });
         }
 
