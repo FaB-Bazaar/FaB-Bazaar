@@ -151,6 +151,13 @@ describe('shapeDeckForMcp', () => {
     expect(sc.deck.meta.placing).toBe('1st');
   });
 
+  it('excludes the hero card from the meta.totalCards count', () => {
+    const { structuredContent: sc }: any = shapeDeckForMcp(rawDeckResult);
+    // equipment 3 (weapon + head + chest) + maindeck 8 (3+3+2) = 11
+    expect(sc.deck.meta.totalCards).toBe(11);
+    expect(sc.deck.meta.maindeckCount).toBe(8);
+  });
+
   it('separates weapon and equipment slots', () => {
     const { structuredContent: sc }: any = shapeDeckForMcp(rawDeckResult);
     expect(sc.deck.weapon?.name).toBe('Harmonized Kodachi');

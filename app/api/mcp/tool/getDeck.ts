@@ -439,6 +439,15 @@ export function shapeDeckForMcp(
 
   const stats = computeStats(maindeck);
 
+  // Total cards excluding the hero (hero is not a deck card).
+  const sumQty = (arr: any[]) => arr.reduce((s, c) => s + (c?.quantity ?? 1), 0);
+  const totalCardsNoHero =
+    sumQty(equipmentShaped) +
+    sumQty(maindeck) +
+    sumQty(inventory) +
+    sumQty(benched) +
+    sumQty(tokens);
+
   const meta = {
     name: deck.name,
     heroName: deck.heroName ?? null,
@@ -451,7 +460,7 @@ export function shapeDeckForMcp(
     event: deck.eventName ?? null,
     eventDate: deck.eventDate ?? null,
     placing: deck.placing ?? null,
-    totalCards: deck.totalCards ?? stats.totalCards,
+    totalCards: totalCardsNoHero,
     maindeckCount: stats.totalCards,
     estimatedValue: raw.estimatedValue ?? deck.estimatedValue ?? 0,
   };
