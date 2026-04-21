@@ -26,7 +26,7 @@ export const binderViewerResource = {
               params: {
                 protocolVersion: '2025-06-18',
                 capabilities: {},
-                clientInfo: { name: 'fab-bazaar-binder', version: '0.1.0' },
+                appInfo: { name: 'fab-bazaar-binder', version: '0.1.0' },
                 appCapabilities: {
                   availableDisplayModes: ['inline'],
                 },
