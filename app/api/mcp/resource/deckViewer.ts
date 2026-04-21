@@ -969,16 +969,17 @@ export const deckViewerResource = {
           set.head || set.chest || set.arms || set.legs || set['off-hand'];
         if (isEquipment) return ['Equipment'];
 
-        var isAttackReaction = set.attack && set.reaction;
         var hasAttack = !!set.attack;
-        var hasDefense = (Number(c.defense) || 0) > 0;
+        var isDefenseReaction = set.defense && set.reaction;
+        var hasDefenseValue = (Number(c.defense) || 0) > 0;
 
         var supers = [];
-        // Attack Reactions are offensive tools even when they carry a block
-        // value — they're played during the attack sequence to boost, not to
-        // defend. Keep them out of Defense to match how players think about
-        // deckbuilding.
-        if (hasDefense && !isAttackReaction) supers.push('Defense');
+        // Defense = cards players actually side in to block with: defense
+        // reactions, or non-attack cards that carry a block value. Attack
+        // actions / attack reactions carry block numbers too, but players
+        // categorize them as offense — counting them as Defense inflates the
+        // bucket and misrepresents the deck.
+        if (isDefenseReaction || (hasDefenseValue && !hasAttack)) supers.push('Defense');
         if (hasAttack) supers.push('Offense');
         if (!supers.length) supers.push('Utility');
         return supers;
