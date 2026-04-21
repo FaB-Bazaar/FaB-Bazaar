@@ -427,10 +427,32 @@ export const deckViewerResource = {
       color: var(--color-text-tertiary, var(--fb-text-muted));
       margin-top: 6px;
     }
+
+    /* Locale disclaimer */
+    .locale-banner {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 8px 12px;
+      background: var(--color-background-secondary, var(--fb-surface));
+      border: 1px solid var(--color-border-primary, var(--fb-border));
+      border-left: 3px solid var(--color-accent-primary, var(--fb-accent));
+      border-radius: 8px;
+      font-size: var(--font-text-xs-size, 12px);
+      color: var(--color-text-secondary, var(--fb-text-muted));
+      line-height: 1.4;
+    }
+    .locale-banner a { color: var(--color-accent-primary, var(--fb-accent)); text-decoration: none; }
+    .locale-banner a:hover { text-decoration: underline; }
+    .locale-banner .dismiss {
+      appearance: none; cursor: pointer; border: none; background: none;
+      color: var(--color-text-tertiary, var(--fb-text-muted));
+      font-size: 14px; line-height: 1; padding: 2px 6px; margin-left: auto;
+    }
+    .locale-banner .dismiss:hover { color: var(--color-text-primary, var(--fb-text)); }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <div id="locale-banner" class="locale-banner hidden" role="note"></div>
     <div id="hud" class="hud hidden">
       <div class="hero-art"><img id="hero-img" alt="" /></div>
       <div class="hud-meta">
@@ -1281,6 +1303,48 @@ export const deckViewerResource = {
           }
         });
       });
+
+      // --- Locale disclaimer (widget-only i18n) ---
+      // Static translations for the most common Claude user locales. Card
+      // names, pitch colors, and deck content stay in English — only the
+      // banner is translated. No endpoint, no env var: clicking the Discord
+      // link opens the FaB Bazaar community server.
+      var LOCALE_MESSAGES = {
+        fr: 'Cette interface n’est disponible qu’en anglais. Les retours sur la traduction sont les bienvenus sur notre',
+        es: 'Este widget solo está disponible en inglés. Se agradecen los comentarios de traducción en nuestro',
+        de: 'Dieses Widget ist nur auf Englisch verfügbar. Übersetzungs-Feedback ist willkommen in unserem',
+        pt: 'Este widget está disponível apenas em inglês. Comentários sobre tradução são bem-vindos no nosso',
+        it: 'Questo widget è disponibile solo in inglese. Il feedback sulla traduzione è benvenuto sul nostro',
+        nl: 'Deze widget is alleen in het Engels beschikbaar. Vertaalfeedback is welkom op onze',
+        ja: 'このウィジェットは現在英語のみ対応しています。翻訳に関するフィードバックは',
+        ko: '이 위젯은 영어로만 제공됩니다. 번역 피드백은',
+        zh: '此小部件仅提供英语版本。欢迎在我们的',
+        ru: 'Этот виджет доступен только на английском. Отзывы о переводе ждём на нашем',
+        pl: 'Ten widget jest dostępny tylko po angielsku. Opinie o tłumaczeniu mile widziane na naszym',
+        tr: 'Bu widget yalnızca İngilizce olarak mevcuttur. Çeviri geri bildirimleri Discord sunucumuzda kabul edilir:',
+        vi: 'Tiện ích này chỉ có sẵn bằng tiếng Anh. Chào đón góp ý về bản dịch trên',
+      };
+      var DISCORD_URL = 'https://discord.gg/Rx8eBhhQtk';
+
+      function showLocaleBanner() {
+        var lang = (navigator.language || 'en').toLowerCase();
+        var primary = lang.split('-')[0];
+        if (primary === 'en') return;
+        var msg = LOCALE_MESSAGES[primary];
+        if (!msg) return;
+        var banner = document.getElementById('locale-banner');
+        if (!banner) return;
+        banner.innerHTML =
+          '<span>' + escapeHtml(msg) + ' <a href="' + DISCORD_URL + '" target="_blank" rel="noopener noreferrer">Discord</a>.</span>' +
+          '<button class="dismiss" type="button" aria-label="Dismiss">×</button>';
+        banner.classList.remove('hidden');
+        var dismiss = banner.querySelector('.dismiss');
+        if (dismiss) dismiss.addEventListener('click', function () {
+          banner.classList.add('hidden');
+          sendSize();
+        });
+      }
+      try { showLocaleBanner(); } catch (_) {}
 
       window.addEventListener('resize', sendSize);
       connect();
