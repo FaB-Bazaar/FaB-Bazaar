@@ -434,13 +434,15 @@ export const deckViewerResource = {
       function post(msg) { try { host.postMessage(msg, '*'); } catch (_) {} }
 
       function requestDisplayMode(mode) {
+        // Only send *requests*, never the ui/notifications/display-mode-change
+        // notification — that direction is host→widget and emitting it from
+        // the widget can cause the host to tear the view down.
         var candidates = [
           { method: 'ui/request-display-mode', params: { displayMode: mode } },
           { method: 'ui/requestDisplayMode', params: { displayMode: mode } },
           { method: 'ui/request-display-mode', params: { mode: mode } },
           { method: 'ui/display-mode/request', params: { displayMode: mode } },
           { method: 'ui/set-display-mode', params: { displayMode: mode } },
-          { method: 'ui/notifications/display-mode-change', params: { displayMode: mode } },
         ];
         candidates.forEach(function (c) {
           post({ jsonrpc: '2.0', id: nextId++, method: c.method, params: c.params });
@@ -481,7 +483,13 @@ export const deckViewerResource = {
         if (msg.method === 'ui/notifications/display-mode-change') {
           currentMode = (msg.params && msg.params.displayMode) || currentMode;
           updateExpandBtn();
-          sendSize();
+          // Let the browser reflow after the body class toggles padding, then
+          // report the new height. Belt-and-suspenders second call covers slow
+          // image-driven reflow.
+          requestAnimationFrame(function () {
+            sendSize();
+            setTimeout(sendSize, 120);
+          });
           return;
         }
         var data =
