@@ -299,6 +299,7 @@ export function shapeForMcpApp(
 
   const showDetails = opts.showDetails !== false;
   const name = raw.binder?.name ?? raw.binder?.slug ?? 'binder';
+  const binderId = raw.binder?._id ?? raw.binder?.id;
   const cards: any[] = Array.isArray(raw.cards) ? raw.cards : [];
   const count = cards.length;
   const total = raw.pagination?.total ?? raw.pagination?.totalCards ?? count;
@@ -307,10 +308,12 @@ export function shapeForMcpApp(
     (total && raw.pagination?.limit ? Math.max(1, Math.ceil(total / raw.pagination.limit)) : 1);
 
   const heading = `Binder '${name}' — ${count} of ${total} cards (page ${page} of ${totalPages})`;
+  const urlLine = binderId ? `View: https://fabbazaar.app/binder/${binderId}` : '';
 
-  const text = showDetails && count > 0
-    ? `${heading}\n\n${buildDetailTable(cards)}`
-    : heading;
+  const parts = [heading];
+  if (urlLine) parts.push(urlLine);
+  if (showDetails && count > 0) parts.push('', buildDetailTable(cards));
+  const text = parts.join('\n');
 
   return {
     content: [{ type: 'text', text }],

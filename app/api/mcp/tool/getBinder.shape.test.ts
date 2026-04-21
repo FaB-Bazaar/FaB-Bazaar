@@ -45,10 +45,10 @@ describe('shapeForMcpApp', () => {
     expect(out.structuredContent?.pagination).toMatchObject({ page: 1, total: 2 });
   });
 
-  it('returns only a compact one-liner when showDetails is false, but keeps full structuredContent', () => {
+  it('returns heading + URL (no table) when showDetails is false, but keeps full structuredContent', () => {
     const raw = {
       success: true,
-      binder: { slug: 'mcp-binder', name: 'MCP Binder' },
+      binder: { _id: '6807c60ac7ac9c20dfaff496', slug: 'mcp-binder', name: 'MCP Binder' },
       cards: [
         { display_name: 'Channel Lake Frigid', quantity: 3, foiling: 'r', set: 'ele', collector_number: '146', tcg_low: 12.5 },
       ],
@@ -57,9 +57,36 @@ describe('shapeForMcpApp', () => {
 
     const out = shapeForMcpApp(raw, { showDetails: false });
 
-    expect(out.content[0].text).toBe("Binder 'MCP Binder' — 1 of 1 cards (page 1 of 1)");
+    expect(out.content[0].text).toContain("Binder 'MCP Binder' — 1 of 1 cards");
+    expect(out.content[0].text).toContain('https://fabbazaar.app/binder/6807c60ac7ac9c20dfaff496');
     expect(out.content[0].text).not.toContain('|');
     expect(out.structuredContent?.cards).toHaveLength(1);
+  });
+
+  it('includes the binder URL in the detailed response too', () => {
+    const raw = {
+      success: true,
+      binder: { _id: '6807c60ac7ac9c20dfaff496', name: 'MCP Binder' },
+      cards: [{ display_name: 'Alpha', quantity: 1, set: 'arr', collector_number: '022' }],
+      pagination: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    };
+
+    const out = shapeForMcpApp(raw);
+    expect(out.content[0].text).toContain('https://fabbazaar.app/binder/6807c60ac7ac9c20dfaff496');
+    expect(out.content[0].text).toContain('| Qty |');
+  });
+
+  it('omits the URL line gracefully when binder has no _id', () => {
+    const raw = {
+      success: true,
+      binder: { slug: 'nope', name: 'Nope' },
+      cards: [],
+      pagination: { page: 1, limit: 100, total: 0, totalPages: 1 },
+    };
+
+    const out = shapeForMcpApp(raw, { showDetails: false });
+    expect(out.content[0].text).not.toContain('https://');
+    expect(out.content[0].text).not.toContain('View:');
   });
 
   it('handles an empty binder without inflating context', () => {
