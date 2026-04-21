@@ -641,24 +641,30 @@ export const deckViewerResource = {
         'Non-Attack Actions', 'Instants', 'Actions', 'Items',
         'Allies', 'Resources', 'Other',
       ];
-      var MAIN_TYPE_MATCH = [
-        ['attack reaction', 'Attack Reactions'],
-        ['defense reaction', 'Defense Reactions'],
-        ['instant', 'Instants'],
-        ['attack action', 'Attack Actions'],
-        ['non-attack action', 'Non-Attack Actions'],
-        ['action', 'Actions'],
-        ['item', 'Items'],
-        ['ally', 'Allies'],
-        ['resource', 'Resources'],
-      ];
       function primaryCategoryLabel(types) {
-        var ts = (types || []).map(function (t) { return String(t).toLowerCase(); });
-        for (var i = 0; i < MAIN_TYPE_MATCH.length; i++) {
-          var needle = MAIN_TYPE_MATCH[i][0];
-          var hit = ts.some(function (t) { return t.indexOf(needle) !== -1; });
-          if (hit) return MAIN_TYPE_MATCH[i][1];
+        // Same token-or-phrase resilience as sankeyType. Shape matters here
+        // because some printings store "attack action" as one token, others
+        // store ["attack","action"] as two.
+        var set = {};
+        (types || []).forEach(function (t) {
+          var s = String(t).toLowerCase().trim();
+          if (!s) return;
+          set[s] = true;
+          s.split(/\s+/).forEach(function (w) { if (w) set[w] = true; });
+        });
+        function has() {
+          for (var i = 0; i < arguments.length; i++) if (!set[arguments[i]]) return false;
+          return true;
         }
+        if (has('attack', 'reaction')) return 'Attack Reactions';
+        if (has('defense', 'reaction')) return 'Defense Reactions';
+        if (has('instant')) return 'Instants';
+        if (has('attack', 'action')) return 'Attack Actions';
+        if (has('non-attack', 'action')) return 'Non-Attack Actions';
+        if (has('action')) return 'Actions';
+        if (has('item')) return 'Items';
+        if (has('ally')) return 'Allies';
+        if (has('resource')) return 'Resources';
         return 'Other';
       }
 
@@ -921,12 +927,38 @@ export const deckViewerResource = {
         'Blue': '#3b82f6', 'Yellow': '#eab308', 'Red': '#ef4444', 'Non-pitch': '#9ca3af',
       };
 
+      // Card types may arrive either as joined phrases ("attack action") or
+      // split tokens (["attack","action"]). Build a membership set that holds
+      // both the full phrase and each constituent word so downstream checks
+      // work against either shape.
+      function typeTokenSet(types) {
+        var set = {};
+        (types || []).forEach(function (t) {
+          var s = String(t).toLowerCase().trim();
+          if (!s) return;
+          set[s] = true;
+          s.split(/\s+/).forEach(function (w) { if (w) set[w] = true; });
+        });
+        return set;
+      }
+
       function sankeyType(types) {
-        var ts = (types || []).map(function (t) { return String(t).toLowerCase(); });
-        for (var i = 0; i < SANKEY_TYPE_ORDER.length; i++) {
-          var needle = SANKEY_TYPE_ORDER[i][0];
-          if (ts.some(function (t) { return t.indexOf(needle) !== -1; })) return SANKEY_TYPE_ORDER[i][1];
+        var set = typeTokenSet(types);
+        function has() {
+          for (var i = 0; i < arguments.length; i++) if (!set[arguments[i]]) return false;
+          return true;
         }
+        if (has('attack', 'reaction')) return 'Attack Reaction';
+        if (has('defense', 'reaction')) return 'Defense Reaction';
+        if (has('instant')) return 'Instant';
+        if (has('attack', 'action')) return 'Attack Action';
+        if (has('non-attack', 'action')) return 'Non-Attack Action';
+        if (has('action')) return 'Action';
+        if (has('aura')) return 'Aura';
+        if (has('weapon')) return 'Weapon';
+        if (has('equipment')) return 'Equipment';
+        if (has('item')) return 'Item';
+        if (has('resource')) return 'Resource';
         return 'Other';
       }
 
@@ -946,8 +978,14 @@ export const deckViewerResource = {
         return supers;
       }
 
+      function normalizeKeyword(k) {
+        // Numbered keywords like "piercing 1" / "arcane barrier 2" collapse
+        // to their base form so every value doesn't become its own node.
+        return String(k).toLowerCase().replace(/\s+\d+$/, '').trim();
+      }
+
       function primaryKeyword(keywords) {
-        var kws = (keywords || []).map(function (k) { return String(k).toLowerCase(); });
+        var kws = (keywords || []).map(normalizeKeyword).filter(Boolean);
         for (var i = 0; i < SANKEY_KEYWORD_PRIORITY.length; i++) {
           if (kws.indexOf(SANKEY_KEYWORD_PRIORITY[i]) !== -1) return SANKEY_KEYWORD_PRIORITY[i];
         }

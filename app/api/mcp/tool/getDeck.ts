@@ -8,18 +8,22 @@ const PITCH_COLOR: Record<string, string> = { '1': 'Red', '2': 'Yellow', '3': 'B
 const EQUIPMENT_SLOTS = ['head', 'chest', 'arms', 'legs', 'off-hand'] as const;
 type EquipmentSlot = typeof EQUIPMENT_SLOTS[number];
 
-// Canonical type buckets used for maindeck grouping (first match wins).
-const MAIN_TYPE_PRIORITY: Array<[string, string]> = [
-  ['attack reaction', 'Attack Reactions'],
-  ['defense reaction', 'Defense Reactions'],
-  ['instant', 'Instants'],
-  ['attack action', 'Attack Actions'],
-  ['non-attack action', 'Non-Attack Actions'],
-  ['action', 'Actions'],
-  ['item', 'Items'],
-  ['ally', 'Allies'],
-  ['resource', 'Resources'],
-];
+// Canonical type buckets used for maindeck grouping. Iteration order in
+// `primaryCategoryLabel` is the priority (more specific wins).
+const MAIN_TYPE_LABELS = {
+  attackReactions: 'Attack Reactions',
+  defenseReactions: 'Defense Reactions',
+  instants: 'Instants',
+  attackActions: 'Attack Actions',
+  nonAttackActions: 'Non-Attack Actions',
+  actions: 'Actions',
+  items: 'Items',
+  allies: 'Allies',
+  resources: 'Resources',
+} as const;
+
+// Kept exported for the sort order in buildDeckText — labels only.
+const MAIN_TYPE_ORDER = Object.values(MAIN_TYPE_LABELS);
 
 function formatCardLine(card: any): string {
   const qty = card.quantity || 1;
@@ -277,10 +281,26 @@ function lowerTypes(types: any): string[] {
   return types.map((t) => String(t).toLowerCase());
 }
 
+// Handles both representations the service may emit: joined phrases
+// ("attack action") and split tokens (["attack","action"]).
 function primaryCategoryLabel(types: string[]): string {
-  for (const [needle, label] of MAIN_TYPE_PRIORITY) {
-    if (types.some((t) => t.includes(needle))) return label;
+  const set = new Set<string>();
+  for (const t of types ?? []) {
+    const s = String(t).toLowerCase().trim();
+    if (!s) continue;
+    set.add(s);
+    for (const w of s.split(/\s+/)) if (w) set.add(w);
   }
+  const has = (...ws: string[]) => ws.every((w) => set.has(w));
+  if (has('attack', 'reaction')) return MAIN_TYPE_LABELS.attackReactions;
+  if (has('defense', 'reaction')) return MAIN_TYPE_LABELS.defenseReactions;
+  if (has('instant')) return MAIN_TYPE_LABELS.instants;
+  if (has('attack', 'action')) return MAIN_TYPE_LABELS.attackActions;
+  if (has('non-attack', 'action')) return MAIN_TYPE_LABELS.nonAttackActions;
+  if (has('action')) return MAIN_TYPE_LABELS.actions;
+  if (has('item')) return MAIN_TYPE_LABELS.items;
+  if (has('ally')) return MAIN_TYPE_LABELS.allies;
+  if (has('resource')) return MAIN_TYPE_LABELS.resources;
   return 'Other';
 }
 
@@ -450,7 +470,7 @@ function buildDeckText(deck: any, shaped: any, showDetails: boolean): string {
     const label = primaryCategoryLabel(c.types);
     (grouped[label] ||= []).push(c);
   }
-  for (const [, label] of MAIN_TYPE_PRIORITY) {
+  for (const label of MAIN_TYPE_ORDER) {
     if (grouped[label]) section(label, grouped[label]);
   }
   if (grouped['Other']) section('Other', grouped['Other']);

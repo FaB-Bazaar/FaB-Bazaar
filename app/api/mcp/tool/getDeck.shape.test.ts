@@ -208,6 +208,38 @@ describe('shapeDeckForMcp', () => {
     ]);
   });
 
+  it('classifies split-token types as attack actions, not generic actions', () => {
+    const result = shapeDeckForMcp({
+      success: true,
+      deck: {
+        name: 'Split Token Deck',
+        publicId: 'pub_split',
+        format: 'Classic Constructed',
+        heroName: 'Uzuri, Switchblade',
+        categories: {
+          hero: [card({ printingId: 'p_hero', printingDetails: { types: ['hero'] } })],
+          equipment: [],
+          maindeck: [
+            card({
+              quantity: 3,
+              printingDetails: {
+                display_name: 'Twinning Blade',
+                // service emits types as separate tokens for some printings
+                types: ['attack', 'action', 'assassin'],
+                pitch: 1,
+                keywords: ['go again'],
+              },
+            }),
+          ],
+          inventory: [], benched: [], tokens: [],
+        },
+      },
+    });
+    const sc: any = result.structuredContent;
+    expect(sc.deck.stats.byType['Attack Actions']).toBe(3);
+    expect(sc.deck.stats.byType['Actions']).toBeUndefined();
+  });
+
   it('omits the full decklist text when showDetails is false', () => {
     const withDetails = shapeDeckForMcp(rawDeckResult, { showDetails: true });
     const withoutDetails = shapeDeckForMcp(rawDeckResult, { showDetails: false });
