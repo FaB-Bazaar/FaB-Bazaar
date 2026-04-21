@@ -963,16 +963,22 @@ export const deckViewerResource = {
       }
 
       function classifySupers(c) {
-        var types = (c.types || []).map(function (t) { return String(t).toLowerCase(); });
-        if (SANKEY_EXCLUDED.some(function (t) { return types.indexOf(t) !== -1; })) return [];
-        var isEquipment = types.indexOf('weapon') !== -1 ||
-          types.indexOf('equipment') !== -1 ||
-          ['head','chest','arms','legs','off-hand'].some(function (s) { return types.indexOf(s) !== -1; });
+        var set = typeTokenSet(c.types);
+        if (set.hero || set.ally || set.token) return [];
+        var isEquipment = set.weapon || set.equipment ||
+          set.head || set.chest || set.arms || set.legs || set['off-hand'];
         if (isEquipment) return ['Equipment'];
-        var hasAttack = types.some(function (t) { return t.indexOf('attack') !== -1; });
+
+        var isAttackReaction = set.attack && set.reaction;
+        var hasAttack = !!set.attack;
         var hasDefense = (Number(c.defense) || 0) > 0;
+
         var supers = [];
-        if (hasDefense) supers.push('Defense');
+        // Attack Reactions are offensive tools even when they carry a block
+        // value — they're played during the attack sequence to boost, not to
+        // defend. Keep them out of Defense to match how players think about
+        // deckbuilding.
+        if (hasDefense && !isAttackReaction) supers.push('Defense');
         if (hasAttack) supers.push('Offense');
         if (!supers.length) supers.push('Utility');
         return supers;
