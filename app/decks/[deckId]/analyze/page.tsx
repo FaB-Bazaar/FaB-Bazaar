@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 // Deck components
 import DeckAnalysis from "@/components/deck/DeckAnalysis";
+import DeckFlow from "@/components/deck/DeckFlow";
 import DeckExport from "@/components/deck/DeckExport";
 import DeckPrintingCard from "@/components/deck/DeckPrintingCard";
 import DeckBinderComparison from "@/components/deck/DeckBinderComparison";
@@ -512,7 +513,12 @@ export default function DeckViewPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="analysis">
+            <TabsContent value="analysis" className="space-y-4">
+              <DeckFlow
+                deckId={deckId}
+                maindeck={(displayDeck.maindeck as any[]) ?? []}
+                hero={(displayDeck.hero as any[]) ?? []}
+              />
               <DeckAnalysis deck={deckForAnalysis} stats={deckStats} loading={loading} />
             </TabsContent>
 
