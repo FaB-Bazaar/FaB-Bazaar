@@ -12,6 +12,15 @@ import requests
 from datetime import datetime
 import time
 
+# tcgcsv.com's owner (CptSpaceToaster) 401s requests with the default `python-requests`
+# UA and asks apps to identify themselves per their stated convention:
+#   "Please identify your application by setting 'User-Agent': 'Your-Application-Name/X.Y.Z'"
+# The +URL lets them reach out if our volume ever looks abusive.
+TCGCSV_HEADERS = {
+    "User-Agent": "FaBBazaar-Pipeline/1.0 (+https://fabbazaar.app)",
+    "Accept": "application/json",
+}
+
 class TCGPriceEnhancer:
     def __init__(self):
         self.group_csv_file = "fab_set_with_db.csv"
@@ -183,7 +192,7 @@ class TCGPriceEnhancer:
             
             try:
                 url = f"https://tcgcsv.com/tcgplayer/62/{group_id}/prices"
-                response = requests.get(url, timeout=30)
+                response = requests.get(url, timeout=30, headers=TCGCSV_HEADERS)
                 response.raise_for_status()
                 
                 response_data = response.json()
