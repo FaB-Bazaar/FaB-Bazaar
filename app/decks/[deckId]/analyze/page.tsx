@@ -5,71 +5,29 @@ import React, { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import Link from "next/link";
-import { ArrowLeft, Plus, Search, RefreshCw, Share2, Eye, EyeOff, Settings, BarChart3, BookOpen, Upload, Swords, Pencil, Copy } from "lucide-react";
+import { ArrowLeft, Settings, BarChart3, BookOpen, Upload, Pencil, Copy } from "lucide-react";
 
-// DND-KIT imports
-import { DndContext, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
-// Deck components
 import DeckAnalysis from "@/components/deck/DeckAnalysis";
 import DeckFlow from "@/components/deck/DeckFlow";
-import DeckExport from "@/components/deck/DeckExport";
-import DeckPrintingCard from "@/components/deck/DeckPrintingCard";
 import DeckBinderComparison from "@/components/deck/DeckBinderComparison";
-import DeckPrintingsGrid from "@/components/deck/DeckPrintingsGrid";
-import DeckListView from "@/components/deck/DeckListView";
-import DeckBuilderSplitView from "@/components/deck/DeckBuilderSplitView";
 import PlaymatView from "@/components/deck/PlaymatView";
 import DeckSimulator from "@/components/deck/DeckSimulator";
-import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
 import MobileDeckLayout from "@/components/deck/mobile/MobileDeckLayout";
 import DeckPageDialogs from "@/components/deck/DeckPageDialogs";
 
-// Hook and types
-import { useDeckPage, groupCardsByCardAndCategory } from "@/hooks/deck/useDeckPage";
-import type { DeckPrinting } from "@/hooks/deck/useDeckPage";
+import { useDeckPage } from "@/hooks/deck/useDeckPage";
 import { useAuth } from "@/contexts/AuthContext";
 
-function SortablePrintingCard({ printing, children }: { printing: DeckPrinting & { category: string }; children: React.ReactNode }) {
-  const uniqueId = printing._id || `${printing.printingId}-${printing.category}-${Date.now()}`;
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: uniqueId,
-    data: { printing },
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 100 : "auto",
-  };
-
-  const childWithProps = React.cloneElement(children as React.ReactElement<any>, {
-    dragAttributes: attributes,
-    dragListeners: listeners,
-    isDragging,
-  });
-
-  return (
-    <div ref={setNodeRef} style={style} className={isDragging ? "opacity-50 shadow-2xl" : ""}>
-      {childWithProps}
-    </div>
-  );
-}
+const VALID_TABS = ["playmat", "analysis", "simulator", "collection"] as const;
 
 export default function DeckViewPage() {
   const params = useParams();
   const router = useRouter();
   const deckId = params.deckId as string;
   const [copying, setCopying] = useState(false);
-  const [metafyAccessRequired, setMetafyAccessRequired] = useState<string | null>(null);
 
   const { user } = useAuth();
   const { authLoading, isMobile, state, handlers } = useDeckPage(deckId);
@@ -77,7 +35,6 @@ export default function DeckViewPage() {
   const {
     loading,
     error,
-    saving,
     removingCards,
     movingCards,
     binders,
@@ -86,10 +43,7 @@ export default function DeckViewPage() {
     wantsMap,
     binderMap,
     activeTab,
-    searchQuery,
     activeCategory,
-    viewMode,
-    stackGrouping,
     displayDeck,
     printings,
     canEdit,
@@ -104,21 +58,13 @@ export default function DeckViewPage() {
 
   const {
     setActiveTab,
-    setSearchQuery,
     setActiveCategory,
-    setViewMode,
-    setStackGrouping,
     setIsCardSearchOpen,
     setSettingsOpen,
     setBulkImportOpen,
     setSwappingPrinting,
     setPrintingSwapOpen,
     setSelectedBinderId,
-    setDeck,
-    setOptimisticDeck,
-    setOwnershipRefreshKey,
-    fetchDeck,
-    handleDragEnd,
     handleAddPrintingToDeck,
     handleAddAnother,
     handleRemovePrinting,
@@ -134,10 +80,6 @@ export default function DeckViewPage() {
     handleUpdateTags,
   } = handlers;
 
-  // DND sensors
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
-  // Copy deck handler
   const handleCopyDeck = async () => {
     if (!displayDeck) return;
     setCopying(true);
@@ -164,7 +106,6 @@ export default function DeckViewPage() {
     }
   };
 
-  // Conditional renders
   if (authLoading || loading) return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   if (error) {
     if (error.startsWith('metafy_access_required:')) {
@@ -187,7 +128,8 @@ export default function DeckViewPage() {
   }
   if (!displayDeck) return <div className="flex justify-center items-center min-h-screen">Deck not found</div>;
 
-  // Shared dialogs appear once, before the mobile/desktop split
+  const currentTab = (VALID_TABS as readonly string[]).includes(activeTab) ? activeTab : "playmat";
+
   const dialogs = (
     <DeckPageDialogs
       deckId={deckId}
@@ -197,7 +139,6 @@ export default function DeckViewPage() {
     />
   );
 
-  // MOBILE RENDER
   if (isMobile) {
     return (
       <>
@@ -241,9 +182,8 @@ export default function DeckViewPage() {
     );
   }
 
-  // DESKTOP RENDER
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <>
       {dialogs}
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4 py-2">
@@ -298,219 +238,63 @@ export default function DeckViewPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Tabs Row */}
-            <div className="flex items-center gap-3 mb-2">
+          <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
+            <div className="flex items-center gap-3 mb-4">
               <TabsList className="flex-shrink-0">
-                <TabsTrigger value="builder">Builder</TabsTrigger>
-                <TabsTrigger value="simulator">Simulator</TabsTrigger>
-                <TabsTrigger value="matchups" className="relative">
-                  <Swords className="h-4 w-4 mr-2" />
-                  Matchups
-                  <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-blue-500 text-white rounded-full">
-                    NEW
-                  </span>
-                </TabsTrigger>
+                <TabsTrigger value="playmat">Playmat</TabsTrigger>
                 <TabsTrigger value="analysis">
                   <BarChart3 className="h-4 w-4 mr-2" />Analysis
                 </TabsTrigger>
+                <TabsTrigger value="simulator">Simulator</TabsTrigger>
                 <TabsTrigger value="collection">
                   <BookOpen className="h-4 w-4 mr-2" />Collection
                 </TabsTrigger>
-                <TabsTrigger value="export">Export</TabsTrigger>
               </TabsList>
 
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search cards..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {/* View Controls Row */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex gap-1">
-                {canEdit && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/decks/${deckId}`}>
-                      <Pencil className="h-4 w-4 mr-2" />Edit
-                    </Link>
-                  </Button>
-                )}
-                {displayDeck?.hero?.length > 0 && (
-                  <Button variant={viewMode === "catalog" ? "default" : "outline"} size="sm" onClick={() => setViewMode("catalog")}>
-                    Catalog
-                  </Button>
-                )}
-                <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-                  List
+              {canEdit && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/decks/${deckId}`}>
+                    <Pencil className="h-4 w-4 mr-2" />Edit
+                  </Link>
                 </Button>
-                <Button variant={viewMode === "compact" ? "default" : "outline"} size="sm" onClick={() => setViewMode("compact")}>
-                  Compact
-                </Button>
-                <Button variant={viewMode === "grouped" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grouped")}>
-                  Grouped
-                </Button>
-                <Button variant={viewMode === "individual" ? "default" : "outline"} size="sm" onClick={() => setViewMode("individual")}>
-                  Individual
-                </Button>
-                <Button variant={viewMode === "playmat" ? "default" : "outline"} size="sm" onClick={() => setViewMode("playmat")}>
-                  Playmat
-                </Button>
-              </div>
-
-              {viewMode === "compact" && (
-                <div className="flex items-center gap-2 border-l border-gray-300 dark:border-gray-700 pl-3">
-                  <span className="text-sm text-gray-500">Stack by:</span>
-                  <ToggleGroup
-                    type="single"
-                    value={stackGrouping}
-                    onValueChange={(value) => value && setStackGrouping(value as "by-name" | "by-printing")}
-                  >
-                    <ToggleGroupItem value="by-name" aria-label="Group by card name" size="sm">
-                      Card Name
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="by-printing" aria-label="Group by printing" size="sm">
-                      Printing
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
               )}
             </div>
 
-            <TabsContent value="builder" className="space-y-0">
-              {viewMode === "catalog" ? (
-                <DeckBuilderSplitView
-                  deckId={deckId}
-                  deck={displayDeck}
-                  deckFormat={displayDeck.format}
-                  onDeckUpdate={fetchDeck}
-                  setDeck={(updater) => {
-                    setDeck(updater);
-                    setOptimisticDeck(updater);
-                  }}
-                />
-              ) : viewMode === "playmat" ? (
-                <PlaymatView
-                  deck={displayDeck}
-                  editable={!!canEdit}
-                  ownershipRefreshKey={ownershipRefreshKey}
-                  wantsMap={wantsMap}
-                  deckCardCounts={deckCardCounts}
-                  binderMap={binderMap}
-                  onZoneClick={(zone) => {
-                    const zoneMap: Record<string, typeof activeCategory> = {
-                      hero: "hero",
-                      equipment: "equipment",
-                      maindeck: "maindeck",
-                      inventory: "inventory",
-                    };
-                    if (zoneMap[zone]) {
-                      setActiveCategory(zoneMap[zone]);
-                      setViewMode("individual");
-                    }
-                  }}
-                  onShuffle={() => {}}
-                  onSwap={(card) => {
-                    setSwappingPrinting(card);
-                    setPrintingSwapOpen(true);
-                  }}
-                  onMove={handleMovePrinting}
-                  onRemove={handleRemovePrinting}
-                  onAddCard={(category) => {
-                    const categoryMap: Record<string, typeof activeCategory> = {
-                      hero: "hero",
-                      equipment: "equipment",
-                      maindeck: "maindeck",
-                      inventory: "inventory",
-                    };
-                    if (categoryMap[category]) {
-                      setActiveCategory(categoryMap[category]);
-                      setIsCardSearchOpen(true);
-                    }
-                  }}
-                  onAddToWants={handleAddToWants}
-                  onAddToBinder={handleAddToBinder}
-                  onRemoveFromBinder={handleRemoveFromBinder}
-                  onRemoveFromWants={handleRemoveFromWants}
-                  onToggleForTrade={handleToggleForTrade}
-                  onUpdateTags={handleUpdateTags}
-                />
-              ) : viewMode === "list" ? (
-                (["hero", "equipment", "maindeck", "inventory"] as const).map((category) => (
-                  <DeckListView
-                    key={category}
-                    printings={filteredPrintings}
-                    groupedCards={filteredGroupedCards}
-                    category={category}
-                    editable={!!canEdit}
-                    ownershipStatus={ownershipStatus}
-                    wantsMap={wantsMap}
-                    binderMap={binderMap}
-                    deckCardCounts={deckCardCounts}
-                    onRemove={handleRemovePrinting}
-                    onAddAnother={handleAddAnother}
-                    onMove={handleMovePrinting}
-                    onOpenPrintingSwap={handleOpenPrintingSwap}
-                    onOpenOwnershipComparison={handleOpenOwnershipComparison}
-                    onAddCard={() => {
-                      setActiveCategory(category);
-                      setIsCardSearchOpen(true);
-                    }}
-                    removingCards={removingCards}
-                  />
-                ))
-              ) : (
-                (["maindeck", "equipment", "inventory"] as const).map((category) => (
-                  <DeckPrintingsGrid
-                    key={category}
-                    printings={filteredPrintings}
-                    groupedCards={filteredGroupedCards}
-                    category={category}
-                    editable={!!canEdit}
-                    viewMode={viewMode}
-                    stackGrouping={stackGrouping}
-                    ownershipStatus={ownershipStatus}
-                    onRemove={handleRemovePrinting}
-                    onAddAnother={handleAddAnother}
-                    onMove={handleMovePrinting}
-                    onOpenPrintingSwap={handleOpenPrintingSwap}
-                    onAddCard={() => {
-                      setActiveCategory(category);
-                      setIsCardSearchOpen(true);
-                    }}
-                    SortablePrintingCard={SortablePrintingCard}
-                    removingCards={removingCards}
-                    movingCards={movingCards}
-                    onAddToWants={handleAddToWants}
-                    onAddToBinder={handleAddToBinder}
-                    wantsMap={wantsMap}
-                    binderMap={binderMap}
-                    deckCardCounts={deckCardCounts}
-                  />
-                ))
-              )}
-            </TabsContent>
-
-            <TabsContent value="simulator">
-              <DeckSimulator deck={displayDeck} />
-            </TabsContent>
-
-            <TabsContent value="matchups">
-              {displayDeck && (
-                <DeckMatchupsDialog
-                  open={true}
-                  onOpenChange={() => {}}
-                  deckId={deckId}
-                  deck={displayDeck}
-                  inline={true}
-                />
-              )}
+            <TabsContent value="playmat">
+              <PlaymatView
+                deck={displayDeck}
+                editable={!!canEdit}
+                ownershipRefreshKey={ownershipRefreshKey}
+                wantsMap={wantsMap}
+                deckCardCounts={deckCardCounts}
+                binderMap={binderMap}
+                onZoneClick={() => {}}
+                onShuffle={() => {}}
+                onSwap={(card) => {
+                  setSwappingPrinting(card);
+                  setPrintingSwapOpen(true);
+                }}
+                onMove={handleMovePrinting}
+                onRemove={handleRemovePrinting}
+                onAddCard={(category) => {
+                  const categoryMap: Record<string, typeof activeCategory> = {
+                    hero: "hero",
+                    equipment: "equipment",
+                    maindeck: "maindeck",
+                    inventory: "inventory",
+                  };
+                  if (categoryMap[category]) {
+                    setActiveCategory(categoryMap[category]);
+                    setIsCardSearchOpen(true);
+                  }
+                }}
+                onAddToWants={handleAddToWants}
+                onAddToBinder={handleAddToBinder}
+                onRemoveFromBinder={handleRemoveFromBinder}
+                onRemoveFromWants={handleRemoveFromWants}
+                onToggleForTrade={handleToggleForTrade}
+                onUpdateTags={handleUpdateTags}
+              />
             </TabsContent>
 
             <TabsContent value="analysis" className="space-y-4">
@@ -522,16 +306,16 @@ export default function DeckViewPage() {
               <DeckAnalysis deck={deckForAnalysis} stats={deckStats} loading={loading} />
             </TabsContent>
 
-            <TabsContent value="collection">
-              <DeckBinderComparison deck={displayDeck} />
+            <TabsContent value="simulator">
+              <DeckSimulator deck={displayDeck} />
             </TabsContent>
 
-            <TabsContent value="export">
-              <DeckExport deck={displayDeck} onCopyList={() => {}} />
+            <TabsContent value="collection">
+              <DeckBinderComparison deck={displayDeck} />
             </TabsContent>
           </Tabs>
         </div>
       </div>
-    </DndContext>
+    </>
   );
 }
