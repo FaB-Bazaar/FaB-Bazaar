@@ -100,6 +100,7 @@ export function useDeckEditor(deckId: string) {
   const [ownershipMap, setOwnershipMap] = useState<Map<string, OwnershipEntry>>(new Map());
   const [bulkInput, setBulkInput] = useState("");
   const [bulkResults, setBulkResults] = useState<any[]>([]);
+  const [excludedBulkCards, setExcludedBulkCards] = useState<Array<{ name: string; quantity: number; reason: 'format' | 'not-found' }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -160,6 +161,7 @@ export function useDeckEditor(deckId: string) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setExcludedBulkCards([]);
 
     try {
       const parsedCards = parseBulkInput(inputOverride ?? bulkInput, "cardlist");
@@ -190,6 +192,33 @@ export function useDeckEditor(deckId: string) {
         Object.keys(sharedFilters).length > 0 ? sharedFilters : undefined
       );
       if (!bulkResponse.success) throw new Error(bulkResponse.error || "Bulk search failed.");
+
+      // Track which rows returned 0 printings under the hero/format filter
+      const missingIndices: number[] = [];
+      bulkResponse.data.results.forEach((result, index) => {
+        if (result.printings.length === 0) missingIndices.push(index);
+      });
+
+      // When filters are active and some rows came back empty, re-query those
+      // rows without the filter to distinguish "format-excluded" from "not-found".
+      let fallbackPrintings: boolean[] = [];
+      if (missingIndices.length > 0 && Object.keys(sharedFilters).length > 0) {
+        const fallback = await searchClient.bulkSearchByNames(missingIndices.map(i => bulkCards[i]));
+        if (fallback.success) {
+          fallbackPrintings = fallback.data.results.map(r => r.printings.length > 0);
+        }
+      }
+
+      const excluded = missingIndices.map((origIdx, i) => {
+        const card = parsedCards[origIdx];
+        const foundWithoutFilter = fallbackPrintings[i] ?? false;
+        return {
+          name: card.name,
+          quantity: card.quantity,
+          reason: foundWithoutFilter ? ('format' as const) : ('not-found' as const),
+        };
+      });
+      setExcludedBulkCards(excluded);
 
       const allPrintings: any[] = [];
       bulkResponse.data.results.forEach((result, index) => {
@@ -323,7 +352,8 @@ export function useDeckEditor(deckId: string) {
     toast({ title: "Cleared" });
   };
 
-  const clearBulkResults = () => setBulkResults([]);
+  const clearBulkResults = () => { setBulkResults([]); setExcludedBulkCards([]); };
+  const dismissExcludedBulkCards = () => setExcludedBulkCards([]);
 
   const stageAll = () => {
     setBulkResults(current => current.map(card => ({ ...card, isStaged: true })));
@@ -388,6 +418,7 @@ export function useDeckEditor(deckId: string) {
       ownershipMap,
       bulkInput,
       bulkResults,
+      excludedBulkCards,
       loading,
       error,
       isSaving,
@@ -400,6 +431,7 @@ export function useDeckEditor(deckId: string) {
       toggleStagedStatus,
       clearStaged,
       clearBulkResults,
+      dismissExcludedBulkCards,
       stageAll,
       updateCardQuantity,
       updateCardPrinting,

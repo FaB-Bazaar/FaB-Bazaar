@@ -1794,6 +1794,40 @@ export default function DeckEditorPage() {
                   </Alert>
                 )}
 
+                {state.excludedBulkCards.length > 0 && !state.loading && (() => {
+                  const titleCase = (s: string) =>
+                    s.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                  return (
+                  <Alert className="mb-4 border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertTitle className="flex items-center justify-between gap-2">
+                      <span>Some cards weren't imported</span>
+                      <button
+                        type="button"
+                        onClick={handlers.dismissExcludedBulkCards}
+                        className="text-xs font-normal text-amber-800 dark:text-amber-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded px-1"
+                        aria-label="Dismiss excluded cards notice"
+                      >
+                        Dismiss
+                      </button>
+                    </AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc ml-5 mt-1 space-y-0.5 text-sm">
+                        {state.excludedBulkCards.map((c, i) => (
+                          <li key={`${c.name}-${i}`}>
+                            <span className="font-semibold">{c.quantity}x {titleCase(c.name)}</span>
+                            {' — '}
+                            {c.reason === 'format'
+                              ? <>not legal in <span className="font-medium">{state.deck?.format ?? 'this format'}</span></>
+                              : <>no matching card found</>}
+                          </li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                  );
+                })()}
+
                 {state.bulkResults.length > 0 && !state.loading && (
                   <div className="flex items-center gap-2 mb-3">
                     <button
