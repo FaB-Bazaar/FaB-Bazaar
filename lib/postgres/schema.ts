@@ -1160,3 +1160,73 @@ export const curatorHeroAssignments = pgTable('curator_hero_assignments', {
   userIdIdx: index('idx_cha_user_id').on(table.userId),
   heroNameIdx: index('idx_cha_hero_name').on(table.heroName),
 }));
+
+// ============================================================================
+// CUSTOM TOKEN CARDS (fan-made FaB token cards, creator-attributed)
+// ============================================================================
+
+export const customTokenCardCreators = pgTable('custom_token_card_creators', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  displayName: text('display_name').notNull(),
+  slug: text('slug').notNull().unique(),
+  bio: text('bio'),
+  avatarUrl: text('avatar_url'),
+  isVerified: boolean('is_verified').default(false).notNull(),
+
+  websiteUrl: text('website_url'),
+  shopUrl: text('shop_url'),
+  instagramUrl: text('instagram_url'),
+  facebookUrl: text('facebook_url'),
+  xUrl: text('x_url'),
+  blueskyUrl: text('bluesky_url'),
+  discordInviteUrl: text('discord_invite_url'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index('idx_ctcc_user_id').on(table.userId),
+  slugIdx: index('idx_ctcc_slug').on(table.slug),
+}));
+
+export const customTokenCards = pgTable('custom_token_cards', {
+  id: text('id').primaryKey(),
+  creatorId: text('creator_id').notNull().references(() => customTokenCardCreators.id, { onDelete: 'cascade' }),
+  cardUniqueId: text('card_unique_id').references(() => cards.cardUniqueId),
+  externalId: text('external_id'),
+  name: text('name').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+
+  purchaseUrl: text('purchase_url'),
+  inStock: boolean('in_stock'),
+  stockUpdatedAt: timestamp('stock_updated_at'),
+
+  isPublished: boolean('is_published').default(false).notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  creatorIdIdx: index('idx_ctc_creator_id').on(table.creatorId),
+  cardUniqueIdIdx: index('idx_ctc_card_unique_id').on(table.cardUniqueId),
+  isPublishedIdx: index('idx_ctc_is_published').on(table.isPublished),
+}));
+
+export const customTokenCardCreatorsRelations = relations(customTokenCardCreators, ({ one, many }) => ({
+  user: one(users, {
+    fields: [customTokenCardCreators.userId],
+    references: [users.id],
+  }),
+  tokenCards: many(customTokenCards),
+}));
+
+export const customTokenCardsRelations = relations(customTokenCards, ({ one }) => ({
+  creator: one(customTokenCardCreators, {
+    fields: [customTokenCards.creatorId],
+    references: [customTokenCardCreators.id],
+  }),
+  card: one(cards, {
+    fields: [customTokenCards.cardUniqueId],
+    references: [cards.cardUniqueId],
+  }),
+}));

@@ -28,6 +28,7 @@ import type { IAuthTokenService } from './contracts/IAuthTokenService';
 import type { IOAuthFlowService } from './contracts/IOAuthFlowService';
 import type { ICuratedListService } from './contracts/ICuratedListService';
 import type { ICuratorHeroAssignmentService } from './contracts/ICuratorHeroAssignmentService';
+import type { ICustomTokenCardService } from './contracts/ICustomTokenCardService';
 
 // Deprecated contracts (kept only because other files import their DTO types)
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -50,6 +51,7 @@ import { PostgresAuthTokenService } from './postgres/auth-token/PostgresAuthToke
 import { PostgresOAuthFlowService } from './postgres/oauth-flow/PostgresOAuthFlowService';
 import { PostgresCuratedListService } from './postgres/curated-lists/PostgresCuratedListService';
 import { PostgresCuratorHeroAssignmentService } from './postgres/curator-heroes/PostgresCuratorHeroAssignmentService';
+import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/PostgresCustomTokenCardService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 
@@ -91,6 +93,7 @@ class ServiceFactory {
   private static _oauthFlowService: IOAuthFlowService | null = null;
   private static _curatedListService: ICuratedListService | null = null;
   private static _curatorHeroAssignmentService: ICuratorHeroAssignmentService | null = null;
+  private static _customTokenCardService: ICustomTokenCardService | null = null;
 
   /**
    * Get the User Service instance
@@ -453,6 +456,17 @@ class ServiceFactory {
   static setCuratorHeroAssignmentService(service: ICuratorHeroAssignmentService): void {
     this._curatorHeroAssignmentService = service;
   }
+
+  static get customTokenCardService(): ICustomTokenCardService {
+    if (!this._customTokenCardService) {
+      this._customTokenCardService = new PostgresCustomTokenCardService();
+    }
+    return this._customTokenCardService;
+  }
+
+  static setCustomTokenCardService(service: ICustomTokenCardService): void {
+    this._customTokenCardService = service;
+  }
 }
 
 /**
@@ -489,6 +503,7 @@ export const authTokenService = ServiceFactory.authTokenService;
 export const oauthFlowService = ServiceFactory.oauthFlowService;
 export const curatedListService = ServiceFactory.curatedListService;
 export const curatorHeroAssignmentService = ServiceFactory.curatorHeroAssignmentService;
+export const customTokenCardService = ServiceFactory.customTokenCardService;
 export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
 
