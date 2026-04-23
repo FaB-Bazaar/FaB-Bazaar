@@ -1791,7 +1791,7 @@ export class PostgresBinderService implements IBinderService {
         return [asc(printings.tcgLow), asc(cards.displayName)];
       case 'name':
       default:
-        return [asc(cards.displayName)];
+        return [asc(cards.name)];
     }
   }
 
