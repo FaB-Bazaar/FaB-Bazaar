@@ -5,7 +5,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 - **Schema**: `lib/postgres/schema.ts` (source of truth for all columns/indexes)
 - **Config**: `drizzle.config.ts`
 - **Connection**: `lib/postgres/db.ts` (node-postgres pool, max 20 clients)
-- **Migrations**: `lib/postgres/migrations/` (0000-0026)
+- **Migrations**: `lib/postgres/migrations/` (0000 through the current latest — check `ls lib/postgres/migrations/ | sort | tail` to find the next number)
 
 ## Enums
 

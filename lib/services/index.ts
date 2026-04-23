@@ -29,6 +29,7 @@ import type { IOAuthFlowService } from './contracts/IOAuthFlowService';
 import type { ICuratedListService } from './contracts/ICuratedListService';
 import type { ICuratorHeroAssignmentService } from './contracts/ICuratorHeroAssignmentService';
 import type { ICustomTokenCardService } from './contracts/ICustomTokenCardService';
+import type { IBannedCardsService } from './contracts/IBannedCardsService';
 
 // Deprecated contracts (kept only because other files import their DTO types)
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -54,6 +55,7 @@ import { PostgresCuratorHeroAssignmentService } from './postgres/curator-heroes/
 import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/PostgresCustomTokenCardService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
+import { PostgresBannedCardsService } from './postgres/banned-cards/PostgresBannedCardsService';
 
 
 /**
@@ -94,6 +96,7 @@ class ServiceFactory {
   private static _curatedListService: ICuratedListService | null = null;
   private static _curatorHeroAssignmentService: ICuratorHeroAssignmentService | null = null;
   private static _customTokenCardService: ICustomTokenCardService | null = null;
+  private static _bannedCardsService: IBannedCardsService | null = null;
 
   /**
    * Get the User Service instance
@@ -467,6 +470,17 @@ class ServiceFactory {
   static setCustomTokenCardService(service: ICustomTokenCardService): void {
     this._customTokenCardService = service;
   }
+
+  static get bannedCardsService(): IBannedCardsService {
+    if (!this._bannedCardsService) {
+      this._bannedCardsService = new PostgresBannedCardsService();
+    }
+    return this._bannedCardsService;
+  }
+
+  static setBannedCardsService(service: IBannedCardsService): void {
+    this._bannedCardsService = service;
+  }
 }
 
 /**
@@ -506,6 +520,7 @@ export const curatorHeroAssignmentService = ServiceFactory.curatorHeroAssignment
 export const customTokenCardService = ServiceFactory.customTokenCardService;
 export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
+export const bannedCardsService = ServiceFactory.bannedCardsService;
 
 
 /**

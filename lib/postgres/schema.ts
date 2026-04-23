@@ -1230,3 +1230,24 @@ export const customTokenCardsRelations = relations(customTokenCards, ({ one }) =
     references: [cards.cardUniqueId],
   }),
 }));
+
+// ============================================================================
+// BANNED CARDS (format-specific banned-card registry)
+// ============================================================================
+
+export const bannedCards = pgTable('banned_cards', {
+  id: text('id').primaryKey(),
+  cardUniqueId: text('card_unique_id').notNull(),
+  format: text('format').notNull(),
+  sourceUniqueId: text('source_unique_id'),
+  statusActive: boolean('status_active').default(true).notNull(),
+  dateAnnounced: timestamp('date_announced'),
+  dateInEffect: timestamp('date_in_effect'),
+  legalityArticle: text('legality_article'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  cardFormatUnique: uniqueIndex('banned_cards_card_unique_id_format_unique').on(table.cardUniqueId, table.format),
+  formatActiveIdx: index('banned_cards_format_active_idx').on(table.format, table.statusActive),
+  cardUniqueIdIdx: index('banned_cards_card_unique_id_idx').on(table.cardUniqueId),
+}));
