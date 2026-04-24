@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
@@ -1547,6 +1547,14 @@ export default function DeckEditorPage() {
               >
                 <Eye className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Analyze</span>
+              </Link>
+              <Link
+                href={`/decks/${deckId}/present`}
+                className="hidden sm:flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                title="Presenter mode (for streaming / decktech)"
+              >
+                <Tv className="h-3.5 w-3.5" />
+                <span>Present</span>
               </Link>
               <div className="hidden sm:flex items-center gap-2 ml-auto shrink-0">
                 {state.deck?.format && (
