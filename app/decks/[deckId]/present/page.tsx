@@ -5,7 +5,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight } from "lucide-react"
+import { toTalisharIdentifier } from "@/lib/utils"
+import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants"
+import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
 
 interface PresenterCard {
   printingId: string
@@ -49,6 +52,34 @@ function pitchName(p?: number | null): string {
   return p === 1 ? "red" : p === 2 ? "yellow" : p === 3 ? "blue" : ""
 }
 
+const STRATEGY_LABELS: Record<string, string> = { aggro: 'Aggro', fatigue: 'Fatigue', combo: 'Combo', midrange: 'Midrange' }
+
+function heroDisplayFromTalisharId(heroId: string): string {
+  if (heroId === 'core') return 'Core'
+  if (STRATEGY_LABELS[heroId]) return STRATEGY_LABELS[heroId]
+  const match =
+    Object.keys(HERO_INFO).find(k => toTalisharIdentifier(k) === heroId) ||
+    Object.keys(YOUNG_HERO_INFO).find(k => toTalisharIdentifier(k) === heroId)
+  return match ? toHeroDisplayName(match) : heroId
+}
+
+function cardTalisharId(card: PresenterCard): string {
+  const base = toTalisharIdentifier(card.printingDetails?.name || '')
+  if (!base) return ''
+  const p = card.printingDetails?.pitch
+  if (p === 1) return `${base}_red`
+  if (p === 2) return `${base}_yellow`
+  if (p === 3) return `${base}_blue`
+  return base
+}
+
+interface Matchup {
+  heroId: string
+  preferredTurnOrder: string | null
+  notes: string | null
+  sideboard: { in: string[]; out: string[] }
+}
+
 function cardTotal(cards: PresenterCard[] | undefined): number {
   return (cards ?? []).reduce((s, c) => s + (c.quantity || 1), 0)
 }
@@ -59,6 +90,8 @@ export default function PresenterPage() {
   const deckId = params.deckId as string
 
   const [deck, setDeck] = useState<PresenterDeck | null>(null)
+  const [matchups, setMatchups] = useState<Matchup[]>([])
+  const [heroImageMap, setHeroImageMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,17 +101,32 @@ export default function PresenterPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`/api/decks/${deckId}`, { credentials: "include" })
-      .then(r => r.json())
-      .then(body => {
+    Promise.all([
+      fetch(`/api/decks/${deckId}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
+      fetch(`/api/decks/${deckId}/matchups`, { credentials: "include" }).then(r => r.json()).catch(() => null),
+      fetch(`/api/hero-printings?format=adult`).then(r => r.json()).catch(() => null),
+      fetch(`/api/hero-printings?format=young`).then(r => r.json()).catch(() => null),
+    ])
+      .then(([deckBody, muBody, adultBody, youngBody]) => {
         if (cancelled) return
-        if (!body.success) {
-          setError(body.error || "Failed to load deck")
+        if (!deckBody?.success) {
+          setError(deckBody?.error || "Failed to load deck")
         } else {
-          setDeck(body.data)
+          setDeck(deckBody.data)
         }
+        if (muBody?.success) setMatchups(muBody.data?.matchups ?? [])
+
+        const map = new Map<string, string>()
+        for (const h of (adultBody?.heroes ?? [])) {
+          const tId = toTalisharIdentifier(h.name)
+          if (tId && h.image_url) map.set(tId, h.image_url)
+        }
+        for (const h of (youngBody?.heroes ?? [])) {
+          const tId = toTalisharIdentifier(h.name)
+          if (tId && h.image_url) map.set(tId, h.image_url)
+        }
+        setHeroImageMap(map)
       })
-      .catch(err => { if (!cancelled) setError(err?.message ?? "Failed to load deck") })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [deckId])
@@ -99,15 +147,11 @@ export default function PresenterPage() {
     ].filter(s => s.cards.length > 0)
   }, [deck])
 
-  // Flat list of all cards — one tile per quantity so spotlight cycling feels natural.
+  // Flat list of cards in presentation order — one entry per tile (i.e. per
+  // unique printing + category); spotlight cycles through this list.
   const flatCards = useMemo(() => {
     const out: PresenterCard[] = []
-    for (const s of sections) {
-      for (const c of s.cards) {
-        const n = c.quantity || 1
-        for (let i = 0; i < n; i++) out.push(c)
-      }
-    }
+    for (const s of sections) out.push(...s.cards)
     return out
   }, [sections])
 
@@ -177,14 +221,14 @@ export default function PresenterPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Exit pill — subtle, top-left */}
+      {/* Exit pill — always-visible, above the spotlight overlay so you can leave from anywhere */}
       <Link
         href={`/decks/${deckId}`}
-        className="fixed top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-900/80 border border-gray-700 text-xs text-gray-300 hover:bg-gray-800 hover:text-white backdrop-blur-sm transition-colors"
+        className="fixed top-4 left-4 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors"
         title="Exit presenter mode (Esc)"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Exit
+        <ArrowLeft className="h-4 w-4" />
+        Back to editor
       </Link>
 
       <div className="max-w-[1800px] mx-auto px-6 lg:px-10 py-8 lg:py-12">
@@ -254,15 +298,15 @@ export default function PresenterPage() {
                 <span className="text-sm text-gray-500">({cardTotal(section.cards)})</span>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 lg:gap-4">
-                {section.cards.flatMap(c => {
-                  const n = c.quantity || 1
-                  return Array.from({ length: n }).map((_, i) => (
+                {section.cards.map(c => {
+                  const qty = c.quantity || 1
+                  return (
                     <button
-                      key={`${c.printingId}-${i}`}
+                      key={c.printingId}
                       type="button"
                       onClick={() => openSpotlight(c)}
                       className="group relative aspect-[63/88] rounded-lg overflow-hidden ring-1 ring-gray-700 hover:ring-blue-400 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                      title={c.printingDetails?.display_name || c.printingDetails?.name || "Card"}
+                      title={`${qty}× ${c.printingDetails?.display_name || c.printingDetails?.name || "Card"}`}
                     >
                       {c.printingDetails?.image_url ? (
                         <img
@@ -275,8 +319,16 @@ export default function PresenterPage() {
                           {c.printingDetails?.display_name || c.printingDetails?.name || c.printingId}
                         </div>
                       )}
+                      {qty > 1 && (
+                        <span
+                          aria-label={`${qty} copies`}
+                          className="absolute bottom-2 right-2 min-w-[36px] h-9 px-2.5 rounded-full bg-blue-600/95 ring-2 ring-white/80 text-white text-base font-black flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.6)]"
+                        >
+                          ×{qty}
+                        </span>
+                      )}
                     </button>
-                  ))
+                  )
                 })}
               </div>
             </section>
@@ -320,56 +372,106 @@ export default function PresenterPage() {
           )}
 
           <div
-            className="flex flex-col lg:flex-row items-center gap-6 lg:gap-10 max-w-6xl w-full"
+            className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 max-w-6xl w-full"
             onClick={e => e.stopPropagation()}
           >
             {spotlightCard.printingDetails?.image_url && (
               <img
                 src={spotlightCard.printingDetails.image_url}
                 alt={spotlightCard.printingDetails.display_name || spotlightCard.printingDetails.name || "Card"}
-                className="w-[320px] lg:w-[420px] rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10"
+                className="w-[360px] lg:w-[560px] rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10"
               />
             )}
-            <div className="flex-1 min-w-0 text-gray-100 max-w-2xl">
-              <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <h3 className="text-3xl lg:text-4xl font-bold">
+            <div className="flex-1 min-w-0 text-gray-100 max-w-xl">
+              {/* Large qty "×N" to the left of the name when > 1 */}
+              <div className="flex items-baseline gap-4 flex-wrap">
+                {(spotlightCard.quantity || 1) > 1 && (
+                  <span className="text-6xl lg:text-7xl font-bold text-blue-300/90 leading-none">
+                    ×{spotlightCard.quantity}
+                  </span>
+                )}
+                <h3 className="text-3xl lg:text-5xl font-bold leading-tight">
                   {spotlightCard.printingDetails?.display_name || spotlightCard.printingDetails?.name}
                 </h3>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
                 {spotlightCard.printingDetails?.pitch != null && (
-                  <span className={`flex items-center gap-2 px-2.5 py-1 rounded-full ${PITCH_LABEL[spotlightCard.printingDetails.pitch]?.bg} border ${spotlightCard.printingDetails.pitch === 1 ? 'border-red-500/50' : spotlightCard.printingDetails.pitch === 2 ? 'border-yellow-500/50' : 'border-blue-500/50'} ${PITCH_LABEL[spotlightCard.printingDetails.pitch]?.text} text-sm`}>
-                    <span className={`w-2 h-2 rounded-full ${PITCH_LABEL[spotlightCard.printingDetails.pitch]?.dot}`} />
-                    {pitchName(spotlightCard.printingDetails.pitch)} pitch
+                  <span className={`flex items-center gap-2.5 px-4 py-2 rounded-full ${PITCH_LABEL[spotlightCard.printingDetails.pitch]?.bg} border-2 ${spotlightCard.printingDetails.pitch === 1 ? 'border-red-500/60' : spotlightCard.printingDetails.pitch === 2 ? 'border-yellow-500/60' : 'border-blue-500/60'} ${PITCH_LABEL[spotlightCard.printingDetails.pitch]?.text} text-base lg:text-lg font-semibold`}>
+                    <span className={`w-3 h-3 rounded-full ${PITCH_LABEL[spotlightCard.printingDetails.pitch]?.dot}`} />
+                    {pitchName(spotlightCard.printingDetails.pitch)}
                   </span>
                 )}
               </div>
-              <div className="text-sm lg:text-base text-gray-400 mb-5">
-                {spotlightCard.printingDetails?.type_text_display || spotlightCard.printingDetails?.type_text}
-              </div>
-              <div className="flex flex-wrap gap-3 text-sm lg:text-base mb-6">
-                {spotlightCard.printingDetails?.cost != null && (
-                  <div className="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-700">
-                    <span className="text-gray-400">Cost </span>
-                    <span className="font-bold text-white">{spotlightCard.printingDetails.cost}</span>
-                  </div>
-                )}
-                {spotlightCard.printingDetails?.power != null && (
-                  <div className="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-700">
-                    <span className="text-gray-400">Power </span>
-                    <span className="font-bold text-white">{spotlightCard.printingDetails.power}</span>
-                  </div>
-                )}
-                {spotlightCard.printingDetails?.defense != null && (
-                  <div className="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-700">
-                    <span className="text-gray-400">Defense </span>
-                    <span className="font-bold text-white">{spotlightCard.printingDetails.defense}</span>
-                  </div>
-                )}
-              </div>
-              {spotlightCard.printingDetails?.text && (
-                <p className="text-base lg:text-lg leading-relaxed whitespace-pre-wrap">
-                  {spotlightCard.printingDetails.text}
-                </p>
+
+              {(spotlightCard.printingDetails?.type_text_display || spotlightCard.printingDetails?.type_text) && (
+                <div className="mt-5 text-sm lg:text-base text-gray-400">
+                  {spotlightCard.printingDetails?.type_text_display || spotlightCard.printingDetails?.type_text}
+                </div>
               )}
+
+              {/* Matchup sideboard chips — when this card is sided in or out for specific matchups */}
+              {(() => {
+                const talisharId = cardTalisharId(spotlightCard)
+                if (!talisharId || matchups.length === 0) return null
+                const outIn = matchups.filter(m => m.sideboard?.out?.includes(talisharId))
+                const inIn = matchups.filter(m => m.sideboard?.in?.includes(talisharId))
+                if (outIn.length === 0 && inIn.length === 0) return null
+                const renderChip = (m: Matchup, tone: 'out' | 'in') => {
+                  const name = heroDisplayFromTalisharId(m.heroId)
+                  const img = heroImageMap.get(m.heroId)
+                  const classes = tone === 'out'
+                    ? "border-red-500/60 bg-red-900/30 text-red-50"
+                    : "border-emerald-500/60 bg-emerald-900/30 text-emerald-50"
+                  return (
+                    <span
+                      key={`${tone}-${m.heroId}`}
+                      className={`flex items-center gap-2.5 pl-1 pr-4 py-1 rounded-full border-2 ${classes} text-base font-medium`}
+                    >
+                      <span className="w-9 h-9 rounded-full overflow-hidden bg-gray-800 border border-white/20 flex-shrink-0">
+                        {img ? (
+                          <img
+                            src={img}
+                            alt={name}
+                            className="w-full h-full object-cover object-top"
+                          />
+                        ) : (
+                          <span className="flex items-center justify-center w-full h-full text-[10px] text-gray-400 uppercase">
+                            {name.slice(0, 2)}
+                          </span>
+                        )}
+                      </span>
+                      <span>{name}</span>
+                    </span>
+                  )
+                }
+                return (
+                  <div className="mt-7 space-y-4">
+                    {outIn.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-red-300 font-bold mb-2.5">
+                          <ArrowDownLeft className="h-4 w-4" />
+                          Sided out vs.
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {outIn.map(m => renderChip(m, 'out'))}
+                        </div>
+                      </div>
+                    )}
+                    {inIn.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-emerald-300 font-bold mb-2.5">
+                          <ArrowUpRight className="h-4 w-4" />
+                          Sided in vs.
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {inIn.map(m => renderChip(m, 'in'))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>
