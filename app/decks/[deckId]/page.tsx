@@ -11,6 +11,7 @@ import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
 import { KEYWORDS } from "@/lib/fab-constants/keywords";
 import { decksClient, bindersClient, wantsClient } from "@/lib/client";
+import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCardsCache } from "@/lib/client/banned-cards-client";
 import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
@@ -224,6 +225,10 @@ export default function DeckEditorPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
 
+  // Banned-card detection (populates after deck + format are known)
+  const [bannedCardIds, setBannedCardIds] = useState<Set<string>>(new Set());
+  const [switchingFormat, setSwitchingFormat] = useState(false);
+
   const handleSaveSettings = async (settings: {
     name: string;
     description: string;
@@ -306,6 +311,17 @@ export default function DeckEditorPage() {
 
   // Clear optimistic deck once the real deck refreshes from the server
   useEffect(() => { setOptimisticDeck(null); }, [state.deck]);
+
+  // Fetch banned-card list for the deck's current format (cached client-side).
+  useEffect(() => {
+    const bannedFormat = deckFormatToBannedFormat(state.deck?.format);
+    if (!bannedFormat) { setBannedCardIds(new Set()); return; }
+    let cancelled = false;
+    fetchBannedCardsForFormat(bannedFormat).then(({ ids }) => {
+      if (!cancelled) setBannedCardIds(ids);
+    });
+    return () => { cancelled = true; };
+  }, [state.deck?.format]);
 
   // Fetch curated builds for this hero (or generic lists if no hero set)
   useEffect(() => {
@@ -1675,6 +1691,72 @@ export default function DeckEditorPage() {
               )}
             </div>
 
+            {/* Deck legality strip — appears when the deck contains cards banned in its format */}
+            {state.deck && bannedCardIds.size > 0 && (() => {
+              const allCards = [
+                ...(state.deck.hero ?? []),
+                ...(state.deck.equipment ?? []),
+                ...(state.deck.maindeck ?? []),
+                ...(state.deck.inventory ?? []),
+              ];
+              const seen = new Set<string>();
+              const hits: Array<{ name: string; pitch?: number }> = [];
+              for (const c of allCards) {
+                const cuid = c.printingDetails?.card_unique_id;
+                if (!cuid || !bannedCardIds.has(cuid)) continue;
+                const key = `${cuid}-${c.printingDetails?.pitch ?? ''}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                hits.push({
+                  name: c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card',
+                  pitch: c.printingDetails?.pitch,
+                });
+              }
+              if (hits.length === 0) return null;
+              const switchToOpen = async () => {
+                if (!state.deck) return;
+                setSwitchingFormat(true);
+                try {
+                  const res = await decksClient.updateDeck(deckId, { format: 'Open' } as any);
+                  if (res.success) {
+                    invalidateBannedCardsCache();
+                    setBannedCardIds(new Set());
+                    await handlers.refreshDeck();
+                    toast({ title: 'Format switched to Open' });
+                  } else {
+                    toast({ title: 'Failed to switch format', description: res.error, variant: 'destructive' });
+                  }
+                } finally {
+                  setSwitchingFormat(false);
+                }
+              };
+              const pitchLabel = (p?: number) => p === 1 ? 'red' : p === 2 ? 'yellow' : p === 3 ? 'blue' : '';
+              return (
+                <div className="mb-3 rounded-lg border border-amber-400/70 bg-amber-50 dark:bg-amber-950/30 p-3">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        Deck contains {hits.length} card{hits.length === 1 ? '' : 's'} banned in {state.deck.format}
+                      </div>
+                      <div className="text-xs mt-1 text-amber-800 dark:text-amber-200">
+                        {hits.map(h => h.name + (h.pitch ? ` (${pitchLabel(h.pitch)})` : '')).join(' · ')}
+                      </div>
+                    </div>
+                    {canEdit && (
+                      <button
+                        onClick={switchToOpen}
+                        disabled={switchingFormat}
+                        className="text-xs px-2 py-1 rounded border border-amber-400 bg-white dark:bg-amber-900 text-amber-900 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-800 disabled:opacity-50 shrink-0"
+                      >
+                        {switchingFormat ? 'Switching…' : 'Switch to Open'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Curated build buttons — collapsible, always reserves space while loading */}
             {canEdit && (buildsLoading || curatedBuilds.length > 0) && (() => {
               return (
@@ -1817,9 +1899,11 @@ export default function DeckEditorPage() {
                           <li key={`${c.name}-${i}`}>
                             <span className="font-semibold">{c.quantity}x {titleCase(c.name)}</span>
                             {' — '}
-                            {c.reason === 'format'
-                              ? <>not legal in <span className="font-medium">{state.deck?.format ?? 'this format'}</span></>
-                              : <>no matching card found</>}
+                            {c.reason === 'banned'
+                              ? <>banned in <span className="font-medium">{state.deck?.format ?? 'this format'}</span></>
+                              : c.reason === 'format'
+                                ? <>not legal in <span className="font-medium">{state.deck?.format ?? 'this format'}</span></>
+                                : <>no matching card found</>}
                           </li>
                         ))}
                       </ul>

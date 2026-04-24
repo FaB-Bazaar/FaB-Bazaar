@@ -10,6 +10,7 @@ import { getSetName } from "@/lib/fab-formatters";
 import { getHeroInfo } from "@/lib/fab-constants/heroes";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import { decksClient, searchClient } from "@/lib/client";
+import { deckFormatToBannedFormat, fetchBannedCardsForFormat } from "@/lib/client/banned-cards-client";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
 const TALENT_SET = new Set<string>(OFFICIAL_TALENTS);
@@ -100,7 +101,7 @@ export function useDeckEditor(deckId: string) {
   const [ownershipMap, setOwnershipMap] = useState<Map<string, OwnershipEntry>>(new Map());
   const [bulkInput, setBulkInput] = useState("");
   const [bulkResults, setBulkResults] = useState<any[]>([]);
-  const [excludedBulkCards, setExcludedBulkCards] = useState<Array<{ name: string; quantity: number; reason: 'format' | 'not-found' }>>([]);
+  const [excludedBulkCards, setExcludedBulkCards] = useState<Array<{ name: string; quantity: number; reason: 'format' | 'not-found' | 'banned' }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -200,22 +201,39 @@ export function useDeckEditor(deckId: string) {
       });
 
       // When filters are active and some rows came back empty, re-query those
-      // rows without the filter to distinguish "format-excluded" from "not-found".
+      // rows without the filter to distinguish "format-excluded" / "banned" from
+      // "not-found". The fallback also yields the card_unique_id we need to
+      // cross-check against the banned list.
       let fallbackPrintings: boolean[] = [];
+      let fallbackCardUniqueIds: Array<string | null> = [];
       if (missingIndices.length > 0 && Object.keys(sharedFilters).length > 0) {
         const fallback = await searchClient.bulkSearchByNames(missingIndices.map(i => bulkCards[i]));
         if (fallback.success) {
           fallbackPrintings = fallback.data.results.map(r => r.printings.length > 0);
+          fallbackCardUniqueIds = fallback.data.results.map(r => r.printings[0]?.card_unique_id ?? null);
         }
       }
+
+      // Load banned list for this deck's format (cached client-side, 5 min)
+      const bannedFormat = deckFormatToBannedFormat(deck?.format);
+      const bannedIds = bannedFormat
+        ? (await fetchBannedCardsForFormat(bannedFormat)).ids
+        : new Set<string>();
 
       const excluded = missingIndices.map((origIdx, i) => {
         const card = parsedCards[origIdx];
         const foundWithoutFilter = fallbackPrintings[i] ?? false;
+        const cardUniqueId = fallbackCardUniqueIds[i];
+        const isBanned = !!(cardUniqueId && bannedIds.has(cardUniqueId));
+        const reason: 'banned' | 'format' | 'not-found' = isBanned
+          ? 'banned'
+          : foundWithoutFilter
+            ? 'format'
+            : 'not-found';
         return {
           name: card.name,
           quantity: card.quantity,
-          reason: foundWithoutFilter ? ('format' as const) : ('not-found' as const),
+          reason,
         };
       });
       setExcludedBulkCards(excluded);
