@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
+import { trackDeckCreate } from "@/lib/gtag";
 import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings, TALISHAR_HERO_IDS } from "@/lib/fab-constants";
 
 // Import deck-specific components
@@ -203,6 +204,14 @@ export default function DecksPage() {
         toast({
           title: "Deck created",
           description: `${deckData.name} has been created successfully.`,
+        });
+
+        trackDeckCreate({
+          deck_id: result.data.publicId,
+          deck_name: deckData.name,
+          format: deckData.format,
+          hero: deckData.hero,
+          is_public: deckData.isPublic,
         });
 
         // Navigate to the new deck builder using publicId

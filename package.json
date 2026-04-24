@@ -24,7 +24,11 @@
     "db:studio": "drizzle-kit studio",
     "test:postgres": "tsx --env-file=.env.local scripts/test-postgres.ts",
     "test:cards-printings": "tsx --env-file=.env.local scripts/test-cards-printings.ts",
-    "migrate:mongo-to-postgres": "tsx --env-file=.env.local scripts/migrate-mongo-to-postgres.ts"
+    "migrate:mongo-to-postgres": "tsx --env-file=.env.local scripts/migrate-mongo-to-postgres.ts",
+    "ga:events": "tsx --env-file=.env.local scripts/ga-report.ts events",
+    "ga:pages": "tsx --env-file=.env.local scripts/ga-report.ts pages",
+    "ga:sources": "tsx --env-file=.env.local scripts/ga-report.ts sources",
+    "ga:spike": "tsx --env-file=.env.local scripts/ga-report.ts spike"
   },
   "dependencies": {
     "@auth/core": "latest",
@@ -32,6 +36,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@google-analytics/data": "^5.2.1",
     "@hookform/resolvers": "^3.9.1",
     "@mongodb-js/zstd": "latest",
     "@radix-ui/react-accordion": "latest",

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { decksClient, bindersClient, wantsClient, searchClient } from "@/lib/client";
+import { trackDeckImport } from "@/lib/gtag";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1104,9 +1105,16 @@ export function useDeckPage(deckId: string) {
     setOptimisticDeck(null);
     await fetchDeck();
 
+    const cardsImported = result.data.summary?.totalAdded ?? importResults.length;
+    trackDeckImport({
+      deck_id: deckId,
+      cards_imported: cardsImported,
+      source: "bulk_paste",
+    });
+
     toast({
       title: "Import successful",
-      description: `Added ${result.data.summary?.totalAdded || importResults.length} cards to your deck`,
+      description: `Added ${cardsImported} cards to your deck`,
     });
   };
 

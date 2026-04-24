@@ -525,6 +525,17 @@ export class PostgresDeckService implements IDeckService {
             addedAt: new Date(),
           });
         }
+
+        // Copy metadata (matchups live here; sideboard references are Talishar
+        // card-ids that resolve against the copied card list, not printing ids,
+        // so they remain valid on the new deck).
+        if (sourceDeck[0].metadata) {
+          await db
+            .update(decks)
+            .set({ metadata: sourceDeck[0].metadata, updatedAt: new Date() })
+            .where(eq(decks.id, deckId));
+          newDeck[0].metadata = sourceDeck[0].metadata;
+        }
       }
 
       const deckDTO = await this.toDeckDTO(newDeck[0]);

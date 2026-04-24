@@ -9,6 +9,7 @@ import { sortPrintings } from "@/lib/fab-constants";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { TcgAffiliateLink } from '@/components/tracking';
+import { trackViewItem } from '@/lib/gtag';
 
 export default function ViewPrintingsDialog({
   open, onOpenChange, cardName, cardUniqueId, onSelectPrinting, currentPrintingId
@@ -32,6 +33,7 @@ export default function ViewPrintingsDialog({
 
   useEffect(() => {
     if (open && cardUniqueId) {
+      trackViewItem({ item_id: cardUniqueId, item_name: cardName });
       setLoading(true);
       setError(null);
       fetch(`/api/printings/search?cardUniqueId=${cardUniqueId}&limit=50&show=browse_bulk`)

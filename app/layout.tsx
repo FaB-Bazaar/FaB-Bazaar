@@ -17,6 +17,8 @@ import Link from "next/link"
 import { Toaster } from "@/components/ui/toaster"
 import { AdsConfigProvider } from "@/contexts/AdsConfigContext"
 import { getAdsEnabled } from "@/app/actions/siteSettingsActions"
+import { AnalyticsListener } from "@/components/analytics/AnalyticsListener"
+import { Suspense } from "react"
 
 
 
@@ -193,6 +195,9 @@ export default async function RootLayout({
           <CookieConsentProvider>
             <AuthSessionProvider>
               <AuthProvider>
+                <Suspense fallback={null}>
+                  <AnalyticsListener />
+                </Suspense>
                 <div className="relative flex flex-col min-h-screen">
                   
                   <header className="sticky top-0 z-50">
@@ -303,33 +308,6 @@ export default async function RootLayout({
           </CookieConsentProvider>
         </DarkModeProvider>
         </AdsConfigProvider>
-
-        {/* Google Analytics 4 */}
-        {process.env.NEXT_PUBLIC_GA_ID && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
-              strategy="afterInteractive"
-            />
-            <Script
-              id="ga4-config"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}', {
-                    page_path: window.location.pathname,
-                    anonymize_ip: true,
-                    allow_google_signals: false,
-                    allow_ad_personalization_signals: false,
-                  });
-                `,
-              }}
-            />
-          </>
-        )}
 
         {/* Web Components - Load after DOM is ready */}
         <Script

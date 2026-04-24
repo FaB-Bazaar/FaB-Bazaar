@@ -3,7 +3,6 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import { usePathname } from 'next/navigation'
 
 // Define window.gtag for TypeScript
 declare global {
@@ -65,7 +64,11 @@ function loadGoogleAnalytics() {
       window.dataLayer.push(arguments)
     }
     window.gtag('js', new Date())
-    window.gtag('config', gaId)
+    window.gtag('config', gaId, {
+      anonymize_ip: true,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+    })
   }
 }
 
@@ -121,19 +124,6 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
   const [showPreferences, setShowPreferences] = useState(false)
   const [scriptsLoaded, setScriptsLoaded] = useState(false)
 
-  const pathname = usePathname()
-
-  // --- 1. CUSTOMIZE THIS LIST ---
-  // Define the list of page paths where you WANT ads and analytics to run.
-  // Using .startsWith() allows you to include all sub-pages, like /cards/details/123.
-  const includedPaths = [
-    '/',
-    '/profile/',
-    '/binder',
-    '/wants',
-    '/search',
-  ];
-
   // Load consent from localStorage on component mount
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -153,32 +143,22 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     }
   }, [])
 
-  // --- 2. THE CORE LOGIC ---
-  // This effect runs when consent changes OR when the user navigates to a new page.
+  // Load analytics / ads scripts once consent is given. Path-level filtering
+  // was removed — GA now fires on every page and SPA navigation is tracked by
+  // components/analytics/AnalyticsListener.
   useEffect(() => {
-    const isOnIncludedPath = includedPaths.some(path => pathname.startsWith(path));
+    if (!consentGiven || scriptsLoaded) return
 
-    // EXIT EARLY if any of these conditions are true:
-    // 1. User has not given consent.
-    // 2. Scripts have already been loaded for this session.
-    // 3. The current page is NOT on our "allow list".
-    if (!consentGiven || scriptsLoaded || !isOnIncludedPath) {
-      return;
-    }
-
-    // If all checks pass, load the scripts according to consent preferences.
     if (consentOptions.analytics) {
       loadGoogleAnalytics()
     }
     if (consentOptions.advertising) {
       loadAdSense()
-      loadImpactTracking() // Load Impact tracking when advertising consent is granted
+      loadImpactTracking()
     }
-    
-    // Mark scripts as loaded to prevent this from running again on subsequent page navigations.
-    setScriptsLoaded(true)
 
-  }, [consentGiven, consentOptions, scriptsLoaded, pathname]) // Re-run when path or consent changes
+    setScriptsLoaded(true)
+  }, [consentGiven, consentOptions, scriptsLoaded])
 
   const acceptAll = () => {
     const allAccepted = {

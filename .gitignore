@@ -76,6 +76,10 @@ logs/
 # TLS certificates (private keys must never be committed)
 certs/
 
+# Google service-account keys — never commit these
+*service-account*.json
+ga-sa*.json
+
 # Pipeline — generated data files (runtime artifacts, not source)
 pipeline/scripts/cards.enhanced.json
 pipeline/scripts/cards.enhanced.report.json

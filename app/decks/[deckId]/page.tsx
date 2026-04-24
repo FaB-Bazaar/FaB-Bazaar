@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { cn } from "@/lib/utils";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { trackDeckView } from "@/lib/gtag";
 
 interface PackageCard {
   printingId: string;
@@ -311,6 +312,20 @@ export default function DeckEditorPage() {
 
   // Clear optimistic deck once the real deck refreshes from the server
   useEffect(() => { setOptimisticDeck(null); }, [state.deck]);
+
+  // Fire GA deck_view once per page load, when the deck is loaded
+  const deckViewTrackedRef = useRef(false);
+  useEffect(() => {
+    if (deckViewTrackedRef.current || !state.deck) return;
+    deckViewTrackedRef.current = true;
+    trackDeckView({
+      deck_id: deckId,
+      deck_name: state.deck.name,
+      format: state.deck.format,
+      hero: state.deck.heroName,
+      is_public: (state.deck as any).isPublic,
+    });
+  }, [deckId, state.deck]);
 
   // Fetch banned-card list for the deck's current format (cached client-side).
   useEffect(() => {
@@ -2068,6 +2083,15 @@ export default function DeckEditorPage() {
             {/* Matchups tab content — visible to all viewers of the deck */}
             {state.deck && (
               <div className={activeTab === "matchups" ? undefined : "hidden"}>
+                <div className="flex justify-end mb-2">
+                  <Link
+                    href={`/decks/${deckId}/matchups`}
+                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                  >
+                    Open full editor
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </Link>
+                </div>
                 <DeckMatchupsDialog
                   open={true}
                   onOpenChange={() => {}}

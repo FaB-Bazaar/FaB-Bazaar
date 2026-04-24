@@ -303,6 +303,22 @@ export default function DeckMatchupsDialog({
   // Gallery state — fullscreen card image viewer
   const [gallery, setGallery] = useState<{ heroId: string; section: 'deck' | 'inventory' } | null>(null);
 
+  // Sideboard-plan view mode — "vsDeck" (Side Out + Bring In) or "setAside" (single pile)
+  // Persisted per-user in localStorage. Only applies when viewing the inventory/sideboard gallery.
+  const [galleryView, setGalleryView] = useState<'vsDeck' | 'setAside'>('vsDeck');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fab:matchup-gallery-view');
+      if (saved === 'vsDeck' || saved === 'setAside') setGalleryView(saved);
+    } catch { /* localStorage unavailable */ }
+  }, []);
+
+  const updateGalleryView = (v: 'vsDeck' | 'setAside') => {
+    setGalleryView(v);
+    try { localStorage.setItem('fab:matchup-gallery-view', v); } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     if (!gallery) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setGallery(null); };
@@ -1035,6 +1051,48 @@ export default function DeckMatchupsDialog({
               </button>
             </div>
 
+            {/* View-mode toggle — only for the sideboard-plan (inventory) view */}
+            {isInventory && (
+              <div className="flex flex-col items-center gap-1 px-4 pt-3 pb-2 flex-shrink-0 border-b border-white/5">
+                <div
+                  role="radiogroup"
+                  aria-label="Sideboard view mode"
+                  className="inline-flex rounded-md border border-gray-700 bg-gray-950 overflow-hidden"
+                >
+                  {([
+                    { v: 'vsDeck' as const, label: 'vs Main Deck' },
+                    { v: 'setAside' as const, label: 'Set Aside' },
+                  ]).map((opt, i) => {
+                    const active = galleryView === opt.v;
+                    return (
+                      <button
+                        key={opt.v}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => updateGalleryView(opt.v)}
+                        className={`px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                          i > 0 ? 'border-l border-gray-700' : ''
+                        } ${
+                          active
+                            ? 'bg-amber-500/15 text-amber-300 border-t-[3px] border-t-amber-400'
+                            : 'text-gray-300 hover:text-white hover:bg-white/5 border-t-[3px] border-t-transparent'
+                        }`}
+                      >
+                        {active && <span aria-hidden="true">✓ </span>}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-300 text-center">
+                  {galleryView === 'vsDeck'
+                    ? 'Cards to remove from the deck · cards to bring in from the sideboard'
+                    : 'Everything not in your matchup deck — pull these from the combined pile'}
+                </p>
+              </div>
+            )}
+
             {/* ── Mobile: sectioned sideboard view (only for "Side These Out") ── */}
             {isInventory && (() => {
               const currentMatchup = matchups.find(m => m.heroId === gallery?.heroId);
@@ -1046,7 +1104,7 @@ export default function DeckMatchupsDialog({
                 { key: 'unpitched' as const, label: 'Library',             dot: 'bg-gray-500' },
               ];
 
-              // Dedup sideboard.out into { talisharId, count } grouped by section
+              // vsDeck view — dedup sideboard.out grouped by section + sideboard.in
               const outBySection = new Map<string, Map<string, number>>();
               for (const s of SECTION_CONFIG) outBySection.set(s.key, new Map());
               for (const id of currentMatchup?.sideboard?.out ?? []) {
@@ -1055,11 +1113,18 @@ export default function DeckMatchupsDialog({
                 m.set(id, (m.get(id) ?? 0) + 1);
               }
 
-              // Dedup sideboard.in
               const inCounts = new Map<string, number>();
               for (const id of currentMatchup?.sideboard?.in ?? []) {
                 inCounts.set(id, (inCounts.get(id) ?? 0) + 1);
               }
+
+              // setAside view — galleryCards is already (inventory + out − in); group by section.
+              const setAsideBySection = new Map<string, GalleryCard[]>();
+              for (const s of SECTION_CONFIG) setAsideBySection.set(s.key, []);
+              for (const card of galleryCards) {
+                setAsideBySection.get(getCardSection(card.talisharId))!.push(card);
+              }
+              const setAsideEmpty = galleryCards.length === 0;
 
               const CardImg = ({ card }: { card: GalleryCard }) => (
                 <div className="flex flex-col gap-1">
@@ -1079,70 +1144,74 @@ export default function DeckMatchupsDialog({
                 </div>
               );
 
+              const gridCls = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3';
+
               return (
-                <>
-                  {/* Mobile sectioned view */}
-                  <div className="md:hidden flex-1 overflow-y-scroll overscroll-contain p-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <div className="flex-1 overflow-y-scroll overscroll-contain p-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  {galleryView === 'vsDeck' ? (
+                    <>
+                      {/* Side Out — grouped by deck section */}
+                      <div>
+                        <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Side Out</p>
+                        {SECTION_CONFIG.every(s => (outBySection.get(s.key)?.size ?? 0) === 0) ? (
+                          <p className="text-sm text-gray-300 italic">No cards to side out.</p>
+                        ) : SECTION_CONFIG.map(s => {
+                          const cards = outBySection.get(s.key)!;
+                          if (cards.size === 0) return null;
+                          return (
+                            <div key={s.key} className="mb-4">
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+                                <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">{s.label}</p>
+                              </div>
+                              <div className={gridCls}>
+                                {Array.from(cards.entries()).map(([id, qty]) => {
+                                  const gc = galleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
+                                  return <CardImg key={id} card={{ ...gc, count: qty }} />;
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Bring In */}
+                      {inCounts.size > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3">Bring In</p>
+                          <div className={gridCls}>
+                            {Array.from(inCounts.entries()).map(([id, qty]) => {
+                              const gc = inventoryGalleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
+                              return <CardImg key={id} card={{ ...gc, count: qty }} />;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    /* Set Aside — single pile of everything not in the matchup deck */
                     <div>
                       <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Side Out</p>
-                      {SECTION_CONFIG.every(s => (outBySection.get(s.key)?.size ?? 0) === 0) ? (
-                        <p className="text-sm text-gray-400 italic">No cards to side out.</p>
+                      {setAsideEmpty ? (
+                        <p className="text-sm text-gray-300 italic">Nothing to set aside.</p>
                       ) : SECTION_CONFIG.map(s => {
-                        const cards = outBySection.get(s.key)!;
-                        if (cards.size === 0) return null;
+                        const cards = setAsideBySection.get(s.key)!;
+                        if (cards.length === 0) return null;
                         return (
                           <div key={s.key} className="mb-4">
                             <div className="flex items-center gap-1.5 mb-2">
                               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
                               <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">{s.label}</p>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                              {Array.from(cards.entries()).map(([id, qty]) => {
-                                const gc = galleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
-                                return <CardImg key={id} card={{ ...gc, count: qty }} />;
-                              })}
+                            <div className={gridCls}>
+                              {cards.map(card => <CardImg key={card.talisharId} card={card} />)}
                             </div>
                           </div>
                         );
                       })}
                     </div>
-
-                    {inCounts.size > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3">Bring In</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {Array.from(inCounts.entries()).map(([id, qty]) => {
-                            const gc = inventoryGalleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
-                            return <CardImg key={id} card={{ ...gc, count: qty }} />;
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Desktop: existing flat grid */}
-                  <div className="hidden md:block flex-1 overflow-y-scroll overscroll-contain p-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-                      {galleryCards.map((card) => (
-                        <div key={card.talisharId} className="flex flex-col gap-1.5">
-                          <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
-                              alt={card.displayName}
-                              className="w-full h-full object-cover object-top"
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-300 font-sans text-center leading-tight truncate">
-                            {card.count > 1 && <span className="text-gray-400 font-bold">{card.count}× </span>}
-                            {card.displayName}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                  )}
+                </div>
               );
             })()}
 

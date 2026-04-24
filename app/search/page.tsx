@@ -23,6 +23,7 @@ import {
 } from '@/lib/client/browse-cache';
 import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
+import { trackSearch } from '@/lib/gtag';
 
 // Module-level parser instance (stateless, safe to share)
 const shorthandParser = new FABShorthandParser();
@@ -265,6 +266,15 @@ export default function SearchPage() {
       selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
       sortBy, sortOrder]);
+
+  // Fire GA search event when the debounced query stabilizes
+  useEffect(() => {
+    if (!effectiveQuery) return
+    trackSearch({
+      search_term: effectiveQuery,
+      result_count: displayedPrintings.length,
+    })
+  }, [effectiveQuery, displayedPrintings.length]);
 
   // Reset to first page whenever the filtered result set changes
   useEffect(() => { setDisplayLimit(60); }, [displayedPrintings]);

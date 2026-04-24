@@ -101,7 +101,7 @@ export default function PrivacyPolicy() {
         <ul className="list-disc pl-6 mb-4">
           <li><strong>Necessary Cookies:</strong> Essential for platform functionality, authentication, and security (always active)</li>
           <li><strong>Functional Cookies:</strong> Remember your preferences (dark mode, language, local store settings)</li>
-          <li><strong>Analytics Cookies:</strong> Google Analytics data to understand usage patterns and improve our services</li>
+          <li><strong>Analytics Cookies:</strong> Google Analytics 4 data to understand usage patterns and improve our services. Google Analytics scripts are not loaded until you grant analytics consent — no tracking occurs before your choice. When enabled, we track: page views, card searches (including the search term you enter), card detail views, deck views, deck creation, deck imports, Presenter mode opens, and login events. We also set a user-type property (anonymous or authenticated) on each session. Deck names you create are included as a parameter on deck-related events. We do <strong>not</strong> send your email, user ID, or Discord identifier to Google Analytics. IP addresses are anonymized, and Google Signals and ad personalization are disabled for analytics.</li>
           <li><strong>Advertising Cookies:</strong> Google AdSense cookies for relevant ad display and performance measurement</li>
           <li><strong>Affiliate Cookies:</strong> Track affiliate referrals and partnerships when you've consented to advertising cookies</li>
         </ul>
@@ -146,8 +146,8 @@ export default function PrivacyPolicy() {
 
         <h3 className="text-xl font-medium mt-4 mb-2">6.3 Data and Infrastructure</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>MongoDB Atlas:</strong> Database hosting and data storage</li>
-          <li><strong>Cloud Hosting Services:</strong> Platform infrastructure and content delivery</li>
+          <li><strong>PostgreSQL (self-hosted):</strong> Database hosting and data storage on infrastructure we operate directly</li>
+          <li><strong>Cloud Hosting Services:</strong> Platform infrastructure, DNS, and content delivery (including Cloudflare)</li>
           <li><strong>TCG Pricing APIs:</strong> Card pricing and market data (for informational purposes only)</li>
         </ul>
 
@@ -222,7 +222,7 @@ export default function PrivacyPolicy() {
         <ul className="list-disc pl-6 mb-4">
           <li><strong>Account Data:</strong> Retained while your account is active and for 2 years after deletion</li>
           <li><strong>Trade Workflow Tracking:</strong> Retained for 3 years for user safety, platform improvement, and legal compliance</li>
-          <li><strong>Analytics Data:</strong> Anonymized after 26 months in accordance with Google Analytics policies</li>
+          <li><strong>Analytics Data:</strong> Retained for up to 14 months in Google Analytics 4, per our configured retention setting; events older than the retention window are automatically deleted by Google</li>
           <li><strong>Communication Logs:</strong> Retained for 1 year for support and safety purposes</li>
           <li><strong>Violation Records:</strong> Records of Terms of Service violations (sales attempts, fraud) retained for 5 years for platform safety</li>
           <li><strong>Legal Compliance:</strong> Some data may be retained longer if required by law</li>
@@ -235,9 +235,9 @@ export default function PrivacyPolicy() {
           appropriate safeguards are in place for international transfers, including:
         </p>
         <ul className="list-disc pl-6 mb-4">
-          <li>Adherence to Privacy Shield principles where applicable</li>
-          <li>Standard contractual clauses with service providers</li>
-          <li>Ensuring adequate level of protection for your data</li>
+          <li>Adherence to the EU-US Data Privacy Framework where applicable</li>
+          <li>Standard Contractual Clauses (SCCs) with service providers for transfers outside the EEA/UK</li>
+          <li>Ensuring an adequate level of protection for your data through technical and contractual safeguards</li>
         </ul>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">11. Children's Privacy</h2>

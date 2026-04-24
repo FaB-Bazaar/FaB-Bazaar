@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowU
 import { toTalisharIdentifier } from "@/lib/utils"
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants"
 import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
+import { trackDeckPresent } from "@/lib/gtag"
 
 interface PresenterCard {
   printingId: string
@@ -113,6 +114,12 @@ export default function PresenterPage() {
           setError(deckBody?.error || "Failed to load deck")
         } else {
           setDeck(deckBody.data)
+          trackDeckPresent({
+            deck_id: deckId,
+            deck_name: deckBody.data?.name,
+            format: deckBody.data?.format,
+            hero: deckBody.data?.heroName,
+          })
         }
         if (muBody?.success) setMatchups(muBody.data?.matchups ?? [])
 
