@@ -1,6 +1,6 @@
 import { db } from '@/lib/postgres/db'
 import { bannedCards } from '@/lib/postgres/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type {
   BannedCardDTO,
@@ -12,6 +12,36 @@ import type {
 import type { AsyncResult } from '../../contracts/common'
 
 type BannedCardRow = typeof bannedCards.$inferSelect
+
+/**
+ * Drizzle wraps pg errors so `.message` is just `"Failed query: <sql>"` and
+ * the real cause sits in `.cause`. Walk the cause chain to pull pg-specific
+ * fields (code / detail / hint) so admins see a useful error.
+ */
+function describeError(err: unknown, fallback: string): string {
+  console.error('[BannedCardsService]', fallback, err)
+  if (!(err instanceof Error)) return fallback
+  let cause: unknown = err
+  let pgLike: any = null
+  while (cause instanceof Error) {
+    const c: any = cause
+    if (typeof c.code === 'string' || c.severity || c.detail || c.hint) {
+      pgLike = c
+      break
+    }
+    cause = c.cause
+  }
+  if (pgLike) {
+    const parts = [
+      pgLike.code ? `[${pgLike.code}]` : null,
+      pgLike.message,
+      pgLike.detail ? `detail: ${pgLike.detail}` : null,
+      pgLike.hint ? `hint: ${pgLike.hint}` : null,
+    ].filter(Boolean)
+    return parts.join(' — ')
+  }
+  return err.message || fallback
+}
 
 function toDTO(row: BannedCardRow): BannedCardDTO {
   return {
@@ -52,7 +82,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
 
       return { success: true, data: rows.map(toDTO) }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to list banned cards' }
+      return { success: false, error: describeError(err, 'Failed to list banned cards') }
     }
   }
 
@@ -71,7 +101,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
         .limit(1)
       return { success: true, data: rows.length > 0 }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to check ban status' }
+      return { success: false, error: describeError(err, 'Failed to check ban status') }
     }
   }
 
@@ -109,7 +139,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
       }
       return { success: true, data: toDTO(row[0]) }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to upsert banned card' }
+      return { success: false, error: describeError(err, 'Failed to upsert banned card') }
     }
   }
 
@@ -123,7 +153,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
       if (!row[0]) return { success: false, error: 'Banned card not found' }
       return { success: true, data: toDTO(row[0]) }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to update ban status' }
+      return { success: false, error: describeError(err, 'Failed to update ban status') }
     }
   }
 
@@ -132,7 +162,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
       await db.delete(bannedCards).where(eq(bannedCards.id, id))
       return { success: true, data: undefined }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to delete banned card' }
+      return { success: false, error: describeError(err, 'Failed to delete banned card') }
     }
   }
 
@@ -235,7 +265,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
         data: { format, added, updated, deactivated, unchanged },
       }
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to sync banned cards' }
+      return { success: false, error: describeError(err, 'Failed to sync banned cards') }
     }
   }
 }
