@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth/multi-auth'
 import { bannedCardsService, userService } from '@/lib/services'
-import { BANNED_FORMATS, type BannedFormat } from '@/lib/services/contracts/IBannedCardsService'
+import {
+  BANNED_FORMATS,
+  type BannedFormat,
+  type RestrictionType,
+} from '@/lib/services/contracts/IBannedCardsService'
 import { getRedisClient } from '@/lib/redis'
 
-const FAB_CUBE_URL: Partial<Record<BannedFormat, string>> = {
-  silver_age: 'https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/banned-silver-age.json',
-  classic_constructed: 'https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/banned-cc.json',
-  // Living Legend / Blitz don't have separate upstream lists maintained by the-fab-cube today.
-  // Add more entries here if/when they publish them.
+/**
+ * Per (format, restrictionType), the upstream FaB-cube JSON URL. Add entries
+ * here as new ban/restricted lists get published.
+ */
+const FAB_CUBE_URLS: Partial<Record<BannedFormat, Partial<Record<RestrictionType, string>>>> = {
+  silver_age: {
+    banned: 'https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/banned-silver-age.json',
+  },
+  classic_constructed: {
+    banned: 'https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/banned-cc.json',
+  },
+  living_legend: {
+    banned: 'https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/banned-ll.json',
+    restricted: 'https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/restricted-ll.json',
+  },
 }
 
 function isValidFormat(f: string): f is BannedFormat {
@@ -17,8 +31,10 @@ function isValidFormat(f: string): f is BannedFormat {
 
 /**
  * POST /api/banned-cards/sync
- * Superadmin only. Body: { format }
- * Fetches the FaB-cube JSON for the format, diffs against local rows, upserts.
+ * Superadmin only. Body: { format, restrictionType? }
+ *   restrictionType defaults to 'banned'. Pass 'restricted' to sync the LL
+ *   restricted-1-per-deck list.
+ * Fetches the FaB-cube JSON, diffs against local rows, upserts.
  */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
@@ -38,13 +54,18 @@ export async function POST(request: NextRequest) {
   }
 
   const { format } = body
+  const restrictionType: RestrictionType = body.restrictionType === 'restricted' ? 'restricted' : 'banned'
+
   if (!isValidFormat(format)) {
     return NextResponse.json({ success: false, error: `Invalid format. Must be one of: ${BANNED_FORMATS.join(', ')}` }, { status: 400 })
   }
 
-  const url = FAB_CUBE_URL[format]
+  const url = FAB_CUBE_URLS[format]?.[restrictionType]
   if (!url) {
-    return NextResponse.json({ success: false, error: `No upstream source configured for format "${format}"` }, { status: 400 })
+    return NextResponse.json(
+      { success: false, error: `No upstream source configured for ${format} / ${restrictionType}` },
+      { status: 400 },
+    )
   }
 
   let upstream: unknown
@@ -65,12 +86,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Upstream payload is not an array' }, { status: 502 })
   }
 
-  const result = await bannedCardsService.syncFromUpstream(format, upstream as any[])
+  const result = await bannedCardsService.syncFromUpstream(format, restrictionType, upstream as any[])
   if (!result.success) {
     return NextResponse.json({ success: false, error: result.error }, { status: 500 })
   }
 
-  // Invalidate cache for this format
+  // Invalidate cache for this format (covers both restriction types)
   const redis = getRedisClient()
   if (redis) {
     try { await redis.del(`banned-cards:${format}`) } catch { /* best-effort */ }

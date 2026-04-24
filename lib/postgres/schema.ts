@@ -1239,6 +1239,7 @@ export const bannedCards = pgTable('banned_cards', {
   id: text('id').primaryKey(),
   cardUniqueId: text('card_unique_id').notNull(),
   format: text('format').notNull(),
+  restrictionType: text('restriction_type').default('banned').notNull(),
   sourceUniqueId: text('source_unique_id'),
   statusActive: boolean('status_active').default(true).notNull(),
   dateAnnounced: timestamp('date_announced'),
@@ -1247,7 +1248,7 @@ export const bannedCards = pgTable('banned_cards', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  cardFormatUnique: uniqueIndex('banned_cards_card_unique_id_format_unique').on(table.cardUniqueId, table.format),
+  cardFormatRestrictionUnique: uniqueIndex('banned_cards_card_unique_id_format_restriction_unique').on(table.cardUniqueId, table.format, table.restrictionType),
   formatActiveIdx: index('banned_cards_format_active_idx').on(table.format, table.statusActive),
   cardUniqueIdIdx: index('banned_cards_card_unique_id_idx').on(table.cardUniqueId),
 }));

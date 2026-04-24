@@ -8,6 +8,7 @@ import type {
   BannedCardUpsertInput,
   BannedFormat,
   IBannedCardsService,
+  RestrictionType,
 } from '../../contracts/IBannedCardsService'
 import type { AsyncResult } from '../../contracts/common'
 
@@ -48,6 +49,7 @@ function toDTO(row: BannedCardRow): BannedCardDTO {
     id: row.id,
     cardUniqueId: row.cardUniqueId,
     format: row.format as BannedFormat,
+    restrictionType: row.restrictionType as RestrictionType,
     sourceUniqueId: row.sourceUniqueId ?? null,
     statusActive: row.statusActive,
     dateAnnounced: row.dateAnnounced ? row.dateAnnounced.toISOString() : null,
@@ -67,18 +69,18 @@ function toDate(value?: string | null): Date | null {
 export class PostgresBannedCardsService implements IBannedCardsService {
   async listByFormat(
     format: BannedFormat,
-    opts?: { includeInactive?: boolean },
+    opts?: { includeInactive?: boolean; restrictionType?: RestrictionType },
   ): AsyncResult<BannedCardDTO[]> {
     try {
-      const where = opts?.includeInactive
-        ? eq(bannedCards.format, format)
-        : and(eq(bannedCards.format, format), eq(bannedCards.statusActive, true))!
+      const conditions = [eq(bannedCards.format, format)]
+      if (!opts?.includeInactive) conditions.push(eq(bannedCards.statusActive, true))
+      if (opts?.restrictionType) conditions.push(eq(bannedCards.restrictionType, opts.restrictionType))
 
       const rows = await db
         .select()
         .from(bannedCards)
-        .where(where)
-        .orderBy(bannedCards.cardUniqueId)
+        .where(and(...conditions))
+        .orderBy(bannedCards.restrictionType, bannedCards.cardUniqueId)
 
       return { success: true, data: rows.map(toDTO) }
     } catch (err) {
@@ -86,7 +88,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
     }
   }
 
-  async isBanned(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean> {
+  private async hasActiveRestriction(cardUniqueId: string, format: BannedFormat, restrictionType: RestrictionType): AsyncResult<boolean> {
     try {
       const rows = await db
         .select({ id: bannedCards.id })
@@ -95,25 +97,36 @@ export class PostgresBannedCardsService implements IBannedCardsService {
           and(
             eq(bannedCards.cardUniqueId, cardUniqueId),
             eq(bannedCards.format, format),
+            eq(bannedCards.restrictionType, restrictionType),
             eq(bannedCards.statusActive, true),
           ),
         )
         .limit(1)
       return { success: true, data: rows.length > 0 }
     } catch (err) {
-      return { success: false, error: describeError(err, 'Failed to check ban status') }
+      return { success: false, error: describeError(err, 'Failed to check restriction status') }
     }
+  }
+
+  async isBanned(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean> {
+    return this.hasActiveRestriction(cardUniqueId, format, 'banned')
+  }
+
+  async isRestricted(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean> {
+    return this.hasActiveRestriction(cardUniqueId, format, 'restricted')
   }
 
   async upsert(input: BannedCardUpsertInput): AsyncResult<BannedCardDTO> {
     try {
       const now = new Date()
+      const restrictionType = input.restrictionType ?? 'banned'
       const row = await db
         .insert(bannedCards)
         .values({
           id: nanoid(),
           cardUniqueId: input.cardUniqueId,
           format: input.format,
+          restrictionType,
           sourceUniqueId: input.sourceUniqueId ?? null,
           statusActive: input.statusActive ?? true,
           dateAnnounced: toDate(input.dateAnnounced),
@@ -122,7 +135,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
           updatedAt: now,
         })
         .onConflictDoUpdate({
-          target: [bannedCards.cardUniqueId, bannedCards.format],
+          target: [bannedCards.cardUniqueId, bannedCards.format, bannedCards.restrictionType],
           set: {
             sourceUniqueId: input.sourceUniqueId ?? null,
             statusActive: input.statusActive ?? true,
@@ -168,6 +181,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
 
   async syncFromUpstream(
     format: BannedFormat,
+    restrictionType: RestrictionType,
     entries: Array<{
       card_unique_id: string
       unique_id?: string
@@ -182,7 +196,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
       const existingRows = await db
         .select()
         .from(bannedCards)
-        .where(eq(bannedCards.format, format))
+        .where(and(eq(bannedCards.format, format), eq(bannedCards.restrictionType, restrictionType))!)
 
       const existingByCard = new Map(existingRows.map(r => [r.cardUniqueId, r]))
 
@@ -216,6 +230,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
             id: nanoid(),
             cardUniqueId: entry.card_unique_id,
             format,
+            restrictionType,
             sourceUniqueId: entry.unique_id ?? null,
             statusActive,
             dateAnnounced: toDate(entry.date_announced),
@@ -262,7 +277,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
 
       return {
         success: true,
-        data: { format, added, updated, deactivated, unchanged },
+        data: { format, restrictionType, added, updated, deactivated, unchanged },
       }
     } catch (err) {
       return { success: false, error: describeError(err, 'Failed to sync banned cards') }

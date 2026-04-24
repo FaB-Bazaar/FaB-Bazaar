@@ -25,10 +25,15 @@ export const BANNED_FORMATS: readonly BannedFormat[] = [
   'open',
 ] as const
 
+export type RestrictionType = 'banned' | 'restricted'
+
+export const RESTRICTION_TYPES: readonly RestrictionType[] = ['banned', 'restricted'] as const
+
 export interface BannedCardDTO {
   id: string
   cardUniqueId: string
   format: BannedFormat
+  restrictionType: RestrictionType
   sourceUniqueId: string | null
   statusActive: boolean
   dateAnnounced: string | null
@@ -41,6 +46,7 @@ export interface BannedCardDTO {
 export interface BannedCardUpsertInput {
   cardUniqueId: string
   format: BannedFormat
+  restrictionType?: RestrictionType
   sourceUniqueId?: string | null
   statusActive?: boolean
   dateAnnounced?: string | null
@@ -50,6 +56,7 @@ export interface BannedCardUpsertInput {
 
 export interface BannedCardSyncResult {
   format: BannedFormat
+  restrictionType: RestrictionType
   added: number
   updated: number
   deactivated: number
@@ -57,13 +64,16 @@ export interface BannedCardSyncResult {
 }
 
 export interface IBannedCardsService {
-  /** List entries for a format (active only by default). */
-  listByFormat(format: BannedFormat, opts?: { includeInactive?: boolean }): AsyncResult<BannedCardDTO[]>
+  /** List entries for a format (active only by default). Filter by restrictionType if given. */
+  listByFormat(format: BannedFormat, opts?: { includeInactive?: boolean; restrictionType?: RestrictionType }): AsyncResult<BannedCardDTO[]>
 
-  /** Fast check used by validators. Returns true iff the card is in an active ban for the format. */
+  /** Fast check: is the card in an active ban (restriction_type='banned') for the format? */
   isBanned(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean>
 
-  /** Upsert by (cardUniqueId, format). */
+  /** Fast check: is the card in an active restriction (restriction_type='restricted', 1-per-deck)? */
+  isRestricted(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean>
+
+  /** Upsert by (cardUniqueId, format, restrictionType). */
   upsert(input: BannedCardUpsertInput): AsyncResult<BannedCardDTO>
 
   /** Toggle status_active (soft-delete preserves history). */
@@ -73,12 +83,13 @@ export interface IBannedCardsService {
   deleteById(id: string): AsyncResult<void>
 
   /**
-   * Bulk upsert from a FaB-cube banned JSON array. Entries with the same
-   * (cardUniqueId, format) are updated; entries missing from the payload that
-   * are currently active get deactivated (treated as unbanned upstream).
+   * Bulk upsert from a FaB-cube banned/restricted JSON array. Entries with the
+   * same (cardUniqueId, format, restrictionType) are updated; entries missing
+   * from the payload that are currently active get deactivated.
    */
   syncFromUpstream(
     format: BannedFormat,
+    restrictionType: RestrictionType,
     entries: Array<{
       card_unique_id: string
       unique_id?: string

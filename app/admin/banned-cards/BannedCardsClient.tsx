@@ -7,15 +7,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, RefreshCw, Plus } from 'lucide-react'
-import type { BannedCardDTO, BannedFormat } from '@/lib/services/contracts/IBannedCardsService'
+import type { BannedCardDTO, BannedFormat, RestrictionType } from '@/lib/services/contracts/IBannedCardsService'
 
 interface FormatBucket {
   format: BannedFormat
   entries: BannedCardDTO[]
 }
 
-// Formats we actually have upstream data for (mirrors app/api/banned-cards/sync/route.ts).
-const SYNCABLE_FORMATS: BannedFormat[] = ['silver_age', 'classic_constructed']
+// Per-format upstream data availability (mirrors app/api/banned-cards/sync/route.ts).
+const SYNC_BUTTONS: Partial<Record<BannedFormat, RestrictionType[]>> = {
+  silver_age: ['banned'],
+  classic_constructed: ['banned'],
+  living_legend: ['banned', 'restricted'],
+}
 
 function formatLabel(format: BannedFormat): string {
   return format.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
@@ -26,7 +30,7 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
   const [filter, setFilter] = useState('')
   const [newCardId, setNewCardId] = useState<Record<BannedFormat, string>>({} as any)
   const [pending, startTransition] = useTransition()
-  const [syncingFormat, setSyncingFormat] = useState<BannedFormat | null>(null)
+  const [syncing, setSyncing] = useState<string | null>(null) // key: `${format}:${restrictionType}`
   const { toast } = useToast()
 
   const refreshBucket = async (format: BannedFormat) => {
@@ -77,14 +81,15 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
     })
   }
 
-  const syncFromFab = async (format: BannedFormat) => {
-    setSyncingFormat(format)
+  const syncFromFab = async (format: BannedFormat, restrictionType: RestrictionType) => {
+    const key = `${format}:${restrictionType}`
+    setSyncing(key)
     try {
       const res = await fetch('/api/banned-cards/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ format }),
+        body: JSON.stringify({ format, restrictionType }),
       })
       const body = await res.json()
       if (!body.success) {
@@ -93,12 +98,12 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
       }
       const { added, updated, deactivated, unchanged } = body.data
       toast({
-        title: `Synced ${formatLabel(format)}`,
+        title: `Synced ${formatLabel(format)} (${restrictionType})`,
         description: `+${added} added · ${updated} updated · ${deactivated} deactivated · ${unchanged} unchanged`,
       })
       await refreshBucket(format)
     } finally {
-      setSyncingFormat(null)
+      setSyncing(null)
     }
   }
 
@@ -139,19 +144,24 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
 
         {visibleBuckets.map(bucket => (
           <TabsContent key={bucket.format} value={bucket.format}>
-            <div className="flex items-center gap-2 mb-4">
-              {SYNCABLE_FORMATS.includes(bucket.format) && (
-                <Button
-                  variant="outline"
-                  onClick={() => syncFromFab(bucket.format)}
-                  disabled={syncingFormat === bucket.format}
-                >
-                  {syncingFormat === bucket.format
-                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    : <RefreshCw className="h-4 w-4 mr-2" />}
-                  Sync from FaB
-                </Button>
-              )}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              {(SYNC_BUTTONS[bucket.format] ?? []).map(rt => {
+                const key = `${bucket.format}:${rt}`
+                const busy = syncing === key
+                return (
+                  <Button
+                    key={key}
+                    variant="outline"
+                    onClick={() => syncFromFab(bucket.format, rt)}
+                    disabled={syncing !== null}
+                  >
+                    {busy
+                      ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      : <RefreshCw className="h-4 w-4 mr-2" />}
+                    Sync {rt === 'restricted' ? 'restricted' : 'banned'} from FaB
+                  </Button>
+                )
+              })}
               <div className="flex items-center gap-2 ml-auto">
                 <Input
                   placeholder="card_unique_id"
@@ -171,6 +181,7 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
                 <thead className="bg-muted">
                   <tr>
                     <th className="text-left p-2">card_unique_id</th>
+                    <th className="text-left p-2">type</th>
                     <th className="text-left p-2">source_unique_id</th>
                     <th className="text-left p-2">date_in_effect</th>
                     <th className="text-left p-2">status</th>
@@ -179,10 +190,15 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
                 </thead>
                 <tbody>
                   {bucket.entries.length === 0 ? (
-                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">No entries</td></tr>
+                    <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No entries</td></tr>
                   ) : bucket.entries.map(e => (
                     <tr key={e.id} className="border-t">
                       <td className="p-2 font-mono text-xs">{e.cardUniqueId}</td>
+                      <td className="p-2">
+                        {e.restrictionType === 'restricted'
+                          ? <Badge variant="secondary" className="border-orange-500 text-orange-700 dark:text-orange-300">restricted (1)</Badge>
+                          : <Badge variant="destructive">banned</Badge>}
+                      </td>
                       <td className="p-2 font-mono text-xs text-muted-foreground">{e.sourceUniqueId ?? '—'}</td>
                       <td className="p-2 text-xs text-muted-foreground">{e.dateInEffect?.slice(0, 10) ?? '—'}</td>
                       <td className="p-2">
