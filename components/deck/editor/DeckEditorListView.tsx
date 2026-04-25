@@ -63,7 +63,56 @@ type HoverExtras = {
   tcgplayerUrl?: string;
   tcgLow?: number;
   otherFaceUrl?: string;
+  collectorNumber?: string;
+  setCode?: string;
+  edition?: string;
+  foiling?: string;
+  rarity?: string;
+  pitch?: number | null;
+  cost?: number | null;
+  power?: number | null;
+  defense?: number | null;
+  typeText?: string;
 };
+
+// Build HoverExtras from a DeckTileCard (tile / game views).
+function tileToExtras(tile: { tcgplayerUrl?: string; tcgLow?: number; otherFaceImageUrl?: string; collectorNumber?: string; setCode?: string; edition?: string; foiling?: string; rarity?: string; pitch?: number | null; cost?: number | null; power?: number | null; defense?: number | null; typeText?: string }): HoverExtras {
+  return {
+    tcgplayerUrl: tile.tcgplayerUrl,
+    tcgLow: tile.tcgLow,
+    otherFaceUrl: tile.otherFaceImageUrl,
+    collectorNumber: tile.collectorNumber,
+    setCode: tile.setCode,
+    edition: tile.edition,
+    foiling: tile.foiling,
+    rarity: tile.rarity,
+    pitch: tile.pitch ?? null,
+    cost: tile.cost ?? null,
+    power: tile.power ?? null,
+    defense: tile.defense ?? null,
+    typeText: tile.typeText,
+  };
+}
+
+// Build a HoverExtras payload from a printing's full printingDetails (list view).
+function extrasFromPrintingDetails(pd: any): HoverExtras {
+  if (!pd) return {};
+  return {
+    tcgplayerUrl: pd.tcgplayer_url || undefined,
+    tcgLow: typeof pd.tcg_low === 'number' ? pd.tcg_low : undefined,
+    otherFaceUrl: pd.other_face_image_url || undefined,
+    collectorNumber: pd.collector_number || undefined,
+    setCode: pd.set || undefined,
+    edition: pd.edition || undefined,
+    foiling: pd.foiling || undefined,
+    rarity: pd.rarity || undefined,
+    pitch: pd.pitch ?? null,
+    cost: pd.cost ?? null,
+    power: pd.power ?? null,
+    defense: pd.defense ?? null,
+    typeText: pd.type_text_display || pd.type_text || undefined,
+  };
+}
 
 // Extract data-dense list view fields from a printing (cost, P/D, type, class).
 // Card-level fields are identical across reprints, so we read from the first printing.
@@ -236,11 +285,7 @@ function GroupedCardRow({
         className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group"
         onMouseEnter={isTouchDevice ? undefined : () => {
           if (!group.imageUrl) return;
-          const pd = group.printings[0]?.printingDetails as any;
-          onHoverImage(group.imageUrl, group.displayName, {
-            tcgplayerUrl: pd?.tcgplayer_url,
-            tcgLow: typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined,
-          });
+          onHoverImage(group.imageUrl, group.displayName, extrasFromPrintingDetails(group.printings[0]?.printingDetails));
         }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
@@ -330,11 +375,7 @@ function GroupedCardRow({
                 className="flex items-center gap-2 py-1 px-3 hover:bg-gray-100 dark:hover:bg-gray-800/50 group/pr border-t border-gray-100 dark:border-gray-800"
                 onMouseEnter={isTouchDevice ? undefined : () => {
                   if (!prImageUrl) return;
-                  const pd = pr.printingDetails as any;
-                  onHoverImage(prImageUrl, group.displayName, {
-                    tcgplayerUrl: pd?.tcgplayer_url,
-                    tcgLow: typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined,
-                  });
+                  onHoverImage(prImageUrl, group.displayName, extrasFromPrintingDetails(pr.printingDetails));
                 }}
                 onMouseLeave={isTouchDevice ? undefined : onClearImage}
               >
@@ -444,6 +485,12 @@ interface DeckTileCard {
   otherFaceImageUrl?: string;
   /** Raw foiling code ('R', 'C', 'S', 'G', etc.) — used for foil shimmer effect */
   foiling?: string;
+  /** Printing identity for the rail-level preview */
+  collectorNumber?: string;
+  setCode?: string;
+  edition?: string;
+  rarity?: string;
+  typeText?: string;
 }
 
 interface DeckTileSectionData {
@@ -499,6 +546,11 @@ function buildTileSections(deck: DeckDTO): DeckTileSectionData[] {
           tcgLow: pd?.tcg_low ?? undefined,
           otherFaceImageUrl: pd?.other_face_image_url ?? undefined,
           foiling: pd?.foiling ?? undefined,
+          collectorNumber: pd?.collector_number ?? undefined,
+          setCode: pd?.set ?? undefined,
+          edition: pd?.edition ?? undefined,
+          rarity: pd?.rarity ?? undefined,
+          typeText: pd?.type_text_display || pd?.type_text || undefined,
         });
       }
     }
@@ -688,11 +740,7 @@ function DeckTileSection({
               className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
               style={{ width: 28 }}
               title={`${heroPortrait.name} — click to enlarge`}
-              onMouseEnter={() => heroPortrait.imageUrl && onHover(heroPortrait.imageUrl, heroPortrait.name, {
-                tcgplayerUrl: heroPortrait.tcgplayerUrl,
-                tcgLow: heroPortrait.tcgLow,
-                otherFaceUrl: heroPortrait.otherFaceImageUrl,
-              })}
+              onMouseEnter={() => heroPortrait.imageUrl && onHover(heroPortrait.imageUrl, heroPortrait.name, tileToExtras(heroPortrait))}
               onMouseLeave={onLeave}
               onClick={() => {
                 if (isDragActive) return;
@@ -724,11 +772,7 @@ function DeckTileSection({
                   className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
                   style={{ width: 28 }}
                   title={tile.name}
-                  onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name, {
-                    tcgplayerUrl: tile.tcgplayerUrl,
-                    tcgLow: tile.tcgLow,
-                    otherFaceUrl: tile.otherFaceImageUrl,
-                  })}
+                  onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name, tileToExtras(tile))}
                   onMouseLeave={onLeave}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -809,11 +853,7 @@ function DeckTileSection({
             <div
               title={thisTileDraggable ? `${tile.name} — drag to move, click to enlarge` : `${tile.name} — click to enlarge`}
               draggable={thisTileDraggable}
-              onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name, {
-                tcgplayerUrl: tile.tcgplayerUrl,
-                tcgLow: tile.tcgLow,
-                otherFaceUrl: tile.otherFaceImageUrl,
-              })}
+              onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name, tileToExtras(tile))}
               onMouseLeave={onLeave}
               onDragStart={thisTileDraggable ? (e) => {
                 e.dataTransfer.effectAllowed = 'move';
@@ -1246,6 +1286,14 @@ interface GameViewCard {
   power: number | null;
   tcgplayerUrl?: string;
   tcgLow?: number;
+  /** Printing identity (taken from the lowest-pitch printing that supplies the image) */
+  collectorNumber?: string;
+  setCode?: string;
+  edition?: string;
+  foiling?: string;
+  rarity?: string;
+  pitch: number | null;
+  typeText?: string;
 }
 
 interface GameViewSection {
@@ -1278,16 +1326,33 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
         power: pd?.power ?? null,
         tcgplayerUrl: pd?.tcgplayer_url || undefined,
         tcgLow: typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined,
+        collectorNumber: pd?.collector_number || undefined,
+        setCode: pd?.set || undefined,
+        edition: pd?.edition || undefined,
+        foiling: pd?.foiling || undefined,
+        rarity: pd?.rarity || undefined,
+        pitch: pitch ?? null,
+        typeText: pd?.type_text_display || pd?.type_text || undefined,
       });
       bestPitch.set(uid, pitch ?? 99);
     }
     const card = map.get(uid)!;
     card.totalQty += qty;
 
-    // Prefer the image from the lowest pitch (red > yellow > blue > unpitched)
+    // Prefer the image from the lowest pitch (red > yellow > blue > unpitched).
+    // Keep the rail-preview identity in sync with the chosen image so the user
+    // sees the printing whose art they're looking at.
     const thisPitch = pitch ?? 99;
     if (imageUrl && thisPitch < (bestPitch.get(uid) ?? 99)) {
       card.imageUrl = imageUrl;
+      card.tcgplayerUrl = pd?.tcgplayer_url || undefined;
+      card.tcgLow = typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined;
+      card.collectorNumber = pd?.collector_number || undefined;
+      card.setCode = pd?.set || undefined;
+      card.edition = pd?.edition || undefined;
+      card.foiling = pd?.foiling || undefined;
+      card.rarity = pd?.rarity || undefined;
+      card.pitch = pitch ?? null;
       bestPitch.set(uid, thisPitch);
     }
 
@@ -2413,6 +2478,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                           name: card.name,
                           tcgplayerUrl: card.tcgplayerUrl,
                           tcgLow: card.tcgLow,
+                          collectorNumber: card.collectorNumber,
+                          setCode: card.setCode,
+                          edition: card.edition,
+                          foiling: card.foiling,
+                          rarity: card.rarity,
+                          pitch: card.pitch,
+                          cost: card.cost,
+                          power: card.power,
+                          defense: card.defense,
+                          typeText: card.typeText,
                         });
                       }}
                       onMouseLeave={isTouchDevice ? undefined : () => {
