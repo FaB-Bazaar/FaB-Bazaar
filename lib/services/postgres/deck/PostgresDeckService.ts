@@ -64,6 +64,7 @@ export class PostgresDeckService implements IDeckService {
         classes: cards.classes,
         talents: cards.talents,
         keywords: cards.keywords,
+        keywordsDisplay: cards.keywordsDisplay,
         pitch: cards.pitch,
         cost: cards.cost,
         defense: cards.defense,
@@ -150,6 +151,7 @@ export class PostgresDeckService implements IDeckService {
               classes: dc.classes || undefined,
               talents: dc.talents || undefined,
               keywords: dc.keywords || undefined,
+              keywords_display: dc.keywordsDisplay || undefined,
               pitch: dc.pitch || undefined,  // ✅ Also include pitch for color grouping
               cost: dc.cost ?? undefined,
               defense: dc.defense ?? undefined,
@@ -760,6 +762,7 @@ export class PostgresDeckService implements IDeckService {
             classes: cards.classes,
             talents: cards.talents,
             keywords: cards.keywords,
+            keywordsDisplay: cards.keywordsDisplay,
             pitch: cards.pitch,
             cost: cards.cost,
             defense: cards.defense,
