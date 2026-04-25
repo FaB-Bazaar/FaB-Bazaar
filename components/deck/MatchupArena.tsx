@@ -10,6 +10,12 @@ import { decksClient } from "@/lib/client";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants";
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
+import {
+  STRATEGY_IDS,
+  getStrategyDisplayName,
+  getStrategyPortraitUrl,
+  isStrategyId,
+} from "@/lib/fab-constants/strategyPortraits";
 import { getBannedCardIds, getLivingLegendHeroIds } from "@/lib/fab-banned-cards";
 import { toTalisharIdentifier } from "@/lib/utils";
 import { canEditDeck } from "@/lib/utils/deck-permissions";
@@ -138,21 +144,36 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   }, [deckId, editable]);
 
   const heroOptions = useMemo(() => getHeroOptionsForFormat(deck?.format), [deck?.format]);
+  const strategyOptions = useMemo<HeroOption[]>(
+    () =>
+      STRATEGY_IDS.map((id) => ({
+        canonicalKey: id,
+        talisharId: id,
+        displayName: getStrategyDisplayName(id),
+        className: "Strategies",
+      })),
+    []
+  );
+  const allOptions = useMemo(
+    () => [...strategyOptions, ...heroOptions],
+    [strategyOptions, heroOptions]
+  );
   const matchupSet = useMemo(() => new Set(matchups.map((m) => m.heroId)), [matchups]);
   const recordsByHero = useMemo(() => computeMatchupRecords(results), [results]);
 
+  // Insertion order matters — Strategies render first, then class groups.
   const heroByClass = useMemo(() => {
-    const grouped: Record<string, HeroOption[]> = {};
+    const grouped: Record<string, HeroOption[]> = { Strategies: strategyOptions };
     for (const h of heroOptions) {
       const k = classDisplay(h.className) || "Other";
       (grouped[k] ||= []).push(h);
     }
     return grouped;
-  }, [heroOptions]);
+  }, [heroOptions, strategyOptions]);
 
   const selected = useMemo(
-    () => heroOptions.find((h) => h.talisharId === selectedTalisharId) ?? null,
-    [heroOptions, selectedTalisharId]
+    () => allOptions.find((h) => h.talisharId === selectedTalisharId) ?? null,
+    [allOptions, selectedTalisharId]
   );
   const selectedMatchup = useMemo(
     () => matchups.find((m) => m.heroId === selectedTalisharId) ?? null,
@@ -204,11 +225,13 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const playerPortrait =
     getHeroPortraitUrl(playerHeroTalisharId) || playerHeroPrinting?.image_url || null;
 
-  const opponentPortrait = selected ? getHeroPortraitUrl(selected.talisharId) : null;
+  const opponentPortrait = selected
+    ? getHeroPortraitUrl(selected.talisharId) || getStrategyPortraitUrl(selected.talisharId)
+    : null;
 
   return (
     <div className="min-h-screen pb-24">
-      <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
+      <div className="max-w-[1600px] mx-auto px-4 py-4 md:py-6">
         {/* Header */}
         <div className="mb-3 flex items-start gap-3">
           <Link
@@ -250,7 +273,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px] gap-4">
         {/* LEFT: VS strip + sideboard/notes */}
         <div className="min-w-0">
         {/* VS strip — compact: portraits + inline names + footer only when content */}
@@ -362,12 +385,17 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-300 px-1 mb-1.5">
                 {cls}
               </h2>
-              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-5 gap-1.5">
                 {heroes.map((h) => {
                   const has = matchupSet.has(h.talisharId);
-                  const portrait = getHeroPortraitUrl(h.talisharId);
+                  const portrait =
+                    getHeroPortraitUrl(h.talisharId) || getStrategyPortraitUrl(h.talisharId);
                   const isSelected = h.talisharId === selectedTalisharId;
-                  const record = editable ? recordsByHero[h.talisharId.toLowerCase()] : null;
+                  // Strategies are archetypes, not opponents — no W/L records to show.
+                  const record =
+                    editable && !isStrategyId(h.talisharId)
+                      ? recordsByHero[h.talisharId.toLowerCase()]
+                      : null;
                   return (
                     <button
                       key={h.talisharId}
