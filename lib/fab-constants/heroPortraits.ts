@@ -1,7 +1,9 @@
 // lib/fab-constants/heroPortraits.ts
 // Stylized hero portrait artwork keyed by canonical Talishar identifier.
-// Files live at /public/heroes/<talisharId>.png. Adult variants only —
-// young variants fall back to card art via callers.
+// Files live at /public/heroes/<talisharId>.webp (with original .png alongside).
+// Run `npx tsx scripts/optimize-hero-portraits.ts` after adding new portraits to
+// regenerate the .webp variants. Adult variants only — young variants fall back
+// to card art via callers.
 
 export const HERO_PORTRAIT_IDS = new Set<string>([
   'arakni_5lp3d_7hru_7h3_cr4x',
@@ -63,5 +65,5 @@ export const HERO_PORTRAIT_IDS = new Set<string>([
 
 export function getHeroPortraitUrl(talisharId: string | null | undefined): string | null {
   if (!talisharId) return null;
-  return HERO_PORTRAIT_IDS.has(talisharId) ? `/heroes/${talisharId}.png` : null;
+  return HERO_PORTRAIT_IDS.has(talisharId) ? `/heroes/${talisharId}.webp` : null;
 }
