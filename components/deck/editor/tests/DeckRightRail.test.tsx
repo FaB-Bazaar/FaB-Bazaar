@@ -7,8 +7,6 @@ import DeckRightRail from '../DeckRightRail';
 
 describe('DeckRightRail', () => {
   const baseProps = {
-    pitchCounts: { red: 36, yellow: 20, blue: 14, none: 10 },
-    averageCost: 4.3,
     ownedCount: 5,
     totalCount: 80,
   };
@@ -16,21 +14,6 @@ describe('DeckRightRail', () => {
   it('renders an aside landmark labelled "Deck overview"', () => {
     render(<DeckRightRail {...baseProps} />);
     expect(screen.getByRole('complementary', { name: /deck overview/i })).toBeInTheDocument();
-  });
-
-  it('renders Deck Stats with pitch counts', () => {
-    render(<DeckRightRail {...baseProps} />);
-    const stats = screen.getByRole('region', { name: /deck stats/i });
-    // Pitch counts present
-    expect(within(stats).getByText('36')).toBeInTheDocument();
-    expect(within(stats).getByText('20')).toBeInTheDocument();
-    expect(within(stats).getByText('14')).toBeInTheDocument();
-  });
-
-  it('renders Average Cost when provided', () => {
-    render(<DeckRightRail {...baseProps} />);
-    expect(screen.getByText(/average cost/i)).toBeInTheDocument();
-    expect(screen.getByText(/4\.3/)).toBeInTheDocument();
   });
 
   it('renders the CollectionProgressBar with owned/total summary', () => {

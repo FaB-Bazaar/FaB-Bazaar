@@ -57,6 +57,14 @@ function groupByCardName(cards: DeckPrintingDTO[]): CardGroup[] {
   });
 }
 
+// Optional extras passed through onHover handlers up to the rail-level preview.
+// Older / simpler callers may omit them.
+type HoverExtras = {
+  tcgplayerUrl?: string;
+  tcgLow?: number;
+  otherFaceUrl?: string;
+};
+
 // Extract data-dense list view fields from a printing (cost, P/D, type, class).
 // Card-level fields are identical across reprints, so we read from the first printing.
 const NON_CLASS_TYPE_KEYWORDS = new Set([
@@ -152,7 +160,8 @@ interface GroupedCardRowProps {
   onRemove: (printingId: string, category: DeckCategory) => Promise<void>;
   removingId: string | null;
   onMove?: (printingId: string, from: DeckCategory, to: DeckCategory, qty: number) => Promise<void>;
-  onHoverImage: (url: string, name: string) => void;
+  /** Extras carry pricing/tcg info to the rail-level preview. Optional; older callers may omit. */
+  onHoverImage: (url: string, name: string, extras?: HoverExtras) => void;
   onClearImage: () => void;
   isTouchDevice: boolean;
 }
@@ -225,7 +234,14 @@ function GroupedCardRow({
           Stats hug the name on the left; Keywords absorb the remaining row width as flex-1. */}
       <div
         className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group"
-        onMouseEnter={isTouchDevice ? undefined : () => group.imageUrl && onHoverImage(group.imageUrl, group.displayName)}
+        onMouseEnter={isTouchDevice ? undefined : () => {
+          if (!group.imageUrl) return;
+          const pd = group.printings[0]?.printingDetails as any;
+          onHoverImage(group.imageUrl, group.displayName, {
+            tcgplayerUrl: pd?.tcgplayer_url,
+            tcgLow: typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined,
+          });
+        }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
         {/* Thumbnail */}
@@ -312,7 +328,14 @@ function GroupedCardRow({
               <div
                 key={pr.printingId}
                 className="flex items-center gap-2 py-1 px-3 hover:bg-gray-100 dark:hover:bg-gray-800/50 group/pr border-t border-gray-100 dark:border-gray-800"
-                onMouseEnter={isTouchDevice ? undefined : () => prImageUrl && onHoverImage(prImageUrl, group.displayName)}
+                onMouseEnter={isTouchDevice ? undefined : () => {
+                  if (!prImageUrl) return;
+                  const pd = pr.printingDetails as any;
+                  onHoverImage(prImageUrl, group.displayName, {
+                    tcgplayerUrl: pd?.tcgplayer_url,
+                    tcgLow: typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined,
+                  });
+                }}
                 onMouseLeave={isTouchDevice ? undefined : onClearImage}
               >
                 {/* Printing thumbnail */}
@@ -571,7 +594,7 @@ function DeckTileSection({
   isTouchDevice = false,
 }: {
   section: DeckTileSectionData;
-  onHover: (url: string, name: string) => void;
+  onHover: (url: string, name: string, extras?: HoverExtras) => void;
   onLeave: () => void;
   onSwap?: (target: SwapTarget) => void;
   ownershipMap: Map<string, OwnershipEntry>;
@@ -665,7 +688,11 @@ function DeckTileSection({
               className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
               style={{ width: 28 }}
               title={`${heroPortrait.name} — click to enlarge`}
-              onMouseEnter={() => heroPortrait.imageUrl && onHover(heroPortrait.imageUrl, heroPortrait.name)}
+              onMouseEnter={() => heroPortrait.imageUrl && onHover(heroPortrait.imageUrl, heroPortrait.name, {
+                tcgplayerUrl: heroPortrait.tcgplayerUrl,
+                tcgLow: heroPortrait.tcgLow,
+                otherFaceUrl: heroPortrait.otherFaceImageUrl,
+              })}
               onMouseLeave={onLeave}
               onClick={() => {
                 if (isDragActive) return;
@@ -697,7 +724,11 @@ function DeckTileSection({
                   className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-gray-500"
                   style={{ width: 28 }}
                   title={tile.name}
-                  onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name)}
+                  onMouseEnter={() => tile.imageUrl && onHover(tile.imageUrl, tile.name, {
+                    tcgplayerUrl: tile.tcgplayerUrl,
+                    tcgLow: tile.tcgLow,
+                    otherFaceUrl: tile.otherFaceImageUrl,
+                  })}
                   onMouseLeave={onLeave}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -778,7 +809,11 @@ function DeckTileSection({
             <div
               title={thisTileDraggable ? `${tile.name} — drag to move, click to enlarge` : `${tile.name} — click to enlarge`}
               draggable={thisTileDraggable}
-              onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name)}
+              onMouseEnter={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name, {
+                tcgplayerUrl: tile.tcgplayerUrl,
+                tcgLow: tile.tcgLow,
+                otherFaceUrl: tile.otherFaceImageUrl,
+              })}
               onMouseLeave={onLeave}
               onDragStart={thisTileDraggable ? (e) => {
                 e.dataTransfer.effectAllowed = 'move';
@@ -1209,6 +1244,8 @@ interface GameViewCard {
   cost: number | null;
   defense: number | null;
   power: number | null;
+  tcgplayerUrl?: string;
+  tcgLow?: number;
 }
 
 interface GameViewSection {
@@ -1239,6 +1276,8 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
         cost: pd?.cost ?? null,
         defense: pd?.defense ?? null,
         power: pd?.power ?? null,
+        tcgplayerUrl: pd?.tcgplayer_url || undefined,
+        tcgLow: typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined,
       });
       bestPitch.set(uid, pitch ?? 99);
     }
@@ -1518,13 +1557,13 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             onRemove={handleRemove}
             removingId={removingId}
             onMove={onMove}
-            onHoverImage={(url, name) => {
+            onHoverImage={(url, name, extras) => {
               if (hoverMode) setHoveredImage({ url, name });
-              onCardHover?.({ url, name });
+              onCardHover?.({ url, name, ...(extras ?? {}) });
             }}
             onClearImage={() => {
+              // Same sticky-preview rationale as tile/game views above.
               setHoveredImage(null);
-              onCardHover?.(null);
             }}
             isTouchDevice={isTouchDevice}
           />
@@ -1913,15 +1952,17 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileSharedProps = {
     onHover: isTouchDevice
       ? (_url: string, _name: string) => {}
-      : (url: string, name: string) => {
+      : (url: string, name: string, extras?: HoverExtras) => {
           if (hoverMode) setHoveredImage({ url, name });
-          onCardHover?.({ url, name });
+          onCardHover?.({ url, name, ...(extras ?? {}) });
         },
     onLeave: isTouchDevice
       ? () => {}
       : () => {
+          // Clear the in-tile hover overlay only. Leave the rail-level preview
+          // sticky on the last-hovered card so users can click the affiliate
+          // link and other actions without the preview vanishing under them.
           setHoveredImage(null);
-          onCardHover?.(null);
         },
     onSwap: canEdit ? onSwap : undefined,
     ownershipMap,
@@ -2367,11 +2408,15 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       onMouseEnter={isTouchDevice ? undefined : () => {
                         if (!card.imageUrl) return;
                         if (hoverMode) setHoveredImage({ url: card.imageUrl, name: card.name });
-                        onCardHover?.({ url: card.imageUrl, name: card.name });
+                        onCardHover?.({
+                          url: card.imageUrl,
+                          name: card.name,
+                          tcgplayerUrl: card.tcgplayerUrl,
+                          tcgLow: card.tcgLow,
+                        });
                       }}
                       onMouseLeave={isTouchDevice ? undefined : () => {
                         setHoveredImage(null);
-                        onCardHover?.(null);
                       }}
                     >
                       {card.imageUrl ? (

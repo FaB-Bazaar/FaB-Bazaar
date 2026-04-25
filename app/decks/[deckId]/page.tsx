@@ -1976,7 +1976,33 @@ export default function DeckEditorPage() {
                   </div>
                 ) : state.deck ? (
                   <>
-                  {/* Pitch breakdown lives in the right rail; pitch filtering remains accessible via the Highlight popover. */}
+                  {/* Slim deck stats bar — pulled out of the right rail so the rail can dedicate its space
+                      to the (sticky) hovered-card preview without competing for attention. */}
+                  {railStats && (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                      {[
+                        { label: 'Red', count: railStats.pitchCounts.red, dot: 'bg-red-500', text: 'text-red-700 dark:text-red-300' },
+                        { label: 'Yellow', count: railStats.pitchCounts.yellow, dot: 'bg-yellow-400', text: 'text-yellow-700 dark:text-yellow-300' },
+                        { label: 'Blue', count: railStats.pitchCounts.blue, dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300' },
+                        { label: 'No Pitch', count: railStats.pitchCounts.none ?? 0, dot: 'bg-gray-400', text: 'text-gray-700 dark:text-gray-300' },
+                      ].filter(p => p.count > 0).map(p => (
+                        <span
+                          key={p.label}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60"
+                        >
+                          <span className={cn("w-2 h-2 rounded-full", p.dot)} aria-hidden="true" />
+                          <span className={cn("font-semibold tabular-nums", p.text)}>{p.count}</span>
+                          <span className="text-gray-600 dark:text-gray-400">{p.label}</span>
+                        </span>
+                      ))}
+                      {railStats.averageCost != null && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
+                          <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Avg Cost</span>
+                          <span className="font-semibold tabular-nums">{railStats.averageCost.toFixed(1)}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <DeckEditorListView
                     deck={state.deck}
                     ownershipMap={state.ownershipMap}
@@ -2035,8 +2061,6 @@ export default function DeckEditorPage() {
               </div>
               {activeTab === "deck" && state.deck && railStats && (
                 <DeckRightRail
-                  pitchCounts={railStats.pitchCounts}
-                  averageCost={railStats.averageCost}
                   ownedCount={railStats.ownedCount}
                   totalCount={railStats.totalCount}
                   hoveredCard={hoveredCard}
