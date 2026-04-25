@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -14,6 +15,14 @@ interface FormatBucket {
   entries: BannedCardDTO[]
 }
 
+export interface CardInfo {
+  name: string
+  pitch: number | null
+  imageUrl: string | null
+}
+
+export type CardLookup = Record<string, CardInfo>
+
 // Per-format upstream data availability (mirrors app/api/banned-cards/sync/route.ts).
 const SYNC_BUTTONS: Partial<Record<BannedFormat, RestrictionType[]>> = {
   silver_age: ['banned'],
@@ -25,19 +34,56 @@ function formatLabel(format: BannedFormat): string {
   return format.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
-export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
+const PITCH_BADGE: Record<number, string> = {
+  1: 'border-red-500 text-red-700 dark:text-red-300',
+  2: 'border-yellow-500 text-yellow-700 dark:text-yellow-300',
+  3: 'border-blue-500 text-blue-700 dark:text-blue-300',
+}
+
+interface Props {
+  initial: FormatBucket[]
+  cardLookup: CardLookup
+}
+
+export function BannedCardsClient({ initial, cardLookup: initialLookup }: Props) {
   const [buckets, setBuckets] = useState<FormatBucket[]>(initial)
+  const [cardLookup, setCardLookup] = useState<CardLookup>(initialLookup)
   const [filter, setFilter] = useState('')
   const [newCardId, setNewCardId] = useState<Record<BannedFormat, string>>({} as any)
   const [pending, startTransition] = useTransition()
   const [syncing, setSyncing] = useState<string | null>(null) // key: `${format}:${restrictionType}`
   const { toast } = useToast()
 
+  // Fetch enrichment for cardUniqueIds not yet in the lookup.
+  const enrichMissing = async (entries: BannedCardDTO[]) => {
+    const missing = Array.from(
+      new Set(entries.map(e => e.cardUniqueId).filter(id => !cardLookup[id])),
+    )
+    if (missing.length === 0) return
+    const res = await fetch(
+      `/api/printings/search?cardUniqueIds=${missing.join(',')}&limit=${missing.length * 5}`,
+    )
+    const body = await res.json()
+    const printings: Array<{ card_unique_id: string; name: string; pitch: number | null; image_url: string | null }> =
+      body?.data?.printings ?? body?.printings ?? []
+    if (printings.length === 0) return
+    setCardLookup(prev => {
+      const next = { ...prev }
+      for (const p of printings) {
+        if (!next[p.card_unique_id]) {
+          next[p.card_unique_id] = { name: p.name, pitch: p.pitch ?? null, imageUrl: p.image_url ?? null }
+        }
+      }
+      return next
+    })
+  }
+
   const refreshBucket = async (format: BannedFormat) => {
     const res = await fetch(`/api/banned-cards?format=${format}&includeInactive=true`)
     const body = await res.json()
     if (!body.success) return
     setBuckets(b => b.map(x => x.format === format ? { format, entries: body.data } : x))
+    await enrichMissing(body.data)
   }
 
   const toggleActive = async (entry: BannedCardDTO) => {
@@ -112,17 +158,21 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
     if (!q) return buckets
     return buckets.map(b => ({
       ...b,
-      entries: b.entries.filter(e =>
-        e.cardUniqueId.toLowerCase().includes(q) ||
-        (e.sourceUniqueId ?? '').toLowerCase().includes(q),
-      ),
+      entries: b.entries.filter(e => {
+        const name = cardLookup[e.cardUniqueId]?.name?.toLowerCase() ?? ''
+        return (
+          name.includes(q) ||
+          e.cardUniqueId.toLowerCase().includes(q) ||
+          (e.sourceUniqueId ?? '').toLowerCase().includes(q)
+        )
+      }),
     }))
-  }, [buckets, filter])
+  }, [buckets, filter, cardLookup])
 
   return (
     <div className="space-y-4">
       <Input
-        placeholder="Filter by card_unique_id or source_unique_id..."
+        placeholder="Filter by name, card_unique_id, or source_unique_id..."
         value={filter}
         onChange={e => setFilter(e.target.value)}
         className="max-w-md"
@@ -180,9 +230,9 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
               <table className="w-full text-sm">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-left p-2">card_unique_id</th>
+                    <th className="text-left p-2 w-16">card</th>
+                    <th className="text-left p-2">name</th>
                     <th className="text-left p-2">type</th>
-                    <th className="text-left p-2">source_unique_id</th>
                     <th className="text-left p-2">date_in_effect</th>
                     <th className="text-left p-2">status</th>
                     <th className="text-right p-2">actions</th>
@@ -191,28 +241,57 @@ export function BannedCardsClient({ initial }: { initial: FormatBucket[] }) {
                 <tbody>
                   {bucket.entries.length === 0 ? (
                     <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No entries</td></tr>
-                  ) : bucket.entries.map(e => (
-                    <tr key={e.id} className="border-t">
-                      <td className="p-2 font-mono text-xs">{e.cardUniqueId}</td>
-                      <td className="p-2">
-                        {e.restrictionType === 'restricted'
-                          ? <Badge variant="secondary" className="border-orange-500 text-orange-700 dark:text-orange-300">restricted (1)</Badge>
-                          : <Badge variant="destructive">banned</Badge>}
-                      </td>
-                      <td className="p-2 font-mono text-xs text-muted-foreground">{e.sourceUniqueId ?? '—'}</td>
-                      <td className="p-2 text-xs text-muted-foreground">{e.dateInEffect?.slice(0, 10) ?? '—'}</td>
-                      <td className="p-2">
-                        {e.statusActive
-                          ? <Badge>active</Badge>
-                          : <Badge variant="secondary">inactive</Badge>}
-                      </td>
-                      <td className="p-2 text-right">
-                        <Button size="sm" variant="outline" onClick={() => toggleActive(e)} disabled={pending}>
-                          {e.statusActive ? 'Deactivate' : 'Reactivate'}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  ) : bucket.entries.map(e => {
+                    const info = cardLookup[e.cardUniqueId]
+                    return (
+                      <tr key={e.id} className="border-t">
+                        <td className="p-2">
+                          {info?.imageUrl ? (
+                            <Image
+                              src={info.imageUrl}
+                              alt={info.name}
+                              width={40}
+                              height={56}
+                              className="rounded-sm object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="w-10 h-14 bg-muted rounded-sm" />
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{info?.name ?? '—'}</span>
+                            {info?.pitch != null && (
+                              <Badge variant="secondary" className={PITCH_BADGE[info.pitch] ?? ''}>
+                                {info.pitch}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                            {e.cardUniqueId}
+                            {e.sourceUniqueId && <span className="ml-2">· src: {e.sourceUniqueId}</span>}
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          {e.restrictionType === 'restricted'
+                            ? <Badge variant="secondary" className="border-orange-500 text-orange-700 dark:text-orange-300">restricted (1)</Badge>
+                            : <Badge variant="destructive">banned</Badge>}
+                        </td>
+                        <td className="p-2 text-xs text-muted-foreground">{e.dateInEffect?.slice(0, 10) ?? '—'}</td>
+                        <td className="p-2">
+                          {e.statusActive
+                            ? <Badge>active</Badge>
+                            : <Badge variant="secondary">inactive</Badge>}
+                        </td>
+                        <td className="p-2 text-right">
+                          <Button size="sm" variant="outline" onClick={() => toggleActive(e)} disabled={pending}>
+                            {e.statusActive ? 'Deactivate' : 'Reactivate'}
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
