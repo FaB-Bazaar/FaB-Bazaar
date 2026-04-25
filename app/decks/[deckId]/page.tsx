@@ -15,7 +15,6 @@ import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCa
 import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
-import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -198,7 +197,7 @@ export default function DeckEditorPage() {
   const { state, handlers } = useDeckEditor(deckId);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<"search" | "deck" | "matchups" | "results">("deck");
+  const [activeTab, setActiveTab] = useState<"search" | "deck" | "results">("deck");
 
   // Quick-add dialog state
   const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
@@ -502,7 +501,7 @@ export default function DeckEditorPage() {
         else if (e.key === '8') { setQuickAddTarget({ category: 'inventory' }); resetChord(); }
         else if (e.key === '7') { setQuickAddTarget({ category: 'benched' as DeckCategory }); resetChord(); }
         else if (e.key.toLowerCase() === 's') { setChordMode('nameFilter'); setKeywordBuffer(''); startTimeout(); }
-        else if (e.key.toLowerCase() === 'm') { setActiveTab('matchups'); resetChord(); }
+        else if (e.key.toLowerCase() === 'm') { router.push(`/decks/${deckId}/matchups`); resetChord(); }
         // Scroll
         else if (e.key === '0') { window.scrollTo({ top: 0, behavior: 'smooth' }); resetChord(); }
         else if (e.key === '1') { document.getElementById('deck-section-red')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); resetChord(); }
@@ -1055,8 +1054,8 @@ export default function DeckEditorPage() {
 
   return (
     <div className="bg-white dark:bg-gray-900 min-h-screen">
-      {/* Dormant HUD trigger — hidden on matchups tab (MatchupSideboardHUD takes over) */}
-      {!chordMode && activeTab !== "matchups" && (
+      {/* Dormant HUD trigger */}
+      {!chordMode && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
           <button
             type="button"
@@ -1093,7 +1092,7 @@ export default function DeckEditorPage() {
           'F': () => setChordMode('clear'),
           'W': () => setChordMode('arcane'),
           'S': () => { setChordMode('nameFilter'); setKeywordBuffer(''); },
-          'M': () => { setActiveTab('matchups'); setChordMode(null); },
+          'M': () => { router.push(`/decks/${deckId}/matchups`); setChordMode(null); },
           'O': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); setChordMode(null); },
           'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
         };
@@ -1688,18 +1687,13 @@ export default function DeckEditorPage() {
                   </span>
                 )}
               </button>
-              <button
-                onClick={() => setActiveTab("matchups")}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                  activeTab === "matchups"
-                    ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                )}
+              <Link
+                href={`/decks/${deckId}/matchups`}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-t"
               >
                 <Swords className="h-4 w-4" />
                 Matchups
-              </button>
+              </Link>
               {canEdit && (
                 <button
                   onClick={() => setActiveTab("results")}
@@ -2036,28 +2030,6 @@ export default function DeckEditorPage() {
               <DeckResultsTab deckId={deckId} deck={state.deck ?? undefined} />
             )}
 
-            {/* Matchups tab content — visible to all viewers of the deck */}
-            {state.deck && (
-              <div className={activeTab === "matchups" ? undefined : "hidden"}>
-                <div className="flex justify-end mb-2">
-                  <Link
-                    href={`/decks/${deckId}/matchups`}
-                    className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
-                  >
-                    Open full editor
-                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                  </Link>
-                </div>
-                <DeckMatchupsDialog
-                  open={true}
-                  onOpenChange={() => {}}
-                  deckId={deckId}
-                  deck={state.deck}
-                  inline={true}
-                  compact={true}
-                />
-              </div>
-            )}
               </div>
               {activeTab === "deck" && state.deck && railStats && (
                 <DeckRightRail
@@ -2156,18 +2128,13 @@ export default function DeckEditorPage() {
           </div>
           Deck
         </button>
-        <button
-          onClick={() => setActiveTab("matchups")}
-          className={cn(
-            "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
-            activeTab === "matchups"
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-500 dark:text-gray-400"
-          )}
+        <Link
+          href={`/decks/${deckId}/matchups`}
+          className="flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
         >
           <Swords className="h-5 w-5" />
           Matchups
-        </button>
+        </Link>
         {canEdit && (
           <button
             onClick={() => setActiveTab("results")}
