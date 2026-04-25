@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import HighlightFiltersPopover, { type HighlightFilter as HF } from "./HighlightFiltersPopover";
+import { RarityIcon } from "@/components/shared/RarityIcon";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye } from "lucide-react";
@@ -53,6 +55,63 @@ function groupByCardName(cards: DeckPrintingDTO[]): CardGroup[] {
     if (pA !== pB) return pA - pB;
     return a.displayName.localeCompare(b.displayName);
   });
+}
+
+// Extract data-dense list view fields from a printing (cost, P/D, type, class).
+// Card-level fields are identical across reprints, so we read from the first printing.
+const NON_CLASS_TYPE_KEYWORDS = new Set([
+  'hero', 'young', 'adult', 'token', 'demi-hero', 'evo',
+  'equipment', 'weapon', 'arms', 'head', 'chest', 'legs', 'off-hand',
+  'one handed', 'two handed', 'one-handed', 'two-handed',
+  'action', 'attack', 'instant', 'attack reaction', 'defense reaction',
+]);
+
+function getCardSummary(printingDetails: any): {
+  cost: number | null;
+  power: number | null;
+  defense: number | null;
+  type: string;
+  classLabel: string;
+  rarityCode: string | null;
+  keywords: string[];
+} {
+  if (!printingDetails) {
+    return { cost: null, power: null, defense: null, type: '', classLabel: '', rarityCode: null, keywords: [] };
+  }
+  const types: string[] = printingDetails.types || [];
+  const lower = types.map(t => t.toLowerCase());
+
+  let type = '';
+  if (lower.includes('hero')) type = 'Hero';
+  else if (lower.includes('weapon')) type = 'Weapon';
+  else if (lower.includes('equipment')) type = 'Equipment';
+  else if (lower.includes('attack reaction')) type = 'Atk Reaction';
+  else if (lower.includes('defense reaction')) type = 'Def Reaction';
+  else if (lower.includes('attack')) type = 'Attack';
+  else if (lower.includes('instant')) type = 'Instant';
+  else if (lower.includes('action')) type = 'Action';
+  else if (lower.includes('token')) type = 'Token';
+
+  // Class/talent: any type entry that isn't a structural keyword (e.g. "Lightning", "Wizard").
+  const classWords = types.filter(t => !NON_CLASS_TYPE_KEYWORDS.has(t.toLowerCase()));
+  const classLabel = classWords.join(' ');
+
+  const rarityCode = printingDetails.rarity ? String(printingDetails.rarity).toLowerCase() : null;
+  // Prefer original-case `keywords_display`; fall back to lowercase `keywords` for rows
+  // that haven't been backfilled yet (transition window after migration 0043).
+  const displayKeywords: string[] = Array.isArray(printingDetails.keywords_display) ? printingDetails.keywords_display : [];
+  const lowercaseKeywords: string[] = Array.isArray(printingDetails.keywords) ? printingDetails.keywords : [];
+  const keywords = displayKeywords.length > 0 ? displayKeywords : lowercaseKeywords;
+
+  return {
+    cost: typeof printingDetails.cost === 'number' ? printingDetails.cost : null,
+    power: typeof printingDetails.power === 'number' ? printingDetails.power : null,
+    defense: typeof printingDetails.defense === 'number' ? printingDetails.defense : null,
+    type,
+    classLabel,
+    rarityCode,
+    keywords,
+  };
 }
 
 function getPrintingLabel(p: any): string {
@@ -118,6 +177,11 @@ function GroupedCardRow({
 
   const pitchClass = group.pitch ? PITCH_DOT_CLASS[group.pitch] : "bg-gray-300 dark:bg-gray-600";
 
+  // Card-level data (identical across all printings of the same card)
+  const summary = getCardSummary(group.printings[0]?.printingDetails);
+  const fmt = (v: number | null) => (v == null ? '—' : String(v));
+  const pdLabel = summary.power == null && summary.defense == null ? '—' : `${fmt(summary.power)} / ${fmt(summary.defense)}`;
+
   const buildMoveButtons = (pr: DeckPrintingDTO) => {
     if (!onMove) return null;
     const qty = pr.quantity ?? 1;
@@ -157,16 +221,15 @@ function GroupedCardRow({
 
   return (
     <div className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-      {/* Group header */}
+      {/* Group header — data-dense row.
+          Stats hug the name on the left; Keywords absorb the remaining row width as flex-1. */}
       <div
-        className="flex items-center gap-2 py-1.5 px-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 group"
+        className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group"
+        onMouseEnter={isTouchDevice ? undefined : () => group.imageUrl && onHoverImage(group.imageUrl, group.displayName)}
+        onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
         {/* Thumbnail */}
-        <div
-          className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
-          onMouseEnter={isTouchDevice ? undefined : () => group.imageUrl && onHoverImage(group.imageUrl, group.displayName)}
-          onMouseLeave={isTouchDevice ? undefined : onClearImage}
-        >
+        <div className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer">
           <img
             src={group.imageUrl || "/cardback.webp"}
             alt={group.displayName}
@@ -175,38 +238,72 @@ function GroupedCardRow({
         </div>
 
         {/* Pitch dot */}
-        <span className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)} />
+        <span className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)} aria-hidden="true" />
 
-        {/* Name */}
-        <span className="text-sm text-gray-900 dark:text-gray-100 flex-1 min-w-0 truncate">{group.displayName}</span>
+        {/* Name + class as a stacked block; class is the secondary line */}
+        <div className="w-64 flex-shrink-0 min-w-0">
+          <div className="text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>{group.displayName}</div>
+          {summary.classLabel && (
+            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
+              {summary.classLabel}
+            </div>
+          )}
+        </div>
 
-        {/* Total qty */}
-        <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums flex-shrink-0">{group.totalQty}×</span>
+        {/* Type */}
+        <span className="hidden md:block text-xs text-gray-500 dark:text-gray-400 w-24 truncate flex-shrink-0" title={summary.type || 'Type'}>
+          {summary.type || '—'}
+        </span>
+
+        {/* Rarity — uses the shared RarityIcon component for consistent treatment across the app */}
+        <span className="hidden sm:flex w-6 items-center justify-center flex-shrink-0">
+          {summary.rarityCode
+            ? <RarityIcon rarityCode={summary.rarityCode} size="sm" />
+            : <span className="text-xs text-gray-400 dark:text-gray-500">—</span>}
+        </span>
+
+        {/* Cost */}
+        <span className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 w-8 text-right tabular-nums flex-shrink-0" title="Cost">
+          {fmt(summary.cost)}
+        </span>
+
+        {/* Power / Defense */}
+        <span className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 w-14 text-right tabular-nums flex-shrink-0" title="Power / Defense">
+          {pdLabel}
+        </span>
+
+        {/* Keywords — fills the remaining horizontal space; truncates if too many */}
+        <span className="hidden lg:block text-xs text-gray-500 dark:text-gray-400 flex-1 min-w-0 truncate" title={summary.keywords.join(', ')}>
+          {summary.keywords.join(', ')}
+        </span>
+
+        {/* Quantity */}
+        <span className="text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
 
         {/* Ownership */}
-        {hasOwnership ? (
-          isFullyOwned ? (
-            <span className="text-xs text-green-600 dark:text-green-400 w-4 text-center flex-shrink-0">✓</span>
-          ) : (
-            <span className="text-xs text-amber-600 dark:text-amber-400 w-4 text-center flex-shrink-0">○</span>
-          )
-        ) : (
-          <span className="w-4 flex-shrink-0" />
-        )}
+        <span className="w-4 text-center flex-shrink-0">
+          {hasOwnership ? (
+            isFullyOwned
+              ? <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90">✓</span>
+              : <span className="text-xs text-amber-700/70 dark:text-amber-300/70">○</span>
+          ) : null}
+        </span>
 
         {/* Expand caret */}
         <button
           onClick={() => setExpanded(e => !e)}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
+          className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           title={expanded ? "Collapse printings" : "Expand printings"}
+          aria-label={expanded ? "Collapse printings" : "Expand printings"}
+          aria-expanded={expanded}
         >
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Expanded printing rows */}
+      {/* Expanded printing rows — left keyline makes the parent → child hierarchy explicit */}
       {expanded && (
-        <div className="pl-12 bg-gray-50/50 dark:bg-gray-800/20">
+        <div className="ml-6 pl-6 border-l-2 border-amber-400/30 bg-gray-50/50 dark:bg-gray-800/20 max-w-[1100px]">
           {group.printings.map(pr => {
             const prImageUrl = pr.printingDetails?.image_url as string | undefined;
             const own = ownershipMap.get(pr.printingId);
@@ -215,12 +312,12 @@ function GroupedCardRow({
               <div
                 key={pr.printingId}
                 className="flex items-center gap-2 py-1 px-3 hover:bg-gray-100 dark:hover:bg-gray-800/50 group/pr border-t border-gray-100 dark:border-gray-800"
+                onMouseEnter={isTouchDevice ? undefined : () => prImageUrl && onHoverImage(prImageUrl, group.displayName)}
+                onMouseLeave={isTouchDevice ? undefined : onClearImage}
               >
                 {/* Printing thumbnail */}
                 <div
                   className="w-5 h-7 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
-                  onMouseEnter={isTouchDevice ? undefined : () => prImageUrl && onHoverImage(prImageUrl, group.displayName)}
-                  onMouseLeave={isTouchDevice ? undefined : onClearImage}
                 >
                   <img
                     src={prImageUrl || "/cardback.webp"}
@@ -241,12 +338,12 @@ function GroupedCardRow({
                 {/* Qty */}
                 <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums flex-shrink-0">{pr.quantity ?? 1}×</span>
 
-                {/* Ownership */}
+                {/* Ownership — informational, not alarmist; muted amber for "missing" */}
                 {own ? (
                   own.owned >= own.needed ? (
-                    <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0">✓</span>
+                    <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90 flex-shrink-0">✓</span>
                   ) : (
-                    <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums flex-shrink-0">{own.owned}/{own.needed}</span>
+                    <span className="text-xs text-amber-700/70 dark:text-amber-300/70 tabular-nums flex-shrink-0">{own.owned}/{own.needed}</span>
                   )
                 ) : null}
 
@@ -560,17 +657,24 @@ function DeckTileSection({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className={cn("flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b", accent ? accent.headerBorder : "border-gray-700/40")}>
+      <div className={cn("group flex items-center gap-1.5 px-0.5 pb-1 mb-1 border-b", accent ? accent.headerBorder : "border-gray-700/40")}>
         {/* Hero portrait inline — no extra row, zero additional height cost */}
         {heroPortrait && (
           <>
             <div
               className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
               style={{ width: 28 }}
-              title={heroPortrait.name}
+              title={`${heroPortrait.name} — click to enlarge`}
               onMouseEnter={() => heroPortrait.imageUrl && onHover(heroPortrait.imageUrl, heroPortrait.name)}
               onMouseLeave={onLeave}
-              onClick={() => !isDragActive && onSwap?.({ printingId: heroPortrait.printingId, cardUniqueId: heroPortrait.cardUniqueId, cardName: heroPortrait.name, category: heroPortrait.category })}
+              onClick={() => {
+                if (isDragActive) return;
+                if (onEnlargeImage && heroPortrait.imageUrl) {
+                  onEnlargeImage(heroPortrait.imageUrl, heroPortrait.name, heroPortrait.otherFaceImageUrl);
+                } else {
+                  onSwap?.({ printingId: heroPortrait.printingId, cardUniqueId: heroPortrait.cardUniqueId, cardName: heroPortrait.name, category: heroPortrait.category });
+                }
+              }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -631,27 +735,28 @@ function DeckTileSection({
           <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
         )}
         {!isDragActive && (
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             {onAddCard && sectionToCategory(section.key) && (
               <button
                 type="button"
                 onClick={() => onAddCard(sectionToCategory(section.key)!, sectionToPitch(section.key))}
                 title={`Add card to ${section.title}`}
-                className="flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-blue-400 transition-colors px-1 py-0.5 rounded hover:bg-gray-700/50"
+                aria-label={`Add card to ${section.title}`}
+                className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-200 transition-colors rounded hover:bg-gray-700/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
-                <Plus className="h-3 w-3" />
-                Add
+                <Plus className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
             {isCollapsible && (
               <button
                 type="button"
-                className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors px-1 py-0.5 rounded hover:bg-gray-700/50"
+                className="flex items-center justify-center w-7 h-7 text-gray-500 hover:text-gray-200 transition-colors rounded hover:bg-gray-700/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 onClick={() => setIsCollapsed(v => !v)}
                 title={isCollapsed ? "Show equipment & weapons" : "Collapse equipment & weapons"}
+                aria-label={isCollapsed ? "Show equipment & weapons" : "Collapse equipment & weapons"}
+                aria-expanded={!isCollapsed}
               >
-                {isCollapsed ? "show" : "collapse"}
-                <ChevronDown className={cn("h-3 w-3 transition-transform", isCollapsed && "-rotate-90")} />
+                <ChevronDown className={cn("h-4 w-4 transition-transform", isCollapsed && "-rotate-90")} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -1227,9 +1332,28 @@ interface DeckEditorListViewProps {
   onAddToWants?: (printingId: string, cardName: string) => void;
   /** Swap all unowned deck printings to best-value owned alternatives */
   onUpgradePrintings?: () => Promise<void>;
+  /** Called whenever the user hovers/leaves a card tile — used by the page to show a preview in the right rail. */
+  onCardHover?: (preview: { url: string; name: string } | null) => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+  // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
+  const { ownedCount, totalCount } = useMemo(() => {
+    let owned = 0, total = 0;
+    const sources = [
+      ...(deck.maindeck ?? []),
+      ...(deck.equipment ?? []),
+      ...(deck.inventory ?? []),
+    ];
+    for (const card of sources) {
+      const qty = card.quantity ?? 1;
+      total += qty;
+      const ownedQty = ownershipMap.get(card.printingId)?.owned ?? 0;
+      owned += Math.min(qty, ownedQty);
+    }
+    return { ownedCount: owned, totalCount: total };
+  }, [deck, ownershipMap]);
+
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
   const [hoverMode, setHoverMode] = useState(false);
@@ -1370,6 +1494,20 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     const groups = groupByCardName(cards);
     return (
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        {/* Column headers — must match the data row's flex layout exactly (widths, gaps, breakpoints) */}
+        <div className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
+          <span className="w-7 flex-shrink-0" />
+          <span className="w-2 flex-shrink-0" />
+          <span className="w-64 flex-shrink-0">Name</span>
+          <span className="hidden md:block w-24 flex-shrink-0">Type</span>
+          <span className="hidden sm:block w-6 text-center flex-shrink-0">R</span>
+          <span className="hidden sm:block w-8 text-right flex-shrink-0">Cost</span>
+          <span className="hidden sm:block w-14 text-right flex-shrink-0">P / D</span>
+          <span className="hidden lg:block flex-1 min-w-0">Keywords</span>
+          <span className="w-10 text-right flex-shrink-0">Qty</span>
+          <span className="w-4 text-center flex-shrink-0">Own</span>
+          <span className="w-5 flex-shrink-0" />
+        </div>
         {groups.map(group => (
           <GroupedCardRow
             key={group.uid}
@@ -1380,8 +1518,14 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             onRemove={handleRemove}
             removingId={removingId}
             onMove={onMove}
-            onHoverImage={(url, name) => hoverMode && setHoveredImage({ url, name })}
-            onClearImage={() => setHoveredImage(null)}
+            onHoverImage={(url, name) => {
+              if (hoverMode) setHoveredImage({ url, name });
+              onCardHover?.({ url, name });
+            }}
+            onClearImage={() => {
+              setHoveredImage(null);
+              onCardHover?.(null);
+            }}
             isTouchDevice={isTouchDevice}
           />
         ))}
@@ -1767,8 +1911,18 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileRestSections = filteredTileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
 
   const tileSharedProps = {
-    onHover: isTouchDevice ? (_url: string, _name: string) => {} : (url: string, name: string) => hoverMode && setHoveredImage({ url, name }),
-    onLeave: isTouchDevice ? () => {} : () => setHoveredImage(null),
+    onHover: isTouchDevice
+      ? (_url: string, _name: string) => {}
+      : (url: string, name: string) => {
+          if (hoverMode) setHoveredImage({ url, name });
+          onCardHover?.({ url, name });
+        },
+    onLeave: isTouchDevice
+      ? () => {}
+      : () => {
+          setHoveredImage(null);
+          onCardHover?.(null);
+        },
     onSwap: canEdit ? onSwap : undefined,
     ownershipMap,
     isTileDraggable: canEdit && !!onMoveSingle,
@@ -1790,149 +1944,178 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     isTouchDevice,
   };
 
+  // Highlight popover (with full pitch/cost/power/defense grid as children).
+  // Defined as a node so it can render inside the toolbar cluster instead of as a separate row.
+  const highlightFiltersBlock = (
+    <HighlightFiltersPopover
+      activeFilters={highlightFilters as HF[]}
+      onRemoveFilter={(f) => setHighlightFilters(curr => curr.filter(x => !(x.stat === f.stat && x.value === f.value)))}
+      onClearAll={() => setHighlightFilters([])}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {/* Pitch */}
+        <div className="flex items-center gap-1">
+          {([1, 2, 3] as const).map(v => {
+            const count = getStatCount('pitch', v);
+            const isActive = highlightFilters.some(f => f.stat === 'pitch' && f.value === v);
+            return (
+              <button key={v} onClick={() => count > 0 && toggleHighlight('pitch', v)}
+                className={cn("flex items-center gap-0.5 px-1 py-1 rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                  isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+              >
+                <img src={`/fab/symbols/pitch${v}.png`} alt={`Pitch ${v}`} className="w-6 h-6 object-contain" />
+              </button>
+            );
+          })}
+        </div>
+        {/* Cost */}
+        <div className="flex items-center gap-1">
+          {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
+            const count = getStatCount('cost', v);
+            const isActive = highlightFilters.some(f => f.stat === 'cost' && f.value === v);
+            return (
+              <button key={String(v)} onClick={() => count > 0 && toggleHighlight('cost', v)}
+                className={cn("flex items-center gap-0.5 px-1 py-1 rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                  isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+              >
+                <div className="relative w-6 h-6 flex items-center justify-center shrink-0">
+                  <img src="/fab/symbols/cost.png" alt="Cost" className="w-6 h-6 object-contain" />
+                  <span className="absolute font-bold text-xs leading-none text-white drop-shadow-[0_0_2px_rgba(0,0,0,1)]">{String(v)}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {/* Power */}
+        <div className="flex items-center gap-1">
+          {([1, 2, 3, 4, 5, 6, '7+'] as const).map(v => {
+            const count = getStatCount('power', v);
+            const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
+            return (
+              <button key={String(v)} onClick={() => count > 0 && toggleHighlight('power', v)}
+                className={cn("flex items-center gap-1 px-1.5 py-1 rounded transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                  isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+              >
+                <span className={cn("font-semibold", isActive ? "text-white" : "text-gray-800 dark:text-gray-100")}>{String(v)}</span>
+                <img src="/fab/symbols/power.png" alt="Power" className="w-5 h-5 object-contain" />
+              </button>
+            );
+          })}
+        </div>
+        {/* Defense */}
+        <div className="flex items-center gap-1">
+          {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
+            const count = getStatCount('defense', v);
+            const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
+            return (
+              <button key={String(v)} onClick={() => count > 0 && toggleHighlight('defense', v)}
+                className={cn("flex items-center gap-1 px-1.5 py-1 rounded transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                  isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
+              >
+                <span className={cn("font-semibold", isActive ? "text-white" : "text-gray-800 dark:text-gray-100")}>{String(v)}</span>
+                <img src="/fab/symbols/block.png" alt="Block" className="w-5 h-5 object-contain" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </HighlightFiltersPopover>
+  );
+
   return (
     <>
-      {/* View toggle + legend */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-        <div className="flex rounded border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setViewMode('list')}
-            className={cn(
-              "px-3 py-1.5 text-xs flex items-center gap-1.5 transition-colors",
-              viewMode === 'list' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800',
-            )}
-          >
-            <List className="h-3.5 w-3.5" />List
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('tile')}
-            className={cn(
-              "px-3 py-1.5 text-xs flex items-center gap-1.5 border-l border-gray-200 dark:border-gray-700 transition-colors",
-              viewMode === 'tile' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800',
-            )}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />Tiles
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('game')}
-            className={cn(
-              "px-3 py-1.5 text-xs flex items-center gap-1.5 border-l border-gray-200 dark:border-gray-700 transition-colors",
-              viewMode === 'game' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800',
-            )}
-          >
-            <Layers className="h-3.5 w-3.5" />Game
-          </button>
-        </div>
-
-        {/* Highlight/Hover eye — between view mode group and tile size stepper */}
-        {(viewMode === 'tile' || viewMode === 'game') && (
-          <button
-            type="button"
-            onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
-            className={cn(
-              "px-3 py-1.5 text-xs flex items-center gap-1.5 rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
-              hoverMode
-                ? "border-blue-500 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            )}
-            title="Toggle hover preview (H)"
-            aria-label="Toggle highlight/hover mode"
-            aria-pressed={hoverMode}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </button>
-        )}
-
-        {/* Tile size stepper — only for tile/game views */}
-        {(viewMode === 'tile' || viewMode === 'game') && (
-          <div className="flex items-center gap-1 rounded border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
-            <span className="px-2 text-gray-600 dark:text-gray-500 hidden sm:inline border-r border-gray-200 dark:border-gray-700 py-1.5">Tile Size</span>
+      {/* Display controls — view mode, hover preview, tile density, and highlight popover */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <div className="inline-flex items-center rounded border border-gray-200 dark:border-gray-700 overflow-hidden text-sm bg-white dark:bg-gray-900/40">
+          {/* View mode */}
+          {([
+            { key: 'list', icon: List,       label: 'List'  },
+            { key: 'tile', icon: LayoutGrid, label: 'Tiles' },
+            { key: 'game', icon: Layers,     label: 'Game'  },
+          ] as const).map((m, idx) => (
             <button
+              key={m.key}
               type="button"
-              disabled={tileSizeIdx === 0}
-              onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx - 1].key)}
-              className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Smaller tiles"
-            >−</button>
-            <span className="px-2 py-1.5 text-gray-700 dark:text-gray-300 min-w-[52px] text-center">{TILE_SIZES[tileSizeIdx].label}</span>
-            <button
-              type="button"
-              disabled={tileSizeIdx === TILE_SIZES.length - 1}
-              onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx + 1].key)}
-              className="px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              title="Larger tiles"
-            >+</button>
-          </div>
-        )}
-        </div>
-
-        {(viewMode === 'tile' || viewMode === 'game') && (
-          <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-600 dark:text-gray-500 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setOwnershipFilter(f => f === 'owned' ? 'all' : 'owned')}
+              onClick={() => setViewMode(m.key)}
+              aria-pressed={viewMode === m.key}
               className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors",
-                ownershipFilter === 'owned'
-                  ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 ring-1 ring-green-500 dark:ring-green-600"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-500"
+                "px-3 py-1.5 flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                idx > 0 && "border-l border-gray-200 dark:border-gray-700",
+                viewMode === m.key
+                  ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
               )}
-              title="Filter to owned cards only"
             >
-              <span className="w-2 h-2 rounded-full bg-green-500 border border-black/20 shrink-0" />
-              owned
+              <m.icon className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>{m.label}</span>
             </button>
+          ))}
+
+          {/* Hover preview toggle (only meaningful in tile / game views) */}
+          {(viewMode === 'tile' || viewMode === 'game') && (
             <button
               type="button"
-              onClick={() => setOwnershipFilter(f => f === 'unowned' ? 'all' : 'unowned')}
+              onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
               className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors",
-                ownershipFilter === 'unowned'
-                  ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ring-1 ring-red-500 dark:ring-red-600"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-500"
+                "px-3 py-1.5 border-l border-gray-200 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                hoverMode
+                  ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
               )}
-              title="Filter to unowned cards only"
+              title="Toggle hover preview (H)"
+              aria-label="Toggle hover preview"
+              aria-pressed={hoverMode}
             >
-              <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20 shrink-0" />
-              unowned
+              <Eye className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
-            {onAddToBinder && binders && binders.length > 0 && (
-              <span className="flex items-center gap-1.5 border-l border-gray-200 dark:border-gray-700 pl-3 ml-1">
-                <BookmarkPlus className="h-2.5 w-2.5 shrink-0" />
-                add to:
-                <Select value={selectedBinderId} onValueChange={onBinderChange}>
-                  <SelectTrigger className="h-5 text-[10px] px-1.5 py-0 border-gray-300 dark:border-gray-600 bg-transparent min-w-[90px] gap-1">
-                    <SelectValue placeholder="Select binder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {binders.map(b => (
-                      <SelectItem key={b._id} value={b._id} className="text-xs">
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </span>
-            )}
-            {canEdit && onUpgradePrintings && (
+          )}
+
+          {/* Tile density */}
+          {(viewMode === 'tile' || viewMode === 'game') && (
+            <div className="flex items-center border-l border-gray-200 dark:border-gray-700">
               <button
                 type="button"
-                onClick={handleUpgradePrintings}
-                disabled={isUpgrading}
-                className="flex items-center gap-1.5 border-l border-gray-200 dark:border-gray-700 pl-3 ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Swap unowned printings to the highest-value printing you own of the same card"
-              >
-                {isUpgrading
-                  ? <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" />
-                  : <ArrowLeftRight className="h-2.5 w-2.5 shrink-0" />
-                }
-                Update to owned printings
-              </button>
-            )}
+                disabled={tileSizeIdx === 0}
+                onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx - 1].key)}
+                className="px-2.5 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+                aria-label="Smaller tiles"
+              >−</button>
+              <span className="px-1 text-gray-700 dark:text-gray-300 min-w-[60px] text-center text-xs uppercase tracking-wide" aria-live="polite">{TILE_SIZES[tileSizeIdx].label}</span>
+              <button
+                type="button"
+                disabled={tileSizeIdx === TILE_SIZES.length - 1}
+                onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx + 1].key)}
+                className="px-2.5 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+                aria-label="Larger tiles"
+              >+</button>
+            </div>
+          )}
+        </div>
+
+        {(viewMode === 'tile' || viewMode === 'game') && (
+          <div className="hidden md:block text-sm">
+            {highlightFiltersBlock}
+          </div>
+        )}
+
+        {(viewMode === 'tile' || viewMode === 'game') && onAddToBinder && binders && binders.length > 0 && (
+          <div className="hidden sm:flex items-center gap-2 flex-wrap ml-auto">
+            <span className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
+              <BookmarkPlus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden md:inline">Add to</span>
+              <Select value={selectedBinderId} onValueChange={onBinderChange}>
+                <SelectTrigger className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[120px] gap-1">
+                  <SelectValue placeholder="Select binder" />
+                </SelectTrigger>
+                <SelectContent>
+                  {binders.map(b => (
+                    <SelectItem key={b._id} value={b._id} className="text-sm">
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </span>
           </div>
         )}
       </div>
@@ -2054,87 +2237,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             </div>
           </div>
 
-          {/* ── Desktop highlight bar: existing full layout ── */}
-          <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 px-2 py-1.5 bg-gray-100 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700/50 text-[10px]">
-            <span className="font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide shrink-0">Highlight</span>
-
-            {/* Pitch */}
-            <div className="flex items-center gap-1">
-              {([1, 2, 3] as const).map(v => {
-                const count = getStatCount('pitch', v);
-                const isActive = highlightFilters.some(f => f.stat === 'pitch' && f.value === v);
-                return (
-                  <button key={v} onClick={() => count > 0 && toggleHighlight('pitch', v)}
-                    className={cn("flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
-                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
-                  >
-                    <img src={`/fab/symbols/pitch${v}.png`} alt={`Pitch ${v}`} className="w-5 h-5 object-contain" />
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Cost */}
-            <div className="flex items-center gap-1">
-              {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
-                const count = getStatCount('cost', v);
-                const isActive = highlightFilters.some(f => f.stat === 'cost' && f.value === v);
-                return (
-                  <button key={String(v)} onClick={() => count > 0 && toggleHighlight('cost', v)}
-                    className={cn("flex items-center gap-0.5 px-0.5 py-0.5 rounded transition-all",
-                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
-                  >
-                    <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
-                      <img src="/fab/symbols/cost.png" alt="Cost" className="w-5 h-5 object-contain" />
-                      <span className="absolute font-bold text-[8px] leading-none text-white drop-shadow-[0_0_2px_rgba(0,0,0,1)]">{String(v)}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Power */}
-            <div className="flex items-center gap-1">
-              {([1, 2, 3, 4, 5, 6, '7+'] as const).map(v => {
-                const count = getStatCount('power', v);
-                const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
-                return (
-                  <button key={String(v)} onClick={() => count > 0 && toggleHighlight('power', v)}
-                    className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
-                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
-                  >
-                    <span className={cn("font-medium", isActive ? "text-white" : "text-gray-700 dark:text-gray-200")}>{String(v)}</span>
-                    <img src="/fab/symbols/power.png" alt="Power" className="w-4 h-4 object-contain" />
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Defense */}
-            <div className="flex items-center gap-1">
-              {([0, 1, 2, 3, 4, '5+'] as const).map(v => {
-                const count = getStatCount('defense', v);
-                const isActive = highlightFilters.some(f => f.stat === 'defense' && f.value === v);
-                return (
-                  <button key={String(v)} onClick={() => count > 0 && toggleHighlight('defense', v)}
-                    className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded transition-all",
-                      isActive ? "bg-amber-500 ring-1 ring-amber-400/80" : count > 0 ? "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600" : "opacity-30 cursor-default")}
-                  >
-                    <span className={cn("font-medium", isActive ? "text-white" : "text-gray-700 dark:text-gray-200")}>{String(v)}</span>
-                    <img src="/fab/symbols/block.png" alt="Block" className="w-4 h-4 object-contain" />
-                  </button>
-                );
-              })}
-            </div>
-
-            {highlightFilters.length > 0 && (
-              <button onClick={() => setHighlightFilters([])}
-                className="ml-auto flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-              >
-                <X className="h-3 w-3" />clear
-              </button>
-            )}
-          </div>
         </>
       )}
 
@@ -2190,10 +2292,15 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                       <div
                         className="relative flex-shrink-0 rounded overflow-hidden ring-[1.5px] ring-yellow-400/70 cursor-pointer"
                         style={{ width: 28 }}
-                        title={heroPortrait.name}
+                        title={`${heroPortrait.name} — click to enlarge`}
                         onMouseEnter={isTouchDevice ? undefined : (e) => { e.stopPropagation(); hoverMode && heroPortrait.imageUrl && setHoveredImage({ url: heroPortrait.imageUrl, name: heroPortrait.name }); }}
                         onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (heroPortrait.imageUrl) {
+                            setEnlargedImage({ url: heroPortrait.imageUrl, name: heroPortrait.name, otherFaceUrl: heroPortrait.otherFaceImageUrl });
+                          }
+                        }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -2257,8 +2364,15 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         gameHighlight === false && "opacity-25 scale-95 grayscale",
                       )}
                       style={{ width: tileWidth }}
-                      onMouseEnter={isTouchDevice ? undefined : () => hoverMode && card.imageUrl && setHoveredImage({ url: card.imageUrl, name: card.name })}
-                      onMouseLeave={isTouchDevice ? undefined : () => setHoveredImage(null)}
+                      onMouseEnter={isTouchDevice ? undefined : () => {
+                        if (!card.imageUrl) return;
+                        if (hoverMode) setHoveredImage({ url: card.imageUrl, name: card.name });
+                        onCardHover?.({ url: card.imageUrl, name: card.name });
+                      }}
+                      onMouseLeave={isTouchDevice ? undefined : () => {
+                        setHoveredImage(null);
+                        onCardHover?.(null);
+                      }}
                     >
                       {card.imageUrl ? (
                         <div className="w-full overflow-hidden rounded" style={{ aspectRatio: '63/53', display: 'flex', flexDirection: 'column', gap: '1px', background: '#111827' }}>

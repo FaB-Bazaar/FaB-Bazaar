@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv } from "lucide-react";
@@ -16,6 +16,9 @@ import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckMatchupsDialog from "@/components/deck/DeckMatchupsDialog";
+import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
+import DeckRightRail from "@/components/deck/editor/DeckRightRail";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import DeckSettings from "@/components/deck/DeckSettings";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/editor/QuickAddCardDialog";
@@ -282,6 +285,42 @@ export default function DeckEditorPage() {
   const canEdit = isOwner || isCoOwner;
 
   const stagedCards = state.bulkResults.filter(c => c.isStaged);
+
+  // Hovered card preview shown in the right rail.
+  const [hoveredCard, setHoveredCard] = useState<{ url: string; name: string } | null>(null);
+
+  // Sidebar stats — derived from the deck for the right rail.
+  // Average cost is computed over maindeck only (excludes hero/equipment/inventory),
+  // matching the conventional "deck cost curve" interpretation.
+  const railStats = useMemo(() => {
+    const d = state.deck;
+    if (!d) return null;
+    const all = [...(d.maindeck ?? []), ...(d.equipment ?? []), ...(d.inventory ?? [])];
+    let red = 0, yellow = 0, blue = 0, none = 0;
+    let owned = 0, total = 0;
+    for (const c of all) {
+      const qty = c.quantity ?? 1;
+      total += qty;
+      const ownedQty = state.ownershipMap.get(c.printingId)?.owned ?? 0;
+      owned += Math.min(qty, ownedQty);
+      const p = c.printingDetails?.pitch;
+      if (p === 1) red += qty;
+      else if (p === 2) yellow += qty;
+      else if (p === 3) blue += qty;
+      else none += qty;
+    }
+    let costSum = 0, costCount = 0;
+    for (const c of d.maindeck ?? []) {
+      const qty = c.quantity ?? 1;
+      const cost = c.printingDetails?.cost;
+      if (typeof cost === "number") {
+        costSum += cost * qty;
+        costCount += qty;
+      }
+    }
+    const averageCost = costCount > 0 ? costSum / costCount : null;
+    return { pitchCounts: { red, yellow, blue, none }, averageCost, ownedCount: owned, totalCount: total };
+  }, [state.deck, state.ownershipMap]);
 
   const handleSearch = async (e: React.FormEvent) => {
     await handlers.handleBulkSearch(e);
@@ -1534,7 +1573,7 @@ export default function DeckEditorPage() {
       )}
 
       <div className={canEdit && activeTab === "search" ? "lg:ml-96" : ""}>
-        <div className="container mx-auto pt-3 pb-20 sm:pb-0 px-4">
+        <div className="max-w-[1800px] mx-auto pt-3 pb-20 sm:pb-0 px-4 sm:px-6 lg:px-8">
           <div className="w-full">
             {/* Compact header: back arrow + title + view link */}
             <div className="flex items-center gap-2 mb-2">
@@ -1555,79 +1594,42 @@ export default function DeckEditorPage() {
                   </span>
                 )}
               </div>
-              <Link
-                href={`/decks/${deckId}/analyze`}
-                className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                title="Analyze deck"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Analyze</span>
-              </Link>
-              <Link
-                href={`/decks/${deckId}/present`}
-                className="hidden sm:flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 ml-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                title="Presenter mode (for streaming / decktech)"
-              >
-                <Tv className="h-3.5 w-3.5" />
-                <span>Present</span>
-              </Link>
+              {state.deck?.format && (
+                <span className="hidden sm:inline-flex text-sm px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 shrink-0 ml-1">
+                  {state.deck.format}
+                </span>
+              )}
               <div className="hidden sm:flex items-center gap-2 ml-auto shrink-0">
-                {state.deck?.format && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                    {state.deck.format}
-                  </span>
-                )}
-                {isOwner && (
-                  <button
-                    onClick={() => setSettingsOpen(true)}
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
-                    title="Deck settings"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </button>
+                {!canEdit && (
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Read only</span>
                 )}
                 <DarkModeToggle />
-                <span className="text-xs text-muted-foreground">
-                  {!canEdit
-                    ? "Read only"
-                    : state.deck?.heroName
-                    ? `Filtered for ${state.deck.heroName}`
-                    : ""}
-                </span>
                 {state.deck && (
-                  <>
-                    <button
-                      onClick={() => {
-                        const text = buildDeckExportText(state.deck!);
-                        navigator.clipboard.writeText(text).then(() => {
-                          setCopySuccess(true);
-                          setTimeout(() => setCopySuccess(false), 2000);
-                        });
-                      }}
-                      className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
-                      title="Copy deck list to clipboard (GEM format)"
-                    >
-                      {copySuccess ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                      {copySuccess ? "Copied!" : "Copy list"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        const text = buildDeckExportText(state.deck!);
-                        const blob = new Blob([text], { type: "text/plain" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${state.deck!.name || "deck"}.txt`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
-                      title="Export deck list as .txt (GEM format)"
-                    >
-                      <Download className="h-3 w-3" />
-                      Export
-                    </button>
-                  </>
+                  <DeckToolbarMoreMenu
+                    isOwner={isOwner}
+                    onCopyList={() => {
+                      const text = buildDeckExportText(state.deck!);
+                      navigator.clipboard.writeText(text).then(() => {
+                        setCopySuccess(true);
+                        setTimeout(() => setCopySuccess(false), 2000);
+                        toast({ title: "Copied!", description: "Deck list copied to clipboard." });
+                      });
+                    }}
+                    onExport={() => {
+                      const text = buildDeckExportText(state.deck!);
+                      const blob = new Blob([text], { type: "text/plain" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${state.deck!.name || "deck"}.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    onAnalyze={() => router.push(`/decks/${deckId}/analyze`)}
+                    onPresent={() => router.push(`/decks/${deckId}/present`)}
+                    onSettings={() => setSettingsOpen(true)}
+                    onUpdateOwnedPrintings={canEdit ? handleUpgradePrintings : undefined}
+                  />
                 )}
                 {!canEdit && state.deck && (
                   <button
@@ -1666,7 +1668,7 @@ export default function DeckEditorPage() {
                   )}
                 >
                   <Search className="h-4 w-4" />
-                  Search
+                  Add Cards
                 </button>
               )}
               <button
@@ -1713,6 +1715,10 @@ export default function DeckEditorPage() {
                 </button>
               )}
             </div>
+
+            {/* Content + right rail — flex layout keeps the rail aligned with the top of the tab content. */}
+            <div className="flex gap-4 xl:gap-6 items-start">
+              <div className="flex-1 min-w-0">
 
             {/* Deck legality strip — appears when the deck contains cards banned in its format */}
             {state.deck && bannedCardIds.size > 0 && (() => {
@@ -1780,72 +1786,65 @@ export default function DeckEditorPage() {
               );
             })()}
 
-            {/* Curated build buttons — collapsible, always reserves space while loading */}
-            {canEdit && (buildsLoading || curatedBuilds.length > 0) && (() => {
+            {/* Starter Kits — a compact dropdown of curated builds + optional curator guide links.
+                Designed to stay one-line tall regardless of how many kits are available. */}
+            {canEdit && (buildsLoading || curatedBuilds.length > 0 || heroCurators.some(c => c.metafyProductUrl)) && (() => {
+              const curatorsWithMetafy = heroCurators.filter(c => c.metafyProductUrl);
               return (
-              <div className="mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
-                <button
-                  onClick={() => !buildsLoading && setBuildsExpanded(v => !v)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-left rounded-t-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                  disabled={buildsLoading}
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-blue-700 dark:text-blue-300 shrink-0" />
-                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex-1">
-                    Starter Kits
-                    {!buildsLoading && <span className="ml-1.5 font-normal text-blue-500 dark:text-blue-400">({curatedBuilds.length})</span>}
-                  </span>
-                  {buildsLoading
-                    ? <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />
-                    : <span className="flex items-center gap-1 text-xs text-blue-500 dark:text-blue-400">
-                        {buildsExpanded ? 'collapse' : 'expand'}
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", buildsExpanded && "rotate-180")} />
-                      </span>
-                  }
-                </button>
-                {buildsExpanded && (
-                  <div className="px-3 pb-2 border-t border-blue-200 dark:border-blue-800 pt-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {curatedBuilds.map(build => (
+                <div className="mb-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <button
-                        key={build.id}
-                        onClick={() => setPreviewBuild({ name: build.name, description: build.description, cards: build.cards, curatorUser: build.curatorUser })}
-                        className="text-sm sm:text-xs px-3 py-2 sm:py-1.5 rounded-full bg-white dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 border border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors font-medium shadow-sm flex items-center gap-1.5"
+                        type="button"
+                        disabled={buildsLoading}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60"
                       >
-                        {build.curatorUser?.avatarUrl && (
-                          <img src={build.curatorUser.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />
+                        <Sparkles className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+                        <span className="font-medium">Starter Kits</span>
+                        {!buildsLoading && curatedBuilds.length > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{curatedBuilds.length}</span>
                         )}
-                        {build.name}
+                        {buildsLoading
+                          ? <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" aria-hidden="true" />
+                          : <ChevronDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+                        }
                       </button>
-                    ))}
-                  </div>
-                  </div>
-                )}
-                {(() => {
-                  const curatorsWithMetafy = heroCurators.filter(c => c.metafyProductUrl);
-
-                  if (curatorsWithMetafy.length === 0) return null;
-
-                  return (
-                    <div className="border-t border-blue-200 dark:border-blue-800 px-3 py-1.5 flex flex-col gap-1">
-                      {curatorsWithMetafy.map(c => (
-                        <a
-                          key={c.metafyProductUrl}
-                          href={c.metafyProductUrl!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-[260px]">
+                      {curatedBuilds.map(build => (
+                        <DropdownMenuItem
+                          key={build.id}
+                          onClick={() => setPreviewBuild({ name: build.name, description: build.description, cards: build.cards, curatorUser: build.curatorUser })}
+                          className="gap-2 text-sm"
                         >
-                          {c.avatarUrl && <img src={c.avatarUrl} className="h-4 w-4 rounded-full shrink-0" alt="" />}
-                          <img src="/metafy-white.svg" alt="Metafy" className="hidden dark:block h-3.5 w-auto shrink-0" />
-                          <img src="/metafy-black.svg" alt="Metafy" className="block dark:hidden h-3.5 w-auto shrink-0 opacity-70" />
-                          <span>{c.metafyLinkLabel || `${c.displayUsername}'s Metafy guide`}</span>
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                        </a>
+                          {build.curatorUser?.avatarUrl
+                            ? <img src={build.curatorUser.avatarUrl} className="h-5 w-5 rounded-full shrink-0" alt="" />
+                            : <Sparkles className="h-4 w-4 text-gray-400 shrink-0" aria-hidden="true" />
+                          }
+                          <span className="truncate">{build.name}</span>
+                        </DropdownMenuItem>
                       ))}
-                    </div>
-                  );
-                })()}
-              </div>
+                      {curatedBuilds.length > 0 && curatorsWithMetafy.length > 0 && <DropdownMenuSeparator />}
+                      {curatorsWithMetafy.map(c => (
+                        <DropdownMenuItem key={c.metafyProductUrl} asChild>
+                          <a
+                            href={c.metafyProductUrl!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="gap-2 text-sm"
+                          >
+                            {c.avatarUrl
+                              ? <img src={c.avatarUrl} className="h-5 w-5 rounded-full shrink-0" alt="" />
+                              : <ExternalLink className="h-4 w-4 text-gray-400 shrink-0" aria-hidden="true" />
+                            }
+                            <span className="truncate">{c.metafyLinkLabel || `${c.displayUsername}'s Metafy guide`}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0 ml-auto opacity-60" aria-hidden="true" />
+                          </a>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               );
             })()}
 
@@ -1977,77 +1976,7 @@ export default function DeckEditorPage() {
                   </div>
                 ) : state.deck ? (
                   <>
-                  {/* Deck stats bar — total cards + pitch color breakdown */}
-                  {(() => {
-                    const d = optimisticDeck ?? state.deck;
-                    const all = [...(d?.maindeck ?? []), ...(d?.inventory ?? []), ...(d?.equipment ?? [])];
-                    const red    = all.filter(c => c.printingDetails?.pitch === 1).reduce((s, c) => s + (c.quantity || 1), 0);
-                    const yellow = all.filter(c => c.printingDetails?.pitch === 2).reduce((s, c) => s + (c.quantity || 1), 0);
-                    const blue   = all.filter(c => c.printingDetails?.pitch === 3).reduce((s, c) => s + (c.quantity || 1), 0);
-                    const none   = all.filter(c => !c.printingDetails?.pitch).reduce((s, c) => s + (c.quantity || 1), 0);
-                    const total = red + yellow + blue + none;
-                    if (total === 0) return null;
-                    const pitchActive = activeHighlights.get('pitch') ?? new Set<number | string>();
-                    const dispatchPitch = (v: number) =>
-                      window.dispatchEvent(new CustomEvent('deck-highlight-filter', { detail: { stat: 'pitch', value: v } }));
-                    const noPitchActive = pitchActive.size === 0;
-                    // Shared pill classes — same border weight and size for all chips
-                    const pillBase = "flex items-center gap-1.5 rounded-full px-3 py-1 border transition-all text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 shrink-0";
-                    const pillInactive = "border-gray-400/30 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 hover:border-gray-400/60 dark:hover:border-gray-500";
-                    const pitchPills: { v: number; count: number; dot: string; label: string; activeBg: string; activeBorder: string }[] = [
-                      { v: 1, count: red,    dot: 'bg-red-500',    label: 'red',    activeBg: 'bg-red-600 text-white',    activeBorder: 'border-red-500' },
-                      { v: 2, count: yellow, dot: 'bg-yellow-400', label: 'yellow', activeBg: 'bg-yellow-500 text-white', activeBorder: 'border-yellow-400' },
-                      { v: 3, count: blue,   dot: 'bg-blue-500',   label: 'blue',   activeBg: 'bg-blue-600 text-white',   activeBorder: 'border-blue-500' },
-                    ];
-                    return (
-                      <div className="flex items-center gap-2 px-4 py-2.5 mb-0 -mx-4 overflow-x-auto scrollbar-none border-y border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/50">
-                        {/* "All" — filled when no pitch filter active, outline when one is */}
-                        <button
-                          onClick={() => pitchActive.size > 0 && window.dispatchEvent(new CustomEvent('deck-highlight-clear'))}
-                          aria-label="Show all cards"
-                          aria-pressed={noPitchActive}
-                          className={cn(pillBase, noPitchActive
-                            ? "bg-gray-600 dark:bg-gray-500 border-gray-600 dark:border-gray-500 text-white font-semibold"
-                            : pillInactive
-                          )}
-                        >
-                          <span className="font-bold">{total}</span>
-                          <span className="opacity-75">cards</span>
-                        </button>
-
-                        <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 shrink-0" />
-
-                        {/* Pitch pills — neutral border when inactive, colored fill when active */}
-                        {pitchPills.filter(p => p.count > 0).map(p => {
-                          const isActive = pitchActive.has(p.v);
-                          return (
-                            <button
-                              key={p.v}
-                              onClick={() => dispatchPitch(p.v)}
-                              aria-label={`Filter ${p.label} cards (${p.count})`}
-                              aria-pressed={isActive}
-                              className={cn(pillBase, isActive
-                                ? `${p.activeBg} ${p.activeBorder}`
-                                : pillInactive
-                              )}
-                            >
-                              <span className={`w-2 h-2 rounded-full ${p.dot} shrink-0`} aria-hidden="true" />
-                              <span className="font-semibold">{p.count}</span>
-                              <span className="opacity-75">{p.label}</span>
-                            </button>
-                          );
-                        })}
-
-                        {none > 0 && (
-                          <span className={cn(pillBase, "border-gray-400/20 dark:border-gray-700/40 text-gray-500 dark:text-gray-500 cursor-default")}>
-                            <span className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-600 shrink-0" aria-hidden="true" />
-                            <span className="font-semibold">{none}</span>
-                            <span className="opacity-75">no pitch</span>
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {/* Pitch breakdown lives in the right rail; pitch filtering remains accessible via the Highlight popover. */}
                   <DeckEditorListView
                     deck={state.deck}
                     ownershipMap={state.ownershipMap}
@@ -2069,6 +1998,7 @@ export default function DeckEditorPage() {
                     onAddToBinder={handleAddToBinder}
                     onAddToWants={handleAddToWants}
                     onUpgradePrintings={handleUpgradePrintings}
+                    onCardHover={setHoveredCard}
                   />
                   </>
                 ) : null}
@@ -2102,6 +2032,17 @@ export default function DeckEditorPage() {
                 />
               </div>
             )}
+              </div>
+              {activeTab === "deck" && state.deck && railStats && (
+                <DeckRightRail
+                  pitchCounts={railStats.pitchCounts}
+                  averageCost={railStats.averageCost}
+                  ownedCount={railStats.ownedCount}
+                  totalCount={railStats.totalCount}
+                  hoveredCard={hoveredCard}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>

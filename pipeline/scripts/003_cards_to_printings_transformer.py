@@ -336,6 +336,9 @@ class CardsToPrintingsTransformer:
             'talents': talents,  # Extracted talents
             'traits': self.normalize_array(card.get('traits', [])),
             'keywords': self.normalize_array(card.get('card_keywords', [])),
+            # Original-case keywords for display (e.g. "Go Again", "Ward 10").
+            # `keywords` is lowercased for search/filter use; `keywords_display` preserves casing.
+            'keywords_display': [k.strip() for k in (card.get('card_keywords') or []) if isinstance(k, str) and k.strip()],
             'abilities': self.normalize_array(card.get('abilities_and_effects', [])),
             'power': self.parse_numeric_value(card.get('power')),
             'cost': self.parse_numeric_value(card.get('cost')),

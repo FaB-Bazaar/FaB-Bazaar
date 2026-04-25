@@ -1,0 +1,67 @@
+// lib/fab-constants/heroPortraits.ts
+// Stylized hero portrait artwork keyed by canonical Talishar identifier.
+// Files live at /public/heroes/<talisharId>.png. Adult variants only —
+// young variants fall back to card art via callers.
+
+export const HERO_PORTRAIT_IDS = new Set<string>([
+  'arakni_5lp3d_7hru_7h3_cr4x',
+  'arakni_huntsman',
+  'arakni_marionette',
+  'aurora_shooting_star',
+  'azalea_ace_in_the_hole',
+  'betsy_skin_in_the_game',
+  'bravo_showstopper',
+  'bravo_star_of_the_show',
+  'briar_warden_of_thorns',
+  'chane_bound_by_shadow',
+  'cindra_dracai_of_retribution',
+  'dash_inventor_extraordinaire',
+  'dash_io',
+  'dorinthea_ironsong',
+  'dromai_ash_artist',
+  'enigma_ledger_of_ancestry',
+  'fai_rising_rebellion',
+  'fang_dracai_of_blades',
+  'florian_rotwood_harbinger',
+  'gravy_bones_shipwrecked_looter',
+  'hala_bladesaint_of_the_vow',
+  'ira_crimson_haze',
+  'ira_scarlet_revenger',
+  'iyslander_stormbind',
+  'jarl_vetreii',
+  'kano_dracai_of_aether',
+  'kassai_of_the_golden_sand',
+  'katsu_the_wanderer',
+  'kayo_armed_and_dangerous',
+  'kayo_underhanded_cheat',
+  'levia_shadowborn_abomination',
+  'lexi_livewire',
+  'lyath_goldmane_vile_savant',
+  'marlynn_treasure_hunter',
+  'maxx_the_hype_nitro',
+  'nuu_alluring_desire',
+  'oldhim_grandfather_of_eternity',
+  'olympia_prized_fighter',
+  'oscilio_constella_intelligence',
+  'pleiades_superstar',
+  'prism_awakener_of_sol',
+  'prism_sculptor_of_arc_light',
+  'puffin_hightail',
+  'rhinar_reckless_rampage',
+  'riptide_lurker_of_the_deep',
+  'ser_boltyn_breaker_of_dawn',
+  'teklovossen_esteemed_magnate',
+  'tuffnut_bumbling_hulkster',
+  'uzuri_switchblade',
+  'valda_seismic_impact',
+  'verdance_thorn_of_the_rose',
+  'victor_goldmane_high_and_mighty',
+  'viserai_rune_blood',
+  'vynnset_iron_maiden',
+  'zen_tamer_of_purpose',
+]);
+
+export function getHeroPortraitUrl(talisharId: string | null | undefined): string | null {
+  if (!talisharId) return null;
+  return HERO_PORTRAIT_IDS.has(talisharId) ? `/heroes/${talisharId}.png` : null;
+}

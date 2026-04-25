@@ -9,6 +9,8 @@ import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowU
 import { toTalisharIdentifier } from "@/lib/utils"
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants"
 import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
+import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits"
+import { Bookmark, Swords, RotateCcw } from "lucide-react"
 import { trackDeckPresent } from "@/lib/gtag"
 
 interface PresenterCard {
@@ -74,6 +76,42 @@ function cardTalisharId(card: PresenterCard): string {
   return base
 }
 
+function countOccurrences(ids: string[] | undefined): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const id of ids ?? []) counts.set(id, (counts.get(id) ?? 0) + 1)
+  return counts
+}
+
+// Apply a matchup's sideboard diff to a maindeck:
+//   maindeckPlayed = maindeck - out + in (cards from inventory)
+function applyMatchupDiff(
+  maindeck: PresenterCard[],
+  inventory: PresenterCard[],
+  sideboard: { in: string[]; out: string[] }
+): PresenterCard[] {
+  const outCounts = countOccurrences(sideboard.out)
+  const inCounts = countOccurrences(sideboard.in)
+  const result: PresenterCard[] = []
+
+  for (const card of maindeck) {
+    const tid = cardTalisharId(card)
+    const remove = outCounts.get(tid) ?? 0
+    const newQty = (card.quantity || 1) - remove
+    if (newQty > 0) result.push({ ...card, quantity: newQty })
+  }
+
+  for (const card of inventory) {
+    const tid = cardTalisharId(card)
+    const add = inCounts.get(tid) ?? 0
+    if (add <= 0) continue
+    const existing = result.find(c => cardTalisharId(c) === tid)
+    if (existing) existing.quantity = (existing.quantity || 1) + add
+    else result.push({ ...card, quantity: add })
+  }
+
+  return result
+}
+
 interface Matchup {
   heroId: string
   preferredTurnOrder: string | null
@@ -95,6 +133,9 @@ export default function PresenterPage() {
   const [heroImageMap, setHeroImageMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Filter the deck by an applied matchup; null = base deck.
+  const [selectedMatchupId, setSelectedMatchupId] = useState<string | null>(null)
 
   // Spotlight state — flat list of all cards in presentation order.
   const [spotlightIdx, setSpotlightIdx] = useState<number | null>(null)
@@ -138,21 +179,50 @@ export default function PresenterPage() {
     return () => { cancelled = true }
   }, [deckId])
 
-  // Grouped sections in presentation order.
+  const selectedMatchup = useMemo(
+    () => (selectedMatchupId ? matchups.find(m => m.heroId === selectedMatchupId) ?? null : null),
+    [selectedMatchupId, matchups]
+  )
+
+  // Grouped sections in presentation order. When a matchup is selected, the
+  // maindeck is rebuilt with its sideboard diff applied (cards moved out are
+  // removed; cards moved in are pulled from inventory) and Inventory is hidden
+  // — the player only sees what stays in the deck for that matchup.
   const sections = useMemo(() => {
     if (!deck) return [] as Array<{ key: string; title: string; accent: string; cards: PresenterCard[] }>
-    const byPitch = (p: number) => (deck.maindeck ?? []).filter(c => c.printingDetails?.pitch === p)
-    const noPitch = (deck.maindeck ?? []).filter(c => !c.printingDetails?.pitch)
-    return [
+    const maindeckCards = selectedMatchup
+      ? applyMatchupDiff(deck.maindeck ?? [], deck.inventory ?? [], selectedMatchup.sideboard)
+      : (deck.maindeck ?? [])
+    const byPitch = (p: number) => maindeckCards.filter(c => c.printingDetails?.pitch === p)
+    const noPitch = maindeckCards.filter(c => !c.printingDetails?.pitch)
+    const result: Array<{ key: string; title: string; accent: string; cards: PresenterCard[] }> = [
       { key: "hero", title: "Hero", accent: "text-amber-300", cards: deck.hero ?? [] },
       { key: "equipment", title: "Equipment & Weapons", accent: "text-gray-300", cards: deck.equipment ?? [] },
       { key: "red", title: "Library — Red", accent: "text-red-400", cards: byPitch(1) },
       { key: "yellow", title: "Library — Yellow", accent: "text-yellow-400", cards: byPitch(2) },
       { key: "blue", title: "Library — Blue", accent: "text-blue-400", cards: byPitch(3) },
       { key: "no-pitch", title: "Library — No Pitch", accent: "text-gray-400", cards: noPitch },
-      { key: "inventory", title: "Inventory", accent: "text-gray-300", cards: deck.inventory ?? [] },
-    ].filter(s => s.cards.length > 0)
-  }, [deck])
+    ]
+    if (!selectedMatchup) {
+      result.push({ key: "inventory", title: "Inventory", accent: "text-gray-300", cards: deck.inventory ?? [] })
+    }
+    return result.filter(s => s.cards.length > 0)
+  }, [deck, selectedMatchup])
+
+  // Sorted matchups for the tile row: core first, then strategies, then heroes alphabetical.
+  const sortedMatchups = useMemo(() => {
+    const STRATEGY_ORDER: Record<string, number> = { aggro: 0, fatigue: 1, combo: 2, midrange: 3 }
+    return [...matchups].sort((a, b) => {
+      if (a.heroId === 'core') return -1
+      if (b.heroId === 'core') return 1
+      const aStrat = STRATEGY_ORDER[a.heroId]
+      const bStrat = STRATEGY_ORDER[b.heroId]
+      if (aStrat !== undefined && bStrat !== undefined) return aStrat - bStrat
+      if (aStrat !== undefined) return -1
+      if (bStrat !== undefined) return 1
+      return heroDisplayFromTalisharId(a.heroId).localeCompare(heroDisplayFromTalisharId(b.heroId))
+    })
+  }, [matchups])
 
   // Flat list of cards in presentation order — one entry per tile (i.e. per
   // unique printing + category); spotlight cycles through this list.
@@ -293,6 +363,77 @@ export default function PresenterPage() {
             )}
           </div>
         </div>
+
+        {/* Matchup tile row — click to filter cards to the played deck for that matchup */}
+        {sortedMatchups.length > 0 && (
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-gray-300">Matchups</h2>
+              {selectedMatchup && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedMatchupId(null)}
+                  className="flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
+                  title="Show base deck"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset to base deck
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedMatchupId(null)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  selectedMatchupId === null
+                    ? 'border-blue-400 bg-blue-900/40 text-blue-50'
+                    : 'border-gray-700 bg-gray-900/60 text-gray-300 hover:border-gray-500 hover:text-gray-100'
+                }`}
+                title="Show the base deck"
+              >
+                <span className="w-9 h-9 rounded-full bg-gray-800 border border-white/10 flex items-center justify-center flex-shrink-0">
+                  <Bookmark className={`h-4 w-4 ${selectedMatchupId === null ? 'text-blue-300' : 'text-gray-400'}`} />
+                </span>
+                <span className="text-sm font-semibold">Base deck</span>
+              </button>
+              {sortedMatchups.map(m => {
+                const isStrategy = m.heroId === 'core' || ['aggro', 'fatigue', 'combo', 'midrange'].includes(m.heroId)
+                const portrait = !isStrategy ? getHeroPortraitUrl(m.heroId) : null
+                const cardArt = !portrait && !isStrategy ? heroImageMap.get(m.heroId) : null
+                const name = heroDisplayFromTalisharId(m.heroId)
+                const isSelected = selectedMatchupId === m.heroId
+                const ring = isSelected
+                  ? 'border-blue-400 bg-blue-900/40 text-blue-50'
+                  : 'border-gray-700 bg-gray-900/60 text-gray-300 hover:border-gray-500 hover:text-gray-100'
+                return (
+                  <button
+                    key={m.heroId}
+                    type="button"
+                    onClick={() => setSelectedMatchupId(isSelected ? null : m.heroId)}
+                    className={`flex items-center gap-2 pl-1 pr-4 py-1 rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${ring}`}
+                    title={isSelected ? `Click to clear filter` : `Show played deck vs ${name}`}
+                  >
+                    <span className="w-9 h-9 rounded-full bg-gray-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                      {portrait ? (
+                        <img src={portrait} alt={name} className="w-full h-full object-cover object-top" />
+                      ) : cardArt ? (
+                        <img src={cardArt} alt={name} className="w-full h-full object-cover object-top" />
+                      ) : m.heroId === 'core' ? (
+                        <Bookmark className="h-4 w-4 text-blue-300" />
+                      ) : isStrategy ? (
+                        <Swords className="h-4 w-4 text-amber-300" />
+                      ) : (
+                        <span className="text-[10px] text-gray-300 uppercase">{name.slice(0, 2)}</span>
+                      )}
+                    </span>
+                    <span className="text-sm font-semibold">{name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Card sections (skip hero — already shown big) */}
         <div className="space-y-10">

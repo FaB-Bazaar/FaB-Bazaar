@@ -517,6 +517,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       types: cards.types,
       traits: cards.traits,
       keywords: cards.keywords,
+      keywordsDisplay: cards.keywordsDisplay,
       abilities: cards.abilities,
       classes: cards.classes,
       talents: cards.talents,
@@ -1214,6 +1215,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       types: row.types || [],
       traits: row.traits || [],
       keywords: row.keywords || [],
+      keywords_display: row.keywordsDisplay || [],
       abilities: row.abilities || [],
       text_keywords: [], // Not stored separately in PostgreSQL
       searchable_text: row.searchableText || '',

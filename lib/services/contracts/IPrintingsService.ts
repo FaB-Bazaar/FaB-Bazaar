@@ -31,6 +31,7 @@ export interface PrintingDTO {
   types: string[];
   traits: string[];
   keywords: string[];
+  keywords_display: string[];
   abilities: string[];
   text_keywords: string[];
   searchable_text: string;

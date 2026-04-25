@@ -125,7 +125,12 @@ function ConfigPanel({
   const [collapsed, setCollapsed] = React.useState(editingHeroId !== null);
 
   const isCore = formHeroId === CORE_HERO_ID;
-  const heroLabel = isCore ? "Core" : (heroOptions.find(h => h.talisharId === formHeroId)?.displayName || formHeroId);
+  const strategyLabel = STRATEGY_MATCHUP_IDS[formHeroId];
+  const isStrategy = !!strategyLabel;
+  const heroLabel = isCore
+    ? "Core"
+    : strategyLabel
+      ?? (heroOptions.find(h => h.talisharId === formHeroId)?.displayName || formHeroId);
 
   // Auto-expand when switching to "add new" mode (editingHeroId cleared after cancel/save)
   React.useEffect(() => {
@@ -145,7 +150,7 @@ function ConfigPanel({
           Settings
           {formHeroId && (
             <Badge variant="outline" className="text-[10px] font-normal h-4 px-1.5">
-              {isCore ? "Core list" : `vs ${heroLabel}`}
+              {isCore ? "Core list" : isStrategy ? heroLabel : `vs ${heroLabel}`}
             </Badge>
           )}
           {formTurnOrder && formTurnOrder !== 'NoPreference' && (
@@ -210,6 +215,15 @@ function ConfigPanel({
                     </span>
                   </SelectItem>
                   <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+                  {Object.entries(STRATEGY_MATCHUP_IDS).map(([id, label]) => (
+                    <SelectItem key={id} value={id}>
+                      <span className="flex items-center gap-1.5">
+                        <Swords className="h-3.5 w-3.5 text-amber-400" />
+                        {label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                  <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
                   {heroOptions.map((hero) => (
                     <SelectItem key={hero.talisharId} value={hero.talisharId}>
                       {hero.displayName}
@@ -222,7 +236,11 @@ function ConfigPanel({
               </Select>
               {editingHeroId && (
                 <p className="text-[10px] text-gray-500 leading-tight">
-                  {editingHeroId === CORE_HERO_ID ? "Core matchup locked." : "Hero locked."} Delete &amp; recreate to change.
+                  {editingHeroId === CORE_HERO_ID
+                    ? "Core matchup locked."
+                    : STRATEGY_MATCHUP_IDS[editingHeroId]
+                      ? `${STRATEGY_MATCHUP_IDS[editingHeroId]} matchup locked.`
+                      : "Hero locked."} Delete &amp; recreate to change.
                 </p>
               )}
             </div>

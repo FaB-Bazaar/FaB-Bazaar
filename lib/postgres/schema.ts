@@ -259,6 +259,7 @@ export const cards = pgTable('cards', {
   types: text('types').array(),
   traits: text('traits').array(),
   keywords: text('keywords').array(),
+  keywordsDisplay: text('keywords_display').array(),
   abilities: text('abilities').array(),
   classes: text('classes').array(),
   talents: text('talents').array(),

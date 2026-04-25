@@ -35,7 +35,7 @@ CARD_FIELDS: List[str] = [
     'card_unique_id', 'name', 'display_name', 'text', 'searchable_text',
     'type_text', 'type_text_display',
     # Arrays
-    'types', 'traits', 'keywords', 'abilities', 'classes', 'talents',
+    'types', 'traits', 'keywords', 'keywords_display', 'abilities', 'classes', 'talents',
     # Game stats
     'power', 'power_text', 'cost', 'cost_text', 'defense', 'defense_text',
     'pitch', 'pitch_text', 'health', 'intelligence', 'color', 'played_horizontally',
