@@ -17,11 +17,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark } from "lucide-react";
+import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
 import { getBannedCardIds, getLivingLegendHeroIds } from '@/lib/fab-banned-cards';
+import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
 
 interface DeckMatchup {
@@ -344,6 +345,10 @@ export default function DeckMatchupsDialog({
     return () => document.removeEventListener('keydown', handler);
   }, [gallery]);
 
+  // Copy-to-another-hero state
+  const [copySource, setCopySource] = useState<DeckMatchup | null>(null);
+  const [copyTargetHeroId, setCopyTargetHeroId] = useState<string>("");
+
   // Form state for add/edit
   const [formHeroId, setFormHeroId] = useState("");
   const [formTurnOrder, setFormTurnOrder] = useState<"First" | "Second" | "NoPreference" | null>(null);
@@ -638,6 +643,39 @@ export default function DeckMatchupsDialog({
     }
   };
 
+  const handleCopyConfirm = async () => {
+    if (!copySource || !copyTargetHeroId) return;
+    setLoading(true);
+    try {
+      const newMatchup = buildCopiedMatchup(copySource, copyTargetHeroId);
+      const response = await fetch(`/api/decks/${deckId}/matchups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ matchup: newMatchup }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to copy matchup');
+      }
+      toast({
+        title: "Copied",
+        description: `Plan copied to ${getHeroDisplayName(copyTargetHeroId)}`,
+      });
+      setCopySource(null);
+      setCopyTargetHeroId("");
+      fetchMatchups();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to copy matchup",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleExpand = (heroId: string) => {
     const newExpanded = new Set(expandedMatchups);
     if (newExpanded.has(heroId)) {
@@ -824,8 +862,21 @@ export default function DeckMatchupsDialog({
                             size="sm"
                             variant="ghost"
                             onClick={() => handleDelete(matchup.heroId)}
+                            aria-label={`Delete ${getHeroDisplayName(matchup.heroId)} matchup`}
                           >
                             <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setCopySource(matchup);
+                              setCopyTargetHeroId("");
+                            }}
+                            aria-label={`Copy ${getHeroDisplayName(matchup.heroId)} matchup to another hero`}
+                            title="Copy to another hero"
+                          >
+                            <Copy className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
@@ -959,6 +1010,76 @@ export default function DeckMatchupsDialog({
             {/* ConfigPanel has its own buttons when expanded */}
           </TabsContent>
         </Tabs>
+
+        {/* Copy-to-another-hero picker */}
+        <Dialog
+          open={!!copySource}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCopySource(null);
+              setCopyTargetHeroId("");
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Copy className="h-5 w-5" />
+                Copy matchup
+              </DialogTitle>
+              <DialogDescription>
+                {copySource && (
+                  <>Copy the {getHeroDisplayName(copySource.heroId)} sideboard plan to another hero.</>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="copy-target" className="text-xs">Target Hero</Label>
+              <Select value={copyTargetHeroId} onValueChange={setCopyTargetHeroId}>
+                <SelectTrigger id="copy-target" className="h-9 text-sm">
+                  <SelectValue placeholder="Select a hero..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {copySource && (() => {
+                    const targets = getCopyTargets(copySource.heroId, matchups, HERO_OPTIONS);
+                    if (targets.length === 0) {
+                      return (
+                        <div className="px-2 py-1.5 text-xs text-gray-500">
+                          No eligible heroes — every other hero already has a matchup.
+                        </div>
+                      );
+                    }
+                    return targets.map((hero) => (
+                      <SelectItem key={hero.talisharId} value={hero.talisharId}>
+                        {hero.displayName}
+                      </SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCopySource(null);
+                  setCopyTargetHeroId("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!copyTargetHeroId || loading}
+                onClick={handleCopyConfirm}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                Copy
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
   );
 
