@@ -136,7 +136,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => { e.stopPropagation(); onQuantityChange(card.id, Math.max(1, card.quantity - 1)); }}
-                    className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="w-8 h-8 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <Minus className="w-3 h-3 text-gray-700 dark:text-gray-200" />
                   </button>
@@ -147,7 +147,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => { e.stopPropagation(); onQuantityChange(card.id, card.quantity + 1); }}
-                    className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="w-8 h-8 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <Plus className="w-3 h-3 text-gray-700 dark:text-gray-200" />
                   </button>
@@ -188,7 +188,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => { e.stopPropagation(); onRemove(card.id); }}
-                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
