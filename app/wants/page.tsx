@@ -152,10 +152,6 @@ export default function NewWantsPage() {
     }
   };
 
-  const handleEdit = (card) => {
-    console.log("Edit card:", card);
-  };
-
   const handleRemove = async (id: string) => {
     const originalCards = cards;
     setCards(prev => prev.filter(card => card.id !== id));
@@ -576,7 +572,6 @@ export default function NewWantsPage() {
                       card={card}
                       onQuantityChange={handleQuantityChange}
                       onPriorityChange={handlePriorityChange}
-                      onEdit={handleEdit}
                       onRemove={handleRemove}
                       onPrintingSwap={handlePrintingSwap}
                     />

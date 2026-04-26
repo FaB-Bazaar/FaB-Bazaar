@@ -25,16 +25,9 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { fetchMetadata } from "@/lib/metadata-service";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
-import {
-  getSetName,
-  getRarityInfo,
-  getFoilingInfo,
-  getEditionInfo,
-} from "@/lib/card-metadata";
 import { SharedWantsCard } from '@/components/wants';
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad"
@@ -97,7 +90,6 @@ export default function SharedWantsListPage({
   });
   const [sortBy, setSortBy] = useState("price-high");
   const { toast } = useToast();
-  const [metadata, setMetadata] = useState<any>(null);
   const [userName, setUserName] = useState<string>("");
   const [profileUsername, setProfileUsername] = useState<string>("");
   const { data: session } = useSession();
@@ -108,10 +100,6 @@ export default function SharedWantsListPage({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const windowWidth = useWindowWidth();
 
-  // ========================================================================
-  //     *** FIX #1: HEADER STATE DEFAULTS TO COLLAPSED (false) ***
-  // ========================================================================
-  const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
   const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
 
@@ -121,8 +109,6 @@ export default function SharedWantsListPage({
       try {
         setLoading(true);
         setError(null);
-        const metadataResult = await fetchMetadata();
-        setMetadata(metadataResult);
         let displayName = "User";
         let username = "";
         try {

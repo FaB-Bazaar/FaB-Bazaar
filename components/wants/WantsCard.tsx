@@ -43,7 +43,6 @@ interface WantsCardProps {
   };
   onQuantityChange: (id: string, newQuantity: number) => void;
   onPriorityChange: (id: string, newPriority: string) => void;
-  onEdit: (card: any) => void;
   onRemove: (id: string) => void;
   onPrintingSwap: (cardId: string, oldPrintingId: string, newPrinting: any) => void;
 }
@@ -52,7 +51,6 @@ const WantsCard: React.FC<WantsCardProps> = ({
   card,
   onQuantityChange,
   onPriorityChange,
-  onEdit,
   onRemove,
   onPrintingSwap
 }) => {

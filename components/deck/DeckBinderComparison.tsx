@@ -1025,7 +1025,6 @@ export default function DeckBinderComparison({ deck }: DeckBinderComparisonProps
                           }}
                           onQuantityChange={handleWantsQuantityChange}
                           onPriorityChange={handleWantsPriorityChange}
-                          onEdit={() => {}} // No edit functionality needed in this context
                           onRemove={handleWantsRemove}
                           onPrintingSwap={null} // Disable printing swap dialog
                         />
