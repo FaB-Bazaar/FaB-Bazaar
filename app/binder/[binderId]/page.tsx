@@ -1131,6 +1131,7 @@ const SuperSlamDisclosure = () => {
                           return (
                             <div
                               key={cardId}
+                              className="h-full"
                               ref={(el) => {
                                 if (el) {
                                   cardRefs.current.set(cardId, el);

@@ -119,14 +119,18 @@ export default function EnhancedBinderCard({
   const foilingInfo    = getFoilingInfo(foiling)
 
   const renderPriceLine = (price: number | undefined, label: string, isLow = false) => {
-    if (typeof price !== 'number') return null
-    const totalValue = price * quantity
+    const hasPrice = typeof price === 'number'
+    const totalValue = hasPrice ? price * quantity : 0
     return (
-      <div className={`${isLow ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'} text-xs`}>
+      <div className={`${isLow && hasPrice ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-600 dark:text-gray-400'} text-xs`}>
         <div className="flex justify-between items-center">
           <span className="text-gray-500 dark:text-gray-300">{label}:</span>
-          <span>
-            {quantity > 1 ? `$${price.toFixed(2)} × ${quantity} = $${totalValue.toFixed(2)}` : `$${price.toFixed(2)}`}
+          <span className={!hasPrice ? 'text-gray-400 dark:text-gray-500' : undefined}>
+            {!hasPrice
+              ? 'N/A'
+              : quantity > 1
+                ? `$${price.toFixed(2)} × ${quantity} = $${totalValue.toFixed(2)}`
+                : `$${price.toFixed(2)}`}
           </span>
         </div>
       </div>
@@ -162,7 +166,7 @@ export default function EnhancedBinderCard({
   return (
     <div
       className={cn(
-        "w-full sm:w-[200px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
+        "w-full sm:w-[200px] h-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
         isSelected ? "shadow-lg bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500" : "shadow-md",
         isSelected && selectedQty >= maxQty && "opacity-70"
       )}
