@@ -1470,9 +1470,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     { key: 'large',   label: 'Large',   width: 200 },
   ] as const;
   type TileSizeKey = typeof TILE_SIZES[number]['key'];
-  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>(
-    () => (typeof window !== 'undefined' && window.innerWidth >= 768) ? 'normal' : 'compact'
-  );
+  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('compact');
   const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
   const tileWidth = TILE_SIZES[tileSizeIdx].width;
 
