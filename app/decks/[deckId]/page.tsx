@@ -1053,7 +1053,7 @@ export default function DeckEditorPage() {
   const modKey = isMac ? '⌘' : 'Ctrl';
 
   return (
-    <div className="bg-white dark:bg-gray-900 min-h-screen">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Dormant HUD trigger */}
       {!chordMode && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
