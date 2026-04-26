@@ -552,12 +552,18 @@ export default function DeckEditorSidebar({
   );
 
   const totalMaindeck = deckCounts.maindeck + (pendingCounts.maindeck || 0);
+  const totalInventory = deckCounts.inventory + (pendingCounts.inventory || 0);
   const totalEquipment = deckCounts.equipment + (pendingCounts.equipment || 0);
-  const maindeckShort = totalMaindeck < 60;
+  const totalLibrary = totalMaindeck + totalInventory;
+  const libraryShort = totalLibrary < 60;
   const equipmentFull = totalEquipment > 5;
 
   const validationWarnings: string[] = [];
-  if (maindeckShort) validationWarnings.push(`Main deck needs ${60 - totalMaindeck} more card(s)`);
+  if (libraryShort) {
+    validationWarnings.push(
+      `Library (main deck + inventory) needs ${60 - totalLibrary} more card(s)`
+    );
+  }
   if (equipmentFull) validationWarnings.push(`Equipment exceeds 5 slots (${totalEquipment})`);
 
   const sharedHoverProps = {
@@ -604,8 +610,7 @@ export default function DeckEditorSidebar({
             <SectionAccordion
               label="Main Deck"
               count={totalMaindeck}
-              limit="60+"
-              warn={maindeckShort && totalMaindeck > 0}
+              warn={libraryShort && totalLibrary > 0}
               defaultOpen={true}
               splitByPitch={true}
               cards={deck?.maindeck || []}
@@ -617,7 +622,8 @@ export default function DeckEditorSidebar({
             />
             <SectionAccordion
               label="Inventory"
-              count={deckCounts.inventory + (pendingCounts.inventory || 0)}
+              count={totalInventory}
+              warn={libraryShort && totalLibrary > 0}
               cards={deck?.inventory || []}
               category="inventory"
               ownershipMap={ownershipMap}
