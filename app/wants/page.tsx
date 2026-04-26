@@ -129,6 +129,7 @@ export default function NewWantsPage() {
   });
 
   const handleQuantityChange = async (id: string, newQuantity: number) => {
+    const originalCards = cards;
     setCards(prev => prev.map(card =>
       card.id === id ? { ...card, quantity: Math.max(1, newQuantity) } : card
     ));
@@ -137,10 +138,12 @@ export default function NewWantsPage() {
       if (!result.success) throw new Error(result.error || 'Failed to update quantity');
     } catch (err) {
       console.error('Failed to update quantity:', err);
+      setCards(originalCards);
     }
   };
 
   const handlePriorityChange = async (id: string, newPriority: string) => {
+    const originalCards = cards;
     setCards(prev => prev.map(card =>
       card.id === id ? { ...card, priority: newPriority } : card
     ));
@@ -149,6 +152,7 @@ export default function NewWantsPage() {
       if (!result.success) throw new Error(result.error || 'Failed to update priority');
     } catch (err) {
       console.error('Failed to update priority:', err);
+      setCards(originalCards);
     }
   };
 
