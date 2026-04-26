@@ -60,6 +60,7 @@ interface Deck {
   availableOnTalishar?: boolean;
   featured?: boolean;
   isSystemDeck?: boolean;
+  pinnedInNav?: boolean;
   metafyGuideId?: string | null;
   eventName?: string | null;
   eventDate?: string | null;
@@ -341,6 +342,18 @@ export default function DecksPage() {
       setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, availableOnTalishar: !value } : d));
       toast({ title: "Error", description: "Failed to update Talishar setting.", variant: "destructive" });
     }
+  };
+
+  // Handle Pin to Navbar toggle
+  const handleTogglePin = async (deckId: string, value: boolean) => {
+    setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, pinnedInNav: value } : d));
+    const result = await decksClient.updateDeck(deckId, { pinnedInNav: value });
+    if (!result.success) {
+      setDecks(prev => prev.map(d => d.publicId === deckId ? { ...d, pinnedInNav: !value } : d));
+      toast({ title: "Error", description: "Failed to update pin.", variant: "destructive" });
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('decksUpdated'));
   };
 
   // Handle Featured toggle (Decks to Beat)
@@ -776,6 +789,7 @@ export default function DecksPage() {
                     onSettings={() => setSettingsDeck(deck)}
                     onChangeVisibility={handleChangeVisibility}
                     onToggleTalishar={handleToggleTalishar}
+                    onTogglePin={handleTogglePin}
                   />
                 ))}
               </div>

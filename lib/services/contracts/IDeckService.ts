@@ -148,6 +148,7 @@ export interface DeckSummaryDTO {
   availableOnTalishar?: boolean;
   featured?: boolean;
   isSystemDeck?: boolean;
+  pinnedInNav?: boolean;
   totalCards?: number;
   estimatedValue?: number;
   matchupCount?: number;
@@ -197,6 +198,7 @@ export interface UpdateDeckDTO {
   metadata?: Record<string, any>;
   metafyGuideId?: string | null;
   availableOnTalishar?: boolean;
+  pinnedInNav?: boolean;
   eventName?: string | null;
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;

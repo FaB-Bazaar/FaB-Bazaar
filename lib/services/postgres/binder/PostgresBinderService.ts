@@ -144,6 +144,7 @@ export class PostgresBinderService implements IBinderService {
       if (updates.isPublic !== undefined) updateData.isPublic = updates.isPublic;
       if (updates.slug !== undefined) updateData.slug = updates.slug;
       if (updates.thumbnailPrintingId !== undefined) updateData.thumbnailPrintingId = updates.thumbnailPrintingId;
+      if (updates.pinnedInNav !== undefined) updateData.pinnedInNav = updates.pinnedInNav;
 
       if (updates.visibility) {
         if (updates.visibility.level !== undefined) updateData.visibilityLevel = updates.visibility.level;
@@ -1556,6 +1557,7 @@ export class PostgresBinderService implements IBinderService {
               allowWhoHas: b.allowWhoHas,
               allowWebhooks: b.allowWebhooks,
             },
+            pinnedInNav: b.pinnedInNav,
             updatedAt: b.updatedAt,
             showcaseCards: stats.showcaseCards,
             stats,

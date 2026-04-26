@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     const requestedUserId = searchParams.get('userId'); // For public binders
     const isSummary = searchParams.get('summary') === 'true';
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : null;
+    const pinnedOnly = searchParams.get('pinned') === 'true';
 
     console.log('[API TRACK] /api/binders called', {
       time: new Date().toISOString(),
@@ -76,16 +77,31 @@ export async function GET(req: NextRequest) {
       }
 
       let bindersWithStats = statsResult.data;
+      const hasPinned = bindersWithStats.some(b => b.pinnedInNav === true);
+
+      // Pinned filter: only restrict to pinned when the user actually has at least one
+      // pinned binder. Without this fallback, a brand-new user's navbar would be empty.
+      if (pinnedOnly && hasPinned) {
+        bindersWithStats = bindersWithStats.filter(b => b.pinnedInNav === true);
+      }
 
       if (limit) bindersWithStats = bindersWithStats.slice(0, limit);
+
+      // When the navbar requests pinned-mode the response must be fresh — it
+      // changes the instant a user pins/unpins, and stale data leaves the
+      // dropdown showing the wrong state.
+      const cacheControl = pinnedOnly
+        ? 'private, no-store'
+        : 'private, max-age=60, stale-while-revalidate=120';
 
       return NextResponse.json(
         {
           success: true,
           binders: bindersWithStats,
+          hasPinned,
           meta: { isPublicAccess, targetUserId, requestedBy: currentUserId }
         },
-        { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' } }
+        { headers: { 'Cache-Control': cacheControl } }
       );
     }
 

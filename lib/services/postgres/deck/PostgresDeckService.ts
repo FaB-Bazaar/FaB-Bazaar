@@ -236,6 +236,7 @@ export class PostgresDeckService implements IDeckService {
       availableOnTalishar: deckRow.availableOnTalishar ?? false,
       featured: deckRow.featured ?? false,
       isSystemDeck: deckRow.isSystemDeck ?? false,
+      pinnedInNav: deckRow.pinnedInNav ?? false,
       totalCards: deckRow.totalCards || 0,
       estimatedValue: deckRow.estimatedValue || 0,
       updatedAt: deckRow.updatedAt,
@@ -622,6 +623,7 @@ export class PostgresDeckService implements IDeckService {
       if (updates.metadata !== undefined) updateFields.metadata = updates.metadata;
       if (updates.metafyGuideId !== undefined) updateFields.metafyGuideId = updates.metafyGuideId;
       if (updates.availableOnTalishar !== undefined) updateFields.availableOnTalishar = Boolean(updates.availableOnTalishar);
+      if (updates.pinnedInNav !== undefined) updateFields.pinnedInNav = Boolean(updates.pinnedInNav);
       if (updates.eventName !== undefined) updateFields.eventName = updates.eventName;
       if (updates.eventDate !== undefined) updateFields.eventDate = updates.eventDate;
       if (updates.placing !== undefined) updateFields.placing = updates.placing;

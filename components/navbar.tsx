@@ -32,6 +32,7 @@ import {
   Layers,
   GraduationCap,
   Link2,
+  Pin,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -49,8 +50,10 @@ import { handleSignOut } from "@/app/actions/auth"
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [binders, setBinders] = useState<any[]>([])
+  const [bindersHasPinned, setBindersHasPinned] = useState(true)
   const [bindersLoading, setBindersLoading] = useState(false)
   const [decks, setDecks] = useState<any[]>([]) // DECKS-FEATURE
+  const [decksHasPinned, setDecksHasPinned] = useState(true)
   const [decksLoading, setDecksLoading] = useState(false) // DECKS-FEATURE
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [mobileCollectionExpanded, setMobileCollectionExpanded] = useState(false)
@@ -91,20 +94,23 @@ export default function Navbar() {
     console.log('[Navbar] Loading decks on demand...')
     setDecksLoading(true)
     
-    fetch("/api/decks/user?limit=5&talishar=true")
+    fetch("/api/decks/user?limit=5&pinned=true")
       .then(res => res.json())
       .then(data => {
         if (data.success) {
           setDecks(data.decks || [])
+          setDecksHasPinned(Boolean(data.hasPinned))
           console.log('[Navbar] Decks loaded on demand:', data.decks?.length || 0)
         } else {
           setDecks([])
+          setDecksHasPinned(false)
         }
         setDecksLoaded(true)
         setDecksLoading(false)
       })
       .catch(() => {
         setDecks([])
+        setDecksHasPinned(false)
         setDecksLoaded(true)
         setDecksLoading(false)
       })
@@ -134,16 +140,18 @@ export default function Navbar() {
     console.log('[Navbar] Loading binders on demand...')
     setBindersLoading(true)
   
-    fetch('/api/binders?summary=true&limit=5')
+    fetch('/api/binders?summary=true&limit=5&pinned=true')
       .then(res => res.json())
       .then(data => {
         setBinders(data.binders || [])
+        setBindersHasPinned(Boolean(data.hasPinned))
         setBindersLoaded(true)
         setBindersLoading(false)
         console.log('[Navbar] Binders loaded on demand:', data.binders?.length || 0)
       })
       .catch(() => {
         setBinders([])
+        setBindersHasPinned(false)
         setBindersLoaded(true)
         setBindersLoading(false)
       })
@@ -155,11 +163,12 @@ export default function Navbar() {
 
     const handleBindersUpdate = () => {
       console.log('[Navbar] Refreshing binders due to binder event')
-      
-      fetch('/api/binders?summary=true&limit=5')
+
+      fetch('/api/binders?summary=true&limit=5&pinned=true')
         .then(res => res.json())
         .then(data => {
           setBinders(data.binders || [])
+          setBindersHasPinned(Boolean(data.hasPinned))
           console.log('[Navbar] Binders refreshed successfully', data.binders?.length || 0)
         })
         .catch((error) => {
@@ -170,21 +179,24 @@ export default function Navbar() {
     /* DECKS-FEATURE: Commented out deck update logic */
     const handleDecksUpdate = () => {
       console.log('[Navbar] Refreshing decks due to deck event')
-      
-      fetch("/api/decks/user?limit=5&talishar=true")
+
+      fetch("/api/decks/user?limit=5&pinned=true")
         .then(res => res.json())
         .then(data => {
           if (data.success) {
             setDecks(data.decks || [])
+            setDecksHasPinned(Boolean(data.hasPinned))
             console.log('[Navbar] Decks refreshed successfully', data.decks?.length || 0)
           } else {
             console.error('[Navbar] Decks refresh failed:', data.error)
             setDecks([])
+            setDecksHasPinned(false)
           }
         })
         .catch((error) => {
           console.error('[Navbar] Failed to refresh decks:', error)
           setDecks([])
+          setDecksHasPinned(false)
         })
     }
     
@@ -431,7 +443,17 @@ export default function Navbar() {
           </DropdownMenuItem>
 
           {binders.length > 0 && <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />}
-          
+
+          {!bindersLoading && !bindersHasPinned && binders.length > 0 && (
+            <div className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 leading-snug">
+              Showing your most recent binders.{' '}
+              <Link href="/collection" className="text-blue-600 dark:text-blue-400 hover:underline">
+                Pin binders
+              </Link>{' '}
+              to choose what appears here.
+            </div>
+          )}
+
           {bindersLoading ? (
             <DropdownMenuItem disabled>
               <span className="text-sm text-gray-500 dark:text-gray-400">Loading binders...</span>
@@ -542,8 +564,17 @@ export default function Navbar() {
           {decks.length > 0 && (
             <>
               <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
+              {!decksHasPinned && (
+                <div className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                  Showing your most recent decks.{' '}
+                  <Link href="/decks" className="text-blue-600 dark:text-blue-400 hover:underline">
+                    Pin decks
+                  </Link>{' '}
+                  to choose what appears here.
+                </div>
+              )}
               <div className="px-2 py-1 flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Talishar decks</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{decksHasPinned ? 'Pinned decks' : 'Recent decks'}</span>
                 <select
                   value={navDeckSort}
                   onChange={(e) => setNavDeckSort(e.target.value as typeof navDeckSort)}
@@ -710,24 +741,36 @@ export default function Navbar() {
               {/* Your Stores Dropdown */}
               {renderStoresDropdown()}
 
-              {/* My Articles - User Content */}
-              {user && (
-                <Link
-                  href="/my-articles"
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/my-articles") || pathname.startsWith("/my-articles/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
-                >
-                  <FileText className="h-4 w-4 inline mr-1" />
-                  My Articles
-                </Link>
-              )}
-
-              {/* Articles - Standalone Link */}
-              <Link
-                href="/guides"
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/guides") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
-              >
-                Articles
-              </Link>
+              {/* Articles Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/guides") || isActive("/my-articles") || pathname.startsWith("/my-articles/") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Articles
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                  <DropdownMenuItem asChild>
+                    <Link href="/guides" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Browse Articles
+                    </Link>
+                  </DropdownMenuItem>
+                  {user && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/my-articles" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <FileText className="h-4 w-4 mr-2" />
+                        My Articles
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Tutorials - Standalone Link */}
               <Link
@@ -972,23 +1015,22 @@ export default function Navbar() {
                   )}
                 </div>
 
-                {/* My Articles - User Content */}
-                {user && (
-                  <Link href="/my-articles" onClick={() => setIsMenuOpen(false)}>
-                    <div className="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <FileText className="h-5 w-5 mr-3" />
-                      My Articles
-                    </div>
-                  </Link>
-                )}
-
-                {/* Articles - Standalone Link */}
+                {/* Articles - Browse */}
                 <Link href="/guides" onClick={() => setIsMenuOpen(false)}>
                   <div className="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <FileText className="h-5 w-5 mr-3" />
                     Articles
                   </div>
                 </Link>
+
+                {/* My Articles - nested under Articles */}
+                {user && (
+                  <Link href="/my-articles" onClick={() => setIsMenuOpen(false)}>
+                    <div className="flex items-center pl-10 pr-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      My Articles
+                    </div>
+                  </Link>
+                )}
 
                 {/* Tutorials - Standalone Link */}
                 <Link href="/tutorials" onClick={() => setIsMenuOpen(false)}>

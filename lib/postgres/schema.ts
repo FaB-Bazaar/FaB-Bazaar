@@ -220,6 +220,10 @@ export const binders = pgTable('binders', {
   // Soft delete / archival
   archived: boolean('archived').default(false).notNull(),
 
+  // Navbar pinning — when true, this binder appears in the user's navbar dropdown.
+  // If a user has none pinned, the navbar falls back to most-recently-updated.
+  pinnedInNav: boolean('pinned_in_nav').default(false).notNull(),
+
   // Stats tracking
   statsNeedUpdate: boolean('stats_need_update').default(true).notNull(),
   statsUpdatedAt: timestamp('stats_updated_at'),
@@ -233,6 +237,7 @@ export const binders = pgTable('binders', {
 }, (table) => ({
   userIdIdx: index('idx_binders_user_id').on(table.userId),
   isPublicIdx: index('idx_binders_is_public').on(table.isPublic).where(sql`${table.isPublic} = true`),
+  pinnedInNavIdx: index('idx_binders_pinned_nav').on(table.userId).where(sql`${table.pinnedInNav} = true`),
   statsDirtyIdx: index('idx_binders_stats_dirty').on(table.statsNeedUpdate).where(sql`${table.statsNeedUpdate} = true`),
   lastActivityAtIdx: index('idx_binders_last_activity_at').on(table.lastActivityAt),
   uniqueUserName: uniqueIndex('unique_binders_user_name').on(table.userId, table.name),
@@ -551,6 +556,10 @@ export const decks = pgTable('decks', {
   // but publicly accessible via direct URL and the Decks to Beat page.
   isSystemDeck: boolean('is_system_deck').notNull().default(false),
 
+  // Navbar pinning — when true, this deck appears in the user's navbar dropdown.
+  // If a user has none pinned, the navbar falls back to most-recently-updated.
+  pinnedInNav: boolean('pinned_in_nav').notNull().default(false),
+
   // Event metadata (optional — drives the to-beat month filter, distinct from updatedAt)
   eventName: text('event_name'),
   eventDate: date('event_date'),
@@ -570,6 +579,7 @@ export const decks = pgTable('decks', {
   userIdIdx: index('idx_decks_user_id').on(table.userId),
   publicIdIdx: index('idx_decks_public_id').on(table.publicId),
   visibilityIdx: index('idx_decks_visibility_public').on(table.visibility).where(sql`${table.visibility} = 'public'`),
+  pinnedInNavIdx: index('idx_decks_pinned_nav').on(table.userId).where(sql`${table.pinnedInNav} = true`),
   uniqueUserName: uniqueIndex('unique_decks_user_name').on(table.userId, table.name),
   uniqueUserSlug: index('idx_decks_user_slug').on(table.userId, table.slug),
 }));

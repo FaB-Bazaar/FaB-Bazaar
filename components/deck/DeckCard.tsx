@@ -20,6 +20,7 @@ import {
   Info,
   Star,
   Shield,
+  Pin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -53,6 +54,7 @@ interface Deck {
   availableOnTalishar?: boolean;
   featured?: boolean;
   isSystemDeck?: boolean;
+  pinnedInNav?: boolean;
   metafyGuideId?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
@@ -83,6 +85,7 @@ interface DeckCardProps {
   onDuplicate: () => void;
   onView: () => void;
   onToggleTalishar?: (deckId: string, value: boolean) => void;
+  onTogglePin?: (deckId: string, value: boolean) => void;
   onChangeVisibility?: (deckId: string, value: 'private' | 'unlisted' | 'public') => void;
   onSettings?: () => void;
 }
@@ -95,6 +98,7 @@ export default function DeckCard({
   onDuplicate,
   onView,
   onToggleTalishar,
+  onTogglePin,
   onChangeVisibility,
   onSettings,
 }: DeckCardProps) {
@@ -361,6 +365,27 @@ export default function DeckCard({
                 </TooltipContent>
               </Tooltip>
             </div>
+          )}
+
+          {onTogglePin && (
+            <>
+              <span className="text-gray-300 dark:text-gray-600 select-none">·</span>
+              <button
+                type="button"
+                onClick={() => onTogglePin(deck.publicId ?? deck._id, !deck.pinnedInNav)}
+                className={`inline-flex items-center gap-1 text-xs rounded px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors ${
+                  deck.pinnedInNav
+                    ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={deck.pinnedInNav ? 'Unpin from navbar' : 'Pin to navbar'}
+                aria-pressed={deck.pinnedInNav ?? false}
+                aria-label={deck.pinnedInNav ? `Unpin ${deck.name} from navbar` : `Pin ${deck.name} to navbar`}
+              >
+                <Pin className={`h-3 w-3 ${deck.pinnedInNav ? 'fill-current' : ''}`} />
+                <span>Pin</span>
+              </button>
+            </>
           )}
 
           <div className="flex items-center gap-1 ml-auto text-xs text-gray-600 dark:text-gray-400">

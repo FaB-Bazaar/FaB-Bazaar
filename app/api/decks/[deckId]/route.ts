@@ -214,6 +214,7 @@ export async function PATCH(
         isPublic: body.isPublic,
         metafyGuideId: body.metafyGuideId,
         availableOnTalishar: body.availableOnTalishar,
+        pinnedInNav: body.pinnedInNav,
         eventName: body.eventName,
         eventDate: body.eventDate,
         placing: body.placing,

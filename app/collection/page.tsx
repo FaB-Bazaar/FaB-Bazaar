@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { generateUniqueBinderSlug } from "@/lib/utils"
-import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus, Globe, Lock, Link2 } from "lucide-react"
+import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus, Globe, Lock, Link2, Pin } from "lucide-react"
 
 import { CollectionTile } from "@/components/collection/CollectionTile"
 import { RarityIcon } from "@/components/shared/RarityIcon"
@@ -73,6 +73,7 @@ export interface BinderWithStats {
   isOnHand?: boolean
   visibility?: any
   isPublic?: boolean
+  pinnedInNav?: boolean
   totalQuantity?: number
   quantityForTrade?: number
   quantityNotForTrade?: number
@@ -183,7 +184,7 @@ function BinderVisibilityIcon({ binder }: { binder: BinderWithStats }) {
 }
 
 // Simple card for view mode
-function BinderViewCard({ binder, onDelete }: { binder: BinderWithStats; onDelete: (binder: BinderWithStats) => void }) {
+function BinderViewCard({ binder, onDelete, onTogglePin }: { binder: BinderWithStats; onDelete: (binder: BinderWithStats) => void; onTogglePin: (binder: BinderWithStats) => void }) {
   const [imageFailed, setImageFailed] = useState(false)
   const totalValue = binder.totalValue?.tcg_low || binder.total_value || 0
   const totalQty = binder.totalQuantity || 0
@@ -238,6 +239,19 @@ function BinderViewCard({ binder, onDelete }: { binder: BinderWithStats; onDelet
         <div className="absolute top-2 left-2">
           <BinderVisibilityIcon binder={binder} />
         </div>
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTogglePin(binder) }}
+          className={`absolute top-2 right-10 p-1.5 backdrop-blur-sm rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+            binder.pinnedInNav
+              ? 'text-blue-600 dark:text-blue-400 bg-blue-100/80 dark:bg-blue-900/50 opacity-100'
+              : 'text-muted-foreground bg-background/60 hover:text-blue-600 hover:bg-blue-100/60 opacity-0 group-hover:opacity-100'
+          }`}
+          title={binder.pinnedInNav ? 'Unpin from navbar' : 'Pin to navbar'}
+          aria-label={binder.pinnedInNav ? `Unpin binder ${binder.name} from navbar` : `Pin binder ${binder.name} to navbar`}
+          aria-pressed={binder.pinnedInNav ?? false}
+        >
+          <Pin className={`h-4 w-4 ${binder.pinnedInNav ? 'fill-current' : ''}`} />
+        </button>
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(binder) }}
           className="absolute top-2 right-2 p-1.5 text-muted-foreground bg-background/60 backdrop-blur-sm hover:text-destructive hover:bg-destructive/10 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 opacity-0 group-hover:opacity-100"
@@ -449,6 +463,18 @@ export default function CollectionPage() {
     }
   }
 
+  const handleTogglePin = async (binder: BinderWithStats) => {
+    const next = !binder.pinnedInNav
+    setBinders(prev => prev.map(b => b._id === binder._id ? { ...b, pinnedInNav: next } : b))
+    const result = await bindersClient.updateBinder(binder._id, { pinnedInNav: next })
+    if (!result.success) {
+      setBinders(prev => prev.map(b => b._id === binder._id ? { ...b, pinnedInNav: !next } : b))
+      setError('Failed to update pin.')
+      return
+    }
+    window.dispatchEvent(new CustomEvent('bindersUpdated'))
+  }
+
   const handleDeleteBinder = async () => {
     if (!user || !binderToDelete) return
 
@@ -635,6 +661,7 @@ export default function CollectionPage() {
                       key={binder._id}
                       binder={binder}
                       onDelete={(b) => { setBinderToDelete(b); setDeleteModalOpen(true); }}
+                      onTogglePin={handleTogglePin}
                     />
                   ))
                 )}

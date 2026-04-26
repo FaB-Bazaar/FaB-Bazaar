@@ -86,7 +86,7 @@ export async function PUT(
 
     // Build update payload from allowed fields
     const updates: any = {};
-    const allowedFields = ['name', 'description', 'isPublic', 'slug', 'tags', 'archived', 'thumbnailPrintingId'];
+    const allowedFields = ['name', 'description', 'isPublic', 'slug', 'tags', 'archived', 'thumbnailPrintingId', 'pinnedInNav'];
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {

@@ -103,6 +103,7 @@ export interface UpdateBinderDTO {
   archived?: boolean;
   slug?: string;
   thumbnailPrintingId?: string;
+  pinnedInNav?: boolean;
 }
 
 /**
@@ -493,6 +494,7 @@ export interface BinderWithStatsDTO {
   isOnHand?: boolean;
   isPublic: boolean;
   visibility?: VisibilityDTO;
+  pinnedInNav?: boolean;
   updatedAt?: Date;
   showcaseCards?: Array<{
     printingId: string;

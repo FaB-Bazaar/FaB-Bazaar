@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : null;
     const talisharOnly = searchParams.get('talishar') === 'true';
+    const pinnedOnly = searchParams.get('pinned') === 'true';
 
     // Use service layer to fetch decks (lightweight version)
     const result = await deckService.listUserDecksBasic(session.user.id);
@@ -30,15 +31,23 @@ export async function GET(request: NextRequest) {
         {
           success: false,
           decks: [],
+          hasPinned: false,
           error: 'Failed to fetch decks'
         },
         { status: 500 }
       );
     }
 
+    const hasPinned = result.data.some(d => d.pinnedInNav === true);
+
     let decks = talisharOnly
       ? result.data.filter(d => d.availableOnTalishar)
       : result.data;
+    // Pinned filter: only restrict to pinned when the user actually has at least one
+    // pinned deck. Without this fallback, a brand-new user's navbar would be empty.
+    if (pinnedOnly && hasPinned) {
+      decks = decks.filter(d => d.pinnedInNav === true);
+    }
     decks = limit ? decks.slice(0, limit) : decks;
 
     // Bulk-fetch owner usernames for co-owned decks
@@ -51,17 +60,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // When the navbar requests pinned-mode the response must be fresh — it
+    // changes the instant a user pins/unpins.
+    const cacheControl = pinnedOnly
+      ? 'private, no-store'
+      : 'private, max-age=60, stale-while-revalidate=120';
+
     return NextResponse.json(
       {
         success: true,
         decks,
-        count: decks.length
+        count: decks.length,
+        hasPinned,
       },
-      {
-        headers: {
-          'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
-        }
-      }
+      { headers: { 'Cache-Control': cacheControl } }
     );
 
   } catch (error) {
