@@ -57,7 +57,7 @@ export default function SharedWantsCard({
       )}
       onClick={() => onCardSelect(card)}
     >
-      <div className="relative w-full h-[280px] bg-gray-100 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
+      <div data-testid="wants-card-image-slot" className="relative w-full aspect-[63/88] bg-gray-100 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
         <FoilCardImage
           foiling={printingDetails?.foiling || card.foiling}
           foilInset={null}

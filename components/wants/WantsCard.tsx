@@ -64,7 +64,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
     <div className="w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:shadow-gray-300/60 dark:hover:shadow-2xl hover:-translate-y-1 flex-shrink-0 flex flex-col shadow-md shadow-gray-300/50 dark:shadow-lg">
 
       {/* Image Section */}
-      <div className="relative w-full h-[230px] sm:h-[322px] bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
+      <div data-testid="wants-card-image-slot" className="relative w-full aspect-[63/88] bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
         <FoilCardImage
           foiling={printingDetails?.foiling}
           foilInset={null}
@@ -80,7 +80,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
             <TooltipTrigger asChild>
               <button
                 onClick={(e) => { e.stopPropagation(); const p = ['low', 'medium', 'high']; onPriorityChange(card.id, p[(p.indexOf(card.priority) + 1) % p.length]); }}
-                className={`text-xs px-2 py-1 rounded-full font-medium transition-all hover:scale-105 cursor-pointer ${card.priority === 'high' ? 'bg-red-600 hover:bg-red-700 text-white' : card.priority === 'medium' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
+                className={`text-sm px-2 py-1 rounded-full font-medium transition-all hover:scale-105 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${card.priority === 'high' ? 'bg-red-600 hover:bg-red-700 text-white' : card.priority === 'medium' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'}`}
               >
                 {card.priority}
               </button>
@@ -136,7 +136,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => { e.stopPropagation(); onQuantityChange(card.id, Math.max(1, card.quantity - 1)); }}
-                    className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors"
+                    className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <Minus className="w-3 h-3 text-gray-700 dark:text-gray-200" />
                   </button>
@@ -147,7 +147,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => { e.stopPropagation(); onQuantityChange(card.id, card.quantity + 1); }}
-                    className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors"
+                    className="w-6 h-6 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <Plus className="w-3 h-3 text-gray-700 dark:text-gray-200" />
                   </button>
@@ -188,7 +188,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
                 <TooltipTrigger asChild>
                   <button
                     onClick={(e) => { e.stopPropagation(); onRemove(card.id); }}
-                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 transition-colors"
+                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
