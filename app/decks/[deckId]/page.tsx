@@ -12,7 +12,7 @@ import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/cont
 import { KEYWORDS } from "@/lib/fab-constants/keywords";
 import { decksClient, bindersClient, wantsClient } from "@/lib/client";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCardsCache } from "@/lib/client/banned-cards-client";
-import { upgradeToOwnedPrintings } from "@/lib/client/decks-client";
+import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrintingsDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
@@ -873,26 +873,10 @@ export default function DeckEditorPage() {
     await handlers.refreshDeck();
   };
 
-  const [upgradeResult, setUpgradeResult] = useState<Array<{ cardName: string; color: string | null }> | null>(null);
-  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
 
-  const handleUpgradePrintings = () => {
-    setShowUpgradeConfirm(true);
-  };
-
-  const doUpgradePrintings = async () => {
-    setShowUpgradeConfirm(false);
-    const result = await upgradeToOwnedPrintings(deckId);
-    if (result.success) {
-      if (result.data.total === 0) {
-        toast({ title: "All printings up to date", description: "No unowned printings found with owned alternatives." });
-      } else {
-        setUpgradeResult(result.data.updatedCards);
-        await handlers.refreshDeck();
-      }
-    } else {
-      toast({ title: "Update failed", description: result.error, variant: "destructive" });
-    }
+  const handleUpgradePrintings = async () => {
+    setShowUpgradeDialog(true);
   };
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
@@ -934,16 +918,15 @@ export default function DeckEditorPage() {
   const markAllForBench = () => setCardSplits(new Map(seenCards.map(({ card }) => [card.printingId, { deck: 0, inventory: 0 }])));
 
   useEffect(() => {
-    if (!previewBuild && !upgradeResult) return;
+    if (!previewBuild) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setPreviewBuild(null);
-        setUpgradeResult(null);
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [previewBuild, upgradeResult]);
+  }, [previewBuild]);
 
   const addCardToDeck = async (printingId: string, quantity: number, displayName?: string) => {
     if (!canEdit || quantity < 1) return;
@@ -2186,60 +2169,12 @@ export default function DeckEditorPage() {
         currentDeck={state.deck ?? undefined}
       />
 
-      {/* Upgrade printings — confirmation */}
-      {showUpgradeConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowUpgradeConfirm(false)}>
-          <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
-              <span className="text-white font-semibold">Update to Owned Printings</span>
-              <button onClick={() => setShowUpgradeConfirm(false)} className="text-gray-400 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-gray-300 text-sm">This will replace the current printings in your deck with printings you own in your binders, for any card where you have a matching owned printing.</p>
-              <p className="text-gray-400 text-sm mt-2">Cards without an owned alternative will not be changed.</p>
-            </div>
-            <div className="px-5 py-3 border-t border-gray-700 flex gap-2 justify-end">
-              <button onClick={() => setShowUpgradeConfirm(false)} className="text-sm px-4 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                Cancel
-              </button>
-              <button onClick={doUpgradePrintings} className="text-sm px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Upgrade printings result modal */}
-      {upgradeResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setUpgradeResult(null)}>
-          <div className="relative bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
-              <span className="text-white font-semibold">Printings Updated</span>
-              <button onClick={() => setUpgradeResult(null)} className="text-gray-400 hover:text-white transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="px-5 py-3 max-h-80 overflow-y-auto">
-              <p className="text-gray-400 text-xs mb-3">{upgradeResult.length} card{upgradeResult.length !== 1 ? "s" : ""} swapped to owned printings</p>
-              <ul className="space-y-1">
-                {upgradeResult.map((c, i) => (
-                  <li key={i} className="text-sm text-gray-200">
-                    {c.cardName}{c.color ? <span className="ml-1 text-gray-400 text-xs">({c.color})</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="px-5 py-3 border-t border-gray-700">
-              <button onClick={() => setUpgradeResult(null)} className="w-full text-sm py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors">
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeckUpgradePrintingsDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        deckId={deckId}
+        onApplied={handlers.refreshDeck}
+      />
 
       {/* Package preview modal */}
       {previewBuild && (

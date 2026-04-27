@@ -23,6 +23,8 @@ import type {
   DeckStatsDTO,
   InventoryComparisonDTO,
   DeckCategory,
+  UpgradePrintingSuggestionDTO,
+  ApplyPrintingUpgradesResultDTO,
 } from '@/lib/services/contracts/IDeckService';
 
 // ====================================
@@ -486,37 +488,41 @@ export async function getCommunityDecks(
 }
 
 /**
- * Find unowned deck printings that can be swapped to owned alternatives,
- * then execute all swaps in one call. Prefers the highest tcg_low owned printing.
+ * Fetch upgrade suggestions: for each unowned non-hero deck printing, every
+ * owned alternative printing of the same card. The recommended pick is flagged.
  *
  * @param publicId - The deck's public ID
- * @returns Number of swaps applied and any per-swap errors
  */
-export async function upgradeToOwnedPrintings(
+export async function getPrintingUpgradeSuggestions(
   publicId: string
-): Promise<ApiResponse<{ swapped: number; errors: string[]; total: number; updatedCards: Array<{ cardName: string; color: string | null }> }>> {
+): Promise<ApiResponse<UpgradePrintingSuggestionDTO[]>> {
   try {
-    // Step 1: get suggestions
-    const suggestRes = await fetch(`/api/decks/${publicId}/upgrade-printings`);
-    const suggestions = await handleResponse<{ swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: string; cardName: string; color: string | null }> }>(suggestRes);
-    if (!suggestions.success) return suggestions;
+    const res = await fetch(`/api/decks/${publicId}/upgrade-printings`);
+    const result = await handleResponse<{ suggestions: UpgradePrintingSuggestionDTO[] }>(res);
+    if (!result.success) return result;
+    return { success: true, data: result.data.suggestions };
+  } catch (error) {
+    return handleError(error);
+  }
+}
 
-    const swaps = suggestions.data.swaps;
-    if (!swaps.length) {
-      return { success: true, data: { swapped: 0, errors: [], total: 0, updatedCards: [] } };
-    }
-
-    // Step 2: execute
-    const execRes = await fetch(`/api/decks/${publicId}/upgrade-printings`, {
+/**
+ * Apply a (possibly user-filtered) batch of upgrade swaps to a deck.
+ *
+ * @param publicId - The deck's public ID
+ * @param swaps - Subset of suggestions the user accepted, with chosen alt printing
+ */
+export async function applyPrintingUpgrades(
+  publicId: string,
+  swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: DeckCategory }>
+): Promise<ApiResponse<ApplyPrintingUpgradesResultDTO>> {
+  try {
+    const res = await fetch(`/api/decks/${publicId}/upgrade-printings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ swaps }),
     });
-    const execResult = await handleResponse<{ swapped: number; errors: string[] }>(execRes);
-    if (!execResult.success) return execResult;
-
-    const updatedCards = swaps.map(s => ({ cardName: s.cardName, color: s.color }));
-    return { success: true, data: { ...execResult.data, total: swaps.length, updatedCards } };
+    return await handleResponse<ApplyPrintingUpgradesResultDTO>(res);
   } catch (error) {
     return handleError(error);
   }

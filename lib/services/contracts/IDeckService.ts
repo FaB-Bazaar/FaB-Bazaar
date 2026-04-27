@@ -398,6 +398,53 @@ export interface InventoryComparisonDTO {
 }
 
 /**
+ * One owned alternative printing of a card the user doesn't fully own in their deck.
+ */
+export interface UpgradePrintingAlternativeDTO {
+  printingId: string;
+  setCode: string | null;
+  foiling: string | null;
+  edition: string | null;
+  collectorNumber: string | null;
+  imageUrl: string | null;
+  tcgLow: number | null;
+  ownedQty: number;
+  isRecommended: boolean;
+}
+
+/**
+ * Suggestion to swap one unowned deck printing for an owned alternative of the same card.
+ *
+ * `alternatives` lists every printing of the card the user owns (qty > 0), sorted by
+ * `tcgLow` desc. Exactly one entry has `isRecommended = true` (highest `tcgLow`).
+ */
+export interface UpgradePrintingSuggestionDTO {
+  currentPrintingId: string;
+  cardName: string;
+  color: string | null;
+  category: DeckCategory;
+  deckQuantity: number;
+  current: {
+    setCode: string | null;
+    foiling: string | null;
+    edition: string | null;
+    collectorNumber: string | null;
+    imageUrl: string | null;
+    tcgLow: number | null;
+  };
+  recommendedPrintingId: string;
+  alternatives: UpgradePrintingAlternativeDTO[];
+}
+
+/**
+ * Result of executing a batch of printing upgrade swaps.
+ */
+export interface ApplyPrintingUpgradesResultDTO {
+  swapped: number;
+  errors: string[];
+}
+
+/**
  * Allocation import format
  */
 export interface AllocationDTO {
@@ -836,6 +883,35 @@ export interface IDeckService {
   calculateStats(
     publicId: string
   ): AsyncResult<DeckStatsDTO>;
+
+  /**
+   * Find swap suggestions: for each unowned non-hero deck printing, list every
+   * printing of the same card the user owns. The highest-`tcgLow` owned printing
+   * is flagged as recommended. Heroes are excluded (swap manually).
+   *
+   * @param publicId - The deck's public ID
+   * @param userId - The viewing user (their inventory + deck ownership)
+   * @returns One suggestion per unowned deck card with at least one owned alternative
+   */
+  getUpgradePrintingSuggestions(
+    publicId: string,
+    userId: string
+  ): AsyncResult<UpgradePrintingSuggestionDTO[]>;
+
+  /**
+   * Apply a batch of printing swaps to a deck. Each swap calls swapPrinting;
+   * partial failures are reported in `errors` rather than aborting the batch.
+   *
+   * @param publicId - The deck's public ID
+   * @param userId - The user (for ownership check)
+   * @param swaps - Swap list (typically a filtered subset of getUpgradePrintingSuggestions)
+   * @returns Count of successful swaps and per-swap error messages
+   */
+  applyPrintingUpgrades(
+    publicId: string,
+    userId: string,
+    swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: DeckCategory }>
+  ): AsyncResult<ApplyPrintingUpgradesResultDTO>;
 
   // ====================================
   // Utilities

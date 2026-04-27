@@ -34,6 +34,9 @@ import type {
   OwnershipStatusDTO,
   InventoryComparisonDTO,
   AllocationDTO,
+  UpgradePrintingSuggestionDTO,
+  UpgradePrintingAlternativeDTO,
+  ApplyPrintingUpgradesResultDTO,
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 
@@ -2149,6 +2152,239 @@ export class PostgresDeckService implements IDeckService {
         error: error instanceof Error ? error.message : 'Failed to update co-owners',
       };
     }
+  }
+
+  async getUpgradePrintingSuggestions(
+    publicId: string,
+    userId: string
+  ): AsyncResult<UpgradePrintingSuggestionDTO[]> {
+    try {
+      const deckRow = await db
+        .select({ id: decks.id })
+        .from(decks)
+        .where(or(eq(decks.id, publicId), eq(decks.publicId, publicId)))
+        .limit(1);
+
+      if (!deckRow.length) {
+        return { success: false, error: 'Deck not found' };
+      }
+      const internalDeckId = deckRow[0].id;
+
+      const deckCardRows = await db
+        .select({
+          printingId: deckCards.printingId,
+          category: deckCards.category,
+          quantity: deckCards.quantity,
+          cardUniqueId: printings.cardUniqueId,
+          tcgLow: printings.tcgLow,
+          setCode: printings.set,
+          foiling: printings.foiling,
+          edition: printings.edition,
+          collectorNumber: printings.collectorNumber,
+          imageUrl: printings.imageUrl,
+          cardName: sql<string>`COALESCE(${cards.displayName}, ${cards.name}, ${deckCards.printingId})`,
+          color: cards.color,
+        })
+        .from(deckCards)
+        .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(eq(deckCards.deckId, internalDeckId));
+
+      const nonHeroRows = deckCardRows.filter((r) => r.category !== 'hero');
+      if (!nonHeroRows.length) {
+        return { success: true, data: [] };
+      }
+
+      const deckPrintingIds = nonHeroRows.map((r) => r.printingId);
+      const ownedDeckRows = await db
+        .select({
+          printingId: inventoryItems.printingId,
+          owned: sql<number>`COALESCE(SUM(${inventoryItems.quantity}), 0)::int`,
+        })
+        .from(inventoryItems)
+        .where(
+          and(
+            eq(inventoryItems.userId, userId),
+            inArray(inventoryItems.printingId, deckPrintingIds)
+          )
+        )
+        .groupBy(inventoryItems.printingId);
+
+      const ownedDeckMap = new Map(ownedDeckRows.map((r) => [r.printingId, r.owned]));
+
+      const unownedRows = nonHeroRows.filter((r) => {
+        const owned = ownedDeckMap.get(r.printingId) ?? 0;
+        return owned < (r.quantity ?? 1);
+      });
+
+      if (!unownedRows.length) {
+        return { success: true, data: [] };
+      }
+
+      const unownedCardUniqueIds = [
+        ...new Set(unownedRows.map((r) => r.cardUniqueId).filter(Boolean) as string[]),
+      ];
+
+      const altRows = await db
+        .select({
+          printingId: inventoryItems.printingId,
+          cardUniqueId: printings.cardUniqueId,
+          tcgLow: printings.tcgLow,
+          setCode: printings.set,
+          foiling: printings.foiling,
+          edition: printings.edition,
+          collectorNumber: printings.collectorNumber,
+          imageUrl: printings.imageUrl,
+          ownedQty: sql<number>`SUM(${inventoryItems.quantity})::int`,
+        })
+        .from(inventoryItems)
+        .leftJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+        .where(
+          and(
+            eq(inventoryItems.userId, userId),
+            inArray(printings.cardUniqueId, unownedCardUniqueIds)
+          )
+        )
+        .groupBy(
+          inventoryItems.printingId,
+          printings.cardUniqueId,
+          printings.tcgLow,
+          printings.set,
+          printings.foiling,
+          printings.edition,
+          printings.collectorNumber,
+          printings.imageUrl
+        )
+        .having(sql`SUM(${inventoryItems.quantity}) > 0`);
+
+      // Group alternatives by cardUniqueId
+      const altsByCard = new Map<string, Array<typeof altRows[number]>>();
+      for (const alt of altRows) {
+        if (!alt.cardUniqueId) continue;
+        const list = altsByCard.get(alt.cardUniqueId) ?? [];
+        list.push(alt);
+        altsByCard.set(alt.cardUniqueId, list);
+      }
+
+      const suggestions: UpgradePrintingSuggestionDTO[] = [];
+      for (const row of unownedRows) {
+        if (!row.cardUniqueId) continue;
+        const alts = altsByCard.get(row.cardUniqueId);
+        if (!alts || alts.length === 0) continue;
+
+        // Sort alternatives by tcgLow desc (nulls last)
+        const sorted = [...alts].sort((a, b) => (b.tcgLow ?? 0) - (a.tcgLow ?? 0));
+        const recommended = sorted[0];
+
+        // Skip if the only owned printing IS the deck printing (nothing to swap)
+        if (sorted.length === 1 && sorted[0].printingId === row.printingId) continue;
+
+        const alternatives: UpgradePrintingAlternativeDTO[] = sorted.map((a) => ({
+          printingId: a.printingId,
+          setCode: a.setCode ?? null,
+          foiling: a.foiling ?? null,
+          edition: a.edition ?? null,
+          collectorNumber: a.collectorNumber ?? null,
+          imageUrl: a.imageUrl ?? null,
+          tcgLow: a.tcgLow ?? null,
+          ownedQty: a.ownedQty ?? 0,
+          isRecommended: a.printingId === recommended.printingId,
+        }));
+
+        suggestions.push({
+          currentPrintingId: row.printingId,
+          cardName: row.cardName,
+          color: row.color ?? null,
+          category: row.category as DeckCategory,
+          deckQuantity: row.quantity ?? 1,
+          current: {
+            setCode: row.setCode ?? null,
+            foiling: row.foiling ?? null,
+            edition: row.edition ?? null,
+            collectorNumber: row.collectorNumber ?? null,
+            imageUrl: row.imageUrl ?? null,
+            tcgLow: row.tcgLow ?? null,
+          },
+          recommendedPrintingId: recommended.printingId,
+          alternatives,
+        });
+      }
+
+      return { success: true, data: suggestions };
+    } catch (error) {
+      console.error('[PostgresDeckService.getUpgradePrintingSuggestions] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get upgrade suggestions',
+      };
+    }
+  }
+
+  async applyPrintingUpgrades(
+    publicId: string,
+    userId: string,
+    swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: DeckCategory }>
+  ): AsyncResult<ApplyPrintingUpgradesResultDTO> {
+    if (!swaps.length) {
+      return { success: true, data: { swapped: 0, errors: [] } };
+    }
+
+    const deckRow = await db
+      .select({ id: decks.id })
+      .from(decks)
+      .where(or(eq(decks.id, publicId), eq(decks.publicId, publicId)))
+      .limit(1);
+
+    if (!deckRow.length) {
+      return { success: false, error: 'Deck not found' };
+    }
+    const internalDeckId = deckRow[0].id;
+
+    let swapped = 0;
+    const errors: string[] = [];
+    for (const swap of swaps) {
+      // deck_cards is flattened — (deck_id, printing_id, category) is unique with a
+      // quantity column. Swap the full row in one go so 3× unowned A → 3× owned B.
+      const row = await db
+        .select({ quantity: deckCards.quantity })
+        .from(deckCards)
+        .where(
+          and(
+            eq(deckCards.deckId, internalDeckId),
+            eq(deckCards.printingId, swap.currentPrintingId),
+            eq(deckCards.category, swap.category)
+          )
+        )
+        .limit(1);
+
+      const qty = row[0]?.quantity ?? 1;
+
+      const removeResult = await this.removePrinting(
+        publicId,
+        userId,
+        swap.currentPrintingId,
+        swap.category,
+        qty
+      );
+      if (!removeResult.success) {
+        errors.push(removeResult.error ?? 'Unknown error');
+        continue;
+      }
+
+      const addResult = await this.addPrinting(publicId, userId, {
+        printingId: swap.newPrintingId,
+        category: swap.category,
+        quantity: qty,
+      });
+      if (!addResult.success) {
+        errors.push(addResult.error ?? 'Unknown error');
+        continue;
+      }
+
+      swapped++;
+    }
+
+    return { success: true, data: { swapped, errors } };
   }
 }
 
