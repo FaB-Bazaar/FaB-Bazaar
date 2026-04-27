@@ -270,6 +270,24 @@ export default function DeckEditorPage() {
     }
   };
 
+  const handleToggleFeatured = async (_id: string, value: boolean) => {
+    const result = await decksClient.toggleFeatured(deckId, value);
+    if (!result.success) {
+      toast({ title: "Error", description: "Failed to update featured status.", variant: "destructive" });
+      return;
+    }
+    handlers.refreshDeck();
+  };
+
+  const handleToggleSystemDeck = async (_id: string, value: boolean) => {
+    const result = await decksClient.toggleSystemDeck(deckId, value);
+    if (!result.success) {
+      toast({ title: "Error", description: "Failed to update system deck status.", variant: "destructive" });
+      return;
+    }
+    handlers.refreshDeck();
+  };
+
   // Tracks whether the one-time auto-search from curated builds has fired
   const autoSearchedRef = useRef(false);
 
@@ -2065,6 +2083,12 @@ export default function DeckEditorPage() {
           loading={settingsSaving}
           deckId={deckId}
           fullDeck={state.deck}
+          isCurator={user?.isCurator || user?.isSuperAdmin}
+          isSuperAdmin={user?.isSuperAdmin}
+          featured={state.deck.featured}
+          onToggleFeatured={handleToggleFeatured}
+          isSystemDeck={state.deck.isSystemDeck}
+          onToggleSystemDeck={handleToggleSystemDeck}
         />
       )}
 
