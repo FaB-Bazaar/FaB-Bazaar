@@ -79,13 +79,19 @@ run_script() {
     local description=$2
     local command=$3
 
+    CURRENT_STEP="${step_num} (${description})"
+
     log_step "${step_num}" "${description}"
     log "Command: ${command}"
 
     local step_log="${LOG_DIR}/step_${step_num}_${TIMESTAMP}.log"
+    local start_ts
+    start_ts=$(date +%s)
 
     if eval "${command}" 2>&1 | tee "${step_log}" | tee -a "${LOG_FILE}"; then
+        local duration=$(( $(date +%s) - start_ts ))
         log_success "Step ${step_num} completed successfully"
+        notify_discord "✅ Step ${step_num} (${description}) — ${duration}s"
         return 0
     else
         log_error "Step ${step_num} failed"
@@ -96,6 +102,35 @@ run_script() {
         return 1
     fi
 }
+
+# Posts a Discord webhook alert. Silent no-op if PIPELINE_ALERT_WEBHOOK is unset
+# (keeps local dev / dry-run quiet).
+notify_discord() {
+    local message=$1
+    [ -n "${PIPELINE_ALERT_WEBHOOK:-}" ] || return 0
+    curl -sS -X POST -H "Content-Type: application/json" \
+        --max-time 10 \
+        -d "{\"content\": $(printf '%s' "${message}" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" \
+        "${PIPELINE_ALERT_WEBHOOK}" >/dev/null 2>&1 || true
+}
+
+# EXIT trap fires for both explicit `exit N` AND silent set -e/pipefail deaths.
+# This is the only way to catch the "script silently exited mid-pipeline" bug
+# class — a clean run sets PIPELINE_OK=1 right before the natural exit, so the
+# trap can tell success from "we somehow got here without finishing."
+PIPELINE_OK=0
+CURRENT_STEP="(setup)"
+on_exit() {
+    local exit_code=$?
+    if [ "${PIPELINE_OK}" -eq 1 ]; then return 0; fi
+    local host
+    host=$(hostname 2>/dev/null || echo unknown)
+    notify_discord "🚨 **FAB pipeline failed** on \`${host}\`
+Exit code: \`${exit_code}\`
+Last step reached: **${CURRENT_STEP}**
+Check log: \`${LOG_FILE:-?}\`"
+}
+trap on_exit EXIT
 
 show_help() {
     cat << EOF
@@ -210,6 +245,12 @@ fi
 
 PIPELINE_START=$(date +%s)
 
+if [ "${USE_PRODUCTION}" = true ]; then
+    notify_discord "▶️ FAB pipeline starting (production)"
+else
+    notify_discord "▶️ FAB pipeline starting (staging)"
+fi
+
 ################################################################################
 # Step 01: API-Only Enhancer
 ################################################################################
@@ -287,17 +328,16 @@ fi
 # Find the two most recent snapshots in price_history/ by Unix timestamp in filename
 HISTORY_DIR="${SCRIPT_DIR}/price_history"
 if [ -d "${HISTORY_DIR}" ]; then
+    # NOTE: use awk (not head/tail) so an early-close can't SIGPIPE upstream sort.
+    # With pipefail + set -e, that would silently kill the whole script.
     NEWEST_FILE=$(ls "${HISTORY_DIR}"/*.json 2>/dev/null | \
                   sed 's/.*_\([0-9]*\)\.json/\1 &/' | \
                   sort -rn | \
-                  head -1 | \
-                  cut -d' ' -f2)
+                  awk 'NR==1 {print $2; exit}')
     SECOND_NEWEST_FILE=$(ls "${HISTORY_DIR}"/*.json 2>/dev/null | \
                          sed 's/.*_\([0-9]*\)\.json/\1 &/' | \
                          sort -rn | \
-                         head -2 | \
-                         tail -1 | \
-                         cut -d' ' -f2)
+                         awk 'NR==2 {print $2; exit}')
 
     if [ -n "${NEWEST_FILE}" ] && [ -n "${SECOND_NEWEST_FILE}" ] && [ "${NEWEST_FILE}" != "${SECOND_NEWEST_FILE}" ]; then
         run_script "11" "Price Analysis Export - Compare historical snapshots and generate market analysis" \
@@ -346,3 +386,8 @@ if [ "${DRY_RUN}" = true ]; then
 fi
 
 log "════════════════════════════════════════════════════════════════"
+
+notify_discord "🎉 FAB pipeline finished cleanly — ${DURATION_MIN}m ${DURATION_SEC}s"
+
+# Mark clean exit so the EXIT trap stays silent.
+PIPELINE_OK=1
