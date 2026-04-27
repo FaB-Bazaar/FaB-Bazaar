@@ -15,11 +15,11 @@ const PITCH_COLORS: Record<number, string> = {
   3: 'bg-blue-500',
 };
 
-// SET_MAP has no aliases — every key is a unique set code
-const SET_OPTIONS = Object.entries(SET_MAP).map(([key, label]) => ({
-  value: key,
-  label: `${label} (${key.toUpperCase()})`,
-}));
+// SET_MAP has no aliases — every key is a unique set code.
+// Sorted by code with code first so the native <select> keyboard prefix-search works (e.g. press M-P-W).
+const SET_OPTIONS = Object.entries(SET_MAP)
+  .map(([key, label]) => ({ value: key, label: `${key.toUpperCase()} — ${label}` }))
+  .sort((a, b) => a.value.localeCompare(b.value));
 
 const EDITION_OPTIONS = [
   { value: 'a', label: 'Alpha' },
