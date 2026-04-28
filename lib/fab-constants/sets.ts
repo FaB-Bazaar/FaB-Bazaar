@@ -160,7 +160,7 @@ export type SetCode = keyof typeof SET_MAP;
  */
 export const CARD_FILTER_SETS = [
   'wtr', 'arc', 'cru', 'mon', 'ele', 'evr', 'upr', '1hp', 'dyn', 'out',
-  'dtd', 'evo', 'hvy', 'mst', 'ros', 'hnt', 'sea', 'mpg', 'sup', 'pen', 'anq',
+  'dtd', 'evo', 'hvy', 'mst', 'ros', 'hnt', 'sea', 'omn', 'mpg', 'sup', 'pen', 'anq',
 ] as const;
 
 export type CardFilterSet = typeof CARD_FILTER_SETS[number];
