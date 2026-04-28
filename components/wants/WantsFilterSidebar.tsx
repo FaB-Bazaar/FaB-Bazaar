@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { getSetImageOrFallback } from "@/lib/set-images";
 import { RarityIcon } from "@/components/shared/RarityIcon";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
 
 interface WantsFilterSidebarProps {
   activeFilters: Record<string, string | null>;
@@ -14,10 +15,8 @@ interface WantsFilterSidebarProps {
   clearAllFilters: () => void;
 }
 
-const DISPLAY_SETS = [
-  'wtr', 'arc', 'cru', 'mon', 'ele', 'evr', 'upr', '1hp', 'dyn', 'out',
-  'dtd', 'evo', 'hvy', 'mst', 'ros', 'hnt', 'sea', 'mpg', 'sup',
-] as const;
+// Reuse the shared filter list so newly released sets appear here automatically.
+const DISPLAY_SETS = CARD_FILTER_SETS;
 
 const PRIMARY_RARITIES: { key: string; label: string }[] = [
   { key: 'f', label: 'Fabled' },

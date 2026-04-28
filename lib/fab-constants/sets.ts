@@ -155,12 +155,14 @@ export const SET_MAP = {
 export type SetCode = keyof typeof SET_MAP;
 
 /**
- * Ordered list of set codes shown in binder and search filter UIs.
- * Update this single list when new sets are released — all filter components import from here.
+ * Ordered list of set codes shown in binder, search, wants, collection, and
+ * deck-builder filter chips. Newest first by release date — matches the
+ * `/sets` landing page ordering. Update this single list when new sets ship —
+ * every filter component reads from it.
  */
 export const CARD_FILTER_SETS = [
-  'wtr', 'arc', 'cru', 'mon', 'ele', 'evr', 'upr', '1hp', 'dyn', 'out',
-  'dtd', 'evo', 'hvy', 'mst', 'ros', 'hnt', 'sea', 'omn', 'mpg', 'sup', 'pen', 'anq',
+  'omn', 'pen', 'anq', 'sup', 'mpg', 'sea', 'hnt', 'ros', 'mst', 'hvy',
+  'evo', 'dtd', 'out', 'dyn', 'upr', '1hp', 'evr', 'ele', 'mon', 'cru', 'arc', 'wtr',
 ] as const;
 
 export type CardFilterSet = typeof CARD_FILTER_SETS[number];

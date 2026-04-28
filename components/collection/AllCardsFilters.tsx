@@ -8,6 +8,7 @@ import { Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetImageOrFallback } from '@/lib/set-images';
 import { FOILING_MAP, RARITY_MAP, SET_MAP, EDITION_MAP, COLORS } from '@/lib/fab-constants';
+import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 
 interface AllCardsFiltersProps {
   searchQuery: string;
@@ -47,15 +48,8 @@ const useWindowWidth = () => {
 const DISPLAY_RARITIES = [ 'f', 'v', 'l', 'm', 's', 'r', 'c', 'p', 'b', 't' ];
 const DISPLAY_FOILINGS = [ 'r', 'c', 's', 'g' ];
 const DISPLAY_EDITIONS = [ 'a', 'f', 'u', 'n' ];
-const SET_MAP_SUBSET = {
-  'wtr': 'Welcome to Rathe', 'arc': 'Arcane Rising', 'cru': 'Crucible of War',
-  'mon': 'Monarch', 'ele': 'Tales of Aria', 'evr': 'Everfest', 'upr': 'Uprising',
-  '1hp': 'History Pack Vol.1', 'dyn': 'Dynasty', 'out': 'Outsiders', 'dtd': 'Dusk till Dawn',
-  'evo': 'Bright Lights', 'hvy': 'Heavy Hitters', 'mst': 'Part the Mistveil',
-  'ros': 'Rosetta', 'hnt': 'The Hunted', 'sea': 'High Seas', 'mpg': 'Mastery Pack Guardian',
-  'sup': 'Super Slam',
-} as const;
-const DISPLAY_SETS = Object.keys(SET_MAP_SUBSET);
+// Reuse the shared filter list so newly released sets appear here automatically.
+const DISPLAY_SETS = CARD_FILTER_SETS;
 
 const FoilingIcon = ({ foilingKey }: { foilingKey: string }) => {
   switch (foilingKey) {
@@ -189,7 +183,7 @@ export const AllCardsFilters: React.FC<AllCardsFiltersProps> = ({
                           : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:border-gray-400 dark:hover:border-gray-500'
                         }`}
                       >
-                        {SET_MAP_SUBSET[setKey]}
+                        {SET_MAP[setKey]}
                       </button>
                     );
                   })}
