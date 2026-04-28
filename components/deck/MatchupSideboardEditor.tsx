@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { RotateCcw, AlertCircle, List, LayoutGrid } from "lucide-react";
 import { toTalisharIdentifier } from "@/lib/utils";
+import { BreakdownChip, type Breakdown } from "./MatchupBreakdownChip";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -295,22 +296,36 @@ function ListSection({
 }
 
 // ─────────────────────────────────────────────────────────
-// Tile hover preview — large card shown on the left side of screen
+// Tile hover state — feeds the sticky right rail
 // ─────────────────────────────────────────────────────────
 
-function TileHoverPreview({ imageUrl }: { imageUrl: string | null }) {
-  if (!imageUrl) return null;
+interface TileHover { imageUrl: string; name: string; pitch?: number | null }
+
+function TilePreviewRail({ hover }: { hover: TileHover | null }) {
   return (
-    <div
-      className="fixed z-[9999] pointer-events-none"
-      style={{ left: 16, top: '50%', transform: 'translateY(-50%)' }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={imageUrl}
-        alt="Card preview"
-        className="w-56 rounded-xl shadow-2xl border border-gray-600"
-      />
+    <div className="hidden lg:block w-[260px] flex-shrink-0">
+      <div className="sticky top-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3">
+        {hover ? (
+          <>
+            <div className="aspect-[63/88] rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 shadow-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={hover.imageUrl} alt={hover.name} className="w-full h-full object-cover" />
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 min-w-0">
+              <PitchDot pitch={hover.pitch} />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate" title={hover.name}>
+                {hover.name}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="aspect-[63/88] rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center p-4">
+            <p className="text-xs text-gray-400 text-center leading-snug">
+              Hover a tile to preview the card
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -320,13 +335,14 @@ function TileHoverPreview({ imageUrl }: { imageUrl: string | null }) {
 // ─────────────────────────────────────────────────────────
 
 function TileSectionUnified({
-  section, deckCounts, readOnly, onToggle, onHover, onLeave, tileWidth = 108,
+  section, deckCounts, copyMask, readOnly, onToggle, onHover, onLeave, tileWidth = 108,
 }: {
   section: Section;
   deckCounts: Map<string, number>;
+  copyMask: Map<string, boolean[]>;
   readOnly: boolean;
   onToggle: (id: string, copyIndex: number) => void;
-  onHover: (imageUrl: string) => void;
+  onHover: (info: TileHover) => void;
   onLeave: () => void;
   tileWidth?: number;
 }) {
@@ -348,11 +364,12 @@ function TileSectionUnified({
       <div className="flex flex-wrap gap-1">
         {section.cards.map(card => {
           const dc = deckCounts.get(card.talisharId) ?? card.originalDeckCount;
+          const mask = copyMask.get(card.talisharId);
           const isHero = section.key === 'hero';
           const interactive = !readOnly && !isHero;
 
           return card.copies.map((copy, i) => {
-            const inDeck = i < dc;
+            const inDeck = mask ? !!mask[i] : i < dc;
 
             const ringClass = isHero
               ? 'ring-2 ring-white/60'
@@ -364,7 +381,7 @@ function TileSectionUnified({
               <div
                 key={`${card.talisharId}-${i}`}
                 onClick={() => interactive && onToggle(card.talisharId, i)}
-                onMouseEnter={() => copy.imageUrl && onHover(copy.imageUrl)}
+                onMouseEnter={() => copy.imageUrl && onHover({ imageUrl: copy.imageUrl, name: card.name, pitch: card.pitch })}
                 onMouseLeave={onLeave}
                 title={card.name}
                 className={`relative rounded transition-all select-none ${interactive ? 'cursor-pointer' : 'cursor-default'} ${ringClass} ${opacityClass}`}
@@ -417,17 +434,20 @@ export default function MatchupSideboardEditor({
   onChange,
   readOnly = false,
 }: MatchupSideboardEditorProps) {
-  const [deckCounts, setDeckCounts] = useState<Map<string, number>>(new Map());
+  // Per-copy in-deck mask. `mask[i] === true` means copy i is in the deck (not the inventory).
+  // Source of truth — `deckCounts` is derived. This lets a click on a specific tile dim that
+  // exact tile, instead of always dimming the last copy via a count-based model.
+  const [copyMask, setCopyMask] = useState<Map<string, boolean[]>>(new Map());
   const [viewMode, setViewMode] = useState<ViewMode>('tile');
   const [hovered, setHovered] = useState<HoverState | null>(null);
-  const [tileHovered, setTileHovered] = useState<string | null>(null);
+  const [tileHovered, setTileHovered] = useState<TileHover | null>(null);
   const TILE_SIZES = [
     { key: 'compact', label: 'Compact', width: 108 },
     { key: 'normal',  label: 'Normal',  width: 150 },
     { key: 'large',   label: 'Large',   width: 200 },
   ] as const;
   type TileSizeKey = typeof TILE_SIZES[number]['key'];
-  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('large');
+  const [tileSizeKey, setTileSizeKey] = useState<TileSizeKey>('compact');
   const tileSizeIdx = TILE_SIZES.findIndex(s => s.key === tileSizeKey);
   const tileWidth = TILE_SIZES[tileSizeIdx].width;
   const hasInit = useRef(false);
@@ -465,13 +485,17 @@ export default function MatchupSideboardEditor({
 
   const allCards = useMemo(() => deckSections.flatMap(s => s.cards), [deckSections]);
 
-  // Initialize deckCounts from the deck's actual quantities, then apply saved swaps
+  // Helper: build a default mask for one card (first N copies in deck).
+  const defaultMaskFor = (c: GroupedCard, target: number) =>
+    Array.from({ length: c.available }, (_, i) => i < target);
+
+  // Initialize copyMask from the deck's actual quantities, then apply saved swaps.
   useEffect(() => {
     if (!deck || hasInit.current) return;
     hasInit.current = true;
 
-    const init = new Map<string, number>();
-    for (const c of allCards) init.set(c.talisharId, c.originalDeckCount);
+    const targetCount = new Map<string, number>();
+    for (const c of allCards) targetCount.set(c.talisharId, c.originalDeckCount);
 
     if (initialSwaps && (initialSwaps.out.length > 0 || initialSwaps.in.length > 0)) {
       const outC = new Map<string, number>();
@@ -480,18 +504,31 @@ export default function MatchupSideboardEditor({
       initialSwaps.in.forEach(id => inC.set(id, (inC.get(id) || 0) + 1));
 
       for (const c of allCards) {
-        let v = init.get(c.talisharId)!;
+        let v = targetCount.get(c.talisharId)!;
         v = Math.max(0, v - (outC.get(c.talisharId) || 0));
         v = Math.min(c.available, v + (inC.get(c.talisharId) || 0));
-        init.set(c.talisharId, v);
+        targetCount.set(c.talisharId, v);
       }
     }
 
-    setDeckCounts(init);
+    const init = new Map<string, boolean[]>();
+    for (const c of allCards) {
+      init.set(c.talisharId, defaultMaskFor(c, targetCount.get(c.talisharId)!));
+    }
+    setCopyMask(init);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck]);
 
-  // Emit changes whenever deckCounts updates
+  // Derived count map — kept here so list-mode buttons and stats can reuse the prior shape.
+  const deckCounts = useMemo<Map<string, number>>(() => {
+    const m = new Map<string, number>();
+    for (const [id, mask] of copyMask) {
+      m.set(id, mask.reduce((s, b) => s + (b ? 1 : 0), 0));
+    }
+    return m;
+  }, [copyMask]);
+
+  // Emit changes whenever copyMask updates
   useEffect(() => {
     if (!didInteract.current) return;
     const out: string[] = [];
@@ -504,42 +541,46 @@ export default function MatchupSideboardEditor({
     }
     onChangeRef.current({ in: inList, out });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckCounts]);
+  }, [copyMask]);
 
-  // Set deck count for a card (clamped to valid range)
+  // Set deck count for a card (list mode — discrete quantity picker).
+  // Rebuilds the mask as "first N copies in deck", since the user is choosing a count
+  // rather than toggling a specific copy.
   const setCount = (id: string, newDeckCount: number) => {
     if (readOnly) return;
     didInteract.current = true;
-    setDeckCounts(prev => {
+    setCopyMask(prev => {
       const card = allCards.find(c => c.talisharId === id);
-      const max = card?.available ?? 0;
-      const next = new Map(prev);
-      next.set(id, Math.max(0, Math.min(max, newDeckCount)));
-      return next;
+      if (!card) return prev;
+      const target = Math.max(0, Math.min(card.available, newDeckCount));
+      const map = new Map(prev);
+      map.set(id, defaultMaskFor(card, target));
+      return map;
     });
   };
 
-  // Toggle a tile copy between deck and inventory (unified view)
+  // Toggle the *specific* copy the user clicked, so the dimming follows the click.
   const toggleTile = (id: string, copyIndex: number) => {
     if (readOnly) return;
     didInteract.current = true;
-    setDeckCounts(prev => {
+    setCopyMask(prev => {
       const card = allCards.find(c => c.talisharId === id);
       if (!card) return prev;
-      const current = prev.get(id) ?? card.originalDeckCount;
-      // i < current = in deck → click removes; i >= current = not in deck → click adds
-      const next = copyIndex < current ? current - 1 : current + 1;
+      const cur = prev.get(id) ?? defaultMaskFor(card, card.originalDeckCount);
+      if (copyIndex < 0 || copyIndex >= cur.length) return prev;
+      const next = cur.slice();
+      next[copyIndex] = !next[copyIndex];
       const map = new Map(prev);
-      map.set(id, Math.max(0, Math.min(card.available, next)));
+      map.set(id, next);
       return map;
     });
   };
 
   const handleReset = () => {
     didInteract.current = true;
-    const d = new Map<string, number>();
-    for (const c of allCards) d.set(c.talisharId, c.originalDeckCount);
-    setDeckCounts(d);
+    const m = new Map<string, boolean[]>();
+    for (const c of allCards) m.set(c.talisharId, defaultMaskFor(c, c.originalDeckCount));
+    setCopyMask(m);
   };
 
   // Stats
@@ -556,6 +597,28 @@ export default function MatchupSideboardEditor({
   const maxSize = format === 'Silver Age' ? 40 : null;
   const isOverLimit = maxSize !== null && postSwap > maxSize;
   const hasChanges = totalOut > 0 || totalIn > 0;
+
+  // Per-section breakdown for live counts (post-swap deck + remaining inventory)
+  const computeBreakdown = (getCount: (c: GroupedCard) => number) => {
+    let red = 0, yellow = 0, blue = 0, equipment = 0, hero = 0, other = 0;
+    for (const c of allCards) {
+      const n = getCount(c);
+      if (n <= 0) continue;
+      switch (c.section) {
+        case 'red':       red += n; break;
+        case 'yellow':    yellow += n; break;
+        case 'blue':      blue += n; break;
+        case 'equipment':
+        case 'weapon':    equipment += n; break;
+        case 'hero':      hero += n; break;
+        default:          other += n;
+      }
+    }
+    const library = red + yellow + blue + other;
+    return { red, yellow, blue, equipment, hero, other, library, total: library + equipment + hero };
+  };
+  const mainBd = computeBreakdown(c => deckCounts.get(c.talisharId) ?? c.originalDeckCount);
+  const invBd  = computeBreakdown(c => c.available - (deckCounts.get(c.talisharId) ?? c.originalDeckCount));
 
   const handleHover = (card: GroupedCard, e: React.MouseEvent) => {
     if (card.imageUrl) setHovered({ imageUrl: card.imageUrl, x: e.clientX, y: e.clientY });
@@ -586,6 +649,8 @@ export default function MatchupSideboardEditor({
               <AlertCircle className="h-2.5 w-2.5" />Over
             </Badge>
           )}
+          <BreakdownChip label="Main"      bd={mainBd} />
+          <BreakdownChip label="Inventory" bd={invBd} />
         </div>
 
         <div className="flex items-center gap-1">
@@ -683,53 +748,58 @@ export default function MatchupSideboardEditor({
           </div>
         </div>
       ) : (
-        /* Tile mode — single unified card grid, Talishar-style */
-        <div className="rounded border border-gray-700/50 p-2">
-          {deckSections.length === 0
-            ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
-            : (() => {
-                const topSections = deckSections.filter(s => s.key === 'hero' || s.key === 'equipment');
-                const restSections = deckSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
-                return (
-                  <>
-                    {topSections.length > 0 && (
-                      <div className="flex flex-col sm:flex-row gap-4 mb-1">
-                        {topSections.map(s => (
-                          <div key={s.key} className="min-w-0">
-                            <TileSectionUnified
-                              section={s}
-                              deckCounts={deckCounts}
-                              readOnly={readOnly}
-                              onToggle={toggleTile}
-                              onHover={setTileHovered}
-                              onLeave={() => setTileHovered(null)}
-                              tileWidth={tileWidth}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {restSections.map(s => (
-                      <TileSectionUnified
-                        key={s.key}
-                        section={s}
-                        deckCounts={deckCounts}
-                        readOnly={readOnly}
-                        onToggle={toggleTile}
-                        onHover={setTileHovered}
-                        onLeave={() => setTileHovered(null)}
-                        tileWidth={tileWidth}
-                      />
-                    ))}
-                  </>
-                );
-              })()
-          }
+        /* Tile mode — unified card grid + sticky preview rail (lg+) */
+        <div className="flex gap-3 items-start">
+          <div className="flex-1 min-w-0 rounded border border-gray-700/50 p-2">
+            {deckSections.length === 0
+              ? <p className="text-xs text-gray-500 p-2 text-center">No cards</p>
+              : (() => {
+                  const topSections = deckSections.filter(s => s.key === 'hero' || s.key === 'equipment');
+                  const restSections = deckSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
+                  return (
+                    <>
+                      {topSections.length > 0 && (
+                        <div className="flex flex-col sm:flex-row gap-4 mb-1">
+                          {topSections.map(s => (
+                            <div key={s.key} className="min-w-0">
+                              <TileSectionUnified
+                                section={s}
+                                deckCounts={deckCounts}
+                                copyMask={copyMask}
+                                readOnly={readOnly}
+                                onToggle={toggleTile}
+                                onHover={setTileHovered}
+                                onLeave={() => setTileHovered(null)}
+                                tileWidth={tileWidth}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {restSections.map(s => (
+                        <TileSectionUnified
+                          key={s.key}
+                          section={s}
+                          deckCounts={deckCounts}
+                          copyMask={copyMask}
+                          readOnly={readOnly}
+                          onToggle={toggleTile}
+                          onHover={setTileHovered}
+                          onLeave={() => setTileHovered(null)}
+                          tileWidth={tileWidth}
+                        />
+                      ))}
+                    </>
+                  );
+                })()
+            }
+          </div>
+          <TilePreviewRail hover={tileHovered} />
         </div>
       )}
 
       {viewMode === 'list' && <CardHoverPreview hover={hovered} />}
-      {viewMode === 'tile' && <TileHoverPreview imageUrl={tileHovered} />}
     </div>
   );
 }
+

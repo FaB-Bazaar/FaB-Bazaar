@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Loader2, Settings2, Swords, X } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Settings2, Swords, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { decksClient } from "@/lib/client";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
@@ -20,7 +20,9 @@ import { getBannedCardIds, getLivingLegendHeroIds } from "@/lib/fab-banned-cards
 import { toTalisharIdentifier } from "@/lib/utils";
 import { canEditDeck } from "@/lib/utils/deck-permissions";
 import { computeMatchupRecords, type MatchupRecord } from "@/lib/utils/matchup-records";
+import { computeMatchupBreakdown } from "@/lib/utils/matchup-breakdown";
 import MatchupDeltaView from "@/components/deck/MatchupDeltaView";
+import { BreakdownChip } from "@/components/deck/MatchupBreakdownChip";
 import { computeMatchupDelta } from "@/lib/utils/matchup-delta";
 import { Button } from "@/components/ui/button";
 
@@ -89,6 +91,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const [results, setResults] = useState<ResultLike[]>([]);
   const [selectedTalisharId, setSelectedTalisharId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorInitialHeroId, setEditorInitialHeroId] = useState<string | null>(null);
   const [detailExpanded, setDetailExpanded] = useState(true);
   const [hoveredCardImage, setHoveredCardImage] = useState<string | null>(null);
 
@@ -191,6 +194,13 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
     return computeMatchupDelta(core, selectedMatchup.sideboard);
   }, [coreMatchup, selectedMatchup]);
 
+  // Live pitch breakdowns for the post-swap deck and inventory. When no
+  // opponent matchup is selected we fall back to the base decklist.
+  const breakdown = useMemo(
+    () => deck ? computeMatchupBreakdown(deck as any, selectedMatchup?.sideboard) : null,
+    [deck, selectedMatchup]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -264,7 +274,10 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setEditorOpen(true)}
+              onClick={() => {
+                setEditorInitialHeroId(null);
+                setEditorOpen(true);
+              }}
               className="focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <Settings2 className="h-4 w-4 mr-1.5" aria-hidden="true" />
@@ -300,9 +313,9 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
             )}
           </div>
 
-          {/* Footer only renders when it actually has content */}
-          {selected && (editable && selectedRecord || !selectedMatchup) && (
-            <div className="border-t border-gray-700 px-3 py-1.5 flex items-center gap-3 text-xs">
+          {/* Footer — record, breakdown chips, and per-matchup Edit button */}
+          {(breakdown || (selected && (editable && selectedRecord || !selectedMatchup))) && (
+            <div className="border-t border-gray-700 px-3 py-1.5 flex items-center gap-3 text-xs flex-wrap">
               {editable && selectedRecord && (
                 <span
                   className="font-bold text-gray-100 inline-flex items-center gap-1"
@@ -313,10 +326,27 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
                   <span className="text-rose-400">{selectedRecord.losses}L</span>
                 </span>
               )}
-              {!selectedMatchup && (
+              {breakdown && <BreakdownChip label="Main"      bd={breakdown.main} />}
+              {breakdown && <BreakdownChip label="Inventory" bd={breakdown.inv}  />}
+              {selected && !selectedMatchup && (
                 <span className="text-gray-300 italic">
-                  No notes yet{editable ? " — Manage to add." : "."}
+                  No notes yet{editable ? " — Edit to add." : "."}
                 </span>
+              )}
+              {editable && selected && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditorInitialHeroId(selectedTalisharId);
+                    setEditorOpen(true);
+                  }}
+                  className="ml-auto h-7 px-2 text-xs focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label={selectedMatchup ? `Edit ${selected.displayName} matchup` : `Add ${selected.displayName} matchup`}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                  {selectedMatchup ? "Edit" : "Add notes"}
+                </Button>
               )}
             </div>
           )}
@@ -464,10 +494,14 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
           open={editorOpen}
           onOpenChange={(v) => {
             setEditorOpen(v);
-            if (!v) setMatchupsVersion((n) => n + 1);
+            if (!v) {
+              setMatchupsVersion((n) => n + 1);
+              setEditorInitialHeroId(null);
+            }
           }}
           deckId={deckId}
           deck={deck as any}
+          initialEditHeroId={editorInitialHeroId}
         />
       )}
     </div>

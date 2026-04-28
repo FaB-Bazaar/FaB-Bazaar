@@ -42,6 +42,9 @@ interface DeckMatchupsDialogProps {
   deck: any; // Full deck object with hero, equipment, maindeck, inventory arrays
   inline?: boolean; // If true, renders content directly instead of in a dialog
   compact?: boolean; // If true (with inline), suppresses the title/description header
+  // When provided + the dialog opens, jump straight into editing this matchup.
+  // The deep-link is consumed once: changing tabs / saving / cancelling clears it.
+  initialEditHeroId?: string | null;
 }
 
 // Convert a lowercase hero key to a display name, e.g. 'bravo, showstopper' → 'Bravo, Showstopper'
@@ -310,6 +313,7 @@ export default function DeckMatchupsDialog({
   deck,
   inline = false,
   compact = false,
+  initialEditHeroId = null,
 }: DeckMatchupsDialogProps) {
   const { toast } = useToast();
   const [matchups, setMatchups] = useState<DeckMatchup[]>([]);
@@ -521,6 +525,36 @@ export default function DeckMatchupsDialog({
       if (heroImageMap.size === 0) fetchHeroImages();
     }
   }, [open, deckId]);
+
+  // Deep-link: caller passed an `initialEditHeroId` to jump straight to its
+  // edit form. Wait for matchups to load, then either edit-existing or
+  // pre-fill a new matchup form for that hero. Fires once per open + heroId.
+  const initialEditAppliedRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) {
+      initialEditAppliedRef.current = null;
+      return;
+    }
+    if (!initialEditHeroId) return;
+    if (initialEditAppliedRef.current === initialEditHeroId) return;
+    if (loading) return; // wait for matchups fetch
+    initialEditAppliedRef.current = initialEditHeroId;
+
+    const existing = matchups.find((m) => m.heroId === initialEditHeroId);
+    if (existing) {
+      handleEdit(existing);
+    } else {
+      // No matchup yet for this hero — pre-fill an empty form so the user
+      // can save it without re-picking the hero.
+      setFormHeroId(initialEditHeroId);
+      setFormTurnOrder(null);
+      setFormNotes("");
+      setFormSideboardIn([]);
+      setFormSideboardOut([]);
+      setEditingHeroId(null);
+    }
+    setActiveTab("add");
+  }, [open, initialEditHeroId, loading, matchups]);
 
   const resetForm = () => {
     setFormHeroId("");
@@ -1392,7 +1426,7 @@ export default function DeckMatchupsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Swords className="h-5 w-5" />
