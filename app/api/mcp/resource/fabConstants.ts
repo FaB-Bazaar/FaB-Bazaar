@@ -460,7 +460,16 @@ export const fabConstantsResource = {
 
     important_notes: {
       workflow: "MANDATORY: Read fab://constants FIRST, then searchable://card/fields BEFORE using search_printings",
-      case_sensitivity: "Card IDs are case-sensitive! Use 'WTR098' not 'wtr098'",
+      case_sensitivity: {
+        case_insensitive_filters: "classes, talents, rarities, foilings, editions, types, keywords, and color values are CASE-INSENSITIVE — pass any case ('brute', 'Brute', 'BRUTE' all work).",
+        case_sensitive_collector_numbers: "Collector numbers (card IDs) ARE case-sensitive — use 'WTR098' not 'wtr098'.",
+      },
+      classes_vs_heroClasses: {
+        critical: "classes ≠ heroClasses. These are NOT interchangeable.",
+        classes: "classes: ['brute'] → cards whose CARD CLASS is Brute (Beast Within, Massacre, …). This is what you want for 'find brute cards' / 'all brute majestics' / etc.",
+        heroClasses: "heroClasses: ['brute'] → cards LEGAL FOR a Brute hero. Includes generic cards (Command and Conquer, etc.) plus Brute-class cards. Only use for hero-legal pools / deck-building searches.",
+        common_misroute: "Picking heroClasses when the user said 'brute cards' returns generics and gives a wrong answer. Default to classes for class-of-card questions.",
+      },
       shorthand_priority: "Use shorthand syntax for natural queries, structured filters for programmatic access",
       abbreviation_usage: "All abbreviations from this resource work in shorthand queries",
       hero_legal_filtering: "Hero filters automatically determine legal cards based on class/talent restrictions",

@@ -595,8 +595,10 @@ export const searchCapabilitiesResource = {
         talentsNot: 'Exclude cards with any of these talents'
       },
       class_filters: {
-        classes: 'OR logic — card belongs to any of these classes',
-        classesNot: 'Exclude cards belonging to any of these classes'
+        classes: 'CARD CLASS — cards whose own class is in this list (Beast Within, Massacre, etc. for ["brute"]). Use this for "find me brute cards".',
+        classesNot: 'Exclude cards whose card class is in this list',
+        critical_disambiguation: 'classes (the CARD\'s class) vs heroClasses (cards LEGAL FOR a hero of that class — includes generics + matching class). Picking heroClasses for "find brute cards" returns generic cards too (Command and Conquer, etc.) which is almost never what the user wants.',
+        case_handling: 'Class/talent/rarity/foiling/edition/color/type/keyword values are case-insensitive — pass any case ("brute", "Brute", "BRUTE" all work).'
       },
       format_values: {
         supported: ['blitz', 'cc', 'commoner', 'll', 'silver_age'],
@@ -604,8 +606,9 @@ export const searchCapabilitiesResource = {
       },
       hero_filtering: {
         heroLegal: 'Single hero name, OR logic across that hero\'s classes/talents',
-        heroClasses_heroTalents: 'Precise deck legality: heroClasses (overlap) + heroTalents (subset). Use these instead of heroLegal for deck-building searches.',
-        excludeClasses_excludeTalents: 'Explicit class/talent exclusion'
+        heroClasses_heroTalents: 'HERO LEGALITY — cards LEGAL FOR a hero of that class/talent. Includes generics + class-matching cards. Use this only for hero-legal pools / deck-building searches, NOT for "find brute cards".',
+        excludeClasses_excludeTalents: 'Explicit class/talent exclusion',
+        critical_disambiguation: 'See class_filters.critical_disambiguation. heroClasses ≠ classes. "all brute majestics with 6 power" → use classes: ["brute"], not heroClasses: ["brute"].'
       },
       name_search_behavior: {
         exact_true: 'Exact name match only',

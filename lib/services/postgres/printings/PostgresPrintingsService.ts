@@ -605,6 +605,8 @@ export class PostgresPrintingsService implements IPrintingsService {
     options?: PrintingsSearchOptions
   ): any[] {
     const conditions: any[] = [];
+    const lc = (arr: readonly string[]): string[] =>
+      arr.map(s => (typeof s === 'string' ? s.toLowerCase() : s));
 
     // ===== IDENTIFIERS =====
     if (filters.cardUniqueId) {
@@ -730,7 +732,7 @@ export class PostgresPrintingsService implements IPrintingsService {
     // ===== ARRAYS (types, traits, keywords, classes, talents) =====
     // Use ARRAY[...] construction with explicit ::text[] cast to avoid pg type inference issues
     if (filters.types && filters.types.length > 0) {
-      conditions.push(sql`${cards.types} && ARRAY[${sql.join(filters.types.map(t => sql`${t}`), sql`, `)}]::text[]`);
+      conditions.push(sql`${cards.types} && ARRAY[${sql.join(lc(filters.types).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.traits && filters.traits.length > 0) {
@@ -738,37 +740,37 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.keywords && filters.keywords.length > 0) {
-      conditions.push(sql`${cards.keywords} && ARRAY[${sql.join(filters.keywords.map(t => sql`${t}`), sql`, `)}]::text[]`);
+      conditions.push(sql`${cards.keywords} && ARRAY[${sql.join(lc(filters.keywords).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.classes && filters.classes.length > 0) {
-      conditions.push(sql`${cards.classes} && ARRAY[${sql.join(filters.classes.map(t => sql`${t}`), sql`, `)}]::text[]`);
+      conditions.push(sql`${cards.classes} && ARRAY[${sql.join(lc(filters.classes).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.classesNot && filters.classesNot.length > 0) {
-      conditions.push(sql`NOT (${cards.classes} && ARRAY[${sql.join(filters.classesNot.map(t => sql`${t}`), sql`, `)}]::text[])`);
+      conditions.push(sql`NOT (${cards.classes} && ARRAY[${sql.join(lc(filters.classesNot).map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
     if (filters.talents && filters.talents.length > 0) {
-      conditions.push(sql`${cards.talents} && ARRAY[${sql.join(filters.talents.map(t => sql`${t}`), sql`, `)}]::text[]`);
+      conditions.push(sql`${cards.talents} && ARRAY[${sql.join(lc(filters.talents).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.talentsAll && filters.talentsAll.length > 0) {
       // All talents must be present (contains operator @>)
-      conditions.push(sql`${cards.talents} @> ARRAY[${sql.join(filters.talentsAll.map(t => sql`${t}`), sql`, `)}]::text[]`);
+      conditions.push(sql`${cards.talents} @> ARRAY[${sql.join(lc(filters.talentsAll).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.talentsNot && filters.talentsNot.length > 0) {
       // Exclude cards with these talents
-      conditions.push(sql`NOT (${cards.talents} && ARRAY[${sql.join(filters.talentsNot.map(t => sql`${t}`), sql`, `)}]::text[])`);
+      conditions.push(sql`NOT (${cards.talents} && ARRAY[${sql.join(lc(filters.talentsNot).map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
     if (filters.color) {
-      conditions.push(eq(cards.color, filters.color));
+      conditions.push(eq(cards.color, filters.color.toLowerCase()));
     }
 
     if (filters.colors && filters.colors.length > 0) {
-      conditions.push(inArray(cards.color, filters.colors));
+      conditions.push(inArray(cards.color, lc(filters.colors)));
     }
 
     // ===== STATS =====
@@ -1094,20 +1096,20 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.excludeClasses && filters.excludeClasses.length > 0) {
-      conditions.push(sql`NOT (${cards.classes} && ${filters.excludeClasses})`);
+      conditions.push(sql`NOT (${cards.classes} && ${lc(filters.excludeClasses)})`);
     }
 
     if (filters.excludeTalents && filters.excludeTalents.length > 0) {
-      conditions.push(sql`NOT (${cards.talents} && ${filters.excludeTalents})`);
+      conditions.push(sql`NOT (${cards.talents} && ${lc(filters.excludeTalents)})`);
     }
 
     // ===== NEGATION FILTERS =====
     if (filters.colorNot && filters.colorNot.length > 0) {
-      conditions.push(notInArray(cards.color, filters.colorNot));
+      conditions.push(notInArray(cards.color, lc(filters.colorNot)));
     }
 
     if (filters.raritiesNot && filters.raritiesNot.length > 0) {
-      conditions.push(notInArray(printings.rarity, filters.raritiesNot));
+      conditions.push(notInArray(printings.rarity, lc(filters.raritiesNot)));
     }
 
     if (filters.setsNot && filters.setsNot.length > 0) {
@@ -1115,19 +1117,19 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.foilingsNot && filters.foilingsNot.length > 0) {
-      conditions.push(notInArray(printings.foiling, filters.foilingsNot));
+      conditions.push(notInArray(printings.foiling, lc(filters.foilingsNot)));
     }
 
     if (filters.editionsNot && filters.editionsNot.length > 0) {
-      conditions.push(notInArray(printings.edition, filters.editionsNot));
+      conditions.push(notInArray(printings.edition, lc(filters.editionsNot)));
     }
 
     if (filters.typesNot && filters.typesNot.length > 0) {
-      conditions.push(sql`NOT (${cards.types} && ARRAY[${sql.join(filters.typesNot.map(t => sql`${t}`), sql`, `)}]::text[])`);
+      conditions.push(sql`NOT (${cards.types} && ARRAY[${sql.join(lc(filters.typesNot).map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
     if (filters.keywordsNot && filters.keywordsNot.length > 0) {
-      conditions.push(sql`NOT (${cards.keywords} && ${filters.keywordsNot})`);
+      conditions.push(sql`NOT (${cards.keywords} && ${lc(filters.keywordsNot)})`);
     }
 
     if (filters.textNot) {

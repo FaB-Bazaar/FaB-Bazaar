@@ -43,6 +43,54 @@ function formatPrinting(p: any, opts: ProjectOptions = {}): string {
   }
   return lines.join('\n');
 }
+type SectionInput = {
+  index: number;
+  query: string;
+  total: number;
+  printings: any[];
+  foilingFallback?: boolean;
+};
+
+const MAX_SECTION_GROUPS = 10;
+
+export function formatSearchSections(output: SectionInput[], projectOpts: ProjectOptions = {}): string[] {
+  return output.map(r => {
+    const label = r.query;
+    if (r.printings.length === 0) {
+      return `🔍 **${label}** — no results`;
+    }
+
+    const groupsMap = new Map<string, any[]>();
+    for (const p of r.printings) {
+      const key = p.card_unique_id ?? p.name ?? p.printing_id;
+      if (!groupsMap.has(key)) groupsMap.set(key, []);
+      groupsMap.get(key)!.push(p);
+    }
+    const groups = [...groupsMap.values()];
+
+    const fallbackNote = r.foilingFallback
+      ? '\n  ⚠️ No non-foil printing exists — showing available foil printing(s) instead'
+      : '';
+
+    const shown = groups.slice(0, MAX_SECTION_GROUPS);
+    const moreCards = groups.length > MAX_SECTION_GROUPS
+      ? `\n  …and ${groups.length - MAX_SECTION_GROUPS} more distinct cards`
+      : '';
+
+    const body = shown.map(group => {
+      const best = sortPrintings(group)[0];
+      const tail = group.length > 1 ? ` (+${group.length - 1} more printings of this card)` : '';
+      return `${formatPrinting(best, projectOpts)}${tail}`;
+    }).join('\n');
+
+    const cardsLine = groups.length > 1
+      ? ` across ${groups.length} cards`
+      : '';
+
+    return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${cardsLine}${fallbackNote}\n${body}${moreCards}`;
+  });
+}
+
 function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   if (!p) return p;
   const out: any = {
@@ -409,18 +457,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       includeText: !!options.includeText,
     };
 
-    const sections = output.map(r => {
-      const label = r.query;
-      if (r.printings.length === 0) {
-        return `🔍 **${label}** — no results`;
-      }
-      const best = sortPrintings(r.printings)[0];
-      const others = r.total > 1 ? ` (+${r.total - 1} more printings)` : '';
-      const fallbackNote = (r as any).foilingFallback
-        ? '\n  ⚠️ No non-foil printing exists — showing available foil printing(s) instead'
-        : '';
-      return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${fallbackNote}\n${formatPrinting(best, projectOpts)}${others}`;
-    });
+    const sections = formatSearchSections(output, projectOpts);
 
     return {
       success: true,
