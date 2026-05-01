@@ -682,6 +682,36 @@ export class PostgresBinderService implements IBinderService {
     }
   }
 
+  async bulkRemoveItems(binderId: string, userId: string, cardIds: string[]): AsyncResult<{ removed: number }> {
+    try {
+      const binder = await db.query.binders.findFirst({
+        where: and(eq(binders.id, binderId), eq(binders.userId, userId)),
+      });
+
+      if (!binder) {
+        return { success: false, error: 'Binder not found or access denied' };
+      }
+
+      if (cardIds.length === 0) {
+        return { success: true, data: { removed: 0 } };
+      }
+
+      const result = await db
+        .delete(inventoryItems)
+        .where(and(inArray(inventoryItems.id, cardIds), eq(inventoryItems.binderId, binderId)));
+
+      const removed = result.rowCount ?? 0;
+
+      if (removed > 0) {
+        await db.update(binders).set({ statsNeedUpdate: true, lastActivityAt: new Date() }).where(eq(binders.id, binderId));
+      }
+
+      return { success: true, data: { removed } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to bulk remove items' };
+    }
+  }
+
   /**
    * Bulk update cards in binder
    */

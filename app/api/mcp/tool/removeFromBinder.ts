@@ -112,44 +112,34 @@ identity is enforced server-side from your auth token, not from the parameters y
 
       const actualBinderId = targetBinder._id;
 
-      // STEP 2: Delete each card individually, collecting results
-      const results = await Promise.all(
-        cardIds.map(async (cardId: string) => {
-          try {
-            const response = await mcpFetch(
-              `${API_BASE_URL}/api/binders/${actualBinderId}/cards/${cardId}`,
-              { method: 'DELETE', headers: authHeader }
-            );
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error(`[RemoveFromBinder] DELETE ${cardId} failed (${response.status}):`, errorText);
-              return { cardId, success: false, error: `HTTP ${response.status}: ${errorText}` };
-            }
-
-            return { cardId, success: true };
-          } catch (err) {
-            return { cardId, success: false, error: err instanceof Error ? err.message : 'Network error' };
-          }
-        })
+      // STEP 2: Bulk delete via single request
+      const deleteResponse = await mcpFetch(
+        `${API_BASE_URL}/api/binders/${actualBinderId}/cards`,
+        { method: 'DELETE', headers: authHeader, body: JSON.stringify({ cardIds }) }
       );
 
-      const removed = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success);
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error(`[RemoveFromBinder] Bulk DELETE failed (${deleteResponse.status}):`, errorText);
+        return {
+          success: false,
+          error: `Failed to remove cards (HTTP ${deleteResponse.status})`,
+          step: 'bulk_delete'
+        };
+      }
+
+      const deleteResult = await deleteResponse.json();
+      const removed = deleteResult.data?.removed ?? 0;
 
       return {
-        success: failed.length === 0,
+        success: true,
         binderSlug,
         binderName: targetBinder.name,
         summary: {
           total: cardIds.length,
           removed,
-          failed: failed.length
         },
-        message: failed.length === 0
-          ? `✅ Successfully removed ${removed} card${removed !== 1 ? 's' : ''} from binder "${targetBinder.name}"`
-          : `⚠️ Removed ${removed} of ${cardIds.length} cards. ${failed.length} failed.`,
-        ...(failed.length > 0 && { failures: failed })
+        message: `✅ Successfully removed ${removed} card${removed !== 1 ? 's' : ''} from binder "${targetBinder.name}"`,
       };
 
     } catch (error) {

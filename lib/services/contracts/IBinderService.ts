@@ -852,6 +852,12 @@ export interface IBinderService {
     userId: string
   ): AsyncResult<boolean>;
 
+  bulkRemoveItems(
+    binderId: string,
+    userId: string,
+    cardIds: string[]
+  ): AsyncResult<{ removed: number }>;
+
   /**
    * Bulk update cards in binder
    *

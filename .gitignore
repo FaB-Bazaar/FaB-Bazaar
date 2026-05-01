@@ -19,6 +19,12 @@ claude_auth.md
 oauth-testing.md
 scripts/db-permissions.sql
 
+# dev setup and seed data (local only — may contain real data or env-specific paths)
+dev-setup.sh
+scripts/dump-seed-data.sh
+scripts/import-seed-data.sh
+seeds/
+
 # manual test scripts (local dev only, not for CI)
 **/*.manual-test.ts
 

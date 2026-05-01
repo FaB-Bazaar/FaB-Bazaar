@@ -236,6 +236,54 @@ export async function POST(
   }
 }
 
+/**
+ * DELETE /api/binders/[binderId]/cards
+ *
+ * Bulk remove inventory items from a binder in a single DB query.
+ * OAuth-only — this endpoint is for agent/MCP use, not the UI.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ binderId: string }> }
+) {
+  try {
+    const { binderId } = await params;
+
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
+    if (!authResult.success) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+
+    if (authResult.authMethod !== 'oauth') {
+      return NextResponse.json({ success: false, error: 'This endpoint requires OAuth authentication' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { cardIds } = body;
+
+    if (!Array.isArray(cardIds) || cardIds.length === 0) {
+      return NextResponse.json({ success: false, error: 'cardIds must be a non-empty array' }, { status: 400 });
+    }
+
+    if (cardIds.length > 100) {
+      return NextResponse.json({ success: false, error: 'Maximum 100 card IDs per request' }, { status: 400 });
+    }
+
+    const result = await binderService.bulkRemoveItems(binderId, authResult.userId!, cardIds);
+
+    if (!result.success) {
+      const isAccessDenied = result.error?.toLowerCase().includes('access denied') || result.error?.toLowerCase().includes('not found');
+      return NextResponse.json({ success: false, error: result.error }, { status: isAccessDenied ? 403 : 500 });
+    }
+
+    return NextResponse.json({ success: true, data: result.data });
+
+  } catch (error) {
+    console.error('Error bulk removing binder cards:', error);
+    return NextResponse.json({ success: false, error: 'Failed to remove cards' }, { status: 500 });
+  }
+}
+
 // --- DISCORD NOTIFICATION HELPER ---
 function calculateDiscordNotificationData(auth: AuthResult, results: any[], binder: BinderDTO) {
   let totalValueAdded = 0;
