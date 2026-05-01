@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       let printings = bulkResult.data[bulkIdx]?.printings ?? [];
 
       // Post-filter by set / edition / foiling if specified per-card
-      if (card.set)     printings = printings.filter(p => p.set === card.set!.toUpperCase());
+      if (card.set)     printings = printings.filter(p => p.set === card.set!.toLowerCase());
       if (card.edition) printings = printings.filter(p => p.edition === card.edition);
       if (card.foiling) printings = printings.filter(p => p.foiling === card.foiling);
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       let printings: PrintingDTO[] = res.success ? (res.data?.printings ?? []) : [];
       const card = cards[originalIdx];
 
-      if (card.set)     printings = printings.filter(p => p.set === card.set!.toUpperCase());
+      if (card.set)     printings = printings.filter(p => p.set === card.set!.toLowerCase());
       if (card.edition) printings = printings.filter(p => p.edition === card.edition);
       if (card.foiling) printings = printings.filter(p => p.foiling === card.foiling);
 
