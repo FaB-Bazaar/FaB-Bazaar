@@ -23,6 +23,7 @@ import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
 import { getBannedCardIds, getLivingLegendHeroIds } from '@/lib/fab-banned-cards';
 import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
+import { findExistingMatchupToEdit } from "@/lib/utils/matchup-edit-mode";
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
 
 interface DeckMatchup {
@@ -555,6 +556,19 @@ export default function DeckMatchupsDialog({
     }
     setActiveTab("add");
   }, [open, initialEditHeroId, loading, matchups]);
+
+  // If the user picks a hero in the form that already has a matchup, auto-load
+  // that matchup into edit mode so Save updates it instead of POSTing a duplicate.
+  useEffect(() => {
+    const existing = findExistingMatchupToEdit(matchups, formHeroId, editingHeroId);
+    if (existing) {
+      handleEdit(existing);
+    }
+    // handleEdit is stable enough (defined inline but only reads setters); we
+    // intentionally depend on matchups + formHeroId + editingHeroId to fire
+    // exactly when the picked hero changes or the matchup list arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formHeroId, editingHeroId, matchups]);
 
   const resetForm = () => {
     setFormHeroId("");
