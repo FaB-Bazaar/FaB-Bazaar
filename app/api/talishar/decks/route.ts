@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
       ?? deck.hero?.[0]?.printingDetails?.name;
     return {
       id: deck.publicId,
+      deckId: deck.publicId,
       name: deck.name,
       hero: heroNameRaw ? TALISHAR_HERO_IDS[heroNameRaw.toLowerCase()] : undefined,
       format: deck.format ? (FORMAT_MAP[deck.format] ?? deck.format.toLowerCase()) : undefined,
