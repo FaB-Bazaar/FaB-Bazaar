@@ -131,7 +131,7 @@ export const LIVING_LEGEND_POINTS: Record<string, number> = {
   'prism, awakener of sol': 951,
   'fai, rising rebellion': 856,
   'dash i/o': 830,
-  'victor goldmane, high and mighty': 824,
+  'victor goldmane, high and mighty': 899,
   'cindra, dracai of retribution': 820,
   'bravo, showstopper': 776,
   'kassai of the golden sand': 764,

@@ -195,6 +195,9 @@ const CC_LIVING_LEGEND_HEROES: string[] = [
   "Nnmtz6GrR6MWMcptb6wD7",
   "kRPqHdCckKBKfRwjbfzNT",
   "nzDWrNMqGWgmJfgJhChNb",
+  "hjMQGwKgDTh8LzFdnk8Rg", // Florian, Rotwood Harbinger
+  "qdLHRPTdGkw6TjpMjPTW7", // Kayo, Armed and Dangerous
+  "wJMCMFqcQfRJmK96kc8qM", // Verdance, Thorn of the Rose
 ];
 
 // Heroes that have achieved Living Legend status in Blitz — excluded from the Blitz hero selector.
