@@ -94,11 +94,39 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const [editorInitialHeroId, setEditorInitialHeroId] = useState<string | null>(null);
   const [detailExpanded, setDetailExpanded] = useState(true);
   const [hoveredCardImage, setHoveredCardImage] = useState<string | null>(null);
+  // Card-art fallback for heroes without a stylized portrait (heroPortraits.ts).
+  // Young heroes (SA/Blitz) intentionally have no portraits saved — fall back to
+  // the actual hero card image, cropped via `object-cover object-top` at render.
+  const [heroCardImages, setHeroCardImages] = useState<Map<string, string>>(new Map());
 
   // Clear hover whenever the selected matchup changes (new card list)
   useEffect(() => {
     setHoveredCardImage(null);
   }, [selectedTalisharId]);
+
+  // Fetch hero card images once we know the format. Used as a fallback in tile
+  // rendering whenever a stylized portrait is missing (e.g. all young heroes).
+  useEffect(() => {
+    if (!deck?.format) return;
+    const formatParam =
+      deck.format === "Silver Age" || deck.format === "Blitz" ? "young" : "adult";
+    let cancelled = false;
+    fetch(`/api/hero-printings?format=${formatParam}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.heroes) return;
+        const map = new Map<string, string>();
+        for (const h of data.heroes) {
+          const tId = toTalisharIdentifier(h.name);
+          if (tId && h.image_url) map.set(tId, h.image_url);
+        }
+        setHeroCardImages(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [deck?.format]);
 
   // Load deck + matchups in parallel — neither depends on the other.
   const [matchupsVersion, setMatchupsVersion] = useState(0);
@@ -418,8 +446,10 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
               <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-5 gap-1.5">
                 {heroes.map((h) => {
                   const has = matchupSet.has(h.talisharId);
-                  const portrait =
+                  const stylizedPortrait =
                     getHeroPortraitUrl(h.talisharId) || getStrategyPortraitUrl(h.talisharId);
+                  const cardArt = !stylizedPortrait ? heroCardImages.get(h.talisharId) ?? null : null;
+                  const portrait = stylizedPortrait || cardArt;
                   const isSelected = h.talisharId === selectedTalisharId;
                   // Strategies are archetypes, not opponents — no W/L records to show.
                   const record =
@@ -454,6 +484,9 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
                           decoding="async"
                           className={
                             "w-full h-full object-cover object-top " +
+                            // Card-art fallbacks: zoom + top-anchor so the character
+                            // art fills the tile rather than the full card + text box.
+                            (cardArt ? "scale-[1.45] origin-top " : "") +
                             (has ? "" : "grayscale brightness-75")
                           }
                         />
@@ -502,6 +535,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
           deckId={deckId}
           deck={deck as any}
           initialEditHeroId={editorInitialHeroId}
+          heroCardImages={heroCardImages}
         />
       )}
     </div>

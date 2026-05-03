@@ -49,6 +49,9 @@ interface DeckMatchupsDialogProps {
   // When provided + the dialog opens, jump straight into editing this matchup.
   // The deep-link is consumed once: changing tabs / saving / cancelling clears it.
   initialEditHeroId?: string | null;
+  // Talishar identifier → hero card image_url. Used as a portrait fallback for
+  // heroes (especially young / SA / Blitz) without a stylized portrait file.
+  heroCardImages?: Map<string, string>;
 }
 
 // Convert a lowercase hero key to a display name, e.g. 'bravo, showstopper' → 'Bravo, Showstopper'
@@ -318,6 +321,7 @@ export default function DeckMatchupsDialog({
   inline = false,
   compact = false,
   initialEditHeroId = null,
+  heroCardImages,
 }: DeckMatchupsDialogProps) {
   const { toast } = useToast();
   const [matchups, setMatchups] = useState<DeckMatchup[]>([]);
@@ -818,9 +822,13 @@ export default function DeckMatchupsDialog({
                     {sorted.map((matchup) => {
                         const isCore = matchup.heroId === CORE_HERO_ID;
                         const isStrategy = !!STRATEGY_MATCHUP_IDS[matchup.heroId];
-                        const portrait = !isCore
+                        const stylizedPortrait = !isCore
                           ? (getHeroPortraitUrl(matchup.heroId) || getStrategyPortraitUrl(matchup.heroId))
                           : null;
+                        const cardArt = !isCore && !stylizedPortrait
+                          ? heroCardImages?.get(matchup.heroId) ?? null
+                          : null;
+                        const portrait = stylizedPortrait || cardArt;
                         const hasSideboard =
                           matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0;
                         const heroName = getHeroDisplayName(matchup.heroId);
@@ -836,7 +844,12 @@ export default function DeckMatchupsDialog({
                                   alt=""
                                   loading="lazy"
                                   decoding="async"
-                                  className="w-full h-full object-cover object-top"
+                                  className={
+                                    "w-full h-full object-cover object-top " +
+                                    // Card-art fallback: zoom + top-anchor so the
+                                    // character art fills the tile (not the full card).
+                                    (cardArt ? "scale-[1.45] origin-top" : "")
+                                  }
                                 />
                               ) : isCore ? (
                                 <div className="w-full h-full flex items-center justify-center bg-blue-950/40">

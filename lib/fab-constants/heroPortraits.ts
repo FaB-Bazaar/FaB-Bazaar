@@ -1,11 +1,16 @@
 // lib/fab-constants/heroPortraits.ts
 // Stylized hero portrait artwork keyed by canonical Talishar identifier.
-// Files live at /public/heroes/<talisharId>.webp (with original .png alongside).
-// Run `npx tsx scripts/optimize-hero-portraits.ts` after adding new portraits to
-// regenerate the .webp variants. Adult variants only — young variants fall back
-// to card art via callers.
+// Files are hosted on Cloudflare Images with the talisharId as the custom
+// image ID, so the URL is `imagedelivery.net/<account-hash>/<talisharId>/public`.
+// Uploads are managed by `scripts/upload-hero-crops.ts` from the local crops
+// folder (~/talishar-fe/hero-crops). Adult and young variants are both covered;
+// any roster ID NOT in the set falls back via the caller (typically a card-art
+// fetch through /api/hero-printings).
+
+const CF_IMAGES_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
 
 export const HERO_PORTRAIT_IDS = new Set<string>([
+  // Adult heroes (Classic Constructed / Living Legend)
   'arakni_5lp3d_7hru_7h3_cr4x',
   'arakni_huntsman',
   'arakni_marionette',
@@ -27,7 +32,6 @@ export const HERO_PORTRAIT_IDS = new Set<string>([
   'florian_rotwood_harbinger',
   'gravy_bones_shipwrecked_looter',
   'hala_bladesaint_of_the_vow',
-  'ira_crimson_haze',
   'ira_scarlet_revenger',
   'iyslander_stormbind',
   'jarl_vetreii',
@@ -61,9 +65,67 @@ export const HERO_PORTRAIT_IDS = new Set<string>([
   'viserai_rune_blood',
   'vynnset_iron_maiden',
   'zen_tamer_of_purpose',
+  // Young heroes (Silver Age / Blitz)
+  'arakni',
+  'arakni_solitary_confinement',
+  'arakni_web_of_deceit',
+  'aurora',
+  'azalea',
+  'benji_the_piercing_wind',
+  'betsy',
+  'boltyn',
+  'bravo',
+  'bravo_flattering_showman',
+  'briar',
+  'cindra',
+  'dash',
+  'dash_database',
+  'data_doll_mkii',
+  'dorinthea',
+  'dromai',
+  'enigma',
+  'fai',
+  'fang',
+  'florian',
+  'gravy_bones',
+  'ira_crimson_haze',
+  'iyslander',
+  'kano',
+  'kassai',
+  'kassai_cintari_sellsword',
+  'katsu',
+  'kavdaen_trader_of_skins',
+  'kayo',
+  'kayo_berserker_runt',
+  'kayo_strong_arm',
+  'levia',
+  'lexi',
+  'lyath_goldmane',
+  'marlynn',
+  'maxx_nitro',
+  'nuu',
+  'oldhim',
+  'olympia',
+  'oscilio',
+  'pleiades',
+  'prism',
+  'puffin',
+  'rhinar',
+  'riptide',
+  'scurv_stowaway',
+  'teklovossen',
+  'terra',
+  'tuffnut',
+  'uzuri',
+  'valda_brightaxe',
+  'verdance',
+  'victor_goldmane',
+  'viserai',
+  'vynnset',
+  'zen',
 ]);
 
 export function getHeroPortraitUrl(talisharId: string | null | undefined): string | null {
   if (!talisharId) return null;
-  return HERO_PORTRAIT_IDS.has(talisharId) ? `/heroes/${talisharId}.webp` : null;
+  return HERO_PORTRAIT_IDS.has(talisharId) ? `${CF_IMAGES_BASE}/${talisharId}/public` : null;
 }
