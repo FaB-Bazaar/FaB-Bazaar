@@ -338,7 +338,7 @@ export const SET_METADATA: Record<string, SetMetadata> = {
 
   // Supplemental
   bdd:  { code: 'BDD', name: 'Bravo Demo Deck',            releaseDate: '2019-06-01', hasFirstEdition: false, category: 'excluded',     tier: 3 },
-  omn:  { code: 'OMN', name: 'Omens of the Third Age',     releaseDate: '2026-04-01', hasFirstEdition: false, category: 'standard',     tier: 1 },
+  omn:  { code: 'OMN', name: 'Omens of the Third Age',     releaseDate: '2026-06-05', hasFirstEdition: false, category: 'standard',     tier: 1 },
 
   // ── Tier 5: Promos & non-standard ────────────────────────────────────────
   fab:  { code: 'FAB', name: 'Promos',                     releaseDate: '2019-10-11', hasFirstEdition: false, category: 'non-standard', tier: 5 },

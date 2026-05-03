@@ -35,6 +35,7 @@ import DeckCard from "@/components/deck/DeckCard";
 import CreateDeckDialog from "@/components/deck/CreateDeckDialog";
 import DeckStats from "@/components/deck/DeckStats";
 import DeckSettings from "@/components/deck/DeckSettings";
+import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
 
 interface DeckPrinting {
   _id?: string;
@@ -601,7 +602,9 @@ export default function DecksPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             My Decks
           </h1>
-          
+
+          <OmensReleaseNotice />
+
           <div className="flex items-center gap-2 sm:gap-4 mb-4 flex-wrap">
             <div className="flex items-center gap-2 sm:gap-4 text-sm text-gray-600 dark:text-gray-400">
               <span>{decks.length} decks</span>

@@ -19,6 +19,7 @@ import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import DeckSettings from "@/components/deck/DeckSettings";
+import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/editor/QuickAddCardDialog";
 import { preloadCardPool } from "@/lib/client/card-pool-cache";
@@ -1575,6 +1576,7 @@ export default function DeckEditorPage() {
       <div className={canEdit && activeTab === "search" ? "lg:ml-96" : ""}>
         <div className="max-w-[1800px] mx-auto pt-3 pb-20 sm:pb-0 px-4 sm:px-6 lg:px-8">
           <div className="w-full">
+            <OmensReleaseNotice />
             {/* Compact header: back arrow + title + view link */}
             <div className="flex items-center gap-2 mb-2">
               <Link

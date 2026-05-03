@@ -166,6 +166,13 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     talents: ['light'],
     shortName: 'prismsoal'
   },
+  'zyggy starlight': {
+    cardUniqueId: 'pnwGDgknLbHc96Ghg8f67',
+    classes: ['illusionist'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'zyggy'
+  },
 
   // Mechanologists
   'dash i/o': {
@@ -274,6 +281,13 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     essences: ['lightning'],
     shortName: 'aurora'
   },
+  'aurora, legacy of tempest': {
+    cardUniqueId: 'WDhGzj9m8MWhkkfRMB7Jg',
+    classes: ['runeblade'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'auralot'
+  },
   'briar, warden of thorns': {
     cardUniqueId: 'cjDzkKdjNrGqL9tnDc7zd',
     classes: ['runeblade'],
@@ -366,6 +380,13 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     essences: ['lightning'],
     shortName: 'oscilio'
   },
+  'oscilio, forked continuum': {
+    cardUniqueId: 'nqbttmdCrgTbFBjJBzLtz',
+    classes: ['wizard'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'oscifc'
+  },
   'verdance, thorn of the rose': {
     cardUniqueId: 'wJMCMFqcQfRJmK96kc8qM',
     classes: ['wizard'],
@@ -406,6 +427,8 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
     cardUniqueId: 'Q9B8TDhTdfDLN8ccnBThK', classes: ['wizard'], talents: [], shortName: 'kano' },
   'oscilio': {
     cardUniqueId: 'jC7KWzhP9jMrPDNCHJWtk', classes: ['wizard'], talents: ['elemental'], shortName: 'oscilio' },
+  'oscilio, scion of the third age': {
+    cardUniqueId: 'bdD7LdLhpgdfLwzCq6jBc', classes: ['wizard'], talents: ['elemental'], shortName: 'oscista' },
   'verdance': {
     cardUniqueId: 'd77Rnf7QF6pfMd6MNgGtm', classes: ['wizard'], talents: ['elemental'], shortName: 'verdance' },
 
@@ -430,6 +453,8 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
   // Runeblades
   'aurora': {
     cardUniqueId: 'TDrmKkRWGKWnqfQkT9QML', classes: ['runeblade'], talents: ['elemental'], shortName: 'aurora' },
+  'aurora, emissary of lightning': {
+    cardUniqueId: 'WwKdgRBmtM6CpRjwM97Lh', classes: ['runeblade'], talents: ['elemental'], shortName: 'auraeol' },
   'briar': {
     cardUniqueId: '7TjkgnbJ8tghfrkMRnTfW', classes: ['runeblade'], talents: ['elemental'], shortName: 'briar' },
   'florian': {
@@ -482,6 +507,8 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
     cardUniqueId: 'JKPFKKFqnLtmctLkwNCmc', classes: ['illusionist'], talents: ['mystic'], shortName: 'enigma' },
   'prism': {
     cardUniqueId: 'NGkHQHjzkFqfmGLKmRCpj', classes: ['illusionist'], talents: ['light'], shortName: 'prism' },
+  'zyggy': {
+    cardUniqueId: 'gqp7pLMMBLrRjGgzDgzT7', classes: ['illusionist'], talents: ['elemental'], shortName: 'zyggy-y' },
 
   // Guardians
   'betsy': {
