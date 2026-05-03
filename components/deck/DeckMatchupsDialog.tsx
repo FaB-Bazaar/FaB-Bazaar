@@ -17,11 +17,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark, Copy } from "lucide-react";
+import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark, Copy, Pencil, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
 import { getBannedCardIds, getLivingLegendHeroIds } from '@/lib/fab-banned-cards';
+import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
+import { getStrategyPortraitUrl } from "@/lib/fab-constants/strategyPortraits";
 import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
 import { findExistingMatchupToEdit } from "@/lib/utils/matchup-edit-mode";
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
@@ -321,8 +324,6 @@ export default function DeckMatchupsDialog({
   const [loading, setLoading] = useState(false);
   const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("matchups");
-  const [expandedMatchups, setExpandedMatchups] = useState<Set<string>>(new Set());
-  const [heroImageMap, setHeroImageMap] = useState<Map<string, string>>(new Map());
 
   // Gallery state — fullscreen card image viewer
   const [gallery, setGallery] = useState<{ heroId: string; section: 'deck' | 'inventory' } | null>(null);
@@ -499,31 +500,10 @@ export default function DeckMatchupsDialog({
     return 'unpitched';
   }, [equipmentTalisharIds]);
 
-  // Fetch hero images for matchup list thumbnails
-  const fetchHeroImages = async () => {
-    try {
-      const format = (deck?.format === 'Silver Age' || deck?.format === 'Blitz') ? 'young' : 'adult';
-      const response = await fetch(`/api/hero-printings?format=${format}`);
-      if (!response.ok) return;
-      const data = await response.json();
-      if (data.success && data.heroes) {
-        const map = new Map<string, string>();
-        for (const hero of data.heroes) {
-          const tId = toTalisharIdentifier(hero.name);
-          if (tId && hero.image_url) map.set(tId, hero.image_url);
-        }
-        setHeroImageMap(map);
-      }
-    } catch {
-      // Non-critical — matchups still work without images
-    }
-  };
-
   useEffect(() => {
     if (open) {
       fetchMatchups();
       buildAvailableCards();
-      if (heroImageMap.size === 0) fetchHeroImages();
     }
   }, [open, deckId]);
 
@@ -724,15 +704,6 @@ export default function DeckMatchupsDialog({
     }
   };
 
-  const toggleExpand = (heroId: string) => {
-    const newExpanded = new Set(expandedMatchups);
-    if (newExpanded.has(heroId)) {
-      newExpanded.delete(heroId);
-    } else {
-      newExpanded.add(heroId);
-    }
-    setExpandedMatchups(newExpanded);
-  };
 
   const getHeroDisplayName = (heroId: string) => {
     if (heroId === CORE_HERO_ID) return "Core";
@@ -821,200 +792,149 @@ export default function DeckMatchupsDialog({
                 No matchups configured yet.
               </p>
             ) : (
-              [...matchups]
-                .sort((a, b) => {
+              (() => {
+                // Flat grid — sorted: Core first, then strategy presets, then heroes by class then name.
+                const classOf = (heroId: string): string => {
+                  const opt = HERO_OPTIONS.find(h => h.talisharId === heroId);
+                  return (opt?.classes?.[0] ?? "zzz_other");
+                };
+
+                const sorted = [...matchups].sort((a, b) => {
                   if (a.heroId === CORE_HERO_ID) return -1;
                   if (b.heroId === CORE_HERO_ID) return 1;
-                  const aIsStrategy = !!STRATEGY_MATCHUP_IDS[a.heroId];
-                  const bIsStrategy = !!STRATEGY_MATCHUP_IDS[b.heroId];
-                  if (aIsStrategy && !bIsStrategy) return -1;
-                  if (!aIsStrategy && bIsStrategy) return 1;
+                  const aS = !!STRATEGY_MATCHUP_IDS[a.heroId];
+                  const bS = !!STRATEGY_MATCHUP_IDS[b.heroId];
+                  if (aS && !bS) return -1;
+                  if (!aS && bS) return 1;
+                  if (!aS && !bS) {
+                    const cls = classOf(a.heroId).localeCompare(classOf(b.heroId));
+                    if (cls !== 0) return cls;
+                  }
                   return getHeroDisplayName(a.heroId).localeCompare(getHeroDisplayName(b.heroId));
-                })
-                .map((matchup) => {
-                const isCore = matchup.heroId === CORE_HERO_ID;
-                const isStrategy = !!STRATEGY_MATCHUP_IDS[matchup.heroId];
-                const heroImg = !isCore && !isStrategy ? heroImageMap.get(matchup.heroId) : undefined;
+                });
+
                 return (
-                  <Card key={matchup.heroId}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          {/* Hero card art thumbnail (cropped to top) — or icon for Core/Strategy */}
-                          {isCore ? (
-                            <div className="w-10 h-12 flex-shrink-0 rounded bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center border border-blue-200 dark:border-blue-800">
-                              <Bookmark className="h-5 w-5 text-blue-400" />
-                            </div>
-                          ) : isStrategy ? (
-                            <div className="w-10 h-12 flex-shrink-0 rounded bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center border border-purple-200 dark:border-purple-800">
-                              <Swords className="h-5 w-5 text-purple-400" />
-                            </div>
-                          ) : heroImg ? (
-                            <div className="w-10 h-12 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={heroImg}
-                                alt={getHeroDisplayName(matchup.heroId)}
-                                className="w-full h-full object-cover object-top"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-10 h-12 flex-shrink-0 rounded bg-gray-200 dark:bg-gray-800 flex items-center justify-center border border-gray-200 dark:border-gray-700">
-                              <Swords className="h-4 w-4 text-gray-400" />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-                              {getHeroDisplayName(matchup.heroId)}
-                              {isCore && (
-                                <Badge variant="secondary" className="text-xs">Baseline</Badge>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1">
+                    {sorted.map((matchup) => {
+                        const isCore = matchup.heroId === CORE_HERO_ID;
+                        const isStrategy = !!STRATEGY_MATCHUP_IDS[matchup.heroId];
+                        const portrait = !isCore
+                          ? (getHeroPortraitUrl(matchup.heroId) || getStrategyPortraitUrl(matchup.heroId))
+                          : null;
+                        const hasSideboard =
+                          matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0;
+                        const heroName = getHeroDisplayName(matchup.heroId);
+                        const shortName = heroName.split(",")[0];
+                        return (
+                          <div key={matchup.heroId} className="flex flex-col gap-1.5">
+                            {/* Tile */}
+                            <div className="relative aspect-[3/4] rounded overflow-hidden border-2 border-gray-700 bg-gray-900">
+                              {portrait ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={portrait}
+                                  alt=""
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover object-top"
+                                />
+                              ) : isCore ? (
+                                <div className="w-full h-full flex items-center justify-center bg-blue-950/40">
+                                  <Bookmark className="h-8 w-8 text-blue-400" aria-hidden="true" />
+                                </div>
+                              ) : isStrategy ? (
+                                <div className="w-full h-full flex items-center justify-center bg-purple-950/40">
+                                  <Swords className="h-8 w-8 text-purple-400" aria-hidden="true" />
+                                </div>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-800 text-xs text-gray-300 px-1 text-center">
+                                  {shortName}
+                                </div>
                               )}
-                              {matchup.preferredTurnOrder && matchup.preferredTurnOrder !== 'NoPreference' && (
-                                <Badge variant="outline" className="text-xs">
-                                  {matchup.preferredTurnOrder === 'First' ? 'Go First' : 'Go Second'}
-                                </Badge>
-                              )}
-                            </CardTitle>
-                            {/* Notes + chevron on the same row so the chevron signals "expand to read more" */}
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <div className="flex-1 min-w-0">
-                                {matchup.notes && (
-                                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                                    {matchup.notes}
-                                  </p>
-                                )}
-                                <p className="text-xs text-gray-400">
-                                  {matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0
-                                    ? `${matchup.sideboard.out.length} out, ${matchup.sideboard.in.length} in`
-                                    : 'No sideboard changes'}
+                              {/* Bottom overlay: name + counts */}
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-1 pt-2 pb-0.5">
+                                <p className="text-xs font-bold text-white truncate text-left leading-tight">
+                                  {shortName}
+                                </p>
+                                <p className="text-[10px] text-gray-200 leading-tight truncate">
+                                  {hasSideboard
+                                    ? `${matchup.sideboard.out.length}↓ ${matchup.sideboard.in.length}↑`
+                                    : "—"}
                                 </p>
                               </div>
+                              {/* Top-right turn-order badge */}
+                              {matchup.preferredTurnOrder && matchup.preferredTurnOrder !== "NoPreference" && (
+                                <span className="absolute top-0.5 right-0.5 rounded bg-black/70 border border-gray-600 px-1 text-[10px] font-semibold text-gray-100 leading-tight">
+                                  {matchup.preferredTurnOrder === "First" ? "1st" : "2nd"}
+                                </span>
+                              )}
+                              {isCore && (
+                                <span className="absolute top-0.5 left-0.5 rounded bg-blue-500/90 px-1 text-[10px] font-semibold text-white leading-tight">
+                                  Base
+                                </span>
+                              )}
+                            </div>
+                            {/* Action row: View / Edit / Kebab — icon-only to fit picker-sized tiles */}
+                            <div className="grid grid-cols-3 gap-0.5">
                               <Button
                                 size="sm"
-                                variant="ghost"
-                                onClick={() => toggleExpand(matchup.heroId)}
-                                className="h-6 w-6 p-0 flex-shrink-0 self-start"
-                                aria-label={expandedMatchups.has(matchup.heroId) ? 'Collapse matchup details' : 'Expand matchup details'}
+                                variant="outline"
+                                disabled={!hasSideboard}
+                                onClick={() => setGallery({ heroId: matchup.heroId, section: 'inventory' })}
+                                aria-label={`View sideboard cards for ${heroName} matchup`}
+                                title={hasSideboard ? "View sideboard plan" : "No sideboard changes"}
+                                className="h-7 w-full p-0 border-amber-500/50 text-amber-400 hover:bg-amber-500/10 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                               >
-                                {expandedMatchups.has(matchup.heroId) ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
+                                <Swords className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => { handleEdit(matchup); setActiveTab("add"); }}
+                                aria-label={`Edit ${heroName} matchup`}
+                                title="Edit matchup"
+                                className="h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                              >
+                                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    aria-label={`More actions for ${heroName} matchup`}
+                                    title="More actions"
+                                    className="h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      setCopySource(matchup);
+                                      setCopyTargetHeroId("");
+                                    }}
+                                  >
+                                    <Copy className="h-4 w-4 mr-2" aria-hidden="true" />
+                                    Copy to another hero
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => handleDelete(matchup.heroId)}
+                                    className="text-red-400 focus:text-red-300"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(matchup.heroId)}
-                            aria-label={`Delete ${getHeroDisplayName(matchup.heroId)} matchup`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setCopySource(matchup);
-                              setCopyTargetHeroId("");
-                            }}
-                            aria-label={`Copy ${getHeroDisplayName(matchup.heroId)} matchup to another hero`}
-                            title="Copy to another hero"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              handleEdit(matchup);
-                              setActiveTab("add");
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Side These Out CTA — full-width, only when sideboard changes configured */}
-                      {(matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setGallery({ heroId: matchup.heroId, section: 'inventory' })}
-                          aria-label={`View sideboard cards for ${getHeroDisplayName(matchup.heroId)} matchup`}
-                          className="w-full mt-2 border-amber-500/50 text-amber-400 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          Side These Out →
-                        </Button>
-                      )}
-                    </CardHeader>
-
-                    {expandedMatchups.has(matchup.heroId) && (
-                      <CardContent className="pt-0 space-y-3">
-                        {/* Full notes */}
-                        {matchup.notes && (
-                          <p className="text-sm text-gray-300 leading-relaxed">{matchup.notes}</p>
-                        )}
-
-                        {/* Sideboard changes — simple text lists */}
-                        {(matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0) ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            {/* Side Out */}
-                            <div>
-                              <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-1.5">Side Out</p>
-                              {matchup.sideboard.out.length === 0 ? (
-                                <p className="text-xs text-gray-300 italic">None</p>
-                              ) : (
-                                <ul className="space-y-0.5">
-                                  {(() => {
-                                    const counts = new Map<string, number>();
-                                    for (const id of matchup.sideboard.out) counts.set(id, (counts.get(id) ?? 0) + 1);
-                                    return Array.from(counts.entries()).map(([id, qty]) => (
-                                      <li key={id} className="text-sm text-gray-300 flex items-baseline gap-1">
-                                        <span className="text-gray-400 text-xs font-sans font-bold shrink-0">{qty}×</span>
-                                        <span className="truncate">{cardNameMap.get(id) ?? id}</span>
-                                      </li>
-                                    ));
-                                  })()}
-                                </ul>
-                              )}
-                            </div>
-
-                            {/* Side In */}
-                            <div>
-                              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-1.5">Side In</p>
-                              {matchup.sideboard.in.length === 0 ? (
-                                <p className="text-xs text-gray-300 italic">None</p>
-                              ) : (
-                                <ul className="space-y-0.5">
-                                  {(() => {
-                                    const counts = new Map<string, number>();
-                                    for (const id of matchup.sideboard.in) counts.set(id, (counts.get(id) ?? 0) + 1);
-                                    return Array.from(counts.entries()).map(([id, qty]) => (
-                                      <li key={id} className="text-sm text-gray-300 flex items-baseline gap-1">
-                                        <span className="text-gray-400 text-xs font-sans font-bold shrink-0">{qty}×</span>
-                                        <span className="truncate">{cardNameMap.get(id) ?? id}</span>
-                                      </li>
-                                    ));
-                                  })()}
-                                </ul>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          !matchup.notes && (
-                            <p className="text-sm text-gray-300 italic">No sideboard changes.</p>
-                          )
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
+                        );
+                      })}
+                  </div>
                 );
-              })
+              })()
             )}
           </TabsContent>
 
@@ -1131,9 +1051,8 @@ export default function DeckMatchupsDialog({
       </div>
   );
 
-  // Render inline or as dialog
-  if (inline) {
-    const galleryCards = (() => {
+  // Gallery overlay — shared by both inline and dialog renderings.
+  const galleryCards = (() => {
       if (gallery?.section === 'deck') {
         // Apply this matchup's sideboard changes to the deck view:
         // sideboard.out → those cards leave the deck (moving to inventory)
@@ -1203,12 +1122,7 @@ export default function DeckMatchupsDialog({
     const galleryLabelSize = isInventory ? 'text-xl' : 'text-sm';
     const gallerySubSize = isInventory ? 'text-sm' : 'text-xs';
 
-    return (
-      <>
-        {matchupsContent}
-
-        {/* Fullscreen card gallery */}
-        {gallery && (
+    const galleryOverlay = gallery && (
           <div
             className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
             role="dialog"
@@ -1433,25 +1347,34 @@ export default function DeckMatchupsDialog({
               </div>
             )}
           </div>
-        )}
+    );
+
+  if (inline) {
+    return (
+      <>
+        {matchupsContent}
+        {galleryOverlay}
       </>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Swords className="h-5 w-5" />
-            Matchup Sideboards
-          </DialogTitle>
-          <DialogDescription>
-            Configure sideboard plans for specific opponent heroes
-          </DialogDescription>
-        </DialogHeader>
-        {matchupsContent}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Swords className="h-5 w-5" />
+              Matchup Sideboards
+            </DialogTitle>
+            <DialogDescription>
+              Configure sideboard plans for specific opponent heroes
+            </DialogDescription>
+          </DialogHeader>
+          {matchupsContent}
+        </DialogContent>
+      </Dialog>
+      {galleryOverlay}
+    </>
   );
 }
