@@ -62,20 +62,6 @@ interface ValidationResult {
 }
 
 /**
- * Format-specific exact library size requirement after sideboarding.
- * Silver Age: must be exactly 40 library cards.
- * Blitz: must be exactly 40 library cards.
- * Classic Constructed is handled separately (max 80, not exact).
- * Other formats: no restriction.
- */
-function getFormatExactLibrary(format?: string): number | null {
-  if (!format) return null;
-  const f = format.toLowerCase();
-  if (f === 'silver age' || f === 'sage' || f === 'blitz') return 40;
-  return null;
-}
-
-/**
  * Validates a matchup configuration
  *
  * Rules:
@@ -141,35 +127,10 @@ export function validateMatchup(
     }
   }
 
-  // 7. Format size validation
-  const exactLibrary = getFormatExactLibrary(deck.format);
-  if (exactLibrary !== null) {
-    const outCount = matchup.sideboard.out.length;
-    const inCount = matchup.sideboard.in.length;
-    const postSwapSize = context.mainDeckTotal - outCount + inCount;
-    if (postSwapSize !== exactLibrary) {
-      errors.push(
-        `${deck.format} deck must be exactly ${exactLibrary} cards after sideboard (would be ${postSwapSize} cards)`
-      );
-    }
-  }
-
-  // 8. Classic Constructed / Living Legend: post-swap deck must be 60–80 cards
-  const format = deck.format?.toLowerCase();
-  if (format === 'classic constructed' || format === 'cc' || format === 'living legend') {
-    const outCount = matchup.sideboard.out.length;
-    const inCount = matchup.sideboard.in.length;
-    const postSwapSize = context.mainDeckTotal - outCount + inCount;
-    if (postSwapSize < 60) {
-      errors.push(
-        `${deck.format} deck must have at least 60 cards after sideboard (would be ${postSwapSize} cards)`
-      );
-    } else if (postSwapSize > 80) {
-      errors.push(
-        `${deck.format} deck cannot exceed 80 cards after sideboard (would be ${postSwapSize} cards)`
-      );
-    }
-  }
+  // Note: post-swap deck-size enforcement (40 exact for SA/Blitz, 60–80 for CC/LL)
+  // was intentionally removed. A matchup may produce an under/over-sized library —
+  // the user can reconcile in Talishar after import. Card-availability checks above
+  // still ensure swaps reference cards the user actually has.
 
   return { valid: errors.length === 0, errors };
 }

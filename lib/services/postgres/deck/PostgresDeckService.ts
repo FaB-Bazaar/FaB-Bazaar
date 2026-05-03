@@ -1970,6 +1970,13 @@ export class PostgresDeckService implements IDeckService {
       const maindeckCount = poolCards
         .filter(r => r.category === 'maindeck')
         .reduce((sum, r) => sum + (r.quantity ?? 0), 0);
+      // Library cards available = anything the user could load into the maindeck
+      // in Talishar (maindeck + inventory categories). Used for the 60-card minimum
+      // in CC/LL: the maindeck itself doesn't need 60, but the user must have 60
+      // library cards on hand so they can reach 60 after import.
+      const libraryAvailableCount = poolCards
+        .filter(r => r.category === 'maindeck' || r.category === 'inventory')
+        .reduce((sum, r) => sum + (r.quantity ?? 0), 0);
 
       // Hero validation helpers
       const heroCard = heroCards[0] ?? null;
@@ -1994,9 +2001,10 @@ export class PostgresDeckService implements IDeckService {
         if (cardPoolCount > 80) {
           errors.push(`Card pool is ${cardPoolCount} (max 80 for Classic Constructed).`);
         }
-        // Maindeck ≥ 60
-        if (maindeckCount < 60) {
-          errors.push(`Maindeck has ${maindeckCount} cards (minimum 60 for Classic Constructed).`);
+        // Library cards (maindeck + inventory) ≥ 60 — maindeck itself can be
+        // under-built; user finishes loading from inventory in Talishar.
+        if (libraryAvailableCount < 60) {
+          errors.push(`Deck has ${libraryAvailableCount} library cards in maindeck + inventory (minimum 60 for Classic Constructed).`);
         }
         // Copy limits + ban check
         for (const row of poolCards) {
@@ -2083,9 +2091,10 @@ export class PostgresDeckService implements IDeckService {
         if (cardPoolCount > 80) {
           errors.push(`Card pool is ${cardPoolCount} (max 80 for Living Legend).`);
         }
-        // Maindeck ≥ 60
-        if (maindeckCount < 60) {
-          errors.push(`Maindeck has ${maindeckCount} cards (minimum 60 for Living Legend).`);
+        // Library cards (maindeck + inventory) ≥ 60 — same logic as CC: user
+        // can reach 60 by pulling inventory cards in Talishar after import.
+        if (libraryAvailableCount < 60) {
+          errors.push(`Deck has ${libraryAvailableCount} library cards in maindeck + inventory (minimum 60 for Living Legend).`);
         }
         // Copy limits + ban/restricted check
         for (const row of poolCards) {

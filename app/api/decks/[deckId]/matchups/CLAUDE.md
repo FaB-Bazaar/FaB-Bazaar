@@ -23,11 +23,8 @@ Stored in deck's `metadata` JSONB field as `metadata.matchups[]`:
 ## Validation Rules
 
 **Strict (on save)**: Cards must exist in correct zones (in[] from inventory, out[] from main deck), quantity limits enforced, no duplicate hero matchups. in/out counts do NOT need to be equal — you can side in more than you take out.
-- **Silver Age**: post-swap library must be exactly 40 cards
-- **Blitz**: post-swap library must be exactly 40 cards
-- **Classic Constructed**: post-swap library must be 60–80 cards
-- **Living Legend**: post-swap library must be 60–80 cards (CC-based format)
-- Other formats: no library size restriction
+
+**Post-swap deck size is intentionally NOT enforced** at the matchup layer. A matchup may produce an under/over-sized library and still save — the user can reconcile in Talishar after import. Format-level deck-size requirements live in `PostgresDeckService.validateDeck` and operate on the deck itself, not on matchup swaps.
 
 **Lenient (on export)**: Invalid matchups silently skipped, only valid ones included in Talishar response.
 
