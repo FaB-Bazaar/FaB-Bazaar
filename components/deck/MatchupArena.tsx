@@ -225,9 +225,9 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
 
   const playerHeroPrinting = deck.hero?.[0]?.printingDetails;
   const playerHeroLabel =
-    deck.heroName ||
     playerHeroPrinting?.display_name ||
     playerHeroPrinting?.name ||
+    deck.heroName ||
     "Hero";
   const playerHeroTalisharId = playerHeroPrinting?.name
     ? toTalisharIdentifier(playerHeroPrinting.name)
