@@ -3,7 +3,8 @@
 // Imports only from ./heroes-rosters (leaf) to keep the dependency graph acyclic.
 
 // Talishar hero slug identifiers — the exact string keys Talishar uses internally.
-// Source: https://github.com/Talishar/Talishar/blob/main/Libraries/LegalHeroesHelper.php
+// Source: https://github.com/Talishar/Talishar/blob/main/Libraries/LegalHeroesHelper.php ($ALL_HEROES_OF_RATHE)
+// When new heroes are added to our roster, cross-check that file for their Talishar slug and add here.
 // Heroes not yet in Talishar (e.g. zyggy, oscilio forked continuum) are omitted.
 export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   // Adult heroes (HERO_INFO)
