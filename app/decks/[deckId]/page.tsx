@@ -305,7 +305,24 @@ export default function DeckEditorPage() {
   const stagedCards = state.bulkResults.filter(c => c.isStaged);
 
   // Hovered card preview shown in the right rail.
-  const [hoveredCard, setHoveredCard] = useState<{ url: string; name: string } | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<{
+    url: string;
+    name: string;
+    printingId?: string;
+    otherFaceUrl?: string;
+    tcgplayerUrl?: string;
+    tcgLow?: number;
+    collectorNumber?: string;
+    setCode?: string;
+    edition?: string;
+    foiling?: string;
+    rarity?: string;
+    pitch?: number | null;
+    cost?: number | null;
+    power?: number | null;
+    defense?: number | null;
+    typeText?: string;
+  } | null>(null);
 
   // Sidebar stats — derived from the deck for the right rail.
   // Average cost is computed over maindeck only (excludes hero/equipment/inventory),
@@ -2034,13 +2051,23 @@ export default function DeckEditorPage() {
             )}
 
               </div>
-              {activeTab === "deck" && state.deck && railStats && (
-                <DeckRightRail
-                  ownedCount={railStats.ownedCount}
-                  totalCount={railStats.totalCount}
-                  hoveredCard={hoveredCard}
-                />
-              )}
+              {activeTab === "deck" && state.deck && railStats && (() => {
+                const cardOwnership = hoveredCard?.printingId ? state.ownershipMap.get(hoveredCard.printingId) : null;
+                const hoveredWithOwnership = hoveredCard ? {
+                  ...hoveredCard,
+                  ...(cardOwnership ? {
+                    ownedInDeck: Math.min(cardOwnership.owned, cardOwnership.needed),
+                    neededInDeck: cardOwnership.needed,
+                  } : {}),
+                } : hoveredCard;
+                return (
+                  <DeckRightRail
+                    ownedCount={railStats.ownedCount}
+                    totalCount={railStats.totalCount}
+                    hoveredCard={hoveredWithOwnership}
+                  />
+                );
+              })()}
             </div>
           </div>
         </div>

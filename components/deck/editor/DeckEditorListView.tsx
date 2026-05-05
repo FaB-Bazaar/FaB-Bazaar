@@ -61,6 +61,7 @@ function groupByCardName(cards: DeckPrintingDTO[]): CardGroup[] {
 // Optional extras passed through onHover handlers up to the rail-level preview.
 // Older / simpler callers may omit them.
 type HoverExtras = {
+  printingId?: string;
   tcgplayerUrl?: string;
   tcgLow?: number;
   otherFaceUrl?: string;
@@ -77,8 +78,9 @@ type HoverExtras = {
 };
 
 // Build HoverExtras from a DeckTileCard (tile / game views).
-function tileToExtras(tile: { tcgplayerUrl?: string; tcgLow?: number; otherFaceImageUrl?: string; collectorNumber?: string; setCode?: string; edition?: string; foiling?: string; rarity?: string; pitch?: number | null; cost?: number | null; power?: number | null; defense?: number | null; typeText?: string }): HoverExtras {
+function tileToExtras(tile: { printingId?: string; tcgplayerUrl?: string; tcgLow?: number; otherFaceImageUrl?: string; collectorNumber?: string; setCode?: string; edition?: string; foiling?: string; rarity?: string; pitch?: number | null; cost?: number | null; power?: number | null; defense?: number | null; typeText?: string }): HoverExtras {
   return {
+    printingId: tile.printingId,
     tcgplayerUrl: tile.tcgplayerUrl,
     tcgLow: tile.tcgLow,
     otherFaceUrl: tile.otherFaceImageUrl,
@@ -286,7 +288,7 @@ function GroupedCardRow({
         className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group"
         onMouseEnter={isTouchDevice ? undefined : () => {
           if (!group.imageUrl) return;
-          onHoverImage(group.imageUrl, group.displayName, extrasFromPrintingDetails(group.printings[0]?.printingDetails));
+          onHoverImage(group.imageUrl, group.displayName, { ...extrasFromPrintingDetails(group.printings[0]?.printingDetails), printingId: group.printings[0]?.printingId });
         }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
@@ -376,7 +378,7 @@ function GroupedCardRow({
                 className="flex items-center gap-2 py-1 px-3 hover:bg-gray-100 dark:hover:bg-gray-800/50 group/pr border-t border-gray-100 dark:border-gray-800"
                 onMouseEnter={isTouchDevice ? undefined : () => {
                   if (!prImageUrl) return;
-                  onHoverImage(prImageUrl, group.displayName, extrasFromPrintingDetails(pr.printingDetails));
+                  onHoverImage(prImageUrl, group.displayName, { ...extrasFromPrintingDetails(pr.printingDetails), printingId: pr.printingId });
                 }}
                 onMouseLeave={isTouchDevice ? undefined : onClearImage}
               >
@@ -1276,6 +1278,7 @@ function applyOptimisticMove(
 
 interface GameViewCard {
   name: string;
+  printingId?: string;
   imageUrl?: string;
   redQty: number;
   yellowQty: number;
@@ -1320,7 +1323,7 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
     const pd = printing.printingDetails as any;
     if (!map.has(uid)) {
       map.set(uid, {
-        name, imageUrl,
+        name, printingId: printing.printingId, imageUrl,
         redQty: 0, yellowQty: 0, blueQty: 0, noPitchQty: 0, totalQty: 0,
         cost: pd?.cost ?? null,
         defense: pd?.defense ?? null,
@@ -1345,6 +1348,7 @@ function buildGameCards(cards: DeckPrintingDTO[]): GameViewCard[] {
     // sees the printing whose art they're looking at.
     const thisPitch = pitch ?? 99;
     if (imageUrl && thisPitch < (bestPitch.get(uid) ?? 99)) {
+      card.printingId = printing.printingId;
       card.imageUrl = imageUrl;
       card.tcgplayerUrl = pd?.tcgplayer_url || undefined;
       card.tcgLow = typeof pd?.tcg_low === 'number' ? pd.tcg_low : undefined;
@@ -1438,7 +1442,7 @@ interface DeckEditorListViewProps {
   /** Swap all unowned deck printings to best-value owned alternatives */
   onUpgradePrintings?: () => Promise<void>;
   /** Called whenever the user hovers/leaves a card tile — used by the page to show a preview in the right rail. */
-  onCardHover?: (preview: { url: string; name: string } | null) => void;
+  onCardHover?: (preview: ({ url: string; name: string } & Partial<HoverExtras>) | null) => void;
 }
 
 export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
@@ -2493,6 +2497,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                         onCardHover?.({
                           url: card.imageUrl,
                           name: card.name,
+                          printingId: card.printingId,
                           tcgplayerUrl: card.tcgplayerUrl,
                           tcgLow: card.tcgLow,
                           collectorNumber: card.collectorNumber,

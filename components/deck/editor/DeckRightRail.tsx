@@ -44,6 +44,7 @@ interface DeckRightRailProps {
   hoveredCard?: {
     url: string;
     name: string;
+    printingId?: string;
     otherFaceUrl?: string;
     tcgplayerUrl?: string;
     tcgLow?: number | null;
@@ -59,6 +60,10 @@ interface DeckRightRailProps {
     power?: number | null;
     defense?: number | null;
     typeText?: string;
+    /** Per-card ownership: how many copies the user owns (capped at needed) */
+    ownedInDeck?: number;
+    /** Per-card ownership: how many copies the deck needs */
+    neededInDeck?: number;
   } | null;
   /** Optional extra panels (e.g. matchups / results) appended to the rail. */
   extra?: React.ReactNode;
@@ -192,6 +197,24 @@ export default function DeckRightRail({
                 )}
               </TcgAffiliateLink>
             )}
+
+            {hoveredCard.neededInDeck != null && hoveredCard.neededInDeck > 0 && (() => {
+              const owned = hoveredCard.ownedInDeck ?? 0;
+              const needed = hoveredCard.neededInDeck!;
+              const colorClass = owned >= needed
+                ? "text-emerald-600 dark:text-emerald-400"
+                : owned > 0
+                  ? "text-yellow-700 dark:text-yellow-400"
+                  : "text-red-600 dark:text-red-400";
+              return (
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm">
+                  <span className="font-medium text-gray-700 dark:text-gray-200">Owned</span>
+                  <span className={cn("font-semibold tabular-nums", colorClass)}>
+                    {owned} / {needed}
+                  </span>
+                </div>
+              );
+            })()}
           </section>
         );
       })()}
