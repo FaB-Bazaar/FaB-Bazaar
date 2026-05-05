@@ -49,6 +49,8 @@ interface DeckMatchupsDialogProps {
   // When provided + the dialog opens, jump straight into editing this matchup.
   // The deep-link is consumed once: changing tabs / saving / cancelling clears it.
   initialEditHeroId?: string | null;
+  // When provided + the dialog opens, jump straight into the gallery overlay for this hero.
+  initialGalleryHeroId?: string | null;
   // Talishar identifier → hero card image_url. Used as a portrait fallback for
   // heroes (especially young / SA / Blitz) without a stylized portrait file.
   heroCardImages?: Map<string, string>;
@@ -321,6 +323,7 @@ export default function DeckMatchupsDialog({
   inline = false,
   compact = false,
   initialEditHeroId = null,
+  initialGalleryHeroId = null,
   heroCardImages,
 }: DeckMatchupsDialogProps) {
   const { toast } = useToast();
@@ -332,18 +335,18 @@ export default function DeckMatchupsDialog({
   // Gallery state — fullscreen card image viewer
   const [gallery, setGallery] = useState<{ heroId: string; section: 'deck' | 'inventory' } | null>(null);
 
-  // Sideboard-plan view mode — "vsDeck" (Side Out + Bring In) or "setAside" (single pile)
+  // Sideboard-plan view mode — "vsDeck" (Side Out + Bring In), "setAside" (single pile), or "fullDeck" (complete post-sideboard deck)
   // Persisted per-user in localStorage. Only applies when viewing the inventory/sideboard gallery.
-  const [galleryView, setGalleryView] = useState<'vsDeck' | 'setAside'>('vsDeck');
+  const [galleryView, setGalleryView] = useState<'vsDeck' | 'setAside' | 'fullDeck'>('vsDeck');
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem('fab:matchup-gallery-view');
-      if (saved === 'vsDeck' || saved === 'setAside') setGalleryView(saved);
+      if (saved === 'vsDeck' || saved === 'setAside' || saved === 'fullDeck') setGalleryView(saved);
     } catch { /* localStorage unavailable */ }
   }, []);
 
-  const updateGalleryView = (v: 'vsDeck' | 'setAside') => {
+  const updateGalleryView = (v: 'vsDeck' | 'setAside' | 'fullDeck') => {
     setGalleryView(v);
     try { localStorage.setItem('fab:matchup-gallery-view', v); } catch { /* ignore */ }
   };
@@ -540,6 +543,24 @@ export default function DeckMatchupsDialog({
     }
     setActiveTab("add");
   }, [open, initialEditHeroId, loading, matchups]);
+
+  // Deep-link: caller passed `initialGalleryHeroId` to jump straight to the
+  // gallery overlay for this hero's sideboard plan.
+  const initialGalleryAppliedRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) {
+      initialGalleryAppliedRef.current = null;
+      return;
+    }
+    if (!initialGalleryHeroId) return;
+    if (initialGalleryAppliedRef.current === initialGalleryHeroId) return;
+    if (loading) return;
+    initialGalleryAppliedRef.current = initialGalleryHeroId;
+    const matchup = matchups.find((m) => m.heroId === initialGalleryHeroId);
+    if (matchup && (matchup.sideboard.in.length > 0 || matchup.sideboard.out.length > 0)) {
+      setGallery({ heroId: initialGalleryHeroId, section: 'inventory' });
+    }
+  }, [open, initialGalleryHeroId, loading, matchups]);
 
   // If the user picks a hero in the form that already has a matchup, auto-load
   // that matchup into edit mode so Save updates it instead of POSTing a duplicate.
@@ -1176,6 +1197,7 @@ export default function DeckMatchupsDialog({
                   {([
                     { v: 'vsDeck' as const, label: 'vs Main Deck' },
                     { v: 'setAside' as const, label: 'Set Aside' },
+                    { v: 'fullDeck' as const, label: 'Full Deck' },
                   ]).map((opt, i) => {
                     const active = galleryView === opt.v;
                     return (
@@ -1202,7 +1224,9 @@ export default function DeckMatchupsDialog({
                 <p className="text-[11px] text-gray-300 text-center">
                   {galleryView === 'vsDeck'
                     ? 'Cards to remove from the deck · cards to bring in from the sideboard'
-                    : 'Everything not in your matchup deck — pull these from the combined pile'}
+                    : galleryView === 'setAside'
+                    ? 'Everything not in your matchup deck — pull these from the combined pile'
+                    : 'Your complete deck after sideboarding — ready to present'}
                 </p>
               </div>
             )}
@@ -1258,7 +1282,72 @@ export default function DeckMatchupsDialog({
                 </div>
               );
 
-              const gridCls = 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3';
+              const gridCls = 'grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5 md:gap-2';
+
+              // Summary counts helper — compute card totals per pitch color for a given set of cards
+              const computeSummaryCounts = (cards: { talisharId: string; count: number }[]) => {
+                let equipment = 0, red = 0, yellow = 0, blue = 0, unpitched = 0;
+                for (const c of cards) {
+                  const s = getCardSection(c.talisharId);
+                  if (s === 'equipment') equipment += c.count;
+                  else if (s === 'red') red += c.count;
+                  else if (s === 'yellow') yellow += c.count;
+                  else if (s === 'blue') blue += c.count;
+                  else unpitched += c.count;
+                }
+                return { equipment, red, yellow, blue, unpitched, total: equipment + red + yellow + blue + unpitched };
+              };
+
+              const SummaryBar = ({ counts }: { counts: ReturnType<typeof computeSummaryCounts> }) => (
+                <div className="flex items-center gap-3 text-sm font-sans flex-wrap">
+                  <span className="font-bold text-gray-100">{counts.total} cards</span>
+                  {counts.equipment > 0 && (
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400" /><span className="text-gray-300">{counts.equipment}</span></span>
+                  )}
+                  {counts.red > 0 && (
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /><span className="text-gray-300">{counts.red}</span></span>
+                  )}
+                  {counts.yellow > 0 && (
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400" /><span className="text-gray-300">{counts.yellow}</span></span>
+                  )}
+                  {counts.blue > 0 && (
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-gray-300">{counts.blue}</span></span>
+                  )}
+                  {counts.unpitched > 0 && (
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-500" /><span className="text-gray-300">{counts.unpitched}</span></span>
+                  )}
+                </div>
+              );
+
+              // fullDeck view — compute the complete post-sideboard deck grouped by section
+              const fullDeckBySection = new Map<string, GalleryCard[]>();
+              for (const s of SECTION_CONFIG) fullDeckBySection.set(s.key, []);
+              // Build post-sideboard deck: start with base deck, apply out/in
+              const fullDeckMap = new Map<string, { count: number; displayName: string; printingId: string }>();
+              for (const c of deckGalleryCards) {
+                fullDeckMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId });
+              }
+              for (const id of currentMatchup?.sideboard?.out ?? []) {
+                const entry = fullDeckMap.get(id);
+                if (entry) {
+                  entry.count -= 1;
+                  if (entry.count <= 0) fullDeckMap.delete(id);
+                }
+              }
+              for (const id of currentMatchup?.sideboard?.in ?? []) {
+                const existing = fullDeckMap.get(id);
+                if (existing) {
+                  existing.count += 1;
+                } else {
+                  const invCard = inventoryGalleryCards.find(c => c.talisharId === id);
+                  fullDeckMap.set(id, { count: 1, displayName: invCard?.displayName ?? id, printingId: invCard?.printingId ?? id });
+                }
+              }
+              for (const [talisharId, v] of fullDeckMap) {
+                const section = getCardSection(talisharId);
+                fullDeckBySection.get(section)!.push({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId });
+              }
+              const fullDeckTotal = Array.from(fullDeckMap.values()).reduce((s, v) => s + v.count, 0);
 
               return (
                 <div className="flex-1 overflow-y-scroll overscroll-contain p-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -1266,17 +1355,28 @@ export default function DeckMatchupsDialog({
                     <>
                       {/* Side Out — grouped by deck section */}
                       <div>
-                        <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Side Out</p>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-semibold text-red-400 uppercase tracking-wide">Side Out</p>
+                          <SummaryBar counts={computeSummaryCounts(
+                            Array.from(outBySection.entries()).flatMap(([key, m]) =>
+                              Array.from(m.entries()).map(([id, qty]) => ({ talisharId: id, count: qty }))
+                            )
+                          )} />
+                        </div>
                         {SECTION_CONFIG.every(s => (outBySection.get(s.key)?.size ?? 0) === 0) ? (
                           <p className="text-sm text-gray-300 italic">No cards to side out.</p>
                         ) : SECTION_CONFIG.map(s => {
                           const cards = outBySection.get(s.key)!;
                           if (cards.size === 0) return null;
+                          const sectionTotal = Array.from(cards.values()).reduce((a, b) => a + b, 0);
                           return (
                             <div key={s.key} className="mb-4">
                               <div className="flex items-center gap-1.5 mb-2">
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
-                                <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">{s.label}</p>
+                                <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+                                  {s.label}
+                                  <span className="ml-1.5 text-gray-400 font-normal">({sectionTotal})</span>
+                                </p>
                               </div>
                               <div className={gridCls}>
                                 {Array.from(cards.entries()).map(([id, qty]) => {
@@ -1292,7 +1392,12 @@ export default function DeckMatchupsDialog({
                       {/* Bring In */}
                       {inCounts.size > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3">Bring In</p>
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Bring In</p>
+                            <SummaryBar counts={computeSummaryCounts(
+                              Array.from(inCounts.entries()).map(([id, qty]) => ({ talisharId: id, count: qty }))
+                            )} />
+                          </div>
                           <div className={gridCls}>
                             {Array.from(inCounts.entries()).map(([id, qty]) => {
                               const gc = inventoryGalleryCards.find(c => c.talisharId === id) ?? { talisharId: id, count: qty, displayName: cardNameMap.get(id) ?? id, printingId: id };
@@ -1302,20 +1407,57 @@ export default function DeckMatchupsDialog({
                         </div>
                       )}
                     </>
-                  ) : (
+                  ) : galleryView === 'setAside' ? (
                     /* Set Aside — single pile of everything not in the matchup deck */
                     <div>
-                      <p className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Side Out</p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold text-red-400 uppercase tracking-wide">Side Out</p>
+                        <SummaryBar counts={computeSummaryCounts(galleryCards)} />
+                      </div>
                       {setAsideEmpty ? (
                         <p className="text-sm text-gray-300 italic">Nothing to set aside.</p>
                       ) : SECTION_CONFIG.map(s => {
                         const cards = setAsideBySection.get(s.key)!;
                         if (cards.length === 0) return null;
+                        const sectionTotal = cards.reduce((a, c) => a + c.count, 0);
                         return (
                           <div key={s.key} className="mb-4">
                             <div className="flex items-center gap-1.5 mb-2">
                               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
-                              <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">{s.label}</p>
+                              <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+                                {s.label}
+                                <span className="ml-1.5 text-gray-400 font-normal">({sectionTotal})</span>
+                              </p>
+                            </div>
+                            <div className={gridCls}>
+                              {cards.map(card => <CardImg key={card.talisharId} card={card} />)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Full Deck — complete post-sideboard deck for presentation */
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Full Deck</p>
+                        <SummaryBar counts={computeSummaryCounts(
+                          Array.from(fullDeckMap.entries()).map(([id, v]) => ({ talisharId: id, count: v.count }))
+                        )} />
+                      </div>
+                      {SECTION_CONFIG.map(s => {
+                        const cards = fullDeckBySection.get(s.key)!;
+                        if (cards.length === 0) return null;
+                        return (
+                          <div key={s.key} className="mb-4">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+                              <p className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+                                {s.label}
+                                <span className="ml-1.5 text-gray-400 font-normal">
+                                  ({cards.reduce((sum, c) => sum + c.count, 0)})
+                                </span>
+                              </p>
                             </div>
                             <div className={gridCls}>
                               {cards.map(card => <CardImg key={card.talisharId} card={card} />)}
@@ -1372,22 +1514,26 @@ export default function DeckMatchupsDialog({
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Swords className="h-5 w-5" />
-              Matchup Sideboards
-            </DialogTitle>
-            <DialogDescription>
-              Configure sideboard plans for specific opponent heroes
-            </DialogDescription>
-          </DialogHeader>
-          {matchupsContent}
-        </DialogContent>
-      </Dialog>
-      {galleryOverlay}
-    </>
+    <Dialog open={open} onOpenChange={(v) => { if (!v && gallery) { setGallery(null); return; } onOpenChange(v); }}>
+      <DialogContent
+        className={
+          gallery
+            ? 'fixed inset-0 z-50 !max-w-none !w-auto !max-h-none !translate-x-0 !translate-y-0 !top-0 !left-0 border-0 bg-transparent p-0 shadow-none [&>button:last-child]:hidden'
+            : 'max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto'
+        }
+      >
+        <DialogHeader className={gallery ? 'sr-only' : undefined}>
+          <DialogTitle className="flex items-center gap-2">
+            <Swords className="h-5 w-5" />
+            Matchup Sideboards
+          </DialogTitle>
+          <DialogDescription>
+            Configure sideboard plans for specific opponent heroes
+          </DialogDescription>
+        </DialogHeader>
+        {!gallery && matchupsContent}
+        {galleryOverlay}
+      </DialogContent>
+    </Dialog>
   );
 }

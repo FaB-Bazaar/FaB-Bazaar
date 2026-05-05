@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Loader2, Pencil, Settings2, Swords, X } from "lucide-react";
+import { ArrowLeft, Eye, Loader2, Pencil, Settings2, Swords, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { decksClient } from "@/lib/client";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
@@ -92,6 +92,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const [selectedTalisharId, setSelectedTalisharId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorInitialHeroId, setEditorInitialHeroId] = useState<string | null>(null);
+  const [galleryHeroId, setGalleryHeroId] = useState<string | null>(null);
   const [detailExpanded, setDetailExpanded] = useState(true);
   const [hoveredCardImage, setHoveredCardImage] = useState<string | null>(null);
   // Card-art fallback for heroes without a stylized portrait (heroPortraits.ts).
@@ -361,6 +362,21 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
                   No notes yet{editable ? " — Edit to add." : "."}
                 </span>
               )}
+              {selected && selectedMatchup && (selectedMatchup.sideboard.in.length > 0 || selectedMatchup.sideboard.out.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setGalleryHeroId(selectedTalisharId);
+                    setEditorOpen(true);
+                  }}
+                  className="ml-auto h-7 px-2 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10 focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label={`View sideboard plan for ${selected.displayName}`}
+                >
+                  <Eye className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                  Sideboard
+                </Button>
+              )}
               {editable && selected && (
                 <Button
                   variant="outline"
@@ -369,7 +385,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
                     setEditorInitialHeroId(selectedTalisharId);
                     setEditorOpen(true);
                   }}
-                  className="ml-auto h-7 px-2 text-xs focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className={`h-7 px-2 text-xs focus-visible:ring-2 focus-visible:ring-blue-400 ${!(selected && selectedMatchup && (selectedMatchup.sideboard.in.length > 0 || selectedMatchup.sideboard.out.length > 0)) ? 'ml-auto' : ''}`}
                   aria-label={selectedMatchup ? `Edit ${selected.displayName} matchup` : `Add ${selected.displayName} matchup`}
                 >
                   <Pencil className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
@@ -530,11 +546,13 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
             if (!v) {
               setMatchupsVersion((n) => n + 1);
               setEditorInitialHeroId(null);
+              setGalleryHeroId(null);
             }
           }}
           deckId={deckId}
           deck={deck as any}
           initialEditHeroId={editorInitialHeroId}
+          initialGalleryHeroId={galleryHeroId}
           heroCardImages={heroCardImages}
         />
       )}
