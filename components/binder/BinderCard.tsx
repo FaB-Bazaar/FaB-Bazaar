@@ -166,13 +166,13 @@ export default function EnhancedBinderCard({
   return (
     <div
       className={cn(
-        "w-full sm:w-[200px] h-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
+        "w-full sm:w-[200px] h-full min-w-0 rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
         isSelected ? "shadow-lg bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500" : "shadow-md",
         isSelected && selectedQty >= maxQty && "opacity-70"
       )}
     >
       {/* Image Section */}
-      <div className="relative w-full h-[200px] sm:h-[280px] bg-gray-50 dark:bg-gray-800 overflow-hidden flex items-center justify-center p-2">
+      <div className="relative w-full aspect-[5/7] bg-gray-50 dark:bg-gray-800 overflow-hidden flex items-center justify-center p-2">
         <FoilCardImage
           foiling={foiling}
           artStyle={[

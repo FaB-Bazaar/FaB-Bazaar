@@ -22,7 +22,10 @@ const COLOR_TO_PITCH: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
 // Compact projection for MCP clients — keeps only fields needed to act on a
 // printing (add to binder/wants/deck/list, display to user, who_has). Drops
 // ~40 redundant booleans/metadata fields per printing to save tokens.
-type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean };
+type PriceField = 'tcg_low' | 'tcg_mid' | 'tcg_high' | 'tcg_market';
+const VALID_PRICE_FIELDS = new Set<string>(['tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market']);
+function resolvePriceField(f?: string): PriceField { return f && VALID_PRICE_FIELDS.has(f) ? f as PriceField : 'tcg_low'; }
+type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean; priceField?: PriceField };
 
 function formatPrinting(p: any, opts: ProjectOptions = {}): string {
   const lines = [
@@ -30,7 +33,7 @@ function formatPrinting(p: any, opts: ProjectOptions = {}): string {
     `    Printing ID: ${p.printing_id}`,
     `    Card Unique ID: ${p.card_unique_id}`,
     `    Set: ${(p.set || '?').toUpperCase()} | ${EDITION_DISPLAY[p.edition] || p.edition || '?'} | ${FOILING_DISPLAY[p.foiling] || p.foiling || '?'}`,
-    `    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${p.tcg_market ? `$${p.tcg_market.toFixed(2)}` : 'N/A'}`,
+    `    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${(() => { const v = p[resolvePriceField(opts.priceField)]; return v ? `$${v.toFixed(2)}` : 'N/A'; })()}`,
     `    Types: ${Array.isArray(p.types) && p.types.length > 0 ? p.types.join(', ') : '—'}`,
   ];
   if (opts.includeImage && p.image_url) lines.push(`    Image: ${p.image_url}`);
@@ -105,7 +108,7 @@ function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
     pitch: p.pitch ?? null,
     color: p.color || null,
     types: Array.isArray(p.types) ? p.types : [],
-    price: p.tcg_market ?? null,
+    price: p[resolvePriceField(opts.priceField)] ?? null,
   };
   if (p.is_extended_art) out.ea = true;
   if (Array.isArray(p.art_variations) && p.art_variations.length > 0) out.art = p.art_variations;
@@ -451,10 +454,12 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
         ? `1 bulk query + ${complexIndices.length} parallel query${complexIndices.length > 1 ? 's' : ''}`
         : `${complexIndices.length} parallel query${complexIndices.length > 1 ? 's' : ''}`;
 
+    const firstPriceField = cards.find(c => c.filters?.priceField)?.filters?.priceField as PriceField | undefined;
     const projectOpts: ProjectOptions = {
       includeImage: !!options.includeImage,
       includeArtists: !!options.includeArtists,
       includeText: !!options.includeText,
+      priceField: firstPriceField,
     };
 
     const sections = formatSearchSections(output, projectOpts);
@@ -464,12 +469,14 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       message: `Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
       results: output.map(r => {
         const sorted = r.printings.length > 0 ? sortPrintings(r.printings) : [];
+        const cardPriceField = cards[r.index]?.filters?.priceField as PriceField | undefined;
+        const opts = cardPriceField ? { ...projectOpts, priceField: cardPriceField } : projectOpts;
         return {
           index: r.index,
           query: r.query,
           total: r.total,
-          printings: r.printings.map(p => projectPrintingForMcp(p, projectOpts)),
-          bestPrinting: sorted.length > 0 ? projectPrintingForMcp(sorted[0], projectOpts) : null,
+          printings: r.printings.map(p => projectPrintingForMcp(p, opts)),
+          bestPrinting: sorted.length > 0 ? projectPrintingForMcp(sorted[0], opts) : null,
           foilingFallback: (r as any).foilingFallback ?? false,
         };
       }),
