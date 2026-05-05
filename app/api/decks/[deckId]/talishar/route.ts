@@ -14,7 +14,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 import { toTalisharIdentifier } from '@/lib/utils';
-import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
+import { HERO_INFO, YOUNG_HERO_INFO, getTalisharHeroSlug } from '@/lib/fab-constants';
 
 /**
  * Maps FaB Bazaar deck formats to Talishar format codes
@@ -307,9 +307,10 @@ export async function GET(
     // Sideboard = inventory
     const cardCounts = new Map<string, { total: number; sideboardTotal: number }>();
 
-    // Process hero cards (main deck)
+    // Process hero cards (main deck) — use exact Talishar slug when available
     deck.hero.forEach(printing => {
-      const cardId = buildTalisharIdentifier(printing, printing.printingId);
+      const heroName = (printing.printingDetails?.name || '').toLowerCase();
+      const cardId = getTalisharHeroSlug(heroName) || buildTalisharIdentifier(printing, printing.printingId);
       const existing = cardCounts.get(cardId) || { total: 0, sideboardTotal: 0 };
       existing.total += printing.quantity || 1;
       cardCounts.set(cardId, existing);
@@ -327,9 +328,7 @@ export async function GET(
           { limit: 1, sortBy: 'set', sortOrder: 'asc', show: 'all' }
         );
         if (printingResult.success && printingResult.data.printings?.[0]) {
-          const p = printingResult.data.printings[0];
-          const heroCardName = p.name || '';
-          const identifier = toTalisharIdentifier(heroCardName) || heroKey.replace(/\s+/g, '_');
+          const identifier = getTalisharHeroSlug(heroKey) || toTalisharIdentifier(heroKey) || heroKey.replace(/\s+/g, '_');
           const existing = cardCounts.get(identifier) || { total: 0, sideboardTotal: 0 };
           existing.total += 1;
           cardCounts.set(identifier, existing);

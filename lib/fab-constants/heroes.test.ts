@@ -15,6 +15,8 @@ import {
   HERO_INFO,
   YOUNG_HERO_INFO,
   TALISHAR_HERO_IDS,
+  TALISHAR_HERO_SLUGS,
+  getTalisharHeroSlug,
   LIVING_LEGEND_POINTS,
   LIVING_LEGEND_THRESHOLD,
   LIVING_LEGEND_POINTS_UPDATED_AT,
@@ -40,12 +42,14 @@ describe('heroes.ts — export presence (from ./heroes)', () => {
     'HERO_INFO',
     'YOUNG_HERO_INFO',
     'TALISHAR_HERO_IDS',
+    'TALISHAR_HERO_SLUGS',
     'LIVING_LEGEND_POINTS',
     'LIVING_LEGEND_THRESHOLD',
     'LIVING_LEGEND_POINTS_UPDATED_AT',
     'LIVING_LEGEND_POINTS_SOURCE_LABEL',
     'HERO_MARVEL_PRINTING_IDS',
     // functions
+    'getTalisharHeroSlug',
     'getHeroInfo',
     'getHeroesGroupedByClass',
     'getYoungHeroesGroupedByClass',
@@ -73,6 +77,8 @@ describe('heroes.ts — export presence (via @/lib/fab-constants barrel)', () =>
     'HERO_INFO',
     'YOUNG_HERO_INFO',
     'TALISHAR_HERO_IDS',
+    'TALISHAR_HERO_SLUGS',
+    'getTalisharHeroSlug',
     'getHeroInfo',
     'getHeroesGroupedByClass',
     'getYoungHeroesGroupedByClass',
@@ -139,6 +145,30 @@ describe('TALISHAR_HERO_IDS', () => {
     expect(TALISHAR_HERO_IDS['rhinar, reckless rampage']).toBe('WTR001');
     expect(TALISHAR_HERO_IDS['dorinthea ironsong']).toBe('WTR113');
     expect(TALISHAR_HERO_IDS['dorinthea']).toBe('WTR114');
+  });
+});
+
+describe('TALISHAR_HERO_SLUGS', () => {
+  it('maps canonical hero keys to exact Talishar slug identifiers', () => {
+    expect(TALISHAR_HERO_SLUGS['rhinar, reckless rampage']).toBe('rhinar_reckless_rampage');
+    expect(TALISHAR_HERO_SLUGS['dorinthea ironsong']).toBe('dorinthea_ironsong');
+    expect(TALISHAR_HERO_SLUGS['dorinthea']).toBe('dorinthea');
+  });
+
+  it('preserves special characters that toTalisharIdentifier would strip', () => {
+    expect(TALISHAR_HERO_SLUGS['dash i/o']).toBe('dash_i/o');
+    expect(TALISHAR_HERO_SLUGS['arakni, 5l!p3d 7hru 7h3 cr4x']).toBe('arakni_5l!p3d_7hru_7h3_cr4x');
+    expect(TALISHAR_HERO_SLUGS['jarl vetreiði']).toBe('jarl_vetreidi');
+    expect(TALISHAR_HERO_SLUGS['kayo, strong-arm']).toBe('kayo_strong-arm');
+  });
+
+  it('getTalisharHeroSlug is case-insensitive', () => {
+    expect(getTalisharHeroSlug('Dash I/O')).toBe('dash_i/o');
+    expect(getTalisharHeroSlug('RHINAR')).toBe('rhinar');
+  });
+
+  it('getTalisharHeroSlug returns null for unknown heroes', () => {
+    expect(getTalisharHeroSlug('nonexistent hero')).toBeNull();
   });
 });
 
@@ -336,6 +366,8 @@ describe('heroes-meta.ts — owns integrations + competitive meta + showcase art
     const meta = await import('./heroes-meta');
     const expected = [
       'TALISHAR_HERO_IDS',
+      'TALISHAR_HERO_SLUGS',
+      'getTalisharHeroSlug',
       'LIVING_LEGEND_POINTS',
       'LIVING_LEGEND_THRESHOLD',
       'LIVING_LEGEND_POINTS_UPDATED_AT',
