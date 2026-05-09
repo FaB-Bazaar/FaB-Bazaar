@@ -168,14 +168,18 @@ export const addCardsToDeckTool = {
       });
 
       const data = await res.json();
-      if (!data.success) return { success: false, error: data.error || 'Failed to add cards.' };
+      const summary = data?.summary;
+      const results: any[] = Array.isArray(data?.results) ? data.results : [];
 
-      const { summary, results } = data;
+      // The route returns top-level success: false when ANY item is rejected
+      // (per-card validation, copy limit, etc.). Don't bail on that — render
+      // the per-card lines so the client sees what was actually rejected and why.
+      if (results.length === 0) {
+        return { success: false, error: data?.error || 'Failed to add cards.' };
+      }
 
-      // Build a map from printingId → resolved label for display
       const resolvedMap = new Map(resolvedPrintings.map((p) => [p.printingId, p.resolvedFrom]));
-
-      const lines = (results || []).map((r: any) => {
+      const lines = results.map((r: any) => {
         if (r.success) {
           const resolved = resolvedMap.get(r.printingId);
           const label = resolved ? `${r.cardName || r.printingId}  [${resolved}]` : (r.cardName || r.printingId);
@@ -188,9 +192,19 @@ export const addCardsToDeckTool = {
         ? `\n\n⚠️ Skipped (name resolution failed):\n${resolutionFailures.map(f => `  - ${f}`).join('\n')}`
         : '';
 
+      const added = summary?.added ?? 0;
+      const failed = summary?.failed ?? 0;
+      const totalAdded = summary?.totalCardsAdded ?? 0;
+      const message = `Added ${totalAdded} card(s) to "${deck.name}" (${added} succeeded, ${failed} failed):\n${lines}${failureNote}`;
+
+      // Tool-level success: true if at least one card was added; false when
+      // nothing landed (so the LLM can branch on it without parsing the message).
+      if (added === 0) {
+        return { success: false, error: message };
+      }
       return {
         success: true,
-        message: `Added ${summary.totalCardsAdded} card(s) to "${deck.name}" (${summary.added} succeeded, ${summary.failed} failed):\n${lines}${failureNote}`,
+        message,
         summary,
         deckName: deck.name,
         publicId: deck.publicId,
