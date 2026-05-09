@@ -10,6 +10,13 @@ This repo is publicly open-sourced. Keep CLAUDE.md content at the architecture/p
 
 Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQL + Drizzle ORM. Self-hosted VPS (Docker).
 
+## Data Architecture
+
+- **OLTP (live app)**: PostgreSQL — service-layer access only (see `lib/services`)
+- **OLAP (daily analytics)**: DuckDB embedded in the Python pipeline. One file at `/app/data/prices.duckdb` in the pipeline container. No daemon, no separate service.
+- **Reverse-ETL**: pipeline computes signals in DuckDB nightly, writes a small results table (`daily_movers`) back to Postgres. App reads from Postgres only — never touches DuckDB.
+- See `pipeline/scripts/daily_pipeline.sh` for the full nightly flow.
+
 ## Security
 
 - **Never hardcode secrets** — no API keys, tokens, passwords, or connection strings in source code. All secrets via `process.env.*` only, sourced from `.env.local` (never committed).

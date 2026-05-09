@@ -33,6 +33,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | `oauth_authorization_codes` | Short-lived auth codes with PKCE support | — |
 | `oauth_access_tokens` | Bearer + refresh tokens | — |
 | `site_settings` | Key-value store (key text PK, value JSONB) | — |
+| `daily_movers` | Daily price-signal sink (gainers, decliners, breakouts, steady risers). 1-year retention. PK `(as_of_date, signal_type, printing_id)` | `printings.printingId` (logical) |
 
 ## Relationship Map
 
@@ -48,6 +49,8 @@ users
       └── oauth_authorization_codes, oauth_access_tokens
 
 cards ──< printings (one card, many printings)
+
+daily_movers ──> printings (one row per (date, signal, printing); populated by pipeline)
 ```
 
 All user-owned tables cascade-delete when the user is deleted.
@@ -59,3 +62,4 @@ All user-owned tables cascade-delete when the user is deleted.
 - `decks.metadata` (JSONB) stores matchup sideboard configs
 - `printings` has denormalized price category booleans (`isBudget`, `isUnder5`, etc.) for fast filtering
 - Emails are AES-encrypted; `emailHash` column used for lookups
+- `daily_movers` is populated by the pipeline (DuckDB → Postgres reverse-ETL), never from app code. Not in `schema.ts` yet — add a Drizzle definition before any service-layer access.
