@@ -1,8 +1,21 @@
 // app/api/mcp/tool/createDeck.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
-import { printingsService } from '@/lib/services';
+import { printingsService, bannedCardsService } from '@/lib/services';
 import { sortPrintings } from '@/lib/fab-constants/sets';
-import { isHeroLivingLegend } from '@/lib/fab-banned-cards';
+import type { BannedFormat } from '@/lib/services/contracts/IBannedCardsService';
+
+// Maps deck format display names to banned_cards registry format keys.
+// Returns null for formats that don't have a registry entry (Limited, Casual).
+function toRegistryFormat(format: string): BannedFormat | null {
+  switch (format) {
+    case 'Classic Constructed': return 'classic_constructed';
+    case 'Blitz': return 'blitz';
+    case 'Silver Age': return 'silver_age';
+    case 'Living Legend': return 'living_legend';
+    case 'Commoner': return 'commoner';
+    default: return null;
+  }
+}
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { CURATED_GENERICS } from '@/app/api/mcp/resource/cardIndex';
 
@@ -135,14 +148,26 @@ export const createDeckTool = {
             format === 'Blitz' ? 'blitz_legal' :
             'cc_legal';
 
+          // Pre-fetch the banned hero set from the registry once so the filter
+          // stays synchronous. Sourcing from banned_cards keeps this consistent
+          // with the deck-builder search and admin toggles.
+          const registryFormat = toRegistryFormat(format);
+          const bannedHeroIds = new Set<string>();
+          if (registryFormat) {
+            const bannedRes = await bannedCardsService.listBannedHeroIds(registryFormat);
+            if (bannedRes.success) {
+              for (const id of bannedRes.data) bannedHeroIds.add(id);
+            }
+          }
+
           const eligible = (result.data as any[]).filter((p: any) => {
             if (!p[legalityField]) return false;
-            if (p.card_unique_id && isHeroLivingLegend(p.card_unique_id, format)) return false;
+            if (p.card_unique_id && bannedHeroIds.has(p.card_unique_id)) return false;
             return true;
           });
 
           if (!eligible.length) {
-            return { success: false, error: `Hero "${heroName}" has no legal printing in ${format} (may be Living Legend status).` };
+            return { success: false, error: `Hero "${heroName}" has no legal printing in ${format}.` };
           }
 
           heroPrintingId = sortPrintings(eligible)[0].printing_id;
