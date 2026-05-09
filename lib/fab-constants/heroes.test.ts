@@ -30,6 +30,7 @@ import {
   normalizeClassName,
   toHeroDisplayName,
   getHeroesByFormatDetailed,
+  validateHeroFormatLegality,
   getLivingLegendPoints,
   isLivingLegendGraduated,
   getHeroMarvelImageUrl,
@@ -243,6 +244,85 @@ describe('normalizeHeroName / normalizeClassName', () => {
     expect(normalizeClassName('  Brute  ')).toBe('brute');
     expect(normalizeClassName(null)).toBeNull();
     expect(normalizeClassName('')).toBeNull();
+  });
+});
+
+describe('YOUNG_HERO_INFO essence data — must match adult-version essences', () => {
+  // The DB stores hero essences as keyword strings ("essence of ice", "essence of earth and lightning").
+  // YOUNG_HERO_INFO must mirror these so heroLegal essence enforcement doesn't over-reject elemental cards
+  // for young heroes. Source of truth: cards table where isHero=true and keywords match "essence of%".
+  const expected: Array<[string, string[]]> = [
+    ['aurora', ['lightning']],
+    ['terra', ['earth']],
+    ['briar', ['earth', 'lightning']],
+    ['florian', ['earth']],
+    ['oldhim', ['earth', 'ice']],
+    ['iyslander', ['ice']],
+    ['lexi', ['ice', 'lightning']],
+    ['oscilio', ['lightning']],
+    ['verdance', ['earth']],
+  ];
+
+  for (const [name, essences] of expected) {
+    it(`young hero "${name}" has essences: [${essences.join(', ')}]`, () => {
+      const entry = YOUNG_HERO_INFO[name];
+      expect(entry, `YOUNG_HERO_INFO['${name}'] missing`).toBeDefined();
+      expect(entry.essences, `essences missing on ${name}`).toBeDefined();
+      expect([...entry.essences!].sort()).toEqual([...essences].sort());
+    });
+  }
+});
+
+describe('validateHeroFormatLegality', () => {
+  it('accepts a young hero in silver_age', () => {
+    expect(validateHeroFormatLegality('kano', 'silver_age')).toEqual({ ok: true });
+  });
+
+  it('accepts a young hero in blitz', () => {
+    expect(validateHeroFormatLegality('kano', 'blitz')).toEqual({ ok: true });
+  });
+
+  it('accepts an adult hero in cc', () => {
+    expect(validateHeroFormatLegality('kano, dracai of aether', 'cc')).toEqual({ ok: true });
+  });
+
+  it('accepts an adult hero in ll', () => {
+    expect(validateHeroFormatLegality('kano, dracai of aether', 'll')).toEqual({ ok: true });
+  });
+
+  it('rejects an adult hero in silver_age and points to the young name', () => {
+    const result = validateHeroFormatLegality('kano, dracai of aether', 'silver_age');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/silver_age/i);
+    expect(result.error).toMatch(/young/i);
+    expect(result.error).toMatch(/kano/);
+  });
+
+  it('rejects a young hero in cc and points to the adult name', () => {
+    const result = validateHeroFormatLegality('kano', 'cc');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/cc|classic constructed/i);
+    expect(result.error).toMatch(/adult/i);
+    expect(result.error).toMatch(/kano, dracai of aether/i);
+  });
+
+  it('returns ok when format is undefined (no constraint)', () => {
+    expect(validateHeroFormatLegality('kano, dracai of aether', undefined)).toEqual({ ok: true });
+  });
+
+  it('returns ok for an unknown hero name (defer to other validation)', () => {
+    expect(validateHeroFormatLegality('not-a-real-hero-xyz', 'silver_age')).toEqual({ ok: true });
+  });
+
+  it('is case-insensitive on the hero name', () => {
+    expect(validateHeroFormatLegality('Kano, Dracai of Aether', 'silver_age').ok).toBe(false);
+    expect(validateHeroFormatLegality('KANO', 'silver_age').ok).toBe(true);
+  });
+
+  it('resolves nicknames before deciding (e.g. "kano" nickname → young)', () => {
+    expect(validateHeroFormatLegality('kano', 'silver_age').ok).toBe(true);
   });
 });
 

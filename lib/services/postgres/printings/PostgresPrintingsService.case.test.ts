@@ -102,3 +102,72 @@ describe('PostgresPrintingsService — case-insensitive enum filters', () => {
     expect(upper.data.total).toBeGreaterThan(0);
   });
 });
+
+describe('PostgresPrintingsService — heroLegal essence enforcement', () => {
+  it('heroLegal: "kano" (no essence) does not return ice cards', async () => {
+    const result = await service.searchPrintings(
+      { heroLegal: 'kano', hasIce: true },
+      { limit: 5 }
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.total).toBe(0);
+  });
+
+  it('heroLegal: "kano" + format: "silver_age" does not return ice cards', async () => {
+    const result = await service.searchPrintings(
+      { heroLegal: 'kano', format: 'silver_age', hasIce: true },
+      { limit: 5 }
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.total).toBe(0);
+  });
+
+  it('heroLegal: "iyslander" (young, ice essence) DOES return ice cards', async () => {
+    const result = await service.searchPrintings(
+      { heroLegal: 'iyslander', hasIce: true },
+      { limit: 5 }
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.total).toBeGreaterThan(0);
+  });
+
+  it('heroLegal: "iyslander, stormbind" (adult, ice essence) DOES return ice cards', async () => {
+    const result = await service.searchPrintings(
+      { heroLegal: 'iyslander, stormbind', hasIce: true },
+      { limit: 5 }
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.total).toBeGreaterThan(0);
+  });
+
+  // The deck-builder UI passes the full hero display name as heroLegal (no
+  // heroClasses/heroTalents). Before the fix, this hit a broken legacy path
+  // returning only isGenericOnly cards. After: it must return a healthy pool.
+  it('heroLegal: full display name (deck-builder UI pattern) returns a sensible card pool', async () => {
+    const result = await service.searchPrintings(
+      { heroLegal: 'Kano, Dracai of Aether' },
+      { limit: 1 }
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // Kano's CC pool is hundreds of cards (wizards + generics). Anything under
+    // 100 means the legacy path is still effectively returning generic-only.
+    expect(result.data.total).toBeGreaterThan(100);
+  });
+
+  // Sanity check — the precise filter must not reject ice cards for an elemental
+  // hero whose essence IS in the data. Adult Iyslander has essences=['ice'].
+  it('heroClasses+heroEssences for ice essence wizard returns ice cards', async () => {
+    const result = await service.searchPrintings(
+      { heroClasses: ['wizard'], heroTalents: ['elemental'], heroEssences: ['ice'], hasIce: true },
+      { limit: 5 }
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.total).toBeGreaterThan(0);
+  });
+});

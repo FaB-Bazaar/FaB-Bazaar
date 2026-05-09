@@ -156,3 +156,76 @@ export function getHeroesByFormatDetailed(): {
     young: enrich(getYoungHeroesGroupedByClass(), YOUNG_HERO_INFO),
   };
 }
+
+type HeroAge = 'young' | 'adult' | 'unknown';
+
+function classifyHeroName(name: string): { age: HeroAge; canonical: string } {
+  const lower = name.trim().toLowerCase();
+  if (HERO_INFO[lower]) return { age: 'adult', canonical: lower };
+  if (YOUNG_HERO_INFO[lower]) return { age: 'young', canonical: lower };
+
+  const fullName = HERO_NICKNAMES[lower as keyof typeof HERO_NICKNAMES];
+  if (fullName && HERO_INFO[fullName.toLowerCase()]) {
+    return { age: 'adult', canonical: fullName.toLowerCase() };
+  }
+
+  for (const [key, info] of Object.entries(HERO_INFO)) {
+    if (info.shortName === lower) return { age: 'adult', canonical: key };
+  }
+  for (const [key, info] of Object.entries(YOUNG_HERO_INFO)) {
+    if (info.shortName === lower) return { age: 'young', canonical: key };
+  }
+  return { age: 'unknown', canonical: lower };
+}
+
+const FORMAT_HERO_REQUIREMENT: Record<string, HeroAge> = {
+  silver_age: 'young',
+  blitz: 'young',
+  commoner: 'young',
+  cc: 'adult',
+  ll: 'adult',
+};
+
+const FORMAT_LABELS: Record<string, string> = {
+  silver_age: 'Silver Age',
+  blitz: 'Blitz',
+  commoner: 'Commoner',
+  cc: 'Classic Constructed',
+  ll: 'Living Legend',
+};
+
+// Validate that a hero is legal in the given format. Silver Age / Blitz / Commoner
+// require a Young hero; CC / Living Legend require an adult hero. When the hero is
+// the wrong age, the error includes a "did you mean" pointer to the paired name.
+export function validateHeroFormatLegality(
+  heroName: string,
+  format: string | undefined
+): { ok: true } | { ok: false; error: string } {
+  if (!format) return { ok: true };
+  const required = FORMAT_HERO_REQUIREMENT[format];
+  if (!required) return { ok: true };
+
+  const { age, canonical } = classifyHeroName(heroName);
+  if (age === 'unknown' || age === required) return { ok: true };
+
+  let suggestion: string | undefined;
+  if (required === 'young') {
+    const adultInfo = HERO_INFO[canonical];
+    if (adultInfo && YOUNG_HERO_INFO[adultInfo.shortName]) {
+      suggestion = adultInfo.shortName;
+    }
+  } else {
+    const nick = HERO_NICKNAMES[canonical as keyof typeof HERO_NICKNAMES];
+    if (nick && HERO_INFO[nick.toLowerCase()]) {
+      suggestion = nick.toLowerCase();
+    }
+  }
+
+  const label = FORMAT_LABELS[format] ?? format;
+  const article = required === 'adult' ? 'an' : 'a';
+  const did = suggestion ? ` Did you mean "${suggestion}"?` : '';
+  return {
+    ok: false,
+    error: `"${heroName}" is not legal in ${format} (${label} requires ${article} ${required} hero).${did}`,
+  };
+}

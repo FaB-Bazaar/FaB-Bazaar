@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { formatSearchSections } from './searchPrintings';
+import { describe, it, expect, vi } from 'vitest';
+import { formatSearchSections, searchPrintingsTool } from './searchPrintings';
+
+vi.mock('@/lib/services', () => ({
+  printingsService: {
+    searchPrintings: vi.fn().mockResolvedValue({ success: true, data: { printings: [], total: 0 } }),
+    bulkResolveByName: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  },
+}));
 
 const printing = (overrides: Partial<any>) => ({
   printing_id: 'pid_' + Math.random().toString(36).slice(2, 10),
@@ -76,5 +83,46 @@ describe('formatSearchSections', () => {
       {}
     );
     expect(sections[0]).toMatch(/No non-foil printing exists/);
+  });
+});
+
+describe('searchPrintingsTool.handler — heroLegal × format guardrail', () => {
+  it('rejects an adult hero in silver_age with a clear error and never calls the service', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+    (printingsService.bulkResolveByName as any).mockClear();
+
+    const result = await searchPrintingsTool.handler({
+      cards: [{ filters: { heroLegal: 'kano, dracai of aether', format: 'silver_age' } }],
+    });
+
+    expect(result.success).toBe(false);
+    const msg = (result as any).message ?? (result as any).error ?? '';
+    expect(msg).toMatch(/silver_age/i);
+    expect(msg).toMatch(/young/i);
+    expect(msg).toMatch(/kano/);
+    expect(printingsService.searchPrintings).not.toHaveBeenCalled();
+    expect(printingsService.bulkResolveByName).not.toHaveBeenCalled();
+  });
+
+  it('rejects a young hero in cc with a clear error', async () => {
+    const result = await searchPrintingsTool.handler({
+      cards: [{ filters: { heroLegal: 'kano', format: 'cc' } }],
+    });
+    expect(result.success).toBe(false);
+    const msg = (result as any).message ?? (result as any).error ?? '';
+    expect(msg).toMatch(/cc|classic constructed/i);
+    expect(msg).toMatch(/adult/i);
+  });
+
+  it('passes through a valid hero/format combination to the service', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+
+    const result = await searchPrintingsTool.handler({
+      cards: [{ filters: { heroLegal: 'kano', format: 'silver_age' } }],
+    });
+    expect(result.success).not.toBe(false);
+    expect(printingsService.searchPrintings).toHaveBeenCalled();
   });
 });

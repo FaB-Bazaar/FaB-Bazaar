@@ -1,7 +1,7 @@
 // app/api/mcp/tool/searchPrintings.ts
 import { printingsService } from '@/lib/services';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
-import { getHeroInfo } from '@/lib/fab-constants/heroes';
+import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import { sortPrintings } from '@/lib/fab-constants/sets';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
@@ -357,6 +357,22 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
 
     // Resolve each card to filters + simple/complex classification
     const resolved = cards.map(resolveCardFilters);
+
+    // Guardrail: when heroLegal + format are both set, the hero must be the right
+    // age for that format (Silver Age / Blitz / Commoner = young; CC / LL = adult).
+    // We read the user-facing inputs (cards[i].filters) since heroLegal is rewritten
+    // to heroClasses/heroTalents inside resolveCardFilters.
+    for (let i = 0; i < cards.length; i++) {
+      const userFilters = cards[i].filters;
+      if (!userFilters?.heroLegal || !userFilters?.format) continue;
+      const names = Array.isArray(userFilters.heroLegal) ? userFilters.heroLegal : [userFilters.heroLegal];
+      for (const name of names) {
+        const check = validateHeroFormatLegality(name, userFilters.format);
+        if (!check.ok) {
+          return { success: false, message: check.error };
+        }
+      }
+    }
 
     // ── Tier 1: simple name+pitch cards → one bulkResolveByName query ─────────
     const simpleIndices = resolved

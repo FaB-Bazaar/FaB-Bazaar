@@ -414,7 +414,12 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
   'azalea': {
     cardUniqueId: 'Fc8mPQBjrNq6Fg9LW9RLc', classes: ['ranger'], talents: [], shortName: 'azalea' },
   'lexi': {
-    cardUniqueId: 'GFc7t8wNTwC8rCFwrqTfh', classes: ['ranger'], talents: ['elemental'], shortName: 'lexi' },
+    cardUniqueId: 'GFc7t8wNTwC8rCFwrqTfh',
+    classes: ['ranger'],
+    talents: ['elemental'],
+    essences: ['ice', 'lightning'],
+    shortName: 'lexi'
+  },
   'marlynn': {
     cardUniqueId: 'N7PFFQLkdzRMDhzDWJWwW', classes: ['ranger'], talents: ['pirate'], shortName: 'marlynn' },
   'riptide': {
@@ -422,15 +427,35 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
 
   // Wizards
   'iyslander': {
-    cardUniqueId: 'TmKrpP8tDg8bmpnqMPtgj', classes: ['wizard'], talents: ['elemental'], shortName: 'iyslander' },
+    cardUniqueId: 'TmKrpP8tDg8bmpnqMPtgj',
+    classes: ['wizard'],
+    talents: ['elemental'],
+    essences: ['ice'],
+    shortName: 'iyslander'
+  },
   'kano': {
     cardUniqueId: 'Q9B8TDhTdfDLN8ccnBThK', classes: ['wizard'], talents: [], shortName: 'kano' },
   'oscilio': {
-    cardUniqueId: 'jC7KWzhP9jMrPDNCHJWtk', classes: ['wizard'], talents: ['elemental'], shortName: 'oscilio' },
+    cardUniqueId: 'jC7KWzhP9jMrPDNCHJWtk',
+    classes: ['wizard'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'oscilio'
+  },
   'oscilio, scion of the third age': {
-    cardUniqueId: 'bdD7LdLhpgdfLwzCq6jBc', classes: ['wizard'], talents: ['elemental'], shortName: 'oscista' },
+    cardUniqueId: 'bdD7LdLhpgdfLwzCq6jBc',
+    classes: ['wizard'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'oscista'
+  },
   'verdance': {
-    cardUniqueId: 'd77Rnf7QF6pfMd6MNgGtm', classes: ['wizard'], talents: ['elemental'], shortName: 'verdance' },
+    cardUniqueId: 'd77Rnf7QF6pfMd6MNgGtm',
+    classes: ['wizard'],
+    talents: ['elemental'],
+    essences: ['earth'],
+    shortName: 'verdance'
+  },
 
   // Warriors
   'boltyn': {
@@ -452,13 +477,33 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
 
   // Runeblades
   'aurora': {
-    cardUniqueId: 'TDrmKkRWGKWnqfQkT9QML', classes: ['runeblade'], talents: ['elemental'], shortName: 'aurora' },
+    cardUniqueId: 'TDrmKkRWGKWnqfQkT9QML',
+    classes: ['runeblade'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'aurora'
+  },
   'aurora, emissary of lightning': {
-    cardUniqueId: 'WwKdgRBmtM6CpRjwM97Lh', classes: ['runeblade'], talents: ['elemental'], shortName: 'auraeol' },
+    cardUniqueId: 'WwKdgRBmtM6CpRjwM97Lh',
+    classes: ['runeblade'],
+    talents: ['elemental'],
+    essences: ['lightning'],
+    shortName: 'auraeol'
+  },
   'briar': {
-    cardUniqueId: '7TjkgnbJ8tghfrkMRnTfW', classes: ['runeblade'], talents: ['elemental'], shortName: 'briar' },
+    cardUniqueId: '7TjkgnbJ8tghfrkMRnTfW',
+    classes: ['runeblade'],
+    talents: ['elemental'],
+    essences: ['earth', 'lightning'],
+    shortName: 'briar'
+  },
   'florian': {
-    cardUniqueId: 'Ht8qhJWDMHjjMjzqgf6KG', classes: ['runeblade'], talents: ['elemental'], shortName: 'florian' },
+    cardUniqueId: 'Ht8qhJWDMHjjMjzqgf6KG',
+    classes: ['runeblade'],
+    talents: ['elemental'],
+    essences: ['earth'],
+    shortName: 'florian'
+  },
   'viserai': {
     cardUniqueId: 'RHnFkKb8FKdFzp9rdzGjF', classes: ['runeblade'], talents: [], shortName: 'viserai' },
   'vynnset': {
@@ -520,11 +565,21 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
   'lyath goldmane': {
     cardUniqueId: 'QrHJnzKzpMwgfJMcKQ8Dp', classes: ['guardian'], talents: ['reviled'], shortName: 'lyath' },
   'oldhim': {
-    cardUniqueId: 'hw6qHfWdqQGfRPfKJMgR7', classes: ['guardian'], talents: ['elemental'], shortName: 'oldhim' },
+    cardUniqueId: 'hw6qHfWdqQGfRPfKJMgR7',
+    classes: ['guardian'],
+    talents: ['elemental'],
+    essences: ['earth', 'ice'],
+    shortName: 'oldhim'
+  },
   'pleiades': {
     cardUniqueId: 'DcwnhL66BkhqjFcfzwwfQ', classes: ['guardian'], talents: ['revered'], shortName: 'pleiades' },
   'terra': {
-    cardUniqueId: 'JbQPwq8DkLpDdjHCP9www', classes: ['guardian'], talents: [], shortName: 'terra' },
+    cardUniqueId: 'JbQPwq8DkLpDdjHCP9www',
+    classes: ['guardian'],
+    talents: ['elemental'],
+    essences: ['earth'],
+    shortName: 'terra'
+  },
   'valda brightaxe': {
     cardUniqueId: 'zWhGF8kMMdmKdhMNdj6NH', classes: ['guardian'], talents: [], shortName: 'valda' },
   'victor goldmane': {

@@ -20,6 +20,7 @@ import type {
 } from '@/lib/services/contracts/IPrintingsService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
+import { getHeroInfo } from '@/lib/fab-constants/heroes';
 import { KEYWORDS } from '@/lib/fab-constants/keywords';
 import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
 
@@ -1054,6 +1055,36 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     // ===== HERO LEGAL FILTERING =====
+    // When heroLegal is set without precise-mode fields, resolve the hero name
+    // to its classes/talents/essences so the precise check below applies. Keeps
+    // direct service callers (getPrintingsForHero, getDeckBuildingCards) and
+    // MCP-translated calls on the same semantics.
+    if (filters.heroLegal && filters.heroClasses === undefined && filters.heroTalents === undefined) {
+      const names = Array.isArray(filters.heroLegal) ? filters.heroLegal : [filters.heroLegal];
+      const allClasses = new Set<string>();
+      const allTalents = new Set<string>();
+      const allEssences = new Set<string>();
+      let anyResolved = false;
+      for (const name of names) {
+        const info = getHeroInfo(name);
+        if (info) {
+          anyResolved = true;
+          info.classes.forEach(c => allClasses.add(c.toLowerCase()));
+          info.talents.forEach(t => allTalents.add(t.toLowerCase()));
+          (info.essences ?? []).forEach(e => allEssences.add(e.toLowerCase()));
+        }
+      }
+      if (anyResolved) {
+        filters = {
+          ...filters,
+          heroClasses: [...allClasses],
+          heroTalents: [...allTalents],
+          heroEssences: [...allEssences, ...(filters.heroEssences || []).map(e => e.toLowerCase())],
+          heroLegal: undefined,
+        };
+      }
+    }
+
     // Precise mode: card.classes ⊆ heroClasses AND card.talents ⊆ heroTalents
     //
     // A card is legal for a hero only when the hero satisfies ALL of the card's requirements:
