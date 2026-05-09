@@ -38,6 +38,8 @@ import type {
   ApplyPrintingUpgradesResultDTO,
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
+import { getHeroInfo } from '@/lib/fab-constants/heroes';
+import { validateCardForHero } from './validation';
 
 export class PostgresDeckService implements IDeckService {
   // ====================================
@@ -1340,13 +1342,15 @@ export class PostgresDeckService implements IDeckService {
         return { success: false, error: 'Deck not found or access denied' };
       }
 
-      // Pre-fetch all printings
+      // Pre-fetch all printings (including class/talent for legality checks)
       const uniquePrintingIds = [...new Set(printingsToAdd.map((p) => p.printingId))];
       const printingDocs = await db
         .select({
           printingId: printings.printingId,  // Now correctly refers to schema table
           name: cards.name,
           displayName: cards.displayName,
+          classes: cards.classes,
+          talents: cards.talents,
         })
         .from(printings)  // Now correctly refers to schema table
         .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
@@ -1355,6 +1359,11 @@ export class PostgresDeckService implements IDeckService {
       const printingMap = new Map(
         printingDocs.map((p) => [p.printingId, p])
       );
+
+      // Resolve the deck's hero once for per-card legality checks. Skipped if
+      // the deck has no hero yet (newly created without one).
+      const heroNameRaw = deck[0].heroName?.trim().toLowerCase();
+      const heroInfo = heroNameRaw ? getHeroInfo(heroNameRaw) : null;
 
       const results: AddPrintingResultDTO[] = [];
       let totalCardsAdded = 0;
@@ -1372,6 +1381,22 @@ export class PostgresDeckService implements IDeckService {
 
         const category = item.category || 'maindeck';
         const quantity = item.quantity || 1;
+
+        // Hero legality check — skipped for the hero card itself.
+        if (heroInfo && category !== 'hero') {
+          const legality = validateCardForHero(
+            { classes: printingData.classes, talents: printingData.talents },
+            { classes: heroInfo.classes, talents: heroInfo.talents, essences: heroInfo.essences },
+          );
+          if (!legality.ok) {
+            results.push({
+              printingId: item.printingId,
+              success: false,
+              error: `${printingData.displayName || printingData.name}: ${legality.reason}`,
+            });
+            continue;
+          }
+        }
 
         // Check if this card already exists in the deck
         const existingCard = await db
