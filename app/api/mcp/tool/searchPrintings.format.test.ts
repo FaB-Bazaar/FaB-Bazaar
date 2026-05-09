@@ -125,4 +125,32 @@ describe('searchPrintingsTool.handler — heroLegal × format guardrail', () => 
     expect(result.success).not.toBe(false);
     expect(printingsService.searchPrintings).toHaveBeenCalled();
   });
+
+  it('translates heroLegal into heroClasses + heroTalents + heroEssences for elemental young heroes', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+
+    await searchPrintingsTool.handler({
+      cards: [{ filters: { heroLegal: 'briar', format: 'silver_age' } }],
+    });
+
+    expect(printingsService.searchPrintings).toHaveBeenCalled();
+    const callArgs = (printingsService.searchPrintings as any).mock.calls[0][0];
+    expect(callArgs.heroClasses).toEqual(['runeblade']);
+    expect(callArgs.heroTalents).toEqual(['elemental']);
+    expect([...(callArgs.heroEssences ?? [])].sort()).toEqual(['earth', 'lightning']);
+  });
+
+  it('omits heroEssences when the hero has no essence (e.g. Kano)', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+
+    await searchPrintingsTool.handler({
+      cards: [{ filters: { heroLegal: 'kano', format: 'silver_age' } }],
+    });
+
+    const callArgs = (printingsService.searchPrintings as any).mock.calls[0][0];
+    expect(callArgs.heroClasses).toEqual(['wizard']);
+    expect(callArgs.heroEssences ?? []).toEqual([]);
+  });
 });

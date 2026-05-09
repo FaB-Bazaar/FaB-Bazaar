@@ -172,25 +172,28 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
   ];
   passThrough.forEach(k => { if (mcpFilters[k] != null) (f as any)[k] = mcpFilters[k]; });
 
-  // heroLegal → resolve to heroClasses + heroTalents for precise filtering
+  // heroLegal → resolve to heroClasses + heroTalents + heroEssences for precise filtering
   if (mcpFilters.heroLegal) {
     const names = Array.isArray(mcpFilters.heroLegal) ? mcpFilters.heroLegal : [mcpFilters.heroLegal];
     const allClasses = new Set<string>();
     const allTalents = new Set<string>();
+    const allEssences = new Set<string>();
     let usedLegacy = false;
     for (const name of names) {
       const info = getHeroInfo(name);
       if (info) {
         info.classes.forEach((c: string) => allClasses.add(c));
         info.talents.forEach((t: string) => allTalents.add(t));
+        (info.essences ?? []).forEach((e: string) => allEssences.add(e));
       } else {
         f.heroLegal = mcpFilters.heroLegal;
         usedLegacy = true;
       }
     }
-    if (!usedLegacy && (allClasses.size > 0 || allTalents.size > 0)) {
+    if (!usedLegacy && (allClasses.size > 0 || allTalents.size > 0 || allEssences.size > 0)) {
       (f as any).heroClasses = [...allClasses];
       (f as any).heroTalents = [...allTalents];
+      if (allEssences.size > 0) (f as any).heroEssences = [...allEssences];
     }
   }
 
