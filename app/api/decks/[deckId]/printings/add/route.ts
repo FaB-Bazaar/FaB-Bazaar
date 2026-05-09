@@ -113,15 +113,27 @@ export async function POST(
       );
 
       if (result.success) {
-        totalCardsAdded += result.data.quantity;
-        results.push({
-          printingId: item.printingId,
-          success: true,
-          action: 'added',
-          cardName: result.data.cardName,
-          quantity: result.data.quantity,
-          category: result.data.category,
-        });
+        // The service returns AddPrintingResultDTO, which carries its own
+        // per-card success/error (rejected by validation, not-found printing,
+        // etc.). Surface that inner status so per-card validation failures
+        // reach the client instead of being masked as success.
+        if (result.data.success) {
+          totalCardsAdded += result.data.quantity ?? 0;
+          results.push({
+            printingId: item.printingId,
+            success: true,
+            action: 'added',
+            cardName: result.data.cardName,
+            quantity: result.data.quantity,
+            category: result.data.category,
+          });
+        } else {
+          results.push({
+            printingId: item.printingId,
+            success: false,
+            error: result.data.error,
+          });
+        }
       } else {
         results.push({
           printingId: item.printingId,

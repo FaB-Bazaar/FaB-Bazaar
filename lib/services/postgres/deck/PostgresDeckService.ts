@@ -1233,96 +1233,11 @@ export class PostgresDeckService implements IDeckService {
     userId: string,
     printing: AddPrintingDTO
   ): AsyncResult<AddPrintingResultDTO> {
-    try {
-      // Get deck
-      const deck = await db
-        .select()
-        .from(decks)
-        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
-        .limit(1);
-
-      if (deck.length === 0) {
-        return { success: false, error: 'Deck not found or access denied' };
-      }
-
-      // Fetch printing details
-      const printingData = await db
-        .select()
-        .from(printings)
-        .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
-        .where(eq(printings.printingId, printing.printingId))
-        .limit(1);
-
-      if (printingData.length === 0) {
-        return {
-          success: true,
-          data: {
-            printingId: printing.printingId,
-            success: false,
-            error: `Printing ${printing.printingId} not found`,
-          },
-        };
-      }
-
-      const category = printing.category || 'maindeck';
-      const quantity = printing.quantity || 1;
-
-      // Check if this card already exists in the deck
-      const existingCard = await db
-        .select()
-        .from(deckCards)
-        .where(
-          and(
-            eq(deckCards.deckId, deck[0].id),
-            eq(deckCards.printingId, printing.printingId),
-            eq(deckCards.category, category)
-          )
-        )
-        .limit(1);
-
-      if (existingCard.length > 0) {
-        // Update existing quantity
-        await db
-          .update(deckCards)
-          .set({ quantity: sql`${deckCards.quantity} + ${quantity}` })
-          .where(eq(deckCards.id, existingCard[0].id));
-      } else {
-        // Insert new card with quantity
-        await db.insert(deckCards).values({
-          id: nanoid(21),
-          deckId: deck[0].id,
-          printingId: printing.printingId,
-          quantity: quantity,  // Store actual quantity, not 1!
-          category,
-          notes: printing.notes || '',
-          addedAt: new Date(),
-        });
-      }
-
-      // Update deck timestamp
-      await db
-        .update(decks)
-        .set({ updatedAt: new Date() })
-        .where(eq(decks.id, deck[0].id));
-
-      return {
-        success: true,
-        data: {
-          printingId: printing.printingId,
-          success: true,
-          action: 'added',
-          cardName: printingData[0].cards?.displayName || printingData[0].cards?.name,
-          quantity,
-          category,
-        },
-      };
-    } catch (error) {
-      console.error('[PostgresDeckService.addPrinting] Error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to add printing',
-      };
-    }
+    const bulk = await this.addPrintings(publicId, userId, [printing]);
+    if (!bulk.success) return { success: false, error: bulk.error };
+    const item = bulk.data.results[0];
+    if (!item) return { success: false, error: 'No result returned from addPrintings' };
+    return { success: true, data: item };
   }
 
   async addPrintings(

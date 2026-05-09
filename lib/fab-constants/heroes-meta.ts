@@ -8,7 +8,7 @@
 // Heroes not yet in Talishar (e.g. zyggy, oscilio forked continuum) are omitted.
 export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   // Adult heroes (HERO_INFO)
-  'arakni, 5l!p3d 7hru 7h3 cr4x':      'arakni_5l!p3d_7hru_7h3_cr4x',
+  'arakni, 5l!p3d 7hru 7h3 cr4x':      'arakni_5lp3d_7hru_7h3_cr4x',
   'arakni, huntsman':                    'arakni_huntsman',
   'arakni, marionette':                  'arakni_marionette',
   'nuu, alluring desire':                'nuu_alluring_desire',
@@ -31,7 +31,7 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'enigma, ledger of ancestry':          'enigma_ledger_of_ancestry',
   'prism, awakener of sol':              'prism_awakener_of_sol',
   'prism, sculptor of arc light':        'prism_sculptor_of_arc_light',
-  'dash i/o':                            'dash_i/o',
+  'dash i/o':                            'dash_io',
   'dash, inventor extraordinaire':       'dash_inventor_extraordinaire',
   "maxx 'the hype' nitro":              'maxx_the_hype_nitro',
   'puffin, hightail':                    'puffin_hightail',

@@ -156,15 +156,15 @@ describe('TALISHAR_HERO_SLUGS', () => {
     expect(TALISHAR_HERO_SLUGS['dorinthea']).toBe('dorinthea');
   });
 
-  it('preserves special characters that toTalisharIdentifier would strip', () => {
-    expect(TALISHAR_HERO_SLUGS['dash i/o']).toBe('dash_i/o');
-    expect(TALISHAR_HERO_SLUGS['arakni, 5l!p3d 7hru 7h3 cr4x']).toBe('arakni_5l!p3d_7hru_7h3_cr4x');
+  it('matches the Talishar engine canonical IDs (which strip special chars like / and !)', () => {
+    expect(TALISHAR_HERO_SLUGS['dash i/o']).toBe('dash_io');
+    expect(TALISHAR_HERO_SLUGS['arakni, 5l!p3d 7hru 7h3 cr4x']).toBe('arakni_5lp3d_7hru_7h3_cr4x');
     expect(TALISHAR_HERO_SLUGS['jarl vetreiði']).toBe('jarl_vetreidi');
     expect(TALISHAR_HERO_SLUGS['kayo, strong-arm']).toBe('kayo_strong-arm');
   });
 
   it('getTalisharHeroSlug is case-insensitive', () => {
-    expect(getTalisharHeroSlug('Dash I/O')).toBe('dash_i/o');
+    expect(getTalisharHeroSlug('Dash I/O')).toBe('dash_io');
     expect(getTalisharHeroSlug('RHINAR')).toBe('rhinar');
   });
 
