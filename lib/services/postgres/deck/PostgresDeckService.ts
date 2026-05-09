@@ -8,9 +8,8 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { decks, deckCards, printings, cards, inventoryItems, binders, users, articles } from '@/lib/postgres/schema';
+import { decks, deckCards, printings, cards, inventoryItems, binders, users, articles, bannedCards } from '@/lib/postgres/schema';
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
-import { getBannedCardIds } from '@/lib/fab-banned-cards';
 import { nanoid } from 'nanoid';
 import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
 import type {
@@ -1950,16 +1949,40 @@ export class PostgresDeckService implements IDeckService {
           isHero: cards.isHero,
           rarity: printings.rarity,
           llRestricted: cards.llRestricted,
-          llBanned: cards.llBanned,
         })
         .from(deckCards)
         .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
         .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .where(eq(deckCards.deckId, deck.id));
 
-      // Ban sets from static source (lib/fab-banned-cards.ts)
-      const ccBannedIds = getBannedCardIds('cc');
-      const sageBannedIds = getBannedCardIds('silver age');
+      // Active banned set for this format, sourced from the `banned_cards`
+      // registry (managed via /admin/banned-cards). Replaces the static
+      // lib/fab-banned-cards.ts list and the cards.llBanned column so admin
+      // toggles take effect immediately.
+      const registryFormat = ({
+        'cc': 'classic_constructed',
+        'classic constructed': 'classic_constructed',
+        'silver age': 'silver_age',
+        'blitz': 'blitz',
+        'commoner': 'commoner',
+        'll': 'living_legend',
+        'living legend': 'living_legend',
+      } as Record<string, string>)[format];
+
+      const bannedIds = new Set<string>();
+      if (registryFormat) {
+        const bannedRows = await db
+          .select({ cardUniqueId: bannedCards.cardUniqueId })
+          .from(bannedCards)
+          .where(
+            and(
+              eq(bannedCards.format, registryFormat),
+              eq(bannedCards.restrictionType, 'banned'),
+              eq(bannedCards.statusActive, true),
+            ),
+          );
+        for (const r of bannedRows) bannedIds.add(r.cardUniqueId);
+      }
 
       // Separate hero from the rest — hero is not part of the card pool count
       const heroCards = cardRows.filter(r => r.category === 'hero');
@@ -2017,7 +2040,7 @@ export class PostgresDeckService implements IDeckService {
             errors.push(`A card exceeds the ${maxCopies}-copy limit for Classic Constructed.`);
             copyCounts.delete(key); // report each card once
           }
-          if (row.cardUniqueId && ccBannedIds.has(row.cardUniqueId)) {
+          if (row.cardUniqueId && bannedIds.has(row.cardUniqueId)) {
             errors.push('Deck contains a card banned in Classic Constructed.');
           }
         }
@@ -2075,7 +2098,7 @@ export class PostgresDeckService implements IDeckService {
           if (row.rarity && !silverAgeRarities.has(row.rarity.toLowerCase())) {
             errors.push(`Deck contains a non-Silver Age rarity card (${row.rarity}).`);
           }
-          if (row.cardUniqueId && sageBannedIds.has(row.cardUniqueId)) {
+          if (row.cardUniqueId && bannedIds.has(row.cardUniqueId)) {
             errors.push('Deck contains a card banned in Silver Age.');
           }
         }
@@ -2110,8 +2133,7 @@ export class PostgresDeckService implements IDeckService {
             errors.push(`A card exceeds the ${maxCopies}-copy limit for Living Legend.`);
             copyCounts.delete(key);
           }
-          // LL bans come from DB (no static list in fab-banned-cards.ts for LL yet)
-          if (row.llBanned) {
+          if (row.cardUniqueId && bannedIds.has(row.cardUniqueId)) {
             errors.push('Deck contains a card banned in Living Legend.');
           }
         }

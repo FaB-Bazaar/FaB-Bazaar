@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards } from '@/lib/postgres/schema';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -1017,17 +1017,27 @@ export class PostgresPrintingsService implements IPrintingsService {
         conditions.push(eq(legalField, true));
       }
 
-      // Exclude banned unless explicitly included
+      // Exclude banned unless explicitly included.
+      // Source of truth is the `banned_cards` registry (managed via the admin
+      // UI at /admin/banned-cards). The `cards.{format}_banned` columns are a
+      // vestigial denormalized cache; the registry is queried directly so admin
+      // toggles take effect immediately. See lib/services/postgres/banned-cards.
       if (!filters.includeBanned) {
-        const bannedField = {
-          blitz: cards.blitzBanned,
-          cc: cards.ccBanned,
-          commoner: cards.commonerBanned,
-          ll: cards.llBanned,
-          silver_age: cards.silverAgeBanned,
+        const registryFormat = {
+          blitz: 'blitz',
+          cc: 'classic_constructed',
+          commoner: 'commoner',
+          ll: 'living_legend',
+          silver_age: 'silver_age',
         }[filters.format];
-        if (bannedField) {
-          conditions.push(eq(bannedField, false));
+        if (registryFormat) {
+          conditions.push(sql`NOT EXISTS (
+            SELECT 1 FROM ${bannedCards}
+            WHERE ${bannedCards.cardUniqueId} = ${cards.cardUniqueId}
+              AND ${bannedCards.format} = ${registryFormat}
+              AND ${bannedCards.restrictionType} = 'banned'
+              AND ${bannedCards.statusActive} = true
+          )`);
         }
       }
 
