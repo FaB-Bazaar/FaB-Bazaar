@@ -39,7 +39,14 @@ import type {
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
-import { validateCardForHero, validateCopyLimit, deckFormatToSnake } from './validation';
+import {
+  validateCardForHero,
+  validateCopyLimit,
+  validateFormatLegal,
+  validateNotSuspended,
+  validateNotBanned,
+  deckFormatToSnake,
+} from './validation';
 
 export class PostgresDeckService implements IDeckService {
   // ====================================
@@ -1257,7 +1264,7 @@ export class PostgresDeckService implements IDeckService {
         return { success: false, error: 'Deck not found or access denied' };
       }
 
-      // Pre-fetch all printings (including class/talent + copy-limit fields)
+      // Pre-fetch all printings (class/talent + copy-limit + format-legal/suspended fields)
       const uniquePrintingIds = [...new Set(printingsToAdd.map((p) => p.printingId))];
       const printingDocs = await db
         .select({
@@ -1269,6 +1276,15 @@ export class PostgresDeckService implements IDeckService {
           talents: cards.talents,
           keywords: cards.keywords,
           llRestricted: cards.llRestricted,
+          silverAgeLegal: cards.silverAgeLegal,
+          ccLegal: cards.ccLegal,
+          blitzLegal: cards.blitzLegal,
+          commonerLegal: cards.commonerLegal,
+          llLegal: cards.llLegal,
+          silverAgeSuspended: cards.silverAgeSuspended,
+          ccSuspended: cards.ccSuspended,
+          blitzSuspended: cards.blitzSuspended,
+          commonerSuspended: cards.commonerSuspended,
         })
         .from(printings)  // Now correctly refers to schema table
         .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
@@ -1282,6 +1298,35 @@ export class PostgresDeckService implements IDeckService {
       // the deck has no hero yet (newly created without one).
       const heroNameRaw = deck[0].heroName?.trim().toLowerCase();
       const heroInfo = heroNameRaw ? getHeroInfo(heroNameRaw) : null;
+
+      // Pre-fetch the banlist for this deck's format (one query per call).
+      const deckFormat = deck[0].format ?? '';
+      const formatSnake = deckFormatToSnake(deckFormat);
+      const banlistRegistryFormat = ({
+        silver_age: 'silver_age',
+        cc: 'classic_constructed',
+        blitz: 'blitz',
+        commoner: 'commoner',
+        ll: 'living_legend',
+      } as Record<string, string>)[formatSnake ?? ''];
+      const bannedSet = new Set<string>();
+      if (banlistRegistryFormat) {
+        const cardUniqueIds = printingDocs
+          .map(p => p.cardUniqueId)
+          .filter((id): id is string => !!id);
+        if (cardUniqueIds.length > 0) {
+          const bannedRows = await db
+            .select({ cardUniqueId: bannedCards.cardUniqueId })
+            .from(bannedCards)
+            .where(and(
+              inArray(bannedCards.cardUniqueId, cardUniqueIds),
+              eq(bannedCards.format, banlistRegistryFormat),
+              eq(bannedCards.restrictionType, 'banned'),
+              eq(bannedCards.statusActive, true),
+            ));
+          bannedRows.forEach(r => bannedSet.add(r.cardUniqueId!));
+        }
+      }
 
       const results: AddPrintingResultDTO[] = [];
       let totalCardsAdded = 0;
@@ -1318,6 +1363,43 @@ export class PostgresDeckService implements IDeckService {
           }
         }
 
+        const cardLabel = printingData.displayName || printingData.name;
+
+        // Format-legal flag: card.{format}Legal must be true for the deck's format.
+        if (category !== 'hero') {
+          const formatCheck = validateFormatLegal(printingData, deckFormat);
+          if (!formatCheck.ok) {
+            results.push({
+              printingId: item.printingId,
+              success: false,
+              error: `${cardLabel}: ${formatCheck.reason}`,
+            });
+            continue;
+          }
+
+          // Suspended flag (Living Legend has no suspended concept).
+          const suspCheck = validateNotSuspended(printingData, deckFormat);
+          if (!suspCheck.ok) {
+            results.push({
+              printingId: item.printingId,
+              success: false,
+              error: `${cardLabel}: ${suspCheck.reason}`,
+            });
+            continue;
+          }
+
+          // Banlist registry.
+          const banCheck = validateNotBanned(printingData.cardUniqueId, bannedSet);
+          if (!banCheck.ok) {
+            results.push({
+              printingId: item.printingId,
+              success: false,
+              error: `${cardLabel}: ${banCheck.reason}`,
+            });
+            continue;
+          }
+        }
+
         // Hero legality check — skipped for the hero card itself.
         if (heroInfo && category !== 'hero') {
           const legality = validateCardForHero(
@@ -1328,7 +1410,7 @@ export class PostgresDeckService implements IDeckService {
             results.push({
               printingId: item.printingId,
               success: false,
-              error: `${printingData.displayName || printingData.name}: ${legality.reason}`,
+              error: `${cardLabel}: ${legality.reason}`,
             });
             continue;
           }

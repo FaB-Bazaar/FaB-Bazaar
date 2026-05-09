@@ -9,10 +9,10 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/postgres/db';
-import { users, decks, cards, printings } from '@/lib/postgres/schema';
+import { users, decks, cards, printings, bannedCards } from '@/lib/postgres/schema';
 import { PostgresDeckService } from './PostgresDeckService';
 
 const service = new PostgresDeckService();
@@ -24,6 +24,8 @@ let bruteAttackPrintingId: string;
 let kanoHeroPrintingId: string;
 let kanoAdultHeroPrintingId: string;
 let crucibleWeaponPrintingId: string;
+let nonSAGELegalWizardPrintingId: string;
+let bannedInCCPrintingId: string;
 
 beforeAll(async () => {
   // Aether Quickening (red) — wizard, legal for Kano
@@ -85,9 +87,39 @@ beforeAll(async () => {
     .limit(1);
   if (!crucible[0]) throw new Error('Need Crucible of Aetherweave in DB');
   crucibleWeaponPrintingId = crucible[0].id;
+
+  // A wizard card that is NOT Silver Age legal but IS CC legal — for testing
+  // the format-legal flag on add (separate from hero/talent legality).
+  const nonSAGE = await db
+    .select({ id: printings.printingId })
+    .from(printings)
+    .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+    .where(and(
+      eq(cards.silverAgeLegal, false),
+      eq(cards.ccLegal, true),
+      eq(cards.classes, sql`ARRAY['wizard']::text[]`),
+    ))
+    .limit(1);
+  if (!nonSAGE[0]) throw new Error('Need a non-SAGE-legal wizard card in DB');
+  nonSAGELegalWizardPrintingId = nonSAGE[0].id;
+
+  // A card banned in CC — for testing the banlist on add.
+  const banned = await db
+    .select({ id: printings.printingId })
+    .from(printings)
+    .innerJoin(bannedCards, eq(printings.cardUniqueId, bannedCards.cardUniqueId))
+    .where(and(
+      eq(bannedCards.format, 'classic_constructed'),
+      eq(bannedCards.restrictionType, 'banned'),
+      eq(bannedCards.statusActive, true),
+    ))
+    .limit(1);
+  if (!banned[0]) throw new Error('Need a CC-banned card in DB');
+  bannedInCCPrintingId = banned[0].id;
 });
 
 let testDeckPublicId: string;
+let testCCDeckPublicId: string;
 
 beforeEach(async () => {
   testUserId = crypto.randomUUID();
@@ -104,6 +136,20 @@ beforeEach(async () => {
     slug: `slug-${testDeckPublicId}`,
     format: 'Silver Age',
     heroName: 'kano',
+    visibility: 'private',
+  });
+
+  // Also create an adult-Kano CC deck for format-legal/banlist tests.
+  const idCC = nanoid(21);
+  testCCDeckPublicId = nanoid(21);
+  await db.insert(decks).values({
+    id: idCC,
+    publicId: testCCDeckPublicId,
+    userId: testUserId,
+    name: `Test Kano CC ${testCCDeckPublicId}`,
+    slug: `slug-${testCCDeckPublicId}`,
+    format: 'Classic Constructed',
+    heroName: 'kano, dracai of aether',
     visibility: 'private',
   });
 });
@@ -128,8 +174,10 @@ describe('PostgresDeckService.addPrintings — legality validation', () => {
     expect(result.data.summary.failed).toBe(1);
   });
 
-  it('rejects a brute card (Beast Within) for Kano with a clear per-card reason', async () => {
-    const result = await service.addPrintings(testDeckPublicId, testUserId, [
+  it('rejects a brute card (Beast Within) for a Kano CC deck via class check', async () => {
+    // Use the CC deck (where Beast Within is ccLegal=true) so the format-legal
+    // check passes and the predicate falls through to the class check.
+    const result = await service.addPrintings(testCCDeckPublicId, testUserId, [
       { printingId: bruteAttackPrintingId, quantity: 1, category: 'maindeck' },
     ]);
 
@@ -204,6 +252,42 @@ describe('PostgresDeckService.addPrintings — legality validation', () => {
     if (!result.success) return;
     const item = result.data.results[0];
     expect(item.success).toBe(true);
+  });
+
+  it('rejects a card not legal in the deck format (silverAgeLegal=false in a SAGE deck)', async () => {
+    const result = await service.addPrintings(testDeckPublicId, testUserId, [
+      { printingId: nonSAGELegalWizardPrintingId, quantity: 1, category: 'maindeck' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(false);
+    expect(item.error!).toMatch(/silver age/i);
+    expect(item.error!).toMatch(/not legal/i);
+  });
+
+  it('accepts the same card in a CC deck (where ccLegal=true)', async () => {
+    const result = await service.addPrintings(testCCDeckPublicId, testUserId, [
+      { printingId: nonSAGELegalWizardPrintingId, quantity: 1, category: 'maindeck' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(true);
+  });
+
+  it('rejects a card banned in the deck format (banlist registry)', async () => {
+    const result = await service.addPrintings(testCCDeckPublicId, testUserId, [
+      { printingId: bannedInCCPrintingId, quantity: 1, category: 'maindeck' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(false);
+    expect(item.error!).toMatch(/banned/i);
   });
 
   it('mixed batch: legal card succeeds, illegal card fails — both reported in results[]', async () => {

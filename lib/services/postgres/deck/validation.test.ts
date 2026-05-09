@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateCardForHero, validateCopyLimit } from './validation';
+import { validateCardForHero, validateCopyLimit, validateFormatLegal, validateNotSuspended, validateNotBanned } from './validation';
 
 const kanoYoung = { classes: ['wizard'], talents: [], essences: [] };
 const briarYoung = { classes: ['runeblade'], talents: ['elemental'], essences: ['earth', 'lightning'] };
@@ -136,5 +136,85 @@ describe('validateCopyLimit', () => {
   it('keyword check is case-insensitive', () => {
     expect(validateCopyLimit(99, 'Silver Age', { keywords: ['Unlimited'] })).toEqual({ ok: true });
     expect(validateCopyLimit(99, 'Silver Age', { keywords: ['UNLIMITED'] })).toEqual({ ok: true });
+  });
+});
+
+describe('validateFormatLegal', () => {
+  it('Silver Age accepts a card whose silverAgeLegal=true', () => {
+    expect(validateFormatLegal({ silverAgeLegal: true }, 'Silver Age')).toEqual({ ok: true });
+  });
+
+  it('Silver Age rejects a card whose silverAgeLegal=false (e.g. LL-only)', () => {
+    const result = validateFormatLegal({ silverAgeLegal: false, llLegal: true }, 'Silver Age');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/silver age/i);
+    expect(result.reason).toMatch(/not legal/i);
+  });
+
+  it('Classic Constructed rejects a card whose ccLegal=false', () => {
+    const result = validateFormatLegal({ ccLegal: false }, 'Classic Constructed');
+    expect(result.ok).toBe(false);
+  });
+
+  it('Classic Constructed accepts a card whose ccLegal=true', () => {
+    expect(validateFormatLegal({ ccLegal: true }, 'Classic Constructed')).toEqual({ ok: true });
+  });
+
+  it('Living Legend uses llLegal', () => {
+    expect(validateFormatLegal({ llLegal: false }, 'Living Legend').ok).toBe(false);
+    expect(validateFormatLegal({ llLegal: true }, 'Living Legend')).toEqual({ ok: true });
+  });
+
+  it('free-form formats (Casual / Limited / UPF) skip the check', () => {
+    expect(validateFormatLegal({}, 'Casual')).toEqual({ ok: true });
+    expect(validateFormatLegal({}, 'Limited')).toEqual({ ok: true });
+    expect(validateFormatLegal({}, 'Ultimate Pit Fight')).toEqual({ ok: true });
+  });
+
+  it('treats missing flag as unknown — skip rather than reject', () => {
+    expect(validateFormatLegal({}, 'Silver Age')).toEqual({ ok: true });
+  });
+});
+
+describe('validateNotSuspended', () => {
+  it('Classic Constructed accepts a non-suspended card', () => {
+    expect(validateNotSuspended({ ccSuspended: false }, 'Classic Constructed')).toEqual({ ok: true });
+  });
+
+  it('Classic Constructed rejects a suspended card', () => {
+    const result = validateNotSuspended({ ccSuspended: true }, 'Classic Constructed');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/suspend/i);
+  });
+
+  it('Silver Age uses silverAgeSuspended', () => {
+    expect(validateNotSuspended({ silverAgeSuspended: true }, 'Silver Age').ok).toBe(false);
+    expect(validateNotSuspended({ silverAgeSuspended: false }, 'Silver Age')).toEqual({ ok: true });
+  });
+
+  it('Living Legend has no suspended concept (always ok)', () => {
+    expect(validateNotSuspended({}, 'Living Legend')).toEqual({ ok: true });
+  });
+});
+
+describe('validateNotBanned', () => {
+  it('accepts when card is not in banned set', () => {
+    const banned = new Set<string>(['cardA', 'cardB']);
+    expect(validateNotBanned('cardC', banned)).toEqual({ ok: true });
+  });
+
+  it('rejects when card is in banned set', () => {
+    const banned = new Set<string>(['cardA']);
+    const result = validateNotBanned('cardA', banned);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/banned/i);
+  });
+
+  it('accepts when cardUniqueId is null/undefined', () => {
+    expect(validateNotBanned(null, new Set<string>(['x']))).toEqual({ ok: true });
+    expect(validateNotBanned(undefined, new Set<string>(['x']))).toEqual({ ok: true });
   });
 });

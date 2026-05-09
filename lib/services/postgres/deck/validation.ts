@@ -71,6 +71,69 @@ export function deckFormatToSnake(format: string | null | undefined): string | u
   }
 }
 
+// Card-level format legality flag check. Each format has a boolean column
+// (silverAgeLegal, ccLegal, blitzLegal, commonerLegal, llLegal) on cards that
+// is true when the card has at least one printing at a format-legal rarity
+// (e.g. a Marvel-rarity printing of a card that also has a Common printing
+// is fine — silverAgeLegal stays true for that card).
+type FormatLegalFields = {
+  silverAgeLegal?: boolean;
+  ccLegal?: boolean;
+  blitzLegal?: boolean;
+  commonerLegal?: boolean;
+  llLegal?: boolean;
+};
+
+const FORMAT_LEGAL_FIELD: Record<string, keyof FormatLegalFields> = {
+  'Silver Age': 'silverAgeLegal',
+  'Classic Constructed': 'ccLegal',
+  'Blitz': 'blitzLegal',
+  'Commoner': 'commonerLegal',
+  'Living Legend': 'llLegal',
+};
+
+export function validateFormatLegal(card: FormatLegalFields, format: string): Predicate {
+  const field = FORMAT_LEGAL_FIELD[format];
+  if (!field) return { ok: true };
+  const flag = card[field];
+  if (flag === undefined) return { ok: true }; // missing data — skip rather than reject
+  if (flag === false) return { ok: false, reason: `not legal in ${format}` };
+  return { ok: true };
+}
+
+type FormatSuspendedFields = {
+  silverAgeSuspended?: boolean;
+  ccSuspended?: boolean;
+  blitzSuspended?: boolean;
+  commonerSuspended?: boolean;
+};
+
+const FORMAT_SUSPENDED_FIELD: Record<string, keyof FormatSuspendedFields> = {
+  'Silver Age': 'silverAgeSuspended',
+  'Classic Constructed': 'ccSuspended',
+  'Blitz': 'blitzSuspended',
+  'Commoner': 'commonerSuspended',
+};
+
+export function validateNotSuspended(card: FormatSuspendedFields, format: string): Predicate {
+  const field = FORMAT_SUSPENDED_FIELD[format];
+  if (!field) return { ok: true }; // Living Legend / free-form: no suspended concept
+  const flag = card[field];
+  if (flag === true) return { ok: false, reason: `suspended in ${format}` };
+  return { ok: true };
+}
+
+export function validateNotBanned(
+  cardUniqueId: string | null | undefined,
+  bannedSet: Set<string>,
+): Predicate {
+  if (!cardUniqueId) return { ok: true };
+  if (bannedSet.has(cardUniqueId)) {
+    return { ok: false, reason: 'banned in this format' };
+  }
+  return { ok: true };
+}
+
 // Format-specific maximum-copy rule.
 //
 // Returns ok if `newTotalCount` (existing + adding) is within the format's
