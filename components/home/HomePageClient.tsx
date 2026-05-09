@@ -101,9 +101,10 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
     e.preventDefault();
     const query = searchInputRef.current?.value.trim();
     if (query) {
+      const view = window.innerWidth < 768 ? 'images' : 'checklist';
       const params = new URLSearchParams({
         q: query, priceField: 'tcg_low', limit: '24',
-        sortBy: 'name', sortOrder: 'asc', show: 'summary', view: 'checklist'
+        sortBy: 'name', sortOrder: 'asc', show: 'summary', view
       });
       router.push(`/search/results?${params.toString()}`);
     }

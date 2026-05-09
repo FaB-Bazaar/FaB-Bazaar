@@ -41,6 +41,15 @@ function SearchResultsContent() {
     return (view === 'images' || view === 'checklist') ? view : 'checklist';
   });
 
+  // On mobile, default to images view when the URL doesn't specify one
+  useEffect(() => {
+    if (searchParams.get('view')) return;
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('images');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Selection hook
   const selection = useSearchSelection();
 
