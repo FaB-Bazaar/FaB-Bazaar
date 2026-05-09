@@ -39,7 +39,7 @@ import type {
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 import { getHeroInfo } from '@/lib/fab-constants/heroes';
-import { validateCardForHero } from './validation';
+import { validateCardForHero, validateCopyLimit } from './validation';
 
 export class PostgresDeckService implements IDeckService {
   // ====================================
@@ -1342,15 +1342,18 @@ export class PostgresDeckService implements IDeckService {
         return { success: false, error: 'Deck not found or access denied' };
       }
 
-      // Pre-fetch all printings (including class/talent for legality checks)
+      // Pre-fetch all printings (including class/talent + copy-limit fields)
       const uniquePrintingIds = [...new Set(printingsToAdd.map((p) => p.printingId))];
       const printingDocs = await db
         .select({
           printingId: printings.printingId,  // Now correctly refers to schema table
+          cardUniqueId: printings.cardUniqueId,
           name: cards.name,
           displayName: cards.displayName,
           classes: cards.classes,
           talents: cards.talents,
+          keywords: cards.keywords,
+          llRestricted: cards.llRestricted,
         })
         .from(printings)  // Now correctly refers to schema table
         .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
@@ -1393,6 +1396,35 @@ export class PostgresDeckService implements IDeckService {
               printingId: item.printingId,
               success: false,
               error: `${printingData.displayName || printingData.name}: ${legality.reason}`,
+            });
+            continue;
+          }
+        }
+
+        // Copy-limit check — count existing copies of this cardUniqueId across
+        // all non-hero categories in the deck, then apply the format's per-card
+        // limit. Skipped for category='hero'.
+        if (category !== 'hero' && printingData.cardUniqueId) {
+          const existingRows = await db
+            .select({ qty: sql<number>`COALESCE(SUM(${deckCards.quantity}), 0)::int` })
+            .from(deckCards)
+            .innerJoin(printings, eq(deckCards.printingId, printings.printingId))
+            .where(and(
+              eq(deckCards.deckId, deck[0].id),
+              eq(printings.cardUniqueId, printingData.cardUniqueId),
+              sql`${deckCards.category} != 'hero'`,
+            ));
+          const existingQty = Number(existingRows[0]?.qty ?? 0);
+          const newTotal = existingQty + quantity;
+          const copyCheck = validateCopyLimit(newTotal, deck[0].format ?? '', {
+            keywords: printingData.keywords,
+            llRestricted: printingData.llRestricted ?? false,
+          });
+          if (!copyCheck.ok) {
+            results.push({
+              printingId: item.printingId,
+              success: false,
+              error: `${printingData.displayName || printingData.name}: ${copyCheck.reason}`,
             });
             continue;
           }

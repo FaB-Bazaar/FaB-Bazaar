@@ -55,3 +55,51 @@ function heroLegalityReason(kind: 'class' | 'talent', offending: string, hero: H
     .filter(Boolean);
   return `${kind} "${offending}" not legal — hero plays [${heroParts.join(' + ')}]`;
 }
+
+// Format-specific maximum-copy rule.
+//
+// Returns ok if `newTotalCount` (existing + adding) is within the format's
+// per-card limit. The "unlimited" keyword exempts a card from the limit.
+// Living Legend treats 'legendary'-keyword cards and llRestricted cards as
+// 1-of. Casual/Limited/UPF apply no limit.
+export function validateCopyLimit(
+  newTotalCount: number,
+  format: string,
+  card: { keywords?: string[] | null; llRestricted?: boolean },
+): Predicate {
+  const keywordsLower = (card.keywords ?? []).map(k => k.toLowerCase());
+  if (keywordsLower.includes('unlimited')) return { ok: true };
+
+  const f = format.toLowerCase();
+
+  if (f === 'casual' || f === 'limited' || f === 'ultimate pit fight') {
+    return { ok: true };
+  }
+
+  if (f === 'living legend') {
+    if (card.llRestricted && newTotalCount > 1) {
+      return { ok: false, reason: `restricted in Living Legend (max 1, would be ${newTotalCount})` };
+    }
+    if (keywordsLower.includes('legendary') && newTotalCount > 1) {
+      return { ok: false, reason: `legendary cards limited to 1 (would be ${newTotalCount})` };
+    }
+    if (newTotalCount > 3) {
+      return { ok: false, reason: `Living Legend allows max 3 copies (would be ${newTotalCount})` };
+    }
+    return { ok: true };
+  }
+
+  if (f === 'classic constructed') {
+    if (newTotalCount > 3) {
+      return { ok: false, reason: `Classic Constructed allows max 3 copies (would be ${newTotalCount})` };
+    }
+    return { ok: true };
+  }
+
+  // Silver Age, Blitz, Commoner — 2-of formats
+  if (newTotalCount > 2) {
+    const label = format;
+    return { ok: false, reason: `${label} allows max 2 copies per card+pitch (would be ${newTotalCount})` };
+  }
+  return { ok: true };
+}

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateCardForHero } from './validation';
+import { validateCardForHero, validateCopyLimit } from './validation';
 
 const kanoYoung = { classes: ['wizard'], talents: [], essences: [] };
 const briarYoung = { classes: ['runeblade'], talents: ['elemental'], essences: ['earth', 'lightning'] };
@@ -76,5 +76,65 @@ describe('validateCardForHero', () => {
   it('treats null classes/talents the same as empty', () => {
     const card = { classes: null, talents: null } as any;
     expect(validateCardForHero(card, kanoYoung)).toEqual({ ok: true });
+  });
+});
+
+describe('validateCopyLimit', () => {
+  it('Silver Age: 2 copies ok', () => {
+    expect(validateCopyLimit(2, 'Silver Age', {})).toEqual({ ok: true });
+  });
+
+  it('Silver Age: 3 copies rejected', () => {
+    const result = validateCopyLimit(3, 'Silver Age', {});
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/2/);
+    expect(result.reason).toMatch(/silver age/i);
+  });
+
+  it('Blitz: 3 copies rejected', () => {
+    const result = validateCopyLimit(3, 'Blitz', {});
+    expect(result.ok).toBe(false);
+  });
+
+  it('Classic Constructed: 3 copies ok', () => {
+    expect(validateCopyLimit(3, 'Classic Constructed', {})).toEqual({ ok: true });
+  });
+
+  it('Classic Constructed: 4 copies rejected', () => {
+    const result = validateCopyLimit(4, 'Classic Constructed', {});
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/3/);
+  });
+
+  it('Living Legend: legendary keyword limited to 1', () => {
+    const result = validateCopyLimit(2, 'Living Legend', { keywords: ['legendary'] });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/legendary/i);
+  });
+
+  it('Living Legend: ll-restricted limited to 1', () => {
+    const result = validateCopyLimit(2, 'Living Legend', { llRestricted: true });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toMatch(/restricted/i);
+  });
+
+  it('Any format: unlimited keyword is exempt from copy limit', () => {
+    expect(validateCopyLimit(99, 'Silver Age', { keywords: ['unlimited'] })).toEqual({ ok: true });
+    expect(validateCopyLimit(99, 'Classic Constructed', { keywords: ['unlimited'] })).toEqual({ ok: true });
+  });
+
+  it('Casual / Limited / UPF formats apply no copy limit', () => {
+    expect(validateCopyLimit(99, 'Casual', {})).toEqual({ ok: true });
+    expect(validateCopyLimit(99, 'Limited', {})).toEqual({ ok: true });
+    expect(validateCopyLimit(99, 'Ultimate Pit Fight', {})).toEqual({ ok: true });
+  });
+
+  it('keyword check is case-insensitive', () => {
+    expect(validateCopyLimit(99, 'Silver Age', { keywords: ['Unlimited'] })).toEqual({ ok: true });
+    expect(validateCopyLimit(99, 'Silver Age', { keywords: ['UNLIMITED'] })).toEqual({ ok: true });
   });
 });

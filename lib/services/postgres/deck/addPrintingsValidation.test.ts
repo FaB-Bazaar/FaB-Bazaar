@@ -141,6 +141,36 @@ describe('PostgresDeckService.addPrintings — legality validation', () => {
     expect(result.data.summary.added).toBe(1);
   });
 
+  it('rejects a 3rd copy of the same printing in Silver Age', async () => {
+    // First add 2 — legal
+    await service.addPrintings(testDeckPublicId, testUserId, [
+      { printingId: aetherQuickeningPrintingId, quantity: 2, category: 'maindeck' },
+    ]);
+    // Now try to add a 3rd
+    const result = await service.addPrintings(testDeckPublicId, testUserId, [
+      { printingId: aetherQuickeningPrintingId, quantity: 1, category: 'maindeck' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(false);
+    expect(item.error!).toMatch(/2 copies|max 2/i);
+    expect(result.data.summary.added).toBe(0);
+  });
+
+  it('rejects an over-quantity add in a single call (3 copies in one shot)', async () => {
+    const result = await service.addPrintings(testDeckPublicId, testUserId, [
+      { printingId: aetherQuickeningPrintingId, quantity: 3, category: 'maindeck' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(false);
+    expect(item.error!).toMatch(/2 copies|max 2/i);
+  });
+
   it('mixed batch: legal card succeeds, illegal card fails — both reported in results[]', async () => {
     const result = await service.addPrintings(testDeckPublicId, testUserId, [
       { printingId: aetherQuickeningPrintingId, quantity: 2, category: 'maindeck' },
