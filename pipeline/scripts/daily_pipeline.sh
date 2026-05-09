@@ -297,6 +297,21 @@ else
 fi
 
 ################################################################################
+# Step 04b (NEW): Load today's snapshot into the embedded DuckDB analytical
+# store for daily-movers computation in step 11.
+#
+# DuckDB is a single file at /app/data/prices.duckdb (no daemon). Skipped on
+# --dry-run since there's no real snapshot to load.
+################################################################################
+
+if [ "${DRY_RUN}" = true ]; then
+    log "⏭️  Step 04b skipped (--dry-run, no snapshot to load)"
+else
+    run_script "04b" "DuckDB Snapshot Load - Append today's snapshot to price_snapshots" \
+        "python3 004b_load_snapshot_to_duckdb.py ${PRICE_SNAPSHOT}"
+fi
+
+################################################################################
 # Step 08: Daily Price Updater → PostgreSQL (compare new snapshot vs old DB prices)
 # Runs BEFORE Step 05 so it sees yesterday's prices still in the DB
 ################################################################################
@@ -322,32 +337,19 @@ else
 fi
 
 ################################################################################
-# Step 11: Price Analysis Export
+# Step 11: Compute Movers (DuckDB-powered).
+#
+# Replaces the old JSON-files-on-disk diff (007_price_analysis.py). Reads
+# from the embedded DuckDB file populated by step 04b and writes:
+#   - market_analysis_export.json  (consumed by step 12 / Discord poster)
+#   - daily_movers rows in Postgres (consumed by the Next.js app)
+#
+# The 007 script is kept in scripts/ as a fallback — to revert, swap the
+# command below back to it.
 ################################################################################
 
-# Find the two most recent snapshots in price_history/ by Unix timestamp in filename
-HISTORY_DIR="${SCRIPT_DIR}/price_history"
-if [ -d "${HISTORY_DIR}" ]; then
-    # NOTE: use awk (not head/tail) so an early-close can't SIGPIPE upstream sort.
-    # With pipefail + set -e, that would silently kill the whole script.
-    NEWEST_FILE=$(ls "${HISTORY_DIR}"/*.json 2>/dev/null | \
-                  sed 's/.*_\([0-9]*\)\.json/\1 &/' | \
-                  sort -rn | \
-                  awk 'NR==1 {print $2; exit}')
-    SECOND_NEWEST_FILE=$(ls "${HISTORY_DIR}"/*.json 2>/dev/null | \
-                         sed 's/.*_\([0-9]*\)\.json/\1 &/' | \
-                         sort -rn | \
-                         awk 'NR==2 {print $2; exit}')
-
-    if [ -n "${NEWEST_FILE}" ] && [ -n "${SECOND_NEWEST_FILE}" ] && [ "${NEWEST_FILE}" != "${SECOND_NEWEST_FILE}" ]; then
-        run_script "11" "Price Analysis Export - Compare historical snapshots and generate market analysis" \
-            "python3 007_price_analysis.py \"${SECOND_NEWEST_FILE}\" \"${NEWEST_FILE}\""
-    else
-        log "⚠️  Step 11 skipped - Need at least 2 snapshots in price_history/ for comparison"
-    fi
-else
-    log "⚠️  Step 11 skipped - price_history/ directory not found"
-fi
+run_script "11" "Compute Movers (DuckDB) - SQL diff + write daily_movers" \
+    "python3 010_compute_movers.py --export-json market_analysis_export.json"
 
 ################################################################################
 # Step 12: Discord Market Poster

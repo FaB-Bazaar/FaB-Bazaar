@@ -25,6 +25,9 @@ seeds/*.sql
 # manual test scripts (local dev only, not for CI)
 **/*.manual-test.ts
 
+# local-only Docker Compose overrides (port mappings, dev-only services)
+docker-compose.override.yml
+
 # explicitly allow .env.example (needed for Docker build)
 !.env.example
 

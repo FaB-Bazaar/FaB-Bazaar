@@ -111,9 +111,13 @@ services:
       # Override DB URLs with Docker service name (localhost won't resolve inside a container)
       POSTGRES_URL_STAGING: postgresql://${POSTGRES_USER:-fabbazaar}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-fabbazaar_dev}
       POSTGRES_URL_PROD: postgresql://${POSTGRES_USER:-fabbazaar}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-fabbazaar_dev}
+      # DuckDB analytical store path (single file, embedded engine, no daemon)
+      DUCKDB_PATH: /app/data/prices.duckdb
     volumes:
       - pipeline_price_history:/app/scripts/price_history
       - pipeline_logs:/app/scripts/logs
+      # DuckDB file persists here across container restarts and rebuilds
+      - pipeline_duckdb:/app/data
     networks:
       - fabbazaar
     depends_on:
@@ -134,3 +138,4 @@ volumes:
   caddy_config:
   pipeline_price_history:
   pipeline_logs:
+  pipeline_duckdb:
