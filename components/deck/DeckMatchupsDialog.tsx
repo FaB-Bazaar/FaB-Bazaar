@@ -22,7 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
-import { getBannedCardIds, getLivingLegendHeroIds } from '@/lib/fab-banned-cards';
+import { useExcludedHeroIds } from '@/hooks/banned-cards/useExcludedHeroIds';
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
 import { getStrategyPortraitUrl } from "@/lib/fab-constants/strategyPortraits";
 import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
@@ -63,12 +63,9 @@ function toHeroDisplayName(key: string): string {
 
 // Helper function to get appropriate hero list based on deck format,
 // filtered to only include heroes legal in that format.
-function getHeroOptionsForFormat(format?: string) {
-  const bannedIds = getBannedCardIds(format || '');
-  const livingLegendIds = getLivingLegendHeroIds(format || '');
-
+function getHeroOptionsForFormat(format: string | undefined, excludedHeroIds: Set<string>) {
   const isExcluded = (cardUniqueId?: string) =>
-    cardUniqueId && (bannedIds.has(cardUniqueId) || livingLegendIds.has(cardUniqueId));
+    !!cardUniqueId && excludedHeroIds.has(cardUniqueId);
 
   // Silver Age and Blitz use young heroes
   if (format === 'Silver Age' || format === 'Blitz') {
@@ -374,7 +371,8 @@ export default function DeckMatchupsDialog({
   const [availableInventoryCards, setAvailableInventoryCards] = useState<Map<string, number>>(new Map());
 
   // Get hero options based on deck format
-  const HERO_OPTIONS = getHeroOptionsForFormat(deck?.format);
+  const excludedHeroIds = useExcludedHeroIds(deck?.format ?? '');
+  const HERO_OPTIONS = getHeroOptionsForFormat(deck?.format, excludedHeroIds);
 
   // Fetch matchups
   const fetchMatchups = async () => {

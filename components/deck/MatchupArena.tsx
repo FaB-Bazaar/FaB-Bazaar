@@ -16,7 +16,7 @@ import {
   getStrategyPortraitUrl,
   isStrategyId,
 } from "@/lib/fab-constants/strategyPortraits";
-import { getBannedCardIds, getLivingLegendHeroIds } from "@/lib/fab-banned-cards";
+import { useExcludedHeroIds } from "@/hooks/banned-cards/useExcludedHeroIds";
 import { toTalisharIdentifier } from "@/lib/utils";
 import { canEditDeck } from "@/lib/utils/deck-permissions";
 import { computeMatchupRecords, type MatchupRecord } from "@/lib/utils/matchup-records";
@@ -54,11 +54,9 @@ function toDisplayName(key: string): string {
   return key.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getHeroOptionsForFormat(format?: string): HeroOption[] {
-  const bannedIds = getBannedCardIds(format || "");
-  const livingLegendIds = getLivingLegendHeroIds(format || "");
+function getHeroOptionsForFormat(format: string | undefined, excludedHeroIds: Set<string>): HeroOption[] {
   const isExcluded = (cardUniqueId?: string) =>
-    !!cardUniqueId && (bannedIds.has(cardUniqueId) || livingLegendIds.has(cardUniqueId));
+    !!cardUniqueId && excludedHeroIds.has(cardUniqueId);
   const source = format === "Silver Age" || format === "Blitz" ? YOUNG_HERO_INFO : HERO_INFO;
   return Object.entries(source)
     .filter(([_, info]) => !isExcluded(info.cardUniqueId))
@@ -175,7 +173,11 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
     };
   }, [deckId, editable]);
 
-  const heroOptions = useMemo(() => getHeroOptionsForFormat(deck?.format), [deck?.format]);
+  const excludedHeroIds = useExcludedHeroIds(deck?.format ?? "");
+  const heroOptions = useMemo(
+    () => getHeroOptionsForFormat(deck?.format, excludedHeroIds),
+    [deck?.format, excludedHeroIds],
+  );
   const strategyOptions = useMemo<HeroOption[]>(
     () =>
       STRATEGY_IDS.map((id) => ({

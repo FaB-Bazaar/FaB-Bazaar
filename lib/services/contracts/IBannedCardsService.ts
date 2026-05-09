@@ -70,6 +70,9 @@ export interface IBannedCardsService {
   /** Fast check: is the card in an active ban (restriction_type='banned') for the format? */
   isBanned(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean>
 
+  /** Active banned hero card_unique_ids for a format (heroes only — non-hero bans excluded). */
+  listBannedHeroIds(format: BannedFormat): AsyncResult<string[]>
+
   /** Fast check: is the card in an active restriction (restriction_type='restricted', 1-per-deck)? */
   isRestricted(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean>
 

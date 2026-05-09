@@ -153,6 +153,35 @@ export class PostgresBannedCardsService implements IBannedCardsService {
     return this.hasActiveRestriction(cardUniqueId, format, 'banned')
   }
 
+  /**
+   * Active banned hero card_unique_ids for a format.
+   *
+   * Joins `banned_cards` to `cards` to filter to heroes only — used by the
+   * public hero-picker filter. After the registry seed of LL-attained heroes,
+   * this captures both regular bans (rare for heroes) and LL-attained heroes
+   * who were registered as banned in CC. Restricted-list rows are excluded.
+   */
+  async listBannedHeroIds(format: BannedFormat): AsyncResult<string[]> {
+    try {
+      const rows = await db
+        .select({ cardUniqueId: bannedCards.cardUniqueId })
+        .from(bannedCards)
+        .innerJoin(cards, eq(cards.cardUniqueId, bannedCards.cardUniqueId))
+        .where(
+          and(
+            eq(bannedCards.format, format),
+            eq(bannedCards.restrictionType, 'banned'),
+            eq(bannedCards.statusActive, true),
+            eq(cards.isHero, true),
+          ),
+        )
+
+      return { success: true, data: rows.map(r => r.cardUniqueId) }
+    } catch (err) {
+      return { success: false, error: describeError(err, 'Failed to list banned hero ids') }
+    }
+  }
+
   async isRestricted(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean> {
     return this.hasActiveRestriction(cardUniqueId, format, 'restricted')
   }

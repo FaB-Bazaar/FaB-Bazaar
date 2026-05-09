@@ -12,7 +12,7 @@ import { decksClient } from "@/lib/client";
 import CommunityDeckCard from "@/components/deck/CommunityDeckCard";
 import type { PublicDeckSummaryDTO, DeckFormat } from "@/lib/services/contracts/IDeckService";
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants";
-import { getBannedCardIds, getLivingLegendHeroIds } from "@/lib/fab-banned-cards";
+import { useExcludedHeroIds } from "@/hooks/banned-cards/useExcludedHeroIds";
 
 // ── Format helpers ────────────────────────────────────────────────────────────
 
@@ -98,11 +98,9 @@ function toDisplayName(name: string) {
   return name.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getHeroOptionsForFormat(format: string) {
-  const bannedIds = getBannedCardIds(format);
-  const livingLegendIds = getLivingLegendHeroIds(format);
+function getHeroOptionsForFormat(format: string, excludedHeroIds: Set<string>) {
   const isExcluded = (cardUniqueId?: string) =>
-    cardUniqueId && (bannedIds.has(cardUniqueId) || livingLegendIds.has(cardUniqueId));
+    !!cardUniqueId && excludedHeroIds.has(cardUniqueId);
   const source = format === "Silver Age" || format === "Blitz" ? YOUNG_HERO_INFO : HERO_INFO;
   return Object.entries(source)
     .filter(([_, info]) => !isExcluded(info.cardUniqueId))
@@ -237,7 +235,11 @@ export default function DecksToBeatPage() {
     return () => clearTimeout(t);
   }, [usernameInput]);
 
-  const heroOptions = useMemo(() => (format ? getHeroOptionsForFormat(format) : []), [format]);
+  const excludedHeroIds = useExcludedHeroIds(format);
+  const heroOptions = useMemo(
+    () => (format ? getHeroOptionsForFormat(format, excludedHeroIds) : []),
+    [format, excludedHeroIds],
+  );
 
   const handleFormatSelect = (f: string) => {
     setFormat(format === f ? "Classic Constructed" : f);
