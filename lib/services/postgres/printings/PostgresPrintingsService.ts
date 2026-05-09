@@ -648,17 +648,14 @@ export class PostgresPrintingsService implements IPrintingsService {
           conditions.push(phraseCondition);
         }
       } else {
-        // Broad mode (default): typo-tolerant name matching:
-        // 1. ILIKE per term handles out-of-order words (e.g., "skeleta bloodsheath")
-        // 2. word_similarity handles typos (e.g., "bloodsheat" → "bloodsheath")
-        // Note: "//" is filtered out as it's a split-card separator, not a search term
+        // Broad mode (default): typo-tolerant name matching against cards.name only.
+        // 1. ILIKE per term handles out-of-order words (e.g. "skeleta bloodsheath")
+        // 2. word_similarity handles typos (e.g. "bloodsheat" → "bloodsheath")
+        // cards.name is stored lowercased and has a gin_trgm index, so ILIKE on the
+        // lowercased query hits the index. Rule text and displayName are not searched
+        // here — use filters.text or filters.searchableText for rule-text search.
         const terms = normalizedName.split(/\s+/).filter(t => t.length > 0 && t !== '//');
-        // Check both name and displayName so that searching "Comet Storm // Shock"
-        // finds cards where the secondary face name lives in displayName
-        const termConditions = terms.map(term => or(
-          sql`${cards.name} ILIKE ${`%${term}%`}`,
-          sql`${cards.displayName} ILIKE ${`%${term}%`}`
-        ));
+        const termConditions = terms.map(term => sql`${cards.name} ILIKE ${`%${term}%`}`);
 
         const nameSearch = or(
           and(...termConditions),

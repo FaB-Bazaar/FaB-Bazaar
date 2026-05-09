@@ -724,6 +724,12 @@ export default function QuickAddCardDialog({
     setSelectedCard(null);
     setPage(1);
 
+    // Cancel any in-flight fetch from a previous run of this effect (stale-response guard).
+    // The controller aborts the network request; the cancelled flag covers fetchTypeCards,
+    // which uses an internal cache and can't be aborted directly.
+    const controller = new AbortController();
+    let cancelled = false;
+
     // Browse by type chip — check cache first (skip when keyword or set filter active)
     if (!hasQuery && hasType && !hasKeyword && !hasSets && targetCategory !== 'hero' && targetCategory !== 'equipment') {
       const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === effectiveType);
@@ -744,15 +750,15 @@ export default function QuickAddCardDialog({
       if (cached) {
         setCards(applyFilters(cached));
         setLoading(false);
-        return;
+        return () => { cancelled = true; controller.abort(); };
       }
 
       // Not cached — fetch and cache
       fetchTypeCards(poolParams, apiType, chipValue)
-        .then(cards => setCards(applyFilters(cards)))
-        .catch(() => setError("Search failed. Please try again."))
-        .finally(() => setLoading(false));
-      return;
+        .then(cards => { if (!cancelled) setCards(applyFilters(cards)); })
+        .catch(() => { if (!cancelled) setError("Search failed. Please try again."); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; controller.abort(); };
     }
 
     // Name search or hero/equipment — always fetch fresh (no cache)
@@ -760,8 +766,8 @@ export default function QuickAddCardDialog({
     const rawQuery = debouncedQuery.trim();
     if (hasQuery) {
       if (initialSearch) {
-        // Swap mode: use name= directly so exact flag applies — shorthand parser puts
-        // plain text into searchableText which bypasses the exact check in the service
+        // Swap mode: bypass the parser and use name= + exact=true so the search
+        // matches one specific card name (the parser would broaden it).
         params.set("name", rawQuery);
         params.set("exact", "true");
       } else {
@@ -800,9 +806,10 @@ export default function QuickAddCardDialog({
       if (code) params.set("format", code);
     }
 
-    fetch(`/api/printings/search?${params}`)
+    fetch(`/api/printings/search?${params}`, { signal: controller.signal })
       .then(r => r.json())
       .then((data: { success?: boolean; data?: { printings?: PrintingResult[] } }) => {
+        if (cancelled) return;
         if (data.success && data.data?.printings) {
           // Inline group for name search results (not cached)
           const map = new Map<string, CardResult>();
@@ -820,8 +827,13 @@ export default function QuickAddCardDialog({
           setError("Search failed. Please try again.");
         }
       })
-      .catch(() => setError("Search failed. Please try again."))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (cancelled || err?.name === 'AbortError') return;
+        setError("Search failed. Please try again.");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery, selectedType, effectiveType, selectedPitch, effectivePitch, selectedKeyword, selectedSets.join(","), effectiveSets.join(","), targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
 

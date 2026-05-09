@@ -627,7 +627,7 @@ export class FABShorthandParser {
       parser: (match, filters) => {
         const isNot = match[1] === '!' || match[1] === '-';
         const searchText = match[2];
-        
+
         if (isNot) {
           filters.textNot = searchText;
         } else {
@@ -637,6 +637,24 @@ export class FABShorthandParser {
       },
       description: "Exact text search (! or - for NOT)",
       examples: ['text:"create a gold"', 'text:"runechant"', 'text:!"dagger"', 'text:-"destroy"']
+    },
+
+    // Unquoted single-token text search: text:ice, text:!dagger
+    // Multi-word phrases must use the quoted form above.
+    {
+      pattern: /\btext:([!-]?)([a-z0-9][a-z0-9_-]*)/gi,
+      parser: (match, filters) => {
+        const isNot = match[1] === '!' || match[1] === '-';
+        const searchText = match[2];
+
+        if (isNot) {
+          filters.textNot = searchText;
+        } else {
+          filters.text = searchText;
+        }
+      },
+      description: "Single-word rule-text search (! or - for NOT)",
+      examples: ['text:ice', 'text:runechant', 'text:!dagger']
     },
 
     // Format searches
@@ -703,10 +721,12 @@ export class FABShorthandParser {
       .replace(/[\u2018\u2019\u0027\u0060]/g, "'")
       .trim();
 
-    // Map to searchableText for broad search (searches name, text, classes, talents, etc.)
+    // Map remaining plain text to filters.name (typo-tolerant name search).
+    // Rule text is intentionally excluded from the default — use text:"phrase" or
+    // text:word to search rule text explicitly.
     if (remainingText && remainingText.length > 0) {
-      filters.searchableText = remainingText;
-      parsedTokens.push(`"${remainingText}" (broad search)`);
+      filters.name = remainingText;
+      parsedTokens.push(`"${remainingText}" (name search)`);
     }
 
     return {
