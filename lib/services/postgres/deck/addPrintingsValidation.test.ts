@@ -22,6 +22,7 @@ let aetherQuickeningPrintingId: string;
 let aetherHailPrintingId: string;
 let bruteAttackPrintingId: string;
 let kanoHeroPrintingId: string;
+let kanoAdultHeroPrintingId: string;
 let crucibleWeaponPrintingId: string;
 
 beforeAll(async () => {
@@ -64,6 +65,16 @@ beforeAll(async () => {
     .limit(1);
   if (!kano[0]) throw new Error('Need young Kano in DB');
   kanoHeroPrintingId = kano[0].id;
+
+  // Adult Kano hero printing — wrong age for Silver Age decks
+  const kanoAdult = await db
+    .select({ id: printings.printingId })
+    .from(printings)
+    .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+    .where(eq(cards.name, 'kano, dracai of aether'))
+    .limit(1);
+  if (!kanoAdult[0]) throw new Error('Need adult Kano in DB');
+  kanoAdultHeroPrintingId = kanoAdult[0].id;
 
   // Crucible of Aetherweave — wizard weapon, legal equipment for Kano
   const crucible = await db
@@ -169,6 +180,30 @@ describe('PostgresDeckService.addPrintings — legality validation', () => {
     const item = result.data.results[0];
     expect(item.success).toBe(false);
     expect(item.error!).toMatch(/2 copies|max 2/i);
+  });
+
+  it('rejects an adult hero card added to a Silver Age deck (wrong age)', async () => {
+    const result = await service.addPrintings(testDeckPublicId, testUserId, [
+      { printingId: kanoAdultHeroPrintingId, quantity: 1, category: 'hero' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(false);
+    expect(item.error!).toMatch(/silver age/i);
+    expect(item.error!).toMatch(/young/i);
+  });
+
+  it('accepts the matching young hero card in a Silver Age deck', async () => {
+    const result = await service.addPrintings(testDeckPublicId, testUserId, [
+      { printingId: kanoHeroPrintingId, quantity: 1, category: 'hero' },
+    ]);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(true);
   });
 
   it('mixed batch: legal card succeeds, illegal card fails — both reported in results[]', async () => {

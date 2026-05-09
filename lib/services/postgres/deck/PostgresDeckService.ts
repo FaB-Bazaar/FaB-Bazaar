@@ -38,8 +38,8 @@ import type {
   ApplyPrintingUpgradesResultDTO,
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
-import { getHeroInfo } from '@/lib/fab-constants/heroes';
-import { validateCardForHero, validateCopyLimit } from './validation';
+import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
+import { validateCardForHero, validateCopyLimit, deckFormatToSnake } from './validation';
 
 export class PostgresDeckService implements IDeckService {
   // ====================================
@@ -1299,6 +1299,24 @@ export class PostgresDeckService implements IDeckService {
 
         const category = item.category || 'maindeck';
         const quantity = item.quantity || 1;
+
+        // Hero card → enforce age/format match (adult heroes only in CC/LL,
+        // young heroes only in Silver Age/Blitz/Commoner). Skipped for free-form
+        // formats (Limited/Casual/UPF).
+        if (category === 'hero' && printingData.name) {
+          const formatSnake = deckFormatToSnake(deck[0].format);
+          if (formatSnake) {
+            const check = validateHeroFormatLegality(printingData.name, formatSnake);
+            if (!check.ok) {
+              results.push({
+                printingId: item.printingId,
+                success: false,
+                error: `${printingData.displayName || printingData.name}: ${check.error}`,
+              });
+              continue;
+            }
+          }
+        }
 
         // Hero legality check — skipped for the hero card itself.
         if (heroInfo && category !== 'hero') {

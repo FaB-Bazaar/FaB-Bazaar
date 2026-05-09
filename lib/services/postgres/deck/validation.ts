@@ -56,6 +56,21 @@ function heroLegalityReason(kind: 'class' | 'talent', offending: string, hero: H
   return `${kind} "${offending}" not legal — hero plays [${heroParts.join(' + ')}]`;
 }
 
+// Map the display-name format stored on decks (e.g. "Silver Age") to the
+// snake_case enum used by other format-aware utilities (e.g. validateHeroFormatLegality).
+// Returns undefined for free-form formats with no hero-age constraint.
+export function deckFormatToSnake(format: string | null | undefined): string | undefined {
+  if (!format) return undefined;
+  switch (format) {
+    case 'Silver Age': return 'silver_age';
+    case 'Blitz': return 'blitz';
+    case 'Commoner': return 'commoner';
+    case 'Classic Constructed': return 'cc';
+    case 'Living Legend': return 'll';
+    default: return undefined;
+  }
+}
+
 // Format-specific maximum-copy rule.
 //
 // Returns ok if `newTotalCount` (existing + adding) is within the format's
