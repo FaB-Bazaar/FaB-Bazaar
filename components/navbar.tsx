@@ -33,6 +33,7 @@ import {
   GraduationCap,
   Link2,
   Pin,
+  TrendingUp,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -439,6 +440,12 @@ export default function Navbar() {
             <Link href="/wants" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <FileText className="h-4 w-4 mr-2" />
               Wants List
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/daily" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Daily Movers
             </Link>
           </DropdownMenuItem>
 
@@ -960,6 +967,9 @@ export default function Navbar() {
                       </Link>
                       <Link href="/wants" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Wants List</div>
+                      </Link>
+                      <Link href="/daily" onClick={() => setIsMenuOpen(false)}>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Daily Movers</div>
                       </Link>
                       {bindersLoading ? (
                         <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>

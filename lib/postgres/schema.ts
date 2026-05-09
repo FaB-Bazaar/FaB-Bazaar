@@ -13,6 +13,8 @@ import {
   boolean,
   integer,
   real,
+  numeric,
+  smallint,
   uniqueIndex,
   index,
   pgEnum,
@@ -1262,4 +1264,30 @@ export const bannedCards = pgTable('banned_cards', {
   cardFormatRestrictionUnique: uniqueIndex('banned_cards_card_unique_id_format_restriction_unique').on(table.cardUniqueId, table.format, table.restrictionType),
   formatActiveIdx: index('banned_cards_format_active_idx').on(table.format, table.statusActive),
   cardUniqueIdIdx: index('banned_cards_card_unique_id_idx').on(table.cardUniqueId),
+}));
+
+// ============================================================================
+// DAILY MOVERS (analytical results — populated by the pipeline, NEVER from app code)
+// ============================================================================
+//
+// One row per (as_of_date, signal_type, printing_id). Populated nightly by the
+// pipeline's compute_movers step (DuckDB → Postgres reverse-ETL). The app reads
+// this table to render the /daily page; nothing in the app should INSERT here.
+// 1-year retention is enforced by the pipeline.
+
+export const dailyMovers = pgTable('daily_movers', {
+  asOfDate: date('as_of_date').notNull(),
+  printingId: text('printing_id').notNull(),
+  signalType: text('signal_type').notNull(),  // 'top_gainer' | 'top_decliner' | 'breakout' | 'steady_riser'
+  pAtSignal: numeric('p_at_signal', { precision: 10, scale: 2 }).notNull(),
+  refPrice: numeric('ref_price', { precision: 10, scale: 2 }),
+  dollarChange: numeric('dollar_change', { precision: 10, scale: 2 }),
+  pctChange: numeric('pct_change', { precision: 7, scale: 2 }),
+  rankInSignal: smallint('rank_in_signal'),
+  extra: jsonb('extra'),
+  computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.asOfDate, table.signalType, table.printingId] }),
+  printingIdx: index('idx_daily_movers_printing').on(table.printingId, table.asOfDate.desc()),
+  recentIdx: index('idx_daily_movers_recent').on(table.asOfDate.desc(), table.signalType),
 }));

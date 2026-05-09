@@ -30,6 +30,7 @@ import type { ICuratedListService } from './contracts/ICuratedListService';
 import type { ICuratorHeroAssignmentService } from './contracts/ICuratorHeroAssignmentService';
 import type { ICustomTokenCardService } from './contracts/ICustomTokenCardService';
 import type { IBannedCardsService } from './contracts/IBannedCardsService';
+import type { IDailyMoversService } from './contracts/IDailyMoversService';
 
 // Deprecated contracts (kept only because other files import their DTO types)
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -56,6 +57,7 @@ import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/Po
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 import { PostgresBannedCardsService } from './postgres/banned-cards/PostgresBannedCardsService';
+import { PostgresDailyMoversService } from './postgres/daily-movers/PostgresDailyMoversService';
 
 
 /**
@@ -97,6 +99,7 @@ class ServiceFactory {
   private static _curatorHeroAssignmentService: ICuratorHeroAssignmentService | null = null;
   private static _customTokenCardService: ICustomTokenCardService | null = null;
   private static _bannedCardsService: IBannedCardsService | null = null;
+  private static _dailyMoversService: IDailyMoversService | null = null;
 
   /**
    * Get the User Service instance
@@ -481,6 +484,17 @@ class ServiceFactory {
   static setBannedCardsService(service: IBannedCardsService): void {
     this._bannedCardsService = service;
   }
+
+  static get dailyMoversService(): IDailyMoversService {
+    if (!this._dailyMoversService) {
+      this._dailyMoversService = new PostgresDailyMoversService();
+    }
+    return this._dailyMoversService;
+  }
+
+  static setDailyMoversService(service: IDailyMoversService): void {
+    this._dailyMoversService = service;
+  }
 }
 
 /**
@@ -521,6 +535,7 @@ export const customTokenCardService = ServiceFactory.customTokenCardService;
 export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
 export const bannedCardsService = ServiceFactory.bannedCardsService;
+export const dailyMoversService = ServiceFactory.dailyMoversService;
 
 
 /**

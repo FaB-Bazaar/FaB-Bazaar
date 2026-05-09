@@ -21,6 +21,7 @@ function getPageContext(pathname: string): string {
   if (pathname.startsWith('/heroes/')) return 'Heroes'
   if (pathname.startsWith('/printing/')) return 'PrintingDetails'
   if (pathname === '/browse') return 'Browse'
+  if (pathname === '/daily') return 'DailyMovers'
   return 'Other'
 }
 
