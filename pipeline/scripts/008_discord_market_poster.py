@@ -214,9 +214,10 @@ class MarketAnalysisPoster:
         if not data:
             return False
 
-        # Guard: skip post if no price changes were detected (stale data)
+        # Guard: skip post if no movers were found (stale data). Reads the keys
+        # that 010_compute_movers.py actually writes into market_stats.
         stats = data.get('market_stats', {})
-        if stats.get('increases', 0) == 0 and stats.get('decreases', 0) == 0:
+        if stats.get('top_gainers_count', 0) == 0 and stats.get('top_decliners_count', 0) == 0:
             print("Skipping Discord post — no price changes detected (possible stale data)")
             return True
 
