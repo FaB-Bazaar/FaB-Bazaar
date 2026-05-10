@@ -15,6 +15,7 @@ import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCa
 import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrintingsDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
+import MobileBuildToolsPanel from "@/components/deck/editor/MobileBuildToolsPanel";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -509,6 +510,14 @@ export default function DeckEditorPage() {
   const [keywordBuffer, setKeywordBuffer] = useState('');
   // Tile size — synced from DeckEditorListView via custom events
   const [tileSize, setTileSize] = useState({ idx: 0, label: 'Compact', total: 3 });
+  // Ownership filter — mirrored locally so the mobile Build Tools panel can show pressed state.
+  // Keyboard chords (O/U) toggle; mobile panel sets explicitly via { setExplicit: true }.
+  const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
+  const dispatchOwnershipFilter = (filter: 'all' | 'owned' | 'unowned', setExplicit: boolean) => {
+    window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter, setExplicit } }));
+    if (setExplicit) setOwnershipFilter(filter);
+    else setOwnershipFilter(prev => (prev === filter ? 'all' : filter));
+  };
   // Range picker state for numeric highlight sub-modes
   const [hudRangeMin, setHudRangeMin] = useState(0);
   const [hudRangeMax, setHudRangeMax] = useState(9);
@@ -565,8 +574,8 @@ export default function DeckEditorPage() {
         else if (e.key.toLowerCase() === 'k') { setChordMode('keyword'); setKeywordBuffer(''); startTimeout(); }
         else if (e.key.toLowerCase() === 'f') { setChordMode('clear'); startTimeout(); }
         else if (e.key.toLowerCase() === 'w') { setChordMode('arcane'); startTimeout(); }
-        else if (e.key.toLowerCase() === 'o') { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); resetChord(); }
-        else if (e.key.toLowerCase() === 'u') { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); resetChord(); }
+        else if (e.key.toLowerCase() === 'o') { dispatchOwnershipFilter('owned', false); resetChord(); }
+        else if (e.key.toLowerCase() === 'u') { dispatchOwnershipFilter('unowned', false); resetChord(); }
         else { resetChord(); }
         return;
       }
@@ -1124,8 +1133,8 @@ export default function DeckEditorPage() {
           'W': () => setChordMode('arcane'),
           'S': () => { setChordMode('nameFilter'); setKeywordBuffer(''); },
           'M': () => { router.push(`/decks/${deckId}/matchups`); setChordMode(null); },
-          'O': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'owned' } })); setChordMode(null); },
-          'U': () => { window.dispatchEvent(new CustomEvent('deck-ownership-filter', { detail: { filter: 'unowned' } })); setChordMode(null); },
+          'O': () => { dispatchOwnershipFilter('owned', false); setChordMode(null); },
+          'U': () => { dispatchOwnershipFilter('unowned', false); setChordMode(null); },
         };
         const STAT_MAP: Record<string, string> = { attack: 'power', cost: 'cost', defense: 'defense', arcane: 'arcane' };
         // ── Deck distribution map for chip frequency bars ──────────────────────
@@ -1391,8 +1400,36 @@ export default function DeckEditorPage() {
               style={{ width: chordMode === 'select' ? 'min(880px, 96vw)' : undefined }}
             >
               {chordMode === 'select' ? (
-                /* ── Grouped select mode panel ── */
-                <div className="px-6 py-5">
+                <>
+                  {/* Mobile-only Build Tools panel — drops filtering, focuses on building.
+                      Jump To buttons switch to the Deck tab first so users on Cards/Matchups/Results
+                      land on the requested pitch section instead of seeing nothing happen. */}
+                  <div className="sm:hidden">
+                    <MobileBuildToolsPanel
+                      modKey={modKey}
+                      ownershipFilter={ownershipFilter}
+                      onClose={() => setChordMode(null)}
+                      onScrollToTop={() => {
+                        if (activeTab !== 'deck') setActiveTab('deck');
+                        // Two RAFs: one to flush the tab switch, the second to wait for the new section to mount.
+                        requestAnimationFrame(() => requestAnimationFrame(() => {
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }));
+                        setChordMode(null);
+                      }}
+                      onScrollToSection={(color) => {
+                        if (activeTab !== 'deck') setActiveTab('deck');
+                        requestAnimationFrame(() => requestAnimationFrame(() => {
+                          document.getElementById(`deck-section-${color}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }));
+                        setChordMode(null);
+                      }}
+                      onAddCards={(category) => { openQuickAdd({ category: category as DeckCategory }); setChordMode(null); }}
+                      onOwnershipFilter={(filter) => dispatchOwnershipFilter(filter, true)}
+                    />
+                  </div>
+                {/* ── Grouped select mode panel — desktop ── */}
+                <div className="hidden sm:block px-6 py-5">
                   {/* Panel header */}
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{modKey}K · Deck Tools</span>
@@ -1488,6 +1525,7 @@ export default function DeckEditorPage() {
                     </div>
                   </div>
                 </div>
+                </>
               ) : (
                 /* ── Sub-mode bar ── */
                 <div className="flex items-center gap-3 text-sm text-gray-200 px-4 py-3 flex-wrap">
@@ -1610,7 +1648,7 @@ export default function DeckEditorPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/decks"
-                className="flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                className="hidden sm:flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 title="Back to Decks"
               >
                 <ArrowLeft className="h-4 w-4" />

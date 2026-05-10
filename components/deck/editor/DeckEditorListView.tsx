@@ -1891,8 +1891,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     };
     const handleClear = () => setHighlightFilters([]);
     const handleOwnershipFilter = (e: Event) => {
-      const { filter } = (e as CustomEvent).detail as { filter: 'all' | 'owned' | 'unowned' };
-      setOwnershipFilter(prev => prev === filter ? 'all' : filter);
+      const detail = (e as CustomEvent).detail as { filter: 'all' | 'owned' | 'unowned'; setExplicit?: boolean };
+      if (detail.setExplicit) setOwnershipFilter(detail.filter);
+      else setOwnershipFilter(prev => prev === detail.filter ? 'all' : detail.filter);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
