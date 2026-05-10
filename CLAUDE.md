@@ -23,6 +23,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 
 ## Key Rules
 
+- **Test-first for new features and bugfixes** — invoke the `/tdd` skill before writing implementation code. Watch the test fail (RED), write minimal code to pass (GREEN), then manual-test against the real runtime (dev server + curl for APIs, Playwright for UI). Tests-after produces suites that pass on first run and prove nothing about regressions. If you skipped TDD, say so explicitly and run a manual walkthrough before marking the work done.
 - **PostgreSQL only** — MongoDB fully removed (2026-03-08). No Mongoose models, no MongoDB connections. The `models/` directory is dead code.
 - **Don't modify auth middleware** — authentication is working and locked down
 - **File locking** — many core files are locked and cannot be modified
