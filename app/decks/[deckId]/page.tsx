@@ -26,6 +26,8 @@ import { preloadCardPool } from "@/lib/client/card-pool-cache";
 import { getHeroInfo } from "@/lib/fab-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
+import { useIsMobile } from "@/components/ui/use-mobile";
+import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck-flow/quickAddRouting";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -202,6 +204,16 @@ export default function DeckEditorPage() {
 
   // Quick-add dialog state
   const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
+
+  // Mobile users get the inline Cards tab (MobileCardSearch) instead of the
+  // desktop QuickAddCardDialog, whose 390px filter sidebar stacks above the
+  // results on narrow viewports.
+  const isMobile = useIsMobile();
+  const openQuickAdd = (target: QuickAddTarget) => {
+    const action = resolveQuickAddAction(isMobile, target);
+    if (action.kind === "switchTab") setActiveTab(action.tab);
+    else setQuickAddTarget(action.target);
+  };
 
   // Optimistic deck state for instant qty feedback in sidebar
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
@@ -533,9 +545,9 @@ export default function DeckEditorPage() {
 
       if (chordMode === 'select') {
         // Navigation & actions
-        if (e.key === '9') { setQuickAddTarget({ category: 'maindeck' }); resetChord(); }
-        else if (e.key === '8') { setQuickAddTarget({ category: 'inventory' }); resetChord(); }
-        else if (e.key === '7') { setQuickAddTarget({ category: 'benched' as DeckCategory }); resetChord(); }
+        if (e.key === '9') { openQuickAdd({ category: 'maindeck' }); resetChord(); }
+        else if (e.key === '8') { openQuickAdd({ category: 'inventory' }); resetChord(); }
+        else if (e.key === '7') { openQuickAdd({ category: 'benched' as DeckCategory }); resetChord(); }
         else if (e.key.toLowerCase() === 's') { setChordMode('nameFilter'); setKeywordBuffer(''); startTimeout(); }
         else if (e.key.toLowerCase() === 'm') { router.push(`/decks/${deckId}/matchups`); resetChord(); }
         // Scroll
@@ -1100,9 +1112,9 @@ export default function DeckEditorPage() {
           '2': () => { scrollTo('deck-section-yellow'); setChordMode(null); },
           '3': () => { scrollTo('deck-section-blue'); setChordMode(null); },
           '4': () => { scrollTo('deck-section-inventory'); setChordMode(null); },
-          '7': () => { setQuickAddTarget({ category: 'benched' as DeckCategory }); setChordMode(null); },
-          '8': () => { setQuickAddTarget({ category: 'inventory' }); setChordMode(null); },
-          '9': () => { setQuickAddTarget({ category: 'maindeck' }); setChordMode(null); },
+          '7': () => { openQuickAdd({ category: 'benched' as DeckCategory }); setChordMode(null); },
+          '8': () => { openQuickAdd({ category: 'inventory' }); setChordMode(null); },
+          '9': () => { openQuickAdd({ category: 'maindeck' }); setChordMode(null); },
           'A': () => setChordMode('attack'),
           'C': () => setChordMode('cost'),
           'D': () => { if (activeTab !== 'deck') { setActiveTab('deck'); setChordMode(null); } else setChordMode('defense'); },
@@ -2030,7 +2042,7 @@ export default function DeckEditorPage() {
                     onAddOneTile={(printingId, category, currentQty) =>
                       handleUpdateDeckCardQty(printingId, currentQty + 1, category)
                     }
-                    onAddCard={(category, pitch) => setQuickAddTarget({ category, pitch })}
+                    onAddCard={(category, pitch) => openQuickAdd({ category, pitch })}
                     canEdit={canEdit}
                     binders={binders}
                     selectedBinderId={selectedBinderId}
@@ -2187,9 +2199,10 @@ export default function DeckEditorPage() {
         )}
       </div>
 
-      {/* Dialog: quick-add a single card to a specific zone */}
+      {/* Dialog: quick-add a single card to a specific zone (desktop only;
+          mobile users get routed to the inline Cards tab via openQuickAdd) */}
       <QuickAddCardDialog
-        open={!!quickAddTarget}
+        open={!isMobile && !!quickAddTarget}
         onOpenChange={isOpen => !isOpen && setQuickAddTarget(null)}
         onAdd={handleQuickAddCard}
         targetCategory={quickAddTarget?.category ?? "maindeck"}
