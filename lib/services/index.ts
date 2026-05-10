@@ -31,6 +31,7 @@ import type { ICuratorHeroAssignmentService } from './contracts/ICuratorHeroAssi
 import type { ICustomTokenCardService } from './contracts/ICustomTokenCardService';
 import type { IBannedCardsService } from './contracts/IBannedCardsService';
 import type { IDailyMoversService } from './contracts/IDailyMoversService';
+import type { ILeagueService } from './contracts/ILeagueService';
 
 // Deprecated contracts (kept only because other files import their DTO types)
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -58,6 +59,7 @@ import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameR
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 import { PostgresBannedCardsService } from './postgres/banned-cards/PostgresBannedCardsService';
 import { PostgresDailyMoversService } from './postgres/daily-movers/PostgresDailyMoversService';
+import { PostgresLeagueService } from './postgres/league/PostgresLeagueService';
 
 
 /**
@@ -100,6 +102,7 @@ class ServiceFactory {
   private static _customTokenCardService: ICustomTokenCardService | null = null;
   private static _bannedCardsService: IBannedCardsService | null = null;
   private static _dailyMoversService: IDailyMoversService | null = null;
+  private static _leagueService: ILeagueService | null = null;
 
   /**
    * Get the User Service instance
@@ -495,6 +498,17 @@ class ServiceFactory {
   static setDailyMoversService(service: IDailyMoversService): void {
     this._dailyMoversService = service;
   }
+
+  static get leagueService(): ILeagueService {
+    if (!this._leagueService) {
+      this._leagueService = new PostgresLeagueService();
+    }
+    return this._leagueService;
+  }
+
+  static setLeagueService(service: ILeagueService): void {
+    this._leagueService = service;
+  }
 }
 
 /**
@@ -536,6 +550,7 @@ export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
 export const bannedCardsService = ServiceFactory.bannedCardsService;
 export const dailyMoversService = ServiceFactory.dailyMoversService;
+export const leagueService = ServiceFactory.leagueService;
 
 
 /**
