@@ -294,7 +294,10 @@ def main():
         "buying_opportunities": {"major_drops": [to_json_card(r) for r in decliners]},
         "advanced_strategies": {
             "high_volatility": [to_json_card(r) for r in breakouts],
-            "value_opportunities": [to_json_card(r) for r in steady_risers],
+            # Renamed from "value_opportunities" — that legacy key (inherited
+            # from 007_price_analysis) implied price drops, but the data is
+            # cards trending up. See test_steady_risers.py for the contract.
+            "steady_risers": [to_json_card(r) for r in steady_risers],
         },
     }
 

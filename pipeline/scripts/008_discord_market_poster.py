@@ -173,17 +173,26 @@ class MarketAnalysisPoster:
 
         return message
 
-    def create_value_opportunities_message(self, data: Dict) -> str:
-        """Create message for calculated value opportunities."""
-        opportunities = data.get('advanced_strategies', {}).get('value_opportunities', [])
+    def create_steady_risers_message(self, data: Dict) -> str:
+        """
+        Create message for steady risers — cards trending up smoothly over
+        the 30-day window (computed by 010_compute_movers' STEADY_RISERS_SQL).
 
-        if not opportunities:
-            return "No value opportunities identified."
+        Previously called `create_value_opportunities_message` and labeled
+        "Notable Drops by Rarity" — that copy was inherited from an earlier
+        producer (007_price_analysis) that wrote actual drops to the same
+        key. The current producer writes risers, so the rename here matches
+        what's in the data.
+        """
+        risers = data.get('advanced_strategies', {}).get('steady_risers', [])
 
-        message = "## 💎 Notable Drops by Rarity\n\n"
-        message += "*Cards with significant price decreases, filtered by rarity and type*\n\n"
+        if not risers:
+            return "No steady risers identified."
 
-        for i, card in enumerate(opportunities[:3], 1):
+        message = "## 📈 Steady Risers\n\n"
+        message += "*Cards trending up smoothly over the past month, filtered by rarity and type*\n\n"
+
+        for i, card in enumerate(risers[:3], 1):
             old_price = self.format_price(card.get('old_price', 0))
             new_price = self.format_price(card.get('new_price', 0))
             pct_change = self.format_percentage(card.get('percent_change', 0))
@@ -267,9 +276,9 @@ class MarketAnalysisPoster:
 
             await asyncio.sleep(1)
 
-            # Post value opportunities
-            value_msg = self.create_value_opportunities_message(data)
-            await channel.send(value_msg)
+            # Post steady risers (renamed from value_opportunities — see method docstring)
+            risers_msg = self.create_steady_risers_message(data)
+            await channel.send(risers_msg)
 
             # Footer message
             footer = "---\n📊 *TCGPlayer prices compared to previous day. Not financial advice.*"
