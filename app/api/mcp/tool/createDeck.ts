@@ -17,6 +17,20 @@ function toRegistryFormat(format: string): BannedFormat | null {
   }
 }
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
+import { validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
+
+// Map create_deck's display-name format to the snake_case key used by
+// validateHeroFormatLegality (e.g. "Silver Age" → "silver_age").
+function formatToSnake(format: string): string | undefined {
+  switch (format) {
+    case 'Silver Age': return 'silver_age';
+    case 'Blitz': return 'blitz';
+    case 'Commoner': return 'commoner';
+    case 'Classic Constructed': return 'cc';
+    case 'Living Legend': return 'll';
+    default: return undefined;
+  }
+}
 import { CURATED_GENERICS } from '@/app/api/mcp/resource/cardIndex';
 
 const ALL_HERO_NAMES = [...new Set([
@@ -122,6 +136,19 @@ export const createDeckTool = {
           success: false,
           error: `Invalid visibility "${visibility}". Must be one of: ${VALID_VISIBILITIES.join(', ')}`,
         };
+      }
+
+      // Hero/format mismatch guardrail — reject combos like adult-hero +
+      // Silver Age or young-hero + Classic Constructed before any DB work.
+      // Skipped for free-form formats (Limited / Casual / Ultimate Pit Fight).
+      if (heroName?.trim()) {
+        const formatSnake = formatToSnake(format);
+        if (formatSnake) {
+          const check = validateHeroFormatLegality(heroName.trim(), formatSnake);
+          if (!check.ok) {
+            return { success: false, error: check.error };
+          }
+        }
       }
 
       // Resolve hero name → printingId
