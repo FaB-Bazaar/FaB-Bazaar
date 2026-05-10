@@ -67,6 +67,17 @@ describe('PostgresLeagueService — leagues', () => {
     expect(result.data.public).toBe(true);
   });
 
+  it('createLeague persists scheduleSummary (free-text cadence)', async () => {
+    const result = await service.createLeague(ownerId, {
+      slug: `slug-${crypto.randomUUID().slice(0, 8)}`,
+      name: 'Cadence League',
+      scheduleSummary: 'Every Sunday, 7pm UTC',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.scheduleSummary).toBe('Every Sunday, 7pm UTC');
+  });
+
   it('createLeague rejects duplicate slugs', async () => {
     const slug = `slug-${crypto.randomUUID().slice(0, 8)}`;
     const first = await service.createLeague(ownerId, { slug, name: 'First' });
@@ -141,6 +152,68 @@ describe('PostgresLeagueService — leagues', () => {
     const results = await db.select().from(leagueEventDecks).where(eq(leagueEventDecks.eventId, evtRes.data.id));
     expect(events).toHaveLength(0);
     expect(results).toHaveLength(0);
+  });
+});
+
+describe('PostgresLeagueService — listLeaguesWithNextEvent (directory)', () => {
+  it('returns leagues annotated with their soonest upcoming/in_progress event', async () => {
+    const slug = `slug-${crypto.randomUUID().slice(0, 8)}`;
+    const lg = await service.createLeague(ownerId, { slug, name: 'L' });
+    if (!lg.success) throw new Error('setup failed');
+
+    const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const soon = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const later = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Past complete: should be ignored
+    await service.createEvent(lg.data.id, ownerId, { name: 'Old', scheduledFor: past, status: 'complete' });
+    // Future, but later: should be passed over for the sooner one
+    await service.createEvent(lg.data.id, ownerId, { name: 'Later', scheduledFor: later });
+    // Future, sooner: this is the expected next event
+    await service.createEvent(lg.data.id, ownerId, { name: 'Soon', scheduledFor: soon });
+
+    const result = await service.listLeaguesWithNextEvent({ ownerId });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const found = result.data.find(l => l.id === lg.data.id);
+    expect(found).toBeDefined();
+    expect(found!.nextEvent).not.toBeNull();
+    expect(found!.nextEvent!.name).toBe('Soon');
+  });
+
+  it('returns nextEvent: null when the league has no upcoming events', async () => {
+    const slug = `slug-${crypto.randomUUID().slice(0, 8)}`;
+    const lg = await service.createLeague(ownerId, { slug, name: 'Empty' });
+    if (!lg.success) throw new Error('setup failed');
+
+    const result = await service.listLeaguesWithNextEvent({ ownerId });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const found = result.data.find(l => l.id === lg.data.id);
+    expect(found).toBeDefined();
+    expect(found!.nextEvent).toBeNull();
+  });
+
+  it('only counts public events for non-owners (private events are hidden from the directory)', async () => {
+    const slug = `slug-${crypto.randomUUID().slice(0, 8)}`;
+    const lg = await service.createLeague(ownerId, { slug, name: 'PublicLeague' });
+    if (!lg.success) throw new Error('setup failed');
+
+    const soon = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000);
+    const later = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Sooner event is private; should be skipped for anonymous viewers
+    await service.createEvent(lg.data.id, ownerId, { name: 'Hidden', scheduledFor: soon, public: false });
+    await service.createEvent(lg.data.id, ownerId, { name: 'Visible', scheduledFor: later });
+
+    const anon = await service.listLeaguesWithNextEvent();
+    if (!anon.success) throw new Error('list failed');
+    const fromAnon = anon.data.find(l => l.id === lg.data.id)!;
+    expect(fromAnon.nextEvent?.name).toBe('Visible');
+
+    const asOwner = await service.listLeaguesWithNextEvent({ viewerUserId: ownerId, ownerId });
+    if (!asOwner.success) throw new Error('list failed');
+    const fromOwner = asOwner.data.find(l => l.id === lg.data.id)!;
+    expect(fromOwner.nextEvent?.name).toBe('Hidden');
   });
 });
 

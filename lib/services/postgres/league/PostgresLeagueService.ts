@@ -19,7 +19,7 @@ import {
   leagueEventDecks,
   decks,
 } from '@/lib/postgres/schema';
-import { and, eq, desc, asc, inArray, sql } from 'drizzle-orm';
+import { and, eq, desc, asc, inArray, sql, gte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type {
@@ -27,6 +27,7 @@ import type {
   LeagueDTO,
   LeagueEventDTO,
   LeagueEventDeckDTO,
+  LeagueWithNextEventDTO,
   CreateLeagueDTO,
   UpdateLeagueDTO,
   CreateLeagueEventDTO,
@@ -34,6 +35,7 @@ import type {
   AddEventResultDTO,
   UpdateEventResultDTO,
   ListLeaguesOptions,
+  ListLeaguesWithNextEventOptions,
   ListEventsOptions,
   LeagueEventStatus,
 } from '../../contracts/ILeagueService';
@@ -59,6 +61,7 @@ function toLeagueDTO(row: LeagueRow): LeagueDTO {
     discordInviteUrl: row.discordInviteUrl,
     ownerId: row.ownerId,
     public: row.public,
+    scheduleSummary: row.scheduleSummary,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -153,6 +156,7 @@ export class PostgresLeagueService implements ILeagueService {
       discordInviteUrl: dto.discordInviteUrl ?? null,
       ownerId,
       public: dto.public ?? true,
+      scheduleSummary: dto.scheduleSummary ?? null,
       metadata: dto.metadata ?? null,
       createdAt: now,
       updatedAt: now,
@@ -195,6 +199,46 @@ export class PostgresLeagueService implements ILeagueService {
     return ok(rows.map(toLeagueDTO));
   }
 
+  async listLeaguesWithNextEvent(
+    opts: ListLeaguesWithNextEventOptions = {},
+  ): AsyncResult<LeagueWithNextEventDTO[]> {
+    const leaguesResult = await this.listLeagues(opts);
+    if (!leaguesResult.success) return leaguesResult;
+    const leagueRows = leaguesResult.data;
+    if (leagueRows.length === 0) return ok([]);
+
+    // One pass to collect candidate events across all leagues. We over-fetch
+    // private events and filter visibility per-league in JS — simpler than
+    // expressing "public OR (private AND viewer is this league's owner)" in
+    // a single SQL clause when each league has a different owner.
+    const leagueIds = leagueRows.map(l => l.id);
+    const now = new Date();
+    const eventRows = await db
+      .select()
+      .from(leagueEvents)
+      .where(and(
+        inArray(leagueEvents.leagueId, leagueIds),
+        gte(leagueEvents.scheduledFor, now),
+        inArray(leagueEvents.status, ['upcoming', 'in_progress']),
+      ))
+      .orderBy(asc(leagueEvents.scheduledFor));
+
+    const byLeague = new Map<string, typeof eventRows[number][]>();
+    for (const e of eventRows) {
+      if (!byLeague.has(e.leagueId)) byLeague.set(e.leagueId, []);
+      byLeague.get(e.leagueId)!.push(e);
+    }
+
+    const viewerUserId = opts.viewerUserId;
+    const annotated: LeagueWithNextEventDTO[] = leagueRows.map(lg => {
+      const isOwner = !!viewerUserId && lg.ownerId === viewerUserId;
+      const candidates = byLeague.get(lg.id) ?? [];
+      const visible = candidates.find(e => e.public || isOwner) ?? null;
+      return { ...lg, nextEvent: visible ? toEventDTO(visible) : null };
+    });
+    return ok(annotated);
+  }
+
   async updateLeague(
     leagueId: string,
     actingUserId: string,
@@ -212,6 +256,7 @@ export class PostgresLeagueService implements ILeagueService {
     if (dto.discordGuildId !== undefined) patch.discordGuildId = dto.discordGuildId;
     if (dto.discordInviteUrl !== undefined) patch.discordInviteUrl = dto.discordInviteUrl;
     if (dto.public !== undefined) patch.public = dto.public;
+    if (dto.scheduleSummary !== undefined) patch.scheduleSummary = dto.scheduleSummary;
     if (dto.metadata !== undefined) patch.metadata = dto.metadata;
 
     const [updated] = await db

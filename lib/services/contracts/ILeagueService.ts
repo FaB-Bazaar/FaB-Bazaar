@@ -34,6 +34,7 @@ export interface LeagueDTO {
   discordInviteUrl: string | null;
   ownerId: string | null;            // null if creator deleted their account
   public: boolean;
+  scheduleSummary: string | null;    // free-text cadence, e.g. "Every Sunday 7pm UTC"
   metadata: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
@@ -81,6 +82,7 @@ export interface CreateLeagueDTO {
   discordGuildId?: string;
   discordInviteUrl?: string;
   public?: boolean;                  // defaults to true
+  scheduleSummary?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -92,6 +94,7 @@ export interface UpdateLeagueDTO {
   discordGuildId?: string | null;
   discordInviteUrl?: string | null;
   public?: boolean;
+  scheduleSummary?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
@@ -171,12 +174,26 @@ export interface ListEventsOptions {
 // Service interface
 // ============================================================================
 
+/**
+ * A league row annotated with the next upcoming/in_progress event the
+ * viewer is allowed to see. Powers the /leagues directory page.
+ */
+export interface LeagueWithNextEventDTO extends LeagueDTO {
+  nextEvent: LeagueEventDTO | null;
+}
+
+export interface ListLeaguesWithNextEventOptions extends ListLeaguesOptions {
+  /** When set and matching a league owner, private events of that league are included. */
+  viewerUserId?: string;
+}
+
 export interface ILeagueService {
   // ---------- Leagues ----------
   createLeague(ownerId: string, dto: CreateLeagueDTO): AsyncResult<LeagueDTO>;
   getLeagueById(id: string, viewerUserId?: string): AsyncResult<LeagueDTO>;
   getLeagueBySlug(slug: string, viewerUserId?: string): AsyncResult<LeagueDTO>;
   listLeagues(opts?: ListLeaguesOptions): AsyncResult<LeagueDTO[]>;
+  listLeaguesWithNextEvent(opts?: ListLeaguesWithNextEventOptions): AsyncResult<LeagueWithNextEventDTO[]>;
   updateLeague(leagueId: string, actingUserId: string, dto: UpdateLeagueDTO): AsyncResult<LeagueDTO>;
   deleteLeague(leagueId: string, actingUserId: string): AsyncResult<{ deleted: true }>;
 

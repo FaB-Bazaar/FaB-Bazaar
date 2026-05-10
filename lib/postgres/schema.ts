@@ -755,6 +755,7 @@ export const leagues = pgTable('leagues', {
   discordInviteUrl: text('discord_invite_url'),
   ownerId: text('owner_id').references(() => users.id, { onDelete: 'set null' }),
   public: boolean('public').notNull().default(true),
+  scheduleSummary: text('schedule_summary'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
