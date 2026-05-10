@@ -735,6 +735,74 @@ export const deckCards = pgTable('deck_cards', {
 }));
 
 // ============================================================================
+// LEAGUES (community-run tournament series — e.g. InkBlade League)
+// ============================================================================
+// See migration 0047_add_leagues.sql for design notes.
+// - Owner may be NULL: if the creator deletes their account the league
+//   survives ownerless. Result rows similarly preserve historical play
+//   data even after the user is gone.
+// - Discord remains the source of truth for "who's in the community";
+//   league_members / signups are deferred to a later migration.
+
+export const leagues = pgTable('leagues', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  format: text('format'),
+  bannerUrl: text('banner_url'),
+  discordGuildId: text('discord_guild_id'),
+  discordInviteUrl: text('discord_invite_url'),
+  ownerId: text('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  public: boolean('public').notNull().default(true),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  ownerIdIdx: index('idx_leagues_owner_id').on(table.ownerId),
+  publicIdx: index('idx_leagues_public').on(table.public).where(sql`${table.public} = true`),
+}));
+
+export const leagueEvents = pgTable('league_events', {
+  id: text('id').primaryKey(),
+  leagueId: text('league_id').notNull().references(() => leagues.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  scheduledFor: timestamp('scheduled_for').notNull(),
+  status: text('status').notNull().default('upcoming'), // upcoming | in_progress | complete | cancelled
+  format: text('format'),
+  public: boolean('public').notNull().default(true),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  leagueScheduledIdx: index('idx_league_events_league_scheduled').on(table.leagueId, table.scheduledFor),
+  publicUpcomingIdx: index('idx_league_events_public_upcoming')
+    .on(table.scheduledFor)
+    .where(sql`${table.public} = true AND ${table.status} IN ('upcoming', 'in_progress')`),
+}));
+
+export const leagueEventDecks = pgTable('league_event_decks', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => leagueEvents.id, { onDelete: 'cascade' }),
+  deckId: text('deck_id').references(() => decks.id, { onDelete: 'set null' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  playerHandle: text('player_handle').notNull(), // Discord username or anonymous tag; never anything more identifying
+  // Denormalized at result-recording time so hero info survives deck deletion.
+  heroName: text('hero_name'),
+  placing: integer('placing'),
+  matchRecord: text('match_record'), // free-form, e.g. "5-1-0"
+  droppedRound: integer('dropped_round'),
+  byes: integer('byes'),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  eventPlacingIdx: index('idx_league_event_decks_event_placing').on(table.eventId, table.placing),
+  userIdIdx: index('idx_league_event_decks_user').on(table.userId).where(sql`${table.userId} IS NOT NULL`),
+  deckIdIdx: index('idx_league_event_decks_deck').on(table.deckId).where(sql`${table.deckId} IS NOT NULL`),
+}));
+
+// ============================================================================
 // RELATIONS (for Drizzle queries)
 // ============================================================================
 
@@ -748,6 +816,39 @@ export const usersRelations = relations(users, ({ many }) => ({
   followedStores: many(userFollowedStores),
   managedLocations: many(locationManagers),
   eventAttendances: many(eventAttendance),
+  ownedLeagues: many(leagues),
+  leagueEventDecks: many(leagueEventDecks),
+}));
+
+export const leaguesRelations = relations(leagues, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [leagues.ownerId],
+    references: [users.id],
+  }),
+  events: many(leagueEvents),
+}));
+
+export const leagueEventsRelations = relations(leagueEvents, ({ one, many }) => ({
+  league: one(leagues, {
+    fields: [leagueEvents.leagueId],
+    references: [leagues.id],
+  }),
+  decks: many(leagueEventDecks),
+}));
+
+export const leagueEventDecksRelations = relations(leagueEventDecks, ({ one }) => ({
+  event: one(leagueEvents, {
+    fields: [leagueEventDecks.eventId],
+    references: [leagueEvents.id],
+  }),
+  deck: one(decks, {
+    fields: [leagueEventDecks.deckId],
+    references: [decks.id],
+  }),
+  user: one(users, {
+    fields: [leagueEventDecks.userId],
+    references: [users.id],
+  }),
 }));
 
 export const articlesRelations = relations(articles, ({ one }) => ({
