@@ -1445,37 +1445,26 @@ export class PostgresDeckService implements IDeckService {
           }
         }
 
-        // Check if this card already exists in the deck
-        const existingCard = await db
-          .select()
-          .from(deckCards)
-          .where(
-            and(
-              eq(deckCards.deckId, deck[0].id),
-              eq(deckCards.printingId, item.printingId),
-              eq(deckCards.category, category)
-            )
-          )
-          .limit(1);
-
-        if (existingCard.length > 0) {
-          // Update existing quantity
-          await db
-            .update(deckCards)
-            .set({ quantity: sql`${deckCards.quantity} + ${quantity}` })
-            .where(eq(deckCards.id, existingCard[0].id));
-        } else {
-          // Insert new card with quantity
-          await db.insert(deckCards).values({
+        // Atomic upsert keyed on the unique (deck_id, printing_id, category)
+        // index. A naive SELECT-then-INSERT/UPDATE pattern races when two
+        // concurrent calls (e.g. a quick double-tap of the mobile + button)
+        // both miss the existence check and both attempt INSERT, with the
+        // second hitting the unique constraint.
+        await db
+          .insert(deckCards)
+          .values({
             id: nanoid(21),
             deckId: deck[0].id,
             printingId: item.printingId,
-            quantity: quantity,  // Store actual quantity, not 1!
+            quantity: quantity,
             category,
             notes: item.notes || '',
             addedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [deckCards.deckId, deckCards.printingId, deckCards.category],
+            set: { quantity: sql`${deckCards.quantity} + ${quantity}` },
           });
-        }
 
         totalCardsAdded += quantity;
         results.push({
