@@ -6,11 +6,19 @@
  * card). Replaces the per-type printings preload — instead of 8-10 parallel
  * fetches × ~25 MB each, this is one fetch of ~300 KB.
  *
+ * Also exposes:
+ *   - filterPoolByChip(cards, chipValue) — pure filter for type-chip clicks
+ *   - toCardResult(summary)              — adapter to the legacy CardResult
+ *                                          shape consumed by QuickAddCardDialog
+ *   - fetchPrintingsForCard(cardId)      — lazy drilldown for the printing
+ *                                          picker (hits /api/cards/[id]/printings)
+ *
  * The cache lives outside React so it survives component unmounts and dialog
  * open/close cycles. Cleared only on full page navigation.
  */
 
-import type { CardSummaryDTO, HeroPoolFilters } from "@/lib/services/contracts/IPrintingsService";
+import type { CardSummaryDTO, HeroPoolFilters, PrintingDTO } from "@/lib/services/contracts/IPrintingsService";
+import type { CardResult, PrintingResult } from "./card-pool-cache";
 
 type PoolKey = string;
 
@@ -72,4 +80,82 @@ export function getCachedHeroPool(filters: HeroPoolFilters): CardSummaryDTO[] | 
 export function clearHeroPoolCache(): void {
   cache.clear();
   inflight.clear();
+}
+
+// ─── Printing drilldown ──────────────────────────────────────────────────
+
+const printingsCache = new Map<string, PrintingDTO[]>();
+const printingsInflight = new Map<string, Promise<PrintingDTO[]>>();
+
+export async function fetchPrintingsForCard(cardUniqueId: string): Promise<PrintingDTO[]> {
+  const cached = printingsCache.get(cardUniqueId);
+  if (cached) return cached;
+  if (printingsInflight.has(cardUniqueId)) return printingsInflight.get(cardUniqueId)!;
+
+  const promise = fetch(`/api/cards/${cardUniqueId}/printings`)
+    .then((r) => r.json())
+    .then((data: { success: boolean; data?: { printings: PrintingDTO[] }; error?: string }) => {
+      if (!data.success || !data.data) {
+        throw new Error(data.error || "Failed to fetch printings");
+      }
+      printingsCache.set(cardUniqueId, data.data.printings);
+      return data.data.printings;
+    })
+    .finally(() => printingsInflight.delete(cardUniqueId));
+
+  printingsInflight.set(cardUniqueId, promise);
+  return promise;
+}
+
+export function clearPrintingsCache(): void {
+  printingsCache.clear();
+  printingsInflight.clear();
+}
+
+// ─── Chip filter ─────────────────────────────────────────────────────────
+
+// Maps chip values (from lib/search/card-filter-chips.ts:TYPE_CHIPS) to a
+// type-string the card's `types` array must include. Special case
+// 'non-attack-action' handled below.
+const CHIP_TYPE: Record<string, string> = {
+  attack: "attack",
+  item: "item",
+  "attack-reaction": "attack reaction",
+  "defense-reaction": "defense reaction",
+  instant: "instant",
+  equipment: "equipment",
+  weapon: "weapon",
+  gem: "gem",
+  ally: "ally",
+  evo: "evo",
+  generic: "generic",
+};
+
+export function filterPoolByChip(pool: CardSummaryDTO[], chipValue: string): CardSummaryDTO[] {
+  if (chipValue === "non-attack-action") {
+    return pool.filter((c) => c.types.includes("action") && !c.types.includes("attack"));
+  }
+  const targetType = CHIP_TYPE[chipValue];
+  if (!targetType) return [];
+  return pool.filter((c) => c.types.includes(targetType));
+}
+
+// ─── Adapter to legacy CardResult shape ──────────────────────────────────
+
+export function toCardResult(summary: CardSummaryDTO): CardResult & { __printingsCount?: number } {
+  const representative: PrintingResult = {
+    printing_id: summary.representativePrintingId,
+    image_url: summary.representativeImageUrl ?? undefined,
+  };
+
+  return {
+    unique_id: summary.cardUniqueId,
+    name: summary.name,
+    types: summary.types,
+    pitch: summary.pitch,
+    printings: [representative],
+    // Synthesized — true total count of printings for the "Np" badge in the
+    // dialog's card tile. Dialog reads this via `card.__printingsCount ?? card.printings.length`.
+    __printingsCount: summary.printingsCount,
+  };
 }

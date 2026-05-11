@@ -21,6 +21,13 @@ import {
   getCachedCards,
 } from "@/lib/client/card-pool-cache";
 import {
+  fetchHeroPool,
+  getCachedHeroPool,
+  filterPoolByChip,
+  toCardResult,
+  fetchPrintingsForCard,
+} from "@/lib/client/hero-pool-cache";
+import {
   TYPE_CHIPS as SHARED_TYPE_CHIPS,
   GENERIC_CHIP as SHARED_GENERIC_CHIP,
   CLASS_ICONS as SHARED_CLASS_ICONS,
@@ -547,9 +554,14 @@ function CardGridTile({
       )}
       <div className={cn("px-1 py-1 text-center", isSelected ? "bg-blue-900/30" : "bg-gray-800/80")}>
         <p className="text-[9px] font-medium text-gray-200 truncate leading-tight">{card.name}</p>
-        {card.printings.length > 1 && (
-          <p className="text-[8px] text-gray-600 leading-tight">{card.printings.length}p</p>
-        )}
+        {/* True printing count — uses the synthesized __printingsCount from toCardResult
+            when the card came from the hero pool (where printings is just the representative). */}
+        {(() => {
+          const count = (card as any).__printingsCount ?? card.printings.length;
+          return count > 1 ? (
+            <p className="text-[8px] text-gray-600 leading-tight">{count}p</p>
+          ) : null;
+        })()}
       </div>
     </div>
   );
@@ -730,32 +742,27 @@ export default function QuickAddCardDialog({
     const controller = new AbortController();
     let cancelled = false;
 
-    // Browse by type chip — check cache first (skip when keyword or set filter active)
+    // Browse by type chip — filter the preloaded hero pool client-side
+    // (one ~300 KB fetch on page-load → instant chip clicks afterward).
     if (!hasQuery && hasType && !hasKeyword && !hasSets && targetCategory !== 'hero' && targetCategory !== 'equipment') {
-      const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === effectiveType);
-      const apiType = chip ? chip.apiType : effectiveType!;
       const chipValue = effectiveType!;
 
-      const applyFilters = (cards: CardResult[]) => {
-        // Action chip excludes cards that are also attacks (non-attack actions only)
-        let result = chip?.value === 'non-attack-action'
-          ? cards.filter(c => !c.types.includes('attack'))
-          : cards;
-        if (effectivePitch != null) result = result.filter(c => c.pitch === effectivePitch);
-        return result;
+      const transform = (pool: Parameters<typeof toCardResult>[0][]) => {
+        let filtered = filterPoolByChip(pool, chipValue);
+        if (effectivePitch != null) filtered = filtered.filter((c) => c.pitch === effectivePitch);
+        return filtered.map(toCardResult);
       };
 
-      // Serve from cache immediately if available
-      const cached = getCachedCards(poolParams, chipValue);
+      const cached = getCachedHeroPool(poolParams);
       if (cached) {
-        setCards(applyFilters(cached));
+        setCards(transform(cached));
         setLoading(false);
         return () => { cancelled = true; controller.abort(); };
       }
 
-      // Not cached — fetch and cache
-      fetchTypeCards(poolParams, apiType, chipValue)
-        .then(cards => { if (!cancelled) setCards(applyFilters(cards)); })
+      // Not cached — fetch the hero pool then apply the same transform
+      fetchHeroPool(poolParams)
+        .then((pool) => { if (!cancelled) setCards(transform(pool)); })
         .catch(() => { if (!cancelled) setError("Search failed. Please try again."); })
         .finally(() => { if (!cancelled) setLoading(false); });
       return () => { cancelled = true; controller.abort(); };
@@ -855,6 +862,25 @@ export default function QuickAddCardDialog({
       setJustAdded(false);
     }
   }, [selectedCard]);
+
+  // Lazy-load real printings when a card is selected but we only have the synthesized
+  // representative (cards adapted via toCardResult). Triggers a one-shot fetch per card.
+  useEffect(() => {
+    if (!selectedCard) return;
+    const trueCount = (selectedCard as { __printingsCount?: number }).__printingsCount ?? selectedCard.printings.length;
+    if (trueCount <= 1 || selectedCard.printings.length > 1) return;
+    const cardId = selectedCard.unique_id;
+    fetchPrintingsForCard(cardId)
+      .then((printings) => {
+        setSelectedCard((prev) => {
+          if (!prev || prev.unique_id !== cardId) return prev;
+          return { ...prev, printings: printings as unknown as typeof prev.printings };
+        });
+      })
+      .catch(() => {
+        // Silent fail — picker stays on the single representative printing
+      });
+  }, [selectedCard?.unique_id]);
 
   // Tiered escape: close zoom → deselect card → close dialog
   const handleEscape = useCallback(() => {
