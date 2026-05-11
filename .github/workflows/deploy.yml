@@ -1,4 +1,4 @@
-name: Deploy to VPS
+name: Build and Deploy
 
 on:
   push:
@@ -10,7 +10,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Build the Next.js image on a GitHub-hosted runner (4 vCPU / 16 GB RAM)
+  # instead of the 2 GB VPS — eliminates the ~400 MB build spike that pushed
+  # the VPS into swap, and roughly halves deploy time via faster CPU.
+  #
+  # Real secrets stay on the VPS. The runner only sees the two public
+  # NEXT_PUBLIC_* values stored as repo Variables, plus the auto-injected
+  # GITHUB_TOKEN used to push to GHCR.
+  # ---------------------------------------------------------------------------
+  build-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # scoped to this workflow only; repo default stays read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # Lowercase the owner — GHCR namespaces are lowercase even when the
+          # GitHub org/user has uppercase letters.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/fab-bazaar-nextjs:latest
+            ghcr.io/${{ github.repository_owner }}/fab-bazaar-nextjs:${{ github.sha }}
+          # Registry-based layer cache — first build cold (~2–3 min), subsequent
+          # builds ~30–60s once node_modules and the standalone output cache.
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/fab-bazaar-nextjs:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/fab-bazaar-nextjs:buildcache,mode=max
+          # Only the build-time-inlined NEXT_PUBLIC_* vars. Real secrets never
+          # enter the build; the running container picks them up at runtime
+          # from /opt/fabbazaar/.env via env_file in docker-compose.yml.
+          build-args: |
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_GA_ID=${{ vars.NEXT_PUBLIC_GA_ID }}
+
+  # ---------------------------------------------------------------------------
+  # Deploy: pull the just-built image on the VPS and swap the container.
+  # No more local build — the VPS just pulls + restarts (~30 s, no RAM spike).
+  # The pipeline rebuild stays on-host since the image is small and the
+  # python-pipeline cron is the consumer.
+  # ---------------------------------------------------------------------------
   deploy:
+    needs: build-image
     runs-on: self-hosted
     steps:
       - name: Deploy
@@ -21,8 +75,14 @@ jobs:
           OLD_HEAD=$(git rev-parse HEAD)
           git reset --hard origin/main
           bash scripts/run-migrations.sh
-          docker compose build nextjs
+
+          # Authenticate to GHCR so we can pull the image. GITHUB_TOKEN is
+          # ephemeral and auto-rotates per workflow run. Works for both
+          # public and private packages.
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker compose pull nextjs
           docker compose up -d --no-deps nextjs
+
           PIPELINE_CHANGED=$(git diff "$OLD_HEAD" HEAD --name-only -- pipeline/ | wc -l)
           if [ "$PIPELINE_CHANGED" -gt 0 ]; then
             AVAIL_RAM=$(free -m | awk '/^Mem:/{print $7}')

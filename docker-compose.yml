@@ -71,7 +71,11 @@ services:
         # docker-compose's auto-substitution; falls back to placeholder so
         # builds don't fail in environments without a real GA property.
         NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-G-XXXXXXXXXX}
-    image: fabbazaar-nextjs:${APP_VERSION:-latest}
+    # Image lives on GitHub Container Registry — built in CI on every push to
+    # main (see .github/workflows/deploy.yml `build-image` job). The VPS just
+    # `docker compose pull`s. The `build:` block above still works for local
+    # `docker compose build nextjs` during dev.
+    image: ghcr.io/fab-bazaar/fab-bazaar-nextjs:${APP_VERSION:-latest}
     container_name: fabbazaar-nextjs
     # Exposed on localhost only for local dev/ngrok testing.
     # Remove this port mapping in production — traffic routes through Caddy.
