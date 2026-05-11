@@ -27,6 +27,10 @@ import { preloadCardPool } from "@/lib/client/card-pool-cache";
 import { getHeroInfo } from "@/lib/fab-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
+import BuildProgressStrip from "@/components/deck/editor/build-progress/BuildProgressStrip";
+import EmptyDeckHero from "@/components/deck/editor/build-progress/EmptyDeckHero";
+import { useBuildProgress } from "@/hooks/deck/useBuildProgress";
+import { pickKitForStep } from "@/lib/deck-builder/kit-routing";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck-flow/quickAddRouting";
 import BulkImportForm from "@/components/browse/BulkImportForm";
@@ -234,6 +238,10 @@ export default function DeckEditorPage() {
 
   // Search form collapse state
   const [searchFormOpen, setSearchFormOpen] = useState(true);
+
+  // Build progress strip dismissal (session-only — refresh shows it again)
+  const [buildProgressDismissed, setBuildProgressDismissed] = useState(false);
+  const buildProgress = useBuildProgress(state.deck, state.deck?.format);
 
   // Export/copy state
   const [copySuccess, setCopySuccess] = useState(false);
@@ -1854,6 +1862,9 @@ export default function DeckEditorPage() {
                 Designed to stay one-line tall regardless of how many kits are available. */}
             {canEdit && (buildsLoading || curatedBuilds.length > 0 || heroCurators.some(c => c.metafyProductUrl)) && (() => {
               const curatorsWithMetafy = heroCurators.filter(c => c.metafyProductUrl);
+              // Promote the chip to a primary CTA when the deck is essentially empty —
+              // makes the "start here" path obvious for first-time builders.
+              const isEmptyDeck = (buildProgress?.totalCards.current ?? 0) === 0;
               return (
                 <div className="mb-2">
                   <DropdownMenu>
@@ -1861,16 +1872,23 @@ export default function DeckEditorPage() {
                       <button
                         type="button"
                         disabled={buildsLoading}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60"
+                        className={cn(
+                          "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60",
+                          isEmptyDeck
+                            ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 shadow-[0_0_12px_rgba(59,130,246,0.25)] font-semibold"
+                            : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        )}
                       >
-                        <Sparkles className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" aria-hidden="true" />
-                        <span className="font-medium">Starter Kits</span>
+                        <Sparkles className={cn("h-3.5 w-3.5", isEmptyDeck ? "text-blue-300" : "text-gray-500 dark:text-gray-400")} aria-hidden="true" />
+                        <span className={isEmptyDeck ? "font-semibold" : "font-medium"}>
+                          {isEmptyDeck ? "Start with a Starter Kit" : "Starter Kits"}
+                        </span>
                         {!buildsLoading && curatedBuilds.length > 0 && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{curatedBuilds.length}</span>
+                          <span className={cn("text-xs", isEmptyDeck ? "text-blue-200" : "text-gray-500 dark:text-gray-400")}>{curatedBuilds.length}</span>
                         )}
                         {buildsLoading
                           ? <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" aria-hidden="true" />
-                          : <ChevronDown className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+                          : <ChevronDown className={cn("h-3.5 w-3.5", isEmptyDeck ? "text-blue-300" : "text-gray-400")} aria-hidden="true" />
                         }
                       </button>
                     </DropdownMenuTrigger>
@@ -2040,6 +2058,48 @@ export default function DeckEditorPage() {
                   </div>
                 ) : state.deck ? (
                   <>
+                  {/* Empty-deck hero — desktop only, replaces the build progress strip when the deck has no cards.
+                      Surfaces starter kits as the obvious first action. */}
+                  {buildProgress && !buildProgressDismissed && buildProgress.totalCards.current === 0 && (
+                    <div className="hidden lg:block mb-3">
+                      <EmptyDeckHero
+                        deckName={state.deck.name}
+                        kits={curatedBuilds}
+                        loading={buildsLoading}
+                        onKitClick={(kit) => setPreviewBuild({
+                          name: kit.name,
+                          description: kit.description,
+                          cards: kit.cards,
+                          curatorUser: kit.curatorUser,
+                        })}
+                        onSearchClick={() => openQuickAdd({ category: 'maindeck' })}
+                      />
+                    </div>
+                  )}
+                  {/* Build progress strip — desktop only, hidden when dismissed or once the deck is "ready to tune" */}
+                  {buildProgress && !buildProgressDismissed && buildProgress.totalCards.current > 0 && (
+                    <div className="hidden lg:block mb-3">
+                      <BuildProgressStrip
+                        deckName={state.deck.name}
+                        progress={buildProgress}
+                        onStepClick={(step) => {
+                          const kit = pickKitForStep(step, curatedBuilds);
+                          if (kit) {
+                            setPreviewBuild({
+                              name: kit.name,
+                              description: kit.description,
+                              cards: kit.cards,
+                              curatorUser: kit.curatorUser,
+                            });
+                          } else {
+                            // No matching starter kit — fall back to the search dialog for the relevant category.
+                            openQuickAdd({ category: step === 'gear' ? 'equipment' : 'maindeck' });
+                          }
+                        }}
+                        onDismiss={() => setBuildProgressDismissed(true)}
+                      />
+                    </div>
+                  )}
                   {/* Slim deck stats bar — pulled out of the right rail so the rail can dedicate its space
                       to the (sticky) hovered-card preview without competing for attention. */}
                   {railStats && (
