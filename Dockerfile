@@ -23,6 +23,14 @@ ENV NODE_ENV=production
 ARG NEXT_PUBLIC_APP_URL=https://fabbazaar.app
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
+# NEXT_PUBLIC_GA_ID must be a build-arg, not just a runtime env: Next.js inlines
+# `process.env.NEXT_PUBLIC_*` into client bundles at compile time, so the
+# runtime `env_file: .env` mount is too late. Default is the placeholder so
+# local dev builds without a real GA property still succeed; CI/prod pass the
+# real ID via docker-compose's args (which reads from .env).
+ARG NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
+ENV NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID
+
 RUN --mount=type=cache,target=/app/.next/cache \
     NODE_OPTIONS="--max_old_space_size=1536" npm run build
 

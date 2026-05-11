@@ -66,6 +66,11 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        # NEXT_PUBLIC_* is inlined into client bundles at build time, so this
+        # has to be a build-arg, not just runtime env. Reads from .env via
+        # docker-compose's auto-substitution; falls back to placeholder so
+        # builds don't fail in environments without a real GA property.
+        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-G-XXXXXXXXXX}
     image: fabbazaar-nextjs:${APP_VERSION:-latest}
     container_name: fabbazaar-nextjs
     # Exposed on localhost only for local dev/ngrok testing.
