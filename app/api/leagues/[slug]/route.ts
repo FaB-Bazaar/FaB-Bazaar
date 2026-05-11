@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { leagueService } from '@/lib/services';
+import { statusFor } from '@/lib/api/result-response';
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -23,8 +24,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.getLeagueBySlug(slug, viewerUserId);
     if (!result.success) {
-      const status = result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
@@ -45,15 +45,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // Resolve slug → id (the service mutation methods key on id)
     const existing = await leagueService.getLeagueBySlug(slug, auth.userId);
     if (!existing.success) {
-      const status = existing.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: existing.error }, { status });
+      return NextResponse.json({ success: false, error: existing.error }, { status: statusFor(existing.code, 500) });
     }
 
     const result = await leagueService.updateLeague(existing.data.id, auth.userId!, body);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 400;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
@@ -72,15 +69,12 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     const existing = await leagueService.getLeagueBySlug(slug, auth.userId);
     if (!existing.success) {
-      const status = existing.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: existing.error }, { status });
+      return NextResponse.json({ success: false, error: existing.error }, { status: statusFor(existing.code, 500) });
     }
 
     const result = await leagueService.deleteLeague(existing.data.id, auth.userId!);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {

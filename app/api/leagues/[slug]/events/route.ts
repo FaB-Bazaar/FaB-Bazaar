@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { leagueService } from '@/lib/services';
+import { statusFor } from '@/lib/api/result-response';
 import type { LeagueEventStatus } from '@/lib/services/contracts/ILeagueService';
 
 interface RouteContext {
@@ -30,8 +31,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     const league = await leagueService.getLeagueBySlug(slug, viewerUserId);
     if (!league.success) {
-      const status = league.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: league.error }, { status });
+      return NextResponse.json({ success: false, error: league.error }, { status: statusFor(league.code, 500) });
     }
 
     const statuses = statusRaw
@@ -47,8 +47,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       offset,
     });
     if (!result.success) {
-      const status = result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
@@ -68,15 +67,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     const league = await leagueService.getLeagueBySlug(slug, auth.userId);
     if (!league.success) {
-      const status = league.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: league.error }, { status });
+      return NextResponse.json({ success: false, error: league.error }, { status: statusFor(league.code, 500) });
     }
 
     const result = await leagueService.createEvent(league.data.id, auth.userId!, body);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 400;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code) });
     }
     return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {

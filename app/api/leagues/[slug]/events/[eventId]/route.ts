@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { leagueService } from '@/lib/services';
+import { statusFor } from '@/lib/api/result-response';
 
 interface RouteContext {
   params: Promise<{ slug: string; eventId: string }>;
@@ -22,14 +23,15 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     const auth = await authenticateRequest(req, {}, { allowOAuth: true });
     const viewerUserId = auth.success ? auth.userId : undefined;
 
-    const result = await leagueService.getEvent(eventId, viewerUserId);
+    // Event and league lookups are independent — fetch in parallel.
+    const [result, league] = await Promise.all([
+      leagueService.getEvent(eventId, viewerUserId),
+      leagueService.getLeagueBySlug(slug, viewerUserId),
+    ]);
     if (!result.success) {
-      const status = result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
-
     // Sanity check that the event belongs to this league slug
-    const league = await leagueService.getLeagueBySlug(slug, viewerUserId);
     if (!league.success || league.data.id !== result.data.leagueId) {
       return NextResponse.json({ success: false, error: 'event not found' }, { status: 404 });
     }
@@ -52,9 +54,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.updateEvent(eventId, auth.userId!, body);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 400;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
@@ -73,9 +73,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.deleteEvent(eventId, auth.userId!);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {

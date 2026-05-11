@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { leagueService, userService } from '@/lib/services';
+import { statusFor } from '@/lib/api/result-response';
 
 export async function GET(req: NextRequest) {
   try {
@@ -65,8 +66,7 @@ export async function POST(req: NextRequest) {
 
     const result = await leagueService.createLeague(auth.userId!, body);
     if (!result.success) {
-      const status = result.code === 'slug_taken' ? 409 : 400;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code) });
     }
     return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {

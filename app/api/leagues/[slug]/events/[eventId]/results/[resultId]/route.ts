@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { leagueService } from '@/lib/services';
+import { statusFor } from '@/lib/api/result-response';
 
 interface RouteContext {
   params: Promise<{ slug: string; eventId: string; resultId: string }>;
@@ -22,9 +23,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.updateEventResult(resultId, auth.userId!, body);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 400;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
@@ -43,9 +42,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.deleteEventResult(resultId, auth.userId!);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {

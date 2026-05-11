@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { leagueService } from '@/lib/services';
+import { statusFor } from '@/lib/api/result-response';
 
 interface RouteContext {
   params: Promise<{ slug: string; eventId: string }>;
@@ -26,8 +27,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.listEventResults(eventId, viewerUserId);
     if (!result.success) {
-      const status = result.code === 'not_found' ? 404 : 500;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code, 500) });
     }
     return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
@@ -47,9 +47,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     const result = await leagueService.addEventResult(eventId, auth.userId!, body);
     if (!result.success) {
-      const status = result.code === 'forbidden' ? 403
-                   : result.code === 'not_found' ? 404 : 400;
-      return NextResponse.json({ success: false, error: result.error }, { status });
+      return NextResponse.json({ success: false, error: result.error }, { status: statusFor(result.code) });
     }
     return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {
