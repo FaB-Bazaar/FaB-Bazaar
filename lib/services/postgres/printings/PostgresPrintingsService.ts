@@ -17,6 +17,8 @@ import type {
   PrintingsFilterValues,
   PriceStatistics,
   EssenceStatistics,
+  CardSummaryDTO,
+  HeroPoolFilters,
 } from '@/lib/services/contracts/IPrintingsService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
@@ -237,6 +239,79 @@ export class PostgresPrintingsService implements IPrintingsService {
     options?: PrintingsSearchOptions
   ): AsyncResult<PrintingsSearchResult> {
     return this.searchPrintings({ heroLegal: heroName }, options);
+  }
+
+  /**
+   * Fetch the hero's full card pool as slim card-level summaries.
+   * One row per unique card; representative printing chosen by foiling priority.
+   */
+  async searchCardsForHero(filters: HeroPoolFilters): AsyncResult<CardSummaryDTO[]> {
+    try {
+      // Reuse the existing hero/format condition builder for parity with searchPrintings
+      const conditions = this.buildWhereConditions({
+        heroClasses: filters.heroClasses,
+        heroTalents: filters.heroTalents,
+        heroEssences: filters.heroEssences,
+        format: filters.format as PrintingsSearchFilters['format'],
+      });
+      const whereClause = conditions.length > 0 ? and(...conditions) : sql`TRUE`;
+
+      // DISTINCT ON picks one printing per card via foiling priority (matches
+      // FOIL_PRIORITY in lib/fab-constants/sets.ts:415: standard → rainbow → cold → others → gold).
+      // printings_count is a correlated subselect for the TOTAL printings of each
+      // card (unfiltered) — UI uses this to show "12 printings" regardless of legality.
+      const result = await db.execute(sql`
+        SELECT DISTINCT ON (${cards.cardUniqueId})
+          ${cards.cardUniqueId} AS card_unique_id,
+          ${cards.name} AS name,
+          ${cards.types} AS types,
+          ${cards.pitch} AS pitch,
+          ${cards.cost} AS cost,
+          ${cards.defense} AS defense,
+          ${cards.power} AS power,
+          ${cards.keywords} AS keywords,
+          ${cards.color} AS color,
+          ${printings.printingId} AS representative_printing_id,
+          ${printings.imageUrl} AS representative_image_url,
+          (SELECT COUNT(*) FROM ${printings} p2 WHERE p2.card_unique_id = ${cards.cardUniqueId}) AS printings_count
+        FROM ${cards}
+        INNER JOIN ${printings} ON ${printings.cardUniqueId} = ${cards.cardUniqueId}
+        WHERE ${whereClause}
+        ORDER BY
+          ${cards.cardUniqueId},
+          CASE ${printings.foiling}
+            WHEN 's' THEN 0
+            WHEN 'n' THEN 0
+            WHEN 'r' THEN 1
+            WHEN 'c' THEN 2
+            WHEN 'g' THEN 4
+            ELSE 3
+          END,
+          ${printings.printingId}
+      `);
+
+      const data: CardSummaryDTO[] = (result.rows as Record<string, unknown>[]).map((r) => ({
+        cardUniqueId: r.card_unique_id as string,
+        name: r.name as string,
+        types: (r.types as string[] | null) ?? [],
+        pitch: (r.pitch as number | null) ?? null,
+        cost: (r.cost as number | null) ?? null,
+        defense: (r.defense as number | null) ?? null,
+        power: (r.power as number | null) ?? null,
+        keywords: (r.keywords as string[] | null) ?? [],
+        color: (r.color as string | null) ?? '',
+        representativePrintingId: r.representative_printing_id as string,
+        representativeImageUrl: (r.representative_image_url as string | null) ?? null,
+        printingsCount: Number(r.printings_count) || 1,
+      }));
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to search cards for hero',
+      };
+    }
   }
 
   /**

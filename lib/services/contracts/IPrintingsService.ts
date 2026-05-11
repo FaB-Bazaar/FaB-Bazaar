@@ -478,6 +478,34 @@ export interface EssenceStatistics {
 // ====================================
 
 /**
+ * Slim card-level DTO used by the deck-editor card pool fetch.
+ * One entry per unique card (not per printing); a representative printing
+ * is chosen server-side via foiling-priority ordering.
+ */
+export interface CardSummaryDTO {
+  cardUniqueId: string;
+  name: string;
+  types: string[];
+  pitch: number | null;
+  cost: number | null;
+  defense: number | null;
+  power: number | null;
+  keywords: string[];
+  color: string;
+  representativePrintingId: string;
+  representativeImageUrl: string | null;
+  /** Total printings of this card across all sets/foilings (unfiltered) */
+  printingsCount: number;
+}
+
+export interface HeroPoolFilters {
+  heroClasses?: string[];
+  heroTalents?: string[];
+  heroEssences?: string[];
+  format?: string;
+}
+
+/**
  * Printings Service Interface
  *
  * Database-agnostic contract for printings collection operations.
@@ -550,6 +578,14 @@ export interface IPrintingsService {
     cardId: string,
     options?: PrintingsSearchOptions
   ): AsyncResult<PrintingsSearchResult>;
+
+  /**
+   * Fetch the entire card pool for a hero as slim card-level summaries.
+   * Returns one row per unique card (not per printing) with a representative
+   * printing chosen by foiling priority. Designed to ship the full pool in
+   * a single small fetch instead of preloading all printings per type chip.
+   */
+  searchCardsForHero(filters: HeroPoolFilters): AsyncResult<CardSummaryDTO[]>;
 
   /**
    * Get multiple printings by their printing_id values

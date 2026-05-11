@@ -6,7 +6,8 @@ import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
+import { useDeckEditor, resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
+import { preloadHeroPool } from "@/lib/client/hero-pool-cache";
 import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
 import { KEYWORDS } from "@/lib/fab-constants/keywords";
@@ -23,7 +24,6 @@ import DeckSettings from "@/components/deck/DeckSettings";
 import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/editor/QuickAddCardDialog";
-import { preloadCardPool } from "@/lib/client/card-pool-cache";
 import { getHeroInfo } from "@/lib/fab-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
@@ -457,38 +457,18 @@ export default function DeckEditorPage() {
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
 
-  // Preload card pool in the background after deck + hero are known
+  // Preload the hero's slim card pool (one row per unique card, ~300 KB) on deck load.
+  // Replaces the legacy preloadCardPool which fetched ~8 × 25 MB of printings per type.
   useEffect(() => {
     if (!state.deck) return;
-    const deck = state.deck;
-    const TALENT_SET = new Set(OFFICIAL_TALENTS);
-    const NON_CLASS = new Set(['hero','young','adult','token','equipment','weapon','action','attack','instant','defense reaction','attack reaction','demi-hero']);
-
-    let heroClasses: string[] = [];
-    let heroTalents: string[] = [];
-
-    const h = deck.hero?.[0]?.printingDetails as Record<string, unknown> | undefined;
-    if (h) {
-      const directClasses = ((h.classes as string[] | undefined) || []).map(c => c.toLowerCase()).filter(Boolean);
-      const directTalents = ((h.talents as string[] | undefined) || []).map(t => t.toLowerCase()).filter(Boolean);
-      if (directClasses.length || directTalents.length) {
-        heroClasses = directClasses; heroTalents = directTalents;
-      } else {
-        const heroTypes = ((h.types as string[] | undefined) || []).map(t => t.toLowerCase());
-        heroClasses = heroTypes.filter(t => !TALENT_SET.has(t) && !NON_CLASS.has(t));
-        heroTalents = heroTypes.filter(t => TALENT_SET.has(t));
-      }
-    }
-    if (!heroClasses.length && deck.heroName) {
-      const info = getHeroInfo(deck.heroName);
-      if (info) { heroClasses = info.classes; heroTalents = info.talents; }
-    }
-    if (!heroClasses.length) return;
-
-    preloadCardPool(
-      { heroClasses, heroTalents, heroEssences: [], format: deck.format },
-      [...TYPE_CHIPS, GENERIC_CHIP],
-    );
+    const heroFilter = resolveHeroFilter(state.deck);
+    if (!heroFilter || !heroFilter.heroClasses.length) return;
+    preloadHeroPool({
+      heroClasses: heroFilter.heroClasses,
+      heroTalents: heroFilter.heroTalents,
+      heroEssences: heroFilter.heroEssences,
+      format: state.deck.format,
+    });
   }, [state.deck?.heroName, state.deck?.hero, state.deck?.format]);
 
   // Fetch binders when user is available
