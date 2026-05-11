@@ -107,6 +107,10 @@ function toResultDTO(row: LeagueEventDeckRow): LeagueEventDeckDTO {
 
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 
+// Events currently surfaced on the public directory. Single source of truth so
+// the API route and the service stay in sync.
+export const ACTIVE_EVENT_STATUSES: LeagueEventStatus[] = ['upcoming', 'in_progress'];
+
 function err(message: string, code?: string): { success: false; error: string; code?: string } {
   return code ? { success: false, error: message, code } : { success: false, error: message };
 }
@@ -123,7 +127,99 @@ function normalizeDate(d: Date | string): Date {
 // Service
 // ---------------------------------------------------------------------------
 
+type Failure = { success: false; error: string; code?: string };
+type GateResult<T> = { ok: true; data: T } | { ok: false; failure: Failure };
+
 export class PostgresLeagueService implements ILeagueService {
+  // ====================================================================
+  // Private gates
+  // --------------------------------------------------------------------
+  // Each gate runs in one round-trip and returns either the row(s) the
+  // caller needs or a ready-to-surface Failure. Centralizing them keeps
+  // the privacy / ownership invariants in a single auditable place.
+  // ====================================================================
+
+  /** Fetch a league by an arbitrary predicate, applying visibility filtering. */
+  private async findVisibleLeague(
+    predicate: ReturnType<typeof eq>,
+    viewerUserId?: string,
+  ): Promise<GateResult<LeagueRow>> {
+    const [row] = await db.select().from(leagues).where(predicate).limit(1);
+    if (!row) return { ok: false, failure: err('league not found', 'not_found') };
+    if (!row.public && row.ownerId !== viewerUserId) {
+      // Don't reveal existence of private leagues to non-owners.
+      return { ok: false, failure: err('league not found', 'not_found') };
+    }
+    return { ok: true, data: row };
+  }
+
+  /** Require the acting user to own the named league. */
+  private async requireLeagueOwner(
+    leagueId: string,
+    actingUserId: string,
+  ): Promise<GateResult<LeagueRow>> {
+    const [row] = await db.select().from(leagues).where(eq(leagues.id, leagueId)).limit(1);
+    if (!row) return { ok: false, failure: err('league not found', 'not_found') };
+    if (row.ownerId !== actingUserId) return { ok: false, failure: err('forbidden', 'forbidden') };
+    return { ok: true, data: row };
+  }
+
+  /** Require the acting user to own the league this event belongs to. One JOIN, one round-trip. */
+  private async requireEventForOwner(
+    eventId: string,
+    actingUserId: string,
+  ): Promise<GateResult<LeagueEventRow>> {
+    const [row] = await db
+      .select({ event: leagueEvents, leagueOwnerId: leagues.ownerId })
+      .from(leagueEvents)
+      .innerJoin(leagues, eq(leagues.id, leagueEvents.leagueId))
+      .where(eq(leagueEvents.id, eventId))
+      .limit(1);
+    if (!row) return { ok: false, failure: err('event not found', 'not_found') };
+    if (row.leagueOwnerId !== actingUserId) return { ok: false, failure: err('forbidden', 'forbidden') };
+    return { ok: true, data: row.event };
+  }
+
+  /** Require the acting user to own the league this result belongs to. Two JOINs, one round-trip. */
+  private async requireResultForOwner(
+    resultId: string,
+    actingUserId: string,
+  ): Promise<GateResult<LeagueEventDeckRow>> {
+    const [row] = await db
+      .select({ result: leagueEventDecks, leagueOwnerId: leagues.ownerId })
+      .from(leagueEventDecks)
+      .innerJoin(leagueEvents, eq(leagueEvents.id, leagueEventDecks.eventId))
+      .innerJoin(leagues, eq(leagues.id, leagueEvents.leagueId))
+      .where(eq(leagueEventDecks.id, resultId))
+      .limit(1);
+    if (!row) return { ok: false, failure: err('result not found', 'not_found') };
+    if (row.leagueOwnerId !== actingUserId) return { ok: false, failure: err('forbidden', 'forbidden') };
+    return { ok: true, data: row.result };
+  }
+
+  /** Load an event applying combined league+event privacy in a single JOIN. */
+  private async loadVisibleEvent(
+    eventId: string,
+    viewerUserId?: string,
+  ): Promise<GateResult<LeagueEventRow>> {
+    const [row] = await db
+      .select({
+        event: leagueEvents,
+        leaguePublic: leagues.public,
+        leagueOwnerId: leagues.ownerId,
+      })
+      .from(leagueEvents)
+      .innerJoin(leagues, eq(leagues.id, leagueEvents.leagueId))
+      .where(eq(leagueEvents.id, eventId))
+      .limit(1);
+    if (!row) return { ok: false, failure: err('event not found', 'not_found') };
+    const isOwner = row.leagueOwnerId === viewerUserId;
+    if ((!row.event.public || !row.leaguePublic) && !isOwner) {
+      return { ok: false, failure: err('event not found', 'not_found') };
+    }
+    return { ok: true, data: row.event };
+  }
+
   // ====================================================================
   // Leagues
   // ====================================================================
@@ -166,21 +262,13 @@ export class PostgresLeagueService implements ILeagueService {
   }
 
   async getLeagueById(id: string, viewerUserId?: string): AsyncResult<LeagueDTO> {
-    const [row] = await db.select().from(leagues).where(eq(leagues.id, id)).limit(1);
-    if (!row) return err('league not found', 'not_found');
-    if (!row.public && row.ownerId !== viewerUserId) {
-      return err('league not found', 'not_found');     // don't reveal existence
-    }
-    return ok(toLeagueDTO(row));
+    const result = await this.findVisibleLeague(eq(leagues.id, id), viewerUserId);
+    return result.ok ? ok(toLeagueDTO(result.data)) : result.failure;
   }
 
   async getLeagueBySlug(slug: string, viewerUserId?: string): AsyncResult<LeagueDTO> {
-    const [row] = await db.select().from(leagues).where(eq(leagues.slug, slug)).limit(1);
-    if (!row) return err('league not found', 'not_found');
-    if (!row.public && row.ownerId !== viewerUserId) {
-      return err('league not found', 'not_found');
-    }
-    return ok(toLeagueDTO(row));
+    const result = await this.findVisibleLeague(eq(leagues.slug, slug), viewerUserId);
+    return result.ok ? ok(toLeagueDTO(result.data)) : result.failure;
   }
 
   async listLeagues(opts: ListLeaguesOptions = {}): AsyncResult<LeagueDTO[]> {
@@ -219,7 +307,7 @@ export class PostgresLeagueService implements ILeagueService {
       .where(and(
         inArray(leagueEvents.leagueId, leagueIds),
         gte(leagueEvents.scheduledFor, now),
-        inArray(leagueEvents.status, ['upcoming', 'in_progress']),
+        inArray(leagueEvents.status, ACTIVE_EVENT_STATUSES),
       ))
       .orderBy(asc(leagueEvents.scheduledFor));
 
@@ -244,9 +332,8 @@ export class PostgresLeagueService implements ILeagueService {
     actingUserId: string,
     dto: UpdateLeagueDTO,
   ): AsyncResult<LeagueDTO> {
-    const [existing] = await db.select().from(leagues).where(eq(leagues.id, leagueId)).limit(1);
-    if (!existing) return err('league not found', 'not_found');
-    if (existing.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireLeagueOwner(leagueId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     const patch: Partial<typeof leagues.$inferInsert> = { updatedAt: new Date() };
     if (dto.name !== undefined) patch.name = dto.name.trim();
@@ -268,9 +355,8 @@ export class PostgresLeagueService implements ILeagueService {
   }
 
   async deleteLeague(leagueId: string, actingUserId: string): AsyncResult<{ deleted: true }> {
-    const [existing] = await db.select().from(leagues).where(eq(leagues.id, leagueId)).limit(1);
-    if (!existing) return err('league not found', 'not_found');
-    if (existing.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireLeagueOwner(leagueId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     // CASCADE handles events + result rows
     await db.delete(leagues).where(eq(leagues.id, leagueId));
@@ -289,9 +375,8 @@ export class PostgresLeagueService implements ILeagueService {
     if (!dto.name?.trim()) return err('name is required');
     if (!dto.scheduledFor) return err('scheduledFor is required');
 
-    const [league] = await db.select().from(leagues).where(eq(leagues.id, leagueId)).limit(1);
-    if (!league) return err('league not found', 'not_found');
-    if (league.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireLeagueOwner(leagueId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     const id = nanoid();
     const now = new Date();
@@ -313,25 +398,8 @@ export class PostgresLeagueService implements ILeagueService {
   }
 
   async getEvent(eventId: string, viewerUserId?: string): AsyncResult<LeagueEventDTO> {
-    const [row] = await db.select().from(leagueEvents).where(eq(leagueEvents.id, eventId)).limit(1);
-    if (!row) return err('event not found', 'not_found');
-
-    // Privacy: if either the league or event is private, only the owner sees it.
-    if (!row.public) {
-      const [league] = await db.select({ ownerId: leagues.ownerId }).from(leagues)
-        .where(eq(leagues.id, row.leagueId)).limit(1);
-      if (!league || league.ownerId !== viewerUserId) {
-        return err('event not found', 'not_found');
-      }
-    } else {
-      // Public event, but parent league might be private
-      const [league] = await db.select({ public: leagues.public, ownerId: leagues.ownerId })
-        .from(leagues).where(eq(leagues.id, row.leagueId)).limit(1);
-      if (league && !league.public && league.ownerId !== viewerUserId) {
-        return err('event not found', 'not_found');
-      }
-    }
-    return ok(toEventDTO(row));
+    const result = await this.loadVisibleEvent(eventId, viewerUserId);
+    return result.ok ? ok(toEventDTO(result.data)) : result.failure;
   }
 
   async listEventsByLeague(
@@ -342,7 +410,7 @@ export class PostgresLeagueService implements ILeagueService {
       .from(leagues).where(eq(leagues.id, leagueId)).limit(1);
     if (!league) return err('league not found', 'not_found');
 
-    const isOwner = league.ownerId !== null && league.ownerId === opts.viewerUserId;
+    const isOwner = league.ownerId === opts.viewerUserId;
     if (!league.public && !isOwner) return err('league not found', 'not_found');
 
     const conditions = [eq(leagueEvents.leagueId, leagueId)];
@@ -369,12 +437,8 @@ export class PostgresLeagueService implements ILeagueService {
     actingUserId: string,
     dto: UpdateLeagueEventDTO,
   ): AsyncResult<LeagueEventDTO> {
-    const [existing] = await db.select().from(leagueEvents).where(eq(leagueEvents.id, eventId)).limit(1);
-    if (!existing) return err('event not found', 'not_found');
-
-    const [league] = await db.select({ ownerId: leagues.ownerId }).from(leagues)
-      .where(eq(leagues.id, existing.leagueId)).limit(1);
-    if (!league || league.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireEventForOwner(eventId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     const patch: Partial<typeof leagueEvents.$inferInsert> = { updatedAt: new Date() };
     if (dto.name !== undefined) patch.name = dto.name.trim();
@@ -394,12 +458,8 @@ export class PostgresLeagueService implements ILeagueService {
   }
 
   async deleteEvent(eventId: string, actingUserId: string): AsyncResult<{ deleted: true }> {
-    const [existing] = await db.select().from(leagueEvents).where(eq(leagueEvents.id, eventId)).limit(1);
-    if (!existing) return err('event not found', 'not_found');
-
-    const [league] = await db.select({ ownerId: leagues.ownerId }).from(leagues)
-      .where(eq(leagues.id, existing.leagueId)).limit(1);
-    if (!league || league.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireEventForOwner(eventId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     await db.delete(leagueEvents).where(eq(leagueEvents.id, eventId));
     return ok({ deleted: true });
@@ -416,12 +476,8 @@ export class PostgresLeagueService implements ILeagueService {
   ): AsyncResult<LeagueEventDeckDTO> {
     if (!dto.playerHandle?.trim()) return err('playerHandle is required');
 
-    const [event] = await db.select().from(leagueEvents).where(eq(leagueEvents.id, eventId)).limit(1);
-    if (!event) return err('event not found', 'not_found');
-
-    const [league] = await db.select({ ownerId: leagues.ownerId }).from(leagues)
-      .where(eq(leagues.id, event.leagueId)).limit(1);
-    if (!league || league.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireEventForOwner(eventId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     // Auto-fill heroName from the deck if a deckId was supplied and the
     // organizer didn't provide one explicitly. Denormalized so the result
@@ -456,17 +512,8 @@ export class PostgresLeagueService implements ILeagueService {
     eventId: string,
     viewerUserId?: string,
   ): AsyncResult<LeagueEventDeckDTO[]> {
-    const [event] = await db.select().from(leagueEvents).where(eq(leagueEvents.id, eventId)).limit(1);
-    if (!event) return err('event not found', 'not_found');
-
-    const [league] = await db.select({ public: leagues.public, ownerId: leagues.ownerId })
-      .from(leagues).where(eq(leagues.id, event.leagueId)).limit(1);
-    const isOwner = !!league && league.ownerId !== null && league.ownerId === viewerUserId;
-
-    // Apply both league and event privacy
-    if ((!event.public || (league && !league.public)) && !isOwner) {
-      return err('event not found', 'not_found');
-    }
+    const gate = await this.loadVisibleEvent(eventId, viewerUserId);
+    if (!gate.ok) return gate.failure;
 
     const rows = await db
       .select()
@@ -482,16 +529,8 @@ export class PostgresLeagueService implements ILeagueService {
     actingUserId: string,
     dto: UpdateEventResultDTO,
   ): AsyncResult<LeagueEventDeckDTO> {
-    const [existing] = await db.select().from(leagueEventDecks).where(eq(leagueEventDecks.id, resultId)).limit(1);
-    if (!existing) return err('result not found', 'not_found');
-
-    const [event] = await db.select({ leagueId: leagueEvents.leagueId })
-      .from(leagueEvents).where(eq(leagueEvents.id, existing.eventId)).limit(1);
-    if (!event) return err('result not found', 'not_found');
-
-    const [league] = await db.select({ ownerId: leagues.ownerId }).from(leagues)
-      .where(eq(leagues.id, event.leagueId)).limit(1);
-    if (!league || league.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireResultForOwner(resultId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     const patch: Partial<typeof leagueEventDecks.$inferInsert> = {};
     if (dto.playerHandle !== undefined) patch.playerHandle = dto.playerHandle.trim();
@@ -513,16 +552,8 @@ export class PostgresLeagueService implements ILeagueService {
   }
 
   async deleteEventResult(resultId: string, actingUserId: string): AsyncResult<{ deleted: true }> {
-    const [existing] = await db.select().from(leagueEventDecks).where(eq(leagueEventDecks.id, resultId)).limit(1);
-    if (!existing) return err('result not found', 'not_found');
-
-    const [event] = await db.select({ leagueId: leagueEvents.leagueId })
-      .from(leagueEvents).where(eq(leagueEvents.id, existing.eventId)).limit(1);
-    if (!event) return err('result not found', 'not_found');
-
-    const [league] = await db.select({ ownerId: leagues.ownerId }).from(leagues)
-      .where(eq(leagues.id, event.leagueId)).limit(1);
-    if (!league || league.ownerId !== actingUserId) return err('forbidden', 'forbidden');
+    const gate = await this.requireResultForOwner(resultId, actingUserId);
+    if (!gate.ok) return gate.failure;
 
     await db.delete(leagueEventDecks).where(eq(leagueEventDecks.id, resultId));
     return ok({ deleted: true });
