@@ -505,6 +505,35 @@ export interface HeroPoolFilters {
   format?: string;
 }
 
+/** Snake_case flag names match the DB column names so admin UI can post them verbatim. */
+export type HeroLegalityFlag =
+  | 'cc_legal'
+  | 'blitz_legal'
+  | 'silver_age_legal'
+  | 'commoner_legal'
+  | 'll_legal';
+
+export const HERO_LEGALITY_FLAGS: HeroLegalityFlag[] = [
+  'cc_legal',
+  'blitz_legal',
+  'silver_age_legal',
+  'commoner_legal',
+  'll_legal',
+];
+
+export interface HeroLegalityRow {
+  cardUniqueId: string;
+  displayName: string;
+  imageUrl: string | null;
+  types: string[];
+  klass: string | null;
+  ccLegal: boolean;
+  blitzLegal: boolean;
+  silverAgeLegal: boolean;
+  commonerLegal: boolean;
+  llLegal: boolean;
+}
+
 /**
  * Printings Service Interface
  *
@@ -688,4 +717,26 @@ export interface IPrintingsService {
     additionalFilters?: PrintingsSearchFilters,
     options?: PrintingsSearchOptions
   ): AsyncResult<PrintingsSearchResult>;
+
+  /**
+   * Admin-only: list every hero card with its format-legality flags.
+   * One row per cardUniqueId, image picked from any printing.
+   */
+  listHeroCards(): AsyncResult<HeroLegalityRow[]>;
+
+  /**
+   * Admin-only: flip a single format-legality flag on a hero card.
+   * Rejects unknown cardUniqueId, non-hero cards, and unknown flag names.
+   */
+  setHeroLegality(
+    cardUniqueId: string,
+    flag: HeroLegalityFlag,
+    value: boolean
+  ): AsyncResult<void>;
+
+  /**
+   * Admin-only: toggle whether a hero is marked as Young by adding/removing
+   * 'young' from the types array. Idempotent.
+   */
+  setHeroYoung(cardUniqueId: string, value: boolean): AsyncResult<void>;
 }

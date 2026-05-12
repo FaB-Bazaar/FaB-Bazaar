@@ -19,7 +19,10 @@ import type {
   EssenceStatistics,
   CardSummaryDTO,
   HeroPoolFilters,
+  HeroLegalityFlag,
+  HeroLegalityRow,
 } from '@/lib/services/contracts/IPrintingsService';
+import { HERO_LEGALITY_FLAGS } from '@/lib/services/contracts/IPrintingsService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
 import { getHeroInfo } from '@/lib/fab-constants/heroes';
@@ -1454,5 +1457,140 @@ export class PostgresPrintingsService implements IPrintingsService {
       created_at: row.cardCreatedAt || row.printingCreatedAt,
       printing_data: undefined, // Not stored in PostgreSQL
     };
+  }
+
+  async listHeroCards(): AsyncResult<HeroLegalityRow[]> {
+    try {
+      const heroRows = await db
+        .select({
+          cardUniqueId: cards.cardUniqueId,
+          displayName: cards.displayName,
+          name: cards.name,
+          types: cards.types,
+          classes: cards.classes,
+          ccLegal: cards.ccLegal,
+          blitzLegal: cards.blitzLegal,
+          silverAgeLegal: cards.silverAgeLegal,
+          commonerLegal: cards.commonerLegal,
+          llLegal: cards.llLegal,
+        })
+        .from(cards)
+        .where(sql`'hero' = ANY(${cards.types})`)
+        .orderBy(
+          // Adults first, then young (false sorts before true)
+          sql`('young' = ANY(${cards.types}))`,
+          // Then by class (first entry in the classes array)
+          sql`${cards.classes}[1]`,
+          asc(cards.displayName),
+        );
+
+      const heroIds = heroRows.map(r => r.cardUniqueId);
+      const imageByCardId = new Map<string, string>();
+      if (heroIds.length > 0) {
+        const printingRows = await db
+          .select({ cardUniqueId: printings.cardUniqueId, imageUrl: printings.imageUrl })
+          .from(printings)
+          .where(
+            and(
+              inArray(printings.cardUniqueId, heroIds),
+              sql`${printings.imageUrl} IS NOT NULL AND ${printings.imageUrl} <> ''`,
+            ),
+          );
+        for (const p of printingRows) {
+          if (!imageByCardId.has(p.cardUniqueId) && p.imageUrl) {
+            imageByCardId.set(p.cardUniqueId, p.imageUrl);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: heroRows.map(r => ({
+          cardUniqueId: r.cardUniqueId,
+          displayName: r.displayName || r.name,
+          imageUrl: imageByCardId.get(r.cardUniqueId) ?? null,
+          types: r.types ?? [],
+          klass: (r.classes && r.classes[0]) || null,
+          ccLegal: r.ccLegal,
+          blitzLegal: r.blitzLegal,
+          silverAgeLegal: r.silverAgeLegal,
+          commonerLegal: r.commonerLegal,
+          llLegal: r.llLegal,
+        })),
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to list hero cards' };
+    }
+  }
+
+  async setHeroLegality(
+    cardUniqueId: string,
+    flag: HeroLegalityFlag,
+    value: boolean,
+  ): AsyncResult<void> {
+    if (!HERO_LEGALITY_FLAGS.includes(flag)) {
+      return { success: false, error: `Unknown legality flag: ${flag}` };
+    }
+
+    const column: Record<HeroLegalityFlag, keyof typeof cards.$inferSelect> = {
+      cc_legal: 'ccLegal',
+      blitz_legal: 'blitzLegal',
+      silver_age_legal: 'silverAgeLegal',
+      commoner_legal: 'commonerLegal',
+      ll_legal: 'llLegal',
+    };
+
+    try {
+      const row = await db
+        .select({ types: cards.types })
+        .from(cards)
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .limit(1);
+      if (row.length === 0) {
+        return { success: false, error: `Card not found: ${cardUniqueId}` };
+      }
+      if (!(row[0].types ?? []).includes('hero')) {
+        return { success: false, error: `Card is not a hero: ${cardUniqueId}` };
+      }
+
+      await db
+        .update(cards)
+        .set({ [column[flag]]: value } as any)
+        .where(eq(cards.cardUniqueId, cardUniqueId));
+
+      return { success: true, data: undefined };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to update hero legality' };
+    }
+  }
+
+  async setHeroYoung(cardUniqueId: string, value: boolean): AsyncResult<void> {
+    try {
+      const row = await db
+        .select({ types: cards.types })
+        .from(cards)
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .limit(1);
+      if (row.length === 0) {
+        return { success: false, error: `Card not found: ${cardUniqueId}` };
+      }
+      if (!(row[0].types ?? []).includes('hero')) {
+        return { success: false, error: `Card is not a hero: ${cardUniqueId}` };
+      }
+
+      // Always strip first, then append if true — guarantees idempotency.
+      const expr = value
+        ? sql`array_append(array_remove(${cards.types}, 'young'), 'young')`
+        : sql`array_remove(${cards.types}, 'young')`;
+
+      await db
+        .update(cards)
+        .set({ types: expr as any })
+        .where(eq(cards.cardUniqueId, cardUniqueId));
+
+      return { success: true, data: undefined };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to update hero young flag' };
+    }
   }
 }
