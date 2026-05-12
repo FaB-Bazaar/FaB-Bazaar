@@ -6,7 +6,7 @@ import { RarityIcon } from "@/components/shared/RarityIcon";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info } from "lucide-react";
+import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
@@ -2211,7 +2211,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         {(viewMode === 'tile' || viewMode === 'game') && onAddToBinder && binders && binders.length > 0 && (
           <div className="hidden sm:flex flex-col items-end gap-0.5 ml-auto">
             <div className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-400">
-              <BookmarkPlus className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <BookOpen className="h-3 w-3 shrink-0" aria-hidden="true" />
               <span>Add to Binder</span>
               <Popover>
                 <PopoverTrigger asChild>
@@ -2226,12 +2226,34 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                 <PopoverContent align="end" className="w-80 text-sm text-gray-700 dark:text-gray-200">
                   <p className="font-semibold mb-2 text-gray-900 dark:text-white">Add to Binder</p>
                   <p className="mb-2">
-                    Pick a target binder here, then click the <BookmarkPlus className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> bookmark on any card tile to add <strong>1× NM copy</strong> of that exact printing to it.
+                    Pick a target binder, then turn on <strong>Collector Mode</strong> (or press <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">⌘K</kbd> then <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">U</kbd>). A small <BookOpen className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> button appears under each card you don&apos;t fully own — click it to add <strong>1× NM</strong> of that printing.
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Your selection is remembered across sessions.</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">Your binder selection is remembered across sessions.</p>
                 </PopoverContent>
               </Popover>
             </div>
+            <button
+              type="button"
+              aria-pressed={ownershipFilter === 'unowned'}
+              title="Show an Add-to-Binder button under each card you don't fully own"
+              onClick={() => {
+                const next = ownershipFilter === 'unowned' ? 'all' : 'unowned';
+                window.dispatchEvent(new CustomEvent('deck-ownership-filter', {
+                  detail: { filter: next, setExplicit: true }
+                }));
+              }}
+              className={cn(
+                "flex items-center gap-1.5 text-sm px-2 py-1 rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                ownershipFilter === 'unowned'
+                  ? "border-blue-400 border-t-[3px] bg-blue-500/15 text-blue-700 dark:text-blue-200"
+                  : "border-gray-300 dark:border-gray-600 bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/40"
+              )}
+            >
+              {ownershipFilter === 'unowned'
+                ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                : <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+              <span>Collector Mode</span>
+            </button>
             <Select value={selectedBinderId} onValueChange={onBinderChange}>
               <SelectTrigger className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
                 <SelectValue placeholder="Select binder" />
