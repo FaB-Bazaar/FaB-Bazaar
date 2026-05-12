@@ -1739,11 +1739,18 @@ export default function DeckEditorPage() {
               >
                 <List className="h-4 w-4" />
                 Deck
-                {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (
-                  <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded-full">
-                    {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}/80
-                  </span>
-                )}
+                {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (() => {
+                  // Format-aware max: CC and Living Legend allow up to 80
+                  // (60 maindeck + sideboard/inventory). Silver Age / Blitz /
+                  // Commoner top out around 55 (40-card maindeck + inventory).
+                  const youngFormats = new Set(['Silver Age', 'Blitz', 'Commoner']);
+                  const max = youngFormats.has(state.deck.format) ? 55 : 80;
+                  return (
+                    <span className="ml-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded-full">
+                      {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}/{max}
+                    </span>
+                  );
+                })()}
               </button>
               <Link
                 href={`/decks/${deckId}/matchups`}
