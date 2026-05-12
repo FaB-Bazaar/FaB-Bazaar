@@ -30,6 +30,27 @@ const FORMAT_TARGETS: Record<string, FormatTargets> = {
     utility: 12,
     totalMaindeck: 80,
   },
+  'silver age': {
+    gear: 4,
+    attacks: 16,
+    defense: 10,
+    utility: 8,
+    totalMaindeck: 55,
+  },
+  'blitz': {
+    gear: 4,
+    attacks: 15,
+    defense: 10,
+    utility: 8,
+    totalMaindeck: 52,
+  },
+  'commoner': {
+    gear: 4,
+    attacks: 16,
+    defense: 10,
+    utility: 8,
+    totalMaindeck: 55,
+  },
 };
 
 const COMPLETE_THRESHOLD = 0.8;

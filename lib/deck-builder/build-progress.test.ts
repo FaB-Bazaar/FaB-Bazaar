@@ -45,6 +45,25 @@ describe('computeBuildProgress', () => {
     expect(result.totalCards.target).toBe(80);
   });
 
+  test('Silver Age maindeck target is 55', () => {
+    const result = computeBuildProgress(emptyDeck(), 'silver age');
+
+    expect(result.totalCards.target).toBe(55);
+    expect(result.steps.attacks.target).toBe(16);
+    expect(result.steps.defense.target).toBe(10);
+    expect(result.steps.utility.target).toBe(8);
+  });
+
+  test('Blitz maindeck target is 52', () => {
+    const result = computeBuildProgress(emptyDeck(), 'blitz');
+    expect(result.totalCards.target).toBe(52);
+  });
+
+  test('Commoner maindeck target is 55', () => {
+    const result = computeBuildProgress(emptyDeck(), 'commoner');
+    expect(result.totalCards.target).toBe(55);
+  });
+
   test('counts equipment and weapons as gear', () => {
     const deck = emptyDeck({
       equipment: [

@@ -44,7 +44,7 @@ export default function BuildProgressStep({
       type="button"
       onClick={onClick}
       data-complete={complete ? "true" : "false"}
-      aria-label={`${label} — ${current} of ${target}${complete ? ", complete" : ""}`}
+      aria-label={`${label} — ${current}${complete ? ", complete" : ""}`}
       className={cn(
         "group flex flex-col items-start gap-1.5 rounded-lg border px-3 py-2 text-left transition-colors",
         "bg-white dark:bg-gray-900/60 backdrop-blur-sm",
@@ -63,7 +63,7 @@ export default function BuildProgressStep({
 
       <div className="flex w-full items-center gap-2">
         <span className="text-base font-bold tabular-nums text-gray-900 dark:text-gray-100">
-          {current} / {target}
+          {current}
         </span>
       </div>
 
