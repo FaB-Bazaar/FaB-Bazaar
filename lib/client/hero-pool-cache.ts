@@ -18,7 +18,38 @@
  */
 
 import type { CardSummaryDTO, HeroPoolFilters, PrintingDTO } from "@/lib/services/contracts/IPrintingsService";
-import type { CardResult, PrintingResult } from "./card-pool-cache";
+
+/**
+ * The shape QuickAddCardDialog renders. One row per unique card. The
+ * `printings` array holds the variants for the printing picker drilldown.
+ */
+export interface PrintingResult {
+  printing_id: string;
+  image_url?: string;
+  set?: string;
+  collector_number?: string;
+  edition?: string;
+  foiling?: string;
+  rarity?: string;
+  is_extended_art?: boolean;
+  tcg_low?: number | null;
+  tcg_market?: number | null;
+  card_unique_id?: string;
+  cardId?: string;
+  display_name?: string;
+  name?: string;
+  types?: string[];
+  pitch?: number | null;
+  [key: string]: unknown;
+}
+
+export interface CardResult {
+  unique_id: string;
+  name: string;
+  types: string[];
+  pitch: number | null;
+  printings: PrintingResult[];
+}
 
 type PoolKey = string;
 
@@ -138,6 +169,24 @@ export function filterPoolByChip(pool: CardSummaryDTO[], chipValue: string): Car
   const targetType = CHIP_TYPE[chipValue];
   if (!targetType) return [];
   return pool.filter((c) => c.types.includes(targetType));
+}
+
+/**
+ * Replaces probeAvailableTypes from the legacy card-pool-cache. Derives the
+ * set of chip values that have at least one matching card from a pool we
+ * already have in memory — no network calls.
+ */
+export function getAvailableChipsFromPool(
+  pool: CardSummaryDTO[],
+  chipValues: string[]
+): Set<string> {
+  const available = new Set<string>();
+  for (const chipValue of chipValues) {
+    if (filterPoolByChip(pool, chipValue).length > 0) {
+      available.add(chipValue);
+    }
+  }
+  return available;
 }
 
 // ─── Adapter to legacy CardResult shape ──────────────────────────────────

@@ -15,18 +15,14 @@ import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import {
   type CardResult,
   type PrintingResult,
-  type PoolParams,
-  probeAvailableTypes,
-  fetchTypeCards,
-  getCachedCards,
-} from "@/lib/client/card-pool-cache";
-import {
   fetchHeroPool,
   getCachedHeroPool,
   filterPoolByChip,
   toCardResult,
   fetchPrintingsForCard,
+  getAvailableChipsFromPool,
 } from "@/lib/client/hero-pool-cache";
+import type { HeroPoolFilters } from "@/lib/services/contracts/IPrintingsService";
 import {
   TYPE_CHIPS as SHARED_TYPE_CHIPS,
   GENERIC_CHIP as SHARED_GENERIC_CHIP,
@@ -699,16 +695,20 @@ export default function QuickAddCardDialog({
     }
   }, [open, pitchFilter]);
 
-  // Build pool params object (stable reference via memo-like pattern)
-  const poolParams: PoolParams = {
+  // Build pool filter object (stable reference via memo-like pattern)
+  const poolParams: HeroPoolFilters = {
     heroClasses, heroTalents, heroEssences, format: deckFormat,
   };
 
-  // Probe: determine available type chips (uses cache if already warmed)
+  // Determine available type chips by deriving from the hero pool we already
+  // preloaded. No probe network calls — replaces the legacy probeAvailableTypes
+  // which fired ~13 limit=1 search calls per chip.
   useEffect(() => {
     if (!open || targetCategory === 'hero' || targetCategory === 'equipment') return;
-    probeAvailableTypes(poolParams, [...TYPE_CHIPS, GENERIC_CHIP])
-      .then(available => setAvailableTypes(available));
+    const chipValues = [...TYPE_CHIPS, GENERIC_CHIP].map(c => c.value);
+    fetchHeroPool(poolParams)
+      .then(pool => setAvailableTypes(getAvailableChipsFromPool(pool, chipValues)))
+      .catch(() => { /* leave availableTypes unchanged on failure */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, targetCategory, heroClasses.join(','), heroTalents.join(','), heroEssences.join(','), deckFormat]);
 

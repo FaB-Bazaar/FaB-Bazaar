@@ -13,6 +13,7 @@ import {
   clearPrintingsCache,
   filterPoolByChip,
   toCardResult,
+  getAvailableChipsFromPool,
 } from './hero-pool-cache';
 
 const mockResponse = (cards: any[]) =>
@@ -271,6 +272,59 @@ describe('filterPoolByChip', () => {
 });
 
 // ─── Adapter to CardResult shape ─────────────────────────────────────────
+
+describe('getAvailableChipsFromPool', () => {
+  const ALL_CHIPS = [
+    'attack', 'non-attack-action', 'item', 'attack-reaction', 'defense-reaction',
+    'instant', 'equipment', 'weapon', 'gem', 'ally', 'evo', 'generic',
+  ];
+
+  it('returns the set of chip values that have at least one matching card in the pool', () => {
+    const pool = [
+      card({ cardUniqueId: 'a', types: ['action', 'attack'] }),
+      card({ cardUniqueId: 'b', types: ['instant'] }),
+      card({ cardUniqueId: 'c', types: ['equipment'] }),
+    ];
+    const available = getAvailableChipsFromPool(pool, ALL_CHIPS);
+    expect(available.has('attack')).toBe(true);
+    expect(available.has('instant')).toBe(true);
+    expect(available.has('equipment')).toBe(true);
+    expect(available.has('ally')).toBe(false);
+    expect(available.has('gem')).toBe(false);
+  });
+
+  it('includes "non-attack-action" when pool has actions without attack type', () => {
+    const pool = [
+      card({ cardUniqueId: 'a', types: ['action'] }),
+      card({ cardUniqueId: 'b', types: ['action', 'attack'] }),
+    ];
+    const available = getAvailableChipsFromPool(pool, ALL_CHIPS);
+    expect(available.has('non-attack-action')).toBe(true);
+    expect(available.has('attack')).toBe(true);
+  });
+
+  it('excludes "non-attack-action" when every action in the pool is also an attack', () => {
+    const pool = [
+      card({ cardUniqueId: 'a', types: ['action', 'attack'] }),
+      card({ cardUniqueId: 'b', types: ['action', 'attack'] }),
+    ];
+    const available = getAvailableChipsFromPool(pool, ALL_CHIPS);
+    expect(available.has('non-attack-action')).toBe(false);
+    expect(available.has('attack')).toBe(true);
+  });
+
+  it('returns empty set for an empty pool', () => {
+    const available = getAvailableChipsFromPool([], ALL_CHIPS);
+    expect(available.size).toBe(0);
+  });
+
+  it('ignores unknown chip values (no error)', () => {
+    const pool = [card({ types: ['attack'] })];
+    const available = getAvailableChipsFromPool(pool, ['attack', '__unknown__']);
+    expect(available.has('attack')).toBe(true);
+    expect(available.has('__unknown__')).toBe(false);
+  });
+});
 
 describe('toCardResult', () => {
   it('maps the slim CardSummary to the CardResult shape', () => {
