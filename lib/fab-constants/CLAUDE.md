@@ -4,12 +4,14 @@ Static game/presentation constants for Flesh and Blood. Imported via the barrel 
 
 ## Heroes module (3 files, dependency graph: `heroes-rosters` ← `heroes-meta` ← `heroes`)
 
-### `heroes-rosters.ts` — canonical roster data (leaf)
+### `heroes-rosters.ts` — display-only roster + legality fallback
 Pure data + roster-local helpers. Imports nothing from siblings.
 
-- `HERO_INFO` / `YOUNG_HERO_INFO` — canonical lowercase keys; the source of truth for hero class/talent/essence/shortName.
+- `HERO_INFO` / `YOUNG_HERO_INFO` — canonical lowercase keys. **Not** the source of truth for legality — the `cards` table is (see below). Roster is used for display metadata (shortName, nicknames, cardUniqueId for portraits, class-bucketed pickers) and as a fallback for `getHeroInfo` when a hero row hasn't synced yet.
 - `HeroInfo` / `HeroEntry` interfaces, `HeroName` / `YoungHeroName` types.
 - `getHeroesGroupedByClass`, `getYoungHeroesGroupedByClass`, `getAllClasses` — sorted class-bucketed views for UI pickers.
+
+> **Source of truth for hero legality is the DB, not this file.** `PostgresDeckService.addPrintings` reads `cards.classes`, `cards.talents`, `cards.essences` directly. Pipeline 003 derives essences from the `"essence of X"` keyword on the hero card. Do **not** re-derive talents from `cards.types` against a hardcoded talent list — `revered`/`reviled` (and any future talent) will silently break. Just read `cards.talents` as the pipeline writes it.
 
 ### `heroes-meta.ts` — external integrations + competitive meta + showcase art
 Imports only from `heroes-rosters`.

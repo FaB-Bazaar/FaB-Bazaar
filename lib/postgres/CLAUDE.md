@@ -21,7 +21,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | Table | Purpose | Owner FK |
 |-------|---------|----------|
 | `users` | Accounts, auth, profiles, roles | — |
-| `cards` | Card-level data (one per logical card). 40+ boolean type/class flags, 13 talent flags, format legality | — |
+| `cards` | Card-level data (one per logical card). 40+ boolean type/class flags, 13 talent flags, format legality. **`essences text[]`** is hero-only — the essence card pools a hero grants access to (Terra → `{earth}`, Oldhim → `{earth,ice}`); empty `{}` for every non-hero card. Populated by pipeline 003 from the `"essence of X"` keyword. | — |
 | `printings` | Physical printings (set + edition + foiling). Pricing, images, rarity/foiling flags | `cards.cardUniqueId` |
 | `binders` | Named collections. Visibility, feature flags (allowWhoHas, allowInSearch, etc.) | `users.id` CASCADE |
 | `inventory_items` | Card holdings per (binder, printing, condition, language). forTrade/forSale flags | `users.id` + `binders.id` CASCADE |
