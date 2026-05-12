@@ -8,7 +8,9 @@ merged card+printing document) and upserts all records into the `cards` and
 
 - Cards are upserted first (printings FK references cards)
 - Printings are upserted second
-- ON CONFLICT DO UPDATE overwrites all non-PK, non-created_at fields
+- ON CONFLICT DO UPDATE overwrites all non-PK, non-created_at fields EXCEPT
+  the columns in CARD_ADMIN_OWNED_COLS (cc_legal / blitz_legal / silver_age_legal
+  / commoner_legal / ll_legal), which are managed via /admin/heroes
 - Batch upserts via psycopg2.extras.execute_values (500 rows per batch)
 - Reports: unique cards and printings from file, before/after row counts in DB
 
@@ -124,9 +126,26 @@ PRINTING_BOOL_NOT_NULL: frozenset = frozenset([
 
 # ─── SQL (built once at module load) ──────────────────────────────────────────
 
+# Columns the admin UI (/admin/heroes) owns. We keep INSERT-ing them so brand-new
+# cards still get whatever upstream said on first import, but we never UPDATE
+# them on a re-sync — that way manual fixes via the admin page survive the
+# weekly run. Upstream legality changes (e.g. an actual ban) must be applied
+# through the admin UI now.
+CARD_ADMIN_OWNED_COLS = {
+    'cc_legal',
+    'blitz_legal',
+    'silver_age_legal',
+    'commoner_legal',
+    'll_legal',
+}
+
+
 def _build_card_upsert_sql() -> str:
     col_names = ', '.join(f'"{c}"' for c in CARD_FIELDS)
-    update_cols = [c for c in CARD_FIELDS if c != 'card_unique_id']
+    update_cols = [
+        c for c in CARD_FIELDS
+        if c != 'card_unique_id' and c not in CARD_ADMIN_OWNED_COLS
+    ]
     update_set = ',\n            '.join(f'"{c}" = EXCLUDED."{c}"' for c in update_cols)
     return f"""
         INSERT INTO cards ({col_names}, created_at, updated_at)
