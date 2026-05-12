@@ -1840,14 +1840,15 @@ export default function DeckEditorPage() {
 
             {/* Starter Kits — a compact dropdown of curated builds + optional curator guide links.
                 Designed to stay one-line tall regardless of how many kits are available. */}
-            {canEdit && (buildsLoading || curatedBuilds.length > 0 || heroCurators.some(c => c.metafyProductUrl)) && (() => {
+            {canEdit && (() => {
               const curatorsWithMetafy = heroCurators.filter(c => c.metafyProductUrl);
               // Promote the chip to a primary CTA when the deck is essentially empty —
               // makes the "start here" path obvious for first-time builders.
               const isEmptyDeck = (buildProgress?.totalCards.current ?? 0) === 0;
+              const hasKits = buildsLoading || curatedBuilds.length > 0 || curatorsWithMetafy.length > 0;
               return (
-                <div className="mb-2">
-                  <DropdownMenu>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {hasKits && <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
@@ -1905,7 +1906,27 @@ export default function DeckEditorPage() {
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
-                  </DropdownMenu>
+                  </DropdownMenu>}
+
+                  {/* Explore button — opens QuickAddCardDialog (same as ⌘K → 9 chord).
+                      Sits next to "Start with a Starter Kit" so brewers see both paths. */}
+                  <button
+                    type="button"
+                    onClick={() => openQuickAdd({ category: 'maindeck' })}
+                    aria-label={`Explore the card pool (${modKey} K, then 9)`}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      isEmptyDeck
+                        ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 shadow-[0_0_12px_rgba(59,130,246,0.25)] font-semibold"
+                        : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    )}
+                  >
+                    <Search className={cn("h-3.5 w-3.5", isEmptyDeck ? "text-blue-300" : "text-gray-500 dark:text-gray-400")} aria-hidden="true" />
+                    <span className={isEmptyDeck ? "font-semibold" : "font-medium"}>Explore</span>
+                    <kbd className="rounded border border-current/30 bg-black/10 dark:bg-white/10 px-1.5 py-0.5 font-sans text-[10px] font-bold opacity-80">
+                      {modKey}K → 9
+                    </kbd>
+                  </button>
                 </div>
               );
             })()}
