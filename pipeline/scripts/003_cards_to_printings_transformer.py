@@ -74,6 +74,66 @@ class CardsToPrintingsTransformer:
         
         return classes, talents
 
+    def parse_hero_essences(self, card_data):
+        """Parse the essence card pools a HERO grants access to.
+
+        Returns a list of normalized lowercase essence names (e.g. ['earth'],
+        ['earth','ice'], ['earth','ice','lightning']) by reading the hero
+        card's keywords for the "essence of X[, Y, and Z]" pattern. Returns
+        [] for any non-hero card OR any hero card whose keywords don't
+        mention essences (Tuffnut, Dorinthea, Aurora Emissary, etc.).
+
+        This is hero-only because non-hero cards can have "essence of X" in
+        their card text/keywords (fusion abilities like Channel Lake Frigid)
+        without granting hero-level essence pool access.
+        """
+        types = self.normalize_array(card_data.get('types', []))
+        if 'hero' not in types:
+            return []
+
+        # Source JSON uses `card_keywords`; the DB column ultimately written
+        # is `keywords`, but at this stage we read the source field.
+        keywords = card_data.get('card_keywords', []) or []
+        if isinstance(keywords, str):
+            keywords = [keywords]
+
+        # Upstream sometimes pre-splits a single essence list across multiple
+        # array elements — Bravo, Star of the Show ships as
+        # ["Essence of Earth", "Ice", "and Lightning"] instead of one joined
+        # string. Walk the keywords and merge contiguous non-"essence of"
+        # continuations into the preceding essence entry before parsing.
+        merged: list[str] = []
+        for kw in keywords:
+            if not isinstance(kw, str):
+                continue
+            text = kw.strip().lower()
+            if not text:
+                continue
+            if text.startswith('essence of '):
+                merged.append(text)
+            elif merged:
+                # Continuation of the preceding essence entry — re-join with a
+                # comma so the existing parser handles it uniformly.
+                merged[-1] = merged[-1] + ', ' + text
+
+        essences: list[str] = []
+        for entry in merged:
+            remainder = entry[len('essence of '):]
+            # Split on commas and "and" tokens — handles "earth", "earth and
+            # ice", and "earth, ice, and lightning" uniformly.
+            parts = re.split(r',\s*|\s+and\s+', remainder)
+            for p in parts:
+                name = p.strip()
+                # Strip leading "and " for the case after a comma: parts split
+                # from "ice, and lightning" yields "and lightning" because the
+                # comma already consumed the separator.
+                if name.startswith('and '):
+                    name = name[4:].strip()
+                if name and name not in essences:
+                    essences.append(name)
+
+        return essences
+
     def parse_elemental_essence(self, card_data):
         """Parse elemental essence from any card with elemental talents"""
         essence_flags = {
@@ -311,7 +371,12 @@ class CardsToPrintingsTransformer:
         
         # Extract classes and talents from types
         classes, talents = self.extract_classes_and_talents(card.get('types', []))
-        
+
+        # Essences: hero-only pool grants parsed from "essence of X" keywords.
+        # Empty for every non-hero card. This is the source of truth used by
+        # the app's add-card legality check (PostgresDeckService).
+        essences = self.parse_hero_essences(card)
+
         # Parse elemental essence for any card with elemental talents
         types_normalized = self.normalize_array(card.get('types', []))
         has_elemental_talents = any(talent in types_normalized for talent in ['ice', 'lightning', 'earth'])
@@ -334,6 +399,7 @@ class CardsToPrintingsTransformer:
             'types': self.normalize_array(card.get('types', [])),
             'classes': classes,  # Extracted classes
             'talents': talents,  # Extracted talents
+            'essences': essences,  # Hero-granted essence pools (empty for non-heroes)
             'traits': self.normalize_array(card.get('traits', [])),
             'keywords': self.normalize_array(card.get('card_keywords', [])),
             # Original-case keywords for display (e.g. "Go Again", "Ward 10").

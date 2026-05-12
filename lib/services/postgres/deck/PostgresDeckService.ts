@@ -39,9 +39,6 @@ import type {
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
-import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
-
-const TALENT_SET = new Set<string>(OFFICIAL_TALENTS);
 import {
   validateCardForHero,
   validateCopyLimit,
@@ -1300,25 +1297,32 @@ export class PostgresDeckService implements IDeckService {
       // Resolve the deck's hero once for per-card legality checks. Skipped if
       // the deck has no hero yet (newly created without one).
       //
-      // The DB cards row is the source of truth — read classes from
-      // `cards.classes` and derive talents from `cards.types` (the hero's
-      // talents are the talent-type entries on the card). Fall back to the
-      // static roster only if the cards row is missing. The static roster
-      // historically had stale `talents: []` for several heroes (e.g.
-      // "arakni, web of deceit"), which used to reject chaos-talent cards.
+      // The DB cards row is the source of truth:
+      //   - cards.classes    → hero's class(es)
+      //   - cards.talents    → hero's talents (includes revered/reviled — the
+      //                        pipeline knows the full talent set)
+      //   - cards.essences   → essence card pools the hero grants access to
+      //                        (Terra → {earth}, Oldhim → {earth,ice})
+      // Fall back to the static roster only when the cards row is missing
+      // (newly added hero before next pipeline sync).
       const heroNameRaw = deck[0].heroName?.trim().toLowerCase();
       let heroInfo: { classes: string[]; talents: string[]; essences?: string[] } | null = null;
       if (heroNameRaw) {
         const heroCard = await db
-          .select({ classes: cards.classes, types: cards.types })
+          .select({
+            classes: cards.classes,
+            talents: cards.talents,
+            essences: cards.essences,
+          })
           .from(cards)
           .where(eq(cards.name, heroNameRaw))
           .limit(1);
         if (heroCard[0]) {
-          const classesLower = (heroCard[0].classes ?? []).map(c => c.toLowerCase());
-          const typesLower = (heroCard[0].types ?? []).map(t => t.toLowerCase());
-          const talentsFromTypes = typesLower.filter(t => TALENT_SET.has(t));
-          heroInfo = { classes: classesLower, talents: talentsFromTypes };
+          heroInfo = {
+            classes: (heroCard[0].classes ?? []).map(c => c.toLowerCase()),
+            talents: (heroCard[0].talents ?? []).map(t => t.toLowerCase()),
+            essences: (heroCard[0].essences ?? []).map(e => e.toLowerCase()),
+          };
         } else {
           const roster = getHeroInfo(heroNameRaw);
           if (roster) heroInfo = { classes: roster.classes, talents: roster.talents, essences: roster.essences };

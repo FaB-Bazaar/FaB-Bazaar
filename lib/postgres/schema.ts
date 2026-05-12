@@ -270,6 +270,10 @@ export const cards = pgTable('cards', {
   abilities: text('abilities').array(),
   classes: text('classes').array(),
   talents: text('talents').array(),
+  // Hero-only: list of essence card pools the hero grants access to (Terra
+  // → {earth}, Oldhim → {earth,ice}). Empty for every non-hero card.
+  // Populated by pipeline 003 from the "essence of X" keyword pattern.
+  essences: text('essences').array().notNull().default(sql`ARRAY[]::text[]`),
 
   // Game stats
   power: integer('power'),
