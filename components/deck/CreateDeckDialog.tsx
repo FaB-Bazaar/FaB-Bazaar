@@ -1,7 +1,7 @@
 // components/deck/CreateDeckDialog.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Globe, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { HERO_INFO, getHeroesGroupedByClass, getYoungHeroesGroupedByClass, YOUNG_HERO_INFO } from '@/lib/fab-constants';
+import type { HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
 
 interface CreateDeckDialogProps {
   open: boolean;
@@ -20,40 +20,31 @@ interface CreateDeckDialogProps {
     description: string;
     format: string;
     hero?: string;
+    heroCardUniqueId?: string;
     heroPrintingId?: string;
     isPublic: boolean;
   }) => Promise<void>;
 }
 
-// Merge adult + young hero classes into a single grouped list
-function mergeHeroClasses(
-  adult: Record<string, string[]>,
-  young: Record<string, string[]>
-): Record<string, string[]> {
-  const result: Record<string, string[]> = {};
-  const allClasses = new Set([...Object.keys(adult), ...Object.keys(young)]);
-  for (const cls of allClasses) {
-    const combined = [...(adult[cls] ?? []), ...(young[cls] ?? [])];
-    if (combined.length) result[cls] = combined;
-  }
-  return result;
-}
-
-const ALL_HERO_CLASSES = mergeHeroClasses(
-  getHeroesGroupedByClass(),
-  getYoungHeroesGroupedByClass()
-);
+// FaB talent strings to extract from cards.types for the picker badges.
+const TALENT_TYPES = new Set([
+  'shadow', 'light', 'royal', 'draconic', 'mystic', 'elemental',
+  'ice', 'lightning', 'earth', 'chaos', 'revered', 'reviled', 'pirate',
+]);
 
 function toDisplayName(name: string): string {
   return name.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
 }
 
-function deriveFormat(heroName: string): string {
-  if (heroName === 'none') return 'Classic Constructed';
-  const key = heroName.toLowerCase();
-  if (!HERO_INFO[key as keyof typeof HERO_INFO] && YOUNG_HERO_INFO[key as keyof typeof YOUNG_HERO_INFO]) {
-    return 'Silver Age';
-  }
+// Priority: cc > silver_age > blitz > commoner > ll. CC is the default for
+// adult heroes, Silver Age for young, LL only for graduated heroes.
+function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string {
+  if (!hero) return 'Classic Constructed';
+  if (hero.ccLegal) return 'Classic Constructed';
+  if (hero.silverAgeLegal) return 'Silver Age';
+  if (hero.blitzLegal) return 'Blitz';
+  if (hero.commonerLegal) return 'Commoner';
+  if (hero.llLegal) return 'Living Legend';
   return 'Classic Constructed';
 }
 
@@ -69,8 +60,39 @@ export default function CreateDeckDialog({
   const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
   const [nameTouched, setNameTouched] = useState(false);
+  const [heroes, setHeroes] = useState<HeroLegalityRow[]>([]);
 
-  const derivedFormat = deriveFormat(hero);
+  // Fetch hero roster + legality from DB once when the dialog opens.
+  useEffect(() => {
+    if (!open || heroes.length > 0) return;
+    let cancelled = false;
+    fetch('/api/heroes')
+      .then(r => (r.ok ? r.json() : null))
+      .then(payload => {
+        if (cancelled || !payload?.success) return;
+        setHeroes(payload.data as HeroLegalityRow[]);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, heroes.length]);
+
+  const heroesByName = useMemo(() => {
+    const map = new Map<string, HeroLegalityRow>();
+    for (const h of heroes) map.set(h.displayName.toLowerCase(), h);
+    return map;
+  }, [heroes]);
+
+  const heroesByClass = useMemo(() => {
+    const grouped: Record<string, HeroLegalityRow[]> = {};
+    for (const h of heroes) {
+      const cls = h.klass ?? 'other';
+      (grouped[cls] ||= []).push(h);
+    }
+    return grouped;
+  }, [heroes]);
+
+  const selectedHero = hero === 'none' ? undefined : heroesByName.get(hero.toLowerCase());
+  const derivedFormat = deriveFormatFromHero(selectedHero);
 
   const getDefaultDeckName = () => {
     const abbrev = derivedFormat === 'Silver Age' ? 'Sage'
@@ -99,6 +121,7 @@ export default function CreateDeckDialog({
         description: description.trim(),
         format: derivedFormat,
         hero: hero === "none" ? undefined : hero.trim() || undefined,
+        heroCardUniqueId: selectedHero?.cardUniqueId,
         isPublic,
       });
       resetForm();
@@ -154,17 +177,17 @@ export default function CreateDeckDialog({
             <Command className="flex-1 overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg">
               <CommandInput placeholder="Search by name, class, or talent..." autoFocus />
               <CommandList className="flex-1 overflow-y-auto">
-                <CommandEmpty>No heroes found.</CommandEmpty>
-                {Object.entries(ALL_HERO_CLASSES).sort(([a], [b]) => a.localeCompare(b)).map(([className, heroNames]) => (
+                <CommandEmpty>{heroes.length === 0 ? 'Loading heroes…' : 'No heroes found.'}</CommandEmpty>
+                {Object.entries(heroesByClass).sort(([a], [b]) => a.localeCompare(b)).map(([className, classHeroes]) => (
                   <CommandGroup key={className} heading={className.charAt(0).toUpperCase() + className.slice(1)}>
-                    {[...heroNames].sort((a, b) => a.localeCompare(b)).map((heroName) => {
-                      const info = HERO_INFO[heroName.toLowerCase() as keyof typeof HERO_INFO]
-                        ?? YOUNG_HERO_INFO[heroName.toLowerCase() as keyof typeof YOUNG_HERO_INFO];
+                    {[...classHeroes].sort((a, b) => a.displayName.localeCompare(b.displayName)).map((h) => {
+                      const heroKey = h.displayName.toLowerCase();
+                      const talents = h.types.filter(t => TALENT_TYPES.has(t));
                       return (
-                        <CommandItem key={heroName} value={heroName} onSelect={() => handleHeroSelect(heroName)}>
-                          <Check className={`mr-2 h-4 w-4 shrink-0 ${hero === heroName ? "opacity-100" : "opacity-0"}`} />
-                          <span className="flex-1 truncate">{toDisplayName(heroName)}</span>
-                          {info?.talents.map((t: string) => (
+                        <CommandItem key={h.cardUniqueId} value={heroKey} onSelect={() => handleHeroSelect(heroKey)}>
+                          <Check className={`mr-2 h-4 w-4 shrink-0 ${hero === heroKey ? "opacity-100" : "opacity-0"}`} />
+                          <span className="flex-1 truncate">{h.displayName}</span>
+                          {talents.map((t) => (
                             <Badge key={t} variant="secondary" className="text-xs py-0 px-1.5 ml-1">{t}</Badge>
                           ))}
                         </CommandItem>

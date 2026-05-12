@@ -161,6 +161,7 @@ export default function DecksPage() {
     description: string;
     format: string;
     hero?: string;
+    heroCardUniqueId?: string;
     heroPrintingId?: string;
     isPublic: boolean;
   }) => {
@@ -171,14 +172,20 @@ export default function DecksPage() {
 
       console.log('[Decks] Creating new deck:', deckData.name);
 
-      // Resolve hero printing before creating the deck so it's added atomically
+      // Resolve hero printing before creating the deck so it's added atomically.
+      // Dialog now passes heroCardUniqueId directly (DB-driven). Fallback to the
+      // static roster only if the dialog couldn't supply it (defensive).
       let heroPrintingId = deckData.heroPrintingId;
       if (!heroPrintingId) {
-        const heroKey = deckData.hero.toLowerCase();
-        const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
-          ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
-        if (heroInfo?.cardUniqueId) {
-          const params = new URLSearchParams({ cardUniqueId: heroInfo.cardUniqueId, limit: '50', show: 'browse_bulk' });
+        let heroCardUniqueId = deckData.heroCardUniqueId;
+        if (!heroCardUniqueId) {
+          const heroKey = deckData.hero.toLowerCase();
+          const heroInfo = HERO_INFO[heroKey as keyof typeof HERO_INFO]
+            ?? YOUNG_HERO_INFO[heroKey as keyof typeof YOUNG_HERO_INFO];
+          heroCardUniqueId = heroInfo?.cardUniqueId;
+        }
+        if (heroCardUniqueId) {
+          const params = new URLSearchParams({ cardUniqueId: heroCardUniqueId, limit: '50', show: 'browse_bulk' });
           const printingsRes = await fetch(`/api/printings/search?${params}`);
           const printingsData = await printingsRes.json();
           const printings: any[] = printingsData.data?.printings ?? [];
@@ -190,7 +197,9 @@ export default function DecksPage() {
         }
       }
 
-      const result = await decksClient.createDeck({ ...deckData, heroPrintingId });
+      // Strip heroCardUniqueId — it's a client-side hint, not part of CreateDeckDTO
+      const { heroCardUniqueId: _, ...createPayload } = deckData;
+      const result = await decksClient.createDeck({ ...createPayload, heroPrintingId });
 
       if (result.success) {
         console.log('[Decks] Deck created successfully:', result.data);

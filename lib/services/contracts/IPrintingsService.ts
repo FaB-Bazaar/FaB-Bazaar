@@ -521,8 +521,15 @@ export const HERO_LEGALITY_FLAGS: HeroLegalityFlag[] = [
   'll_legal',
 ];
 
+/** Format codes for legality filtering — matches the column-suffix part of HeroLegalityFlag. */
+export type HeroFormat = 'cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
+
+export const HERO_FORMATS: HeroFormat[] = ['cc', 'blitz', 'silver_age', 'commoner', 'll'];
+
 export interface HeroLegalityRow {
   cardUniqueId: string;
+  /** Lowercased canonical name (matches the legacy roster keys). */
+  name: string;
   displayName: string;
   imageUrl: string | null;
   types: string[];
@@ -719,10 +726,11 @@ export interface IPrintingsService {
   ): AsyncResult<PrintingsSearchResult>;
 
   /**
-   * Admin-only: list every hero card with its format-legality flags.
-   * One row per cardUniqueId, image picked from any printing.
+   * List hero cards with their format-legality flags. One row per cardUniqueId,
+   * image picked from any printing. Pass `{ legalIn }` to filter to heroes
+   * legal in a single format (used by deck-builder hero pickers).
    */
-  listHeroCards(): AsyncResult<HeroLegalityRow[]>;
+  listHeroCards(opts?: { legalIn?: HeroFormat }): AsyncResult<HeroLegalityRow[]>;
 
   /**
    * Admin-only: flip a single format-legality flag on a hero card.

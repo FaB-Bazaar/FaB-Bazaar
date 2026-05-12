@@ -8,7 +8,7 @@ import { ArrowLeft, Eye, Loader2, Pencil, Settings2, Swords, X } from "lucide-re
 import { useAuth } from "@/contexts/AuthContext";
 import { decksClient } from "@/lib/client";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
-import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants";
+import type { HeroFormat, HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
 import {
   STRATEGY_IDS,
@@ -54,18 +54,31 @@ function toDisplayName(key: string): string {
   return key.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getHeroOptionsForFormat(format: string | undefined, excludedHeroIds: Set<string>): HeroOption[] {
-  const isExcluded = (cardUniqueId?: string) =>
-    !!cardUniqueId && excludedHeroIds.has(cardUniqueId);
-  const source = format === "Silver Age" || format === "Blitz" ? YOUNG_HERO_INFO : HERO_INFO;
-  return Object.entries(source)
-    .filter(([_, info]) => !isExcluded(info.cardUniqueId))
-    .map(([key, info]) => ({
-      canonicalKey: key,
-      talisharId: toTalisharIdentifier(key),
-      displayName: toDisplayName(key),
-      className: info.classes[0] ?? "",
-    }))
+// Maps a deck.format display label ("Silver Age", "Classic Constructed", …) to
+// the snake_case format code the /api/heroes endpoint accepts.
+function formatLabelToCode(format: string | undefined): HeroFormat | null {
+  switch (format) {
+    case "Silver Age": return "silver_age";
+    case "Classic Constructed": return "cc";
+    case "Blitz": return "blitz";
+    case "Commoner": return "commoner";
+    case "Living Legend": return "ll";
+    default: return null;
+  }
+}
+
+function heroRowsToOptions(rows: HeroLegalityRow[], excludedHeroIds: Set<string>): HeroOption[] {
+  return rows
+    .filter(r => !excludedHeroIds.has(r.cardUniqueId))
+    .map(r => {
+      const canonicalKey = r.name?.toLowerCase() ?? r.displayName.toLowerCase();
+      return {
+        canonicalKey,
+        talisharId: toTalisharIdentifier(canonicalKey),
+        displayName: toDisplayName(canonicalKey),
+        className: r.klass ?? "",
+      };
+    })
     .sort((a, b) => {
       const cls = a.className.localeCompare(b.className);
       return cls !== 0 ? cls : a.displayName.localeCompare(b.displayName);
@@ -174,9 +187,26 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   }, [deckId, editable]);
 
   const excludedHeroIds = useExcludedHeroIds(deck?.format ?? "");
+  const [heroRows, setHeroRows] = useState<HeroLegalityRow[]>([]);
+
+  useEffect(() => {
+    if (!deck?.format) return;
+    const code = formatLabelToCode(deck.format);
+    const url = code ? `/api/heroes?format=${code}` : `/api/heroes`;
+    let cancelled = false;
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => {
+        if (cancelled || !payload?.success) return;
+        setHeroRows(payload.data as HeroLegalityRow[]);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [deck?.format]);
+
   const heroOptions = useMemo(
-    () => getHeroOptionsForFormat(deck?.format, excludedHeroIds),
-    [deck?.format, excludedHeroIds],
+    () => heroRowsToOptions(heroRows, excludedHeroIds),
+    [heroRows, excludedHeroIds],
   );
   const strategyOptions = useMemo<HeroOption[]>(
     () =>

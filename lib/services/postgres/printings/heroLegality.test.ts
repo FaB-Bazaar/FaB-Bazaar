@@ -109,6 +109,27 @@ describe('PostgresPrintingsService — hero legality admin', () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
+    it('with legalIn=cc returns only heroes where ccLegal is true', async () => {
+      const result = await service.listHeroCards({ legalIn: 'cc' });
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.data.length).toBeGreaterThan(0);
+      expect(result.data.every(h => h.ccLegal === true)).toBe(true);
+    });
+
+    it('with legalIn=silver_age returns only heroes where silverAgeLegal is true', async () => {
+      const result = await service.listHeroCards({ legalIn: 'silver_age' });
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.data.length).toBeGreaterThan(0);
+      expect(result.data.every(h => h.silverAgeLegal === true)).toBe(true);
+    });
+
+    it('rejects an unknown legalIn value', async () => {
+      const result = await service.listHeroCards({ legalIn: 'garbage' as any });
+      expect(result.success).toBe(false);
+    });
+
     it('sorts adults before young, then by class, then by display name', async () => {
       const result = await service.listHeroCards();
       expect(result.success).toBe(true);

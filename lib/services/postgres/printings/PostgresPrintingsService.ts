@@ -21,8 +21,9 @@ import type {
   HeroPoolFilters,
   HeroLegalityFlag,
   HeroLegalityRow,
+  HeroFormat,
 } from '@/lib/services/contracts/IPrintingsService';
-import { HERO_LEGALITY_FLAGS } from '@/lib/services/contracts/IPrintingsService';
+import { HERO_LEGALITY_FLAGS, HERO_FORMATS } from '@/lib/services/contracts/IPrintingsService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
 import { getHeroInfo } from '@/lib/fab-constants/heroes';
@@ -1459,8 +1460,25 @@ export class PostgresPrintingsService implements IPrintingsService {
     };
   }
 
-  async listHeroCards(): AsyncResult<HeroLegalityRow[]> {
+  async listHeroCards(opts?: { legalIn?: HeroFormat }): AsyncResult<HeroLegalityRow[]> {
     try {
+      if (opts?.legalIn && !HERO_FORMATS.includes(opts.legalIn)) {
+        return { success: false, error: `Unknown format: ${opts.legalIn}` };
+      }
+
+      const FORMAT_TO_COLUMN: Record<HeroFormat, any> = {
+        cc: cards.ccLegal,
+        blitz: cards.blitzLegal,
+        silver_age: cards.silverAgeLegal,
+        commoner: cards.commonerLegal,
+        ll: cards.llLegal,
+      };
+
+      const whereConditions = [sql`'hero' = ANY(${cards.types})`];
+      if (opts?.legalIn) {
+        whereConditions.push(eq(FORMAT_TO_COLUMN[opts.legalIn], true));
+      }
+
       const heroRows = await db
         .select({
           cardUniqueId: cards.cardUniqueId,
@@ -1475,7 +1493,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           llLegal: cards.llLegal,
         })
         .from(cards)
-        .where(sql`'hero' = ANY(${cards.types})`)
+        .where(and(...whereConditions))
         .orderBy(
           // Adults first, then young (false sorts before true)
           sql`('young' = ANY(${cards.types}))`,
@@ -1507,6 +1525,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         success: true,
         data: heroRows.map(r => ({
           cardUniqueId: r.cardUniqueId,
+          name: r.name,
           displayName: r.displayName || r.name,
           imageUrl: imageByCardId.get(r.cardUniqueId) ?? null,
           types: r.types ?? [],
