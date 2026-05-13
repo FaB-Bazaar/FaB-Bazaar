@@ -2,6 +2,7 @@ import { db, pool } from '@/lib/postgres/db';
 import { gameResults } from '@/lib/postgres/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { normalizeTalisharId } from '@/lib/talishar/cardId';
 import type { AsyncResult } from '../../contracts/common';
 
 export interface GameResultDTO {
@@ -21,6 +22,36 @@ export interface GameResultDTO {
   turnLog?: [number, string, string][] | null;
   opponentCardResults?: unknown;
   opponentTurnLog?: [number, string, string][] | null;
+  playedAt: Date;
+  createdAt: Date;
+}
+
+// Full-detail shape returned by getGameResult — same fields as the original
+// GameResultDTO plus the resolved imageUrls map. Used when a game row is
+// expanded and needs turn-log data.
+export interface GameResultDetailDTO extends GameResultDTO {
+  imageUrls: Record<string, string>;
+}
+
+// Summary shape returned by getGameResultsForDeck. Strips the turn-log fields
+// (only needed when a game is expanded — fetched separately by id) and
+// attaches a pre-resolved cardId → imageUrl map so the deck Results tab can
+// paint without a second client round-trip.
+export interface GameResultSummaryDTO {
+  id: string;
+  deckId: string;
+  talisharGameId?: string | null;
+  talisharGameGuid?: string | null;
+  format?: string | null;
+  playerHero?: string | null;
+  opponentHero?: string | null;
+  result: 'win' | 'loss';
+  conceded: boolean;
+  firstPlayer?: boolean | null;
+  totalTurns?: number | null;
+  cardResults?: unknown;
+  opponentCardResults?: unknown;
+  imageUrls: Record<string, string>;
   playedAt: Date;
   createdAt: Date;
 }
@@ -47,6 +78,33 @@ export interface TalisharGamePayload {
   conceded?: boolean;
   deck1?: TalisharDeckPayload;
   deck2?: TalisharDeckPayload;
+}
+
+// Turn-log entries are `[turn, cardId, action]` tuples. Skip HIT markers
+// (duplicate of the attacker entry) and any malformed tuples.
+function extractTurnLogCardIds(blob: unknown): string[] {
+  if (!Array.isArray(blob)) return [];
+  const out: string[] = [];
+  for (const entry of blob) {
+    if (Array.isArray(entry) && typeof entry[1] === 'string' && entry[2] !== 'HIT') {
+      out.push(entry[1]);
+    }
+  }
+  return out;
+}
+
+// Card entries inside card_results / opponent_card_results carry a cardId
+// (Talishar's identifier) plus stat counters. Coerce the JSONB blob into a
+// minimal shape we can iterate without trusting the rest of the structure.
+function extractCardEntries(blob: unknown): Array<{ cardId: string }> {
+  if (!Array.isArray(blob)) return [];
+  const out: Array<{ cardId: string }> = [];
+  for (const entry of blob) {
+    if (entry && typeof entry === 'object' && typeof (entry as { cardId?: unknown }).cardId === 'string') {
+      out.push({ cardId: (entry as { cardId: string }).cardId });
+    }
+  }
+  return out;
 }
 
 function toDTO(row: typeof gameResults.$inferSelect): GameResultDTO {
@@ -127,17 +185,19 @@ export class PostgresGameResultsService {
   async getGameResultsForDeck(
     deckId: string,
     options: { limit?: number; offset?: number } = {}
-  ): Promise<AsyncResult<{ data: GameResultDTO[]; total: number }>> {
+  ): Promise<AsyncResult<{ data: GameResultSummaryDTO[]; total: number }>> {
     const limit = options.limit ?? 20;
     const offset = options.offset ?? 0;
     try {
+      // Note: turn_log / opponent_turn_log / turn_results are intentionally
+      // omitted from this query. They are only needed when a game row is
+      // expanded; the client fetches them via getGameResult(resultId, deckId).
       const [countResult, rowsResult] = await Promise.all([
         pool.query(`SELECT COUNT(*)::int AS total FROM game_results WHERE deck_id = $1`, [deckId]),
         pool.query(
           `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
                   player_hero, opponent_hero, result::text, conceded, first_player,
-                  total_turns, card_results, turn_results, turn_log,
-                  opponent_card_results, opponent_turn_log,
+                  total_turns, card_results, opponent_card_results,
                   played_at, created_at
            FROM game_results
            WHERE deck_id = $1
@@ -148,26 +208,48 @@ export class PostgresGameResultsService {
       ]);
 
       const total = countResult.rows[0].total as number;
-      const data = rowsResult.rows.map((row: any) => ({
-        id: row.id,
-        deckId: row.deck_id,
-        talisharGameId: row.talishar_game_id ?? null,
-        talisharGameGuid: row.talishar_game_guid ?? null,
-        format: row.format ?? null,
-        playerHero: row.player_hero ?? null,
-        opponentHero: row.opponent_hero ?? null,
-        result: row.result as 'win' | 'loss',
-        conceded: row.conceded,
-        firstPlayer: row.first_player ?? null,
-        totalTurns: row.total_turns ?? null,
-        cardResults: row.card_results ?? null,
-        turnResults: row.turn_results ?? null,
-        turnLog: row.turn_log ?? null,
-        opponentCardResults: row.opponent_card_results ?? null,
-        opponentTurnLog: row.opponent_turn_log ?? null,
-        playedAt: row.played_at,
-        createdAt: row.created_at,
-      }));
+
+      // Collect every cardId referenced anywhere in this page of results so
+      // we can resolve them all with one indexed lookup.
+      const allCardIds = new Set<string>();
+      for (const row of rowsResult.rows) {
+        for (const cr of extractCardEntries(row.card_results)) allCardIds.add(cr.cardId);
+        for (const cr of extractCardEntries(row.opponent_card_results)) allCardIds.add(cr.cardId);
+      }
+
+      const globalImageMap = await this.resolveImageUrls(Array.from(allCardIds));
+
+      const data: GameResultSummaryDTO[] = rowsResult.rows.map((row: any) => {
+        // Per-row map: only the cardIds this row actually references.
+        const rowImages: Record<string, string> = {};
+        for (const cr of extractCardEntries(row.card_results)) {
+          const url = globalImageMap.get(cr.cardId);
+          if (url) rowImages[cr.cardId] = url;
+        }
+        for (const cr of extractCardEntries(row.opponent_card_results)) {
+          const url = globalImageMap.get(cr.cardId);
+          if (url) rowImages[cr.cardId] = url;
+        }
+
+        return {
+          id: row.id,
+          deckId: row.deck_id,
+          talisharGameId: row.talishar_game_id ?? null,
+          talisharGameGuid: row.talishar_game_guid ?? null,
+          format: row.format ?? null,
+          playerHero: row.player_hero ?? null,
+          opponentHero: row.opponent_hero ?? null,
+          result: row.result as 'win' | 'loss',
+          conceded: row.conceded,
+          firstPlayer: row.first_player ?? null,
+          totalTurns: row.total_turns ?? null,
+          cardResults: row.card_results ?? null,
+          opponentCardResults: row.opponent_card_results ?? null,
+          imageUrls: rowImages,
+          playedAt: row.played_at,
+          createdAt: row.created_at,
+        };
+      });
 
       return { success: true, data: { data, total } };
     } catch (error) {
@@ -179,6 +261,107 @@ export class PostgresGameResultsService {
       });
       return { success: false, error: e?.message ?? String(error) };
     }
+  }
+
+  // Single-row detail lookup used to lazy-load turn-log data when the user
+  // expands a game on the Results tab. Returns the full row plus an
+  // imageUrls map covering card_results, opponent_card_results, turn_log,
+  // and opponent_turn_log (the latter two after stripping Talishar's state
+  // suffixes like _equip).
+  async getGameResult(
+    resultId: string,
+    deckId: string
+  ): Promise<AsyncResult<GameResultDetailDTO>> {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, deck_id, talishar_game_id, talishar_game_guid, format,
+                player_hero, opponent_hero, result::text, conceded, first_player,
+                total_turns, card_results, turn_results, turn_log,
+                opponent_card_results, opponent_turn_log,
+                played_at, created_at
+         FROM game_results
+         WHERE id = $1 AND deck_id = $2`,
+        [resultId, deckId]
+      );
+
+      if (rows.length === 0) return { success: false, error: 'Game result not found' };
+      const row = rows[0];
+
+      // Collect cardIds from every JSON source. Turn-log entries include
+      // state suffixes (e.g. "_equip"), which we normalize before the DB
+      // lookup; the resulting imageUrls map is keyed by the ORIGINAL cardId
+      // so the client can index directly with what it has.
+      const turnLogIds = extractTurnLogCardIds(row.turn_log);
+      const oppTurnLogIds = extractTurnLogCardIds(row.opponent_turn_log);
+      const cardResultIds = extractCardEntries(row.card_results).map(c => c.cardId);
+      const oppCardResultIds = extractCardEntries(row.opponent_card_results).map(c => c.cardId);
+
+      // Map original cardId → normalized lookup key.
+      const lookupKeyByOriginal = new Map<string, string>();
+      for (const id of [...cardResultIds, ...oppCardResultIds]) {
+        if (!lookupKeyByOriginal.has(id)) lookupKeyByOriginal.set(id, id);
+      }
+      for (const id of [...turnLogIds, ...oppTurnLogIds]) {
+        if (!lookupKeyByOriginal.has(id)) lookupKeyByOriginal.set(id, normalizeTalisharId(id));
+      }
+
+      const uniqueLookupKeys = Array.from(new Set(lookupKeyByOriginal.values()));
+      const resolved = await this.resolveImageUrls(uniqueLookupKeys);
+
+      const imageUrls: Record<string, string> = {};
+      for (const [original, key] of lookupKeyByOriginal) {
+        const url = resolved.get(key);
+        if (url) imageUrls[original] = url;
+      }
+
+      return {
+        success: true,
+        data: {
+          id: row.id,
+          deckId: row.deck_id,
+          talisharGameId: row.talishar_game_id ?? null,
+          talisharGameGuid: row.talishar_game_guid ?? null,
+          format: row.format ?? null,
+          playerHero: row.player_hero ?? null,
+          opponentHero: row.opponent_hero ?? null,
+          result: row.result as 'win' | 'loss',
+          conceded: row.conceded,
+          firstPlayer: row.first_player ?? null,
+          totalTurns: row.total_turns ?? null,
+          cardResults: row.card_results ?? null,
+          turnResults: row.turn_results ?? null,
+          turnLog: row.turn_log ?? null,
+          opponentCardResults: row.opponent_card_results ?? null,
+          opponentTurnLog: row.opponent_turn_log ?? null,
+          imageUrls,
+          playedAt: row.played_at,
+          createdAt: row.created_at,
+        },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] getGameResult failed:', message);
+      return { success: false, error: message };
+    }
+  }
+
+  // Looks up image URLs for a set of canonical Talishar cardIds. Uses
+  // DISTINCT ON to pick a single (cheapest by set/edition) printing per card.
+  // Internal helper — exposed publicly so getGameResult() can reuse it.
+  private async resolveImageUrls(cardIds: string[]): Promise<Map<string, string>> {
+    if (cardIds.length === 0) return new Map();
+    const { rows } = await pool.query<{ talishar_card_id: string; image_url: string | null }>(
+      `SELECT DISTINCT ON (c.talishar_card_id)
+              c.talishar_card_id, p.image_url
+       FROM cards c
+       LEFT JOIN printings p ON p.card_unique_id = c.card_unique_id
+       WHERE c.talishar_card_id = ANY($1)
+       ORDER BY c.talishar_card_id, p.set ASC NULLS LAST, p.edition ASC NULLS LAST`,
+      [cardIds]
+    );
+    const map = new Map<string, string>();
+    for (const r of rows) if (r.image_url) map.set(r.talishar_card_id, r.image_url);
+    return map;
   }
 
   async deleteGameResult(

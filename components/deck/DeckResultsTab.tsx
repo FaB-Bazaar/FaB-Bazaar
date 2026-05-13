@@ -3,7 +3,10 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Loader2, Sword, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { GameResultDTO } from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
+import type {
+  GameResultSummaryDTO,
+  GameResultDetailDTO,
+} from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
 import type { DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
 
 interface CardResult {
@@ -95,7 +98,10 @@ function getCardNameFromId(cardId: string): string {
 // ─── GameRow ────────────────────────────────────────────────────────────────
 
 interface GameRowProps {
-  game: GameResultDTO;
+  game: GameResultSummaryDTO;
+  // Populated once the user expands this row and the detail endpoint has
+  // returned. The summary shape has no turn-log fields — those live here.
+  detail?: GameResultDetailDTO;
   cardLookup: Map<string, DeckPrintingDTO>;
   cardIdLookup: Map<string, string>;
   isExpanded: boolean;
@@ -111,7 +117,7 @@ interface TableCellTooltip {
   y: number;
 }
 
-function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, playerHeroName }: GameRowProps) {
+function GameRow({ game, detail, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, playerHeroName }: GameRowProps) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const allCardResults = (game.cardResults as CardResult[] | null) ?? [];
@@ -146,10 +152,11 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
     return map;
   }, [game.opponentCardResults]);
 
-  // Process both turn_logs into per-turn groups, merging HIT flags and opponent entries
+  // Process both turn_logs into per-turn groups, merging HIT flags and opponent entries.
+  // Turn-log data comes from the detail endpoint, fetched lazily on expand.
   const turnLogByTurn = useMemo(() => {
-    const playerLog = game.turnLog as [number, string, string][] | null;
-    const opponentLog = game.opponentTurnLog as [number, string, string][] | null;
+    const playerLog = detail?.turnLog as [number, string, string][] | null | undefined;
+    const opponentLog = detail?.opponentTurnLog as [number, string, string][] | null | undefined;
     if (!playerLog?.length && !opponentLog?.length) return null;
 
     const playerTurnIdx = game.firstPlayer ? 0 : 1;
@@ -183,10 +190,10 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
     }
 
     return { byTurn, playerTurnIdx };
-  }, [game.turnLog, game.opponentTurnLog, game.firstPlayer]);
+  }, [detail?.turnLog, detail?.opponentTurnLog, game.firstPlayer]);
 
-  const turnResults = game.turnResults
-    ? Object.entries(game.turnResults as Record<string, TurnResult>).sort(([a], [b]) => parseInt(a.replace("turn_", "")) - parseInt(b.replace("turn_", "")))
+  const turnResults = detail?.turnResults
+    ? Object.entries(detail.turnResults as Record<string, TurnResult>).sort(([a], [b]) => parseInt(a.replace("turn_", "")) - parseInt(b.replace("turn_", "")))
     : [];
 
   const gameSections: Array<{ label: string; cards: CardResult[]; statKey: "played" | "pitched" | "blocked" }> = [
@@ -199,6 +206,8 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
     <div>
       <div className="group flex items-stretch">
         <button
+          data-testid="game-row-toggle"
+          aria-expanded={isExpanded}
           onClick={onToggle}
           className="flex items-center gap-3 flex-1 min-w-0 py-2.5 pl-3 pr-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         >
@@ -339,11 +348,17 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
           })()}
 
           {/* Turn-by-turn play log with card images */}
+          {/* Loading skeleton while the detail endpoint resolves the turn log. */}
+          {!detail && (
+            <div className="px-4 py-6 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading turn log…
+            </div>
+          )}
           {turnLogByTurn && turnLogByTurn.byTurn.size > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase">Play by Play</p>
               {Array.from(turnLogByTurn.byTurn.entries()).sort(([a], [b]) => a - b).map(([turnNum, entries]) => {
-                const tr = (game.turnResults as Record<string, TurnResult> | null)?.[`turn_${turnNum}`];
+                const tr = (detail?.turnResults as Record<string, TurnResult> | null)?.[`turn_${turnNum}`];
                 const playerEs = entries.filter(e => !e.isOpponent);
                 const oppEs = entries.filter(e => e.isOpponent);
                 const oppAttacks = oppEs.some(e => e.action === "M");
@@ -553,7 +568,12 @@ function GameRow({ game, cardLookup, cardIdLookup, isExpanded, onToggle, onHover
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function DeckResultsTab({ deckId, deck }: Props) {
-  const [results, setResults] = useState<GameResultDTO[]>([]);
+  const [results, setResults] = useState<GameResultSummaryDTO[]>([]);
+  // Cache of detail responses keyed by result id. Populated lazily when the
+  // user expands a row. Once fetched, the entry stays cached for the lifetime
+  // of the component so re-expanding is instant.
+  const [detailById, setDetailById] = useState<Map<string, GameResultDetailDTO>>(new Map());
+  const inFlightDetail = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
@@ -563,8 +583,6 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["never-used"]));
   const [heroFilter, setHeroFilter] = useState<string>("all");
   const [hoveredCard, setHoveredCard] = useState<HoverCard | null>(null);
-  const [opponentCardImages, setOpponentCardImages] = useState<Map<string, string>>(new Map());
-  const [fallbackCardImages, setFallbackCardImages] = useState<Map<string, string>>(new Map());
   const mouseXRef = useRef(0);
 
   useEffect(() => {
@@ -587,13 +605,15 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   const cardLookup = useMemo(() => buildCardLookup(deck), [deck]);
   const cardSlugLookup = useMemo(() => buildCardSlugLookup(deck), [deck]);
 
-  // cardId (e.g. "jump_start_red") → image URL
-  // Primary: cross-reference card_results cardName against deck card lookup
-  // Fallback: slugify display_name from deck cards and match against cardId (handles equipment/hero/tokens)
+  // cardId (e.g. "jump_start_red") → image URL.
+  // Prefer the player's own deck-card printing when available (gives the user's
+  // chosen art and the printingId for /printing/[id] links), then fall back to
+  // images resolved by the by-talishar-id endpoint.
   const cardIdLookup = useMemo(() => {
     const map = new Map<string, string>();
 
-    // Pass 1: build from card_results (has pitch info, most accurate)
+    // Pass 1: card_results → deck card via name+pitch (preserves the deck's
+    // own printing for the player's cards).
     for (const game of results) {
       const cards = game.cardResults as CardResult[] | null;
       if (!cards) continue;
@@ -604,12 +624,13 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
-    // Pass 2: for any cardId still missing, strip pitch/equip suffixes and match against slug lookup
-    // This catches equipment, hero, and token cards not in card_results
-    // e.g. "evo_beta_base_chest_blue_equip" → strip "_equip" → strip "_blue" → "evo_beta_base_chest"
+    // Pass 2: turn_log cardIds (only available for games the user has
+    // expanded) → deck card via slug match. Equipment, heroes, and tokens
+    // never appear in card_results, so this pass is what keeps "use the
+    // deck's printing" working for them.
     const pitchSuffixes = ["_red", "_yellow", "_blue"];
-    for (const game of results) {
-      const log = game.turnLog as [number, string, string][] | null;
+    for (const detail of detailById.values()) {
+      const log = detail.turnLog as [number, string, string][] | null | undefined;
       if (!log) continue;
       for (const [, cardId] of log) {
         if (map.has(cardId)) continue;
@@ -623,44 +644,22 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       }
     }
 
-    // Pass 3: opponent card IDs → image URL via opponentCardImages (keyed by cardId)
-    // Strip _equip suffix: turn log uses e.g. "crown_of_providence_equip" but
-    // opponentCardResults (and thus opponentCardImages) uses "crown_of_providence"
+    // Pass 3: server-resolved imageUrls inlined on every summary row
+    // (covers cardResults + opponentCardResults for every loaded game) plus
+    // any expanded-detail imageUrls (covers turn-log cardIds too).
     for (const game of results) {
-      const oppLog = game.opponentTurnLog as [number, string, string][] | null;
-      if (!oppLog) continue;
-      for (const [, cardId] of oppLog) {
-        if (map.has(cardId)) continue;
-        const lookupId = cardId.endsWith('_equip') ? cardId.slice(0, -'_equip'.length) : cardId;
-        const imageUrl = opponentCardImages.get(lookupId);
-        if (imageUrl) map.set(cardId, imageUrl);
+      for (const [cardId, imageUrl] of Object.entries(game.imageUrls ?? {})) {
+        if (!map.has(cardId) && imageUrl) map.set(cardId, imageUrl);
       }
     }
-
-    // Pass 4: player turn log cards not in deck (tokens, generated cards, cards removed from deck)
-    for (const game of results) {
-      const log = game.turnLog as [number, string, string][] | null;
-      if (!log) continue;
-      for (const [, cardId] of log) {
-        if (map.has(cardId)) continue;
-        const imageUrl = fallbackCardImages.get(cardId);
-        if (imageUrl) map.set(cardId, imageUrl);
-      }
-    }
-
-    // Pass 5: card_results cards fetched via fallback (cardId format may differ from turn log)
-    for (const game of results) {
-      const cards = game.cardResults as CardResult[] | null;
-      if (!cards) continue;
-      for (const cr of cards) {
-        if (!cr.cardId || map.has(cr.cardId)) continue;
-        const imageUrl = fallbackCardImages.get(cr.cardId);
-        if (imageUrl) map.set(cr.cardId, imageUrl);
+    for (const detail of detailById.values()) {
+      for (const [cardId, imageUrl] of Object.entries(detail.imageUrls ?? {})) {
+        if (!map.has(cardId) && imageUrl) map.set(cardId, imageUrl);
       }
     }
 
     return map;
-  }, [results, cardLookup, cardSlugLookup, opponentCardImages, fallbackCardImages]);
+  }, [results, detailById, cardLookup, cardSlugLookup]);
 
   // Unique heroes in order of first appearance
   const uniqueHeroes = useMemo(() => {
@@ -717,91 +716,24 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
       .finally(() => setLoadingMore(false));
   };
 
-  // Fetch images for opponent cards that aren't in the player's deck
-  // Sends {cardId, cardName, pitchValue} so the correct pitch variant image is returned
+  // Fetch the heavy detail (turn logs, turnResults) for a game only when the
+  // user expands its row. Cached forever in component state — re-expand hits
+  // the cache. Guards against duplicate in-flight fetches.
   useEffect(() => {
-    if (results.length === 0) return;
-    const seen = new Set<string>();
-    const cards: Array<{ cardId: string; cardName: string; pitchValue?: number }> = [];
-    for (const game of results) {
-      const crs = game.opponentCardResults as CardResult[] | null;
-      if (!crs) continue;
-      for (const cr of crs) {
-        if (cr.cardId && cr.cardName && !seen.has(cr.cardId)) {
-          seen.add(cr.cardId);
-          cards.push({ cardId: cr.cardId, cardName: cr.cardName, pitchValue: cr.pitchValue });
-        }
-      }
-    }
-    // Also collect cards from opponentTurnLog that aren't in opponentCardResults
-    // (equipment cards only appear in the turn log, never in opponentCardResults)
-    for (const game of results) {
-      const oppLog = game.opponentTurnLog as [number, string, string][] | null;
-      if (!oppLog) continue;
-      for (const [, cardId] of oppLog) {
-        const cleanId = cardId.endsWith('_equip') ? cardId.slice(0, -'_equip'.length) : cardId;
-        if (seen.has(cleanId)) continue;
-        seen.add(cleanId);
-        cards.push({ cardId: cleanId, cardName: getCardNameFromId(cleanId) });
-      }
-    }
-
-    if (cards.length === 0) return;
-    fetch('/api/printings/images', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cards }),
-    })
+    if (!expandedGameId) return;
+    if (detailById.has(expandedGameId)) return;
+    if (inFlightDetail.current.has(expandedGameId)) return;
+    inFlightDetail.current.add(expandedGameId);
+    fetch(`/api/decks/${deckId}/results/${expandedGameId}`)
       .then(r => r.json())
-      .then((data: { images: Record<string, string> }) => {
-        if (data.images) setOpponentCardImages(new Map(Object.entries(data.images)));
-      })
-      .catch(() => {});
-  }, [results]);
-
-  // Fetch images for player turn log cards not found in the deck
-  // (tokens, generated cards like Gold, cards since removed from the deck)
-  // Also includes card_results entries missing from cardIdLookup (e.g. removed cards
-  // that don't appear in the turn log but do appear in card stats).
-  const missingPlayerCards = useMemo(() => {
-    const missing: Array<{ cardId: string; cardName: string; pitchValue?: number }> = [];
-    const seen = new Set<string>();
-    for (const game of results) {
-      const log = game.turnLog as [number, string, string][] | null;
-      if (log) {
-        for (const [, cardId, action] of log) {
-          if (action === 'HIT' || seen.has(cardId) || cardIdLookup.has(cardId)) continue;
-          seen.add(cardId);
-          const baseName = cardId.replace(/_equip$/, '').replace(/_(red|yellow|blue)$/, '');
-          missing.push({ cardId, cardName: getCardNameFromId(baseName) });
+      .then((response: { success: boolean; data?: GameResultDetailDTO }) => {
+        if (response.success && response.data) {
+          setDetailById(prev => new Map(prev).set(response.data!.id, response.data!));
         }
-      }
-      // card_results uses its own cardId format (may differ from turn log)
-      const cards = game.cardResults as CardResult[] | null;
-      if (cards) {
-        for (const cr of cards) {
-          if (!cr.cardId || !cr.cardName || seen.has(cr.cardId) || cardIdLookup.has(cr.cardId)) continue;
-          seen.add(cr.cardId);
-          missing.push({ cardId: cr.cardId, cardName: cr.cardName, pitchValue: cr.pitchValue });
-        }
-      }
-    }
-    return missing;
-  }, [results, cardIdLookup]);
-
-  useEffect(() => {
-    if (missingPlayerCards.length === 0) return;
-    fetch('/api/printings/images', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cards: missingPlayerCards }),
-    })
-      .then(r => r.json())
-      .then((data: { images: Record<string, string> }) => {
-        if (data.images) setFallbackCardImages(prev => new Map([...prev, ...Object.entries(data.images)]));
       })
-      .catch(() => {});
-  }, [missingPlayerCards]);
+      .catch(() => {})
+      .finally(() => { inFlightDetail.current.delete(expandedGameId); });
+  }, [deckId, expandedGameId, detailById]);
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
   if (error) return <p className="text-sm text-red-500 py-8 text-center">{error}</p>;
@@ -983,6 +915,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
               <GameRow
                 key={r.id}
                 game={r}
+                detail={detailById.get(r.id)}
                 cardLookup={cardLookup}
                 cardIdLookup={cardIdLookup}
                 isExpanded={expandedGameId === r.id}
