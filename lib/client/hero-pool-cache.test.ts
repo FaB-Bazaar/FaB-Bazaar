@@ -192,6 +192,8 @@ const card = (overrides: Record<string, unknown> = {}) => ({
   defense: null as number | null,
   power: null as number | null,
   keywords: [] as string[],
+  classes: [] as string[],
+  talents: [] as string[],
   color: '',
   representativePrintingId: 'p1',
   representativeImageUrl: 'img',
@@ -268,6 +270,36 @@ describe('filterPoolByChip', () => {
 
   it('returns empty array for empty input', () => {
     expect(filterPoolByChip([], 'attack')).toEqual([]);
+  });
+
+  it('class chip → cards whose classes include the chip value', () => {
+    const pool = [
+      card({ cardUniqueId: 'a', types: ['action'], classes: ['brute'] }),
+      card({ cardUniqueId: 'b', types: ['action'], classes: ['guardian'] }),
+      card({ cardUniqueId: 'c', types: ['action'], classes: [] }),
+    ];
+    const out = filterPoolByChip(pool, 'brute');
+    expect(out.map((c) => c.cardUniqueId)).toEqual(['a']);
+  });
+
+  it('talent chip → cards whose talents include the chip value', () => {
+    const pool = [
+      card({ cardUniqueId: 'a', types: ['action'], talents: ['revered'] }),
+      card({ cardUniqueId: 'b', types: ['action'], talents: ['shadow'] }),
+      card({ cardUniqueId: 'c', types: ['action'], talents: [] }),
+    ];
+    const out = filterPoolByChip(pool, 'revered');
+    expect(out.map((c) => c.cardUniqueId)).toEqual(['a']);
+  });
+
+  it('class/talent chip excludes cards with empty classes AND empty talents (generics)', () => {
+    // The Generic chip is its own thing (uses types). When the user clicks a
+    // class/talent chip, generics should NOT show up — they're not class-locked.
+    const pool = [
+      card({ cardUniqueId: 'a', types: ['action'], classes: ['brute'] }),
+      card({ cardUniqueId: 'b', types: ['action'], classes: [], talents: [] }),
+    ];
+    expect(filterPoolByChip(pool, 'brute').map((c) => c.cardUniqueId)).toEqual(['a']);
   });
 });
 

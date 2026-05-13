@@ -491,6 +491,8 @@ export interface CardSummaryDTO {
   defense: number | null;
   power: number | null;
   keywords: string[];
+  classes: string[];
+  talents: string[];
   color: string;
   representativePrintingId: string;
   representativeImageUrl: string | null;

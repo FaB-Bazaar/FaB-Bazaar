@@ -167,8 +167,14 @@ export function filterPoolByChip(pool: CardSummaryDTO[], chipValue: string): Car
     return pool.filter((c) => c.types.includes("action") && !c.types.includes("attack"));
   }
   const targetType = CHIP_TYPE[chipValue];
-  if (!targetType) return [];
-  return pool.filter((c) => c.types.includes(targetType));
+  if (targetType) {
+    return pool.filter((c) => c.types.includes(targetType));
+  }
+  // Class/talent chip values aren't in CHIP_TYPE — the Add Card dialog reuses
+  // the same state slot for type chips and the hero's class/talent chips.
+  // Match against c.classes or c.talents (FaB vocabularies don't overlap, so
+  // we don't need to disambiguate which kind the chip is).
+  return pool.filter((c) => c.classes.includes(chipValue) || c.talents.includes(chipValue));
 }
 
 /**

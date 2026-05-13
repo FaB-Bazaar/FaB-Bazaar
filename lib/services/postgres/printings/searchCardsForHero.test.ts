@@ -110,6 +110,21 @@ describe('PostgresPrintingsService.searchCardsForHero', () => {
     expect(symDiff).toBeGreaterThan(0);
   });
 
+  it('populates classes and talents arrays so the client can filter by class/talent chip', async () => {
+    const result = await service.searchCardsForHero({ heroClasses: ['guardian'] });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    // Every row must expose these as arrays (possibly empty for generics).
+    for (const card of result.data) {
+      expect(Array.isArray(card.classes)).toBe(true);
+      expect(Array.isArray(card.talents)).toBe(true);
+    }
+    // At least one Guardian-locked card should report classes including "guardian".
+    const hasGuardianClass = result.data.some((c) => c.classes.includes('guardian'));
+    expect(hasGuardianClass).toBe(true);
+  });
+
   it('handles an unknown hero class without throwing (generic cards still allowed)', async () => {
     const result = await service.searchCardsForHero({
       heroClasses: ['__nonexistent_class__'],
