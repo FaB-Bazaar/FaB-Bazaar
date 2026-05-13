@@ -14,9 +14,44 @@ python cards_to_printings_transformer.py /Users/eko/cards_to_printings/data_prep
 import json
 import re
 import hashlib
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from fab_banned_cards import CC_BANNED_CARD_IDS, SAGE_BANNED_CARD_IDS, BLITZ_BANNED_CARD_IDS, LL_BANNED_CARD_IDS, LL_RESTRICTED_CARD_IDS
+
+
+# ─── Talishar card identifier ────────────────────────────────────────────────
+# Port of lib/talishar/cardId.ts (which itself ports Talishar's
+# zzCardCodeGenerator.php). Keep these two implementations in sync — the
+# vitest suite at lib/talishar/cardId.test.ts is the source of truth for
+# expected behavior.
+
+_TALISHAR_DIACRITICS = str.maketrans({
+    'ā': 'a', 'ä': 'a', 'ö': 'o', 'ü': 'u',
+    'ß': 's', 'ṣ': 's', 'ð': 'd',
+})
+_TALISHAR_COMBINING = re.compile(r'[̀-ͯ]')
+_TALISHAR_NON_ID = re.compile(r'[^a-z0-9_]')
+_TALISHAR_DOUBLE_UNDERSCORE = re.compile(r'__')
+
+
+def to_talishar_card_id(display_name, pitch):
+    if display_name is None:
+        return None
+    if display_name == 'Goldfin Harpoon':
+        return 'goldfin_harpoon_yellow'
+    s = display_name.lower()
+    s = s.replace('//', '_')
+    s = s.translate(_TALISHAR_DIACRITICS)
+    s = s.replace('þ', 'th')  # two-char replacement; not expressible in maketrans
+    s = unicodedata.normalize('NFD', s)
+    s = _TALISHAR_COMBINING.sub('', s)
+    s = s.replace(' ', '_').replace('-', '_')
+    s = _TALISHAR_NON_ID.sub('', s)
+    s = _TALISHAR_DOUBLE_UNDERSCORE.sub('_', s)
+    suffix = {1: '_red', 2: '_yellow', 3: '_blue'}.get(pitch, '')
+    return s + suffix
+
 
 class CardsToPrintingsTransformer:
     def __init__(self):
@@ -393,6 +428,7 @@ class CardsToPrintingsTransformer:
             'card_unique_id': card.get('unique_id'),
             'name': self.normalize_string(card.get('name', '')),
             'display_name': card.get('name', ''),  # Keep original case for display
+            'talishar_card_id': to_talishar_card_id(card.get('name', ''), self.parse_numeric_value(card.get('pitch'))),
             'text': self.normalize_string(card.get('functional_text_plain', '')),
             'type_text': self.normalize_string(card.get('type_text', '')),
             'type_text_display': card.get('type_text', ''),  # Keep original formatting for display

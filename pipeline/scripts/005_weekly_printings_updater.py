@@ -34,7 +34,7 @@ import os
 # ─── Field definitions (must match PostgreSQL column names exactly) ────────────
 
 CARD_FIELDS: List[str] = [
-    'card_unique_id', 'name', 'display_name', 'text', 'searchable_text',
+    'card_unique_id', 'name', 'display_name', 'talishar_card_id', 'text', 'searchable_text',
     'type_text', 'type_text_display',
     # Arrays
     'types', 'traits', 'keywords', 'keywords_display', 'abilities', 'classes', 'talents', 'essences',

@@ -256,6 +256,12 @@ export const cards = pgTable('cards', {
   name: text('name').notNull(),
   displayName: text('display_name').notNull(),
 
+  // Talishar's internal identifier for this card, derived deterministically
+  // from (display_name, pitch). See lib/talishar/cardId.ts. Populated by the
+  // pipeline. Indexed for fast Talishar-id → card lookups (e.g. resolving
+  // card_results from game logs to printings/images).
+  talisharCardId: text('talishar_card_id'),
+
   // Card text & abilities
   text: text('text'),
   searchableText: text('searchable_text'),
