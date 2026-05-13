@@ -163,7 +163,17 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
       .catch(() => {});
   }, [deckId]);
 
-  useEffect(() => { fetchCoOwners(); }, [fetchCoOwners]);
+  // Defer the co-owners fetch until the settings dialog is actually opened.
+  // The list is only displayed inside that dialog, so fetching on every
+  // owner's deck-page mount was wasted work (~660ms × strict-mode-double).
+  // Uncontrolled callers (no `open` prop) keep the legacy eager behavior.
+  const hasFetchedCoOwnersRef = useRef(false);
+  useEffect(() => {
+    const shouldFetch = open === undefined || open === true;
+    if (!shouldFetch || hasFetchedCoOwnersRef.current) return;
+    hasFetchedCoOwnersRef.current = true;
+    fetchCoOwners();
+  }, [open, fetchCoOwners]);
 
   useEffect(() => { setFeaturedLocal(featuredProp ?? false); }, [featuredProp]);
   useEffect(() => { setIsSystemDeckLocal(isSystemDeckProp ?? false); }, [isSystemDeckProp]);
@@ -283,19 +293,21 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     }
   };
 
-  // Fetch matchups count
+  // Fetch matchups count — same lazy pattern as co-owners. The count badge
+  // only appears on a button INSIDE the dialog, so don't fetch it until the
+  // dialog opens.
+  const hasFetchedMatchupsRef = useRef(false);
   useEffect(() => {
-    if (deckId) {
-      fetch(`/api/decks/${deckId}/matchups`, { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setMatchupsCount(data.data.matchups?.length || 0);
-          }
-        })
-        .catch(err => console.error('Failed to fetch matchups count:', err));
-    }
-  }, [deckId]);
+    const shouldFetch = open === undefined || open === true;
+    if (!shouldFetch || !deckId || hasFetchedMatchupsRef.current) return;
+    hasFetchedMatchupsRef.current = true;
+    fetch(`/api/decks/${deckId}/matchups`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setMatchupsCount(data.data.matchups?.length || 0);
+      })
+      .catch(err => console.error('Failed to fetch matchups count:', err));
+  }, [open, deckId]);
 
   const content = (
     <div className="space-y-5 py-1">
