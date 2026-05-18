@@ -18,6 +18,9 @@ import BinderSelector from "@/components/printing/BinderSelector"
 import { useCookieConsent } from '@/contexts/CookieConsentContext'
 import { TcgAffiliateLink } from '@/components/tracking'
 import FoilCardImage from '@/components/shared/FoilCardImage'
+import { sortPrintingsByLanguage, languageFlag } from '@/lib/utils/printing-language'
+import { RarityIcon } from '@/components/shared/RarityIcon'
+import { getSetImageOrFallback } from '@/lib/set-images'
 
 interface PrintingDetailPageProps {
   params: Promise<{
@@ -84,6 +87,12 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
   const [whoHasData, setWhoHasData] = useState<any>(null)
   const [whoHasLoading, setWhoHasLoading] = useState(false)
   const [whoHasError, setWhoHasError] = useState<string | null>(null)
+
+  // Sibling printings (same card_unique_id) grouped by language
+  const [otherPrintings, setOtherPrintings] = useState<any[]>([])
+  const [otherPrintingsLoading, setOtherPrintingsLoading] = useState(false)
+  const [selectedSiblingId, setSelectedSiblingId] = useState<string | null>(null)
+
   
   // Unwrap the params Promise
   const resolvedParams = use(params)
@@ -109,6 +118,33 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
     fetchPrintingDetails()
     fetchWhoHasData()
   }, [resolvedParams.printing_id])
+
+  // Once the main printing loads, fetch siblings sharing the same card_unique_id
+  useEffect(() => {
+    if (!printing?.card_unique_id) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        setOtherPrintingsLoading(true)
+        const response = await fetch(
+          `/api/printings/search?cardUniqueId=${encodeURIComponent(printing.card_unique_id)}&show=all&limit=200`
+        )
+        if (!response.ok) return
+        const data = await response.json()
+        if (cancelled || !data?.success) return
+        const list = data.data?.printings || []
+        setOtherPrintings(list)
+        setSelectedSiblingId(resolvedParams.printing_id)
+      } catch (err) {
+        console.error('Failed to load other printings:', err)
+      } finally {
+        if (!cancelled) setOtherPrintingsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [printing?.card_unique_id])
 
   const fetchPrintingDetails = async () => {
     try {
@@ -315,241 +351,160 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
   return (
     <>
       <AffiliateDisclosure />
-      <div className="container mx-auto py-8 px-4 max-w-6xl">
-        {/* Navigation */}
-        <div className="mb-6">
-          <button
-            onClick={() => {
-              if (searchParams.from === 'search' && searchParams.query) {
-                // Go back to home page and trigger search with query
-                router.push(`/?openSearch=true&query=${encodeURIComponent(searchParams.query)}`)
-              } else {
-                router.back()
-              }
-            }}
-            className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {searchParams.from === 'search' ? 'Back to Search' : 'Back'}
-          </button>
-        </div>
+      <div className="container mx-auto py-6 px-4 max-w-7xl 2xl:max-w-[1500px]">
+      {/* Main Content: left = actions + selector + tabs, right = rail-style card preview */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px] gap-6 mb-6">
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Card Image */}
-        <div className="flex justify-center">
-          <div className="max-w-sm w-full">
-            <FoilCardImage
-              foiling={printing.foiling}
-              artStyle={printing.art_variations?.includes('FA') ? 'full-art' : printing.is_extended_art ? 'extended-art' : undefined}
-              foilInset={printing.foil_inset_bottom != null ? {
-                top: printing.foil_inset_top,
-                right: printing.foil_inset_right,
-                bottom: printing.foil_inset_bottom,
-                left: printing.foil_inset_left,
-                round: printing.foil_inset_round ?? '1.5%',
-              } : undefined}
-              src={printing.image_url || "/placeholder.svg"}
-              alt={printing.display_name || printing.name}
-              className="w-full rounded-lg shadow-lg"
-              imgClassName="w-full h-auto rounded-lg"
-              expandable
-            />
-          </div>
-        </div>
 
-        {/* Card Details */}
-        <div className="space-y-6">
-          {/* Card Name & Basic Info */}
-          <div>
-            <h1 className="text-3xl font-bold mb-2">
-              {printing.display_name || printing.name}
-            </h1>
-            <div className="text-lg text-gray-600 dark:text-gray-400 space-y-1">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Set:</span>
-                <span>{displayInfo.setName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Rarity:</span>
-                <span>{displayInfo.rarityName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Foiling:</span>
-                <span>{displayInfo.foilingName}</span>
-              </div>
-              {printing.edition !== 'n' && (
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Edition:</span>
-                  <span className="text-blue-600 font-medium">{displayInfo.editionName}</span>
-                </div>
+        {/* LEFT: actions, printings selector, tabs */}
+        <div className="order-2 xl:order-1 space-y-4 min-w-0">
+          {/* All 4 actions in one row on lg+, 2×2 on mobile */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <Button
+              onClick={handleAddToWants}
+              disabled={addingToWants || !user}
+              variant={addedToWants ? "default" : "outline"}
+              size="sm"
+            >
+              {addingToWants ? "Adding..." : addedToWants ? (
+                <><Heart className="mr-1.5 h-4 w-4 fill-current" />Added!</>
+              ) : (
+                <><Heart className="mr-1.5 h-4 w-4" />Add to Wants</>
               )}
-              {printing.collector_number && (
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Card Number:</span>
-                  <span className="font-mono text-sm">{printing.collector_number}</span>
-                </div>
-              )}
-            </div>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowBinderSelector(true)}
+              disabled={!user}
+              size="sm"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add to Collection
+            </Button>
+            {printing.printing_id && (
+              <WhoHasDropdown
+                printingId={printing.printing_id}
+                cardName={printing.display_name || printing.name}
+                searchMode="printing"
+                className="w-full justify-center !p-2 hover:bg-blue-50 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 rounded text-sm font-medium"
+                buttonText="Who Has This"
+              />
+            )}
+            {printing.card_unique_id && (
+              <WhoHasDropdown
+                cardUniqueId={printing.card_unique_id}
+                cardName={printing.display_name || printing.name}
+                searchMode="unique"
+                className="w-full justify-center !p-2 hover:bg-purple-50 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 rounded text-sm font-medium"
+                buttonText="Who Has Any Version"
+              />
+            )}
           </div>
 
-          {/* TCG Pricing Grid */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                TCG Player Pricing
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <div className="text-sm text-green-700">Low</div>
-                  <div className={`text-xl font-bold ${getPriceColor('low', printing.tcg_low)}`}>
-                    {formatPrice(printing.tcg_low)}
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-700">Market</div>
-                  <div className={`text-xl font-bold ${getPriceColor('market', printing.tcg_market)}`}>
-                    {formatPrice(printing.tcg_market)}
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-orange-50 rounded-lg">
-                  <div className="text-sm text-orange-700">Mid</div>
-                  <div className={`text-xl font-bold ${getPriceColor('mid', printing.tcg_mid)}`}>
-                    {formatPrice(printing.tcg_mid)}
-                  </div>
-                </div>
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-sm text-red-700">High</div>
-                  <div className={`text-xl font-bold ${getPriceColor('high', printing.tcg_high)}`}>
-                    {formatPrice(printing.tcg_high)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Purchase Link */}
-              {printing.tcgplayer_url && (
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-600">
-                  <TcgAffiliateLink
-                    tcgplayerUrl={printing.tcgplayer_url}
-                    feature="PurchaseLink"
-                    className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-                    title="Purchase on TCGPlayer"
-                  >
-                    <span>Purchase on TCGPlayer</span>
-                    <ExternalLink className="h-4 w-4" />
-                    <img
-                      src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-                      alt="TCGPlayer"
-                      className="h-4 w-auto"
-                    />
-                  </TcgAffiliateLink>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Card Stats (if available) */}
-          {(printing.cost !== null || printing.power !== null || printing.defense !== null) && (
-            <div className="grid grid-cols-3 gap-4">
-              {printing.cost !== null && (
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-700">Cost</div>
-                  <div className="text-xl font-bold text-blue-800">{printing.cost}</div>
-                </div>
-              )}
-              {printing.power !== null && (
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-sm text-red-700">Power</div>
-                  <div className="text-xl font-bold text-red-800">{printing.power}</div>
-                </div>
-              )}
-              {printing.defense !== null && (
-                <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                  <div className="text-sm text-yellow-700">Defense</div>
-                  <div className="text-xl font-bold text-yellow-800">{printing.defense}</div>
-                </div>
+          {/* All printings selector — pick a sibling to update the rail preview */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="font-semibold text-sm">All Printings</h2>
+              {otherPrintings.length > 0 && (
+                <span className="text-xs text-gray-500">{otherPrintings.length} total</span>
               )}
             </div>
-          )}
-
-          {/* Actions - Enhanced with WhoHas dropdowns */}
-          <div className="space-y-3">
-            {/* Primary action row */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={handleAddToWants}
-                disabled={addingToWants || !user}
-                variant={addedToWants ? "default" : "outline"}
-              >
-                {addingToWants ? (
-                  "Adding..."
-                ) : addedToWants ? (
-                  <>
-                    <Heart className="mr-2 h-4 w-4 fill-current" />
-                    Added to Wants!
-                  </>
-                ) : (
-                  <>
-                    <Heart className="mr-2 h-4 w-4" />
-                    Add to Wants
-                  </>
-                )}
-              </Button>
-
-              <Button
-                variant="secondary"
-                onClick={() => setShowBinderSelector(true)}
-                disabled={!user}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add to Collection
-              </Button>
-            </div>
-
-            {/* Who Has quick access row */}
-            <div className="flex gap-2">
-              {/* Search for SPECIFIC printing */}
-              {printing.printing_id && (
-                <div className="flex-1">
-                  <WhoHasDropdown 
-                    printingId={printing.printing_id} 
-                    cardName={printing.display_name || printing.name} 
-                    searchMode="printing"
-                    className="w-full justify-center !p-3 hover:bg-blue-50 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 rounded font-medium"
-                    buttonText="Who Has This Exact Card"
-                  />
+            <div className="p-3 max-h-[420px] overflow-y-auto">
+              {otherPrintingsLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
                 </div>
+              ) : otherPrintings.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No other printings found.</p>
+              ) : (
+                (() => {
+                  const LANGUAGE_NAMES: Record<string, string> = {
+                    en: 'English', fr: 'French', de: 'German', it: 'Italian', es: 'Spanish', ja: 'Japanese',
+                  }
+                  const sorted = sortPrintingsByLanguage(otherPrintings)
+                  const groups = new Map<string, any[]>()
+                  for (const p of sorted) {
+                    const lang = (p.language || 'en').toLowerCase()
+                    if (!groups.has(lang)) groups.set(lang, [])
+                    groups.get(lang)!.push(p)
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {Array.from(groups.entries()).map(([lang, items]) => (
+                        <div key={lang}>
+                          <div className="flex items-center gap-2 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                            <span className="text-base" aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span>
+                            <h3 className="font-semibold text-xs">{LANGUAGE_NAMES[lang] || lang.toUpperCase()}</h3>
+                            <span className="text-xs text-gray-500">({items.length})</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-1.5">
+                            {items.map((p: any) => {
+                              const pid = p.printing_id || p.unique_id
+                              const isSelected = pid === (selectedSiblingId || resolvedParams.printing_id)
+                              const isCurrent = pid === resolvedParams.printing_id
+                              const setName = SET_MAP[p.set as keyof typeof SET_MAP] || p.set?.toUpperCase() || 'Unknown'
+                              const foilingName = FOILING_MAP[p.foiling as keyof typeof FOILING_MAP] || p.foiling || ''
+                              const priceLabel = (p.tcg_market != null && p.tcg_market > 0) ? formatPrice(p.tcg_market) : null
+                              // Short edition labels — always shown when non-normal so 1st vs Unl is visible at a glance
+                              const editionShort: string | null = (() => {
+                                const e = (p.edition || '').toLowerCase()
+                                if (e === 'f' || e === 'first' || e === '1st' || e === 'first edition') return '1st'
+                                if (e === 'u' || e === 'unl' || e === 'unlimited' || e === 'unlimited edition') return 'Unl'
+                                if (e === 'a' || e === 'alpha') return 'Alpha'
+                                return null
+                              })()
+                              const isFullArt = typeof p.art_variations === 'string' && p.art_variations.includes('FA')
+                              const isExtArt = !!p.is_extended_art
+                              return (
+                                <button
+                                  key={pid}
+                                  type="button"
+                                  onClick={() => setSelectedSiblingId(pid)}
+                                  className={`w-full flex items-center gap-2 p-2 rounded border text-left transition-colors ${
+                                    isSelected
+                                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800/40'
+                                  }`}
+                                >
+                                  <div className="w-9 h-12 flex-shrink-0 overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
+                                    <img src={p.image_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                  </div>
+                                  <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                                    <div className="flex items-center gap-1 font-medium">
+                                      <span className="truncate">{setName}</span>
+                                      {isCurrent && <Badge className="text-[9px] px-1 py-0 ml-auto flex-shrink-0">Current</Badge>}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {foilingName && <Badge variant="secondary" className="text-[10px] px-1 py-0">{foilingName}</Badge>}
+                                      {editionShort && <Badge variant="outline" className="text-[10px] px-1 py-0">{editionShort}</Badge>}
+                                      {isFullArt && <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-400 text-amber-700 dark:text-amber-300">Full Art</Badge>}
+                                      {isExtArt && <Badge variant="outline" className="text-[10px] px-1 py-0 border-sky-400 text-sky-700 dark:text-sky-300">Ext Art</Badge>}
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 text-[10px]">
+                                      {p.collector_number && (
+                                        <span className="font-mono text-gray-500">{p.collector_number}</span>
+                                      )}
+                                      {priceLabel && (
+                                        <span className="tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">{priceLabel}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()
               )}
-              
-              {/* Search for ANY version */}
-              {printing.card_unique_id && (
-                <div className="flex-1">
-                  <WhoHasDropdown 
-                    cardUniqueId={printing.card_unique_id} 
-                    cardName={printing.display_name || printing.name} 
-                    searchMode="unique"
-                    className="w-full justify-center !p-3 hover:bg-purple-50 dark:hover:bg-purple-900 border border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 rounded font-medium"
-                    buttonText="Who Has Any Version"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Help text */}
-            <div className="text-center text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded">
-              Quick access: Click "Who Has" buttons above for instant results, or use the detailed tab below
             </div>
           </div>
 
           {!user && (
-            <div className="text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 p-3 rounded">
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Log in
-              </Link>{" "}
-              to add this card to your wants list or collection.
+            <div className="text-center text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded">
+              <Link href="/login" className="text-blue-600 hover:underline">Log in</Link>{" "}to add this card to your wants list or collection.
             </div>
           )}
 
@@ -563,6 +518,130 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
             />
           )}
         </div>
+
+        {/* RIGHT: rail-style preview of the selected printing */}
+        <aside className="order-1 xl:order-2 xl:sticky xl:top-20 xl:self-start">
+          {(() => {
+            const rail = (otherPrintings.length > 0
+              ? otherPrintings.find((p: any) => (p.printing_id || p.unique_id) === selectedSiblingId)
+              : null) || printing
+            const railSetName = SET_MAP[rail.set as keyof typeof SET_MAP] || rail.set?.toUpperCase() || 'Unknown'
+            const railFoiling = FOILING_MAP[rail.foiling as keyof typeof FOILING_MAP] || rail.foiling
+            const railEdition = rail.edition && rail.edition !== 'n'
+              ? EDITION_MAP[rail.edition as keyof typeof EDITION_MAP] || rail.edition.toUpperCase()
+              : null
+            const railLang = (rail.language || 'en').toLowerCase()
+            const setLogo = rail.set ? getSetImageOrFallback(rail.set, rail.set) : null
+            const hasPitch = rail.pitch != null && rail.pitch > 0
+            const hasCost = rail.cost != null
+            const hasPower = rail.power != null
+            const hasDefense = rail.defense != null
+            const isViewingDifferent = selectedSiblingId && selectedSiblingId !== resolvedParams.printing_id
+
+            return (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-3">
+                <div className="max-w-[260px] sm:max-w-[300px] mx-auto xl:max-w-none">
+                  <FoilCardImage
+                    foiling={rail.foiling}
+                    artStyle={rail.art_variations?.includes('FA') ? 'full-art' : rail.is_extended_art ? 'extended-art' : undefined}
+                    foilInset={rail.foil_inset_bottom != null ? {
+                      top: rail.foil_inset_top,
+                      right: rail.foil_inset_right,
+                      bottom: rail.foil_inset_bottom,
+                      left: rail.foil_inset_left,
+                      round: rail.foil_inset_round ?? '1.5%',
+                    } : undefined}
+                    src={rail.image_url || '/placeholder.svg'}
+                    alt={rail.display_name || rail.name}
+                    className="w-full rounded-md shadow"
+                    imgClassName="w-full h-auto rounded-md"
+                    expandable
+                  />
+                </div>
+
+                {setLogo && (
+                  <div className="flex justify-center">
+                    <img
+                      src={setLogo}
+                      alt={rail.set?.toUpperCase() || ''}
+                      title={rail.set?.toUpperCase() || ''}
+                      className="h-10 w-auto object-contain"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {rail.display_name || rail.name}
+                    {rail.collector_number && (
+                      <span className="font-normal text-gray-500 dark:text-gray-400 font-mono"> — {rail.collector_number}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 flex-wrap mt-1">
+                    <span aria-label={`Language: ${railLang}`}>{languageFlag(railLang)}</span>
+                    {rail.rarity && <RarityIcon rarityCode={rail.rarity} size="sm" />}
+                    {railEdition && <span>{railEdition}</span>}
+                    {railFoiling && <span>{railFoiling}</span>}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{railSetName}</div>
+                </div>
+
+                {(hasPitch || hasCost || hasPower || hasDefense) && (
+                  <div className="flex items-center justify-center gap-2.5 text-sm text-gray-700 dark:text-gray-200">
+                    {hasPitch && (
+                      <span className="inline-flex items-center" title={`Pitch ${rail.pitch}`}>
+                        <img src={`/fab/symbols/pitch${rail.pitch}.png`} alt={`Pitch ${rail.pitch}`} className="w-5 h-5 object-contain" />
+                      </span>
+                    )}
+                    {hasCost && (
+                      <span className="relative inline-flex items-center justify-center w-5 h-5 shrink-0" title={`Cost ${rail.cost}`}>
+                        <img src="/fab/symbols/cost.png" alt="Cost" className="w-5 h-5 object-contain" />
+                        <span className="absolute font-bold text-[10px] leading-none text-white drop-shadow-[0_0_2px_rgba(0,0,0,1)]">{rail.cost}</span>
+                      </span>
+                    )}
+                    {hasPower && (
+                      <span className="inline-flex items-center gap-1 tabular-nums font-semibold" title={`Power ${rail.power}`}>
+                        <span>{rail.power}</span>
+                        <img src="/fab/symbols/power.png" alt="Power" className="w-4 h-4 object-contain" />
+                      </span>
+                    )}
+                    {hasDefense && (
+                      <span className="inline-flex items-center gap-1 tabular-nums font-semibold" title={`Defense ${rail.defense}`}>
+                        <span>{rail.defense}</span>
+                        <img src="/fab/symbols/block.png" alt="Defense" className="w-4 h-4 object-contain" />
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {rail.tcgplayer_url && (
+                  <TcgAffiliateLink
+                    tcgplayerUrl={rail.tcgplayer_url}
+                    feature="PrintingRailBuy"
+                    className="flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"
+                    title={`Buy ${rail.display_name || rail.name} on TCGplayer`}
+                  >
+                    <span>Buy on TCGplayer</span>
+                    {rail.tcg_market != null && rail.tcg_market > 0 && (
+                      <span className="ml-auto tabular-nums text-emerald-600 dark:text-emerald-400">
+                        {formatPrice(rail.tcg_market)}
+                      </span>
+                    )}
+                  </TcgAffiliateLink>
+                )}
+
+                {isViewingDifferent && (
+                  <Link
+                    href={`/printing/${selectedSiblingId}`}
+                    className="block w-full text-center py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors"
+                  >
+                    Go to This Printing's Page
+                  </Link>
+                )}
+              </div>
+            )
+          })()}
+        </aside>
       </div>
 
       {/* Tabs for additional content */}
