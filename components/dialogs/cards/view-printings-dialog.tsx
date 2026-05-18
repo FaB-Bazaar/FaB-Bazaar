@@ -6,6 +6,7 @@ import { Loader2, Check } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetName, getFoilingName, getEditionName, getVariantBadgeStyles } from "@/lib/fab-formatters";
 import { sortPrintings } from "@/lib/fab-constants";
+import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { TcgAffiliateLink } from '@/components/tracking';
@@ -71,7 +72,7 @@ export default function ViewPrintingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col bg-gray-800 border-gray-700">
+      <DialogContent className="max-w-lg sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl max-h-[90vh] flex flex-col bg-gray-800 border-gray-700">
         <DialogHeader>
           <DialogTitle className="text-gray-100">Available Printings: {cardName}</DialogTitle>
           <DialogDescription>
@@ -87,65 +88,91 @@ export default function ViewPrintingsDialog({
           <p className="text-red-400 text-center py-8">{error}</p>
         ) : (
           <>
-            {/* Image strip */}
-            <div
-              ref={stripRef}
-              className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin scrollbar-thumb-gray-600"
-              style={{ scrollbarWidth: 'thin' }}
-            >
-              {printings.map(p => (
-                <button
-                  key={p.printing_id}
-                  data-printing={p.printing_id}
-                  onClick={() => handlePreview(p)}
-                  className={cn(
-                    "relative shrink-0 rounded-lg overflow-hidden transition-all",
-                    "w-[90px]",
-                    selected === p.printing_id
-                      ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-800"
-                      : "opacity-75 hover:opacity-100 hover:ring-1 hover:ring-gray-400 ring-offset-gray-800"
-                  )}
+            {/* Language-grouped grid */}
+            {(() => {
+              const LANGUAGE_NAMES: Record<string, string> = {
+                en: 'English', fr: 'French', de: 'German', it: 'Italian', es: 'Spanish', ja: 'Japanese',
+              };
+              const groups = new Map<string, any[]>();
+              for (const p of sortPrintingsByLanguage(printings)) {
+                const lang = (p.language || 'en').toLowerCase();
+                if (!groups.has(lang)) groups.set(lang, []);
+                groups.get(lang)!.push(p);
+              }
+              return (
+                <div
+                  ref={stripRef}
+                  className="overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 space-y-3"
+                  style={{ scrollbarWidth: 'thin', maxHeight: '55vh' }}
                 >
-                  {p.image_url ? (
-                    <img
-                      src={p.image_url}
-                      alt={cardName}
-                      className="w-full h-auto block"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full aspect-[2/3] bg-gray-700 flex items-center justify-center text-gray-500 text-xs">
-                      {p.set.toUpperCase()}
+                  {Array.from(groups.entries()).map(([lang, items]) => (
+                    <div key={lang}>
+                      <div className="flex items-center gap-2 mb-1.5 sticky top-0 bg-gray-800 z-10 py-1">
+                        <span className="text-base" aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span>
+                        <h3 className="font-semibold text-xs text-gray-200">
+                          {LANGUAGE_NAMES[lang] || lang.toUpperCase()}
+                        </h3>
+                        <span className="text-[10px] text-gray-500">({items.length})</span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-2">
+                        {items.map(p => (
+                          <button
+                            key={p.printing_id}
+                            data-printing={p.printing_id}
+                            onClick={() => handlePreview(p)}
+                            title={`${getSetName(p.set)} · ${getFoilingName(p.foiling, p.is_extended_art)}${getEditionName(p.edition) ? ' · ' + getEditionName(p.edition) : ''}`}
+                            className={cn(
+                              "relative rounded-lg overflow-hidden transition-all",
+                              selected === p.printing_id
+                                ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-800"
+                                : "opacity-75 hover:opacity-100 hover:ring-1 hover:ring-gray-400 ring-offset-gray-800"
+                            )}
+                          >
+                            {p.image_url ? (
+                              <img
+                                src={p.image_url}
+                                alt={cardName}
+                                className="w-full h-auto block"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full aspect-[2/3] bg-gray-700 flex items-center justify-center text-gray-500 text-xs">
+                                {p.set.toUpperCase()}
+                              </div>
+                            )}
+                            {/* Language flag overlay */}
+                            <div className="absolute top-1 left-1 text-sm leading-none drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]" aria-hidden>
+                              {languageFlag(lang)}
+                            </div>
+                            {/* Price badge */}
+                            {p.tcg_low != null && p.tcg_low > 0 && (
+                              <div className="absolute bottom-0 inset-x-0 bg-black/70 text-green-400 text-[10px] font-semibold text-center py-0.5">
+                                ${p.tcg_low.toFixed(2)}
+                              </div>
+                            )}
+                            {/* Foiling badge */}
+                            {p.foiling && p.foiling !== 's' && (
+                              <div className={cn(
+                                "absolute top-1 right-1 text-[9px] font-bold px-1 py-0.5 rounded leading-none",
+                                getVariantBadgeStyles(p.rarity, p.foiling)
+                              )}>
+                                {p.foiling === 'r' ? 'RF' : p.foiling === 'c' ? 'CF' : p.foiling.toUpperCase()}
+                              </div>
+                            )}
+                            {/* Selected checkmark */}
+                            {selected === p.printing_id && (
+                              <div className="absolute bottom-5 left-1 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                                <Check className="h-3 w-3 text-white" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                  {/* Price badge */}
-                  {p.tcg_low != null && p.tcg_low > 0 && (
-                    <div className="absolute bottom-0 inset-x-0 bg-black/70 text-green-400 text-[11px] font-semibold text-center py-0.5">
-                      ${p.tcg_low.toFixed(2)}
-                    </div>
-                  )}
-                  {/* Foiling badge */}
-                  {p.foiling && p.foiling !== 's' && (
-                    <div className={cn(
-                      "absolute top-1 right-1 text-[9px] font-bold px-1 py-0.5 rounded leading-none",
-                      getVariantBadgeStyles(p.rarity, p.foiling)
-                    )}>
-                      {p.foiling === 'r' ? 'RF' : p.foiling === 'c' ? 'CF' : p.foiling.toUpperCase()}
-                    </div>
-                  )}
-                  {/* Selected checkmark */}
-                  {selected === p.printing_id && (
-                    <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-white" />
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <p className="text-xs text-gray-500 text-center -mt-1 mb-1">
-              Drag to browse · click a card to select
-            </p>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Selected printing detail */}
             {selectedPrinting && (
@@ -153,6 +180,9 @@ export default function ViewPrintingsDialog({
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base" aria-label={`Language: ${(selectedPrinting.language || 'en').toLowerCase()}`}>
+                        {languageFlag((selectedPrinting.language || 'en').toLowerCase())}
+                      </span>
                       <RarityIcon rarityCode={selectedPrinting.rarity} size="sm" />
                       <span className="font-semibold text-sm text-gray-200">
                         {getSetName(selectedPrinting.set)}
