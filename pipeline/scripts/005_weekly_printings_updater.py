@@ -14,6 +14,16 @@ merged card+printing document) and upserts all records into the `cards` and
 - Batch upserts via psycopg2.extras.execute_values (500 rows per batch)
 - Reports: unique cards and printings from file, before/after row counts in DB
 
+i18n invariants (intentional non-touches):
+- `cards.lss_card_id`: populated by scripts/import-i18n.ts from the LSS feed.
+  Not in CARD_FIELDS, so this script never INSERTs or UPDATEs it. Existing
+  values are preserved across pipeline runs.
+- `printings.language`: the seed always represents English data, so this
+  script only manages `language = 'en'` rows. Non-English printings (created
+  by scripts/import-i18n.ts) are excluded from the stale-row DELETE via an
+  explicit `language = 'en'` filter and stay untouched.
+- `card_translations` table: not referenced anywhere in this script.
+
 Usage:
     python3 05_weekly_printings_updater.py --file printings_collection_seed.json --dry-run
     python3 05_weekly_printings_updater.py --file printings_collection_seed.json
@@ -66,6 +76,11 @@ CARD_FIELDS: List[str] = [
 PRINTING_FIELDS: List[str] = [
     'printing_id', 'card_unique_id', 'set_printing_unique_id', 'collector_number',
     'set', 'edition', 'foiling', 'rarity',
+    # Language: pipeline only emits English. Explicit so re-runs never relax
+    # this back to the column default (avoids confusion if the default ever
+    # changes). Non-English rows are managed by scripts/import-i18n.ts and
+    # excluded from the stale DELETE — see _delete_stale_printings.
+    'language',
     # Edition flags
     'is_first_edition', 'is_unlimited', 'is_normal_edition',
     # Foiling flags
@@ -387,10 +402,14 @@ class WeeklyPrintingsUpdater:
         print("\n🧹 Checking for stale printings to remove...")
         try:
             with self.conn.cursor() as cur:
-                # Count stale printings referenced by user data (keep these)
+                # Count stale English printings referenced by user data (keep these).
+                # The `language = 'en'` filter scopes pruning to rows this pipeline
+                # owns; non-English printings (managed by scripts/import-i18n.ts)
+                # are always preserved regardless of source_ids.
                 cur.execute("""
                     SELECT COUNT(*) FROM printings
-                    WHERE printing_id != ALL(%s)
+                    WHERE language = 'en'
+                      AND printing_id != ALL(%s)
                       AND (
                         printing_id IN (SELECT printing_id FROM inventory_items)
                         OR printing_id IN (SELECT printing_id FROM wants_items)
@@ -403,20 +422,22 @@ class WeeklyPrintingsUpdater:
                 if dry_run:
                     cur.execute("""
                         SELECT COUNT(*) FROM printings
-                        WHERE printing_id != ALL(%s)
+                        WHERE language = 'en'
+                          AND printing_id != ALL(%s)
                           AND printing_id NOT IN (SELECT printing_id FROM inventory_items)
                           AND printing_id NOT IN (SELECT printing_id FROM wants_items)
                           AND printing_id NOT IN (SELECT printing_id FROM deck_cards)
                     """, (list(source_ids),))
                     would_delete = cur.fetchone()[0]
-                    print(f"   Would delete {would_delete:,} stale printings "
+                    print(f"   Would delete {would_delete:,} stale English printings "
                           f"({skipped:,} skipped — referenced by user data)")
                     self.stats['printings_deleted'] = would_delete
                     return
 
                 cur.execute("""
                     DELETE FROM printings
-                    WHERE printing_id != ALL(%s)
+                    WHERE language = 'en'
+                      AND printing_id != ALL(%s)
                       AND printing_id NOT IN (SELECT printing_id FROM inventory_items)
                       AND printing_id NOT IN (SELECT printing_id FROM wants_items)
                       AND printing_id NOT IN (SELECT printing_id FROM deck_cards)
@@ -431,7 +452,14 @@ class WeeklyPrintingsUpdater:
             print(f"   ❌ Stale printing deletion failed: {e}")
 
     def _delete_stale_cards(self, source_ids: set, dry_run: bool):
-        """Delete cards no longer in the source that have no remaining printings."""
+        """Delete cards no longer in the source that have no remaining printings.
+
+        Safe for i18n: this only deletes cards with ZERO remaining printings of
+        ANY language. Non-English printings (created by scripts/import-i18n.ts)
+        reference card_unique_id, so any card with a localized printing keeps
+        at least one printings row and survives this delete — no language
+        filter needed on the cards table itself.
+        """
         print("\n🧹 Checking for stale cards to remove...")
         try:
             with self.conn.cursor() as cur:

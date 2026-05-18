@@ -262,6 +262,11 @@ export const cards = pgTable('cards', {
   // card_results from game logs to printings/images).
   talisharCardId: text('talishar_card_id'),
 
+  // Upstream LSS card UUID (from cardvault.fabtcg.com feed). NOT unique:
+  // DFCs share one LSS UUID across both faces' card_unique_ids. Populated
+  // by scripts/import-i18n.ts; NULL for cards never seen in the LSS feed.
+  lssCardId: text('lss_card_id'),
+
   // Card text & abilities
   text: text('text'),
   searchableText: text('searchable_text'),
@@ -371,6 +376,7 @@ export const cards = pgTable('cards', {
 }, (table) => ({
   nameIdx: index('idx_cards_name').on(table.name),
   typeTextIdx: index('idx_cards_type_text').on(table.typeText),
+  lssCardIdIdx: index('idx_cards_lss_card_id').on(table.lssCardId),
 }));
 
 // ============================================================================
@@ -384,6 +390,11 @@ export const printings = pgTable('printings', {
   // Printing identity
   setPrintingUniqueId: text('set_printing_unique_id'),
   collectorNumber: text('collector_number'),
+
+  // Lowercase ISO 639-1 code ('en', 'fr', 'de', ...). Drives image selection
+  // for the physical printing. Distinct from inventory_items.language which
+  // is uppercase legacy ('EN').
+  language: text('language').default('en').notNull(),
 
   // Set/Edition/Rarity
   set: text('set').notNull(),
@@ -470,6 +481,37 @@ export const printings = pgTable('printings', {
   editionIdx: index('idx_printings_edition').on(table.edition),
   foilingIdx: index('idx_printings_foiling').on(table.foiling),
   setRarityIdx: index('idx_printings_set_rarity').on(table.set, table.rarity),
+  languageIdx: index('idx_printings_language').on(table.language),
+}));
+
+// ============================================================================
+// CARD TRANSLATIONS (Per-language overlay for card-level text)
+// ============================================================================
+// English stays on `cards`; this table holds non-English overrides only.
+// Read path: LEFT JOIN + COALESCE(t.field, cards.field).
+// Adding a new language is INSERT-only — no schema change.
+//
+// What's translated: rendered strings (name, text, type_text, traits, flavor).
+// What stays canonical English on `cards`: gameplay identifiers (types[],
+// keywords[], classes[], talents[], essences[]), all booleans, and all stats.
+
+export const cardTranslations = pgTable('card_translations', {
+  cardUniqueId: text('card_unique_id').notNull().references(() => cards.cardUniqueId, { onDelete: 'cascade' }),
+  language: text('language').notNull(),
+
+  name: text('name').notNull(),
+  displayName: text('display_name').notNull(),
+  text: text('text'),
+  typeText: text('type_text'),
+  traits: text('traits').array(),
+  flavorText: text('flavor_text'),
+
+  source: text('source'),
+  sourceCardId: text('source_card_id'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.cardUniqueId, table.language] }),
+  langNameIdx: index('idx_card_translations_lang_name').on(table.language, table.name),
 }));
 
 // ============================================================================
@@ -879,6 +921,14 @@ export const bindersRelations = relations(binders, ({ one, many }) => ({
 
 export const cardsRelations = relations(cards, ({ many }) => ({
   printings: many(printings),
+  translations: many(cardTranslations),
+}));
+
+export const cardTranslationsRelations = relations(cardTranslations, ({ one }) => ({
+  card: one(cards, {
+    fields: [cardTranslations.cardUniqueId],
+    references: [cards.cardUniqueId],
+  }),
 }));
 
 export const printingsRelations = relations(printings, ({ one, many }) => ({

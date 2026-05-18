@@ -562,6 +562,12 @@ class CardsToPrintingsTransformer:
                 # Double-faced card info
                 **self.get_dfc_fields(printing),
 
+                # Language: this pipeline only handles English from the GitHub
+                # source. Non-English printings are created/maintained by
+                # scripts/import-i18n.ts and are excluded from this pipeline's
+                # stale-row DELETE (see _delete_stale_printings in step 05).
+                'language': 'en',
+
                 # Other printing data
                 'expansion_slot': bool(printing.get('expansion_slot', False)),
                 'flavor_text': self.normalize_string(printing.get('flavor_text_plain', '')),
