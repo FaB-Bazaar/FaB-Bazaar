@@ -60,6 +60,7 @@ export interface PrintingDTO {
   edition: string;
   foiling: string;
   rarity: string;
+  language: string; // 'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' — physical printing language
   artists: string[];
 
   // Pricing

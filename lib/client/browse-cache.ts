@@ -45,6 +45,7 @@ export interface BrowsePrinting {
   edition: string;
   foiling: string;
   rarity: string;
+  language: string;
   is_extended_art: boolean;
   art_variations: string[] | null;
   foil_inset_top: number | null;
@@ -212,6 +213,18 @@ export function sortPrintings(
       case 'power':   cmp = (a.power ?? -1) - (b.power ?? -1); break;
       case 'cost':    cmp = (a.cost  ?? -1) - (b.cost  ?? -1); break;
       default:        cmp = (a.display_name ?? '').localeCompare(b.display_name ?? '');
+    }
+    // Tiebreaker: pitch (1 → 3 ascending) so same-name cards land in pitch
+    // order; falls back to collector_number for non-pitch cards (heroes,
+    // equipment) so DTD032/DTD033/DTD034 still group correctly.
+    if (cmp === 0) {
+      const ap = a.pitch ?? Infinity;
+      const bp = b.pitch ?? Infinity;
+      if (ap !== bp) {
+        cmp = ap - bp;
+      } else {
+        cmp = (a.collector_number ?? '').localeCompare(b.collector_number ?? '');
+      }
     }
     return sortOrder === 'desc' ? -cmp : cmp;
   });

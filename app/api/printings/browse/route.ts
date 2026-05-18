@@ -16,7 +16,7 @@ import { db } from '@/lib/postgres/db';
 import { printings, cards } from '@/lib/postgres/schema';
 import { getRedisClient } from '@/lib/redis';
 
-const CACHE_KEY = 'browse:all_printings:v3';
+const CACHE_KEY = 'browse:all_printings:v4'; // v4 = added printings.language
 const CACHE_TTL_SECONDS = 3600; // 1 hour
 
 export async function GET() {
@@ -80,6 +80,7 @@ export async function GET() {
         edition:          printings.edition,
         foiling:          printings.foiling,
         rarity:           printings.rarity,
+        language:         printings.language,
         is_extended_art:  printings.isExtendedArt,
         art_variations:   printings.artVariations,
         foil_inset_top:   printings.foilInsetTop,

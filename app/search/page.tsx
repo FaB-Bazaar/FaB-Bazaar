@@ -21,6 +21,7 @@ import {
   getAllPrintings, prefetchAllPrintings, filterPrintings, sortPrintings,
   type BrowsePrinting, type BrowseFilters,
 } from '@/lib/client/browse-cache';
+import { groupPrintingsByCard } from '@/lib/utils/group-printings-by-card';
 import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
@@ -173,6 +174,20 @@ export default function SearchPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
 
+  // Grouped (default) collapses non-EN + foiling variants into one tile per
+  // card_unique_id. Flat shows every individual printing (the old behavior).
+  // Persisted across sessions in localStorage.
+  const [groupByCard, setGroupByCard] = useState<boolean>(true);
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('search:groupByCard') : null;
+    if (stored !== null) setGroupByCard(stored === '1');
+  }, []);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('search:groupByCard', groupByCard ? '1' : '0');
+    }
+  }, [groupByCard]);
+
   const [debouncedQuery] = useDebounce(query, 250);
   const [displayLimit, setDisplayLimit] = useState(60);
   const { ref: sentinelRef, inView } = useInView({ threshold: 0 });
@@ -277,14 +292,22 @@ export default function SearchPage() {
   }, [effectiveQuery, displayedPrintings.length]);
 
   // Reset to first page whenever the filtered result set changes
-  useEffect(() => { setDisplayLimit(60); }, [displayedPrintings]);
+  // When grouped, collapse to one canonical printing per card_unique_id BEFORE
+  // applying the display-limit slice — otherwise the page count would be
+  // computed against the raw printing count instead of card count.
+  const effectivePrintings = useMemo<BrowsePrinting[]>(() => {
+    if (!groupByCard) return displayedPrintings;
+    return groupPrintingsByCard(displayedPrintings).map((g) => g.canonicalPrinting);
+  }, [displayedPrintings, groupByCard]);
+
+  useEffect(() => { setDisplayLimit(60); }, [effectivePrintings]);
 
   // Load next page when the sentinel scrolls into view
   useEffect(() => {
-    if (inView && displayLimit < displayedPrintings.length) {
+    if (inView && displayLimit < effectivePrintings.length) {
       setDisplayLimit(l => l + 60);
     }
-  }, [inView, displayLimit, displayedPrintings.length]);
+  }, [inView, displayLimit, effectivePrintings.length]);
 
   const clearAll = () => {
     setQuery(''); setSelectedType(null); setSelectedClass(null); setSelectedPitch(null);
@@ -298,7 +321,7 @@ export default function SearchPage() {
   const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
-  const visiblePrintings = displayedPrintings.slice(0, displayLimit);
+  const visiblePrintings = effectivePrintings.slice(0, displayLimit);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -598,7 +621,9 @@ export default function SearchPage() {
             ) : catalogError ? (
               <span className="text-red-400">Catalog failed to load</span>
             ) : hasAnyFilter ? (
-              <>{displayedPrintings.length.toLocaleString()} printings</>
+              groupByCard
+                ? <>{effectivePrintings.length.toLocaleString()} cards ({displayedPrintings.length.toLocaleString()} printings)</>
+                : <>{displayedPrintings.length.toLocaleString()} printings</>
             ) : allPrintings.length > 0 ? (
               <span className="text-gray-400 dark:text-gray-600">{allPrintings.length.toLocaleString()} cards ready</span>
             ) : (
@@ -607,6 +632,22 @@ export default function SearchPage() {
           </span>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Group by card toggle — collapses cross-language / foiling
+                variants of the same card into one tile. Persisted in
+                localStorage; default on (much fewer tiles to look at). */}
+            <button
+              onClick={() => setGroupByCard(g => !g)}
+              title={groupByCard ? 'Currently grouping printings by card — click to show every printing individually' : 'Currently showing every printing individually — click to group by card'}
+              className={cn(
+                'px-2 py-1 text-xs rounded border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                groupByCard
+                  ? 'bg-blue-600 dark:bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-700'
+                  : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
+              )}
+            >
+              {groupByCard ? 'Grouped' : 'All printings'}
+            </button>
+
             {/* View mode toggle */}
             <div className="flex items-center rounded border border-gray-300 dark:border-gray-700 overflow-hidden">
               <button

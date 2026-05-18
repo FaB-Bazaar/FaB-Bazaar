@@ -27,6 +27,7 @@ import {
   type EditionCode,
   type RarityCode
 } from "@/lib/fab-constants"
+import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language"
 import { TcgAffiliateLink } from '@/components/tracking'
 
 // --- MODIFICATION START ---
@@ -174,7 +175,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
               if (nameDiff !== 0) return nameDiff;
               return pitchOrder(a) - pitchOrder(b);
             })
-            .map((card: any) => ({ ...card, printings: sortPrintings(card.printings) }));
+            .map((card: any) => ({ ...card, printings: sortPrintingsByLanguage(sortPrintings(card.printings) as any[]) }));
           setCards(cardsArray);
         } else {
           setError(data.error || "Failed to search printings. Please try again.");
@@ -462,7 +463,8 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                               const displayName = getPrintingShortDisplay(printing);
                               const rarityDisplay = getRarityDisplayName(printing.rarity);
                               const cardIdDisplay = printing.collector_number ? `(${printing.collector_number})` : '';
-                              return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-600 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
+                              const lang = (printing.language || 'en').toLowerCase();
+                              return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span><span className="mr-1.5" aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span><span className="mr-1.5 text-xs uppercase text-gray-500 dark:text-gray-400">{lang}</span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-600 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
                             })}
                           </SelectContent>
                         </Select>
