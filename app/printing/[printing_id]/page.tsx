@@ -92,6 +92,7 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
   const [otherPrintings, setOtherPrintings] = useState<any[]>([])
   const [otherPrintingsLoading, setOtherPrintingsLoading] = useState(false)
   const [selectedSiblingId, setSelectedSiblingId] = useState<string | null>(null)
+  const [selectedTextLang, setSelectedTextLang] = useState<string | null>(null)
 
   
   // Unwrap the params Promise
@@ -118,6 +119,11 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
     fetchPrintingDetails()
     fetchWhoHasData()
   }, [resolvedParams.printing_id])
+
+  // Default the card-text language to the URL printing's language once loaded
+  useEffect(() => {
+    if (printing?.language) setSelectedTextLang((printing.language as string).toLowerCase())
+  }, [printing?.language])
 
   // Once the main printing loads, fetch siblings sharing the same card_unique_id
   useEffect(() => {
@@ -657,17 +663,66 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
               <CardTitle>Card Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Card Text */}
-              {printing.text && (
-                <div>
-                  <h3 className="font-semibold mb-2">Card Text</h3>
-                  <div className="text-sm whitespace-pre-wrap p-3 rounded 
-                    bg-gray-50 dark:bg-gray-800 
-                    text-gray-800 dark:text-gray-200">
-                    {printing.text}
+              {/* Card Text — language selector built from sibling printings */}
+              {(() => {
+                // Map of lang → first non-empty text we find among siblings.
+                // Each printing's `text` is already COALESCE(card_translations.text, cards.text)
+                // for THAT printing's language, so iterating siblings gives us all available translations.
+                const textByLang = new Map<string, string>()
+                const printingLang = (printing.language || 'en').toLowerCase()
+                if (printing.text) textByLang.set(printingLang, printing.text)
+                for (const p of otherPrintings) {
+                  const lang = (p.language || 'en').toLowerCase()
+                  if (!textByLang.has(lang) && p.text) textByLang.set(lang, p.text)
+                }
+
+                if (textByLang.size === 0) return null
+
+                // Active language: user-picked → URL printing's → first available
+                const activeLang = (selectedTextLang && textByLang.has(selectedTextLang))
+                  ? selectedTextLang
+                  : textByLang.has(printingLang) ? printingLang : Array.from(textByLang.keys())[0]
+                const activeText = textByLang.get(activeLang) || ''
+
+                // Sort languages with en/fr/ja priority (same as elsewhere)
+                const sortedLangs = sortPrintingsByLanguage(
+                  Array.from(textByLang.keys()).map(l => ({ language: l }))
+                ).map(o => o.language as string)
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                      <h3 className="font-semibold">Card Text</h3>
+                      {textByLang.size > 1 && (
+                        <div className="flex items-center gap-1" role="tablist" aria-label="Card text language">
+                          {sortedLangs.map(lang => (
+                            <button
+                              key={lang}
+                              type="button"
+                              role="tab"
+                              aria-selected={lang === activeLang}
+                              onClick={() => setSelectedTextLang(lang)}
+                              title={`Show ${lang.toUpperCase()} text`}
+                              className={`text-lg leading-none px-1.5 py-0.5 rounded transition-all ${
+                                lang === activeLang
+                                  ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                                  : 'opacity-50 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-800'
+                              }`}
+                            >
+                              {languageFlag(lang)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap p-3 rounded
+                      bg-gray-50 dark:bg-gray-800
+                      text-gray-800 dark:text-gray-200">
+                      {activeText}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* Keywords - SAFE VERSION */}
               {Array.isArray(printing.keywords) && printing.keywords.length > 0 && (

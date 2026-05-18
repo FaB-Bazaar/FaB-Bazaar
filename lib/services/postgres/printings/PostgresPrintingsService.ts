@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards, cardTranslations } from '@/lib/postgres/schema';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -57,6 +57,13 @@ export class PostgresPrintingsService implements IPrintingsService {
         .select(this.buildSelectFields())
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(
+          cardTranslations,
+          and(
+            eq(cardTranslations.cardUniqueId, cards.cardUniqueId),
+            eq(cardTranslations.language, printings.language)
+          )
+        )
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(...orderByClause)
         .limit(limit)
@@ -140,6 +147,13 @@ export class PostgresPrintingsService implements IPrintingsService {
         .select(this.buildSelectFields())
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(
+          cardTranslations,
+          and(
+            eq(cardTranslations.cardUniqueId, cards.cardUniqueId),
+            eq(cardTranslations.language, printings.language)
+          )
+        )
         .where(whereClause)
         .orderBy(...this.buildOrderBy(undefined, undefined, {}));
 
@@ -175,6 +189,13 @@ export class PostgresPrintingsService implements IPrintingsService {
         .select(this.buildSelectFields())
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(
+          cardTranslations,
+          and(
+            eq(cardTranslations.cardUniqueId, cards.cardUniqueId),
+            eq(cardTranslations.language, printings.language)
+          )
+        )
         .where(eq(printings.printingId, printingId))
         .limit(1);
 
@@ -595,7 +616,10 @@ export class PostgresPrintingsService implements IPrintingsService {
       // Card fields via JOIN
       name: cards.name,
       displayName: cards.displayName,
-      text: cards.text,
+      // Rendered rules text from card_translations (matches printings.language).
+      // cards.text is the lowercased searchable copy; falls back only when no
+      // translation row exists for the printing's language.
+      text: sql<string | null>`COALESCE(${cardTranslations.text}, ${cards.text})`.as('text'),
       searchableText: cards.searchableText,
       typeText: cards.typeText,
       typeTextDisplay: cards.typeTextDisplay,
