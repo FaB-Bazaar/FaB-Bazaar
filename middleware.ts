@@ -10,33 +10,27 @@ const { auth } = NextAuth(authConfig);
 const protectedPaths = ["/create", "/agreements", "/agreement/create", "/profile"];
 const authPages = ["/auth/login", "/auth/signup", "/login", "/signup"];
 
-// Simple in-memory rate limiter for bots
-const botRequestTracker = new Map<string, number[]>();
+// Global circuit-breaker rate limiter (in-memory, per-instance).
+// Trips only on clearly abusive traffic — humans never see it.
+const requestTracker = new Map<string, number[]>();
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_REQUESTS = 1000;
 
-function isAggressiveBot(req: NextRequest): boolean {
-  const userAgent = (req.headers.get('user-agent') || '').toLowerCase();
+function isRateLimited(req: NextRequest): boolean {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.ip || 'unknown';
-  const key = `${ip}-${userAgent.slice(0, 50)}`;
-
   const now = Date.now();
-  const windowMs = 10000; // 10 second window
-  const maxRequests = 150; // Max 150 requests per 10 seconds (Next.js fires many middleware invocations per page load)
 
-  // Get recent requests for this IP/UA combo
-  const requests = botRequestTracker.get(key) || [];
-  const recentRequests = requests.filter(time => now - time < windowMs);
-
-  // Add current request
+  const requests = requestTracker.get(ip) || [];
+  const recentRequests = requests.filter(time => now - time < RATE_WINDOW_MS);
   recentRequests.push(now);
-  botRequestTracker.set(key, recentRequests);
+  requestTracker.set(ip, recentRequests);
 
-  // Clean up old entries (memory management)
-  if (botRequestTracker.size > 1000) {
-    const oldestKey = Array.from(botRequestTracker.keys())[0];
-    botRequestTracker.delete(oldestKey);
+  if (requestTracker.size > 5000) {
+    const oldestKey = requestTracker.keys().next().value;
+    if (oldestKey) requestTracker.delete(oldestKey);
   }
 
-  return recentRequests.length > maxRequests;
+  return recentRequests.length > RATE_MAX_REQUESTS;
 }
 
 // Export the default middleware function, wrapped by the `auth` helper.
@@ -53,13 +47,20 @@ export default auth(async function middleware(req) {
     ip: req.headers.get('x-forwarded-for')?.split(',')[0] || req.ip || 'unknown'
   });
 
-  // Rate limit aggressive bots
-  if (isAggressiveBot(req)) {
-    console.log(`[RATE LIMIT] Blocked aggressive bot: ${userAgentShort.slice(0, 50)}`);
-    return new NextResponse('Too Many Requests', {
-      status: 429,
-      headers: { 'Retry-After': '60' }
-    });
+  // Global rate-limit circuit breaker. Trips only on clearly abusive traffic.
+  if (isRateLimited(req)) {
+    const isApi = pathname.startsWith('/api/');
+    console.log(`[RATE LIMIT] Blocked ${req.headers.get('x-forwarded-for')?.split(',')[0] || req.ip || 'unknown'} on ${pathname}`);
+    return new NextResponse(
+      isApi ? JSON.stringify({ error: 'Too many requests' }) : 'Too Many Requests',
+      {
+        status: 429,
+        headers: {
+          'Retry-After': '60',
+          'Content-Type': isApi ? 'application/json' : 'text/plain',
+        },
+      }
+    );
   }
 
   // ===================================================================
@@ -181,14 +182,14 @@ export default auth(async function middleware(req) {
 
 // ===================================================================
 // The Middleware Matcher Configuration
-// Optimized to reduce unnecessary middleware invocations.
-// Excludes static assets, API routes, and files that don't need auth.
+// Now also matches /api/* so the rate-limit circuit breaker covers them.
+// The auth wrapper's session lookup is a fast no-op when no session
+// cookie is present (token-authed API calls), so the added cost is negligible.
 // ===================================================================
 export const config = {
   matcher: [
     /*
      * Match all paths EXCEPT:
-     * - /api/* (API routes handle their own auth via authenticateRequest)
      * - /_next/static (static files)
      * - /_next/image (image optimization)
      * - Static files: manifest.json, robots.txt, ads.txt, sitemap.xml
@@ -196,6 +197,6 @@ export const config = {
      * - Image files: *.png, *.svg, *.webp, *.jpg, *.jpeg, *.ico
      * - favicon files
      */
-    '/((?!api|_next/static|_next/image|favicon|manifest\\.json|robots\\.txt|ads\\.txt|sitemap\\.xml|\\.well-known|.*\\.(?:png|svg|webp|jpg|jpeg|ico)).*)',
+    '/((?!_next/static|_next/image|favicon|manifest\\.json|robots\\.txt|ads\\.txt|sitemap\\.xml|\\.well-known|.*\\.(?:png|svg|webp|jpg|jpeg|ico)).*)',
   ],
 };
