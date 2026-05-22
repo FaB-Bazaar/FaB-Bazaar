@@ -1,7 +1,6 @@
 // app/api/users/[userId]/binders/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import mongoose from 'mongoose'
 import { isDevelopmentWithLocalIPs } from '@/lib/security'
 import { binderService } from '@/lib/services'
 
@@ -101,14 +100,6 @@ export async function GET(
     if (!userId || typeof userId !== 'string') {
       return NextResponse.json(
         { success: false, error: 'User ID required' },
-        { status: 400 }
-      )
-    }
-
-    // Validate userId format
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid user ID format' },
         { status: 400 }
       )
     }
