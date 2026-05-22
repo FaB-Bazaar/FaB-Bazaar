@@ -56,7 +56,7 @@ export async function PATCH(
     }
 
     // Get updated binder info for response
-    const binderResult = await binderService.getBinder(resolvedBinderId, userId);
+    const binderResult = await binderService.getBinder(binderId, userId);
     const binderName = binderResult.success && binderResult.data ? binderResult.data.name : 'Unknown';
 
     // Invalidate cache for immediate UI update
