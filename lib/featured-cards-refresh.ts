@@ -14,27 +14,37 @@ const RARITY_QUOTAS = [
 
 const MIN_TCG_LOW = 20;
 
+// Sample the final N from a larger top-of-band candidate pool to inject
+// rotation between refreshes. 3x means we pick 8 majestics from a top-24 pool.
+const CANDIDATE_POOL_MULTIPLIER = 3;
+
 /**
- * Picks the top N tradeable cards for a given rarity by tcg_low price,
- * deduped by card_unique_id (highest-priced printing wins per card).
+ * Picks N tradeable cards for a given rarity, randomly sampled from the
+ * top (N × CANDIDATE_POOL_MULTIPLIER) priced cards. Deduped by card_unique_id
+ * (highest-priced printing wins per card). Returns up to `limit` ids.
  */
 async function fetchFeaturedByRarity(rarity: string, limit: number): Promise<string[]> {
+  const poolSize = limit * CANDIDATE_POOL_MULTIPLIER;
   const rows = await db.execute(sql`
     SELECT printing_id FROM (
-      SELECT DISTINCT ON (p.card_unique_id)
-        p.printing_id,
-        p.tcg_low
-      FROM inventory_items i
-      JOIN printings p ON i.printing_id = p.printing_id
-      JOIN binders b ON i.binder_id = b.id
-      WHERE i.for_trade = true
-        AND b.allow_who_has = true
-        AND p.image_url IS NOT NULL
-        AND p.rarity = ${rarity}
-        AND p.tcg_low >= ${MIN_TCG_LOW}
-      ORDER BY p.card_unique_id, p.tcg_low DESC
-    ) deduped
-    ORDER BY tcg_low DESC
+      SELECT printing_id FROM (
+        SELECT DISTINCT ON (p.card_unique_id)
+          p.printing_id,
+          p.tcg_low
+        FROM inventory_items i
+        JOIN printings p ON i.printing_id = p.printing_id
+        JOIN binders b ON i.binder_id = b.id
+        WHERE i.for_trade = true
+          AND b.allow_who_has = true
+          AND p.image_url IS NOT NULL
+          AND p.rarity = ${rarity}
+          AND p.tcg_low >= ${MIN_TCG_LOW}
+        ORDER BY p.card_unique_id, p.tcg_low DESC
+      ) deduped
+      ORDER BY tcg_low DESC
+      LIMIT ${poolSize}
+    ) candidate_pool
+    ORDER BY random()
     LIMIT ${limit}
   `);
 

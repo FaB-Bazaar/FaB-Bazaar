@@ -89,9 +89,15 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
     fetch('/api/featured-cards')
       .then((r) => r.json())
       .then((data) => {
-        setFeaturedCards(
-          data.success && data.cards?.length > 0 ? data.cards : FALLBACK_CARDS
-        );
+        const cards = data.success && data.cards?.length > 0 ? data.cards : FALLBACK_CARDS;
+        // Per-pageload shuffle so the carousel rotates even when the API
+        // response is served from a shared CDN cache (s-maxage=3600).
+        const shuffled = [...cards];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        setFeaturedCards(shuffled);
       })
       .catch(() => setFeaturedCards(FALLBACK_CARDS))
       .finally(() => setCardsLoading(false));
