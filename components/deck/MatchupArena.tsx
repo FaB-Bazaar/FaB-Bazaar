@@ -507,7 +507,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
               <img
                 src={hoveredCardImage}
                 alt=""
-                className="max-w-full max-h-full object-contain rounded-xl border-2 border-gray-600 shadow-2xl"
+                className="w-full h-full object-contain rounded-xl border-2 border-gray-600 shadow-2xl"
               />
             </div>
           )}
