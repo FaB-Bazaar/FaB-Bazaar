@@ -22,6 +22,7 @@ import { canEditDeck } from "@/lib/utils/deck-permissions";
 import { computeMatchupRecords, type MatchupRecord } from "@/lib/utils/matchup-records";
 import { computeMatchupBreakdown } from "@/lib/utils/matchup-breakdown";
 import MatchupDeltaView from "@/components/deck/MatchupDeltaView";
+import MatchupCompositionView from "@/components/deck/MatchupCompositionView";
 import { BreakdownChip } from "@/components/deck/MatchupBreakdownChip";
 import { computeMatchupDelta } from "@/lib/utils/matchup-delta";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const [editorInitialHeroId, setEditorInitialHeroId] = useState<string | null>(null);
   const [galleryHeroId, setGalleryHeroId] = useState<string | null>(null);
   const [detailExpanded, setDetailExpanded] = useState(true);
+  const [detailView, setDetailView] = useState<"delta" | "composition">("composition");
   const [hoveredCardImage, setHoveredCardImage] = useState<string | null>(null);
   // Card-art fallback for heroes without a stylized portrait (heroPortraits.ts).
   // Young heroes (SA/Blitz) intentionally have no portraits saved — fall back to
@@ -428,24 +430,40 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
           )}
         </div>
 
-        {/* Notes + delta panel — only when an opponent with saved data is selected */}
+        {/* Notes + delta/composition panel — only when an opponent with saved data is selected */}
         {selected && selectedMatchup && selectedDelta && (
           <div className="rounded-lg border border-gray-700 bg-gray-950/60 mb-4">
-            <button
-              onClick={() => setDetailExpanded((v) => !v)}
-              aria-expanded={detailExpanded}
-              className="w-full flex items-center justify-between px-3 md:px-4 py-2 text-sm font-semibold text-gray-100 hover:bg-gray-900/50 rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-            >
-              <span>
-                Sideboard delta {detailExpanded ? "▾" : "▸"}
-                <span className="ml-2 text-xs font-normal text-gray-300">
+            <div className="w-full flex items-center gap-2 px-3 md:px-4 py-2 text-sm font-semibold text-gray-100">
+              <button
+                onClick={() => setDetailExpanded((v) => !v)}
+                aria-expanded={detailExpanded}
+                aria-label={detailExpanded ? "Collapse matchup details" : "Expand matchup details"}
+                className="shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded hover:bg-gray-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                <span>Sideboard</span>
+                <span aria-hidden="true">{detailExpanded ? "▾" : "▸"}</span>
+              </button>
+              {/* Tab pills — clicking either ensures the panel is expanded */}
+              <div className="flex items-center gap-1" role="tablist" aria-label="Matchup view">
+                <TabPill
+                  active={detailView === "composition"}
+                  onClick={() => { setDetailView("composition"); setDetailExpanded(true); }}
+                >
+                  Net composition
+                </TabPill>
+                <TabPill
+                  active={detailView === "delta"}
+                  onClick={() => { setDetailView("delta"); setDetailExpanded(true); }}
+                >
                   vs {coreMatchup ? "core plan" : "base decklist"}
-                </span>
+                </TabPill>
+              </div>
+              <span className="ml-auto text-xs font-normal text-gray-300 shrink-0 tabular-nums">
+                {detailView === "delta"
+                  ? <>+{selectedDelta.in.length} in / −{selectedDelta.out.length} out</>
+                  : <>{breakdown ? `${breakdown.main.total} main / ${breakdown.inv.total} inv` : ""}</>}
               </span>
-              <span className="text-xs font-normal text-gray-300">
-                +{selectedDelta.in.length} in / −{selectedDelta.out.length} out
-              </span>
-            </button>
+            </div>
             {detailExpanded && (
               <div className="border-t border-gray-700 p-3 md:p-4 space-y-3">
                 {selectedMatchup.notes && (
@@ -453,12 +471,20 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
                     {selectedMatchup.notes}
                   </p>
                 )}
-                <MatchupDeltaView
-                  deck={deck}
-                  delta={selectedDelta}
-                  baselineLabel={coreMatchup ? "core plan" : "base decklist"}
-                  onHoverCard={setHoveredCardImage}
-                />
+                {detailView === "delta" ? (
+                  <MatchupDeltaView
+                    deck={deck}
+                    delta={selectedDelta}
+                    baselineLabel={coreMatchup ? "core plan" : "base decklist"}
+                    onHoverCard={setHoveredCardImage}
+                  />
+                ) : (
+                  <MatchupCompositionView
+                    deck={deck}
+                    swaps={selectedMatchup.sideboard}
+                    onHoverCard={setHoveredCardImage}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -589,6 +615,34 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
         />
       )}
     </div>
+  );
+}
+
+function TabPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={
+        "px-2 py-0.5 rounded-full text-xs font-normal transition-colors " +
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 " +
+        (active
+          ? "bg-blue-500/20 text-blue-200 border border-blue-400/60"
+          : "text-gray-300 border border-gray-700 hover:text-gray-100 hover:border-gray-500")
+      }
+    >
+      {children}
+    </button>
   );
 }
 
