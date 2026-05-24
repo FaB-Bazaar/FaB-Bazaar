@@ -827,27 +827,41 @@ export default function DeckEditorPage() {
     return { ...deck, [category]: cards };
   };
 
-  // Update quantity of a specific printing in the saved deck.
-  // addPrintings STACKS (adds to existing), so we always remove first then re-add
-  // with the exact desired quantity to get a true set/replace behavior.
+  // Update quantity of a specific printing in the saved deck via a delta —
+  // only add or remove the difference. A previous remove-then-readd approach
+  // would destroy existing rows when the readd hit copy-limit validation
+  // (addPrintings reports per-item failures in results[], not at the top level).
   const handleUpdateDeckCardQty = async (printingId: string, newQty: number, category: DeckCategory) => {
-    // Optimistic update — instant feedback, no waiting for API
     const base = optimisticDeck ?? state.deck;
-    if (base) setOptimisticDeck(applyOptimisticQty(base, printingId, newQty, category));
+    if (!base) return;
+    const cards = (base[category as keyof DeckDTO] as DeckPrintingDTO[] | undefined) ?? [];
+    const currentQty = cards.find(c => c.printingId === printingId)?.quantity ?? 0;
+    const delta = newQty - currentQty;
+    if (delta === 0) return;
 
-    const removeResult = await decksClient.removePrinting(deckId, printingId, category, 999999);
-    if (!removeResult.success) {
-      setOptimisticDeck(null); // revert
-      toast({ title: "Update failed", description: removeResult.error, variant: "destructive" });
-      return;
-    }
-    if (newQty > 0) {
-      const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: newQty, category }]);
+    // Optimistic update — instant feedback, no waiting for API
+    setOptimisticDeck(applyOptimisticQty(base, printingId, newQty, category));
+
+    // Always refresh at the end — even on failure, so child views with their
+    // own optimistic state (e.g. DeckEditorListView) clear when the deck prop
+    // changes back to the true server value.
+    let failureMessage: string | null = null;
+    if (delta > 0) {
+      const addResult = await decksClient.addPrintings(deckId, [{ printingId, quantity: delta, category }]);
       if (!addResult.success) {
-        setOptimisticDeck(null); // revert
-        toast({ title: "Update failed", description: addResult.error, variant: "destructive" });
-        return;
+        failureMessage = addResult.error;
+      } else {
+        const itemError = addResult.data?.results?.find(r => r.printingId === printingId && !r.success)?.error;
+        if (itemError) failureMessage = itemError;
       }
+    } else {
+      const removeResult = await decksClient.removePrinting(deckId, printingId, category, -delta);
+      if (!removeResult.success) failureMessage = removeResult.error;
+    }
+
+    if (failureMessage) {
+      setOptimisticDeck(null); // revert page-level optimistic state
+      toast({ title: "Update failed", description: failureMessage, variant: "destructive" });
     }
     await handlers.refreshDeck();
   };
