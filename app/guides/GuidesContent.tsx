@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -184,7 +185,12 @@ export function GuidesContent({ articles }: GuidesContentProps) {
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedHero, setSelectedHero] = useState<string | null>(null);
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const searchParams = useSearchParams();
+  const initialTab = (() => {
+    const t = searchParams.get('tab');
+    return t && ['all', 'heroes', 'tournaments', 'strategy'].includes(t) ? t : 'all';
+  })();
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
 
   // Get heroes for the selected class
   const heroesForClass = useMemo(() => {

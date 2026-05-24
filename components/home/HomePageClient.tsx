@@ -157,7 +157,7 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
                 <BookOpen className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                 <span className="text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">Latest Articles</span>
               </div>
-              <Link href="/articles" className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5">
+              <Link href="/guides?tab=heroes" className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5">
                 View all <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
