@@ -102,3 +102,6 @@ pipeline/scripts/price_snapshot.json
 pipeline/scripts/market_analysis_export.json
 pipeline/scripts/price_history/
 pipeline/scripts/logs/post-tournament-decklists.zip
+
+# Local scratch notes (draft article content, throwaway scratchpads)
+notes/
