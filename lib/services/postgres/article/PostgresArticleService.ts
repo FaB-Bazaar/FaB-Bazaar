@@ -508,19 +508,75 @@ export class PostgresArticleService implements IArticleService {
   }
 
   // ====================================
-  // Section Management (Stubs - Can be enhanced later)
+  // Section Management
   // ====================================
+
+  /**
+   * Load an article by id or publicId and verify the caller owns it.
+   * Returns the full row (with current sections) on success.
+   */
+  private async loadOwnedArticle(
+    idOrPublicId: string,
+    userId: string
+  ): Promise<{ success: true; row: typeof articles.$inferSelect } | { success: false; error: string }> {
+    const rows = await db
+      .select()
+      .from(articles)
+      .where(or(eq(articles.id, idOrPublicId), eq(articles.publicId, idOrPublicId)))
+      .limit(1);
+
+    if (rows.length === 0) {
+      return { success: false, error: 'Article not found' };
+    }
+    if (rows[0].authorId !== userId) {
+      return { success: false, error: 'Access denied' };
+    }
+    return { success: true, row: rows[0] };
+  }
+
+  /**
+   * Persist a new sections array on the article, bump updatedAt, return the
+   * updated row as a DTO with authorName populated.
+   */
+  private async persistSections(
+    articleRowId: string,
+    nextSections: ArticleSectionDTO[]
+  ): Promise<ArticleDTO> {
+    const updated = await db
+      .update(articles)
+      .set({ sections: nextSections, updatedAt: new Date() })
+      .where(eq(articles.id, articleRowId))
+      .returning();
+
+    const author = await db
+      .select({ username: users.username })
+      .from(users)
+      .where(eq(users.id, updated[0].authorId))
+      .limit(1);
+
+    return this.toDTO({ ...updated[0], authorName: author[0]?.username });
+  }
 
   async appendSection(
     idOrPublicId: string,
     userId: string,
     section: ArticleSectionDTO
   ): AsyncResult<ArticleDTO> {
-    // Simplified stub
-    return {
-      success: false,
-      error: 'Method not fully implemented yet',
-    };
+    try {
+      const owned = await this.loadOwnedArticle(idOrPublicId, userId);
+      if (!owned.success) return owned;
+
+      const current = Array.isArray(owned.row.sections) ? (owned.row.sections as ArticleSectionDTO[]) : [];
+      const next = [...current, section];
+      const data = await this.persistSections(owned.row.id, next);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[PostgresArticleService.appendSection] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to append section',
+      };
+    }
   }
 
   async appendSections(
@@ -528,49 +584,102 @@ export class PostgresArticleService implements IArticleService {
     userId: string,
     sections: ArticleSectionDTO[]
   ): AsyncResult<ArticleDTO> {
-    // Simplified stub
-    return {
-      success: false,
-      error: 'Method not fully implemented yet',
-    };
+    try {
+      const owned = await this.loadOwnedArticle(idOrPublicId, userId);
+      if (!owned.success) return owned;
+
+      const current = Array.isArray(owned.row.sections) ? (owned.row.sections as ArticleSectionDTO[]) : [];
+      const next = [...current, ...sections];
+      const data = await this.persistSections(owned.row.id, next);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[PostgresArticleService.appendSections] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to append sections',
+      };
+    }
   }
 
   async insertSection(
     idOrPublicId: string,
     userId: string,
-    position: number,
-    section: ArticleSectionDTO
+    section: ArticleSectionDTO,
+    index: number
   ): AsyncResult<ArticleDTO> {
-    // Simplified stub
-    return {
-      success: false,
-      error: 'Method not fully implemented yet',
-    };
+    try {
+      const owned = await this.loadOwnedArticle(idOrPublicId, userId);
+      if (!owned.success) return owned;
+
+      const current = Array.isArray(owned.row.sections) ? (owned.row.sections as ArticleSectionDTO[]) : [];
+      if (index < 0 || index > current.length) {
+        return { success: false, error: `Index ${index} out of range (0..${current.length})` };
+      }
+
+      const next = [...current.slice(0, index), section, ...current.slice(index)];
+      const data = await this.persistSections(owned.row.id, next);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[PostgresArticleService.insertSection] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to insert section',
+      };
+    }
   }
 
   async updateSection(
     idOrPublicId: string,
     userId: string,
-    sectionIndex: number,
-    section: ArticleSectionDTO
+    section: ArticleSectionDTO,
+    index: number
   ): AsyncResult<ArticleDTO> {
-    // Simplified stub
-    return {
-      success: false,
-      error: 'Method not fully implemented yet',
-    };
+    try {
+      const owned = await this.loadOwnedArticle(idOrPublicId, userId);
+      if (!owned.success) return owned;
+
+      const current = Array.isArray(owned.row.sections) ? (owned.row.sections as ArticleSectionDTO[]) : [];
+      if (index < 0 || index >= current.length) {
+        return { success: false, error: `Index ${index} out of range (0..${current.length - 1})` };
+      }
+
+      const next = [...current];
+      next[index] = section;
+      const data = await this.persistSections(owned.row.id, next);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[PostgresArticleService.updateSection] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update section',
+      };
+    }
   }
 
   async deleteSection(
     idOrPublicId: string,
     userId: string,
-    sectionIndex: number
+    index: number
   ): AsyncResult<ArticleDTO> {
-    // Simplified stub
-    return {
-      success: false,
-      error: 'Method not fully implemented yet',
-    };
+    try {
+      const owned = await this.loadOwnedArticle(idOrPublicId, userId);
+      if (!owned.success) return owned;
+
+      const current = Array.isArray(owned.row.sections) ? (owned.row.sections as ArticleSectionDTO[]) : [];
+      if (index < 0 || index >= current.length) {
+        return { success: false, error: `Index ${index} out of range (0..${current.length - 1})` };
+      }
+
+      const next = [...current.slice(0, index), ...current.slice(index + 1)];
+      const data = await this.persistSections(owned.row.id, next);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[PostgresArticleService.deleteSection] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete section',
+      };
+    }
   }
 
   // ====================================
