@@ -40,6 +40,7 @@ import { removeCardsFromDeckTool } from '../tool/removeCardsFromDeck';
 import { updateDeckTool } from '../tool/updateDeck';
 import { saveDeckMatchupTool } from '../tool/saveDeckMatchup';
 import { getArticleTool } from '../tool/articles/getArticle';
+import { listArticlesTool } from '../tool/articles/listArticles';
 import { addArticleSectionTool } from '../tool/articles/addArticleSection';
 import { updateArticleSectionTool } from '../tool/articles/updateArticleSection';
 // import { scanPrintingTool } from '../tool/scanPrinting'; // removed — image scanning unreliable
@@ -621,6 +622,11 @@ Step 5: get_binder (verify additions)
                 name: getArticleTool.name,
                 description: getArticleTool.description,
                 inputSchema: getArticleTool.parameters
+              },
+              {
+                name: listArticlesTool.name,
+                description: listArticlesTool.description,
+                inputSchema: listArticlesTool.parameters
               },
               {
                 name: addArticleSectionTool.name,
@@ -1435,6 +1441,48 @@ The new tool provides the same functionality with better guidance for proper wor
           }
         }
 
+        if (toolName === 'list_articles') {
+          if (DEBUG_MCP) console.log('📚 Executing list articles');
+
+          try {
+            const result = await listArticlesTool.handler(toolInput, authenticatedUser, bearerToken);
+
+            return NextResponse.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [
+                  {
+                    type: 'text',
+                    text: result.message || 'Article list completed'
+                  }
+                ],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+
+          } catch (err) {
+            console.error('💥 Error in list_articles:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0',
+              id,
+              result: {
+                content: [
+                  {
+                    type: 'text',
+                    text: `💥 Error listing articles: ${err instanceof Error ? err.message : 'Unknown error'}
+
+        This tool requires SuperAdmin or ContentCreator role.`
+                  }
+                ],
+                isError: true,
+                error: err instanceof Error ? err.message : 'Unknown error'
+              }
+            }, { headers: corsHeaders() });
+          }
+        }
+
         if (toolName === 'add_article_section') {
           if (DEBUG_MCP) console.log('➕ Executing add article section');
 
@@ -1897,7 +1945,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     error: "MCP server expects POST requests with JSON-RPC format",
     version: "4.0.0",
-    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "add_article_section", "update_article_section", "get_decks_to_beat", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
+    capabilities: ["OAuth 2.1 Bearer tokens", "read_mandatory_constants_first", "search_printings", "list_binders", "get_binder", "add_to_binder", "remove_from_binder", "get_wants", "add_to_wants", "remove_from_wants", "who_has", "get_article", "list_articles", "add_article_section", "update_article_section", "get_decks_to_beat", "list_decks", "get_deck", "create_deck", "add_cards_to_deck", "remove_cards_from_deck", "update_deck", "save_deck_matchup"],
     hint: "Use POST with JSON-RPC. Read fab://constants once per session, then use search_printings for all card lookups.",
     authMethods: ["Bearer <oauth_token>"],
     workflow: "read_mandatory_constants_first({uri:'fab://constants'}) → search_printings → add_to_binder / add_to_wants / add_cards_to_deck",
