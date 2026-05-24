@@ -756,7 +756,7 @@ export default function PresenterPage() {
               <img
                 src={spotlightCard.printingDetails.image_url}
                 alt={spotlightCard.printingDetails.display_name || spotlightCard.printingDetails.name || "Card"}
-                className="max-h-[calc(100vh-8rem)] w-auto h-auto max-w-[min(90vw,560px)] rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10 flex-shrink-0"
+                className="w-auto h-auto max-h-[70vh] max-w-[min(70vw,400px)] object-contain rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10 flex-shrink-0"
               />
             )}
             <div className="flex-1 min-w-0 text-gray-100 max-w-xl">
