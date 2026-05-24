@@ -2,10 +2,10 @@
 // Read-only, chrome-free deck view for streaming / decktech.
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight } from "lucide-react"
+import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
 import { toTalisharIdentifier } from "@/lib/utils"
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants"
 import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
@@ -123,6 +123,209 @@ function cardTotal(cards: PresenterCard[] | undefined): number {
   return (cards ?? []).reduce((s, c) => s + (c.quantity || 1), 0)
 }
 
+// One-viewport screenshot layout: hero + meta on the left, card columns grouped
+// by section on the right. Tile size is computed from the tallest column so the
+// whole deck fits inside the viewport without scrolling.
+function FitView({
+  deck,
+  sections,
+  totalCards,
+  pitchStats,
+  onCardClick,
+}: {
+  deck: PresenterDeck
+  sections: Array<{ key: string; title: string; accent: string; cards: PresenterCard[] }>
+  totalCards: number
+  pitchStats: { red: number; yellow: number; blue: number; none: number }
+  onCardClick: (card: PresenterCard) => void
+}) {
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const [includeInventory, setIncludeInventory] = useState(false)
+  const [layout, setLayout] = useState<{ tileW: number; lanes: Array<{ sectionIdx: number; cards: PresenterCard[]; isFirstLane: boolean }> }>({ tileW: 120, lanes: [] })
+
+  const heroCard = deck.hero?.[0]
+  const cardCols = useMemo(
+    () => sections.filter(s => s.key !== 'hero' && (includeInventory || s.key !== 'inventory')),
+    [sections, includeInventory]
+  )
+
+  // Recompute the optimal tile width + per-section sub-column count whenever
+  // the viewport or deck shape changes. Strategy: try tileW from large to small;
+  // for each, compute how many cards fit in one column, split tall sections into
+  // additional lanes accordingly, and pick the first tileW where the total fits
+  // horizontally. This maximises tile size while keeping everything above the fold.
+  useEffect(() => {
+    const recompute = () => {
+      const el = bodyRef.current
+      if (!el) return
+      const w = el.clientWidth
+      const h = el.clientHeight
+      const aspect = 88 / 63
+      const overlap = 0.30
+      const gap = 8
+      const labelH = 26
+
+      let best: { tileW: number; lanes: Array<{ sectionIdx: number; cards: PresenterCard[]; isFirstLane: boolean }> } | null = null
+      for (let tileW = 240; tileW >= 70; tileW -= 2) {
+        const cardH = tileW * aspect
+        const colHeightAvail = h - labelH - 4
+        if (cardH > colHeightAvail) continue
+        const maxPerCol = Math.max(1, Math.floor((colHeightAvail - cardH) / (cardH * overlap)) + 1)
+        const lanes: Array<{ sectionIdx: number; cards: PresenterCard[]; isFirstLane: boolean }> = []
+        cardCols.forEach((s, si) => {
+          const subCols = Math.max(1, Math.ceil(s.cards.length / maxPerCol))
+          for (let k = 0; k < subCols; k++) {
+            lanes.push({
+              sectionIdx: si,
+              cards: s.cards.slice(k * maxPerCol, (k + 1) * maxPerCol),
+              isFirstLane: k === 0,
+            })
+          }
+        })
+        const totalW = lanes.length * tileW + Math.max(0, lanes.length - 1) * gap
+        if (totalW <= w) {
+          best = { tileW, lanes }
+          break
+        }
+      }
+      // Fallback: tiniest tile, one column per section (cards may overflow but
+      // this only triggers on absurdly small viewports).
+      if (!best) {
+        const lanes = cardCols.map((s, si) => ({ sectionIdx: si, cards: s.cards, isFirstLane: true }))
+        best = { tileW: 70, lanes }
+      }
+      setLayout(best)
+    }
+    recompute()
+    const ro = new ResizeObserver(recompute)
+    if (bodyRef.current) ro.observe(bodyRef.current)
+    return () => ro.disconnect()
+  }, [cardCols])
+
+  const tileW = layout.tileW
+  const tileH = Math.round(tileW * 88 / 63)
+  const stackStep = Math.max(24, Math.round(tileH * 0.30))
+
+  return (
+    <div className="h-screen flex flex-col px-8 pt-32 pb-4 gap-3">
+      {/* Header — centered, with hero portrait inline so it doesn't steal vertical space */}
+      <div className="flex items-center gap-4 flex-shrink-0 max-w-6xl mx-auto w-full">
+        {heroCard?.printingDetails?.image_url && (
+          <img
+            src={heroCard.printingDetails.image_url}
+            alt={heroCard.printingDetails.display_name || heroCard.printingDetails.name || "Hero"}
+            className="h-20 w-auto rounded-lg shadow-xl ring-1 ring-white/10 flex-shrink-0"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl lg:text-2xl font-bold tracking-tight truncate">{deck.name}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-300">
+            {deck.format && (
+              <span className="px-2 py-0.5 rounded-full bg-blue-900/40 border border-blue-700/60 text-blue-200">{deck.format}</span>
+            )}
+            {deck.heroName && (
+              <span className="px-2 py-0.5 rounded-full bg-gray-800/70 border border-gray-700">{deck.heroName}</span>
+            )}
+            <span className="px-2 py-0.5 rounded-full bg-gray-800/70 border border-gray-700">{totalCards} cards</span>
+            {pitchStats.red > 0 && (
+              <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${PITCH_LABEL[1].bg} border border-red-500/40 ${PITCH_LABEL[1].text} font-medium`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${PITCH_LABEL[1].dot}`} />
+                <span className="font-bold">{pitchStats.red}</span> red
+              </span>
+            )}
+            {pitchStats.yellow > 0 && (
+              <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${PITCH_LABEL[2].bg} border border-yellow-500/40 ${PITCH_LABEL[2].text} font-medium`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${PITCH_LABEL[2].dot}`} />
+                <span className="font-bold">{pitchStats.yellow}</span> yellow
+              </span>
+            )}
+            {pitchStats.blue > 0 && (
+              <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${PITCH_LABEL[3].bg} border border-blue-500/40 ${PITCH_LABEL[3].text} font-medium`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${PITCH_LABEL[3].dot}`} />
+                <span className="font-bold">{pitchStats.blue}</span> blue
+              </span>
+            )}
+            {pitchStats.none > 0 && (
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-300 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+                <span className="font-bold">{pitchStats.none}</span> no pitch
+              </span>
+            )}
+          </div>
+        </div>
+        {(deck.inventory?.length ?? 0) > 0 && (
+          <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={includeInventory}
+              onChange={e => setIncludeInventory(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-600 bg-gray-800 text-blue-500 focus-visible:ring-blue-400"
+            />
+            Show inventory
+          </label>
+        )}
+      </div>
+
+      {/* Card columns — tall sections wrap into multiple lanes */}
+      <div ref={bodyRef} className="flex-1 min-h-0 flex items-start justify-center gap-2 overflow-hidden">
+        {layout.lanes.map((lane, laneIdx) => {
+          const section = cardCols[lane.sectionIdx]
+          if (!section) return null
+          const cards = lane.cards
+          const colHeight = tileH + Math.max(0, cards.length - 1) * stackStep
+          const sectionTotal = section.cards.reduce((s, x) => s + (x.quantity || 1), 0)
+          return (
+            <div key={`${section.key}-${laneIdx}`} className="flex flex-col items-center" style={{ width: tileW }}>
+              <div className={`text-xs font-bold uppercase tracking-wider mb-1.5 truncate w-full text-center ${lane.isFirstLane ? section.accent : 'text-transparent'}`}>
+                {lane.isFirstLane ? (
+                  <>
+                    {section.title.replace('Library — ', '')} <span className="text-gray-500 font-normal">({sectionTotal})</span>
+                  </>
+                ) : '·'}
+              </div>
+              <div className="relative" style={{ width: tileW, height: colHeight }}>
+                {cards.map((c, i) => {
+                  const qty = c.quantity || 1
+                  return (
+                    <button
+                      key={`${c.printingId}-${i}`}
+                      type="button"
+                      onClick={() => onCardClick(c)}
+                      className="absolute left-0 rounded-md overflow-hidden ring-1 ring-gray-700 hover:ring-blue-400 hover:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-shadow"
+                      style={{ width: tileW, height: tileH, top: i * stackStep, zIndex: i }}
+                      title={`${qty}× ${c.printingDetails?.display_name || c.printingDetails?.name || ''}`}
+                    >
+                      {c.printingDetails?.image_url ? (
+                        <img
+                          src={c.printingDetails.image_url}
+                          alt={c.printingDetails.display_name || c.printingDetails.name || 'Card'}
+                          className="w-full h-full object-cover object-top"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-800 flex items-center justify-center p-1 text-center text-[10px] text-gray-300">
+                          {c.printingDetails?.display_name || c.printingDetails?.name || c.printingId}
+                        </div>
+                      )}
+                      {qty > 1 && (
+                        <span
+                          aria-label={`${qty} copies`}
+                          className="absolute top-1 right-1 min-w-[28px] h-7 px-1.5 rounded-full bg-blue-600 ring-2 ring-white text-white text-sm font-black flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+                        >
+                          ×{qty}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function PresenterPage() {
   const params = useParams()
   const router = useRouter()
@@ -139,6 +342,9 @@ export default function PresenterPage() {
 
   // Spotlight state — flat list of all cards in presentation order.
   const [spotlightIdx, setSpotlightIdx] = useState<number | null>(null)
+
+  // 'scroll' = full presenter; 'fit' = one-viewport screenshot layout.
+  const [viewMode, setViewMode] = useState<'scroll' | 'fit'>('scroll')
 
   useEffect(() => {
     let cancelled = false
@@ -297,16 +503,38 @@ export default function PresenterPage() {
   const spotlightCard = spotlightIdx !== null ? flatCards[spotlightIdx] : null
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className={viewMode === 'fit' ? "fixed inset-0 z-40 overflow-hidden bg-gray-950 text-gray-100" : "min-h-screen bg-gray-950 text-gray-100"}>
       {/* Exit pill — always-visible, above the spotlight overlay so you can leave from anywhere */}
       <Link
         href={`/decks/${deckId}`}
-        className="fixed top-4 left-4 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors"
+        className="fixed top-20 left-4 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors"
         title="Exit presenter mode (Esc)"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to editor
       </Link>
+
+      {/* View mode toggle — switch between scrollable presenter and a one-viewport fit layout for screenshots */}
+      <button
+        type="button"
+        onClick={() => setViewMode(m => m === 'fit' ? 'scroll' : 'fit')}
+        className="fixed top-20 right-4 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        title={viewMode === 'fit' ? "Switch to scrollable view" : "Fit deck to screen (for screenshots)"}
+      >
+        {viewMode === 'fit' ? <ScrollText className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        {viewMode === 'fit' ? "Scroll view" : "Fit to screen"}
+      </button>
+
+      {viewMode === 'fit' ? (
+        <FitView
+          deck={deck}
+          sections={sections}
+          totalCards={totalCards}
+          pitchStats={pitchStats}
+          onCardClick={openSpotlight}
+        />
+      ) : (<>
+
 
       <div className="max-w-[1800px] mx-auto px-6 lg:px-10 py-8 lg:py-12">
         {/* Hero / header panel */}
@@ -483,11 +711,12 @@ export default function PresenterPage() {
           ))}
         </div>
       </div>
+      </>)}
 
-      {/* Card spotlight overlay */}
+      {/* Card spotlight overlay — sits below the global navbar (h-16, z-50) so the navbar stays visible */}
       {spotlightCard && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 lg:p-8"
+          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 lg:p-8"
           onClick={closeSpotlight}
         >
           <button
@@ -527,7 +756,7 @@ export default function PresenterPage() {
               <img
                 src={spotlightCard.printingDetails.image_url}
                 alt={spotlightCard.printingDetails.display_name || spotlightCard.printingDetails.name || "Card"}
-                className="w-[360px] lg:w-[560px] rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10"
+                className="max-h-[calc(100vh-8rem)] w-auto h-auto max-w-[min(90vw,560px)] rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10 flex-shrink-0"
               />
             )}
             <div className="flex-1 min-w-0 text-gray-100 max-w-xl">

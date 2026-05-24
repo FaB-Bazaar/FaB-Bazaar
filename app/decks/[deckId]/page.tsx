@@ -27,10 +27,8 @@ import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/
 import { getHeroInfo } from "@/lib/fab-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
-import BuildProgressStrip from "@/components/deck/editor/build-progress/BuildProgressStrip";
 import EmptyDeckHero from "@/components/deck/editor/build-progress/EmptyDeckHero";
 import { useBuildProgress } from "@/hooks/deck/useBuildProgress";
-import { pickKitForStep } from "@/lib/deck-builder/kit-routing";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck-flow/quickAddRouting";
 import BulkImportForm from "@/components/browse/BulkImportForm";
@@ -1787,6 +1785,14 @@ export default function DeckEditorPage() {
                   Results
                 </button>
               )}
+              <Link
+                href={`/decks/${deckId}/present`}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-t"
+                title="Open the presenter / shareable view"
+              >
+                <Tv className="h-4 w-4" />
+                Present
+              </Link>
             </div>
 
             {/* Content + right rail — flex layout keeps the rail aligned with the top of the tab content. */}
@@ -2095,30 +2101,6 @@ export default function DeckEditorPage() {
                           curatorUser: kit.curatorUser,
                         })}
                         onSearchClick={() => openQuickAdd({ category: 'maindeck' })}
-                      />
-                    </div>
-                  )}
-                  {/* Build progress strip — desktop only, hidden when dismissed or once the deck is "ready to tune" */}
-                  {buildProgress && !buildProgressDismissed && buildProgress.totalCards.current > 0 && (
-                    <div className="hidden lg:block mb-3">
-                      <BuildProgressStrip
-                        deckName={state.deck.name}
-                        progress={buildProgress}
-                        onStepClick={(step) => {
-                          const kit = pickKitForStep(step, curatedBuilds);
-                          if (kit) {
-                            setPreviewBuild({
-                              name: kit.name,
-                              description: kit.description,
-                              cards: kit.cards,
-                              curatorUser: kit.curatorUser,
-                            });
-                          } else {
-                            // No matching starter kit — fall back to the search dialog for the relevant category.
-                            openQuickAdd({ category: step === 'gear' ? 'equipment' : 'maindeck' });
-                          }
-                        }}
-                        onDismiss={() => setBuildProgressDismissed(true)}
                       />
                     </div>
                   )}

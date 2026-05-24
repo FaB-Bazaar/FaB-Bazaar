@@ -133,6 +133,27 @@ describe('computeBuildProgress', () => {
     expect(result.steps.utility.current).toBe(0);
   });
 
+  test('inventory cards count toward step buckets and total cards', () => {
+    // Inventory is the user's sideboard/swap pool — the build-progress strip
+    // counts these so kit overlap is visible across the whole deck pool.
+    const deck = emptyDeck({
+      maindeck: [printing(['action', 'attack'], 3)],
+      inventory: [
+        printing(['action', 'attack'], 2),
+        printing(['defense reaction'], 4),
+        printing(['instant'], 1),
+        printing(['equipment'], 1),
+      ],
+    });
+    const result = computeBuildProgress(deck, 'classic constructed');
+
+    expect(result.steps.attacks.current).toBe(5);   // 3 maindeck + 2 inventory
+    expect(result.steps.defense.current).toBe(4);   // 4 inventory
+    expect(result.steps.utility.current).toBe(1);   // 1 inventory
+    expect(result.steps.gear.current).toBe(1);      // equipment-typed card in inventory counts as gear
+    expect(result.totalCards.current).toBe(11);     // 3 + 2 + 4 + 1 + 1
+  });
+
   test('missing quantity defaults to 1', () => {
     const deck = emptyDeck({
       maindeck: [{ printingId: 'p1', printingDetails: { types: ['action', 'attack'] } }],
@@ -181,15 +202,15 @@ describe('computeBuildProgress', () => {
     expect(computeBuildProgress(incomplete, 'classic constructed').overallComplete).toBe(false);
   });
 
-  test('totalCards counts maindeck only (not equipment, not inventory)', () => {
+  test('totalCards counts equipment + maindeck + inventory', () => {
     const deck = emptyDeck({
-      equipment: [printing(['equipment']), printing(['weapon'])], // 2 — excluded
-      maindeck: [printing(['action', 'attack'], 60)],              // 60 — counted
-      inventory: [printing(['action', 'attack'], 5)],              // 5 — excluded
+      equipment: [printing(['equipment']), printing(['weapon'])], // 2
+      maindeck: [printing(['action', 'attack'], 60)],              // 60
+      inventory: [printing(['action', 'attack'], 5)],              // 5
     });
     const result = computeBuildProgress(deck, 'classic constructed');
 
-    expect(result.totalCards.current).toBe(60);
+    expect(result.totalCards.current).toBe(67);
   });
 
   test('unknown format falls back to CC targets and does not throw', () => {

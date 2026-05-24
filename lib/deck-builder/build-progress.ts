@@ -83,20 +83,22 @@ export function computeBuildProgress(deck: DeckDTO, format: string): BuildProgre
 
   const counts: Record<BuildStepKey, number> = { gear: 0, attacks: 0, defense: 0, utility: 0 };
 
-  // Gear comes from the equipment array
-  for (const p of deck.equipment ?? []) {
-    if (categorize(p) === 'gear') counts.gear += qty(p);
-  }
-
-  // Attacks / defense / utility come from the maindeck
-  for (const p of deck.maindeck ?? []) {
+  // Tally across the whole deck pool: equipment + maindeck + inventory.
+  // Inventory is the sideboard/swap pool — including it lets users see how much
+  // of a kit they already own across maindeck and side, surfacing real overlap.
+  const allCards = [
+    ...(deck.equipment ?? []),
+    ...(deck.maindeck ?? []),
+    ...(deck.inventory ?? []),
+  ];
+  for (const p of allCards) {
     const bucket = categorize(p);
-    if (bucket === 'attacks' || bucket === 'defense' || bucket === 'utility') {
+    if (bucket === 'gear' || bucket === 'attacks' || bucket === 'defense' || bucket === 'utility') {
       counts[bucket] += qty(p);
     }
   }
 
-  const totalMaindeck = (deck.maindeck ?? []).reduce((sum, p) => sum + qty(p), 0);
+  const totalCardsCurrent = allCards.reduce((sum, p) => sum + qty(p), 0);
 
   const buildStep = (key: BuildStepKey): BuildStepProgress => ({
     current: counts[key],
@@ -113,7 +115,7 @@ export function computeBuildProgress(deck: DeckDTO, format: string): BuildProgre
 
   return {
     steps,
-    totalCards: { current: totalMaindeck, target: targets.totalMaindeck },
+    totalCards: { current: totalCardsCurrent, target: targets.totalMaindeck },
     overallComplete: steps.gear.complete && steps.attacks.complete && steps.defense.complete && steps.utility.complete,
   };
 }

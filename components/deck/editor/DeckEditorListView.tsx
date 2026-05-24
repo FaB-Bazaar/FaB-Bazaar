@@ -2399,7 +2399,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           {renderSection("Bench", benchedCards, "benched", "bench")}
         </div>
       ) : viewMode === 'tile' ? (
-        <div className={cn("rounded border border-gray-200 dark:border-gray-700/50 p-2", hoverMode && "md:pr-[420px]")}>
+        <div className="rounded border border-gray-200 dark:border-gray-700/50 p-2">
           {tileTopSections.map(s => (
             <DeckTileSection
               key={s.key}
@@ -2414,7 +2414,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         </div>
       ) : (
         /* Game view — one tile per card name, R/Y/B pitch count bubbles */
-        <div className={cn("rounded border border-gray-200 dark:border-gray-700/50 p-2", hoverMode && "md:pr-[420px]")}>
+        <div className="rounded border border-gray-200 dark:border-gray-700/50 p-2">
           {buildGameViewSections(displayDeck).map(section => {
             const sectionTotal = section.cards.reduce((s, c) =>
               s + (section.key === 'red' ? c.redQty : section.key === 'yellow' ? c.yellowQty : section.key === 'blue' ? c.blueQty : section.key === 'unpitched' ? c.noPitchQty : c.totalQty), 0);
@@ -2658,16 +2658,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
       {viewMode === 'list' && hoveredImage && (
         <HoverImagePreview imageUrl={hoveredImage.url} cardName={hoveredImage.name} onDismiss={() => setHoveredImage(null)} />
-      )}
-      {(viewMode === 'tile' || viewMode === 'game') && hoveredImage && !dragTile && !enlargedImage && (
-        <div
-          className="fixed z-[9999]"
-          onClick={() => setHoveredImage(null)}
-          style={{ right: 24, top: '50%', transform: 'translateY(-50%)' }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hoveredImage.url} alt={hoveredImage.name} className="w-72 md:w-[400px] rounded-xl shadow-2xl border border-gray-600" />
-        </div>
       )}
 
       {/* Lightbox */}
