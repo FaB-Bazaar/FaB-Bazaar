@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
 
-    // Unified authentication (session, Discord bot, MCP token)
-    const authResult = await authenticateRequest(req, {});
+    // Unified authentication (session, Discord bot, MCP token, OAuth Bearer)
+    const authResult = await authenticateRequest(req, {}, { allowOAuth: true });
 
     if (!authResult.success) {
       return NextResponse.json({
@@ -123,8 +123,8 @@ export async function POST(req: NextRequest) {
     // Parse body first for authenticateRequest (it may contain discordId)
     const body = await req.json();
 
-    // Unified authentication (session, Discord bot, MCP token)
-    const authResult = await authenticateRequest(req, body);
+    // Unified authentication (session, Discord bot, MCP token, OAuth Bearer)
+    const authResult = await authenticateRequest(req, body, { allowOAuth: true });
 
     if (!authResult.success) {
       return NextResponse.json({

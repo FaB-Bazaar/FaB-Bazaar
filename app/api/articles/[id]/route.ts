@@ -7,8 +7,8 @@ import { articleService, userService } from '@/lib/services';
 
 // Helper to authenticate and check permissions for article routes
 async function authenticateArticleRequest(req: NextRequest) {
-  // Unified authentication (session, Discord bot, MCP token)
-  const authResult = await multiAuthRequest(req, {});
+  // Unified authentication (session, Discord bot, MCP token, OAuth Bearer)
+  const authResult = await multiAuthRequest(req, {}, { allowOAuth: true });
 
   if (!authResult.success) {
     return {

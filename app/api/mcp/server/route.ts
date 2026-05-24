@@ -1405,6 +1405,10 @@ The new tool provides the same functionality with better guidance for proper wor
           try {
             const result = await getArticleTool.handler(toolInput, authenticatedUser, bearerToken);
 
+            const text = result.success
+              ? (result.message || 'Article retrieval completed')
+              : `💥 get_article failed: ${result.error || 'Unknown error'}`;
+
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
@@ -1412,7 +1416,7 @@ The new tool provides the same functionality with better guidance for proper wor
                 content: [
                   {
                     type: 'text',
-                    text: result.message || 'Article retrieval completed'
+                    text,
                   }
                 ],
                 isError: !result.success,
@@ -1447,6 +1451,10 @@ The new tool provides the same functionality with better guidance for proper wor
           try {
             const result = await listArticlesTool.handler(toolInput, authenticatedUser, bearerToken);
 
+            const text = result.success
+              ? (result.message || 'Article list completed')
+              : `💥 list_articles failed: ${result.error || 'Unknown error'}`;
+
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
@@ -1454,7 +1462,7 @@ The new tool provides the same functionality with better guidance for proper wor
                 content: [
                   {
                     type: 'text',
-                    text: result.message || 'Article list completed'
+                    text,
                   }
                 ],
                 isError: !result.success,
@@ -1489,6 +1497,10 @@ The new tool provides the same functionality with better guidance for proper wor
           try {
             const result = await addArticleSectionTool.handler(toolInput, authenticatedUser, bearerToken);
 
+            const text = result.success
+              ? (result.message || 'Section addition completed')
+              : `💥 add_article_section failed: ${result.error || 'Unknown error'}`;
+
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
@@ -1496,7 +1508,7 @@ The new tool provides the same functionality with better guidance for proper wor
                 content: [
                   {
                     type: 'text',
-                    text: result.message || 'Section addition completed'
+                    text,
                   }
                 ],
                 isError: !result.success,
@@ -1531,6 +1543,10 @@ The new tool provides the same functionality with better guidance for proper wor
           try {
             const result = await updateArticleSectionTool.handler(toolInput, authenticatedUser, bearerToken);
 
+            const text = result.success
+              ? (result.message || 'Section update completed')
+              : `💥 update_article_section failed: ${result.error || 'Unknown error'}`;
+
             return NextResponse.json({
               jsonrpc: '2.0',
               id,
@@ -1538,7 +1554,7 @@ The new tool provides the same functionality with better guidance for proper wor
                 content: [
                   {
                     type: 'text',
-                    text: result.message || 'Section update completed'
+                    text,
                   }
                 ],
                 isError: !result.success,
