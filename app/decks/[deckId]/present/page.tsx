@@ -224,7 +224,7 @@ function FitView({
               <span className="px-2 py-0.5 rounded-full bg-blue-900/40 border border-blue-700/60 text-blue-200">{deck.format}</span>
             )}
             {deck.heroName && (
-              <span className="px-2 py-0.5 rounded-full bg-gray-800/70 border border-gray-700">{deck.heroName}</span>
+              <span className="px-2 py-0.5 rounded-full bg-gray-800/70 border border-gray-700">{toHeroDisplayName(deck.heroName)}</span>
             )}
             <span className="px-2 py-0.5 rounded-full bg-gray-800/70 border border-gray-700">{totalCards} cards</span>
             {pitchStats.red > 0 && (
@@ -344,7 +344,7 @@ export default function PresenterPage() {
   const [spotlightIdx, setSpotlightIdx] = useState<number | null>(null)
 
   // 'scroll' = full presenter; 'fit' = one-viewport screenshot layout.
-  const [viewMode, setViewMode] = useState<'scroll' | 'fit'>('scroll')
+  const [viewMode, setViewMode] = useState<'scroll' | 'fit'>('fit')
 
   useEffect(() => {
     let cancelled = false
@@ -553,7 +553,7 @@ export default function PresenterPage() {
                 <span className="px-3 py-1 rounded-full bg-blue-900/40 border border-blue-700/60 text-blue-200">{deck.format}</span>
               )}
               {deck.heroName && (
-                <span className="px-3 py-1 rounded-full bg-gray-800/70 border border-gray-700">Hero: {deck.heroName}</span>
+                <span className="px-3 py-1 rounded-full bg-gray-800/70 border border-gray-700">Hero: {toHeroDisplayName(deck.heroName)}</span>
               )}
               <span className="px-3 py-1 rounded-full bg-gray-800/70 border border-gray-700">{totalCards} cards</span>
             </div>
