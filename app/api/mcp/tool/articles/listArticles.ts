@@ -11,9 +11,11 @@ List all articles authored by the currently authenticated user, with optional fi
 • Optional filter by status: 'draft' | 'published'
 • Optional filter by contentType: 'hero' | 'article' | 'guide' | 'news' | 'strategy' | 'tournament'
 • Returns publicId, title, slug, status, contentType, section count, and last-updated timestamp
+• publicId is the canonical identifier — use it for get_article, add_article_section, update_article_section
+• slug is display-only (shown to readers in URLs); do NOT use it as an MCP tool argument
 
 📚 USAGE:
-• Find an article you want to edit: list_articles({}) → then use get_article({ slug })
+• Find an article you want to edit: list_articles({}) → then use get_article({ articleId: "<publicId>" })
 • Triage drafts: list_articles({ status: "draft" })
 • Browse your hero guides: list_articles({ contentType: "hero" })
 
@@ -24,7 +26,7 @@ List all articles authored by the currently authenticated user, with optional fi
 • list_articles({ status: "draft" })
 • list_articles({ contentType: "hero", status: "published" })
 
-💡 Follow up with get_article({ slug }) to read or edit a specific article.`,
+💡 Follow up with get_article({ articleId: "<publicId>" }) to read or edit a specific article.`,
 
   parameters: {
     type: 'object',
@@ -116,10 +118,10 @@ List all articles authored by the currently authenticated user, with optional fi
           : `${Math.floor(diffDays / 30)} months ago`;
 
         const sectionCount = Array.isArray(article.sections) ? article.sections.length : 0;
-        message += `${index + 1}. **${article.title}** | ${article.contentType} | ${article.status} | ${sectionCount} sections | slug: \`${article.slug}\` | ${timeAgo}\n`;
+        message += `${index + 1}. **${article.title}** | ${article.contentType} | ${article.status} | ${sectionCount} sections | publicId: \`${article.publicId}\` | slug: \`${article.slug}\` | ${timeAgo}\n`;
       });
 
-      message += `\n💡 Use get_article({ slug }) to view or edit an article.`;
+      message += `\n💡 Use get_article({ articleId: "<publicId>" }) to view or edit an article. (slug is for human reference only.)`;
 
       return {
         success: true,

@@ -29,14 +29,15 @@ Update an existing section in an article by its index. Replaces the entire secti
 🔐 AUTHENTICATION: OAuth 2.1 Bearer token required. Requires article ownership or SuperAdmin role.
 
 💡 WORKFLOW:
-1. Use get_article to see current sections and their indices
-2. Preview the update to verify changes
-3. Confirm to apply the update
+1. Use list_articles to look up the publicId
+2. Use get_article to see current sections and their indices
+3. Preview the update to verify changes
+4. Confirm to apply the update
 
 📖 EXAMPLES:
-• By slug: { articleId: "briar-guide", index: 2, section: { type: "text", content: "# Updated content..." } }
-• By ObjectId: { articleId: "507f1f77bcf86cd799439011", index: 0, section: { type: "card-carousel", cards: [...] } }
-• With preview: { mode: "preview", articleId: "briar-guide", index: 1, section: { type: "video", videoId: "..." } }
+• Preview: { mode: "preview", articleId: "abc123XYZ", index: 1, section: { type: "video", videoId: "..." } }
+• Confirm: { mode: "confirm", articleId: "abc123XYZ", index: 2, section: { type: "text", content: "# Updated content..." } }
+• Card carousel: { articleId: "abc123XYZ", index: 0, section: { type: "card-carousel", cards: [...] } }
 
 ⚠️ This replaces the ENTIRE section at the given index - make sure the section structure is complete!`,
 
@@ -51,7 +52,7 @@ Update an existing section in an article by its index. Replaces the entire secti
       },
       articleId: {
         type: 'string',
-        description: 'The article identifier - can be either MongoDB ObjectId (_id) or slug (URL-friendly identifier like "briar-guide")'
+        description: 'The article publicId (from list_articles). Slugs are NOT accepted.'
       },
       index: {
         type: 'number',

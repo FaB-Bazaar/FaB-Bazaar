@@ -1,31 +1,30 @@
-// app/api/mcp/tool/articles/getArticle.ts - MCP tool for retrieving article by slug
+// app/api/mcp/tool/articles/getArticle.ts - MCP tool for retrieving article by publicId
 
 export const getArticleTool = {
   name: 'get_article',
   description: `📄 ARTICLE RETRIEVAL TOOL (SuperAdmin/ContentCreator only)
 
-Retrieve a full article by its slug, including all sections and metadata.
+Retrieve a full article by its publicId, including all sections and metadata.
 
 🔍 FEATURES:
-• Get article by slug for reading/editing
+• Get article by publicId for reading/editing
 • Returns complete article structure with all sections
 • View section count and metadata
 • Optional full content display (includeFullContent: true)
 • Role-based access (SuperAdmin or ContentCreator)
 
 📚 USAGE:
-• View article before editing
-• Get context for section updates
-• Review article structure and content
-• Prepare for section modifications
+• Call list_articles({}) first to look up the publicId of the article you want
+• Then call get_article({ articleId: "<publicId>" })
 • Set includeFullContent: true to see FULL section text (not just previews)
+• Slugs are NOT accepted — they are display-only identifiers shown to readers
 
 🔐 AUTHENTICATION: OAuth 2.1 Bearer token required. Requires SuperAdmin or ContentCreator role.
 
 📖 EXAMPLES:
-• Preview mode: get_article({ slug: "briar-guide" })
-• Full content mode: get_article({ slug: "briar-guide", includeFullContent: true })
-• Debug mode (raw JSON): get_article({ slug: "briar-guide", showRawJson: true })
+• Preview mode: get_article({ articleId: "abc123XYZ" })
+• Full content mode: get_article({ articleId: "abc123XYZ", includeFullContent: true })
+• Debug mode (raw JSON): get_article({ articleId: "abc123XYZ", showRawJson: true })
 
 💡 Use includeFullContent: true when you need to read/edit the complete text of sections.
 💡 Use showRawJson: true when debugging section structure or checking exact JSON format.`,
@@ -33,9 +32,9 @@ Retrieve a full article by its slug, including all sections and metadata.
   parameters: {
     type: 'object',
     properties: {
-      slug: {
+      articleId: {
         type: 'string',
-        description: 'The article slug (URL-friendly identifier)'
+        description: 'The article publicId (from list_articles). Slugs are not accepted.'
       },
       includeFullContent: {
         type: 'boolean',
@@ -48,7 +47,7 @@ Retrieve a full article by its slug, including all sections and metadata.
         description: 'Show raw JSON structure of sections instead of formatted display. Useful for debugging exact section structure.'
       },
     },
-    required: ['slug']
+    required: ['articleId']
   },
 
   async handler(params: any, authenticatedUser?: any, mcpToken?: string) {
@@ -56,17 +55,13 @@ Retrieve a full article by its slug, including all sections and metadata.
       ? 'http://localhost:3000'
       : (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://fabbazaar.app');
 
-    const endpoint = `${API_BASE_URL}/api/articles`;
-
-    console.log(`[GetArticle] Environment: ${process.env.NODE_ENV}, Using API base: ${API_BASE_URL}`);
-
     try {
-      const { slug, includeFullContent = false, showRawJson = false } = params;
+      const { articleId, includeFullContent = false, showRawJson = false } = params;
 
-      if (!slug) {
+      if (!articleId) {
         return {
           success: false,
-          error: 'Article slug is required'
+          error: 'articleId is required (get the publicId from list_articles)'
         };
       }
 
@@ -75,27 +70,14 @@ Retrieve a full article by its slug, including all sections and metadata.
         return { success: false, error: 'Authentication required: no bearer token found.' };
       }
 
-      // Build query parameters
-      const queryParams = new URLSearchParams();
-      queryParams.append('slug', slug);
-
-      const url = `${endpoint}?${queryParams.toString()}`;
-
-      console.log(`[GetArticle] Fetching article: ${slug}`);
-      console.log(`[GetArticle] Full URL: ${url}`);
-
-      // Prepare headers
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (tokenToUse) {
-        headers['Authorization'] = `Bearer ${tokenToUse}`;
-      }
+      const url = `${API_BASE_URL}/api/articles/${encodeURIComponent(articleId)}`;
 
       const response = await fetch(url, {
         method: 'GET',
-        headers
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenToUse}`,
+        },
       });
 
       if (!response.ok) {
@@ -108,7 +90,7 @@ Retrieve a full article by its slug, including all sections and metadata.
           status: response.status,
           debug: {
             url,
-            slug,
+            articleId,
             authenticatedUser: authenticatedUser?.username || 'None',
             tokenProvided: !!tokenToUse
           }
@@ -116,7 +98,6 @@ Retrieve a full article by its slug, including all sections and metadata.
       }
 
       const result = await response.json();
-      console.log(`[GetArticle] Retrieved article: ${slug}`);
 
       if (!result.success) {
         return {
@@ -126,18 +107,15 @@ Retrieve a full article by its slug, including all sections and metadata.
         };
       }
 
-      // Format the response
-      const articles = result.data;
+      const article = result.data;
 
-      if (!articles || articles.length === 0) {
+      if (!article) {
         return {
           success: false,
-          error: `Article not found with slug: ${slug}`,
-          slug
+          error: `Article not found with publicId: ${articleId}`,
+          articleId
         };
       }
-
-      const article = articles[0]; // Get first matching article
 
       // Build detailed message
       let message = `📄 Article Retrieved: "${article.title}"\n\n`;
@@ -153,7 +131,6 @@ Retrieve a full article by its slug, including all sections and metadata.
 
       if (article.sections && article.sections.length > 0) {
         if (showRawJson) {
-          // Show RAW JSON structure for debugging
           message += `\n📋 RAW JSON Structure:\n\n`;
           message += JSON.stringify(article.sections, null, 2);
         } else {
@@ -162,45 +139,43 @@ Retrieve a full article by its slug, including all sections and metadata.
             message += `\n  ${index}. ${section.type}`;
 
             if (includeFullContent) {
-            // Include FULL content when requested
-            if (section.type === 'text' && section.content) {
-              message += `\n     Content:\n${section.content}\n`;
-            } else if (section.type === 'card-carousel' && section.cards) {
-              message += ` (${section.cards.length} cards)\n`;
-              section.cards.forEach((card: any, cardIdx: number) => {
-                message += `     ${cardIdx + 1}. printingId: ${card.printingId}`;
-                if (card.caption) message += ` - ${card.caption}`;
+              if (section.type === 'text' && section.content) {
+                message += `\n     Content:\n${section.content}\n`;
+              } else if (section.type === 'card-carousel' && section.cards) {
+                message += ` (${section.cards.length} cards)\n`;
+                section.cards.forEach((card: any, cardIdx: number) => {
+                  message += `     ${cardIdx + 1}. printingId: ${card.printingId}`;
+                  if (card.caption) message += ` - ${card.caption}`;
+                  message += `\n`;
+                });
+              } else if (section.type === 'video') {
+                message += `\n     Video ID: ${section.videoId}`;
+                if (section.title) message += `\n     Title: ${section.title}`;
+                if (section.description) message += `\n     Description: ${section.description}`;
+                if (section.creatorName) message += `\n     Creator: ${section.creatorName}`;
                 message += `\n`;
-              });
-            } else if (section.type === 'video') {
-              message += `\n     Video ID: ${section.videoId}`;
-              if (section.title) message += `\n     Title: ${section.title}`;
-              if (section.description) message += `\n     Description: ${section.description}`;
-              if (section.creatorName) message += `\n     Creator: ${section.creatorName}`;
-              message += `\n`;
-            } else if (section.type === 'creator-spotlight') {
-              if (section.name) message += `\n     Name: ${section.name}`;
-              if (section.imageUrl) message += `\n     Image: ${section.imageUrl}`;
-              message += `\n`;
-            } else if (section.type === 'callout') {
-              if (section.text) message += `\n     Text: ${section.text}`;
-              if (section.linkText) message += `\n     Link: ${section.linkText} (${section.linkHref})`;
-              message += `\n`;
+              } else if (section.type === 'creator-spotlight') {
+                if (section.name) message += `\n     Name: ${section.name}`;
+                if (section.imageUrl) message += `\n     Image: ${section.imageUrl}`;
+                message += `\n`;
+              } else if (section.type === 'callout') {
+                if (section.text) message += `\n     Text: ${section.text}`;
+                if (section.linkText) message += `\n     Link: ${section.linkText} (${section.linkHref})`;
+                message += `\n`;
+              } else {
+                message += ` (${JSON.stringify(section, null, 2)})\n`;
+              }
             } else {
-              message += ` (${JSON.stringify(section, null, 2)})\n`;
+              if (section.type === 'text' && section.content) {
+                const preview = section.content.substring(0, 50).replace(/\n/g, ' ');
+                message += ` - "${preview}${section.content.length > 50 ? '...' : ''}"`;
+              } else if (section.type === 'card-carousel' && section.cards) {
+                message += ` (${section.cards.length} cards)`;
+              } else if (section.type === 'video' && section.title) {
+                message += ` - "${section.title}"`;
+              }
+              message += `\n`;
             }
-          } else {
-            // Show PREVIEW only (original behavior)
-            if (section.type === 'text' && section.content) {
-              const preview = section.content.substring(0, 50).replace(/\n/g, ' ');
-              message += ` - "${preview}${section.content.length > 50 ? '...' : ''}"`;
-            } else if (section.type === 'card-carousel' && section.cards) {
-              message += ` (${section.cards.length} cards)`;
-            } else if (section.type === 'video' && section.title) {
-              message += ` - "${section.title}"`;
-            }
-            message += `\n`;
-          }
           });
         }
       }
@@ -213,6 +188,7 @@ Retrieve a full article by its slug, including all sections and metadata.
         success: true,
         article: {
           _id: article._id,
+          publicId: article.publicId,
           title: article.title,
           subtitle: article.subtitle,
           slug: article.slug,

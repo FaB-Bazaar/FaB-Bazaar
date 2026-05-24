@@ -233,11 +233,12 @@ export const articleFormattingResource = {
 
       // WORKFLOW
       recommendedWorkflow: [
-        '1. Get article structure: get_article({ slug: "...", includeFullContent: true })',
-        '2. Search for cards: search_printings({ cards: [{ query: "card name" }] }) — grab printing_id from the result',
-        '3. Update section with InlineCard syntax: update_article_section({ ... })',
-        '4. Preview changes: mode: "preview"',
-        '5. Confirm changes: mode: "confirm"'
+        '1. Look up the article publicId: list_articles({})',
+        '2. Get article structure: get_article({ articleId: "<publicId>", includeFullContent: true })',
+        '3. Search for cards: search_printings({ cards: [{ query: "card name" }] }) — grab printing_id from the result',
+        '4. Update section with InlineCard syntax: update_article_section({ articleId: "<publicId>", index, section })',
+        '5. Preview changes: mode: "preview"',
+        '6. Confirm changes: mode: "confirm"'
       ]
     };
   }

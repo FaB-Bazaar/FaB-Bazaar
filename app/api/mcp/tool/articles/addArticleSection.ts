@@ -28,11 +28,15 @@ Append new sections to the end of an article. Supports all section types includi
 
 🔐 AUTHENTICATION: OAuth 2.1 Bearer token required. Requires article ownership or SuperAdmin role.
 
+💡 WORKFLOW:
+1. Use list_articles to look up the publicId
+2. Preview the section(s) you want to add
+3. Confirm to append them
+
 📖 EXAMPLES:
-• By slug: { articleId: "briar-guide", section: { type: "text", content: "# Strategy Guide\\n\\nThis is..." } }
-• By ObjectId: { articleId: "507f1f77bcf86cd799439011", section: { type: "text", content: "..." } }
-• Multiple: { articleId: "briar-guide", sections: [{ type: "text", ... }, { type: "card-carousel", cards: [...] }] }
-• Card carousel: { articleId: "briar-guide", section: { type: "card-carousel", cards: [{ printingId: "WTR001", caption: "..." }] } }
+• Single text section: { articleId: "abc123XYZ", section: { type: "text", content: "# Strategy Guide\\n\\nThis is..." } }
+• Multiple sections: { articleId: "abc123XYZ", sections: [{ type: "text", ... }, { type: "card-carousel", cards: [...] }] }
+• Card carousel: { articleId: "abc123XYZ", section: { type: "card-carousel", cards: [{ printingId: "WTR001", caption: "..." }] } }
 
 💡 Always preview before confirming to verify section structure.`,
 
@@ -47,7 +51,7 @@ Append new sections to the end of an article. Supports all section types includi
       },
       articleId: {
         type: 'string',
-        description: 'The article identifier - can be either MongoDB ObjectId (_id) or slug (URL-friendly identifier like "briar-guide")'
+        description: 'The article publicId (from list_articles). Slugs are NOT accepted.'
       },
       section: {
         type: 'object',
