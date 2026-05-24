@@ -1093,7 +1093,7 @@ export default function DeckEditorPage() {
   const modKey = isMac ? '⌘' : 'Ctrl';
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-hidden">
       {/* Dormant HUD trigger */}
       {!chordMode && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
@@ -2106,8 +2106,16 @@ export default function DeckEditorPage() {
                   )}
                   {/* Slim deck stats bar — pulled out of the right rail so the rail can dedicate its space
                       to the (sticky) hovered-card preview without competing for attention. */}
-                  {railStats && (
+                  {railStats && (() => {
+                    const totalPitched = railStats.pitchCounts.red + railStats.pitchCounts.yellow + railStats.pitchCounts.blue + (railStats.pitchCounts.none ?? 0);
+                    return (
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                      {totalPitched > 0 && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
+                          <span className="font-semibold tabular-nums">{totalPitched}</span>
+                          <span className="text-gray-600 dark:text-gray-400">Total</span>
+                        </span>
+                      )}
                       {[
                         { label: 'Red', count: railStats.pitchCounts.red, dot: 'bg-red-500', text: 'text-red-700 dark:text-red-300' },
                         { label: 'Yellow', count: railStats.pitchCounts.yellow, dot: 'bg-yellow-400', text: 'text-yellow-700 dark:text-yellow-300' },
@@ -2130,7 +2138,8 @@ export default function DeckEditorPage() {
                         </span>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
                   <DeckEditorListView
                     deck={state.deck}
                     ownershipMap={state.ownershipMap}
