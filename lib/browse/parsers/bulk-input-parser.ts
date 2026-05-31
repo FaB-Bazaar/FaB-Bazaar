@@ -7,6 +7,12 @@ export interface ParsedCard {
   set: string;
   foiling: string;
   edition: string;
+  // Set only when a "loose" leading/trailing color word was stripped off the
+  // name (e.g. "Deep Blue" → name "deep", color "blue"). Holds the full,
+  // un-stripped name so the search can retry without the color filter when the
+  // color-filtered query returns nothing. Undefined when no loose strip happened
+  // or when the color came from explicit "(blue)" parenthesis syntax.
+  fallbackName?: string;
 }
 
 // --- NORMALIZATION MAPS (for converting user input to system codes) ---
@@ -83,14 +89,20 @@ export function parseCardListFormat(lines: string[]): ParsedCard[] {
       }
 
       // 4. Handle "loose" color formats
+      // A leading/trailing color word is ambiguous: it may be a pitch specifier
+      // ("Wax On red") or part of the actual card name ("Deep Blue", which is
+      // pitchless equipment). We strip it as a color but stash the full original
+      // string in fallbackName so the search can retry without the color filter.
       if (!result.color) {
           const prefixMatch = currentLine.match(/^(red|yellow|blue)\s+(.+)/i);
           if (prefixMatch) {
+              result.fallbackName = currentLine.toLowerCase();
               result.color = COLOR_MAP[prefixMatch[1].toLowerCase()];
               currentLine = prefixMatch[2].trim();
           } else {
               const suffixMatch = currentLine.match(/(.+?)\s+(red|yellow|blue)$/i);
               if (suffixMatch) {
+                  result.fallbackName = currentLine.toLowerCase();
                   result.color = COLOR_MAP[suffixMatch[2].toLowerCase()];
                   currentLine = suffixMatch[1].trim();
               }

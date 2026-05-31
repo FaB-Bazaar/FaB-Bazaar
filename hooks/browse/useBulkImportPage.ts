@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
+import { buildColorFallbackRetries, mergeColorFallbackResults } from '@/lib/browse/bulk-search-fallback';
 import { selectDefaultPrinting } from '@/lib/browse/utils';
 import { getSetName } from "@/lib/fab-formatters";
 import { bindersClient, wantsClient, searchClient } from "@/lib/client";
@@ -75,8 +76,21 @@ export function useBulkImportPage() {
       const bulkResponse = await searchClient.bulkSearchByNames(bulkCards);
       if (!bulkResponse.success) throw new Error(bulkResponse.error || "Bulk search failed.");
 
+      let results = bulkResponse.data.results;
+
+      // Retry any zero-result card whose name had a loose color word stripped
+      // (e.g. "Deep Blue" → searched as "deep" + blue pitch). Re-search by full
+      // name with no color filter so pitchless cards aren't excluded.
+      const fallbackRetries = buildColorFallbackRetries(parsedCards, results);
+      if (fallbackRetries.length > 0) {
+        const retryResponse = await searchClient.bulkSearchByNames(fallbackRetries.map(r => r.card));
+        if (retryResponse.success) {
+          results = mergeColorFallbackResults(results, fallbackRetries, retryResponse.data.results);
+        }
+      }
+
       const allPrintings: any[] = [];
-      bulkResponse.data.results.forEach((result, index) => {
+      results.forEach((result, index) => {
         if (result.printings.length > 0) {
           const originalCard = parsedCards[index];
           const printingsWithQuantity = result.printings.map((p: any) => ({ ...p, importQuantity: originalCard.quantity }));
