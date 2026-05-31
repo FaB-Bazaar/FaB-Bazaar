@@ -13,7 +13,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { generateUniqueBinderSlug } from "@/lib/utils"
-import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus, Globe, Lock, Link2, Pin } from "lucide-react"
+import { Package, Plus, ChevronDown, BarChart3, Coins, ArrowLeftRight, Trash2, Upload, FileText, Search, ListPlus, Globe, Lock, Link2, Pin, X } from "lucide-react"
 
 import { CollectionTile } from "@/components/collection/CollectionTile"
 import { RarityIcon } from "@/components/shared/RarityIcon"
@@ -23,6 +23,7 @@ import { CollectionHighlights } from "@/components/collection/EnhancedCollection
 import { InlineCardSearch } from "@/components/collection/InlineCardSearch"
 
 import { bindersClient } from "@/lib/client"
+import { addTags, removeTag } from "@/lib/collection/tag-utils"
 
 // Types
 export interface CollectionStats {
@@ -184,8 +185,17 @@ function BinderVisibilityIcon({ binder }: { binder: BinderWithStats }) {
 }
 
 // Simple card for view mode
-function BinderViewCard({ binder, onDelete, onTogglePin }: { binder: BinderWithStats; onDelete: (binder: BinderWithStats) => void; onTogglePin: (binder: BinderWithStats) => void }) {
+function BinderViewCard({ binder, onDelete, onTogglePin, onAddTags, onRemoveTag }: { binder: BinderWithStats; onDelete: (binder: BinderWithStats) => void; onTogglePin: (binder: BinderWithStats) => void; onAddTags: (binder: BinderWithStats, raw: string) => void; onRemoveTag: (binder: BinderWithStats, tag: string) => void }) {
   const [imageFailed, setImageFailed] = useState(false)
+  const [addingTag, setAddingTag] = useState(false)
+  const [tagInput, setTagInput] = useState("")
+  const tags = binder.tags ?? []
+
+  const commitTag = () => {
+    if (tagInput.trim()) onAddTags(binder, tagInput)
+    setTagInput("")
+    setAddingTag(false)
+  }
   const totalValue = binder.totalValue?.tcg_low || binder.total_value || 0
   const totalQty = binder.totalQuantity || 0
   const formatValue = (v: number) =>
@@ -286,6 +296,51 @@ function BinderViewCard({ binder, onDelete, onTogglePin }: { binder: BinderWithS
           )}
         </CardContent>
       </Link>
+
+      {/* Tags — add/remove inline without leaving the card (outside the nav Link) */}
+      <div className="px-4 pb-3 flex flex-wrap items-center gap-1.5">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-foreground"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => onRemoveTag(binder, tag)}
+              aria-label={`Remove tag ${tag}`}
+              className="rounded-full hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {addingTag ? (
+          <input
+            autoFocus
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onBlur={commitTag}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commitTag() }
+              else if (e.key === "Escape") { setTagInput(""); setAddingTag(false) }
+            }}
+            placeholder="add tag"
+            maxLength={30}
+            aria-label={`Add a tag to ${binder.name}`}
+            className="h-7 w-28 rounded-full border border-border bg-background px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAddingTag(true)}
+            aria-label={`Add a tag to ${binder.name}`}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-sm text-muted-foreground hover:text-primary hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <Plus className="h-3 w-3" /> Tag
+          </button>
+        )}
+      </div>
     </Card>
   )
 }
@@ -475,6 +530,31 @@ export default function CollectionPage() {
     window.dispatchEvent(new CustomEvent('bindersUpdated'))
   }
 
+  // Inline tag edits from the binder card. Optimistically updates, persists the
+  // full tag list, and rolls back on failure (mirrors handleTogglePin).
+  const persistTags = async (binder: BinderWithStats, prevTags: string[], nextTags: string[]) => {
+    setBinders(prev => prev.map(b => b._id === binder._id ? { ...b, tags: nextTags } : b))
+    const result = await bindersClient.updateBinder(binder._id, { tags: nextTags })
+    if (!result.success) {
+      setBinders(prev => prev.map(b => b._id === binder._id ? { ...b, tags: prevTags } : b))
+      setError('Failed to update tags.')
+      return
+    }
+    window.dispatchEvent(new CustomEvent('bindersUpdated'))
+  }
+
+  const handleAddTags = (binder: BinderWithStats, raw: string) => {
+    const prevTags = binder.tags ?? []
+    const nextTags = addTags(prevTags, raw)
+    if (nextTags.length === prevTags.length) return // nothing new (blank/dupe)
+    persistTags(binder, prevTags, nextTags)
+  }
+
+  const handleRemoveTag = (binder: BinderWithStats, tag: string) => {
+    const prevTags = binder.tags ?? []
+    persistTags(binder, prevTags, removeTag(prevTags, tag))
+  }
+
   const handleDeleteBinder = async () => {
     if (!user || !binderToDelete) return
 
@@ -662,6 +742,8 @@ export default function CollectionPage() {
                       binder={binder}
                       onDelete={(b) => { setBinderToDelete(b); setDeleteModalOpen(true); }}
                       onTogglePin={handleTogglePin}
+                      onAddTags={handleAddTags}
+                      onRemoveTag={handleRemoveTag}
                     />
                   ))
                 )}

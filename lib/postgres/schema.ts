@@ -226,6 +226,10 @@ export const binders = pgTable('binders', {
   // If a user has none pinned, the navbar falls back to most-recently-updated.
   pinnedInNav: boolean('pinned_in_nav').default(false).notNull(),
 
+  // Owner-defined labels used to group binders into sections on the public
+  // profile. Flat (no hierarchy); a binder may carry several. Empty by default.
+  tags: text('tags').array().notNull().default(sql`ARRAY[]::text[]`),
+
   // Stats tracking
   statsNeedUpdate: boolean('stats_need_update').default(true).notNull(),
   statsUpdatedAt: timestamp('stats_updated_at'),

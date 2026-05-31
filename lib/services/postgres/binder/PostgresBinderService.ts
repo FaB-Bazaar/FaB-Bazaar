@@ -75,6 +75,7 @@ export class PostgresBinderService implements IBinderService {
           allowApiExport: data.visibility?.allowApiExport ?? true,
           allowWhoHas: data.visibility?.allowWhoHas ?? true,
           allowWebhooks: data.visibility?.allowWebhooks ?? false,
+          tags: data.tags ?? [],
           statsNeedUpdate: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -145,6 +146,7 @@ export class PostgresBinderService implements IBinderService {
       if (updates.slug !== undefined) updateData.slug = updates.slug;
       if (updates.thumbnailPrintingId !== undefined) updateData.thumbnailPrintingId = updates.thumbnailPrintingId;
       if (updates.pinnedInNav !== undefined) updateData.pinnedInNav = updates.pinnedInNav;
+      if (updates.tags !== undefined) updateData.tags = updates.tags;
 
       if (updates.visibility) {
         if (updates.visibility.level !== undefined) updateData.visibilityLevel = updates.visibility.level;
@@ -1588,6 +1590,7 @@ export class PostgresBinderService implements IBinderService {
               allowWebhooks: b.allowWebhooks,
             },
             pinnedInNav: b.pinnedInNav,
+            tags: b.tags ?? [],
             updatedAt: b.updatedAt,
             showcaseCards: stats.showcaseCards,
             stats,
@@ -1689,6 +1692,7 @@ export class PostgresBinderService implements IBinderService {
         allowWhoHas: binder.allowWhoHas ?? true,
         allowWebhooks: binder.allowWebhooks ?? false,
       },
+      tags: binder.tags ?? [],
       slug: binder.slug || undefined,
       createdAt: binder.createdAt,
       updatedAt: binder.updatedAt,
