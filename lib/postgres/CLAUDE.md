@@ -5,7 +5,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 - **Schema**: `lib/postgres/schema.ts` (source of truth for all columns/indexes)
 - **Config**: `drizzle.config.ts`
 - **Connection**: `lib/postgres/db.ts` (node-postgres pool, max 20 clients)
-- **Migrations**: `lib/postgres/migrations/` (0000 through the current latest — check `ls lib/postgres/migrations/ | sort | tail` to find the next number)
+- **Migrations**: `lib/postgres/migrations/` (0000 through the current latest — check `ls lib/postgres/migrations/ | sort | tail` to find the next number). Auto-apply on deploy via `scripts/run-migrations.sh` (idempotent; tracks applied names in `_applied_migrations`). Apply locally with `docker exec -i fabbazaar-postgres psql -U fabbazaar -d fabbazaar < <file>` — `psql` is not on the host PATH.
 
 ## Enums
 
