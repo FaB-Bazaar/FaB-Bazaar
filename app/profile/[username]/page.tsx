@@ -17,8 +17,10 @@ import {
   DollarSign,
   Heart,
   Layers,
-  Swords
+  Swords,
+  ChevronDown
 } from "lucide-react"
+import { groupBindersByTag } from "@/lib/profile/group-binders-by-tag"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ProfileTile } from "@/components/profiles/ProfileTile"
@@ -124,6 +126,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
 
   // State to manage binder visibility
   const [showAllBinders, setShowAllBinders] = useState(false)
+
+  // Collapsed state per tag section (keyed by tag; '__untagged__' for the catch-all).
+  // Default: top section open, the rest collapsed (resolved at render time).
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
 
   // Decks tab state
   const [publicDecks, setPublicDecks] = useState<PublicDeckSummaryDTO[]>([])
@@ -272,6 +278,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
   
   const bindersToShow = showAllBinders ? binders : binders.slice(0, 6)
 
+  // Group public binders into tag sections. When nobody has tagged anything,
+  // this is a single untagged section and we fall back to the flat grid below.
+  const sections = groupBindersByTag(binders)
+  const isGrouped = sections.some(s => s.tag !== null)
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <div className="container mx-auto px-4 py-6 grid lg:grid-cols-4 gap-6">
@@ -395,21 +406,59 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {bindersToShow.map((binder) => (
-                      <ProfileTile key={binder._id} binder={binder} />
-                    ))}
-                  </div>
-                  {binders.length > 6 && !showAllBinders && (
-                    <div className="mt-4">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setShowAllBinders(true)}
-                      >
-                        View All {stats.totalBinders} Binders
-                      </Button>
+                  {isGrouped ? (
+                    <div className="space-y-4">
+                      {sections.map((section, idx) => {
+                        const key = section.tag ?? '__untagged__'
+                        const label = section.tag ?? 'More'
+                        const collapsed = collapsedSections[key] ?? (idx !== 0)
+                        const count = section.binders.length
+                        return (
+                          <div key={key} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => setCollapsedSections(s => ({ ...s, [key]: !collapsed }))}
+                              aria-expanded={!collapsed}
+                              className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                            >
+                              <span className="flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-100">
+                                <ChevronDown className={`h-4 w-4 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+                                {label}
+                              </span>
+                              <span className="text-sm text-gray-600 dark:text-gray-300">
+                                {count} {count === 1 ? 'binder' : 'binders'} · {section.totalCards.toLocaleString()} cards · {formatValue(section.totalValue)}
+                              </span>
+                            </button>
+                            {!collapsed && (
+                              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+                                {section.binders.map((binder) => (
+                                  <ProfileTile key={binder._id} binder={binder} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
+                  ) : (
+                    <>
+                      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {bindersToShow.map((binder) => (
+                          <ProfileTile key={binder._id} binder={binder} />
+                        ))}
+                      </div>
+                      {binders.length > 6 && !showAllBinders && (
+                        <div className="mt-4">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setShowAllBinders(true)}
+                          >
+                            View All {stats.totalBinders} Binders
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
