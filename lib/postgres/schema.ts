@@ -424,6 +424,11 @@ export const printings = pgTable('printings', {
 
   // Visual & metadata
   imageUrl: text('image_url'),
+  // Cached flag: whether the Cloudflare image for this printing_id has actually
+  // been uploaded. Refreshed by pipeline/scripts/audit_cloudflare_images.py
+  // (diff vs the Cloudflare Images list API). A cache of Cloudflare state, not a
+  // source of truth — query `= false` to find printings still missing art.
+  hasCloudflareImage: boolean('has_cloudflare_image').default(false).notNull(),
   imageRotationDegrees: integer('image_rotation_degrees').default(0),
   artists: text('artists').array(),
   flavorText: text('flavor_text'),
