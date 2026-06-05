@@ -24,7 +24,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const body = await request.json();
-  const result = await eventService.createEvent({ ...body, locationId: id }, authResult.userId);
+  // Drizzle timestamp columns expect Date objects; JSON delivers ISO strings.
+  const payload = {
+    ...body,
+    locationId: id,
+    startDate: body.startDate ? new Date(body.startDate) : undefined,
+    endDate: body.endDate ? new Date(body.endDate) : undefined,
+  };
+  const result = await eventService.createEvent(payload, authResult.userId);
   if (!result.success) return NextResponse.json({ error: result.error }, { status: 500 });
   return NextResponse.json({ success: true, data: result.data }, { status: 201 });
 }

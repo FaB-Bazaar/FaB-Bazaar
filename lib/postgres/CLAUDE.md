@@ -63,3 +63,4 @@ All user-owned tables cascade-delete when the user is deleted.
 - `printings` has denormalized price category booleans (`isBudget`, `isUnder5`, etc.) for fast filtering
 - Emails are AES-encrypted; `emailHash` column used for lookups
 - `daily_movers` is populated by the pipeline (DuckDB → Postgres reverse-ETL), never from app code. Not in `schema.ts` yet — add a Drizzle definition before any service-layer access.
+- Drizzle `timestamp` columns are **date-mode** (expect a JS `Date`). JSON route bodies deliver ISO **strings** — coerce with `new Date(...)` at the API route before passing to a service, or the insert throws (hit on `events.startDate/endDate`).
