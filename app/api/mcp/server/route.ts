@@ -31,6 +31,10 @@ import { deleteCuratedListTool } from '../tool/curation/deleteCuratedList';
 import { addCardToListTool } from '../tool/curation/addCardToList';
 import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 
+// Import banned-cards registry tools (superadmin only)
+import { manageCardRestrictionTool } from '../tool/bannedCards/manageCardRestriction';
+import { listCardRestrictionsTool } from '../tool/bannedCards/listCardRestrictions';
+
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
@@ -370,13 +374,30 @@ export async function POST(req: Request) {
       case 'tools/list': {
         // Check if user has curator/admin role for conditional tool visibility
         let isCurator = false;
+        let isSuperAdmin = false;
         if (authenticatedUser?._id) {
           const [curatorCheck, adminCheck] = await Promise.all([
             userService.hasRole(authenticatedUser._id, 'isCurator'),
             userService.hasRole(authenticatedUser._id, 'isSuperAdmin'),
           ]);
-          isCurator = !!(curatorCheck.success && curatorCheck.data) || !!(adminCheck.success && adminCheck.data);
+          isSuperAdmin = !!(adminCheck.success && adminCheck.data);
+          isCurator = !!(curatorCheck.success && curatorCheck.data) || isSuperAdmin;
         }
+
+        // Banned-cards registry tools are superadmin-only (the API enforces the
+        // role too — this just hides them from non-admins in tools/list).
+        const adminTools = isSuperAdmin ? [
+          {
+            name: manageCardRestrictionTool.name,
+            description: manageCardRestrictionTool.description,
+            inputSchema: manageCardRestrictionTool.parameters,
+          },
+          {
+            name: listCardRestrictionsTool.name,
+            description: listCardRestrictionsTool.description,
+            inputSchema: listCardRestrictionsTool.parameters,
+          },
+        ] : [];
 
         const curatorTools = isCurator ? [
           {
@@ -644,7 +665,10 @@ Step 5: get_binder (verify additions)
               },
 
               // CURATION TOOLS (only visible to curators/admins)
-              ...curatorTools
+              ...curatorTools,
+
+              // BANNED-CARDS REGISTRY TOOLS (only visible to superadmins)
+              ...adminTools
             ]
           }
         }, { headers: corsHeaders() });
@@ -1627,6 +1651,38 @@ The new tool provides the same functionality with better guidance for proper wor
               }, { headers: corsHeaders() });
             }
 
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Done.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error(`💥 Error in ${toolName}:`, err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: `💥 Error in ${toolName}: ${err instanceof Error ? err.message : 'Unknown error'}` }],
+                isError: true,
+                error: err instanceof Error ? err.message : 'Unknown error'
+              }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        // BANNED-CARDS REGISTRY TOOLS (superadmin — the API enforces the role)
+        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions') {
+          if (DEBUG_MCP) console.log(`🚫 Executing banned-cards tool: ${toolName}`);
+          try {
+            const tokenToPass = bearerToken;
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const toolMap: Record<string, any> = {
+              manage_card_restriction: manageCardRestrictionTool,
+              list_card_restrictions: listCardRestrictionsTool,
+            };
+            const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: {

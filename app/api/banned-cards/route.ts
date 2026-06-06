@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth/multi-auth'
 import { bannedCardsService, userService } from '@/lib/services'
-import { BANNED_FORMATS, type BannedFormat } from '@/lib/services/contracts/IBannedCardsService'
+import { BANNED_FORMATS, RESTRICTION_TYPES, type BannedFormat, type RestrictionType } from '@/lib/services/contracts/IBannedCardsService'
 import { getRedisClient } from '@/lib/redis'
 
 const CACHE_TTL_SECONDS = 300 // 5 minutes
@@ -90,14 +90,22 @@ export async function POST(request: NextRequest) {
   if (!isValidFormat(format)) {
     return NextResponse.json({ success: false, error: `Invalid format. Must be one of: ${BANNED_FORMATS.join(', ')}` }, { status: 400 })
   }
+  const restrictionType: RestrictionType | undefined = body.restrictionType
+  if (restrictionType !== undefined && !(RESTRICTION_TYPES as readonly string[]).includes(restrictionType)) {
+    return NextResponse.json({ success: false, error: `Invalid restrictionType. Must be one of: ${RESTRICTION_TYPES.join(', ')}` }, { status: 400 })
+  }
 
   const result = await bannedCardsService.upsert({
     cardUniqueId,
     format,
+    restrictionType,
     sourceUniqueId: body.sourceUniqueId ?? null,
     statusActive: body.statusActive,
     dateAnnounced: body.dateAnnounced ?? null,
     dateInEffect: body.dateInEffect ?? null,
+    dateExpires: body.dateExpires ?? null,
+    untilSet: body.untilSet ?? null,
+    reason: body.reason ?? null,
     legalityArticle: body.legalityArticle ?? null,
   })
   if (!result.success) {
