@@ -105,3 +105,12 @@ pipeline/scripts/logs/post-tournament-decklists.zip
 
 # Local scratch notes (draft article content, throwaway scratchpads)
 notes/
+
+# Database dumps / backups (pg_dump artifacts — never commit)
+*.dump
+*.sql.gz
+prod_full_*.sql
+printings_backup_*.sql
+
+# One-off i18n prod backfill data export (large CSV; SQL runbook kept)
+scripts/i18n-prod-backfill/*.csv
