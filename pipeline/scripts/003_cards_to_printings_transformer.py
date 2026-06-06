@@ -17,7 +17,8 @@ import hashlib
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
-from fab_banned_cards import CC_BANNED_CARD_IDS, SAGE_BANNED_CARD_IDS, BLITZ_BANNED_CARD_IDS, LL_BANNED_CARD_IDS, LL_RESTRICTED_CARD_IDS
+# Ban/restriction lists are no longer sourced from the static fab_banned_cards
+# module — the banned_cards registry (admin UI + MCP) owns that state now.
 
 
 # ─── Talishar card identifier ────────────────────────────────────────────────
@@ -472,16 +473,12 @@ class CardsToPrintingsTransformer:
             'played_horizontally': bool(card.get('played_horizontally', False)),
             'created_at': datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # MongoDB format
         }
-        
-        # Override all bans/restrictions from authoritative static lists
-        # (replaces whatever the upstream GitHub JSON says)
-        card_uid = card.get('unique_id')
-        if card_uid:
-            base_data['cc_banned'] = card_uid in CC_BANNED_CARD_IDS
-            base_data['silver_age_banned'] = card_uid in SAGE_BANNED_CARD_IDS
-            base_data['blitz_banned'] = card_uid in BLITZ_BANNED_CARD_IDS
-            base_data['ll_banned'] = card_uid in LL_BANNED_CARD_IDS
-            base_data['ll_restricted'] = card_uid in LL_RESTRICTED_CARD_IDS
+
+        # Ban/suspend/restrict state is NOT sourced here anymore. The banned_cards
+        # registry (admin UI + MCP) is the single source of truth and projects
+        # into cards.*_banned/*_suspended/ll_restricted via recomputeCardFlags;
+        # step 05 treats those columns as admin-owned and never overwrites them.
+        # New cards just keep the upstream JSON default (false) on first insert.
 
         # Add card type flags
         base_data.update(self.get_card_type_flags(card.get('types', [])))

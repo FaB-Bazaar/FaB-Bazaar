@@ -141,17 +141,29 @@ PRINTING_BOOL_NOT_NULL: frozenset = frozenset([
 
 # ─── SQL (built once at module load) ──────────────────────────────────────────
 
-# Columns the admin UI (/admin/heroes) owns. We keep INSERT-ing them so brand-new
-# cards still get whatever upstream said on first import, but we never UPDATE
-# them on a re-sync — that way manual fixes via the admin page survive the
-# weekly run. Upstream legality changes (e.g. an actual ban) must be applied
-# through the admin UI now.
+# Columns the app owns, never overwritten on a re-sync (we still INSERT them so
+# brand-new cards get an initial value). Manual fixes survive the weekly run.
+#   *_legal          — managed via /admin/heroes
+#   *_banned / *_suspended / ll_restricted — projected from the banned_cards
+#                      registry (admin UI + MCP) via recomputeCardFlags. The
+#                      registry is the single source of truth; the pipeline must
+#                      not clobber it.
 CARD_ADMIN_OWNED_COLS = {
     'cc_legal',
     'blitz_legal',
     'silver_age_legal',
     'commoner_legal',
     'll_legal',
+    'cc_banned',
+    'blitz_banned',
+    'silver_age_banned',
+    'commoner_banned',
+    'll_banned',
+    'cc_suspended',
+    'blitz_suspended',
+    'silver_age_suspended',
+    'commoner_suspended',
+    'll_restricted',
 }
 
 
