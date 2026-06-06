@@ -344,6 +344,80 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
+   * Resolve a set of card_unique_ids to one representative printing each.
+   * Mirrors searchCardsForHero's DISTINCT ON + foiling-priority selection but
+   * filters by an explicit id set instead of hero/format. Returns exactly one
+   * row per known card (no printing duplicates, no truncation); unknown ids are
+   * dropped. Empty input short-circuits without a DB round trip.
+   */
+  async getCardSummariesByUniqueIds(cardUniqueIds: string[]): AsyncResult<CardSummaryDTO[]> {
+    try {
+      if (cardUniqueIds.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // DISTINCT ON picks one printing per card via foiling priority (matches
+      // FOIL_PRIORITY in lib/fab-constants/sets.ts:415: standard → rainbow → cold → others → gold).
+      // printings_count is a correlated subselect for the TOTAL printings of each card.
+      const result = await db.execute(sql`
+        SELECT DISTINCT ON (${cards.cardUniqueId})
+          ${cards.cardUniqueId} AS card_unique_id,
+          ${cards.name} AS name,
+          ${cards.types} AS types,
+          ${cards.pitch} AS pitch,
+          ${cards.cost} AS cost,
+          ${cards.defense} AS defense,
+          ${cards.power} AS power,
+          ${cards.keywords} AS keywords,
+          ${cards.classes} AS classes,
+          ${cards.talents} AS talents,
+          ${cards.color} AS color,
+          ${printings.printingId} AS representative_printing_id,
+          ${printings.imageUrl} AS representative_image_url,
+          (SELECT COUNT(*) FROM ${printings} p2 WHERE p2.card_unique_id = ${cards.cardUniqueId}) AS printings_count
+        FROM ${cards}
+        INNER JOIN ${printings} ON ${printings.cardUniqueId} = ${cards.cardUniqueId}
+        WHERE ${inArray(cards.cardUniqueId, cardUniqueIds)}
+        ORDER BY
+          ${cards.cardUniqueId},
+          CASE ${printings.foiling}
+            WHEN 's' THEN 0
+            WHEN 'n' THEN 0
+            WHEN 'r' THEN 1
+            WHEN 'c' THEN 2
+            WHEN 'g' THEN 4
+            ELSE 3
+          END,
+          ${printings.printingId}
+      `);
+
+      const data: CardSummaryDTO[] = (result.rows as Record<string, unknown>[]).map((r) => ({
+        cardUniqueId: r.card_unique_id as string,
+        name: r.name as string,
+        types: (r.types as string[] | null) ?? [],
+        pitch: (r.pitch as number | null) ?? null,
+        cost: (r.cost as number | null) ?? null,
+        defense: (r.defense as number | null) ?? null,
+        power: (r.power as number | null) ?? null,
+        keywords: (r.keywords as string[] | null) ?? [],
+        classes: (r.classes as string[] | null) ?? [],
+        talents: (r.talents as string[] | null) ?? [],
+        color: (r.color as string | null) ?? '',
+        representativePrintingId: r.representative_printing_id as string,
+        representativeImageUrl: (r.representative_image_url as string | null) ?? null,
+        printingsCount: Number(r.printings_count) || 1,
+      }));
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resolve card summaries',
+      };
+    }
+  }
+
+  /**
    * Get elemental cards by essence type(s)
    */
   async getElementalCards(

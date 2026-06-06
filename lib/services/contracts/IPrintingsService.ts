@@ -627,6 +627,16 @@ export interface IPrintingsService {
   searchCardsForHero(filters: HeroPoolFilters): AsyncResult<CardSummaryDTO[]>;
 
   /**
+   * Resolve a set of card_unique_ids to one card-level summary each, with a
+   * representative printing chosen by foiling priority. Use when a feature is
+   * keyed by CARD (e.g. the banned-cards registry) and only needs a name +
+   * image per card — never loop searchPrintings or rely on a row-count limit,
+   * which over-fetches printings and truncates late-sorting cards.
+   * Unknown ids are silently skipped; an empty input returns an empty array.
+   */
+  getCardSummariesByUniqueIds(cardUniqueIds: string[]): AsyncResult<CardSummaryDTO[]>;
+
+  /**
    * Get multiple printings by their printing_id values
    *
    * @param printingIds - Array of printing IDs

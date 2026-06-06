@@ -21,24 +21,21 @@ export default async function BannedCardsAdminPage() {
     }),
   )
 
-  // Enrich with card name + image for at-a-glance management.
+  // Enrich with card name + image for at-a-glance management. The registry is
+  // keyed by card (not printing), so resolve one representative printing per
+  // card_unique_id — a row-limited searchPrintings over-fetches printings and
+  // truncates late-sorting cards into blank rows.
   const cardUniqueIds = Array.from(
     new Set(initial.flatMap(b => b.entries.map(e => e.cardUniqueId))),
   )
   const cardLookup: CardLookup = {}
-  if (cardUniqueIds.length > 0) {
-    const printingsRes = await printingsService.searchPrintings(
-      { cardUniqueIds },
-      { limit: cardUniqueIds.length * 5 },
-    )
-    if (printingsRes.success) {
-      for (const p of printingsRes.data.printings) {
-        if (cardLookup[p.card_unique_id]) continue
-        cardLookup[p.card_unique_id] = {
-          name: p.name,
-          pitch: p.pitch ?? null,
-          imageUrl: p.image_url ?? null,
-        }
+  const summariesRes = await printingsService.getCardSummariesByUniqueIds(cardUniqueIds)
+  if (summariesRes.success) {
+    for (const c of summariesRes.data) {
+      cardLookup[c.cardUniqueId] = {
+        name: c.name,
+        pitch: c.pitch ?? null,
+        imageUrl: c.representativeImageUrl ?? null,
       }
     }
   }
