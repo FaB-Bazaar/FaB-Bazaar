@@ -12,6 +12,8 @@ import { ArrowLeft, Globe, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import type { HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
+import { useExcludedHeroIds } from "@/hooks/banned-cards/useExcludedHeroIds";
+import { deriveFormatFromHero, bannedFormatsForHero, formatShortLabel, type BannedHeroIdsByFormat } from "./hero-format-utils";
 
 interface CreateDeckDialogProps {
   open: boolean;
@@ -35,18 +37,6 @@ const TALENT_TYPES = new Set([
 
 function toDisplayName(name: string): string {
   return name.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
-}
-
-// Priority: cc > silver_age > blitz > commoner > ll. CC is the default for
-// adult heroes, Silver Age for young, LL only for graduated heroes.
-function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string {
-  if (!hero) return 'Classic Constructed';
-  if (hero.ccLegal) return 'Classic Constructed';
-  if (hero.silverAgeLegal) return 'Silver Age';
-  if (hero.blitzLegal) return 'Blitz';
-  if (hero.commonerLegal) return 'Commoner';
-  if (hero.llLegal) return 'Living Legend';
-  return 'Classic Constructed';
 }
 
 export default function CreateDeckDialog({
@@ -109,6 +99,22 @@ export default function CreateDeckDialog({
     }
     return grouped;
   }, [heroes, ageFilter]);
+
+  // Banned-hero sets per format so the picker can flag (not block) heroes that
+  // are banned in the format their deck would default to. Each call is cached
+  // server-side; empty sets are a safe fallback that never hides a hero.
+  const ccBanned = useExcludedHeroIds('Classic Constructed');
+  const sageBanned = useExcludedHeroIds('Silver Age');
+  const blitzBanned = useExcludedHeroIds('Blitz');
+  const commonerBanned = useExcludedHeroIds('Commoner');
+  const llBanned = useExcludedHeroIds('Living Legend');
+  const bannedByFormat: BannedHeroIdsByFormat = useMemo(() => ({
+    'Classic Constructed': ccBanned,
+    'Silver Age': sageBanned,
+    'Blitz': blitzBanned,
+    'Commoner': commonerBanned,
+    'Living Legend': llBanned,
+  }), [ccBanned, sageBanned, blitzBanned, commonerBanned, llBanned]);
 
   const selectedHero = hero === 'none' ? undefined : heroesByName.get(hero.toLowerCase());
   const derivedFormat = deriveFormatFromHero(selectedHero);
@@ -227,6 +233,7 @@ export default function CreateDeckDialog({
                       const heroKey = h.displayName.toLowerCase();
                       const talents = h.types.filter(t => TALENT_TYPES.has(t));
                       const isYoung = h.types.includes('young');
+                      const bannedFormats = bannedFormatsForHero(h, bannedByFormat);
                       return (
                         <CommandItem key={h.cardUniqueId} value={heroKey} onSelect={() => handleHeroSelect(heroKey)}>
                           <Check className={`mr-1 h-4 w-4 shrink-0 ${hero === heroKey ? "opacity-100" : "opacity-0"}`} />
@@ -257,7 +264,17 @@ export default function CreateDeckDialog({
                           ) : (
                             <div className="w-6 h-8 rounded-sm bg-gray-100 dark:bg-gray-900 shrink-0 mr-2" aria-hidden />
                           )}
-                          <span className="flex-1 truncate">{h.displayName}</span>
+                          <span className="truncate">{h.displayName}</span>
+                          {bannedFormats.map((fmt) => (
+                            <Badge
+                              key={fmt}
+                              className="text-xs py-0 px-1.5 ml-1 border-red-500 text-red-700 dark:text-red-300"
+                              title={`Banned in ${fmt}`}
+                            >
+                              Banned · {formatShortLabel(fmt)}
+                            </Badge>
+                          ))}
+                          <span className="flex-1" />
                           {ageFilter === 'all' && (
                             isYoung ? (
                               <Badge className="text-xs py-0 px-1.5 ml-1 bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800/60">
@@ -301,10 +318,15 @@ export default function CreateDeckDialog({
                 <div className="font-medium text-sm truncate">
                   {hero === 'none' ? 'No hero' : (selectedHero?.displayName ?? toDisplayName(hero))}
                 </div>
-                <div className="mt-0.5">
+                <div className="mt-0.5 flex items-center gap-1.5">
                   <span className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
                     {derivedFormat}
                   </span>
+                  {selectedHero && bannedFormatsForHero(selectedHero, bannedByFormat).map((fmt) => (
+                    <span key={fmt} className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-medium">
+                      Banned in {formatShortLabel(fmt)}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
