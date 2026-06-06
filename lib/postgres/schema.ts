@@ -1428,6 +1428,12 @@ export const bannedCards = pgTable('banned_cards', {
   statusActive: boolean('status_active').default(true).notNull(),
   dateAnnounced: timestamp('date_announced'),
   dateInEffect: timestamp('date_in_effect'),
+  // Benching window (FaB Silver Age): a benched hero is in effect only while
+  // now ∈ [date_in_effect, date_expires). until_set/reason mirror the policy's
+  // "UNTIL Set 20 / community vote". NULL for banned/restricted/living_legend.
+  dateExpires: timestamp('date_expires'),
+  untilSet: text('until_set'),
+  reason: text('reason'),
   legalityArticle: text('legality_article'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -25,9 +25,17 @@ export const BANNED_FORMATS: readonly BannedFormat[] = [
   'open',
 ] as const
 
-export type RestrictionType = 'banned' | 'restricted'
+// FaB's full legality taxonomy (see card-legality-policy):
+//   banned        — permanent, per-format
+//   restricted    — Living Legend 1-of
+//   benched       — Silver Age heroes, time-boxed (auto-return at season end)
+//   living_legend — adult hero + signature weapon pseudo-ban (graduated out of CC)
+export type RestrictionType = 'banned' | 'restricted' | 'benched' | 'living_legend'
 
-export const RESTRICTION_TYPES: readonly RestrictionType[] = ['banned', 'restricted'] as const
+export const RESTRICTION_TYPES: readonly RestrictionType[] = ['banned', 'restricted', 'benched', 'living_legend'] as const
+
+/** Why a hero was benched in Silver Age. */
+export type BenchReason = 'lss_pick' | 'community_vote'
 
 export interface BannedCardDTO {
   id: string
@@ -38,6 +46,12 @@ export interface BannedCardDTO {
   statusActive: boolean
   dateAnnounced: string | null
   dateInEffect: string | null
+  /** Benching "until" — when a benched hero auto-returns. NULL for other statuses. */
+  dateExpires: string | null
+  /** Human "until Set 20" label for a benched window. NULL for other statuses. */
+  untilSet: string | null
+  /** Why a hero was benched ('lss_pick' | 'community_vote'). NULL for other statuses. */
+  reason: BenchReason | null
   legalityArticle: string | null
   createdAt: string
   updatedAt: string
@@ -51,6 +65,9 @@ export interface BannedCardUpsertInput {
   statusActive?: boolean
   dateAnnounced?: string | null
   dateInEffect?: string | null
+  dateExpires?: string | null
+  untilSet?: string | null
+  reason?: BenchReason | null
   legalityArticle?: string | null
 }
 
