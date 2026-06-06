@@ -1,12 +1,13 @@
 import { db } from '@/lib/postgres/db'
 import { bannedCards, cards } from '@/lib/postgres/schema'
-import { and, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNull, lte, ne, or } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type {
   BannedCardDTO,
   BannedCardSyncResult,
   BannedCardUpsertInput,
   BannedFormat,
+  ExcludedHero,
   IBannedCardsService,
   RestrictionType,
 } from '../../contracts/IBannedCardsService'
@@ -231,6 +232,45 @@ export class PostgresBannedCardsService implements IBannedCardsService {
       return { success: true, data: rows.map(r => r.cardUniqueId) }
     } catch (err) {
       return { success: false, error: describeError(err, 'Failed to list banned hero ids') }
+    }
+  }
+
+  async listExcludedHeroes(format: BannedFormat): AsyncResult<ExcludedHero[]> {
+    try {
+      // Which statuses make a hero excluded/flagged in this format.
+      const statuses: RestrictionType[] =
+        format === 'classic_constructed' ? ['banned', 'living_legend'] :
+        format === 'silver_age' ? ['banned', 'benched'] :
+        ['banned']
+
+      // benched rows count only while in their [from, until) window; every other
+      // status always counts.
+      const now = new Date()
+      const windowOk = or(
+        ne(bannedCards.restrictionType, 'benched'),
+        and(
+          or(isNull(bannedCards.dateInEffect), lte(bannedCards.dateInEffect, now)),
+          or(isNull(bannedCards.dateExpires), gt(bannedCards.dateExpires, now)),
+        ),
+      )
+
+      const rows = await db
+        .select({ cardUniqueId: bannedCards.cardUniqueId, status: bannedCards.restrictionType })
+        .from(bannedCards)
+        .innerJoin(cards, eq(cards.cardUniqueId, bannedCards.cardUniqueId))
+        .where(
+          and(
+            eq(bannedCards.format, format),
+            eq(bannedCards.statusActive, true),
+            eq(cards.isHero, true),
+            inArray(bannedCards.restrictionType, statuses),
+            windowOk,
+          ),
+        )
+
+      return { success: true, data: rows.map(r => ({ cardUniqueId: r.cardUniqueId, status: r.status as RestrictionType })) }
+    } catch (err) {
+      return { success: false, error: describeError(err, 'Failed to list excluded heroes') }
     }
   }
 

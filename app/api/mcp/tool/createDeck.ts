@@ -181,9 +181,9 @@ export const createDeckTool = {
           const registryFormat = toRegistryFormat(format);
           const bannedHeroIds = new Set<string>();
           if (registryFormat) {
-            const bannedRes = await bannedCardsService.listBannedHeroIds(registryFormat);
+            const bannedRes = await bannedCardsService.listExcludedHeroes(registryFormat);
             if (bannedRes.success) {
-              for (const id of bannedRes.data) bannedHeroIds.add(id);
+              for (const h of bannedRes.data) bannedHeroIds.add(h.cardUniqueId);
             }
           }
 

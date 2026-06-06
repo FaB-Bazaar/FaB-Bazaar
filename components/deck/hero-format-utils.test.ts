@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { deriveFormatFromHero, bannedFormatsForHero, formatShortLabel } from './hero-format-utils'
+import { deriveFormatFromHero, heroRestrictions, restrictionChipLabel, formatShortLabel } from './hero-format-utils'
 import type { HeroLegalityRow } from '@/lib/services/contracts/IPrintingsService'
+import type { RestrictionType } from '@/lib/services/contracts/IBannedCardsService'
 
 const hero = (over: Partial<HeroLegalityRow>): HeroLegalityRow => ({
   cardUniqueId: 'h1',
@@ -36,39 +37,51 @@ describe('deriveFormatFromHero', () => {
   })
 })
 
-describe('bannedFormatsForHero', () => {
-  it('lists the Silver Age ban for a young hero (true ban in its legal format)', () => {
-    const ira = hero({ cardUniqueId: 'ira-id' })
-    const banned = { 'Silver Age': new Set(['ira-id']) }
-    expect(bannedFormatsForHero(ira, banned)).toEqual(['Silver Age'])
-  })
+const byFormat = (entries: Record<string, [string, RestrictionType][]>) =>
+  Object.fromEntries(Object.entries(entries).map(([f, pairs]) => [f, new Map(pairs)]))
 
-  it('lists a CC ban even when CC is NOT the hero\'s derived format (LL hero)', () => {
-    // Bravo, Star of the Show is ll-only but appears in the CC banned list.
+describe('heroRestrictions', () => {
+  it('reports a Living Legend graduate with its status', () => {
     const bravo = hero({
-      cardUniqueId: 'bravo-id',
-      ccLegal: false, silverAgeLegal: false, blitzLegal: false, commonerLegal: false, llLegal: true,
-      types: ['guardian', 'hero'],
+      cardUniqueId: 'bravo-id', ccLegal: false, silverAgeLegal: false, blitzLegal: false,
+      commonerLegal: false, llLegal: true, types: ['guardian', 'hero'],
     })
-    const banned = { 'Classic Constructed': new Set(['bravo-id']) }
-    expect(bannedFormatsForHero(bravo, banned)).toEqual(['Classic Constructed'])
+    const r = byFormat({ 'Classic Constructed': [['bravo-id', 'living_legend']] })
+    expect(heroRestrictions(bravo, r)).toEqual([{ format: 'Classic Constructed', status: 'living_legend' }])
   })
 
-  it('returns every format a hero is banned in, primary formats first', () => {
+  it('reports a benched Silver Age hero with its status', () => {
+    const ira = hero({ cardUniqueId: 'ira-id' })
+    const r = byFormat({ 'Silver Age': [['ira-id', 'benched']] })
+    expect(heroRestrictions(ira, r)).toEqual([{ format: 'Silver Age', status: 'benched' }])
+  })
+
+  it('returns every restricting format, primary formats first', () => {
     const h = hero({ cardUniqueId: 'multi' })
-    const banned = {
-      'Living Legend': new Set(['multi']),
-      'Silver Age': new Set(['multi']),
-      'Classic Constructed': new Set(['multi']),
-    }
-    // CC and Silver Age are the primary formats and sort first.
-    expect(bannedFormatsForHero(h, banned)).toEqual(['Classic Constructed', 'Silver Age', 'Living Legend'])
+    const r = byFormat({
+      'Living Legend': [['multi', 'banned']],
+      'Silver Age': [['multi', 'benched']],
+      'Classic Constructed': [['multi', 'banned']],
+    })
+    expect(heroRestrictions(h, r).map(x => x.format)).toEqual(['Classic Constructed', 'Silver Age', 'Living Legend'])
   })
 
-  it('returns an empty array when the hero is not banned anywhere', () => {
+  it('returns an empty array when the hero is unrestricted', () => {
     const h = hero({ cardUniqueId: 'clean-id' })
-    expect(bannedFormatsForHero(h, {})).toEqual([])
-    expect(bannedFormatsForHero(h, { 'Silver Age': new Set(['other']) })).toEqual([])
+    expect(heroRestrictions(h, {})).toEqual([])
+    expect(heroRestrictions(h, byFormat({ 'Silver Age': [['other', 'banned']] }))).toEqual([])
+  })
+})
+
+describe('restrictionChipLabel', () => {
+  it('labels a Living Legend graduate without a format suffix', () => {
+    expect(restrictionChipLabel({ format: 'Classic Constructed', status: 'living_legend' })).toBe('Living Legend')
+  })
+  it('labels a benched hero with the short format', () => {
+    expect(restrictionChipLabel({ format: 'Silver Age', status: 'benched' })).toBe('Benched · Sage')
+  })
+  it('labels a banned hero with the short format', () => {
+    expect(restrictionChipLabel({ format: 'Classic Constructed', status: 'banned' })).toBe('Banned · CC')
   })
 })
 

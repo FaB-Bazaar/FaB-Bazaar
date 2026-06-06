@@ -12,7 +12,7 @@ vi.mock('@/lib/services', () => ({
     searchPrintings: vi.fn().mockResolvedValue({ success: true, data: [] }),
   },
   bannedCardsService: {
-    listBannedHeroIds: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    listExcludedHeroes: vi.fn().mockResolvedValue({ success: true, data: [] }),
   },
 }));
 

@@ -12,8 +12,16 @@ import { ArrowLeft, Globe, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import type { HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
-import { useExcludedHeroIds } from "@/hooks/banned-cards/useExcludedHeroIds";
-import { deriveFormatFromHero, bannedFormatsForHero, formatShortLabel, type BannedHeroIdsByFormat } from "./hero-format-utils";
+import { useExcludedHeroes } from "@/hooks/banned-cards/useExcludedHeroes";
+import { deriveFormatFromHero, heroRestrictions, restrictionChipLabel, type HeroRestrictionsByFormat } from "./hero-format-utils";
+
+// Chip color per hero restriction status (pairs color with text — not color alone).
+const RESTRICTION_CHIP_CLASS: Record<string, string> = {
+  banned: 'border-red-500 text-red-700 dark:text-red-300',
+  benched: 'border-orange-500 text-orange-700 dark:text-orange-300',
+  living_legend: 'border-purple-500 text-purple-700 dark:text-purple-300',
+  restricted: 'border-amber-500 text-amber-700 dark:text-amber-300',
+};
 
 interface CreateDeckDialogProps {
   open: boolean;
@@ -100,21 +108,21 @@ export default function CreateDeckDialog({
     return grouped;
   }, [heroes, ageFilter]);
 
-  // Banned-hero sets per format so the picker can flag (not block) heroes that
-  // are banned in the format their deck would default to. Each call is cached
-  // server-side; empty sets are a safe fallback that never hides a hero.
-  const ccBanned = useExcludedHeroIds('Classic Constructed');
-  const sageBanned = useExcludedHeroIds('Silver Age');
-  const blitzBanned = useExcludedHeroIds('Blitz');
-  const commonerBanned = useExcludedHeroIds('Commoner');
-  const llBanned = useExcludedHeroIds('Living Legend');
-  const bannedByFormat: BannedHeroIdsByFormat = useMemo(() => ({
-    'Classic Constructed': ccBanned,
-    'Silver Age': sageBanned,
-    'Blitz': blitzBanned,
-    'Commoner': commonerBanned,
-    'Living Legend': llBanned,
-  }), [ccBanned, sageBanned, blitzBanned, commonerBanned, llBanned]);
+  // Hero restriction status per format so the picker can flag (not block) heroes
+  // with their real status — banned / benched / Living Legend. Each call is
+  // cached server-side; empty maps are a safe fallback that never hides a hero.
+  const ccR = useExcludedHeroes('Classic Constructed');
+  const sageR = useExcludedHeroes('Silver Age');
+  const blitzR = useExcludedHeroes('Blitz');
+  const commonerR = useExcludedHeroes('Commoner');
+  const llR = useExcludedHeroes('Living Legend');
+  const restrictionsByFormat: HeroRestrictionsByFormat = useMemo(() => ({
+    'Classic Constructed': ccR,
+    'Silver Age': sageR,
+    'Blitz': blitzR,
+    'Commoner': commonerR,
+    'Living Legend': llR,
+  }), [ccR, sageR, blitzR, commonerR, llR]);
 
   const selectedHero = hero === 'none' ? undefined : heroesByName.get(hero.toLowerCase());
   const derivedFormat = deriveFormatFromHero(selectedHero);
@@ -233,7 +241,7 @@ export default function CreateDeckDialog({
                       const heroKey = h.displayName.toLowerCase();
                       const talents = h.types.filter(t => TALENT_TYPES.has(t));
                       const isYoung = h.types.includes('young');
-                      const bannedFormats = bannedFormatsForHero(h, bannedByFormat);
+                      const restrictions = heroRestrictions(h, restrictionsByFormat);
                       return (
                         <CommandItem key={h.cardUniqueId} value={heroKey} onSelect={() => handleHeroSelect(heroKey)}>
                           <Check className={`mr-1 h-4 w-4 shrink-0 ${hero === heroKey ? "opacity-100" : "opacity-0"}`} />
@@ -265,13 +273,13 @@ export default function CreateDeckDialog({
                             <div className="w-6 h-8 rounded-sm bg-gray-100 dark:bg-gray-900 shrink-0 mr-2" aria-hidden />
                           )}
                           <span className="truncate">{h.displayName}</span>
-                          {bannedFormats.map((fmt) => (
+                          {restrictions.map((r) => (
                             <Badge
-                              key={fmt}
-                              className="text-xs py-0 px-1.5 ml-1 border-red-500 text-red-700 dark:text-red-300"
-                              title={`Banned in ${fmt}`}
+                              key={`${r.format}:${r.status}`}
+                              className={`text-xs py-0 px-1.5 ml-1 ${RESTRICTION_CHIP_CLASS[r.status] ?? ''}`}
+                              title={`${r.status.replace('_', ' ')} in ${r.format}`}
                             >
-                              Banned · {formatShortLabel(fmt)}
+                              {restrictionChipLabel(r)}
                             </Badge>
                           ))}
                           <span className="flex-1" />
@@ -322,9 +330,9 @@ export default function CreateDeckDialog({
                   <span className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium">
                     {derivedFormat}
                   </span>
-                  {selectedHero && bannedFormatsForHero(selectedHero, bannedByFormat).map((fmt) => (
-                    <span key={fmt} className="inline-block text-[11px] px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-medium">
-                      Banned in {formatShortLabel(fmt)}
+                  {selectedHero && heroRestrictions(selectedHero, restrictionsByFormat).map((r) => (
+                    <span key={`${r.format}:${r.status}`} className={`inline-block text-[11px] px-1.5 py-0.5 rounded-full border font-medium ${RESTRICTION_CHIP_CLASS[r.status] ?? ''}`}>
+                      {restrictionChipLabel(r)}
                     </span>
                   ))}
                 </div>

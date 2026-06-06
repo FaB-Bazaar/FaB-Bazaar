@@ -1,4 +1,5 @@
 import type { HeroLegalityRow } from '@/lib/services/contracts/IPrintingsService'
+import type { RestrictionType } from '@/lib/services/contracts/IBannedCardsService'
 
 /**
  * Derive the format a hero deck defaults to.
@@ -15,31 +16,35 @@ export function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string 
   return 'Classic Constructed'
 }
 
-/** Active banned hero card_unique_ids keyed by display format name. */
-export type BannedHeroIdsByFormat = Record<string, Set<string>>
+/** Hero restriction status (per format) keyed by card_unique_id. */
+export type HeroRestrictionsByFormat = Record<string, Map<string, RestrictionType>>
+
+/** A hero's restriction in one format. */
+export interface HeroRestriction {
+  format: string
+  status: RestrictionType
+}
 
 // CC and Silver Age are the primary formats of the game, so their chips sort
 // first; the rest follow in descending relevance.
 const FORMAT_ORDER = ['Classic Constructed', 'Silver Age', 'Blitz', 'Commoner', 'Living Legend']
 
 /**
- * Every format the hero is banned in, regardless of its derived/playable format.
- * Used to annotate (not block) the hero picker with one chip per banned format —
- * a hero may be banned in CC (e.g. a Living Legend graduate) yet legal elsewhere.
- * Returned in FORMAT_ORDER (primary formats first).
+ * Every format the hero is restricted in, with its status (banned / benched /
+ * living_legend), regardless of its derived/playable format. Used to annotate
+ * (not block) the hero picker — a hero may be a Living Legend graduate in CC yet
+ * legal elsewhere. Returned in FORMAT_ORDER (primary formats first).
  */
-export function bannedFormatsForHero(
+export function heroRestrictions(
   hero: HeroLegalityRow,
-  bannedByFormat: BannedHeroIdsByFormat,
-): string[] {
-  return Object.entries(bannedByFormat)
-    .filter(([, ids]) => ids.has(hero.cardUniqueId))
-    .map(([format]) => format)
-    .sort((a, b) => {
-      const ia = FORMAT_ORDER.indexOf(a)
-      const ib = FORMAT_ORDER.indexOf(b)
-      return (ia === -1 ? FORMAT_ORDER.length : ia) - (ib === -1 ? FORMAT_ORDER.length : ib)
-    })
+  byFormat: HeroRestrictionsByFormat,
+): HeroRestriction[] {
+  const out: HeroRestriction[] = []
+  for (const format of FORMAT_ORDER) {
+    const status = byFormat[format]?.get(hero.cardUniqueId)
+    if (status) out.push({ format, status })
+  }
+  return out
 }
 
 /** Short chip label for a display format name. */
@@ -47,4 +52,11 @@ export function formatShortLabel(format: string): string {
   if (format === 'Classic Constructed') return 'CC'
   if (format === 'Silver Age') return 'Sage'
   return format
+}
+
+/** Chip text for a hero restriction — Living Legend is format-agnostic. */
+export function restrictionChipLabel(r: HeroRestriction): string {
+  if (r.status === 'living_legend') return 'Living Legend'
+  const verb = r.status === 'benched' ? 'Benched' : r.status === 'restricted' ? 'Restricted' : 'Banned'
+  return `${verb} · ${formatShortLabel(r.format)}`
 }

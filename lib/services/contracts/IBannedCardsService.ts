@@ -37,6 +37,12 @@ export const RESTRICTION_TYPES: readonly RestrictionType[] = ['banned', 'restric
 /** Why a hero was benched in Silver Age. */
 export type BenchReason = 'lss_pick' | 'community_vote'
 
+/** A hero excluded/flagged in a format, with the status driving it. */
+export interface ExcludedHero {
+  cardUniqueId: string
+  status: RestrictionType
+}
+
 export interface BannedCardDTO {
   id: string
   cardUniqueId: string
@@ -89,6 +95,13 @@ export interface IBannedCardsService {
 
   /** Active banned hero card_unique_ids for a format (heroes only — non-hero bans excluded). */
   listBannedHeroIds(format: BannedFormat): AsyncResult<string[]>
+
+  /**
+   * Heroes excluded/flagged in a format, with their status — the status-aware
+   * successor to listBannedHeroIds. Per format: CC = banned + living_legend,
+   * Silver Age = banned + in-window benched, others = banned. Heroes only.
+   */
+  listExcludedHeroes(format: BannedFormat): AsyncResult<ExcludedHero[]>
 
   /** Fast check: is the card in an active restriction (restriction_type='restricted', 1-per-deck)? */
   isRestricted(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean>

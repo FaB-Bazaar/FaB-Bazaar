@@ -4,7 +4,8 @@ import { BANNED_FORMATS, type BannedFormat } from '@/lib/services/contracts/IBan
 import { getRedisClient } from '@/lib/redis'
 
 const CACHE_TTL_SECONDS = 300 // 5 minutes
-const cacheKey = (format: BannedFormat) => `banned-cards:heroes:${format}`
+// v2: cached value is now ExcludedHero[] ({cardUniqueId,status}), not string[].
+const cacheKey = (format: BannedFormat) => `banned-cards:heroes:v2:${format}`
 
 function isValidFormat(f: string): f is BannedFormat {
   return (BANNED_FORMATS as readonly string[]).includes(f)
@@ -40,14 +41,18 @@ export async function GET(request: NextRequest) {
     try {
       const cached = await redis.get(cacheKey(format))
       if (cached) {
-        return NextResponse.json({ success: true, data: { excludedHeroIds: JSON.parse(cached) } })
+        const heroes = JSON.parse(cached) as Array<{ cardUniqueId: string; status: string }>
+        return NextResponse.json({
+          success: true,
+          data: { excludedHeroIds: heroes.map(h => h.cardUniqueId), excludedHeroes: heroes },
+        })
       }
     } catch (err) {
       console.error('[banned-cards/heroes GET] cache read error:', err)
     }
   }
 
-  const result = await bannedCardsService.listBannedHeroIds(format)
+  const result = await bannedCardsService.listExcludedHeroes(format)
   if (!result.success) {
     return NextResponse.json({ success: false, error: result.error }, { status: 500 })
   }
@@ -60,5 +65,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, data: { excludedHeroIds: result.data } })
+  return NextResponse.json({
+    success: true,
+    data: { excludedHeroIds: result.data.map(h => h.cardUniqueId), excludedHeroes: result.data },
+  })
 }

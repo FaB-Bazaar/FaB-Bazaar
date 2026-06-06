@@ -1,8 +1,7 @@
 /**
- * Unit tests for GET /api/banned-cards/heroes — public read-only endpoint
- * that returns the active banned hero card_unique_ids for a format. Used by
- * client components (DeckMatchupsDialog, MatchupArena) to filter their hero
- * pickers without bundling the full ban list at build time.
+ * Unit tests for GET /api/banned-cards/heroes — public read-only endpoint that
+ * returns heroes excluded/flagged in a format, both as a flat id list (for the
+ * matchup-picker hook) and with per-hero status (for the create-deck badge).
  *
  * Service is mocked.
  */
@@ -11,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/services', () => ({
-  bannedCardsService: { listBannedHeroIds: vi.fn() },
+  bannedCardsService: { listExcludedHeroes: vi.fn() },
 }))
 vi.mock('@/lib/redis', () => ({
   getRedisClient: () => null, // bypass cache in tests
@@ -20,7 +19,7 @@ vi.mock('@/lib/redis', () => ({
 import { GET } from './route'
 import { bannedCardsService } from '@/lib/services'
 
-const mockListBannedHeroIds = vi.mocked(bannedCardsService.listBannedHeroIds)
+const mockListExcludedHeroes = vi.mocked(bannedCardsService.listExcludedHeroes)
 
 const makeRequest = (qs = '') =>
   new NextRequest(`http://localhost/api/banned-cards/heroes${qs}`)
@@ -30,10 +29,13 @@ beforeEach(() => {
 })
 
 describe('GET /api/banned-cards/heroes', () => {
-  it('returns excludedHeroIds for a valid format', async () => {
-    mockListBannedHeroIds.mockResolvedValue({
+  it('returns excludedHeroIds and status-rich excludedHeroes for a valid format', async () => {
+    mockListExcludedHeroes.mockResolvedValue({
       success: true,
-      data: ['hero-iyslander', 'hero-oldhim'],
+      data: [
+        { cardUniqueId: 'hero-oldhim', status: 'living_legend' },
+        { cardUniqueId: 'hero-ira', status: 'benched' },
+      ],
     } as any)
 
     const res = await GET(makeRequest('?format=classic_constructed'))
@@ -41,8 +43,12 @@ describe('GET /api/banned-cards/heroes', () => {
 
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
-    expect(body.data.excludedHeroIds).toEqual(['hero-iyslander', 'hero-oldhim'])
-    expect(mockListBannedHeroIds).toHaveBeenCalledWith('classic_constructed')
+    expect(body.data.excludedHeroIds).toEqual(['hero-oldhim', 'hero-ira'])
+    expect(body.data.excludedHeroes).toEqual([
+      { cardUniqueId: 'hero-oldhim', status: 'living_legend' },
+      { cardUniqueId: 'hero-ira', status: 'benched' },
+    ])
+    expect(mockListExcludedHeroes).toHaveBeenCalledWith('classic_constructed')
   })
 
   it('400 when format query param missing', async () => {
@@ -51,7 +57,7 @@ describe('GET /api/banned-cards/heroes', () => {
 
     expect(res.status).toBe(400)
     expect(body.success).toBe(false)
-    expect(mockListBannedHeroIds).not.toHaveBeenCalled()
+    expect(mockListExcludedHeroes).not.toHaveBeenCalled()
   })
 
   it('400 when format is invalid', async () => {
@@ -60,14 +66,11 @@ describe('GET /api/banned-cards/heroes', () => {
 
     expect(res.status).toBe(400)
     expect(body.success).toBe(false)
-    expect(mockListBannedHeroIds).not.toHaveBeenCalled()
+    expect(mockListExcludedHeroes).not.toHaveBeenCalled()
   })
 
   it('500 when service returns failure', async () => {
-    mockListBannedHeroIds.mockResolvedValue({
-      success: false,
-      error: 'DB unreachable',
-    } as any)
+    mockListExcludedHeroes.mockResolvedValue({ success: false, error: 'DB unreachable' } as any)
 
     const res = await GET(makeRequest('?format=silver_age'))
     const body = await res.json()
@@ -77,8 +80,8 @@ describe('GET /api/banned-cards/heroes', () => {
     expect(body.error).toBe('DB unreachable')
   })
 
-  it('returns empty array when no heroes are banned for the format', async () => {
-    mockListBannedHeroIds.mockResolvedValue({ success: true, data: [] } as any)
+  it('returns empty arrays when no heroes are excluded for the format', async () => {
+    mockListExcludedHeroes.mockResolvedValue({ success: true, data: [] } as any)
 
     const res = await GET(makeRequest('?format=blitz'))
     const body = await res.json()
@@ -86,10 +89,11 @@ describe('GET /api/banned-cards/heroes', () => {
     expect(res.status).toBe(200)
     expect(body.success).toBe(true)
     expect(body.data.excludedHeroIds).toEqual([])
+    expect(body.data.excludedHeroes).toEqual([])
   })
 
   it('does not require authentication (public endpoint)', async () => {
-    mockListBannedHeroIds.mockResolvedValue({ success: true, data: [] } as any)
+    mockListExcludedHeroes.mockResolvedValue({ success: true, data: [] } as any)
 
     const res = await GET(makeRequest('?format=living_legend'))
     expect(res.status).toBe(200)
