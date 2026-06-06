@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, RefreshCw, Plus } from 'lucide-react'
 import type { BannedCardDTO, BannedFormat, RestrictionType } from '@/lib/services/contracts/IBannedCardsService'
+import { BanCardSearchDialog } from './BanCardSearchDialog'
+import type { BanCardOption } from './card-search-utils'
 
 interface FormatBucket {
   format: BannedFormat
@@ -49,7 +51,7 @@ export function BannedCardsClient({ initial, cardLookup: initialLookup }: Props)
   const [buckets, setBuckets] = useState<FormatBucket[]>(initial)
   const [cardLookup, setCardLookup] = useState<CardLookup>(initialLookup)
   const [filter, setFilter] = useState('')
-  const [newCardId, setNewCardId] = useState<Record<BannedFormat, string>>({} as any)
+  const [searchFormat, setSearchFormat] = useState<BannedFormat | null>(null)
   const [pending, startTransition] = useTransition()
   const [syncing, setSyncing] = useState<string | null>(null) // key: `${format}:${restrictionType}`
   const { toast } = useToast()
@@ -103,27 +105,27 @@ export function BannedCardsClient({ initial, cardLookup: initialLookup }: Props)
     })
   }
 
-  const addEntry = async (format: BannedFormat) => {
-    const cardUniqueId = newCardId[format]?.trim()
-    if (!cardUniqueId) {
-      toast({ title: 'Missing card_unique_id', variant: 'destructive' })
-      return
-    }
+  const addCard = async (format: BannedFormat, option: BanCardOption) => {
+    // Seed the lookup so the new row renders with its image before the refresh.
+    setCardLookup(prev => prev[option.cardUniqueId] ? prev : {
+      ...prev,
+      [option.cardUniqueId]: { name: option.name, pitch: option.pitch, imageUrl: option.imageUrl },
+    })
+    setSearchFormat(null)
     startTransition(async () => {
       const res = await fetch('/api/banned-cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ cardUniqueId, format }),
+        body: JSON.stringify({ cardUniqueId: option.cardUniqueId, format }),
       })
       const body = await res.json()
       if (!body.success) {
         toast({ title: 'Add failed', description: body.error, variant: 'destructive' })
         return
       }
-      setNewCardId(prev => ({ ...prev, [format]: '' }))
       await refreshBucket(format)
-      toast({ title: 'Banned card added' })
+      toast({ title: `Banned ${option.name || option.cardUniqueId}` })
     })
   }
 
@@ -213,15 +215,9 @@ export function BannedCardsClient({ initial, cardLookup: initialLookup }: Props)
                 )
               })}
               <div className="flex items-center gap-2 ml-auto">
-                <Input
-                  placeholder="card_unique_id"
-                  value={newCardId[bucket.format] ?? ''}
-                  onChange={e => setNewCardId(prev => ({ ...prev, [bucket.format]: e.target.value }))}
-                  className="w-[280px]"
-                />
-                <Button onClick={() => addEntry(bucket.format)} disabled={pending}>
+                <Button onClick={() => setSearchFormat(bucket.format)} disabled={pending}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add
+                  Add card
                 </Button>
               </div>
             </div>
@@ -298,6 +294,13 @@ export function BannedCardsClient({ initial, cardLookup: initialLookup }: Props)
           </TabsContent>
         ))}
       </Tabs>
+
+      <BanCardSearchDialog
+        open={searchFormat !== null}
+        onOpenChange={open => { if (!open) setSearchFormat(null) }}
+        formatLabel={searchFormat ? formatLabel(searchFormat) : ''}
+        onSelect={option => { if (searchFormat) addCard(searchFormat, option) }}
+      />
     </div>
   )
 }
