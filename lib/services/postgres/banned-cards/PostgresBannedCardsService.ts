@@ -1,6 +1,6 @@
 import { db } from '@/lib/postgres/db'
 import { bannedCards, cards } from '@/lib/postgres/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNull, lte, or } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type {
   BannedCardDTO,
@@ -123,18 +123,13 @@ export class PostgresBannedCardsService implements IBannedCardsService {
     }
   }
 
-  /**
-   * Re-derive `cards.{format}_banned` from the current state of `banned_cards`.
-   * The column is true iff there exists at least one active `restriction_type='banned'`
-   * row for this (card, format). Idempotent — safe to call after any mutation.
-   *
-   * Without this, the registry (admin UI) and the denormalized `cards` flag (read
-   * by the deck-builder search) drift out of sync and unbanned cards stay hidden.
-   */
-  private async recomputeCardsBannedFlag(cardUniqueId: string, format: BannedFormat): Promise<void> {
-    const column = FORMAT_TO_CARDS_BANNED_COLUMN[format]
-    if (!column) return
-
+  /** True iff an active row of the given type exists for (card, format). */
+  private async hasActiveRowOfType(
+    cardUniqueId: string,
+    format: BannedFormat,
+    restrictionType: RestrictionType,
+    extra?: ReturnType<typeof and>,
+  ): Promise<boolean> {
     const rows = await db
       .select({ id: bannedCards.id })
       .from(bannedCards)
@@ -142,14 +137,68 @@ export class PostgresBannedCardsService implements IBannedCardsService {
         and(
           eq(bannedCards.cardUniqueId, cardUniqueId),
           eq(bannedCards.format, format),
-          eq(bannedCards.restrictionType, 'banned'),
+          eq(bannedCards.restrictionType, restrictionType),
           eq(bannedCards.statusActive, true),
+          ...(extra ? [extra] : []),
         ),
       )
       .limit(1)
+    return rows.length > 0
+  }
 
-    const isBanned = rows.length > 0
-    await db.update(cards).set({ [column]: isBanned }).where(eq(cards.cardUniqueId, cardUniqueId))
+  /**
+   * Re-derive the denormalized `cards.*` columns from the current state of
+   * `banned_cards` for one (card, format). Idempotent — safe after any mutation.
+   * Without this, the registry (admin UI) and the denormalized flags read by the
+   * deck-builder search/validation drift out of sync. Status → target column:
+   *
+   *   banned        → {format}_banned
+   *   restricted    → ll_restricted               (Living Legend only)
+   *   benched       → silver_age_suspended        (Silver Age only, in-window)
+   *   living_legend → cc_legal=false, ll_legal=true (Classic Constructed only)
+   *
+   * Note: living_legend is asymmetric by design — it flips legality flags when a
+   * graduate row is active, but does NOT auto-revert them when removed (rare;
+   * un-graduating is a manual /admin/heroes action). All other statuses are a
+   * pure projection (true iff an active — and for benched, in-window — row exists).
+   */
+  private async recomputeCardFlags(cardUniqueId: string, format: BannedFormat): Promise<void> {
+    const set: Partial<typeof cards.$inferSelect> = {}
+
+    // banned → {format}_banned
+    const bannedColumn = FORMAT_TO_CARDS_BANNED_COLUMN[format]
+    if (bannedColumn) {
+      (set as Record<string, boolean>)[bannedColumn] =
+        await this.hasActiveRowOfType(cardUniqueId, format, 'banned')
+    }
+
+    // restricted → ll_restricted (Living Legend only)
+    if (format === 'living_legend') {
+      set.llRestricted = await this.hasActiveRowOfType(cardUniqueId, format, 'restricted')
+    }
+
+    // benched → silver_age_suspended (Silver Age only; only while in [from, until))
+    if (format === 'silver_age') {
+      const now = new Date()
+      const inWindow = and(
+        or(isNull(bannedCards.dateInEffect), lte(bannedCards.dateInEffect, now)),
+        or(isNull(bannedCards.dateExpires), gt(bannedCards.dateExpires, now)),
+      )
+      set.silverAgeSuspended = await this.hasActiveRowOfType(cardUniqueId, format, 'benched', inWindow)
+    }
+
+    // living_legend → cc_legal=false, ll_legal=true (CC only; apply-on-active, no auto-revert)
+    if (format === 'classic_constructed') {
+      const graduated = await this.hasActiveRowOfType(cardUniqueId, format, 'living_legend')
+      if (graduated) {
+        set.ccLegal = false
+        set.llLegal = true
+      }
+    }
+
+    if (Object.keys(set).length > 0) {
+      await db.update(cards).set(set).where(eq(cards.cardUniqueId, cardUniqueId))
+    }
   }
 
   async isBanned(cardUniqueId: string, format: BannedFormat): AsyncResult<boolean> {
@@ -229,7 +278,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
       if (!row[0]) {
         return { success: false, error: 'Upsert returned no row' }
       }
-      await this.recomputeCardsBannedFlag(row[0].cardUniqueId, row[0].format as BannedFormat)
+      await this.recomputeCardFlags(row[0].cardUniqueId, row[0].format as BannedFormat)
       return { success: true, data: toDTO(row[0]) }
     } catch (err) {
       return { success: false, error: describeError(err, 'Failed to upsert banned card') }
@@ -244,7 +293,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
         .where(eq(bannedCards.id, id))
         .returning()
       if (!row[0]) return { success: false, error: 'Banned card not found' }
-      await this.recomputeCardsBannedFlag(row[0].cardUniqueId, row[0].format as BannedFormat)
+      await this.recomputeCardFlags(row[0].cardUniqueId, row[0].format as BannedFormat)
       return { success: true, data: toDTO(row[0]) }
     } catch (err) {
       return { success: false, error: describeError(err, 'Failed to update ban status') }
@@ -255,7 +304,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
     try {
       const deleted = await db.delete(bannedCards).where(eq(bannedCards.id, id)).returning()
       if (deleted[0]) {
-        await this.recomputeCardsBannedFlag(deleted[0].cardUniqueId, deleted[0].format as BannedFormat)
+        await this.recomputeCardFlags(deleted[0].cardUniqueId, deleted[0].format as BannedFormat)
       }
       return { success: true, data: undefined }
     } catch (err) {
@@ -366,7 +415,7 @@ export class PostgresBannedCardsService implements IBannedCardsService {
         ...stale.map(r => r.cardUniqueId),
       ])
       for (const cardUniqueId of touchedCardIds) {
-        await this.recomputeCardsBannedFlag(cardUniqueId, format)
+        await this.recomputeCardFlags(cardUniqueId, format)
       }
 
       return {
