@@ -4,7 +4,7 @@ import { bannedCardsService, userService } from '@/lib/services'
 import { getRedisClient } from '@/lib/redis'
 
 async function requireSuperAdmin(request: NextRequest, body: unknown) {
-  const authResult = await authenticateRequest(request, body ?? {})
+  const authResult = await authenticateRequest(request, body ?? {}, { allowOAuth: true })
   if (!authResult.success) {
     return { ok: false as const, status: 401, error: authResult.error || 'Authentication required' }
   }

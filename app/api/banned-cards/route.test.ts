@@ -66,6 +66,15 @@ describe('POST /api/banned-cards', () => {
     expect(arg.restrictionType ?? 'banned').toBe('banned')
   })
 
+  it('accepts OAuth/MCP bearer tokens (allowOAuth) so superadmin MCP tools can write', async () => {
+    await post({ cardUniqueId: 'card-x', format: 'silver_age' })
+    expect(mockAuth).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ allowOAuth: true }),
+    )
+  })
+
   it('403 when the caller is not a superadmin', async () => {
     mockHasRole.mockResolvedValue({ success: true, data: false } as any)
     const res = await post({ cardUniqueId: 'c', format: 'silver_age' })

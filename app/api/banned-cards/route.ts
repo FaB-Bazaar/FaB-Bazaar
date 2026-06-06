@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Invalid body' }, { status: 400 })
   }
 
-  const authResult = await authenticateRequest(request, body)
+  const authResult = await authenticateRequest(request, body, { allowOAuth: true })
   if (!authResult.success) {
     return NextResponse.json({ success: false, error: authResult.error || 'Authentication required' }, { status: 401 })
   }
