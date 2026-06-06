@@ -640,12 +640,14 @@ export class FABShorthandParser {
 
     // Format searches
     {
-      pattern: /\bformat:(blitz|cc|commoner|ll)/gi,
+      pattern: /\bformat:(blitz|cc|commoner|ll|silver_age|sage)/gi,
       parser: (match, filters) => {
-        filters.format = match[1].toLowerCase() as any;
+        const fmt = match[1].toLowerCase();
+        // "sage" is community shorthand for Silver Age
+        filters.format = (fmt === 'sage' ? 'silver_age' : fmt) as any;
       },
       description: "Cards legal in format",
-      examples: ["format:blitz", "format:cc", "format:commoner"]
+      examples: ["format:blitz", "format:cc", "format:silver_age (alias: sage)"]
     },
 
     // =====================================

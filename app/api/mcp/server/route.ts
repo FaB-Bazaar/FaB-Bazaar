@@ -5,6 +5,7 @@ import { fabConstantsResource } from '../resource/fabConstants';
 import { articleFormattingResource } from '../resource/articleFormatting';
 import { cardIndexResource } from '../resource/cardIndex';
 import { heroIdsResource } from '../resource/heroIds';
+import { heroesByFormatResource } from '../resource/heroesByFormat';
 import { cardGridViewerResource } from '../resource/cardGridViewer';
 import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
@@ -326,9 +327,10 @@ export async function POST(req: Request) {
               '  2. Read `fab://constants` before any search or list-creation work. It contains:',
               '     - foiling / edition / set / rarity / keyword codes used by search_printings',
               '     - shorthand query syntax',
-              '     - `heroes_by_format`: adult heroes (Classic Constructed, Living Legend) vs young heroes (Silver Age, Blitz, Commoner), grouped by class, with { name, displayName, shortName }',
+              '     - `heroes_by_format`: adult heroes (Classic Constructed, Living Legend) vs young heroes (Silver Age, Blitz, Commoner), grouped by class, with { name, displayName, shortName }. This is a static roster bucketing only — for current per-format LEGALITY use `fab://heroes-by-format`.',
               '  3. Read `searchable://card/fields` before calling search_printings.',
               '  4. Read `fab://card-index` once per session before working with decklists (card name → printing ID lookup).',
+              '  5. Read `fab://heroes-by-format` before building/validating a hero+format deck pool (e.g. "Oldhim in Silver Age"). DB-derived per-format legality, split adult vs young; note many heroes (e.g. Oldhim) exist as BOTH a young hero and an adult hero legal in different formats.',
               '',
               'ERROR CONVENTION:',
               '  All tools return either { success: true, data, message? } or { success: false, error: "..." }.',
@@ -423,7 +425,8 @@ REQUIRED AT SESSION START:
 CONDITIONALLY REQUIRED (read these when relevant):
 3️⃣ {"uri": "fab://card-index"}        — BEFORE working with decklists (card name → printingId lookup)
 4️⃣ {"uri": "fab://hero-ids"}          — BEFORE calling save_deck_matchup
-5️⃣ {"uri": "article://formatting"}    — BEFORE editing articles
+5️⃣ {"uri": "fab://heroes-by-format"}  — BEFORE building/validating a hero+format deck pool (per-format legality, adult vs young)
+6️⃣ {"uri": "article://formatting"}    — BEFORE editing articles
 
 ═══════════════════════════════════════════════════════════════════
 CRITICAL RULES (read these — do not skip):
@@ -480,6 +483,7 @@ CURATOR/ADMIN TOOLS:
                         'searchable://card/fields',
                         'fab://card-index',
                         'fab://hero-ids',
+                        'fab://heroes-by-format',
                         'article://formatting'
                       ],
                       default: 'fab://constants'
@@ -723,12 +727,22 @@ Step 5: get_binder (verify additions)
             );
           }
 
+          if (uri === 'fab://heroes-by-format') {
+            const resourceData = await heroesByFormatResource.handler();
+            return buildResponse(
+              resourceData,
+              `✅ Loaded fab://heroes-by-format — heroes legal per format (cc/blitz/silver_age/commoner/ll), split adult vs young.`,
+              `💡 Read before building or validating a hero+format deck pool (e.g. "Oldhim in Silver Age"). Use the lowercase name for heroLegal.`,
+              { _heroesByFormatLoaded: true }
+            );
+          }
+
           return NextResponse.json({
             jsonrpc: '2.0',
             id,
             error: {
               code: -32602,
-              message: `Unknown resource URI: ${uri}. Valid URIs: fab://constants, searchable://card/fields, fab://card-index, fab://hero-ids, article://formatting.`
+              message: `Unknown resource URI: ${uri}. Valid URIs: fab://constants, searchable://card/fields, fab://card-index, fab://hero-ids, fab://heroes-by-format, article://formatting.`
             }
           }, { headers: corsHeaders() });
         }
@@ -1692,6 +1706,12 @@ The new tool provides the same functionality with better guidance for proper wor
                 name: cardIndexResource.name,
                 description: `🃏 DECKLIST IMPORT: ${cardIndexResource.description}`,
                 mimeType: 'application/json'
+              },
+              {
+                uri: heroesByFormatResource.uri,
+                name: heroesByFormatResource.name,
+                description: `🏆 FORMAT POOLS: ${heroesByFormatResource.description}`,
+                mimeType: heroesByFormatResource.mimeType
               },
               {
                 uri: cardGridViewerResource.uri,

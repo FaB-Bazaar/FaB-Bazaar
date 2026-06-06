@@ -25,6 +25,8 @@ export const FORMAT_CODES = {
   'open': 'Open',
   'sealed': 'Sealed',
   'silver age': 'Silver Age',
+  'silver_age': 'Silver Age',
+  'sage': 'Silver Age', // community shorthand for Silver Age
   'upf': 'Ultimate Pit Fight',
   'ultimate pit fight': 'Ultimate Pit Fight'
 } as const;
