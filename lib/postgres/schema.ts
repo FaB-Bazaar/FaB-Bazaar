@@ -374,6 +374,12 @@ export const cards = pgTable('cards', {
   silverAgeBanned: boolean('silver_age_banned').default(false).notNull(),
   silverAgeSuspended: boolean('silver_age_suspended').default(false).notNull(),
 
+  // Curated interpretive "facet" tags (what a card DOES) — projected from the
+  // card_facet_tags table. Curation-owned; pipeline must NOT overwrite (in
+  // CARD_ADMIN_OWNED_COLS). Vocabulary: lib/search/card-facets.ts. GIN index in
+  // migration 0059 (Drizzle can't express GIN).
+  facetTags: text('facet_tags').array().notNull().default(sql`ARRAY[]::text[]`),
+
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -381,6 +387,17 @@ export const cards = pgTable('cards', {
   nameIdx: index('idx_cards_name').on(table.name),
   typeTextIdx: index('idx_cards_type_text').on(table.typeText),
   lssCardIdIdx: index('idx_cards_lss_card_id').on(table.lssCardId),
+}));
+
+// Curated facet classification (source of truth). One row per card × tag.
+// Tags must be FacetTagId values from lib/search/card-facets.ts. Projected into
+// cards.facet_tags by scripts/load-card-facets. Pipeline never writes this.
+export const cardFacetTags = pgTable('card_facet_tags', {
+  cardUniqueId: text('card_unique_id').notNull().references(() => cards.cardUniqueId, { onDelete: 'cascade' }),
+  tag: text('tag').notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.cardUniqueId, table.tag] }),
+  tagIdx: index('idx_card_facet_tags_tag').on(table.tag),
 }));
 
 // ============================================================================

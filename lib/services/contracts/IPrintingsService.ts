@@ -251,6 +251,9 @@ export interface PrintingsSearchFilters {
   // Physical printing language(s), e.g. ['en']. Only English printings carry
   // TCGplayer ids + prices, so price-aware UIs default to ['en'].
   languages?: string[];
+  // Curated facet classification tags (cards.facet_tags array overlap). See
+  // lib/search/card-facets.ts for the vocabulary.
+  facetTags?: string[];
 
   // Price filters
   priceMin?: number;
@@ -580,6 +583,13 @@ export interface IPrintingsService {
     filters: PrintingsSearchFilters,
     options?: PrintingsSearchOptions
   ): AsyncResult<PrintingsSearchResult>;
+
+  /** Read a card's curated facet tags (from the projected cards.facet_tags). */
+  getCardFacetTags(cardUniqueId: string): AsyncResult<string[]>;
+
+  /** Replace a card's curated facet tags (validates vocabulary, applies to all
+   *  same-name variants, projects to cards.facet_tags). */
+  setCardFacetTags(cardUniqueId: string, tags: string[]): AsyncResult<{ applied: number }>;
 
   /**
    * Resolve multiple cards by name+pitch in a single DB query.

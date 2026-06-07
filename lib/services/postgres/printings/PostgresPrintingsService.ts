@@ -7,7 +7,8 @@
 
 import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards, cardTranslations } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards, cardTranslations, cardFacetTags } from '@/lib/postgres/schema';
+import { isFacetTag } from '@/lib/search/card-facets';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -216,6 +217,62 @@ export class PostgresPrintingsService implements IPrintingsService {
       case 'collector_number': return [orderFn(repr.collectorNumber), asc(repr.name)];
       case 'name':
       default:        return [orderFn(repr.name)];
+    }
+  }
+
+  /**
+   * Curated facet tags for a card (reads the projected cards.facet_tags column).
+   */
+  async getCardFacetTags(cardUniqueId: string): AsyncResult<string[]> {
+    try {
+      const [row] = await db
+        .select({ ft: cards.facetTags })
+        .from(cards)
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .limit(1);
+      return { success: true, data: row ? [...row.ft].sort() : [] };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to read facet tags' };
+    }
+  }
+
+  /**
+   * Replace a card's curated facet tags. Validates against the card-facets
+   * vocabulary, applies to ALL card_unique_ids sharing the display_name (facets
+   * are intrinsic to the card's function, identical across pitch variants), and
+   * projects into cards.facet_tags for fast search.
+   */
+  async setCardFacetTags(cardUniqueId: string, tags: string[]): AsyncResult<{ applied: number }> {
+    try {
+      const invalid = tags.filter((t) => !isFacetTag(t));
+      if (invalid.length > 0) {
+        return { success: false, error: `Invalid facet tags: ${invalid.join(', ')}` };
+      }
+      const unique = [...new Set(tags)];
+
+      const [card] = await db
+        .select({ name: cards.displayName })
+        .from(cards)
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .limit(1);
+      if (!card) return { success: false, error: 'Card not found' };
+
+      const variants = await db
+        .select({ id: cards.cardUniqueId })
+        .from(cards)
+        .where(eq(cards.displayName, card.name));
+
+      for (const { id } of variants) {
+        await db.delete(cardFacetTags).where(eq(cardFacetTags.cardUniqueId, id));
+        if (unique.length > 0) {
+          await db.insert(cardFacetTags).values(unique.map((tag) => ({ cardUniqueId: id, tag })));
+        }
+        await db.update(cards).set({ facetTags: unique }).where(eq(cards.cardUniqueId, id));
+      }
+
+      return { success: true, data: { applied: variants.length } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to set facet tags' };
     }
   }
 
@@ -1170,6 +1227,10 @@ export class PostgresPrintingsService implements IPrintingsService {
 
     if (filters.languages && filters.languages.length > 0) {
       conditions.push(inArray(printings.language, filters.languages.map((l) => l.toLowerCase())));
+    }
+
+    if (filters.facetTags && filters.facetTags.length > 0) {
+      conditions.push(sql`${cards.facetTags} && ARRAY[${sql.join(filters.facetTags.map((t) => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.artists && filters.artists.length > 0) {

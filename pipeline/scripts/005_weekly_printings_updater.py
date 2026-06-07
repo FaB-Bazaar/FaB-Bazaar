@@ -23,6 +23,11 @@ i18n invariants (intentional non-touches):
   by scripts/import-i18n.ts) are excluded from the stale-row DELETE via an
   explicit `language = 'en'` filter and stay untouched.
 - `card_translations` table: not referenced anywhere in this script.
+- `cards.facet_tags`: curated interpretive search facets, managed via
+  /admin/card-facets + the card_facet_tags registry. Not in CARD_FIELDS, so this
+  script never INSERTs or UPDATEs it — curated tags survive every re-sync. Also
+  listed in CARD_ADMIN_OWNED_COLS so it stays preserved if ever added to
+  CARD_FIELDS.
 
 Usage:
     python3 05_weekly_printings_updater.py --file printings_collection_seed.json --dry-run
@@ -164,6 +169,10 @@ CARD_ADMIN_OWNED_COLS = {
     'silver_age_suspended',
     'commoner_suspended',
     'll_restricted',
+    # facet_tags    — curated search facets (/admin/card-facets); not in
+    #                 CARD_FIELDS today, listed here so it is never clobbered if
+    #                 it ever is added.
+    'facet_tags',
 }
 
 
