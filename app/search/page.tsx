@@ -484,7 +484,7 @@ export default function SearchPage() {
           {(hasAnyFilter || !isDefaultLang) && (
             <button
               onClick={clearAll}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
             >
               <X className="w-3 h-3" /> Clear all filters
             </button>
@@ -506,13 +506,13 @@ export default function SearchPage() {
             <SlidersHorizontal className="w-4 h-4" />
           </button>
 
-          <span className="text-sm text-gray-400 font-medium">
+          <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
             {error ? (
-              <span className="text-red-400">{error}</span>
+              <span className="text-red-500 dark:text-red-400">{error}</span>
             ) : !hasAnyFilter ? (
-              <span className="text-gray-400 dark:text-gray-600">Search the catalog</span>
+              <span className="text-gray-500 dark:text-gray-400">Search the catalog</span>
             ) : loading ? (
-              <span className="text-gray-400 animate-pulse">Searching…</span>
+              <span className="animate-pulse">Searching…</span>
             ) : (
               <>{total.toLocaleString()} {groupByCard ? `card${total === 1 ? '' : 's'}` : `printing${total === 1 ? '' : 's'}`}</>
             )}
@@ -636,7 +636,7 @@ export default function SearchPage() {
         {/* Results */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
           {!hasAnyFilter ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-600">
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
               <SlidersHorizontal className="w-10 h-10 mb-3 opacity-20" />
               <p className="text-sm">Use the filters on the left to browse cards.</p>
             </div>

@@ -366,11 +366,11 @@ export default function OptSearchPage() {
               )}
             </div>
 
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap" aria-live="polite">
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap" aria-live="polite">
               {error ? (
-                <span className="text-red-500">{error}</span>
+                <span className="text-red-500 dark:text-red-400">{error}</span>
               ) : !hasAnyFilter ? (
-                <span className="text-gray-400 dark:text-gray-600">Search the catalog</span>
+                <span className="text-gray-500 dark:text-gray-400">Search the catalog</span>
               ) : loading ? (
                 <span className="animate-pulse">Searching…</span>
               ) : (
@@ -705,7 +705,7 @@ export default function OptSearchPage() {
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center px-4">
             <Search className="w-10 h-10 mb-4 text-gray-300 dark:text-gray-700" />
             <p className="text-sm text-gray-600 dark:text-gray-300 font-medium mb-1">Search the card catalog</p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mb-4">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
               Type a name, use the quick filters above, or try a shorthand query:
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2">
