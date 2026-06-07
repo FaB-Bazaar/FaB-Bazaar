@@ -1,20 +1,16 @@
 /**
- * card-facets.ts — single source of truth for interpretive card "facet" tags.
+ * card-facets.ts — SEED DATA for the interpretive card "facet" tag vocabulary.
  *
- * These tags are CURATED (human + Claude judgment), never derived by rules and
- * never written by the data pipeline. This file is the canonical vocabulary; the
- * app/MCP/UI/validation all import it so the allowed values can't drift.
- *
- * The HOW-TO (interpretation rules, classification process) lives in the
- * `add-search-facet` skill (references/taxonomy.md). This file is just the enum.
+ * ⚠️ This is no longer the runtime source of truth. The live vocabulary lives in
+ * the `facet_tag_definitions` table (created/edited via the /admin/card-facets
+ * content manager). This array was the original 26-tag seed, mirrored verbatim
+ * into migration 0060's INSERT. It is kept as documentation / a reference for the
+ * `add-search-facet` skill — runtime validation reads the DB, not this file.
  *
  * Dimensions:
  *   mechanical — what the card's TEXT does (observable on the card)
  *   strategic  — how the card is USED / what it's good against (not on the card)
  *   synergy    — named packages / themes the card plays with
- *
- * `draft: true` = definition not yet confirmed by the domain expert; refine before
- * relying on it for classification.
  */
 
 export type FacetDimension = 'mechanical' | 'strategic' | 'synergy';
@@ -91,15 +87,6 @@ export const FACET_TAGS = [
     def: 'General combo-chain piece (plays with combo-keyword cards) when no more-specific line applies.' },
 ] as const satisfies readonly FacetTag[];
 
-export type FacetTagId = typeof FACET_TAGS[number]['id'];
-
-/** All valid tag ids — use for MCP enum / validation. */
-export const FACET_TAG_IDS: readonly FacetTagId[] = FACET_TAGS.map((t) => t.id);
-
-/** Tags for one dimension (e.g. UI grouping). */
-export const facetsByDim = (dim: FacetDimension): readonly FacetTag[] =>
-  FACET_TAGS.filter((t) => t.dim === dim);
-
-/** Validate a curated tag against the vocabulary. */
-export const isFacetTag = (v: string): v is FacetTagId =>
-  (FACET_TAG_IDS as readonly string[]).includes(v);
+// NOTE: runtime helpers (isFacetTag / FACET_TAG_IDS / facetsByDim) were removed
+// when the vocabulary moved to the facet_tag_definitions table — validate against
+// the DB (FacetService), not this seed array.

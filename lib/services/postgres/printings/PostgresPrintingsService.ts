@@ -7,8 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards, cardTranslations, cardFacetTags } from '@/lib/postgres/schema';
-import { isFacetTag } from '@/lib/search/card-facets';
+import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions } from '@/lib/postgres/schema';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -244,11 +243,20 @@ export class PostgresPrintingsService implements IPrintingsService {
    */
   async setCardFacetTags(cardUniqueId: string, tags: string[]): AsyncResult<{ applied: number }> {
     try {
-      const invalid = tags.filter((t) => !isFacetTag(t));
-      if (invalid.length > 0) {
-        return { success: false, error: `Invalid facet tags: ${invalid.join(', ')}` };
-      }
       const unique = [...new Set(tags)];
+      // Validate against the runtime vocabulary (facet_tag_definitions), not the
+      // compile-time const — so UI-created tags are accepted.
+      if (unique.length > 0) {
+        const known = await db
+          .select({ id: facetTagDefinitions.id })
+          .from(facetTagDefinitions)
+          .where(inArray(facetTagDefinitions.id, unique));
+        const knownIds = new Set(known.map((r) => r.id));
+        const invalid = unique.filter((t) => !knownIds.has(t));
+        if (invalid.length > 0) {
+          return { success: false, error: `Invalid facet tags: ${invalid.join(', ')}` };
+        }
+      }
 
       const [card] = await db
         .select({ name: cards.displayName })

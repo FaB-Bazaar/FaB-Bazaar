@@ -24,7 +24,6 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/postgres/db'
 import { cards } from '@/lib/postgres/schema'
 import { printingsService } from '@/lib/services'
-import { isFacetTag } from '@/lib/search/card-facets'
 
 // name → facet tags. Final classification from the facet-vocabulary session.
 // (Nullrune Gloves is intentionally untagged — its arcane-barrier keyword covers it.)
@@ -72,13 +71,8 @@ const CLASSIFICATIONS: Record<string, string[]> = {
 async function main() {
   const dryRun = process.argv.includes('--dry-run')
 
-  // Fail fast if any tag drifted from the vocabulary.
-  const badTags = [...new Set(Object.values(CLASSIFICATIONS).flat())].filter((t) => !isFacetTag(t))
-  if (badTags.length) {
-    console.error(`❌ tags not in vocabulary: ${badTags.join(', ')}`)
-    process.exit(1)
-  }
-
+  // Tag vocabulary is validated by setCardFacetTags against facet_tag_definitions;
+  // any drifted tag surfaces as a per-card error below.
   const names = Object.keys(CLASSIFICATIONS)
   console.log(`${dryRun ? '[dry-run] ' : ''}Seeding ${names.length} cards…\n`)
 

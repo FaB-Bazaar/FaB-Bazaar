@@ -389,12 +389,25 @@ export const cards = pgTable('cards', {
   lssCardIdIdx: index('idx_cards_lss_card_id').on(table.lssCardId),
 }));
 
-// Curated facet classification (source of truth). One row per card × tag.
-// Tags must be FacetTagId values from lib/search/card-facets.ts. Projected into
-// cards.facet_tags by scripts/load-card-facets. Pipeline never writes this.
+// Curated facet vocabulary (runtime source of truth). Created/edited via the
+// /admin/card-facets content manager; seeded in migration 0060 from the
+// lib/search/card-facets.ts FACET_TAGS const (which is now seed data only).
+export const facetTagDefinitions = pgTable('facet_tag_definitions', {
+  id: text('id').primaryKey(), // slug, e.g. 'combo-enabler'
+  dim: text('dim').notNull(), // 'mechanical' | 'strategic' | 'synergy'
+  label: text('label').notNull(),
+  def: text('def').notNull().default(''),
+  draft: boolean('draft').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Curated facet assignments (source of truth). One row per card × tag.
+// `tag` FK-references facet_tag_definitions ON DELETE RESTRICT (migration 0060) —
+// a tag definition can't be deleted while assigned. Projected into
+// cards.facet_tags by the facet service. Pipeline never writes either column.
 export const cardFacetTags = pgTable('card_facet_tags', {
   cardUniqueId: text('card_unique_id').notNull().references(() => cards.cardUniqueId, { onDelete: 'cascade' }),
-  tag: text('tag').notNull(),
+  tag: text('tag').notNull().references(() => facetTagDefinitions.id, { onDelete: 'restrict' }),
 }, (table) => ({
   pk: primaryKey({ columns: [table.cardUniqueId, table.tag] }),
   tagIdx: index('idx_card_facet_tags_tag').on(table.tag),

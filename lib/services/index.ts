@@ -14,6 +14,7 @@
 import type { IUserService } from './contracts/IUserService';
 import type { IBinderService } from './contracts/IBinderService';
 import type { IPrintingsService } from './contracts/IPrintingsService';
+import type { IFacetService } from './contracts/IFacetService';
 import type { IWantsService } from './contracts/IWantsService';
 import type { IInventoryService } from './contracts/IInventoryService';
 import type { IAuthService } from './contracts/IAuthService';
@@ -43,6 +44,7 @@ import { AuthService } from './auth/AuthService';
 import { PostgresUserService } from './postgres/user/PostgresUserService';
 import { PostgresBinderService } from './postgres/binder/PostgresBinderService';
 import { PostgresPrintingsService } from './postgres/printings/PostgresPrintingsService';
+import { PostgresFacetService } from './postgres/facets/PostgresFacetService';
 import { PostgresWantsService } from './postgres/wants/PostgresWantsService';
 import { PostgresInventoryService } from './postgres/inventory/PostgresInventoryService';
 import { PostgresLocationService } from './postgres/location/PostgresLocationService';
@@ -83,6 +85,7 @@ class ServiceFactory {
   private static _userService: IUserService | null = null;
   private static _binderService: IBinderService | null = null;
   private static _printingsService: IPrintingsService | null = null;
+  private static _facetService: IFacetService | null = null;
   private static _wantsService: IWantsService | null = null;
   private static _inventoryService: IInventoryService | null = null;
   private static _authService: IAuthService | null = null;
@@ -199,6 +202,21 @@ class ServiceFactory {
     this._printingsService = service;
   }
 
+  /** Get the Facet (content-manager) Service instance. */
+  static get facetService(): IFacetService {
+    if (!this._facetService) {
+      this._facetService = this._dbProvider === 'postgres'
+        ? new PostgresFacetService()
+        : (() => { throw new Error("MongoDB is deprecated. Use DATABASE_PROVIDER=postgres"); })();
+    }
+    return this._facetService;
+  }
+
+  /** Set the Facet Service instance (for testing). */
+  static setFacetService(service: IFacetService): void {
+    this._facetService = service;
+  }
+
 
   /**
    * Get the Wants Service instance
@@ -299,6 +317,7 @@ class ServiceFactory {
     this._userService = null;
     this._binderService = null;
     this._printingsService = null;
+    this._facetService = null;
     this._wantsService = null;
     this._inventoryService = null;
     this._authService = null;
@@ -529,6 +548,7 @@ class ServiceFactory {
 export const userService = ServiceFactory.userService;
 export const binderService = ServiceFactory.binderService;
 export const printingsService = ServiceFactory.printingsService;
+export const facetService = ServiceFactory.facetService;
 export const wantsService = ServiceFactory.wantsService;
 export const inventoryService = ServiceFactory.inventoryService;
 export const authService = ServiceFactory.authService;
