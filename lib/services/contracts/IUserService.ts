@@ -532,7 +532,7 @@ export interface IUserService {
    * }
    * ```
    */
-  hasRole(userId: string, role: keyof UserRolesDTO): AsyncResult<boolean>;
+  hasRole(userId: string, role: keyof UserRolesDTO | 'isCurator'): AsyncResult<boolean>;
 
   /**
    * Link a Metafy account to a user
