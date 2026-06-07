@@ -34,8 +34,15 @@ import {
   Link2,
   Pin,
   TrendingUp,
+  Shield,
+  Tags,
+  ListChecks,
+  Ban,
+  Swords,
+  UserCog,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { accessibleAdminLinks } from "@/components/nav/admin-links"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -701,6 +708,53 @@ export default function Navbar() {
     )
   }
 
+  /* Admin dropdown — desktop only, shown only to users with an admin role.
+     Lists the admin pages the current user is allowed to open. */
+  const adminIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+    "/admin/articles": FileText,
+    "/admin/card-facets": Tags,
+    "/admin/curation": ListChecks,
+    "/admin/banned-cards": Ban,
+    "/admin/heroes": Swords,
+    "/admin/locations": MapPin,
+    "/admin/image-uploads": Upload,
+    "/admin/user-access": UserCog,
+  }
+
+  const renderAdminDropdown = () => {
+    const links = accessibleAdminLinks(user)
+    if (links.length === 0) return null
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${pathname.startsWith("/admin") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
+          >
+            <Shield className="h-4 w-4 mr-1" />
+            Admin
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+          {links.map((link) => {
+            const Icon = adminIcons[link.href] ?? Shield
+            return (
+              <DropdownMenuItem key={link.href} asChild>
+                <Link href={link.href} className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <Icon className="h-4 w-4 mr-2" />
+                  {link.label}
+                </Link>
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   return (
     <>
       <header className="bg-page dark:bg-gray-800 border-b dark:border-gray-600 sticky top-0 z-50">
@@ -786,6 +840,9 @@ export default function Navbar() {
               >
                 Tutorials
               </Link>
+
+              {/* Admin Dropdown - desktop only, admins only */}
+              {renderAdminDropdown()}
 
               {/* Discord - Standalone Link */}
               <Link

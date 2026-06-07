@@ -14,6 +14,7 @@ interface User {
   isMetafySupporter?: boolean
   isCurator?: boolean
   isSuperAdmin?: boolean
+  isContentCreator?: boolean
 }
 
 interface AuthContextType {
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isMetafySupporter: session.user.roles?.isMetafySupporter || false,
         isCurator: session.user.roles?.isCurator || false,
         isSuperAdmin: session.user.roles?.isSuperAdmin || false,
+        isContentCreator: session.user.roles?.isContentCreator || false,
       })
     } else {
       setUser(null)
