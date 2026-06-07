@@ -1051,6 +1051,10 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(inArray(printings.rarity, filters.rarities.map((r) => r.toLowerCase())));
     }
 
+    if (filters.languages && filters.languages.length > 0) {
+      conditions.push(inArray(printings.language, filters.languages.map((l) => l.toLowerCase())));
+    }
+
     if (filters.artists && filters.artists.length > 0) {
       conditions.push(sql`${printings.artists} && ${filters.artists}`);
     }

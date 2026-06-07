@@ -248,6 +248,9 @@ export interface PrintingsSearchFilters {
   foilings?: string[];
   rarities?: string[];
   artists?: string[];
+  // Physical printing language(s), e.g. ['en']. Only English printings carry
+  // TCGplayer ids + prices, so price-aware UIs default to ['en'].
+  languages?: string[];
 
   // Price filters
   priceMin?: number;

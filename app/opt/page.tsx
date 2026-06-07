@@ -29,6 +29,11 @@ const shorthandParser = new FABShorthandParser();
 // Server page size. The server paginates; we infinite-scroll page+1.
 const PAGE_SIZE = 60;
 
+// Default to English printings only: non-English printings carry no TCGplayer
+// ids or prices in our data, so showing them buries the priced English cards.
+// (A future language chip can let users opt into other languages or ALL.)
+const DEFAULT_LANGUAGES = ['en'];
+
 // Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
 // When it does we parse it into structured filters; otherwise it's a plain name.
 const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|text|format|p):/;
@@ -369,7 +374,7 @@ export default function OptSearchPage() {
     const id = ++reqIdRef.current;
     setLoading(true);
     setError(null);
-    searchPrintingsPost(filters, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any })
+    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict' })
       .then(res => {
         if (id !== reqIdRef.current) return; // a newer query superseded this one
         if (res.success) {
@@ -394,7 +399,7 @@ export default function OptSearchPage() {
     const id = reqIdRef.current; // tie this load to the current query
     const next = page + 1;
     setLoadingMore(true);
-    searchPrintingsPost(filters, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any })
+    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict' })
       .then(res => {
         if (id !== reqIdRef.current) return; // query changed mid-load → discard
         if (res.success) {
