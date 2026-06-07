@@ -24,12 +24,14 @@ import { trackSearch } from '@/lib/gtag';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
-// Clickable example queries shown in the empty state + under the search bar.
+// Clickable example queries shown in the empty state. Either a plain card name
+// or `key:value` shorthand (a bare phrase is treated as a name). All verified to
+// return results.
 const EXAMPLE_QUERIES = [
-  'blue ninja go again',
+  'command and conquer',
   't:equipment p:<5',
   'r:m hero:dorinthea',
-  'command and conquer | art of war',
+  'text:dominate t:attack',
 ];
 
 // ─── Popover (filter dropdown) ────────────────────────────────────────────────
