@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useDebounce } from 'use-debounce';
 import { useInView } from 'react-intersection-observer';
 import { Search, X, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown } from 'lucide-react';
@@ -17,46 +17,21 @@ import {
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
-import {
-  getAllPrintings, prefetchAllPrintings, filterPrintings, sortPrintings,
-  type BrowsePrinting, type BrowseFilters,
-} from '@/lib/client/browse-cache';
 import { groupPrintingsByCard } from '@/lib/utils/group-printings-by-card';
 import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
+import { searchPrintingsPost } from '@/lib/client/search-client';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
 
 // Module-level parser instance (stateless, safe to share)
 const shorthandParser = new FABShorthandParser();
 
-/**
- * Maps FABShorthandParser output (PrintingsSearchFilters) to the simpler
- * BrowseFilters used by the client-side filterPrintings engine.
- * (Identical translation to /search — only the presentation differs on this page.)
- */
-function parsedToBrowseFilters(pf: PrintingsSearchFilters): BrowseFilters {
-  const bf: BrowseFilters = {};
-  if (pf.searchableText) bf.name = pf.searchableText;
-  else if (pf.name)       bf.name = pf.name;
-  if (pf.types?.length) bf.types = pf.types.map(t => t.replace(/-/g, ' '));
-  if (pf.classes?.length) bf.classFlag = `is_${pf.classes[0]}` as keyof BrowsePrinting;
-  if (pf.pitch !== undefined && pf.pitch !== null) {
-    bf.pitch = Array.isArray(pf.pitch) ? pf.pitch[0] : pf.pitch;
-  }
-  if (pf.costMin   !== undefined) bf.costMin   = pf.costMin;
-  if (pf.costMax   !== undefined) bf.costMax   = pf.costMax;
-  if (pf.powerMin  !== undefined) bf.powerMin  = pf.powerMin;
-  if (pf.powerMax  !== undefined) bf.powerMax  = pf.powerMax;
-  if (pf.defenseMin !== undefined) bf.defenseMin = pf.defenseMin;
-  if (pf.defenseMax !== undefined) bf.defenseMax = pf.defenseMax;
-  if (pf.priceMax  !== undefined) bf.priceMax  = pf.priceMax;
-  if (pf.keywords?.length)  bf.keywords  = pf.keywords;
-  if (pf.rarities?.length)  bf.rarities  = pf.rarities;
-  if (pf.foilings?.length)  bf.foilings  = pf.foilings;
-  if (pf.editions?.length)  bf.editions  = pf.editions;
-  if (pf.sets?.length)      bf.sets      = pf.sets.map(s => s.toUpperCase());
-  return bf;
-}
+// Server page size. The server paginates; we infinite-scroll page+1.
+const PAGE_SIZE = 60;
+
+// Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
+// When it does we parse it into structured filters; otherwise it's a plain name.
+const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|text|format|p):/;
 
 const SECTION = 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
@@ -67,6 +42,68 @@ const EXAMPLE_QUERIES = [
   'r:m hero:dorinthea',
   'command and conquer | art of war',
 ];
+
+/**
+ * Translate the page's UI state (text query + filter chips) into the structured
+ * PrintingsSearchFilters the server understands. The text query is parsed with
+ * the shorthand parser when it looks like shorthand, else treated as a name.
+ * Chip selections are layered on top (and win on conflict).
+ */
+function buildServerFilters(args: {
+  query: string;
+  selectedType: string | null;
+  selectedClass: string | null;
+  selectedPitch: number | null;
+  selectedKeywords: string[];
+  selectedRarities: string[];
+  selectedFoilings: string[];
+  selectedEditions: string[];
+  selectedSets: string[];
+  costMin: string; costMax: string;
+  powerMin: string; powerMax: string;
+  defenseMin: string; defenseMax: string;
+  priceMax: string;
+}): PrintingsSearchFilters {
+  let f: PrintingsSearchFilters = {};
+
+  const q = args.query.trim();
+  if (q.length >= 2) {
+    if (SHORTHAND_RE.test(q)) {
+      // Shorthand → structured filters (supports `A | B` OR is handled below by name fallback only;
+      // for simplicity a single shorthand expression is parsed here).
+      const { filters } = shorthandParser.parseQuery(q);
+      f = { ...filters };
+    } else {
+      f.name = q;
+    }
+  }
+
+  // Chip selections layer on top of any parsed query filters.
+  if (args.selectedPitch !== null) f.pitch = args.selectedPitch;
+  if (args.selectedType) {
+    if (args.selectedType === 'generic') {
+      f.isGenericOnly = true;
+    } else {
+      const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === args.selectedType);
+      if (chip) f.types = [chip.apiType];
+    }
+  }
+  if (args.selectedClass) f.classes = [args.selectedClass];
+  if (args.selectedKeywords.length) f.keywords = args.selectedKeywords;
+  if (args.selectedRarities.length) f.rarities = args.selectedRarities;
+  if (args.selectedFoilings.length) f.foilings = args.selectedFoilings;
+  if (args.selectedEditions.length) f.editions = args.selectedEditions;
+  if (args.selectedSets.length) f.sets = args.selectedSets;
+  if (args.costMin)    f.costMin    = parseFloat(args.costMin);
+  if (args.costMax)    f.costMax    = parseFloat(args.costMax);
+  if (args.powerMin)   f.powerMin   = parseFloat(args.powerMin);
+  if (args.powerMax)   f.powerMax   = parseFloat(args.powerMax);
+  if (args.defenseMin) f.defenseMin = parseFloat(args.defenseMin);
+  if (args.defenseMax) f.defenseMax = parseFloat(args.defenseMax);
+  if (args.priceMax)   { f.priceMax = parseFloat(args.priceMax); f.priceField = 'tcg_low'; }
+
+  return f;
+}
 
 // ─── Popover (filter dropdown) ────────────────────────────────────────────────
 // Self-contained: closes on outside-click and Escape. No extra deps.
@@ -248,7 +285,7 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OptSearchPage() {
-  // ── Filter state (same shape as /search) ──
+  // ── Filter state ──
   const [query, setQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
@@ -266,10 +303,15 @@ export default function OptSearchPage() {
   const [defenseMax, setDefenseMax] = useState('');
   const [priceMax, setPriceMax] = useState('');
 
-  // ── Data + UI state ──
-  const [allPrintings, setAllPrintings] = useState<BrowsePrinting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState(false);
+  // ── Result + UI state ──
+  const [results, setResults] = useState<any[]>([]); // accumulated printings across loaded pages
+  const [total, setTotal] = useState(0);             // total printings matching (server count)
+  const [pages, setPages] = useState(0);             // total pages (server)
+  const [page, setPage] = useState(1);               // highest loaded page
+  const [loading, setLoading] = useState(false);     // initial / replace fetch
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
@@ -286,103 +328,93 @@ export default function OptSearchPage() {
     }
   }, [groupByCard]);
 
-  const [debouncedQuery] = useDebounce(query, 250);
-  const [displayLimit, setDisplayLimit] = useState(60);
+  const [debouncedQuery] = useDebounce(query, 300);
   const { ref: sentinelRef, inView } = useInView({ threshold: 0 });
 
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
 
-  // ── Load full card catalog once on mount ──
-  const loadCatalog = () => {
-    setCatalogError(false);
-    setLoading(true);
-    getAllPrintings()
-      .then(data => { setAllPrintings(data); setLoading(false); })
-      .catch(() => { setLoading(false); setCatalogError(true); });
-  };
+  // Monotonic request id — guards against out-of-order responses when filters
+  // change while a fetch is in flight (stale page-1 overwriting a newer query).
+  const reqIdRef = useRef(0);
 
   useEffect(() => {
     inputRef.current?.focus();
-    loadCatalog();
-    prefetchAllPrintings();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const effectiveQuery = debouncedQuery.trim().length >= 2 ? debouncedQuery.trim() : '';
+  // ── Build structured server filters from UI state (debounced query) ──
+  const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
+    query: debouncedQuery,
+    selectedType, selectedClass, selectedPitch,
+    selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
+  }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
+       selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax]);
 
-  const hasAnyFilter = !!(
-    selectedType || selectedClass || selectedPitch !== null || effectiveQuery ||
-    selectedKeywords.length || selectedRarities.length || selectedFoilings.length ||
-    selectedEditions.length || selectedSets.length ||
-    costMin || costMax || powerMin || powerMax || defenseMin || defenseMax || priceMax
+  const hasAnyFilter = Object.keys(filters).length > 0;
+
+  // Stable key that changes whenever the effective query (filters + sort) changes.
+  const queryKey = useMemo(
+    () => JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder,
+    [filters, sortBy, sortOrder],
   );
 
-  // ── Derived results (identical engine to /search) ──
-  const displayedPrintings = useMemo<BrowsePrinting[]>(() => {
-    if (!hasAnyFilter || allPrintings.length === 0) return [];
-
-    const typeChip = selectedType ? [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType) : null;
-
-    const sidebarFilters: BrowseFilters = {};
-    if (typeChip)         sidebarFilters.types     = [typeChip.apiType];
-    if (selectedClass)    sidebarFilters.classFlag = `is_${selectedClass}` as keyof BrowsePrinting;
-    if (selectedPitch !== null) sidebarFilters.pitch = selectedPitch;
-    if (selectedKeywords.length)   sidebarFilters.keywords = selectedKeywords;
-    if (selectedRarities.length)   sidebarFilters.rarities = selectedRarities;
-    if (selectedFoilings.length)   sidebarFilters.foilings = selectedFoilings;
-    if (selectedEditions.length)   sidebarFilters.editions = selectedEditions;
-    if (selectedSets.length)       sidebarFilters.sets     = selectedSets;
-    if (costMin)    sidebarFilters.costMin    = parseFloat(costMin);
-    if (costMax)    sidebarFilters.costMax    = parseFloat(costMax);
-    if (powerMin)   sidebarFilters.powerMin   = parseFloat(powerMin);
-    if (powerMax)   sidebarFilters.powerMax   = parseFloat(powerMax);
-    if (defenseMin) sidebarFilters.defenseMin = parseFloat(defenseMin);
-    if (defenseMax) sidebarFilters.defenseMax = parseFloat(defenseMax);
-    if (priceMax)   sidebarFilters.priceMax   = parseFloat(priceMax);
-
-    if (!effectiveQuery) {
-      return sortPrintings(filterPrintings(allPrintings, sidebarFilters), sortBy, sortOrder as 'asc' | 'desc');
+  // ── Fetch page 1 (replace) whenever the query changes ──
+  useEffect(() => {
+    if (!hasAnyFilter) {
+      setResults([]); setTotal(0); setPages(0); setPage(1); setError(null); setLoading(false);
+      return;
     }
+    const id = ++reqIdRef.current;
+    setLoading(true);
+    setError(null);
+    searchPrintingsPost(filters, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any })
+      .then(res => {
+        if (id !== reqIdRef.current) return; // a newer query superseded this one
+        if (res.success) {
+          setResults(res.data.printings ?? []);
+          setTotal(res.data.total ?? 0);
+          setPages(res.data.pages ?? 0);
+          setPage(1);
+          trackSearch({ search_term: debouncedQuery.trim(), result_count: res.data.total ?? 0 });
+        } else {
+          setError(res.error || 'Search failed');
+          setResults([]); setTotal(0); setPages(0);
+        }
+      })
+      .catch(() => { if (id === reqIdRef.current) { setError('Search failed'); setResults([]); } })
+      .finally(() => { if (id === reqIdRef.current) setLoading(false); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
 
-    const queryParts = effectiveQuery.split(' | ').map(p => p.trim()).filter(Boolean);
-
-    if (queryParts.length <= 1) {
-      const { filters: pf } = shorthandParser.parseQuery(effectiveQuery);
-      const merged: BrowseFilters = { ...sidebarFilters, ...parsedToBrowseFilters(pf) };
-      return sortPrintings(filterPrintings(allPrintings, merged), sortBy, sortOrder as 'asc' | 'desc');
-    }
-
-    const seen = new Set<string>();
-    const union: BrowsePrinting[] = [];
-    for (const part of queryParts) {
-      const { filters: pf } = shorthandParser.parseQuery(part);
-      const merged: BrowseFilters = { ...sidebarFilters, ...parsedToBrowseFilters(pf) };
-      for (const p of filterPrintings(allPrintings, merged)) {
-        if (!seen.has(p.printing_id)) { seen.add(p.printing_id); union.push(p); }
-      }
-    }
-    return sortPrintings(union, sortBy, sortOrder as 'asc' | 'desc');
-  }, [allPrintings, hasAnyFilter, effectiveQuery, selectedType, selectedClass, selectedPitch,
-      selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
-      costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
-      sortBy, sortOrder]);
+  // ── Load the next page and append ──
+  const loadMore = useCallback(() => {
+    if (loading || loadingMore || page >= pages) return;
+    const id = reqIdRef.current; // tie this load to the current query
+    const next = page + 1;
+    setLoadingMore(true);
+    searchPrintingsPost(filters, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any })
+      .then(res => {
+        if (id !== reqIdRef.current) return; // query changed mid-load → discard
+        if (res.success) {
+          setResults(prev => [...prev, ...(res.data.printings ?? [])]);
+          setPage(next);
+        }
+      })
+      .finally(() => { if (id === reqIdRef.current) setLoadingMore(false); });
+  }, [loading, loadingMore, page, pages, filters, sortBy, sortOrder]);
 
   useEffect(() => {
-    if (!effectiveQuery) return;
-    trackSearch({ search_term: effectiveQuery, result_count: displayedPrintings.length });
-  }, [effectiveQuery, displayedPrintings.length]);
+    if (inView) loadMore();
+  }, [inView, loadMore]);
 
-  const effectivePrintings = useMemo<BrowsePrinting[]>(() => {
-    if (!groupByCard) return displayedPrintings;
-    return groupPrintingsByCard(displayedPrintings).map((g) => g.canonicalPrinting);
-  }, [displayedPrintings, groupByCard]);
-
-  useEffect(() => { setDisplayLimit(60); }, [effectivePrintings]);
-
-  useEffect(() => {
-    if (inView && displayLimit < effectivePrintings.length) setDisplayLimit(l => l + 60);
-  }, [inView, displayLimit, effectivePrintings.length]);
+  // ── Grouped view collapses cross-language / foiling variants per card_unique_id ──
+  // Grouping runs over the loaded set; tiles fill in as more pages stream in.
+  const displayed = useMemo<any[]>(() => {
+    if (!groupByCard) return results;
+    return groupPrintingsByCard(results as any).map((g) => g.canonicalPrinting);
+  }, [results, groupByCard]);
 
   const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -395,8 +427,6 @@ export default function OptSearchPage() {
     setDefenseMin(''); setDefenseMax(''); setPriceMax('');
     inputRef.current?.focus();
   };
-
-  const visiblePrintings = effectivePrintings.slice(0, displayLimit);
 
   // ── Active-filter chip descriptors ──
   const rangeLabel = (label: string, min: string, max: string) =>
@@ -439,6 +469,7 @@ export default function OptSearchPage() {
   if (priceMax) activeChips.push({ key: 'price', label: `≤ $${priceMax}`, onRemove: () => setPriceMax('') });
 
   const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
+  const hasMore = page < pages;
 
   // ── Render ──
   return (
@@ -456,7 +487,7 @@ export default function OptSearchPage() {
                 ref={inputRef}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search by name or syntax — e.g. blue ninja go again, t:equipment p:<5, A | B"
+                placeholder="Search by name or syntax — e.g. blue ninja go again, t:equipment p:<5"
                 aria-label="Search cards"
                 className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -472,17 +503,18 @@ export default function OptSearchPage() {
             </div>
 
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap" aria-live="polite">
-              {loading ? (
-                <span className="animate-pulse">Loading…</span>
-              ) : catalogError ? (
-                <span className="text-red-500">Catalog failed</span>
-              ) : hasAnyFilter ? (
-                groupByCard
-                  ? <>{effectivePrintings.length.toLocaleString()} cards · {displayedPrintings.length.toLocaleString()} printings</>
-                  : <>{displayedPrintings.length.toLocaleString()} printings</>
-              ) : allPrintings.length > 0 ? (
-                <>{allPrintings.length.toLocaleString()} cards ready</>
-              ) : <>Loading…</>}
+              {error ? (
+                <span className="text-red-500">{error}</span>
+              ) : !hasAnyFilter ? (
+                <span className="text-gray-400 dark:text-gray-600">Search the catalog</span>
+              ) : loading ? (
+                <span className="animate-pulse">Searching…</span>
+              ) : (
+                <>
+                  {total.toLocaleString()} printing{total === 1 ? '' : 's'}
+                  {groupByCard && <> · {displayed.length.toLocaleString()} cards shown</>}
+                </>
+              )}
             </span>
 
             <div className="flex items-center gap-2">
@@ -543,10 +575,7 @@ export default function OptSearchPage() {
             </div>
           </div>
 
-          {/* Row 2: quick-filter dropdowns.
-              NOTE: must NOT use overflow-x-auto here — an overflow container
-              clips the absolutely-positioned popover panels (the "dropdowns
-              don't open" bug). Wrap instead so it stays responsive. */}
+          {/* Row 2: quick-filter dropdowns. (No overflow container — it would clip the popovers.) */}
           <div className="flex flex-wrap items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
 
@@ -781,54 +810,7 @@ export default function OptSearchPage() {
 
       {/* ── RESULTS ── */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-            <p className="text-sm">Loading card catalog…</p>
-            {hasAnyFilter && <p className="text-xs mt-1 text-gray-400">Your search will run when ready.</p>}
-          </div>
-        ) : catalogError ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <Search className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm">Failed to load card catalog.</p>
-            <button onClick={loadCatalog} className="mt-3 text-xs text-blue-500 hover:text-blue-400 underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded">
-              Try again
-            </button>
-          </div>
-        ) : displayedPrintings.length > 0 ? (
-          <>
-            {viewMode === 'checklist' ? (
-              <ChecklistView
-                printings={visiblePrintings}
-                onToggleSelection={selection.toggleCardSelection}
-                isCardSelected={selection.isCardSelected}
-                getCardQuantity={selection.getCardQuantity}
-                onUpdateQuantity={selection.updateQuantity}
-                onSelectAll={() => selection.selectAll(displayedPrintings)}
-                onDeselectAll={() => selection.deselectAll(displayedPrintings)}
-              />
-            ) : (
-              <ImagesView
-                printings={visiblePrintings}
-                onToggleSelection={selection.toggleCardSelection}
-                isCardSelected={selection.isCardSelected}
-                getCardQuantity={selection.getCardQuantity}
-                onUpdateQuantity={selection.updateQuantity}
-              />
-            )}
-            {displayLimit < effectivePrintings.length && (
-              <div ref={sentinelRef} className="flex items-center justify-center py-6">
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          </>
-        ) : hasAnyFilter ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <Search className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm">No cards matched your filters.</p>
-            <button onClick={clearAll} className="mt-3 text-xs hover:text-gray-700 dark:hover:text-gray-300 underline">Clear filters</button>
-          </div>
-        ) : (
+        {!hasAnyFilter ? (
           // Empty state — surfaces the search syntax with clickable examples.
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center px-4">
             <Search className="w-10 h-10 mb-4 text-gray-300 dark:text-gray-700" />
@@ -847,6 +829,51 @@ export default function OptSearchPage() {
                 </button>
               ))}
             </div>
+          </div>
+        ) : loading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-sm">Searching…</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <Search className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm text-red-500">{error}</p>
+          </div>
+        ) : displayed.length > 0 ? (
+          <>
+            {viewMode === 'checklist' ? (
+              <ChecklistView
+                printings={displayed}
+                onToggleSelection={selection.toggleCardSelection}
+                isCardSelected={selection.isCardSelected}
+                getCardQuantity={selection.getCardQuantity}
+                onUpdateQuantity={selection.updateQuantity}
+                onSelectAll={() => selection.selectAll(displayed)}
+                onDeselectAll={() => selection.deselectAll(displayed)}
+              />
+            ) : (
+              <ImagesView
+                printings={displayed}
+                onToggleSelection={selection.toggleCardSelection}
+                isCardSelected={selection.isCardSelected}
+                getCardQuantity={selection.getCardQuantity}
+                onUpdateQuantity={selection.updateQuantity}
+              />
+            )}
+            {hasMore && (
+              <div ref={sentinelRef} className="flex items-center justify-center py-6">
+                {loadingMore
+                  ? <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  : <span className="text-xs text-gray-400">Scroll for more</span>}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <Search className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">No cards matched your filters.</p>
+            <button onClick={clearAll} className="mt-3 text-xs hover:text-gray-700 dark:hover:text-gray-300 underline">Clear filters</button>
           </div>
         )}
       </div>
