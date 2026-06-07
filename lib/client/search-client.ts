@@ -49,7 +49,7 @@ export async function searchPrintings(
       ...filters,
     });
 
-    const response = await fetch(`/api/search/printings?${params.toString()}`);
+    const response = await fetch(`/api/printings/search?${params.toString()}`);
     return await handleResponse<PrintingsSearchResult>(response);
   } catch (error) {
     return handleError(error);
