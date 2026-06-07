@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDebounce } from 'use-debounce';
-import { useInView } from 'react-intersection-observer';
 import { Search, X, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
@@ -17,36 +16,11 @@ import {
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
+import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { languageFlag } from '@/lib/utils/printing-language';
-import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
-import { searchPrintingsPost } from '@/lib/client/search-client';
+import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/build-server-filters';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
-
-// Module-level parser instance (stateless, safe to share)
-const shorthandParser = new FABShorthandParser();
-
-// Server page size. The server paginates; we infinite-scroll page+1.
-const PAGE_SIZE = 60;
-
-// Default to English printings only: non-English printings carry no TCGplayer
-// ids or prices in our data, so showing them buries the priced English cards.
-// The Language control lets users expand to specific languages or ALL.
-const DEFAULT_LANGUAGES = ['en'];
-
-// Physical printing languages present in the catalog.
-const LANGUAGES: { code: string; label: string }[] = [
-  { code: 'en', label: 'English' },
-  { code: 'fr', label: 'French' },
-  { code: 'de', label: 'German' },
-  { code: 'it', label: 'Italian' },
-  { code: 'es', label: 'Spanish' },
-  { code: 'ja', label: 'Japanese' },
-];
-
-// Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
-// When it does we parse it into structured filters; otherwise it's a plain name.
-const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|text|format|p):/;
 
 const SECTION = 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
@@ -57,68 +31,6 @@ const EXAMPLE_QUERIES = [
   'r:m hero:dorinthea',
   'command and conquer | art of war',
 ];
-
-/**
- * Translate the page's UI state (text query + filter chips) into the structured
- * PrintingsSearchFilters the server understands. The text query is parsed with
- * the shorthand parser when it looks like shorthand, else treated as a name.
- * Chip selections are layered on top (and win on conflict).
- */
-function buildServerFilters(args: {
-  query: string;
-  selectedType: string | null;
-  selectedClass: string | null;
-  selectedPitch: number | null;
-  selectedKeywords: string[];
-  selectedRarities: string[];
-  selectedFoilings: string[];
-  selectedEditions: string[];
-  selectedSets: string[];
-  costMin: string; costMax: string;
-  powerMin: string; powerMax: string;
-  defenseMin: string; defenseMax: string;
-  priceMax: string;
-}): PrintingsSearchFilters {
-  let f: PrintingsSearchFilters = {};
-
-  const q = args.query.trim();
-  if (q.length >= 2) {
-    if (SHORTHAND_RE.test(q)) {
-      // Shorthand → structured filters (supports `A | B` OR is handled below by name fallback only;
-      // for simplicity a single shorthand expression is parsed here).
-      const { filters } = shorthandParser.parseQuery(q);
-      f = { ...filters };
-    } else {
-      f.name = q;
-    }
-  }
-
-  // Chip selections layer on top of any parsed query filters.
-  if (args.selectedPitch !== null) f.pitch = args.selectedPitch;
-  if (args.selectedType) {
-    if (args.selectedType === 'generic') {
-      f.isGenericOnly = true;
-    } else {
-      const chip = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === args.selectedType);
-      if (chip) f.types = [chip.apiType];
-    }
-  }
-  if (args.selectedClass) f.classes = [args.selectedClass];
-  if (args.selectedKeywords.length) f.keywords = args.selectedKeywords;
-  if (args.selectedRarities.length) f.rarities = args.selectedRarities;
-  if (args.selectedFoilings.length) f.foilings = args.selectedFoilings;
-  if (args.selectedEditions.length) f.editions = args.selectedEditions;
-  if (args.selectedSets.length) f.sets = args.selectedSets;
-  if (args.costMin)    f.costMin    = parseFloat(args.costMin);
-  if (args.costMax)    f.costMax    = parseFloat(args.costMax);
-  if (args.powerMin)   f.powerMin   = parseFloat(args.powerMin);
-  if (args.powerMax)   f.powerMax   = parseFloat(args.powerMax);
-  if (args.defenseMin) f.defenseMin = parseFloat(args.defenseMin);
-  if (args.defenseMax) f.defenseMax = parseFloat(args.defenseMax);
-  if (args.priceMax)   { f.priceMax = parseFloat(args.priceMax); f.priceField = 'tcg_low'; }
-
-  return f;
-}
 
 // ─── Popover (filter dropdown) ────────────────────────────────────────────────
 // Self-contained: closes on outside-click and Escape. No extra deps.
@@ -320,15 +232,7 @@ export default function OptSearchPage() {
   // Language selection: ['en'] = English default, [] = ALL languages.
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
 
-  // ── Result + UI state ──
-  const [results, setResults] = useState<any[]>([]); // accumulated printings across loaded pages
-  const [total, setTotal] = useState(0);             // total printings matching (server count)
-  const [pages, setPages] = useState(0);             // total pages (server)
-  const [page, setPage] = useState(1);               // highest loaded page
-  const [loading, setLoading] = useState(false);     // initial / replace fetch
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  // ── UI state ──
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
@@ -339,18 +243,10 @@ export default function OptSearchPage() {
   const [groupByCard, setGroupByCard] = useState<boolean>(true);
 
   const [debouncedQuery] = useDebounce(query, 300);
-  const { ref: sentinelRef, inView } = useInView({ threshold: 0 });
-
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
 
-  // Monotonic request id — guards against out-of-order responses when filters
-  // change while a fetch is in flight (stale page-1 overwriting a newer query).
-  const reqIdRef = useRef(0);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
@@ -364,68 +260,16 @@ export default function OptSearchPage() {
 
   const hasAnyFilter = Object.keys(filters).length > 0;
 
-  // Stable key that changes whenever the effective query (filters + sort +
-  // grouping mode) changes — toggling Grouped/All-printings refetches.
-  const queryKey = useMemo(
-    () => JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder + '|' + groupByCard + '|' + selectedLanguages.join(','),
-    [filters, sortBy, sortOrder, groupByCard, selectedLanguages],
-  );
+  // ── Server-paginated search (shared with /search) ──
+  const { results, total, loading, loadingMore, error, sentinelRef, hasMore } = useCardSearch({
+    filters,
+    languages: selectedLanguages,
+    sortBy, sortOrder, groupByCard,
+    enabled: hasAnyFilter,
+    onLoaded: (t) => { const q = debouncedQuery.trim(); if (q) trackSearch({ search_term: q, result_count: t }); },
+  });
 
-  // [] (All languages) → no language restriction; otherwise restrict to the picks.
-  const languageFilter = selectedLanguages.length ? selectedLanguages : undefined;
-
-  // ── Fetch page 1 (replace) whenever the query changes ──
-  useEffect(() => {
-    if (!hasAnyFilter) {
-      setResults([]); setTotal(0); setPages(0); setPage(1); setError(null); setLoading(false);
-      return;
-    }
-    const id = ++reqIdRef.current;
-    setLoading(true);
-    setError(null);
-    searchPrintingsPost({ ...filters, languages: languageFilter }, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
-      .then(res => {
-        if (id !== reqIdRef.current) return; // a newer query superseded this one
-        if (res.success) {
-          setResults(res.data.printings ?? []);
-          setTotal(res.data.total ?? 0);
-          setPages(res.data.pages ?? 0);
-          setPage(1);
-          trackSearch({ search_term: debouncedQuery.trim(), result_count: res.data.total ?? 0 });
-        } else {
-          setError(res.error || 'Search failed');
-          setResults([]); setTotal(0); setPages(0);
-        }
-      })
-      .catch(() => { if (id === reqIdRef.current) { setError('Search failed'); setResults([]); } })
-      .finally(() => { if (id === reqIdRef.current) setLoading(false); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey]);
-
-  // ── Load the next page and append ──
-  const loadMore = useCallback(() => {
-    if (loading || loadingMore || page >= pages) return;
-    const id = reqIdRef.current; // tie this load to the current query
-    const next = page + 1;
-    setLoadingMore(true);
-    searchPrintingsPost({ ...filters, languages: languageFilter }, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
-      .then(res => {
-        if (id !== reqIdRef.current) return; // query changed mid-load → discard
-        if (res.success) {
-          setResults(prev => [...prev, ...(res.data.printings ?? [])]);
-          setPage(next);
-        }
-      })
-      .finally(() => { if (id === reqIdRef.current) setLoadingMore(false); });
-  }, [loading, loadingMore, page, pages, filters, sortBy, sortOrder, groupByCard, selectedLanguages]);
-
-  useEffect(() => {
-    if (inView) loadMore();
-  }, [inView, loadMore]);
-
-  // The server returns card-level rows when grouped (one cheapest printing per
-  // card) and printing-level rows when not — so no client-side grouping is
-  // needed; render the results directly.
+  // Server returns card-level rows when grouped, printing-level when not.
   const displayed = results;
 
   const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
@@ -437,7 +281,7 @@ export default function OptSearchPage() {
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
     setDefenseMin(''); setDefenseMax(''); setPriceMax('');
-    setSelectedLanguages(['en']);
+    setSelectedLanguages(DEFAULT_LANGUAGES);
     inputRef.current?.focus();
   };
 
@@ -490,7 +334,6 @@ export default function OptSearchPage() {
   }
 
   const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
-  const hasMore = page < pages;
 
   // ── Render ──
   return (
