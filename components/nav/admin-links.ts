@@ -3,8 +3,6 @@
  * gating can be unit-tested independently of the navbar. Each link's `roles`
  * lists the roles that grant access (OR semantics) — mirror the access gate on
  * the corresponding app/admin/<page> server component when adding entries.
- *
- * (Excludes /admin/debug-auth — a developer debug page, not a destination.)
  */
 
 export type AdminRoleKey = 'superAdmin' | 'curator' | 'contentCreator'
