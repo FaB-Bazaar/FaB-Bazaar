@@ -39,4 +39,20 @@ describe('PostgresPrintingsService — language field', () => {
     expect(languagesSeen.has('en')).toBe(true);
     expect(languagesSeen.size).toBeGreaterThan(1);
   });
+
+  it('restricts to the given language(s) when `languages` filter is provided', async () => {
+    // Same multi-language card, but constrained to English only. Without the
+    // filter this returns fr/de/it/es/ja too (see the test above), so this
+    // pins the new behavior.
+    const result = await service.searchPrintings(
+      { name: "Fyendal's Spring Tunic", languages: ['en'] },
+      { limit: 100 },
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data.printings.length).toBeGreaterThan(0);
+    const languagesSeen = new Set(result.data.printings.map((p) => p.language));
+    expect([...languagesSeen]).toEqual(['en']);
+  });
 });

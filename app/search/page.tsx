@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDebounce } from 'use-debounce';
-import { useInView } from 'react-intersection-observer';
 import { Search, X, ChevronDown, ChevronUp, SlidersHorizontal, List, Images, Heart, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
@@ -17,61 +16,13 @@ import {
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
-import {
-  getAllPrintings, prefetchAllPrintings, filterPrintings, sortPrintings,
-  type BrowsePrinting, type BrowseFilters,
-} from '@/lib/client/browse-cache';
-import { groupPrintingsByCard } from '@/lib/utils/group-printings-by-card';
-import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
+import { useCardSearch } from '@/hooks/search/useCardSearch';
+import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/build-server-filters';
+import { languageFlag } from '@/lib/utils/printing-language';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
 
-// Module-level parser instance (stateless, safe to share)
-const shorthandParser = new FABShorthandParser();
-
-/**
- * Maps FABShorthandParser output (PrintingsSearchFilters) to the simpler
- * BrowseFilters used by the client-side filterPrintings engine.
- * Only fields that BrowseFilters supports are translated.
- */
-function parsedToBrowseFilters(pf: PrintingsSearchFilters): BrowseFilters {
-  const bf: BrowseFilters = {};
-
-  // Text search: parser puts remaining text in searchableText, or explicit name
-  if (pf.searchableText) bf.name = pf.searchableText;
-  else if (pf.name)       bf.name = pf.name;
-
-  // Types: normalize hyphens → spaces so 'defense-reaction' matches 'defense reaction'
-  if (pf.types?.length) bf.types = pf.types.map(t => t.replace(/-/g, ' '));
-
-  // Classes → classFlag boolean (only first class; BrowseFilters supports one at a time)
-  if (pf.classes?.length) bf.classFlag = `is_${pf.classes[0]}` as keyof BrowsePrinting;
-
-  // Numeric filters
-  // pitch can be number | number[] | null in PrintingsSearchFilters; BrowseFilters wants a single number
-  if (pf.pitch !== undefined && pf.pitch !== null) {
-    bf.pitch = Array.isArray(pf.pitch) ? pf.pitch[0] : pf.pitch;
-  }
-  if (pf.costMin   !== undefined) bf.costMin   = pf.costMin;
-  if (pf.costMax   !== undefined) bf.costMax   = pf.costMax;
-  if (pf.powerMin  !== undefined) bf.powerMin  = pf.powerMin;
-  if (pf.powerMax  !== undefined) bf.powerMax  = pf.powerMax;
-  if (pf.defenseMin !== undefined) bf.defenseMin = pf.defenseMin;
-  if (pf.defenseMax !== undefined) bf.defenseMax = pf.defenseMax;
-  if (pf.priceMax  !== undefined) bf.priceMax  = pf.priceMax;
-
-  // Categorical filters
-  if (pf.keywords?.length)  bf.keywords  = pf.keywords;
-  if (pf.rarities?.length)  bf.rarities  = pf.rarities;
-  if (pf.foilings?.length)  bf.foilings  = pf.foilings;
-  if (pf.editions?.length)  bf.editions  = pf.editions;
-  // Parser stores set codes lowercase; filterPrintings compares against p.set (uppercase)
-  if (pf.sets?.length)      bf.sets      = pf.sets.map(s => s.toUpperCase());
-
-  return bf;
-}
-
-const SECTION = 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
+const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
 // ─── Art chip (type / class) ──────────────────────────────────────────────────
 
@@ -119,7 +70,7 @@ function ArtChip({
           </div>
         )}
       </div>
-      <span className="text-[10px] leading-tight truncate w-full text-center capitalize">{label}</span>
+      <span className="text-xs leading-tight truncate w-full text-center capitalize">{label}</span>
     </button>
   );
 }
@@ -133,7 +84,7 @@ function SidebarSection({ title, children, defaultOpen = true }: { title: string
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-between w-full mb-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+        className="flex items-center justify-between w-full mb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
       >
         <span className={SECTION + ' mb-0'}>{title}</span>
         {open ? <ChevronUp className="w-3 h-3 text-slate-400 dark:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-slate-400 dark:text-gray-600" />}
@@ -164,150 +115,50 @@ export default function SearchPage() {
   const [defenseMax, setDefenseMax] = useState('');
   const [priceMax, setPriceMax] = useState('');
 
-  // ── Data + UI state ──
-  const [allPrintings, setAllPrintings] = useState<BrowsePrinting[]>([]);
-  const [loading, setLoading] = useState(true); // true until initial catalog load completes
-  const [catalogError, setCatalogError] = useState(false);
+  // ── UI state ──
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
 
-  // Grouped (default) collapses non-EN + foiling variants into one tile per
-  // card_unique_id. Flat shows every individual printing (the old behavior).
-  // Persisted across sessions in localStorage.
+  // Grouped (server-side: one cheapest printing per card) is the default on
+  // every load — session-only, never persisted.
   const [groupByCard, setGroupByCard] = useState<boolean>(true);
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('search:groupByCard') : null;
-    if (stored !== null) setGroupByCard(stored === '1');
-  }, []);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('search:groupByCard', groupByCard ? '1' : '0');
-    }
-  }, [groupByCard]);
+
+  // Language selection: ['en'] = English default, [] = ALL languages.
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
 
   const [debouncedQuery] = useDebounce(query, 250);
-  const [displayLimit, setDisplayLimit] = useState(60);
-  const { ref: sentinelRef, inView } = useInView({ threshold: 0 });
-
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
 
-  // ── Load full card catalog once on mount ──────────────────────────────────────
-  const loadCatalog = () => {
-    setCatalogError(false);
-    setLoading(true);
-    getAllPrintings()
-      .then(data => { setAllPrintings(data); setLoading(false); })
-      .catch(() => { setLoading(false); setCatalogError(true); });
-  };
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-    loadCatalog();
-    prefetchAllPrintings();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Build structured server filters from the sidebar state ──
+  const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
+    query: debouncedQuery,
+    selectedType, selectedClass, selectedPitch,
+    selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
+  }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
+       selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax]);
 
-  // ── Derived filter object + results ──────────────────────────────────────────
-  // Require at least 2 characters before using query as a filter (single char scans full catalog for minimal value)
-  // Debounced so rapid typing doesn't re-run the filter on every keystroke
-  const effectiveQuery = debouncedQuery.trim().length >= 2 ? debouncedQuery.trim() : '';
+  const hasAnyFilter = Object.keys(filters).length > 0;
+  const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
-  const hasAnyFilter = !!(
-    selectedType || selectedClass || selectedPitch !== null || effectiveQuery ||
-    selectedKeywords.length || selectedRarities.length || selectedFoilings.length ||
-    selectedEditions.length || selectedSets.length ||
-    costMin || costMax || powerMin || powerMax || defenseMin || defenseMax || priceMax
-  );
+  // ── Server-paginated search (shared with /opt) ──
+  const { results, total, loading, loadingMore, error, sentinelRef, hasMore } = useCardSearch({
+    filters,
+    languages: selectedLanguages,
+    sortBy, sortOrder, groupByCard,
+    enabled: hasAnyFilter,
+    onLoaded: (t) => { const q = debouncedQuery.trim(); if (q) trackSearch({ search_term: q, result_count: t }); },
+  });
 
-  const displayedPrintings = useMemo<BrowsePrinting[]>(() => {
-    if (!hasAnyFilter || allPrintings.length === 0) return [];
-
-    const typeChip = selectedType ? [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType) : null;
-
-    // Sidebar filters (chip/slider selections) — always applied
-    const sidebarFilters: BrowseFilters = {};
-    if (typeChip)         sidebarFilters.types     = [typeChip.apiType];
-    if (selectedClass)    sidebarFilters.classFlag = `is_${selectedClass}` as keyof BrowsePrinting;
-    if (selectedPitch !== null) sidebarFilters.pitch = selectedPitch;
-    if (selectedKeywords.length)   sidebarFilters.keywords = selectedKeywords;
-    if (selectedRarities.length)   sidebarFilters.rarities = selectedRarities;
-    if (selectedFoilings.length)   sidebarFilters.foilings = selectedFoilings;
-    if (selectedEditions.length)   sidebarFilters.editions = selectedEditions;
-    if (selectedSets.length)       sidebarFilters.sets     = selectedSets;
-    if (costMin)    sidebarFilters.costMin    = parseFloat(costMin);
-    if (costMax)    sidebarFilters.costMax    = parseFloat(costMax);
-    if (powerMin)   sidebarFilters.powerMin   = parseFloat(powerMin);
-    if (powerMax)   sidebarFilters.powerMax   = parseFloat(powerMax);
-    if (defenseMin) sidebarFilters.defenseMin = parseFloat(defenseMin);
-    if (defenseMax) sidebarFilters.defenseMax = parseFloat(defenseMax);
-    if (priceMax)   sidebarFilters.priceMax   = parseFloat(priceMax);
-
-    // No text query — just apply sidebar filters
-    if (!effectiveQuery) {
-      return sortPrintings(filterPrintings(allPrintings, sidebarFilters), sortBy, sortOrder as 'asc' | 'desc');
-    }
-
-    // Split on ' | ' for OR queries (e.g. "command and conquer | t:instant")
-    const queryParts = effectiveQuery.split(' | ').map(p => p.trim()).filter(Boolean);
-
-    if (queryParts.length <= 1) {
-      // Single part: parse shorthand, merge with sidebar, run filter
-      const { filters: pf } = shorthandParser.parseQuery(effectiveQuery);
-      const merged: BrowseFilters = { ...sidebarFilters, ...parsedToBrowseFilters(pf) };
-      return sortPrintings(filterPrintings(allPrintings, merged), sortBy, sortOrder as 'asc' | 'desc');
-    }
-
-    // Multiple parts: union of per-part results, deduplicated by printing_id
-    const seen = new Set<string>();
-    const union: BrowsePrinting[] = [];
-
-    for (const part of queryParts) {
-      const { filters: pf } = shorthandParser.parseQuery(part);
-      const merged: BrowseFilters = { ...sidebarFilters, ...parsedToBrowseFilters(pf) };
-      for (const p of filterPrintings(allPrintings, merged)) {
-        if (!seen.has(p.printing_id)) {
-          seen.add(p.printing_id);
-          union.push(p);
-        }
-      }
-    }
-
-    return sortPrintings(union, sortBy, sortOrder as 'asc' | 'desc');
-  }, [allPrintings, hasAnyFilter, effectiveQuery, selectedType, selectedClass, selectedPitch,
-      selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
-      costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
-      sortBy, sortOrder]);
-
-  // Fire GA search event when the debounced query stabilizes
-  useEffect(() => {
-    if (!effectiveQuery) return
-    trackSearch({
-      search_term: effectiveQuery,
-      result_count: displayedPrintings.length,
-    })
-  }, [effectiveQuery, displayedPrintings.length]);
-
-  // Reset to first page whenever the filtered result set changes
-  // When grouped, collapse to one canonical printing per card_unique_id BEFORE
-  // applying the display-limit slice — otherwise the page count would be
-  // computed against the raw printing count instead of card count.
-  const effectivePrintings = useMemo<BrowsePrinting[]>(() => {
-    if (!groupByCard) return displayedPrintings;
-    return groupPrintingsByCard(displayedPrintings).map((g) => g.canonicalPrinting);
-  }, [displayedPrintings, groupByCard]);
-
-  useEffect(() => { setDisplayLimit(60); }, [effectivePrintings]);
-
-  // Load next page when the sentinel scrolls into view
-  useEffect(() => {
-    if (inView && displayLimit < effectivePrintings.length) {
-      setDisplayLimit(l => l + 60);
-    }
-  }, [inView, displayLimit, effectivePrintings.length]);
+  // Server returns card-level rows when grouped, printing-level when not.
+  const displayed = results;
 
   const clearAll = () => {
     setQuery(''); setSelectedType(null); setSelectedClass(null); setSelectedPitch(null);
@@ -315,13 +166,12 @@ export default function SearchPage() {
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
     setDefenseMin(''); setDefenseMax(''); setPriceMax('');
+    setSelectedLanguages(DEFAULT_LANGUAGES);
     inputRef.current?.focus();
   };
 
   const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
-
-  const visiblePrintings = effectivePrintings.slice(0, displayLimit);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -344,13 +194,13 @@ export default function SearchPage() {
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Name or t:type — use | for OR queries"
-              className="w-full pl-8 pr-7 py-2 bg-white dark:bg-gray-800 border border-[#C4D0DF] dark:border-gray-700 rounded-lg shadow-sm text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Name or shorthand — e.g. t:equipment p:<5"
+              className="w-full pl-8 pr-7 py-2 bg-white dark:bg-gray-800 border border-[#C4D0DF] dark:border-gray-700 rounded-lg shadow-sm text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -358,7 +208,7 @@ export default function SearchPage() {
           </div>
           <button
             onClick={() => setSyntaxGuideOpen(true)}
-            className="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           >
             Shorthand syntax guide →
           </button>
@@ -388,10 +238,35 @@ export default function SearchPage() {
                 );
               })}
               {selectedPitch !== null && (
-                <button onClick={() => setSelectedPitch(null)} className="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ml-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded">clear</button>
+                <button onClick={() => setSelectedPitch(null)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">clear</button>
               )}
             </div>
           </div>
+
+          {/* Rarity — a primary "base" filter: kept at the top, open by default */}
+          <SidebarSection title="Rarity">
+            <div className="flex flex-wrap gap-1">
+              {RARITY_OPTIONS.map(r => {
+                const active = selectedRarities.includes(r.value);
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                      active
+                        ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
+                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                    )}
+                  >
+                    <RarityIcon rarityCode={r.value} size="sm" />
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </SidebarSection>
 
           {/* Type chips */}
           <SidebarSection title="Type">
@@ -441,38 +316,13 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedKeywords, setSelectedKeywords, kw.value)}
                     className={cn(
-                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
                     )}
                   >
                     {kw.label}
-                  </button>
-                );
-              })}
-            </div>
-          </SidebarSection>
-
-          {/* Rarity */}
-          <SidebarSection title="Rarity" defaultOpen={false}>
-            <div className="flex flex-wrap gap-1">
-              {RARITY_OPTIONS.map(r => {
-                const active = selectedRarities.includes(r.value);
-                return (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
-                      active
-                        ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
-                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
-                    )}
-                  >
-                    <RarityIcon rarityCode={r.value} size="sm" />
-                    {r.label}
                   </button>
                 );
               })}
@@ -490,7 +340,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedFoilings, setSelectedFoilings, f.value)}
                     className={cn(
-                      'flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -515,7 +365,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedEditions, setSelectedEditions, e.value)}
                     className={cn(
-                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -540,7 +390,7 @@ export default function SearchPage() {
                     title={SET_MAP[setCode]}
                     onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
                     className={cn(
-                      'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
                         : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
@@ -553,7 +403,7 @@ export default function SearchPage() {
                       alt={SET_MAP[setCode] || setCode}
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
                   </button>
                 );
               })}
@@ -569,12 +419,12 @@ export default function SearchPage() {
                 { label: 'Defense', min: defenseMin, setMin: setDefenseMin, max: defenseMax, setMax: setDefenseMax },
               ].map(stat => (
                 <div key={stat.label} className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500 w-14 shrink-0">{stat.label}</span>
+                  <span className="text-xs text-gray-500 w-14 shrink-0">{stat.label}</span>
                   <input type="number" min="0" placeholder="Min" value={stat.min} onChange={e => stat.setMin(e.target.value)}
-                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   <span className="text-gray-400 text-xs">–</span>
                   <input type="number" min="0" placeholder="Max" value={stat.max} onChange={e => stat.setMax(e.target.value)}
-                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               ))}
             </div>
@@ -585,15 +435,56 @@ export default function SearchPage() {
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-gray-500">$</span>
               <input type="number" min="0" placeholder="e.g. 25" value={priceMax} onChange={e => setPriceMax(e.target.value)}
-                className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </SidebarSection>
 
+          {/* Language — default English (only en has prices); expand to specific or ALL */}
+          <SidebarSection title="Language" defaultOpen={false}>
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedLanguages([])}
+                aria-pressed={selectedLanguages.length === 0}
+                className={cn(
+                  'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                  selectedLanguages.length === 0
+                    ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
+                    : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                )}
+              >
+                All languages
+              </button>
+              {LANGUAGES.map(l => {
+                const active = selectedLanguages.includes(l.code);
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => toggleArr(selectedLanguages, setSelectedLanguages, l.code)}
+                    aria-pressed={active}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                      active
+                        ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
+                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                    )}
+                  >
+                    <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 leading-snug">
+              Only English printings have prices &amp; TCGplayer links.
+            </p>
+          </SidebarSection>
+
           {/* Clear all */}
-          {hasAnyFilter && (
+          {(hasAnyFilter || !isDefaultLang) && (
             <button
               onClick={clearAll}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
             >
               <X className="w-3 h-3" /> Clear all filters
             </button>
@@ -609,25 +500,21 @@ export default function SearchPage() {
         <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+            className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             title="Toggle filters"
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>
 
-          <span className="text-sm text-gray-400 font-medium">
-            {loading ? (
-              <span className="text-gray-400 animate-pulse">Loading card catalog…</span>
-            ) : catalogError ? (
-              <span className="text-red-400">Catalog failed to load</span>
-            ) : hasAnyFilter ? (
-              groupByCard
-                ? <>{effectivePrintings.length.toLocaleString()} cards ({displayedPrintings.length.toLocaleString()} printings)</>
-                : <>{displayedPrintings.length.toLocaleString()} printings</>
-            ) : allPrintings.length > 0 ? (
-              <span className="text-gray-400 dark:text-gray-600">{allPrintings.length.toLocaleString()} cards ready</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+            {error ? (
+              <span className="text-red-500 dark:text-red-400">{error}</span>
+            ) : !hasAnyFilter ? (
+              <span className="text-gray-500 dark:text-gray-400">Search the catalog</span>
+            ) : loading ? (
+              <span className="animate-pulse">Searching…</span>
             ) : (
-              <span className="text-gray-400 dark:text-gray-600">Loading…</span>
+              <>{total.toLocaleString()} {groupByCard ? `card${total === 1 ? '' : 's'}` : `printing${total === 1 ? '' : 's'}`}</>
             )}
           </span>
 
@@ -639,7 +526,7 @@ export default function SearchPage() {
               onClick={() => setGroupByCard(g => !g)}
               title={groupByCard ? 'Currently grouping printings by card — click to show every printing individually' : 'Currently showing every printing individually — click to group by card'}
               className={cn(
-                'px-2 py-1 text-xs rounded border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                'px-2 py-1 text-xs rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                 groupByCard
                   ? 'bg-blue-600 dark:bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-700'
                   : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
@@ -654,7 +541,7 @@ export default function SearchPage() {
                 onClick={() => setViewMode('images')}
                 title="Image grid"
                 className={cn(
-                  'px-2 py-1.5 text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                  'px-2 py-1.5 text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                   viewMode === 'images' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                 )}
               >
@@ -664,7 +551,7 @@ export default function SearchPage() {
                 onClick={() => setViewMode('checklist')}
                 title="List view"
                 className={cn(
-                  'px-2 py-1.5 text-xs flex items-center gap-1 border-l border-gray-300 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                  'px-2 py-1.5 text-xs flex items-center gap-1 border-l border-gray-300 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                   viewMode === 'checklist' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                 )}
               >
@@ -675,7 +562,7 @@ export default function SearchPage() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
-              className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="name">Name</option>
               <option value="price">Price</option>
@@ -686,30 +573,35 @@ export default function SearchPage() {
             </select>
             <button
               onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
-              className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+              className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               {sortOrder === 'asc' ? '↑ Asc' : '↓ Desc'}
             </button>
           </div>
         </div>
 
-        {/* Selection action bar — inline dark bar, appears when cards are selected */}
-        {selection.selectedCount > 0 && (
-          <div className="shrink-0 flex items-center gap-3 px-4 py-2 bg-blue-950/60 border-b border-blue-800/40">
-            <span className="text-sm text-blue-200 font-medium">
+        {/* Selection action bar — always present (shows "0 cards selected" when
+            empty) so selecting the first card doesn't shift the layout. */}
+        {(() => {
+          const none = selection.selectedCount === 0;
+          return (
+          <div className={cn('shrink-0 flex items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-blue-950/60 border-blue-800/40')}>
+            <span className={cn('text-sm font-medium', none ? 'text-gray-500 dark:text-gray-400' : 'text-blue-200')}>
               {selection.selectedCount} card{selection.selectedCount !== 1 ? 's' : ''} selected
             </span>
-            <button
-              onClick={selection.clearSelection}
-              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
-            >
-              <X className="w-3 h-3" /> Clear
-            </button>
+            {!none && (
+              <button
+                onClick={selection.clearSelection}
+                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+              >
+                <X className="w-3 h-3" /> Clear
+              </button>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={selection.handleAddToWants}
-                disabled={selection.isImporting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                disabled={selection.isImporting || none}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 <Heart className="w-3.5 h-3.5" />
                 {selection.isImporting ? 'Adding…' : 'To Wants'}
@@ -719,7 +611,8 @@ export default function SearchPage() {
                   <select
                     value={selection.selectedBinderSlug}
                     onChange={e => selection.setSelectedBinderSlug(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    disabled={none}
+                    className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {selection.binders.map((b: any) => (
                       <option key={b._id || b.slug} value={b.slug}>{b.name}</option>
@@ -727,8 +620,8 @@ export default function SearchPage() {
                   </select>
                   <button
                     onClick={selection.handleAddToBinder}
-                    disabled={selection.isImporting || !selection.selectedBinderSlug}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                    disabled={selection.isImporting || !selection.selectedBinderSlug || none}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <UploadCloud className="w-3.5 h-3.5" />
                     {selection.isImporting ? 'Importing…' : 'To Binder'}
@@ -737,42 +630,41 @@ export default function SearchPage() {
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
-          {loading ? (
+          {!hasAnyFilter ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+              <SlidersHorizontal className="w-10 h-10 mb-3 opacity-20" />
+              <p className="text-sm">Use the filters on the left to browse cards.</p>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-              <p className="text-sm">Loading card catalog…</p>
-              {hasAnyFilter && <p className="text-xs mt-1 text-gray-400">Your search will run when ready.</p>}
+              <p className="text-sm">Searching…</p>
             </div>
-          ) : catalogError ? (
+          ) : error ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
               <Search className="w-10 h-10 mb-3 opacity-30" />
-              <p className="text-sm">Failed to load card catalog.</p>
-              <button
-                onClick={loadCatalog}
-                className="mt-3 text-xs text-blue-500 hover:text-blue-400 underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
-              >
-                Try again
-              </button>
+              <p className="text-sm text-red-500">{error}</p>
             </div>
-          ) : displayedPrintings.length > 0 ? (
+          ) : displayed.length > 0 ? (
             <>
               {viewMode === 'checklist' ? (
                 <ChecklistView
-                  printings={visiblePrintings}
+                  printings={displayed}
                   onToggleSelection={selection.toggleCardSelection}
                   isCardSelected={selection.isCardSelected}
                   getCardQuantity={selection.getCardQuantity}
                   onUpdateQuantity={selection.updateQuantity}
-                  onSelectAll={() => selection.selectAll(displayedPrintings)}
-                  onDeselectAll={() => selection.deselectAll(displayedPrintings)}
+                  onSelectAll={() => selection.selectAll(displayed)}
+                  onDeselectAll={() => selection.deselectAll(displayed)}
                 />
               ) : (
                 <ImagesView
-                  printings={visiblePrintings}
+                  printings={displayed}
                   onToggleSelection={selection.toggleCardSelection}
                   isCardSelected={selection.isCardSelected}
                   getCardQuantity={selection.getCardQuantity}
@@ -780,22 +672,19 @@ export default function SearchPage() {
                 />
               )}
               {/* Infinite scroll sentinel — triggers next page load when scrolled into view */}
-              {displayLimit < displayedPrintings.length && (
+              {hasMore && (
                 <div ref={sentinelRef} className="flex items-center justify-center py-6">
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  {loadingMore
+                    ? <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    : <span className="text-xs text-gray-400">Scroll for more</span>}
                 </div>
               )}
             </>
-          ) : hasAnyFilter ? (
+          ) : (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
               <Search className="w-10 h-10 mb-3 opacity-30" />
               <p className="text-sm">No cards matched your filters.</p>
               <button onClick={clearAll} className="mt-3 text-xs hover:text-gray-700 dark:hover:text-gray-300 underline">Clear filters</button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-600">
-              <SlidersHorizontal className="w-10 h-10 mb-3 opacity-20" />
-              <p className="text-sm">Use the filters on the left to browse cards.</p>
             </div>
           )}
         </div>

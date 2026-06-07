@@ -108,7 +108,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     setError(null)
 
     // Check if query contains any shorthand syntax
-    const hasShorthand = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|text|format|p):/.test(debouncedQuery);
+    const hasShorthand = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|k|text|format|p):/.test(debouncedQuery);
 
     const params = new URLSearchParams();
 
