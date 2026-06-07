@@ -17,6 +17,7 @@ import {
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
+import { languageFlag } from '@/lib/utils/printing-language';
 import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
 import { searchPrintingsPost } from '@/lib/client/search-client';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
@@ -30,8 +31,18 @@ const PAGE_SIZE = 60;
 
 // Default to English printings only: non-English printings carry no TCGplayer
 // ids or prices in our data, so showing them buries the priced English cards.
-// (A future language chip can let users opt into other languages or ALL.)
+// The Language control lets users expand to specific languages or ALL.
 const DEFAULT_LANGUAGES = ['en'];
+
+// Physical printing languages present in the catalog.
+const LANGUAGES: { code: string; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'it', label: 'Italian' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'ja', label: 'Japanese' },
+];
 
 // Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
 // When it does we parse it into structured filters; otherwise it's a plain name.
@@ -306,6 +317,8 @@ export default function OptSearchPage() {
   const [defenseMin, setDefenseMin] = useState('');
   const [defenseMax, setDefenseMax] = useState('');
   const [priceMax, setPriceMax] = useState('');
+  // Language selection: ['en'] = English default, [] = ALL languages.
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
 
   // ── Result + UI state ──
   const [results, setResults] = useState<any[]>([]); // accumulated printings across loaded pages
@@ -354,9 +367,12 @@ export default function OptSearchPage() {
   // Stable key that changes whenever the effective query (filters + sort +
   // grouping mode) changes — toggling Grouped/All-printings refetches.
   const queryKey = useMemo(
-    () => JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder + '|' + groupByCard,
-    [filters, sortBy, sortOrder, groupByCard],
+    () => JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder + '|' + groupByCard + '|' + selectedLanguages.join(','),
+    [filters, sortBy, sortOrder, groupByCard, selectedLanguages],
   );
+
+  // [] (All languages) → no language restriction; otherwise restrict to the picks.
+  const languageFilter = selectedLanguages.length ? selectedLanguages : undefined;
 
   // ── Fetch page 1 (replace) whenever the query changes ──
   useEffect(() => {
@@ -367,7 +383,7 @@ export default function OptSearchPage() {
     const id = ++reqIdRef.current;
     setLoading(true);
     setError(null);
-    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
+    searchPrintingsPost({ ...filters, languages: languageFilter }, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
       .then(res => {
         if (id !== reqIdRef.current) return; // a newer query superseded this one
         if (res.success) {
@@ -392,7 +408,7 @@ export default function OptSearchPage() {
     const id = reqIdRef.current; // tie this load to the current query
     const next = page + 1;
     setLoadingMore(true);
-    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
+    searchPrintingsPost({ ...filters, languages: languageFilter }, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
       .then(res => {
         if (id !== reqIdRef.current) return; // query changed mid-load → discard
         if (res.success) {
@@ -401,7 +417,7 @@ export default function OptSearchPage() {
         }
       })
       .finally(() => { if (id === reqIdRef.current) setLoadingMore(false); });
-  }, [loading, loadingMore, page, pages, filters, sortBy, sortOrder, groupByCard]);
+  }, [loading, loadingMore, page, pages, filters, sortBy, sortOrder, groupByCard, selectedLanguages]);
 
   useEffect(() => {
     if (inView) loadMore();
@@ -421,8 +437,11 @@ export default function OptSearchPage() {
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
     setDefenseMin(''); setDefenseMax(''); setPriceMax('');
+    setSelectedLanguages(['en']);
     inputRef.current?.focus();
   };
+
+  const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
   // ── Active-filter chip descriptors ──
   const rangeLabel = (label: string, min: string, max: string) =>
@@ -463,6 +482,12 @@ export default function OptSearchPage() {
   if (powerMin || powerMax) activeChips.push({ key: 'power', label: rangeLabel('Power', powerMin, powerMax), onRemove: () => { setPowerMin(''); setPowerMax(''); } });
   if (defenseMin || defenseMax) activeChips.push({ key: 'def', label: rangeLabel('Defense', defenseMin, defenseMax), onRemove: () => { setDefenseMin(''); setDefenseMax(''); } });
   if (priceMax) activeChips.push({ key: 'price', label: `≤ $${priceMax}`, onRemove: () => setPriceMax('') });
+  if (!isDefaultLang) {
+    const label = selectedLanguages.length === 0
+      ? 'All languages'
+      : 'Lang: ' + selectedLanguages.map(c => c.toUpperCase()).join(', ');
+    activeChips.push({ key: 'lang', label, onRemove: () => setSelectedLanguages(['en']) });
+  }
 
   const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
   const hasMore = page < pages;
@@ -730,6 +755,26 @@ export default function OptSearchPage() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </Popover>
+
+            {/* Language — default English; expand to specific languages or ALL */}
+            <Popover label="Language" count={isDefaultLang ? 0 : (selectedLanguages.length || 1)} align="right" panelClassName="w-56">
+              <p className={SECTION}>Language</p>
+              <div className="space-y-2">
+                <Pill active={selectedLanguages.length === 0} onClick={() => setSelectedLanguages([])}>
+                  All languages
+                </Pill>
+                <div className="flex flex-wrap gap-1">
+                  {LANGUAGES.map(l => (
+                    <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => toggleArr(selectedLanguages, setSelectedLanguages, l.code)}>
+                      <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
+                    </Pill>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-snug">
+                  Only English printings have prices &amp; TCGplayer links.
+                </p>
               </div>
             </Popover>
 
