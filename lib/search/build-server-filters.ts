@@ -30,7 +30,7 @@ export const LANGUAGES: { code: string; label: string }[] = [
 ];
 
 // Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
-export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|text|format|p):/;
+export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|k|text|format|p):/;
 
 export interface SearchUiState {
   query: string;

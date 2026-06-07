@@ -23,3 +23,27 @@ describe.each([
     expect(parser.parseQuery('format:sage').filters.format).toBe('silver_age');
   });
 });
+
+// `k:` is a documented alias for `keyword:` — pin it on BOTH parsers.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser keyword aliases — %s', (_label, parser) => {
+  it('parses keyword:dominate', () => {
+    expect(parser.parseQuery('keyword:dominate').filters.keywords).toContain('dominate');
+  });
+
+  it('parses the k: alias', () => {
+    expect(parser.parseQuery('k:dominate').filters.keywords).toContain('dominate');
+  });
+
+  it('parses k: with a quoted multi-word keyword', () => {
+    expect(parser.parseQuery('k:"go again"').filters.keywords).toContain('go again');
+  });
+
+  it('k: combines with other tokens (k:dominate t:attack)', () => {
+    const f = parser.parseQuery('k:dominate t:attack').filters;
+    expect(f.keywords).toContain('dominate');
+    expect(f.types).toContain('attack');
+  });
+});

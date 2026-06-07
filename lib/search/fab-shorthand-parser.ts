@@ -553,7 +553,7 @@ export class FABShorthandParser {
 
     // Keyword searches - quoted keywords (process before simple keywords)
     {
-      pattern: /\bkeyword:([!-]?)"([^"]+)"/gi,
+      pattern: /\b(?:keyword|k):([!-]?)"([^"]+)"/gi,
       parser: (match, filters) => {
         const isNot = match[1] === '!' || match[1] === '-';
         const keywordInput = match[2].trim();
@@ -581,7 +581,7 @@ export class FABShorthandParser {
 
     // Simple keyword searches - FIXED: No spaces, only comma-separated single words
     {
-      pattern: /\bkeyword:([!-]?)([\w,!-]+)/gi,
+      pattern: /\b(?:keyword|k):([!-]?)([\w,!-]+)/gi,
       parser: (match, filters) => {
         const negationOperator = match[1]; // ! or -
         const keywordInput = match[2].trim();
