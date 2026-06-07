@@ -322,16 +322,9 @@ export default function OptSearchPage() {
   const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
 
+  // Grouped is always the default on load (session-only toggle, not persisted) —
+  // so a prior "All printings" choice never becomes the sticky default.
   const [groupByCard, setGroupByCard] = useState<boolean>(true);
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('search:groupByCard') : null;
-    if (stored !== null) setGroupByCard(stored === '1');
-  }, []);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('search:groupByCard', groupByCard ? '1' : '0');
-    }
-  }, [groupByCard]);
 
   const [debouncedQuery] = useDebounce(query, 300);
   const { ref: sentinelRef, inView } = useInView({ threshold: 0 });

@@ -174,19 +174,11 @@ export default function SearchPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
 
-  // Grouped (default) collapses non-EN + foiling variants into one tile per
+  // Grouped collapses non-EN + foiling variants into one tile per
   // card_unique_id. Flat shows every individual printing (the old behavior).
-  // Persisted across sessions in localStorage.
+  // Always defaults to grouped on load (session-only toggle, not persisted) —
+  // a prior "All printings" choice should never become the sticky default.
   const [groupByCard, setGroupByCard] = useState<boolean>(true);
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem('search:groupByCard') : null;
-    if (stored !== null) setGroupByCard(stored === '1');
-  }, []);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('search:groupByCard', groupByCard ? '1' : '0');
-    }
-  }, [groupByCard]);
 
   const [debouncedQuery] = useDebounce(query, 250);
   const [displayLimit, setDisplayLimit] = useState(60);
