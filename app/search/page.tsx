@@ -22,7 +22,7 @@ import { languageFlag } from '@/lib/utils/printing-language';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
 
-const SECTION = 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
+const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
 // ─── Art chip (type / class) ──────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ function ArtChip({
           </div>
         )}
       </div>
-      <span className="text-[10px] leading-tight truncate w-full text-center capitalize">{label}</span>
+      <span className="text-xs leading-tight truncate w-full text-center capitalize">{label}</span>
     </button>
   );
 }
@@ -84,7 +84,7 @@ function SidebarSection({ title, children, defaultOpen = true }: { title: string
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-between w-full mb-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+        className="flex items-center justify-between w-full mb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
       >
         <span className={SECTION + ' mb-0'}>{title}</span>
         {open ? <ChevronUp className="w-3 h-3 text-slate-400 dark:text-gray-600" /> : <ChevronDown className="w-3 h-3 text-slate-400 dark:text-gray-600" />}
@@ -195,12 +195,12 @@ export default function SearchPage() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Name or shorthand — e.g. t:equipment p:<5"
-              className="w-full pl-8 pr-7 py-2 bg-white dark:bg-gray-800 border border-[#C4D0DF] dark:border-gray-700 rounded-lg shadow-sm text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-8 pr-7 py-2 bg-white dark:bg-gray-800 border border-[#C4D0DF] dark:border-gray-700 rounded-lg shadow-sm text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -208,7 +208,7 @@ export default function SearchPage() {
           </div>
           <button
             onClick={() => setSyntaxGuideOpen(true)}
-            className="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           >
             Shorthand syntax guide →
           </button>
@@ -238,7 +238,7 @@ export default function SearchPage() {
                 );
               })}
               {selectedPitch !== null && (
-                <button onClick={() => setSelectedPitch(null)} className="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ml-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded">clear</button>
+                <button onClick={() => setSelectedPitch(null)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">clear</button>
               )}
             </div>
           </div>
@@ -254,7 +254,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}
                     className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -316,7 +316,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedKeywords, setSelectedKeywords, kw.value)}
                     className={cn(
-                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -340,7 +340,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedFoilings, setSelectedFoilings, f.value)}
                     className={cn(
-                      'flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -365,7 +365,7 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => toggleArr(selectedEditions, setSelectedEditions, e.value)}
                     className={cn(
-                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -390,7 +390,7 @@ export default function SearchPage() {
                     title={SET_MAP[setCode]}
                     onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
                     className={cn(
-                      'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
                         : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
@@ -403,7 +403,7 @@ export default function SearchPage() {
                       alt={SET_MAP[setCode] || setCode}
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
                   </button>
                 );
               })}
@@ -419,12 +419,12 @@ export default function SearchPage() {
                 { label: 'Defense', min: defenseMin, setMin: setDefenseMin, max: defenseMax, setMax: setDefenseMax },
               ].map(stat => (
                 <div key={stat.label} className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500 w-14 shrink-0">{stat.label}</span>
+                  <span className="text-xs text-gray-500 w-14 shrink-0">{stat.label}</span>
                   <input type="number" min="0" placeholder="Min" value={stat.min} onChange={e => stat.setMin(e.target.value)}
-                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   <span className="text-gray-400 text-xs">–</span>
                   <input type="number" min="0" placeholder="Max" value={stat.max} onChange={e => stat.setMax(e.target.value)}
-                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               ))}
             </div>
@@ -435,7 +435,7 @@ export default function SearchPage() {
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-gray-500">$</span>
               <input type="number" min="0" placeholder="e.g. 25" value={priceMax} onChange={e => setPriceMax(e.target.value)}
-                className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </SidebarSection>
 
@@ -447,7 +447,7 @@ export default function SearchPage() {
                 onClick={() => setSelectedLanguages([])}
                 aria-pressed={selectedLanguages.length === 0}
                 className={cn(
-                  'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                  'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                   selectedLanguages.length === 0
                     ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                     : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -464,7 +464,7 @@ export default function SearchPage() {
                     onClick={() => toggleArr(selectedLanguages, setSelectedLanguages, l.code)}
                     aria-pressed={active}
                     className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       active
                         ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
                         : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -475,7 +475,7 @@ export default function SearchPage() {
                 );
               })}
             </div>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 leading-snug">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 leading-snug">
               Only English printings have prices &amp; TCGplayer links.
             </p>
           </SidebarSection>
@@ -484,7 +484,7 @@ export default function SearchPage() {
           {(hasAnyFilter || !isDefaultLang) && (
             <button
               onClick={clearAll}
-              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
             >
               <X className="w-3 h-3" /> Clear all filters
             </button>
@@ -500,7 +500,7 @@ export default function SearchPage() {
         <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+            className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             title="Toggle filters"
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -526,7 +526,7 @@ export default function SearchPage() {
               onClick={() => setGroupByCard(g => !g)}
               title={groupByCard ? 'Currently grouping printings by card — click to show every printing individually' : 'Currently showing every printing individually — click to group by card'}
               className={cn(
-                'px-2 py-1 text-xs rounded border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                'px-2 py-1 text-xs rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                 groupByCard
                   ? 'bg-blue-600 dark:bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-700'
                   : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
@@ -541,7 +541,7 @@ export default function SearchPage() {
                 onClick={() => setViewMode('images')}
                 title="Image grid"
                 className={cn(
-                  'px-2 py-1.5 text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                  'px-2 py-1.5 text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                   viewMode === 'images' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                 )}
               >
@@ -551,7 +551,7 @@ export default function SearchPage() {
                 onClick={() => setViewMode('checklist')}
                 title="List view"
                 className={cn(
-                  'px-2 py-1.5 text-xs flex items-center gap-1 border-l border-gray-300 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                  'px-2 py-1.5 text-xs flex items-center gap-1 border-l border-gray-300 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                   viewMode === 'checklist' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
                 )}
               >
@@ -562,7 +562,7 @@ export default function SearchPage() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
-              className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="name">Name</option>
               <option value="price">Price</option>
@@ -573,7 +573,7 @@ export default function SearchPage() {
             </select>
             <button
               onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
-              className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+              className="px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               {sortOrder === 'asc' ? '↑ Asc' : '↓ Desc'}
             </button>
@@ -592,7 +592,7 @@ export default function SearchPage() {
             {!none && (
               <button
                 onClick={selection.clearSelection}
-                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               >
                 <X className="w-3 h-3" /> Clear
               </button>
@@ -601,7 +601,7 @@ export default function SearchPage() {
               <button
                 onClick={selection.handleAddToWants}
                 disabled={selection.isImporting || none}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
                 <Heart className="w-3.5 h-3.5" />
                 {selection.isImporting ? 'Adding…' : 'To Wants'}
@@ -612,7 +612,7 @@ export default function SearchPage() {
                     value={selection.selectedBinderSlug}
                     onChange={e => selection.setSelectedBinderSlug(e.target.value)}
                     disabled={none}
-                    className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {selection.binders.map((b: any) => (
                       <option key={b._id || b.slug} value={b.slug}>{b.name}</option>
@@ -621,7 +621,7 @@ export default function SearchPage() {
                   <button
                     onClick={selection.handleAddToBinder}
                     disabled={selection.isImporting || !selection.selectedBinderSlug || none}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
                     <UploadCloud className="w-3.5 h-3.5" />
                     {selection.isImporting ? 'Importing…' : 'To Binder'}

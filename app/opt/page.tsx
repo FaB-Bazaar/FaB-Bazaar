@@ -22,7 +22,7 @@ import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/b
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
 
-const SECTION = 'text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
+const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
 // Clickable example queries shown in the empty state + under the search bar.
 const EXAMPLE_QUERIES = [
@@ -77,7 +77,7 @@ function Popover({
       >
         {label}
         {count > 0 && (
-          <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-white/25 text-[10px] leading-none">
+          <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-white/25 text-xs leading-none">
             {count}
           </span>
         )}
@@ -145,7 +145,7 @@ function ArtChip({
           </div>
         )}
       </div>
-      <span className="text-[10px] leading-tight truncate w-full text-center capitalize">{label}</span>
+      <span className="text-xs leading-tight truncate w-full text-center capitalize">{label}</span>
     </button>
   );
 }
@@ -159,7 +159,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+        'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
         active
           ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
           : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
@@ -181,12 +181,12 @@ function RangeRow({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-gray-500 w-14 shrink-0">{label}</span>
+      <span className="text-xs text-gray-500 w-14 shrink-0">{label}</span>
       <input type="number" min="0" placeholder="Min" value={min} onChange={e => setMin(e.target.value)}
-        className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <span className="text-gray-400 text-xs">–</span>
       <input type="number" min="0" placeholder="Max" value={max} onChange={e => setMax(e.target.value)}
-        className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
     </div>
   );
 }
@@ -201,7 +201,7 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
         type="button"
         onClick={onRemove}
         aria-label={`Remove ${label} filter`}
-        className="p-0.5 rounded-full hover:bg-blue-200/60 dark:hover:bg-blue-800/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+        className="p-0.5 rounded-full hover:bg-blue-200/60 dark:hover:bg-blue-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
       >
         <X className="w-3 h-3" />
       </button>
@@ -359,7 +359,7 @@ export default function OptSearchPage() {
                 <button
                   onClick={() => { setQuery(''); inputRef.current?.focus(); }}
                   aria-label="Clear search text"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -541,7 +541,7 @@ export default function OptSearchPage() {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-gray-500">$</span>
                 <input type="number" min="0" placeholder="e.g. 25" value={priceMax} onChange={e => setPriceMax(e.target.value)}
-                  className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </Popover>
 
@@ -580,7 +580,7 @@ export default function OptSearchPage() {
                         aria-pressed={selectedSets.includes(setCode)}
                         onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
                         className={cn(
-                          'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                          'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                           selectedSets.includes(setCode)
                             ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
                             : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
@@ -593,7 +593,7 @@ export default function OptSearchPage() {
                           alt={SET_MAP[setCode] || setCode}
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
                       </button>
                     ))}
                   </div>
@@ -615,7 +615,7 @@ export default function OptSearchPage() {
                     </Pill>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-snug">
+                <p className="text-xs text-gray-400 dark:text-gray-500 leading-snug">
                   Only English printings have prices &amp; TCGplayer links.
                 </p>
               </div>
@@ -623,7 +623,7 @@ export default function OptSearchPage() {
 
             <button
               onClick={() => setSyntaxGuideOpen(true)}
-              className="ml-auto shrink-0 text-xs text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded px-1"
+              className="ml-auto shrink-0 text-xs text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
             >
               Syntax guide →
             </button>
@@ -632,11 +632,11 @@ export default function OptSearchPage() {
           {/* Row 3: active-filter chips */}
           {activeChips.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mr-0.5">Active</span>
+              <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold mr-0.5">Active</span>
               {activeChips.map(c => <ActiveChip key={c.key} label={c.label} onRemove={c.onRemove} />)}
               <button
                 onClick={clearAll}
-                className="ml-1 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded px-1"
+                className="ml-1 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
               >
                 <X className="w-3 h-3" /> Clear all
               </button>
@@ -657,7 +657,7 @@ export default function OptSearchPage() {
           {!none && (
             <button
               onClick={selection.clearSelection}
-              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
             >
               <X className="w-3 h-3" /> Clear
             </button>
@@ -666,7 +666,7 @@ export default function OptSearchPage() {
             <button
               onClick={selection.handleAddToWants}
               disabled={selection.isImporting || none}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <Heart className="w-3.5 h-3.5" />
               {selection.isImporting ? 'Adding…' : 'To Wants'}
@@ -677,7 +677,7 @@ export default function OptSearchPage() {
                   value={selection.selectedBinderSlug}
                   onChange={e => selection.setSelectedBinderSlug(e.target.value)}
                   disabled={none}
-                  className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {selection.binders.map((b: any) => (
                     <option key={b._id || b.slug} value={b.slug}>{b.name}</option>
@@ -686,7 +686,7 @@ export default function OptSearchPage() {
                 <button
                   onClick={selection.handleAddToBinder}
                   disabled={selection.isImporting || !selection.selectedBinderSlug || none}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
                   <UploadCloud className="w-3.5 h-3.5" />
                   {selection.isImporting ? 'Importing…' : 'To Binder'}
