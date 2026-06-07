@@ -243,6 +243,31 @@ export default function SearchPage() {
             </div>
           </div>
 
+          {/* Rarity — a primary "base" filter: kept at the top, open by default */}
+          <SidebarSection title="Rarity">
+            <div className="flex flex-wrap gap-1">
+              {RARITY_OPTIONS.map(r => {
+                const active = selectedRarities.includes(r.value);
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
+                      active
+                        ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
+                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                    )}
+                  >
+                    <RarityIcon rarityCode={r.value} size="sm" />
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </SidebarSection>
+
           {/* Type chips */}
           <SidebarSection title="Type">
             <div className="grid grid-cols-4 gap-1">
@@ -298,31 +323,6 @@ export default function SearchPage() {
                     )}
                   >
                     {kw.label}
-                  </button>
-                );
-              })}
-            </div>
-          </SidebarSection>
-
-          {/* Rarity */}
-          <SidebarSection title="Rarity" defaultOpen={false}>
-            <div className="flex flex-wrap gap-1">
-              {RARITY_OPTIONS.map(r => {
-                const active = selectedRarities.includes(r.value);
-                return (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400',
-                      active
-                        ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
-                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
-                    )}
-                  >
-                    <RarityIcon rarityCode={r.value} size="sm" />
-                    {r.label}
                   </button>
                 );
               })}
@@ -580,23 +580,28 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* Selection action bar — inline dark bar, appears when cards are selected */}
-        {selection.selectedCount > 0 && (
-          <div className="shrink-0 flex items-center gap-3 px-4 py-2 bg-blue-950/60 border-b border-blue-800/40">
-            <span className="text-sm text-blue-200 font-medium">
+        {/* Selection action bar — always present (shows "0 cards selected" when
+            empty) so selecting the first card doesn't shift the layout. */}
+        {(() => {
+          const none = selection.selectedCount === 0;
+          return (
+          <div className={cn('shrink-0 flex items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-blue-950/60 border-blue-800/40')}>
+            <span className={cn('text-sm font-medium', none ? 'text-gray-500 dark:text-gray-400' : 'text-blue-200')}>
               {selection.selectedCount} card{selection.selectedCount !== 1 ? 's' : ''} selected
             </span>
-            <button
-              onClick={selection.clearSelection}
-              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
-            >
-              <X className="w-3 h-3" /> Clear
-            </button>
+            {!none && (
+              <button
+                onClick={selection.clearSelection}
+                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400 rounded"
+              >
+                <X className="w-3 h-3" /> Clear
+              </button>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={selection.handleAddToWants}
-                disabled={selection.isImporting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                disabled={selection.isImporting || none}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-gray-800 border border-gray-700 text-xs text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
               >
                 <Heart className="w-3.5 h-3.5" />
                 {selection.isImporting ? 'Adding…' : 'To Wants'}
@@ -606,7 +611,8 @@ export default function SearchPage() {
                   <select
                     value={selection.selectedBinderSlug}
                     onChange={e => selection.setSelectedBinderSlug(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    disabled={none}
+                    className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {selection.binders.map((b: any) => (
                       <option key={b._id || b.slug} value={b.slug}>{b.name}</option>
@@ -614,8 +620,8 @@ export default function SearchPage() {
                   </select>
                   <button
                     onClick={selection.handleAddToBinder}
-                    disabled={selection.isImporting || !selection.selectedBinderSlug}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
+                    disabled={selection.isImporting || !selection.selectedBinderSlug || none}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-xs text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-400"
                   >
                     <UploadCloud className="w-3.5 h-3.5" />
                     {selection.isImporting ? 'Importing…' : 'To Binder'}
@@ -624,7 +630,8 @@ export default function SearchPage() {
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
