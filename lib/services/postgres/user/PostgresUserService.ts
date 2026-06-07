@@ -710,7 +710,7 @@ export class PostgresUserService implements IUserService {
   /**
    * Check if a user has a specific role
    */
-  async hasRole(userId: string, role: keyof UserRolesDTO): AsyncResult<boolean> {
+  async hasRole(userId: string, role: keyof UserRolesDTO | 'isCurator'): AsyncResult<boolean> {
     try {
       const [user] = await db
         .select({

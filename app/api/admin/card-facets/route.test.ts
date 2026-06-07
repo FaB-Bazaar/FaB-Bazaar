@@ -20,10 +20,15 @@ const mockSet = vi.mocked(printingsService.setCardFacetTags);
 const mockHasRole = vi.mocked(userService.hasRole);
 const mockAuth = vi.mocked(authenticateRequest);
 
+// Default: grant whichever role is asked for (acts as a superadmin).
+const grantRoles = (...roles: string[]) =>
+  mockHasRole.mockImplementation(((_uid: string, role: string) =>
+    Promise.resolve({ success: true, data: roles.includes(role) })) as any);
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue({ success: true, userId: 'admin-1' } as any);
-  mockHasRole.mockResolvedValue({ success: true, data: true } as any);
+  grantRoles('isSuperAdmin', 'isCurator');
   mockGet.mockResolvedValue({ success: true, data: ['scaling'] } as any);
   mockSet.mockResolvedValue({ success: true, data: { applied: 3 } } as any);
 });
@@ -41,8 +46,14 @@ describe('GET /api/admin/card-facets', () => {
     expect(await res.json()).toEqual({ success: true, data: ['scaling'] });
     expect(mockGet).toHaveBeenCalledWith('abc');
   });
-  it('403 when not a superadmin', async () => {
-    mockHasRole.mockResolvedValue({ success: true, data: false } as any);
+  it('allows a curator (not a superadmin)', async () => {
+    grantRoles('isCurator');
+    const res = await GET(getReq('?cardUniqueId=abc'));
+    expect(res.status).toBe(200);
+    expect(mockGet).toHaveBeenCalledWith('abc');
+  });
+  it('403 when neither superadmin nor curator', async () => {
+    grantRoles();
     expect((await GET(getReq('?cardUniqueId=abc'))).status).toBe(403);
   });
   it('401 when unauthenticated', async () => {
@@ -60,8 +71,14 @@ describe('POST /api/admin/card-facets', () => {
     expect(res.status).toBe(200);
     expect(mockSet).toHaveBeenCalledWith('abc', ['scaling', 'recursion']);
   });
-  it('403 when not a superadmin', async () => {
-    mockHasRole.mockResolvedValue({ success: true, data: false } as any);
+  it('allows a curator (not a superadmin) to set tags', async () => {
+    grantRoles('isCurator');
+    const res = await POST(postReq({ cardUniqueId: 'abc', tags: ['scaling'] }));
+    expect(res.status).toBe(200);
+    expect(mockSet).toHaveBeenCalledWith('abc', ['scaling']);
+  });
+  it('403 when neither superadmin nor curator', async () => {
+    grantRoles();
     expect((await POST(postReq({ cardUniqueId: 'abc', tags: [] }))).status).toBe(403);
     expect(mockSet).not.toHaveBeenCalled();
   });
