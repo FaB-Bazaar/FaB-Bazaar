@@ -406,6 +406,10 @@ export interface PrintingsSearchOptions {
   returnSimplified?: boolean;
   show?: ResponseMode;
   searchMode?: 'strict' | 'broad';
+  // Opt-in card-level grouping: collapse to one row per card_unique_id,
+  // represented by its cheapest printing (DISTINCT ON). Default off — callers
+  // that need every printing (card-search dialog, bulk, MCP) omit it.
+  groupByCard?: boolean;
 }
 
 /**

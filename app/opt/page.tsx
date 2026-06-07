@@ -17,7 +17,6 @@ import {
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
-import { groupPrintingsByCard } from '@/lib/utils/group-printings-by-card';
 import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
 import { searchPrintingsPost } from '@/lib/client/search-client';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
@@ -352,10 +351,11 @@ export default function OptSearchPage() {
 
   const hasAnyFilter = Object.keys(filters).length > 0;
 
-  // Stable key that changes whenever the effective query (filters + sort) changes.
+  // Stable key that changes whenever the effective query (filters + sort +
+  // grouping mode) changes — toggling Grouped/All-printings refetches.
   const queryKey = useMemo(
-    () => JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder,
-    [filters, sortBy, sortOrder],
+    () => JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder + '|' + groupByCard,
+    [filters, sortBy, sortOrder, groupByCard],
   );
 
   // ── Fetch page 1 (replace) whenever the query changes ──
@@ -367,7 +367,7 @@ export default function OptSearchPage() {
     const id = ++reqIdRef.current;
     setLoading(true);
     setError(null);
-    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict' })
+    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: 1, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
       .then(res => {
         if (id !== reqIdRef.current) return; // a newer query superseded this one
         if (res.success) {
@@ -392,7 +392,7 @@ export default function OptSearchPage() {
     const id = reqIdRef.current; // tie this load to the current query
     const next = page + 1;
     setLoadingMore(true);
-    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict' })
+    searchPrintingsPost({ ...filters, languages: DEFAULT_LANGUAGES }, { page: next, limit: PAGE_SIZE, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard })
       .then(res => {
         if (id !== reqIdRef.current) return; // query changed mid-load → discard
         if (res.success) {
@@ -401,18 +401,16 @@ export default function OptSearchPage() {
         }
       })
       .finally(() => { if (id === reqIdRef.current) setLoadingMore(false); });
-  }, [loading, loadingMore, page, pages, filters, sortBy, sortOrder]);
+  }, [loading, loadingMore, page, pages, filters, sortBy, sortOrder, groupByCard]);
 
   useEffect(() => {
     if (inView) loadMore();
   }, [inView, loadMore]);
 
-  // ── Grouped view collapses cross-language / foiling variants per card_unique_id ──
-  // Grouping runs over the loaded set; tiles fill in as more pages stream in.
-  const displayed = useMemo<any[]>(() => {
-    if (!groupByCard) return results;
-    return groupPrintingsByCard(results as any).map((g) => g.canonicalPrinting);
-  }, [results, groupByCard]);
+  // The server returns card-level rows when grouped (one cheapest printing per
+  // card) and printing-level rows when not — so no client-side grouping is
+  // needed; render the results directly.
+  const displayed = results;
 
   const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -509,8 +507,7 @@ export default function OptSearchPage() {
                 <span className="animate-pulse">Searching…</span>
               ) : (
                 <>
-                  {total.toLocaleString()} printing{total === 1 ? '' : 's'}
-                  {groupByCard && <> · {displayed.length.toLocaleString()} cards shown</>}
+                  {total.toLocaleString()} {groupByCard ? `card${total === 1 ? '' : 's'}` : `printing${total === 1 ? '' : 's'}`}
                 </>
               )}
             </span>

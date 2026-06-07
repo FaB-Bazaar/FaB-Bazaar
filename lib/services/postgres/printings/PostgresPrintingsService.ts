@@ -38,6 +38,13 @@ export class PostgresPrintingsService implements IPrintingsService {
     filters: PrintingsSearchFilters,
     options?: PrintingsSearchOptions
   ): AsyncResult<PrintingsSearchResult> {
+    // Opt-in card-level grouping. Branches BEFORE the flat path so every
+    // existing caller (card-search dialog, bulk, MCP) that omits the flag runs
+    // the unchanged flat query and still receives every printing.
+    if (options?.groupByCard) {
+      return this.searchPrintingsGrouped(filters, options);
+    }
+
     const startTime = Date.now();
 
     try {
@@ -99,6 +106,116 @@ export class PostgresPrintingsService implements IPrintingsService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to search printings',
       };
+    }
+  }
+
+  /**
+   * Card-level search: one row per card_unique_id, represented by its CHEAPEST
+   * printing (tcg_low ASC, priced first). Used by price-aware grouped views.
+   *
+   * Shape: a DISTINCT ON subquery picks the representative printing per card,
+   * then the outer query applies the user's sort + pagination. The total is the
+   * distinct card count. Reuses the same WHERE builder + select projection +
+   * row→DTO mapping as the flat path, so a representative row is a full
+   * PrintingDTO (its own printing's set/foiling/price/image).
+   */
+  private async searchPrintingsGrouped(
+    filters: PrintingsSearchFilters,
+    options?: PrintingsSearchOptions
+  ): AsyncResult<PrintingsSearchResult> {
+    const startTime = Date.now();
+    try {
+      const conditions = this.buildWhereConditions(filters, options);
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+      const limit = options?.limit || 50;
+      const page = options?.page || 1;
+      const offset = (page - 1) * limit;
+
+      // Reuse the shared projection, but give the two `created_at` columns
+      // (printings + cards) explicit SQL aliases — otherwise they collide as
+      // duplicate `created_at` columns inside the subquery. JS keys are
+      // unchanged, so mapToPrintingDTO still works.
+      const reprFields = {
+        ...this.buildSelectFields(),
+        printingCreatedAt: sql`${printings.createdAt}`.as('printing_created_at'),
+        cardCreatedAt: sql`${cards.createdAt}`.as('card_created_at'),
+      };
+
+      // Representative printing per card: cheapest first (NULL prices last),
+      // tie-broken by printing_id for determinism. DISTINCT ON requires the
+      // ORDER BY to lead with the distinct key.
+      const repr = db
+        .selectDistinctOn([printings.cardUniqueId], reprFields)
+        .from(printings)
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(
+          cardTranslations,
+          and(
+            eq(cardTranslations.cardUniqueId, cards.cardUniqueId),
+            eq(cardTranslations.language, printings.language)
+          )
+        )
+        .where(where)
+        .orderBy(printings.cardUniqueId, sql`${printings.tcgLow} ASC NULLS LAST`, printings.printingId)
+        .as('repr');
+
+      // Outer: re-sort the representatives by the user's choice + paginate.
+      const results = await db
+        .select()
+        .from(repr)
+        .orderBy(...this.buildGroupedOrderBy(repr, options))
+        .limit(limit)
+        .offset(offset);
+
+      // Total = distinct cards matching (not printings).
+      const [countResult] = await db
+        .select({ count: sql<number>`count(DISTINCT ${printings.cardUniqueId})::int` })
+        .from(printings)
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(where);
+
+      const total = countResult?.count || 0;
+      const pages = Math.ceil(total / limit);
+
+      return {
+        success: true,
+        data: {
+          printings: results.map((row) => this.mapToPrintingDTO(row)),
+          total,
+          page,
+          pages,
+          queryInfo: { executionTime: Date.now() - startTime, filters },
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to search printings (grouped)',
+      };
+    }
+  }
+
+  /**
+   * Order-by for the grouped outer query. Mirrors buildOrderBy but references
+   * the DISTINCT ON subquery's columns (by select-field key) instead of the
+   * base tables. Name is the secondary tiebreaker on every sort.
+   */
+  private buildGroupedOrderBy(repr: any, options?: PrintingsSearchOptions): any[] {
+    const sortBy = options?.sortBy || 'name';
+    const orderFn = options?.sortOrder === 'desc' ? desc : asc;
+    switch (sortBy) {
+      // The representative IS the cheapest printing, so sorting by its tcg_low
+      // sorts cards by cheapest available price.
+      case 'price':   return [orderFn(repr.tcgLow), asc(repr.name)];
+      case 'power':   return [orderFn(repr.power), asc(repr.name)];
+      case 'cost':    return [orderFn(repr.cost), asc(repr.name)];
+      case 'defense': return [orderFn(repr.defense), asc(repr.name)];
+      case 'set':     return [orderFn(repr.set), asc(repr.name)];
+      case 'rarity':  return [orderFn(repr.rarity), asc(repr.name)];
+      case 'collector_number': return [orderFn(repr.collectorNumber), asc(repr.name)];
+      case 'name':
+      default:        return [orderFn(repr.name)];
     }
   }
 
