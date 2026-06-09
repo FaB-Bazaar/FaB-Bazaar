@@ -716,7 +716,7 @@ export default function PresenterPage() {
       {/* Card spotlight overlay — sits below the global navbar (h-16, z-50) so the navbar stays visible */}
       {spotlightCard && (
         <div
-          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 lg:p-8"
+          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center backdrop-blur-sm p-4 lg:p-8 bg-[radial-gradient(ellipse_at_center,_rgba(0,0,0,0.78)_0%,_rgba(0,0,0,0.88)_45%,_rgba(0,0,0,0.96)_100%)]"
           onClick={closeSpotlight}
         >
           <button
