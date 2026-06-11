@@ -222,8 +222,10 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
     sceneRef.current = { renderer, uniforms, mesh, pt, toX, toY, toHover, reducedMotion }
 
     const resize = () => {
-      const w = el.clientWidth
-      const h = el.clientHeight
+      // Size the renderer to the oversized wrapper, not the container —
+      // the extra margin is headroom for tilted corners.
+      const w = wrap.clientWidth
+      const h = wrap.clientHeight
       if (w === 0 || h === 0) return
       renderer.setSize(w, h, false)
       camera.aspect = w / h
@@ -231,7 +233,7 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
     }
     resize()
     const ro = new ResizeObserver(resize)
-    ro.observe(el)
+    ro.observe(wrap)
 
     const pointTo = (e: PointerEvent) => {
       const r = el.getBoundingClientRect()
@@ -336,13 +338,21 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
       className={`relative aspect-[63/88] select-none ${className}`}
       style={{ touchAction: "none" }}
     >
-      {/* Fallback / loading placeholder — the canvas fades in over it. */}
-      <img src={src} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-contain rounded-[4.5%]" draggable={false} />
-      {/* three's canvas is appended here by the mount effect */}
+      {/* Fallback / loading placeholder — fades OUT once the canvas is live so the two never double up. */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className={`absolute inset-0 w-full h-full object-contain rounded-[4.5%] transition-opacity duration-300 ${ready && !failed ? "opacity-0" : "opacity-100"}`}
+        draggable={false}
+      />
+      {/* three's canvas is appended here by the mount effect. The wrapper is
+          oversized (-11% inset) so the card plane fills the container exactly
+          while tilted corners still have room to swing without clipping. */}
       <div
         ref={canvasWrapRef}
         aria-hidden="true"
-        className={`absolute inset-0 transition-opacity duration-500 ${ready && !failed ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-[-11%] transition-opacity duration-500 ${ready && !failed ? "opacity-100" : "opacity-0"}`}
       />
     </div>
   )
