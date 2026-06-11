@@ -1,8 +1,10 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Checkbox } from '@/components/ui/checkbox';
 import { TcgAffiliateLink } from '@/components/tracking';
 import { FOILING_STYLES, EDITION_MAP } from '@/lib/fab-constants';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Check, Expand, X } from 'lucide-react';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
 
@@ -54,17 +56,22 @@ export function ImagesView({
 }: ImagesViewProps) {
   const selectionEnabled = onToggleSelection && isCardSelected && getCardQuantity && onUpdateQuantity;
 
+  // Calm preview modal (replaces the old click-to-flip popover on search)
+  const [previewPrinting, setPreviewPrinting] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!previewPrinting) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewPrinting(null);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [previewPrinting]);
+
   return (
+    <>
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-
-
       {printings.map((printing: any) => {
-  console.log('--- PRINTING START ---');
-  console.log(JSON.stringify(printing, null, 2)); // Prettify the JSON
-  console.log('--- PRINTING END ---');
-
-        console.log('DEBUG printing:', printing)
-        
         const isSelected = selectionEnabled && isCardSelected(printing.printing_id);
         const quantity = selectionEnabled ? getCardQuantity(printing.printing_id) : 1;
 
@@ -106,14 +113,29 @@ export function ImagesView({
 
             <div className="relative">
               <div
+                {...(selectionEnabled
+                  ? {
+                      role: 'button',
+                      tabIndex: 0,
+                      'aria-pressed': !!isSelected,
+                      'aria-label': `Select ${printing.display_name || printing.name}`,
+                      onClick: () => onToggleSelection(printing),
+                      onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onToggleSelection(printing);
+                        }
+                      },
+                    }
+                  : {})}
                 className={`relative aspect-[2.5/3.5] rounded-lg overflow-hidden border transition-all ${
                   isSelected
                     ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 dark:ring-blue-400'
                     : 'border-gray-200 dark:border-gray-700'
-                }`}
+                }${selectionEnabled ? ' cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''}`}
               >
                   {printing.image_url ? (
-                    
                     <FoilCardImage
                       foiling={printing.foiling}
                       artStyle={artStylesFromPrinting(printing.art_variations, printing.is_extended_art)}
@@ -122,7 +144,6 @@ export function ImagesView({
                       alt={printing.display_name || printing.name}
                       className="w-full h-full"
                       imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      expandable
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
@@ -133,36 +154,39 @@ export function ImagesView({
                   )}
                 </div>
 
-              {/* Checkbox overlay - centered vertically and horizontally */}
-              {selectionEnabled && (
+              {/* Selected badge - top-left corner (pairs the blue ring with a shape cue) */}
+              {isSelected && (
                 <div
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
+                  data-testid="selected-badge"
+                  className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-blue-600 border-2 border-white dark:border-gray-900 shadow-md flex items-center justify-center pointer-events-none"
                 >
-                  <div className="bg-white dark:bg-gray-800 rounded-md p-2 shadow-lg border-2 border-gray-300 dark:border-gray-600">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => onToggleSelection(printing)}
-                      className="w-6 h-6"
-                    />
-                  </div>
+                  <Check className="w-4 h-4 text-white" strokeWidth={3} aria-hidden="true" />
                 </div>
               )}
 
-              {/* Quantity selector - only shown if card is selected */}
+              {/* Magnifier - opens the calm preview modal (hover-reveal; always shown on touch) */}
+              <button
+                type="button"
+                aria-label={`Preview ${printing.display_name || printing.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPreviewPrinting(printing);
+                }}
+                className="absolute top-2 right-2 z-10 w-7 h-7 rounded-md bg-black/50 text-white/90 hover:bg-black/70 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                <Expand className="w-4 h-4" aria-hidden="true" />
+              </button>
+
+              {/* Quantity selector - bottom-center pill, only shown if card is selected */}
               {selectionEnabled && isSelected && (
                 <div
-                  className="absolute top-10 right-2 z-10"
+                  className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                   }}
                 >
-                  <div className="bg-black/20 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
-                    <div className="text-[10px] text-white/80 font-medium mb-1 text-center">Qty</div>
+                  <div className="bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-lg">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => {
@@ -170,7 +194,8 @@ export function ImagesView({
                           onUpdateQuantity(printing.printing_id, Math.max(1, quantity - 1));
                         }}
                         disabled={quantity <= 1}
-                        className="w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-md"
+                        aria-label="Decrease quantity"
+                        className="w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <Minus className="w-3.5 h-3.5 text-white" />
                       </button>
@@ -182,7 +207,8 @@ export function ImagesView({
                           e.stopPropagation();
                           onUpdateQuantity(printing.printing_id, quantity + 1);
                         }}
-                        className="w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 flex items-center justify-center transition-colors shadow-md"
+                        aria-label="Increase quantity"
+                        className="w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 flex items-center justify-center transition-colors shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         <Plus className="w-3.5 h-3.5 text-white" />
                       </button>
@@ -221,5 +247,51 @@ export function ImagesView({
         );
       })}
     </div>
+
+    {/* Calm card preview - large image, backdrop/Esc/✕ to close, no flip */}
+    {previewPrinting && (
+      <div
+        data-testid="preview-backdrop"
+        className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+        onClick={() => setPreviewPrinting(null)}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={previewPrinting.display_name || previewPrinting.name}
+          className="relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            aria-label="Close preview"
+            onClick={() => setPreviewPrinting(null)}
+            className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-gray-900 border border-gray-600 text-gray-300 hover:text-white flex items-center justify-center shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <div className="h-[min(85vh,126vw)] aspect-[2.5/3.5]">
+            {previewPrinting.image_url ? (
+              <FoilCardImage
+                foiling={previewPrinting.foiling}
+                artStyle={artStylesFromPrinting(previewPrinting.art_variations, previewPrinting.is_extended_art)}
+                foilInset={foilInsetFromValues(previewPrinting.foil_inset_top, previewPrinting.foil_inset_right, previewPrinting.foil_inset_bottom, previewPrinting.foil_inset_left, previewPrinting.foil_inset_round)}
+                src={previewPrinting.image_url}
+                alt={previewPrinting.display_name || previewPrinting.name}
+                className="w-full h-full"
+                imgClassName="w-full h-full object-contain rounded-xl"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-800 rounded-xl flex items-center justify-center">
+                <span className="text-gray-400 text-lg text-center px-4">
+                  {previewPrinting.display_name || previewPrinting.name}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
