@@ -85,15 +85,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate required fields (slug no longer required - deprecated as of 2026-02)
-    if (!body.title || !body.contentType) {
+    if (!body.title) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: title, contentType' },
+        { success: false, error: 'Missing required field: title' },
         { status: 400 }
       );
     }
 
+    // contentType is optional (quick-write flow) — default to 'strategy'
+    const contentType = body.contentType ?? 'strategy';
+
     // Validate contentType (restricted for users)
-    if (!['article', 'strategy', 'hero', 'guide', 'tournament'].includes(body.contentType)) {
+    if (!['article', 'strategy', 'hero', 'guide', 'tournament'].includes(contentType)) {
       return NextResponse.json(
         { success: false, error: 'Invalid content type. Users can only create: article, strategy, hero guide, guide, tournament' },
         { status: 400 }
@@ -104,7 +107,7 @@ export async function POST(request: NextRequest) {
     const result = await articleService.createUserArticle(authResult.userId, {
       title: body.title,
       subtitle: body.subtitle,
-      contentType: body.contentType,
+      contentType,
       image: body.image,
       sections: body.sections || [],
       status: body.status || 'draft',

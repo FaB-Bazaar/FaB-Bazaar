@@ -191,6 +191,7 @@ export interface UpdateUserArticleDTO {
   title?: string;
   subtitle?: string;
   status?: ArticleStatus;
+  contentType?: ArticleContentType;  // Editable until publish — quick-write defers metadata to publish time
   image?: string;
   sections?: any[];  // All 13 section types allowed
   // Hero guide specific fields

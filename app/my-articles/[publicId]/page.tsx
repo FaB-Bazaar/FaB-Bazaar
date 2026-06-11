@@ -66,6 +66,16 @@ const HERO_CLASSES = [
   'Illusionist', 'Necromancer'
 ];
 
+const CONTENT_TYPE_LABELS: Record<string, string> = {
+  strategy: 'Strategy',
+  hero: 'Hero Guide',
+  tournament: 'Tournament Report',
+};
+
+const AUTOSAVE_DELAY_MS = 2000;
+
+type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+
 // Helper to capitalize hero names for display
 const capitalizeHeroName = (name: string) => {
   return name
@@ -84,9 +94,15 @@ export default function EditArticlePage() {
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [coverImageDialogOpen, setCoverImageDialogOpen] = useState(false);
   const [coverCardDetails, setCoverCardDetails] = useState<any>(null);
   const hasFetched = useRef(false);
+  // Suppress the autosave effect when `article` is set from a server response
+  // (initial fetch, manual save, publish toggle) rather than a user edit.
+  const skipNextAutosave = useRef(true);
+  const articleRef = useRef<any>(null);
+  articleRef.current = article;
 
   // Fetch article — guard with ref so tab-focus session refreshes don't re-fetch and
   // overwrite unsaved edits (NextAuth re-creates the user object on window focus).
@@ -103,6 +119,7 @@ export default function EditArticlePage() {
       const result = await articlesClient.getArticle(publicId);
 
       if (result.success) {
+        skipNextAutosave.current = true;
         setArticle(result.data);
       } else {
         throw new Error(result.error);
@@ -146,6 +163,40 @@ export default function EditArticlePage() {
       setCoverCardDetails(null);
     }
   }, [article?.image]);
+
+  // Autosave content edits (never status — publish/unpublish stays explicit).
+  // Doesn't write the response back into state, so in-flight typing is never clobbered.
+  const autosave = async () => {
+    const current = articleRef.current;
+    if (!current?.title?.trim()) return; // don't persist a titleless article
+
+    setSaveState('saving');
+    try {
+      const result = await articlesClient.updateArticle(publicId, {
+        title: current.title,
+        subtitle: current.subtitle,
+        contentType: current.contentType,
+        image: current.image,
+        sections: current.sections,
+        heroClass: current.heroClass,
+        heroSlug: current.heroSlug,
+      });
+      setSaveState(result.success ? 'saved' : 'error');
+    } catch {
+      setSaveState('error');
+    }
+  };
+
+  useEffect(() => {
+    if (!article) return;
+    if (skipNextAutosave.current) {
+      skipNextAutosave.current = false;
+      return;
+    }
+    setSaveState('pending');
+    const timer = setTimeout(autosave, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [article]);
 
   // Add section
   const addSection = (type: string) => {
@@ -213,6 +264,7 @@ export default function EditArticlePage() {
         title: article.title,
         subtitle: article.subtitle,
         status: article.status,
+        contentType: article.contentType,
         image: article.image,
         sections: article.sections,
         heroClass: article.heroClass,
@@ -224,7 +276,9 @@ export default function EditArticlePage() {
           title: 'Article updated!',
           description: 'Your changes have been saved',
         });
+        skipNextAutosave.current = true;
         setArticle(result.data);
+        setSaveState('saved');
       } else {
         throw new Error(result.error);
       }
@@ -246,14 +300,37 @@ export default function EditArticlePage() {
 
     const newStatus = article.status === 'draft' ? 'published' : 'draft';
 
+    // Metadata is deferred until publish — enforce it here, not while drafting
+    if (newStatus === 'published') {
+      if ((article.contentType === 'hero' || article.contentType === 'tournament') && !article.heroSlug) {
+        toast({
+          title: 'Hero required',
+          description: `Select a hero in Article Details before publishing a ${CONTENT_TYPE_LABELS[article.contentType] || article.contentType}.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
+      // Persist current edits alongside the status change so publish
+      // never races a pending autosave.
       const result = await articlesClient.updateArticle(publicId, {
+        title: article.title,
+        subtitle: article.subtitle,
+        contentType: article.contentType,
+        image: article.image,
+        sections: article.sections,
+        heroClass: article.heroClass,
+        heroSlug: article.heroSlug,
         status: newStatus,
       });
 
       if (result.success) {
+        skipNextAutosave.current = true;
         setArticle(result.data);
+        setSaveState('saved');
         toast({
           title: `Article ${newStatus}`,
           description: newStatus === 'published' ? 'Your article is now live!' : 'Article moved to drafts',
@@ -406,9 +483,16 @@ export default function EditArticlePage() {
     );
   }
 
+  // Render a prompt instead of redirecting: `user` populates one render after
+  // authLoading clears (AuthContext race), and a render-time push lands on a
+  // nonexistent /auth route.
   if (!user) {
-    router.push('/auth');
-    return null;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">Sign in to edit your articles</p>
+        <Button onClick={() => router.push('/auth/login')}>Sign In</Button>
+      </div>
+    );
   }
 
   if (!article) {
@@ -438,7 +522,13 @@ export default function EditArticlePage() {
               <Badge variant={article.status === 'published' ? 'default' : 'secondary'}>
                 {article.status}
               </Badge>
-              <Badge variant="outline">{article.contentType}</Badge>
+              <Badge variant="outline">{CONTENT_TYPE_LABELS[article.contentType] || article.contentType}</Badge>
+              <span className="text-sm text-muted-foreground" aria-live="polite">
+                {saveState === 'pending' && 'Unsaved changes…'}
+                {saveState === 'saving' && 'Saving…'}
+                {saveState === 'saved' && 'All changes saved'}
+                {saveState === 'error' && 'Autosave failed — use Save Changes'}
+              </span>
             </div>
           </div>
           <div className="flex gap-2">
@@ -501,14 +591,31 @@ export default function EditArticlePage() {
             />
           </div>
 
-          {/* Content Type (read-only) */}
+          {/* Content Type — editable until you settle on what the piece is */}
           <div>
-            <Label>Content Type</Label>
-            <Input
+            <Label htmlFor="contentType">Content Type</Label>
+            <Select
               value={article.contentType}
-              disabled
-              className="bg-muted capitalize"
-            />
+              onValueChange={(value) => setArticle((prev: any) => ({ ...prev, contentType: value }))}
+            >
+              <SelectTrigger className="mt-1 bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {/* Keep a legacy value (e.g. 'guide', 'article') selectable so existing articles don't break */}
+                {!CONTENT_TYPE_LABELS[article.contentType] && (
+                  <SelectItem value={article.contentType} className="capitalize">
+                    {article.contentType}
+                  </SelectItem>
+                )}
+                <SelectItem value="strategy">Strategy</SelectItem>
+                <SelectItem value="hero">Hero Guide</SelectItem>
+                <SelectItem value="tournament">Tournament Report</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Hero Guides and Tournament Reports need a hero selected before publishing.
+            </p>
           </div>
 
           {/* Cover Image */}

@@ -96,6 +96,17 @@ export async function PATCH(
     const { publicId } = await params;
     const body = await request.json();
 
+    // contentType is editable until publish (quick-write flow defers metadata)
+    if (
+      body.contentType !== undefined &&
+      !['article', 'strategy', 'hero', 'guide', 'tournament'].includes(body.contentType)
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid content type. Users can only set: article, strategy, hero guide, guide, tournament' },
+        { status: 400 }
+      );
+    }
+
     // Get article to verify existence and get MongoDB _id
     const articleResult = await articleService.getArticleByPublicId(publicId);
 
@@ -121,6 +132,7 @@ export async function PATCH(
         title: body.title,
         subtitle: body.subtitle,
         status: body.status,
+        contentType: body.contentType,
         image: body.image,
         sections: body.sections,
         heroClass: body.heroClass,

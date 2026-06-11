@@ -103,7 +103,8 @@ export async function createArticle(data: {
   title: string;
   subtitle?: string;
   slug?: string;
-  contentType: 'article' | 'strategy' | 'hero' | 'guide' | 'tournament';
+  contentType?: 'article' | 'strategy' | 'hero' | 'guide' | 'tournament'; // defaults to 'strategy' server-side
+
   image?: string;
   sections?: any[];
   status?: ArticleStatus;
@@ -147,6 +148,7 @@ export async function updateArticle(
     title?: string;
     subtitle?: string;
     status?: ArticleStatus;
+    contentType?: 'article' | 'strategy' | 'hero' | 'guide' | 'tournament';
     image?: string;
     sections?: any[];
     heroClass?: string;
