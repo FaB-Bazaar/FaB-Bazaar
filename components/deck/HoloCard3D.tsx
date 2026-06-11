@@ -27,7 +27,7 @@ import {
   WebGLRenderer,
 } from "three"
 import gsap from "gsap"
-import { getInsetFromArtStyle, type FoilInset } from "@/components/shared/FoilCardImage"
+import { getFoilType, resolveFoilInset, type FoilInset } from "@/lib/foil"
 
 const CARD_W = 63
 const CARD_H = 88
@@ -169,16 +169,11 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const foilingUpper = foiling?.toUpperCase()
-  const foilType = foilingUpper === "R" ? 1 : foilingUpper === "C" ? 2 : 0
-
-  // Same resolution rules as FoilCardImage: DB values win, artStyle fills gaps.
-  const fallbackInset = getInsetFromArtStyle(artStyle)
-  const top = foilInset?.top ?? fallbackInset.top
-  const right = foilInset?.right ?? fallbackInset.right
-  const bottom = foilInset?.bottom ?? fallbackInset.bottom
-  const left = foilInset?.left ?? fallbackInset.left
-  const roundMm = parseRoundMm(foilInset?.round ?? fallbackInset.round)
+  // Shared foil policy (lib/foil) — same mapping/resolution as FoilCardImage.
+  const foilTypeName = getFoilType(foiling)
+  const foilType = foilTypeName === "rainbow" ? 1 : foilTypeName === "cold" ? 2 : 0
+  const { top, right, bottom, left, round } = resolveFoilInset(foilInset, artStyle)
+  const roundMm = parseRoundMm(round)
 
   // Mount: renderer, scene, shader plane, pointer handlers, render loop.
   useEffect(() => {

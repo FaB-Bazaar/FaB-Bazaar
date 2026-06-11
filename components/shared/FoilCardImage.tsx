@@ -10,6 +10,11 @@
 import React, { useRef, useEffect, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
+import { getFoilType, resolveFoilInset, type FoilInset } from "@/lib/foil"
+
+// Re-exported for backward compatibility — the policy now lives in lib/foil.
+export { getInsetFromArtStyle } from "@/lib/foil"
+export type { FoilInset } from "@/lib/foil"
 
 // ─── Spring physics (inline — no deps) ───────────────────────────────────────
 
@@ -36,16 +41,6 @@ function springSettled(s: Spring) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** DB-stored foil clip-path inset values for a rainbow-foil card. */
-export interface FoilInset {
-  top: number | null
-  right: number | null
-  bottom: number | null
-  left: number | null
-  /** CSS length for the round corner, e.g. "1.5%", "0%", "8px". Null → "1.5%" */
-  round: string | null
-}
 
 interface FoilCardImageProps {
   /** Raw foiling code from the database ('R', 'C', 'S', 'G', etc.) */
@@ -76,26 +71,6 @@ interface FoilCardImageProps {
   expandable?: boolean
 }
 
-/**
- * Derives foil clip-path inset values from the artStyle array.
- * This is the fallback used when no DB-stored foilInset exists.
- * Exported so other foil renderers (e.g. HoloCard3D) share the same defaults.
- */
-export function getInsetFromArtStyle(artStyle: string[] | undefined): Required<FoilInset> {
-  const hasExtended = artStyle?.includes('extended-art') ?? false
-  const hasAlternate = artStyle?.includes('alternate-art') ?? false
-  const hasBorder   = artStyle?.includes('alternate-border') ?? false
-  const hasFull     = artStyle?.includes('full-art') ?? false
-
-  if (hasExtended && hasAlternate && hasBorder) return { top: 0,  right: 0, bottom: 30, left: 0, round: '0%' }
-  if (hasExtended && hasAlternate)              return { top: 0,  right: 0, bottom: 26, left: 0, round: '0%' }
-  if (hasFull)                                  return { top: 1,  right: 2, bottom: 20, left: 2, round: '8px' }
-  if (hasBorder)                                return { top: 1,  right: 4, bottom: 20, left: 4, round: '12px' }
-  if (hasAlternate)                             return { top: 1,  right: 4, bottom: 23, left: 4, round: '10px' }
-  if (hasExtended)                              return { top: 1,  right: 0, bottom: 18, left: 0, round: '0%' }
-  return                                               { top: 12.5, right: 9.5, bottom: 41.5, left: 9.5, round: '1.5%' }
-}
-
 export default function FoilCardImage({
   foiling,
   artStyle,
@@ -110,10 +85,10 @@ export default function FoilCardImage({
   expandable = false,
 }: FoilCardImageProps) {
 
-  const foilingUpper = foiling?.toUpperCase()
-  const isFoilCard  = foilingUpper === 'R' || foilingUpper === 'C'
-  const isRainbowFoil = foilingUpper === 'R'
-  const foilRarity  = isRainbowFoil ? 'rainbow foil' : 'cold foil'
+  const foilType = getFoilType(foiling)
+  const isFoilCard = foilType !== 'none'
+  const isRainbowFoil = foilType === 'rainbow'
+  const foilRarity = isRainbowFoil ? 'rainbow foil' : 'cold foil'
 
   const cardRef     = useRef<HTMLDivElement>(null)
   const rafRef      = useRef<number | null>(null)
@@ -130,17 +105,7 @@ export default function FoilCardImage({
   })
 
   // Resolve foil inset: prefer DB values, fall back to artStyle-derived defaults
-  const resolvedInset = isRainbowFoil
-    ? (foilInset != null
-        ? {
-            top:   foilInset.top    ?? getInsetFromArtStyle(artStyle).top,
-            right: foilInset.right  ?? getInsetFromArtStyle(artStyle).right,
-            bottom:foilInset.bottom ?? getInsetFromArtStyle(artStyle).bottom,
-            left:  foilInset.left   ?? getInsetFromArtStyle(artStyle).left,
-            round: foilInset.round  ?? getInsetFromArtStyle(artStyle).round,
-          }
-        : getInsetFromArtStyle(artStyle))
-    : null
+  const resolvedInset = isRainbowFoil ? resolveFoilInset(foilInset, artStyle) : null
 
   // CSS custom properties for the foil clip-path (written to the card element style)
   const foilInsetVars: React.CSSProperties = resolvedInset

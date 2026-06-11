@@ -18,6 +18,7 @@ import BinderSelector from "@/components/printing/BinderSelector"
 import { useCookieConsent } from '@/contexts/CookieConsentContext'
 import { TcgAffiliateLink } from '@/components/tracking'
 import FoilCardImage from '@/components/shared/FoilCardImage'
+import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil'
 import { sortPrintingsByLanguage, languageFlag } from '@/lib/utils/printing-language'
 import { RarityIcon } from '@/components/shared/RarityIcon'
 import { getSetImageOrFallback } from '@/lib/set-images'
@@ -549,14 +550,8 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                 <div className="max-w-[260px] sm:max-w-[300px] mx-auto xl:max-w-none">
                   <FoilCardImage
                     foiling={rail.foiling}
-                    artStyle={rail.art_variations?.includes('FA') ? 'full-art' : rail.is_extended_art ? 'extended-art' : undefined}
-                    foilInset={rail.foil_inset_bottom != null ? {
-                      top: rail.foil_inset_top,
-                      right: rail.foil_inset_right,
-                      bottom: rail.foil_inset_bottom,
-                      left: rail.foil_inset_left,
-                      round: rail.foil_inset_round ?? '1.5%',
-                    } : undefined}
+                    artStyle={artStylesFromPrinting(rail.art_variations, rail.is_extended_art)}
+                    foilInset={foilInsetFromValues(rail.foil_inset_top, rail.foil_inset_right, rail.foil_inset_bottom, rail.foil_inset_left, rail.foil_inset_round)}
                     src={rail.image_url || '/placeholder.svg'}
                     alt={rail.display_name || rail.name}
                     className="w-full rounded-md shadow"

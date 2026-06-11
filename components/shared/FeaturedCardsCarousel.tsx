@@ -9,25 +9,13 @@ import WhoHasDropdown from "@/components/shared/WhoHasDropdown"
 import { getVariantStyles, getFoilingName } from "@/lib/fab-formatters"
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink"
 import FoilCardImage from "@/components/shared/FoilCardImage"
+import { artStylesFromPrinting, foilInsetFromValues } from "@/lib/foil"
 
 // Smaller FeaturedCard Component for Carousels
 export function FeaturedCardSmall({ card }: { card: any }) {
   const [imageError, setImageError] = useState(false);
 
-  // Build artStyles array to handle multiple variants (e.g. EA + AA)
-  const artStyles: string[] = [];
-  if (card.art_variations?.includes('FA')) {
-    artStyles.push('full-art');
-  }
-  if (card.art_variations?.includes('AA') || card.art_variations?.includes('AB')) {
-    artStyles.push('alternate-art');
-  }
-  if (card.art_variations?.includes('AB')) {
-    artStyles.push('alternate-border');
-  }
-  if (card.is_extended_art) {
-    artStyles.push('extended-art');
-  }
+  const artStyles = artStylesFromPrinting(card.art_variations, card.is_extended_art);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl shadow-black/25 dark:shadow-xl dark:shadow-black/50 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:shadow-black/30 transition-shadow duration-200 h-full flex flex-col">
@@ -41,13 +29,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
           <FoilCardImage
             foiling={card.foiling}
             artStyle={artStyles}
-            foilInset={card.foil_inset_bottom != null ? {
-              top: card.foil_inset_top,
-              right: card.foil_inset_right,
-              bottom: card.foil_inset_bottom,
-              left: card.foil_inset_left,
-              round: card.foil_inset_round,
-            } : null}
+            foilInset={foilInsetFromValues(card.foil_inset_top, card.foil_inset_right, card.foil_inset_bottom, card.foil_inset_left, card.foil_inset_round)}
             src={card.image_url}
             alt={card.name}
             className="w-full h-full"

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import FoilCardImage from '@/components/shared/FoilCardImage';
+import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
 import { TcgAffiliateLink } from '@/components/tracking';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { getHeroInfo, toHeroDisplayName } from '@/lib/fab-constants/heroes';
@@ -83,12 +84,7 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover }: P
   const capped = card.cappedCount < card.rawCount;
   const setCollector = formatSetCollector(card.setCode, card.collectorNumber);
 
-  const artStyle = [
-    card.isExtendedArt && 'extended-art',
-    (card.artVariations?.includes('AA') || card.artVariations?.includes('AB')) && 'alternate-art',
-    card.artVariations?.includes('AB') && 'alternate-border',
-    card.artVariations?.includes('FA') && 'full-art',
-  ].filter((s): s is string => Boolean(s));
+  const artStyle = artStylesFromPrinting(card.artVariations, card.isExtendedArt);
 
   const ownedStyle = ownedCount === undefined
     ? null
@@ -98,13 +94,7 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover }: P
         ? { label: `${ownedCount}/${card.cappedCount}`, className: 'bg-amber-500/90 text-white', title: `You own ${ownedCount} of ${card.cappedCount} needed` }
         : { label: `✓ ${ownedCount}`, className: 'bg-emerald-600/90 text-white', title: `You own ${ownedCount} (need ${card.cappedCount})` };
 
-  const foilInset = card.foilInsetBottom != null ? {
-    top: card.foilInsetTop,
-    right: card.foilInsetRight,
-    bottom: card.foilInsetBottom,
-    left: card.foilInsetLeft,
-    round: card.foilInsetRound,
-  } : null;
+  const foilInset = foilInsetFromValues(card.foilInsetTop, card.foilInsetRight, card.foilInsetBottom, card.foilInsetLeft, card.foilInsetRound);
 
   return (
     <div

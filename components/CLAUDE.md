@@ -25,6 +25,12 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 - Metadata / secondary: `text-sm` (14px) acceptable
 - Never `text-xs` (12px) for anything the user needs to act on
 
+## Foil Rendering
+
+- Foil **policy** lives in `lib/foil.ts` (foiling code → treatment, rainbow inset resolution, art-style derivation). Change it there, never inline — call sites use `artStylesFromPrinting()` + `foilInsetFromValues()`.
+- Two renderers consume it: `shared/FoilCardImage` (CSS, styling in `app/foil-cards.css`) for grids/carousels, and `deck/HoloCard3D` (WebGL, presenter spotlight — single instance only; browsers cap WebGL contexts at ~8-16). Visual styling is intentionally per-renderer: retuning `foil-cards.css` means retuning the HoloCard3D shader to match.
+- Card image CDN (imagedelivery.net) sends `access-control-allow-origin: *` — safe as WebGL textures with `crossOrigin: 'anonymous'`.
+
 ## HUD / Overlay Patterns
 
 - **Dormant pill** — `bg-black/40 border border-blue-400/60 backdrop-blur-md` + blue glow shadow, fixed bottom-center

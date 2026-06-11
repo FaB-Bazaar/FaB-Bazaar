@@ -4,6 +4,7 @@ import { TcgAffiliateLink } from '@/components/tracking';
 import { FOILING_STYLES, EDITION_MAP } from '@/lib/fab-constants';
 import { Minus, Plus } from 'lucide-react';
 import FoilCardImage from '@/components/shared/FoilCardImage';
+import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
 
 interface ImagesViewProps {
   printings: any[];
@@ -115,19 +116,8 @@ export function ImagesView({
                     
                     <FoilCardImage
                       foiling={printing.foiling}
-                      artStyle={[
-                        printing.is_extended_art && 'extended-art',
-                        (printing.art_variations?.includes('AA') || printing.art_variations?.includes('AB')) && 'alternate-art',
-                        printing.art_variations?.includes('AB') && 'alternate-border',
-                        printing.art_variations?.includes('FA') && 'full-art',
-                      ].filter((s): s is string => Boolean(s))}
-                      foilInset={printing.foil_inset_bottom != null ? {
-                        top: printing.foil_inset_top,
-                        right: printing.foil_inset_right,
-                        bottom: printing.foil_inset_bottom,
-                        left: printing.foil_inset_left,
-                        round: printing.foil_inset_round,
-                      } : null}
+                      artStyle={artStylesFromPrinting(printing.art_variations, printing.is_extended_art)}
+                      foilInset={foilInsetFromValues(printing.foil_inset_top, printing.foil_inset_right, printing.foil_inset_bottom, printing.foil_inset_left, printing.foil_inset_round)}
                       src={printing.image_url}
                       alt={printing.display_name || printing.name}
                       className="w-full h-full"

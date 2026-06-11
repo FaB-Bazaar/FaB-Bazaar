@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch"
 import { Minus, Plus, Edit3, Trash2, ExternalLink } from "lucide-react"
 import { RarityIcon } from '@/components/shared/RarityIcon'
 import FoilCardImage from '@/components/shared/FoilCardImage'
+import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil'
 import { cn } from '@/lib/utils'
 import Link from "next/link"
 import { TcgAffiliateLink } from '@/components/tracking'
@@ -175,19 +176,8 @@ export default function EnhancedBinderCard({
       <div className="relative w-full aspect-[5/7] bg-gray-50 dark:bg-gray-800 overflow-hidden flex items-center justify-center p-2">
         <FoilCardImage
           foiling={foiling}
-          artStyle={[
-            card.is_extended_art && 'extended-art',
-            (card.art_variations?.includes('AA') || card.art_variations?.includes('AB')) && 'alternate-art',
-            card.art_variations?.includes('AB') && 'alternate-border',
-            card.art_variations?.includes('FA') && 'full-art',
-          ].filter((s): s is string => Boolean(s))}
-          foilInset={card.foil_inset_bottom != null ? {
-            top: card.foil_inset_top,
-            right: card.foil_inset_right,
-            bottom: card.foil_inset_bottom,
-            left: card.foil_inset_left,
-            round: card.foil_inset_round,
-          } : null}
+          artStyle={artStylesFromPrinting(card.art_variations, card.is_extended_art)}
+          foilInset={foilInsetFromValues(card.foil_inset_top, card.foil_inset_right, card.foil_inset_bottom, card.foil_inset_left, card.foil_inset_round)}
           src={getImageUrl()}
           alt={display_name}
           className={cn(

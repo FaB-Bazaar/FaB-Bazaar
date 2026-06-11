@@ -8,6 +8,7 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
 import { toTalisharIdentifier } from "@/lib/utils"
+import { artStylesFromPrinting, foilInsetFromValues } from "@/lib/foil"
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants"
 import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits"
@@ -514,22 +515,12 @@ export default function PresenterPage() {
   const heroCard = deck.hero?.[0]
   const spotlightCard = spotlightIdx !== null ? flatCards[spotlightIdx] : null
 
-  // Foil props for the 3D spotlight card — same derivation as FeaturedCardSmall.
+  // Foil props for the 3D spotlight card — shared policy from lib/foil.
   const sd = spotlightCard?.printingDetails
-  const spotlightArtStyles: string[] = []
-  if (sd?.art_variations?.includes('FA')) spotlightArtStyles.push('full-art')
-  if (sd?.art_variations?.includes('AA') || sd?.art_variations?.includes('AB')) spotlightArtStyles.push('alternate-art')
-  if (sd?.art_variations?.includes('AB')) spotlightArtStyles.push('alternate-border')
-  if (sd?.is_extended_art) spotlightArtStyles.push('extended-art')
-  const spotlightFoilInset = sd?.foil_inset_bottom != null
-    ? {
-        top: sd.foil_inset_top ?? null,
-        right: sd.foil_inset_right ?? null,
-        bottom: sd.foil_inset_bottom ?? null,
-        left: sd.foil_inset_left ?? null,
-        round: sd.foil_inset_round ?? null,
-      }
-    : null
+  const spotlightArtStyles = artStylesFromPrinting(sd?.art_variations, sd?.is_extended_art)
+  const spotlightFoilInset = foilInsetFromValues(
+    sd?.foil_inset_top, sd?.foil_inset_right, sd?.foil_inset_bottom, sd?.foil_inset_left, sd?.foil_inset_round
+  )
 
   return (
     <div className={viewMode === 'fit' ? "fixed inset-0 z-40 overflow-hidden bg-gray-950 text-gray-100" : "min-h-screen bg-gray-950 text-gray-100"}>
