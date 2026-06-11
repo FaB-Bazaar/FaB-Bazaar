@@ -30,6 +30,14 @@ interface PresenterCard {
     type_text?: string
     types?: string[]
     card_unique_id?: string
+    foiling?: string
+    is_extended_art?: boolean
+    art_variations?: string[]
+    foil_inset_top?: number | null
+    foil_inset_right?: number | null
+    foil_inset_bottom?: number | null
+    foil_inset_left?: number | null
+    foil_inset_round?: string | null
   }
 }
 
@@ -506,6 +514,23 @@ export default function PresenterPage() {
   const heroCard = deck.hero?.[0]
   const spotlightCard = spotlightIdx !== null ? flatCards[spotlightIdx] : null
 
+  // Foil props for the 3D spotlight card — same derivation as FeaturedCardSmall.
+  const sd = spotlightCard?.printingDetails
+  const spotlightArtStyles: string[] = []
+  if (sd?.art_variations?.includes('FA')) spotlightArtStyles.push('full-art')
+  if (sd?.art_variations?.includes('AA') || sd?.art_variations?.includes('AB')) spotlightArtStyles.push('alternate-art')
+  if (sd?.art_variations?.includes('AB')) spotlightArtStyles.push('alternate-border')
+  if (sd?.is_extended_art) spotlightArtStyles.push('extended-art')
+  const spotlightFoilInset = sd?.foil_inset_bottom != null
+    ? {
+        top: sd.foil_inset_top ?? null,
+        right: sd.foil_inset_right ?? null,
+        bottom: sd.foil_inset_bottom ?? null,
+        left: sd.foil_inset_left ?? null,
+        round: sd.foil_inset_round ?? null,
+      }
+    : null
+
   return (
     <div className={viewMode === 'fit' ? "fixed inset-0 z-40 overflow-hidden bg-gray-950 text-gray-100" : "min-h-screen bg-gray-950 text-gray-100"}>
       {/* Exit pill — always-visible, above the spotlight overlay so you can leave from anywhere */}
@@ -765,6 +790,9 @@ export default function PresenterPage() {
               <HoloCard3D
                 src={spotlightCard.printingDetails.image_url}
                 alt={spotlightCard.printingDetails.display_name || spotlightCard.printingDetails.name || "Card"}
+                foiling={spotlightCard.printingDetails.foiling}
+                artStyle={spotlightArtStyles}
+                foilInset={spotlightFoilInset}
                 className="flex-shrink-0 w-[min(62vw,330px,calc(46vh*63/88))] lg:w-[min(380px,calc(64vh*63/88))]"
               />
             )}

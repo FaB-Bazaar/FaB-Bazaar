@@ -79,8 +79,9 @@ interface FoilCardImageProps {
 /**
  * Derives foil clip-path inset values from the artStyle array.
  * This is the fallback used when no DB-stored foilInset exists.
+ * Exported so other foil renderers (e.g. HoloCard3D) share the same defaults.
  */
-function getInsetFromArtStyle(artStyle: string[] | undefined): Required<FoilInset> {
+export function getInsetFromArtStyle(artStyle: string[] | undefined): Required<FoilInset> {
   const hasExtended = artStyle?.includes('extended-art') ?? false
   const hasAlternate = artStyle?.includes('alternate-art') ?? false
   const hasBorder   = artStyle?.includes('alternate-border') ?? false
