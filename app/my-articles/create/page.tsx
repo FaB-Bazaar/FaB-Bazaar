@@ -15,7 +15,7 @@ import { Loader2, ArrowLeft, PenLine } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { articlesClient } from '@/lib/client';
 import { MdxEditor } from '@/components/MdxEditor';
-import { ARTICLE_TEMPLATES, buildTemplateArticle, type ArticleTemplateKey } from '@/lib/articles/templates';
+import { ARTICLE_TEMPLATES, buildTemplateArticle, DEFAULT_ROUNDS, type ArticleTemplateKey } from '@/lib/articles/templates';
 
 // Unsaved quick-write drafts survive refresh/accidental close via localStorage.
 const DRAFT_STORAGE_KEY = 'fab-quickwrite-draft';
@@ -28,6 +28,7 @@ export default function CreateArticlePage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [template, setTemplate] = useState<ArticleTemplateKey>('blank');
+  const [rounds, setRounds] = useState(DEFAULT_ROUNDS);
   const [saving, setSaving] = useState(false);
   const [restored, setRestored] = useState(false);
   const hydrated = useRef(false);
@@ -44,6 +45,9 @@ export default function CreateArticlePage() {
           if (ARTICLE_TEMPLATES.some(t => t.key === draft.template)) {
             setTemplate(draft.template);
           }
+          if (Number.isFinite(draft.rounds)) {
+            setRounds(draft.rounds);
+          }
           setRestored(true);
         }
       }
@@ -58,14 +62,14 @@ export default function CreateArticlePage() {
     if (!hydrated.current) return;
     try {
       if (title || content) {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ title, content, template }));
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ title, content, template, rounds }));
       } else {
         localStorage.removeItem(DRAFT_STORAGE_KEY);
       }
     } catch {
       // Storage full/unavailable — quick-write still works without recovery
     }
-  }, [title, content, template]);
+  }, [title, content, template, rounds]);
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -79,7 +83,7 @@ export default function CreateArticlePage() {
 
     setSaving(true);
     try {
-      const { contentType, sections } = buildTemplateArticle(template, content);
+      const { contentType, sections } = buildTemplateArticle(template, content, { rounds });
       const result = await articlesClient.createArticle({
         title: title.trim(),
         contentType,
@@ -182,6 +186,24 @@ export default function CreateArticlePage() {
               ))}
             </div>
           </div>
+
+          {template === 'tournament' && (
+            <div>
+              <Label htmlFor="rounds">Number of rounds</Label>
+              <Input
+                id="rounds"
+                type="number"
+                min={1}
+                max={30}
+                value={rounds}
+                onChange={(e) => setRounds(Number(e.target.value))}
+                className="mt-1 w-32"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                One match report per round — add or remove more later in the editor.
+              </p>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="title">Title *</Label>

@@ -8,13 +8,21 @@
 
 export type ArticleTemplateKey = 'blank' | 'tournament' | 'hero-guide';
 
+export interface ArticleTemplateOptions {
+  rounds?: number; // tournament only — event sizes vary
+}
+
 export interface ArticleTemplate {
   key: ArticleTemplateKey;
   label: string;
   description: string;
   contentType: 'strategy' | 'tournament' | 'hero';
-  buildSections: (content: string) => any[];
+  buildSections: (content: string, options?: ArticleTemplateOptions) => any[];
 }
+
+export const DEFAULT_ROUNDS = 6;
+const MIN_ROUNDS = 1;
+const MAX_ROUNDS = 30;
 
 export const ARTICLE_TEMPLATES: ArticleTemplate[] = [
   {
@@ -29,15 +37,22 @@ export const ARTICLE_TEMPLATES: ArticleTemplate[] = [
     label: 'Tournament Report',
     description: 'Decklist, round-by-round match reports and key takeaways, ready to fill in.',
     contentType: 'tournament',
-    buildSections: (content) => [
-      { type: 'intro' },
-      { type: 'text', content },
-      { type: 'decklist-block' },
-      { type: 'match-report' },
-      { type: 'match-report' },
-      { type: 'match-report' },
-      { type: 'key-takeaways' },
-    ],
+    buildSections: (content, options) => {
+      const rounds = Math.min(
+        MAX_ROUNDS,
+        Math.max(MIN_ROUNDS, Math.floor(options?.rounds ?? DEFAULT_ROUNDS))
+      );
+      return [
+        { type: 'intro' },
+        { type: 'text', content },
+        { type: 'section-header', title: 'Deck Tech', level: '2' },
+        { type: 'decklist-block' },
+        { type: 'section-header', title: 'Match Breakdown', level: '2' },
+        ...Array.from({ length: rounds }, () => ({ type: 'match-report' })),
+        { type: 'section-header', title: 'Closing Thoughts', level: '2' },
+        { type: 'key-takeaways' },
+      ];
+    },
   },
   {
     key: 'hero-guide',
@@ -56,11 +71,12 @@ export const ARTICLE_TEMPLATES: ArticleTemplate[] = [
 
 export function buildTemplateArticle(
   key: ArticleTemplateKey,
-  content: string
+  content: string,
+  options?: ArticleTemplateOptions
 ): { contentType: ArticleTemplate['contentType']; sections: any[] } {
   const template = ARTICLE_TEMPLATES.find((t) => t.key === key) ?? ARTICLE_TEMPLATES[0];
   return {
     contentType: template.contentType,
-    sections: template.buildSections(content),
+    sections: template.buildSections(content, options),
   };
 }

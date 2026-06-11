@@ -38,20 +38,44 @@ describe('buildTemplateArticle', () => {
     expect(result.sections).toEqual([]);
   });
 
-  it('tournament: skeleton is intro → text → decklist → 3 match reports → takeaways', () => {
-    const result = buildTemplateArticle('tournament', 'How the day went');
+  it('tournament: intro → text → Deck Tech → rounds → Closing, with requested round count', () => {
+    const result = buildTemplateArticle('tournament', 'How the day went', { rounds: 5 });
 
     expect(result.contentType).toBe('tournament');
     expect(result.sections.map(s => s.type)).toEqual([
       'intro',
       'text',
+      'section-header',
       'decklist-block',
+      'section-header',
       'match-report',
       'match-report',
       'match-report',
+      'match-report',
+      'match-report',
+      'section-header',
       'key-takeaways',
     ]);
     expect(result.sections[1]).toMatchObject({ type: 'text', content: 'How the day went' });
+
+    const headers = result.sections.filter(s => s.type === 'section-header');
+    expect(headers.map(h => h.title)).toEqual(['Deck Tech', 'Match Breakdown', 'Closing Thoughts']);
+  });
+
+  it('tournament: defaults to 6 rounds when no count given', () => {
+    const result = buildTemplateArticle('tournament', '');
+
+    expect(result.sections.filter(s => s.type === 'match-report')).toHaveLength(6);
+  });
+
+  it('tournament: clamps round count to a sane range', () => {
+    const zero = buildTemplateArticle('tournament', '', { rounds: 0 });
+    const huge = buildTemplateArticle('tournament', '', { rounds: 99 });
+    const fractional = buildTemplateArticle('tournament', '', { rounds: 7.5 });
+
+    expect(zero.sections.filter(s => s.type === 'match-report')).toHaveLength(1);
+    expect(huge.sections.filter(s => s.type === 'match-report')).toHaveLength(30);
+    expect(fractional.sections.filter(s => s.type === 'match-report')).toHaveLength(7);
   });
 
   it('tournament: keeps the text slot even when markdown is empty', () => {
