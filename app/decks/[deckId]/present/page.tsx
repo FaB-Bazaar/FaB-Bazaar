@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
 import { toTalisharIdentifier } from "@/lib/utils"
@@ -29,6 +30,14 @@ interface PresenterCard {
     type_text?: string
     types?: string[]
     card_unique_id?: string
+    foiling?: string
+    is_extended_art?: boolean
+    art_variations?: string[]
+    foil_inset_top?: number | null
+    foil_inset_right?: number | null
+    foil_inset_bottom?: number | null
+    foil_inset_left?: number | null
+    foil_inset_round?: string | null
   }
 }
 
@@ -44,6 +53,9 @@ interface PresenterDeck {
   maindeck?: PresenterCard[]
   inventory?: PresenterCard[]
 }
+
+// WebGL holo card — client-only, lazy so three.js stays out of the main bundle.
+const HoloCard3D = dynamic(() => import("@/components/deck/HoloCard3D"), { ssr: false })
 
 const PITCH_LABEL: Record<number, { dot: string; text: string; bg: string }> = {
   1: { dot: "bg-red-500", text: "text-red-300", bg: "bg-red-500/10" },
@@ -502,6 +514,23 @@ export default function PresenterPage() {
   const heroCard = deck.hero?.[0]
   const spotlightCard = spotlightIdx !== null ? flatCards[spotlightIdx] : null
 
+  // Foil props for the 3D spotlight card — same derivation as FeaturedCardSmall.
+  const sd = spotlightCard?.printingDetails
+  const spotlightArtStyles: string[] = []
+  if (sd?.art_variations?.includes('FA')) spotlightArtStyles.push('full-art')
+  if (sd?.art_variations?.includes('AA') || sd?.art_variations?.includes('AB')) spotlightArtStyles.push('alternate-art')
+  if (sd?.art_variations?.includes('AB')) spotlightArtStyles.push('alternate-border')
+  if (sd?.is_extended_art) spotlightArtStyles.push('extended-art')
+  const spotlightFoilInset = sd?.foil_inset_bottom != null
+    ? {
+        top: sd.foil_inset_top ?? null,
+        right: sd.foil_inset_right ?? null,
+        bottom: sd.foil_inset_bottom ?? null,
+        left: sd.foil_inset_left ?? null,
+        round: sd.foil_inset_round ?? null,
+      }
+    : null
+
   return (
     <div className={viewMode === 'fit' ? "fixed inset-0 z-40 overflow-hidden bg-gray-950 text-gray-100" : "min-h-screen bg-gray-950 text-gray-100"}>
       {/* Exit pill — always-visible, above the spotlight overlay so you can leave from anywhere */}
@@ -716,7 +745,7 @@ export default function PresenterPage() {
       {/* Card spotlight overlay — sits below the global navbar (h-16, z-50) so the navbar stays visible */}
       {spotlightCard && (
         <div
-          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center backdrop-blur-sm p-4 lg:p-8 bg-[radial-gradient(ellipse_at_center,_rgba(0,0,0,0.78)_0%,_rgba(0,0,0,0.88)_45%,_rgba(0,0,0,0.96)_100%)]"
+          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center backdrop-blur-sm p-4 lg:p-8 bg-black/55"
           onClick={closeSpotlight}
         >
           <button
@@ -748,18 +777,29 @@ export default function PresenterPage() {
             </button>
           )}
 
+          {/* Dismiss hint — the entire scrim is clickable; this makes that discoverable */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-400 pointer-events-none select-none">
+            Click outside the card to close · Esc
+          </div>
+
           <div
-            className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 max-w-6xl w-full"
+            // Constant-size panel: fixed width + height (clamped to viewport) so it
+            // doesn't reflow when navigating between cards with different name /
+            // text lengths. The text column scrolls internally if it overflows.
+            className="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 w-full max-w-5xl h-[min(calc(100vh-180px),780px)] overflow-hidden rounded-3xl border border-white/15 bg-slate-900/85 px-6 py-6 lg:px-12 lg:py-10 shadow-[0_24px_90px_rgba(0,0,0,0.75)] backdrop-blur-md"
             onClick={e => e.stopPropagation()}
           >
             {spotlightCard.printingDetails?.image_url && (
-              <img
+              <HoloCard3D
                 src={spotlightCard.printingDetails.image_url}
                 alt={spotlightCard.printingDetails.display_name || spotlightCard.printingDetails.name || "Card"}
-                className="w-auto h-auto max-h-[70vh] max-w-[min(70vw,400px)] object-contain rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10 flex-shrink-0"
+                foiling={spotlightCard.printingDetails.foiling}
+                artStyle={spotlightArtStyles}
+                foilInset={spotlightFoilInset}
+                className="flex-shrink-0 w-[min(62vw,330px,calc(46vh*63/88))] lg:w-[min(380px,calc(60vh*63/88))]"
               />
             )}
-            <div className="flex-1 min-w-0 text-gray-100 max-w-xl">
+            <div className="flex-1 min-w-0 min-h-0 max-h-full overflow-y-auto text-gray-100 max-w-xl">
               {/* Large qty "×N" to the left of the name when > 1 */}
               <div className="flex items-baseline gap-4 flex-wrap">
                 {(spotlightCard.quantity || 1) > 1 && (

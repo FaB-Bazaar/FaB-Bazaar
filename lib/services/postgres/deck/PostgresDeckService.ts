@@ -95,6 +95,13 @@ export class PostgresDeckService implements IDeckService {
         tcgplayerUrl: printings.tcgplayerUrl,
         otherFacePrintingId: printings.otherFacePrintingId,
         isFrontFace: printings.isFrontFace,
+        isExtendedArt: printings.isExtendedArt,
+        artVariations: printings.artVariations,
+        foilInsetTop: printings.foilInsetTop,
+        foilInsetRight: printings.foilInsetRight,
+        foilInsetBottom: printings.foilInsetBottom,
+        foilInsetLeft: printings.foilInsetLeft,
+        foilInsetRound: printings.foilInsetRound,
       })
       .from(deckCards)
       .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
@@ -163,6 +170,13 @@ export class PostgresDeckService implements IDeckService {
               talents: dc.talents || undefined,
               keywords: dc.keywords || undefined,
               keywords_display: dc.keywordsDisplay || undefined,
+              is_extended_art: dc.isExtendedArt ?? undefined,
+              art_variations: dc.artVariations || undefined,
+              foil_inset_top: dc.foilInsetTop ?? null,
+              foil_inset_right: dc.foilInsetRight ?? null,
+              foil_inset_bottom: dc.foilInsetBottom ?? null,
+              foil_inset_left: dc.foilInsetLeft ?? null,
+              foil_inset_round: dc.foilInsetRound ?? null,
               pitch: dc.pitch || undefined,  // ✅ Also include pitch for color grouping
               cost: dc.cost ?? undefined,
               defense: dc.defense ?? undefined,
