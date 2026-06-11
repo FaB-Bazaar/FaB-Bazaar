@@ -15,6 +15,7 @@ import { Loader2, ArrowLeft, PenLine } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { articlesClient } from '@/lib/client';
 import { MdxEditor } from '@/components/MdxEditor';
+import { ARTICLE_TEMPLATES, buildTemplateArticle, type ArticleTemplateKey } from '@/lib/articles/templates';
 
 // Unsaved quick-write drafts survive refresh/accidental close via localStorage.
 const DRAFT_STORAGE_KEY = 'fab-quickwrite-draft';
@@ -26,6 +27,7 @@ export default function CreateArticlePage() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [template, setTemplate] = useState<ArticleTemplateKey>('blank');
   const [saving, setSaving] = useState(false);
   const [restored, setRestored] = useState(false);
   const hydrated = useRef(false);
@@ -39,6 +41,9 @@ export default function CreateArticlePage() {
         if (draft.title || draft.content) {
           setTitle(draft.title || '');
           setContent(draft.content || '');
+          if (ARTICLE_TEMPLATES.some(t => t.key === draft.template)) {
+            setTemplate(draft.template);
+          }
           setRestored(true);
         }
       }
@@ -53,14 +58,14 @@ export default function CreateArticlePage() {
     if (!hydrated.current) return;
     try {
       if (title || content) {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ title, content }));
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ title, content, template }));
       } else {
         localStorage.removeItem(DRAFT_STORAGE_KEY);
       }
     } catch {
       // Storage full/unavailable — quick-write still works without recovery
     }
-  }, [title, content]);
+  }, [title, content, template]);
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -74,9 +79,11 @@ export default function CreateArticlePage() {
 
     setSaving(true);
     try {
+      const { contentType, sections } = buildTemplateArticle(template, content);
       const result = await articlesClient.createArticle({
         title: title.trim(),
-        sections: content.trim() ? [{ type: 'text', content }] : [],
+        contentType,
+        sections,
       });
 
       if (result.success) {
@@ -153,6 +160,29 @@ export default function CreateArticlePage() {
           <CardDescription>Markdown supported — headings, lists, links</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <Label>Start from</Label>
+            <div role="radiogroup" aria-label="Article template" className="grid gap-3 sm:grid-cols-3 mt-2">
+              {ARTICLE_TEMPLATES.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={template === t.key}
+                  onClick={() => setTemplate(t.key)}
+                  className={`rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    template === t.key
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <span className="block font-medium">{t.label}</span>
+                  <span className="block text-xs text-muted-foreground mt-1">{t.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="title">Title *</Label>
             <Input
