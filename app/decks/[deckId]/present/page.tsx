@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
 import { toTalisharIdentifier } from "@/lib/utils"
@@ -44,6 +45,9 @@ interface PresenterDeck {
   maindeck?: PresenterCard[]
   inventory?: PresenterCard[]
 }
+
+// WebGL holo card — client-only, lazy so three.js stays out of the main bundle.
+const HoloCard3D = dynamic(() => import("@/components/deck/HoloCard3D"), { ssr: false })
 
 const PITCH_LABEL: Record<number, { dot: string; text: string; bg: string }> = {
   1: { dot: "bg-red-500", text: "text-red-300", bg: "bg-red-500/10" },
@@ -716,7 +720,7 @@ export default function PresenterPage() {
       {/* Card spotlight overlay — sits below the global navbar (h-16, z-50) so the navbar stays visible */}
       {spotlightCard && (
         <div
-          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center backdrop-blur-sm p-4 lg:p-8 bg-[radial-gradient(ellipse_at_center,_rgba(0,0,0,0.78)_0%,_rgba(0,0,0,0.88)_45%,_rgba(0,0,0,0.96)_100%)]"
+          className="fixed inset-x-0 bottom-0 top-16 z-40 flex items-center justify-center backdrop-blur-sm p-4 lg:p-8 bg-black/55"
           onClick={closeSpotlight}
         >
           <button
@@ -748,15 +752,20 @@ export default function PresenterPage() {
             </button>
           )}
 
+          {/* Dismiss hint — the entire scrim is clickable; this makes that discoverable */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-400 pointer-events-none select-none">
+            Click outside the card to close · Esc
+          </div>
+
           <div
-            className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 max-w-6xl w-full"
+            className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-auto max-w-5xl rounded-3xl border border-white/15 bg-slate-900/85 px-6 py-6 lg:px-12 lg:py-10 shadow-[0_24px_90px_rgba(0,0,0,0.75)] backdrop-blur-md"
             onClick={e => e.stopPropagation()}
           >
             {spotlightCard.printingDetails?.image_url && (
-              <img
+              <HoloCard3D
                 src={spotlightCard.printingDetails.image_url}
                 alt={spotlightCard.printingDetails.display_name || spotlightCard.printingDetails.name || "Card"}
-                className="w-auto h-auto max-h-[70vh] max-w-[min(70vw,400px)] object-contain rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,0.8)] ring-1 ring-white/10 flex-shrink-0"
+                className="flex-shrink-0 w-[min(62vw,330px,calc(46vh*63/88))] lg:w-[min(380px,calc(64vh*63/88))]"
               />
             )}
             <div className="flex-1 min-w-0 text-gray-100 max-w-xl">
