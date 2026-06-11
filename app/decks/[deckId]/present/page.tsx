@@ -783,7 +783,10 @@ export default function PresenterPage() {
           </div>
 
           <div
-            className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-auto max-w-5xl rounded-3xl border border-white/15 bg-slate-900/85 px-6 py-6 lg:px-12 lg:py-10 shadow-[0_24px_90px_rgba(0,0,0,0.75)] backdrop-blur-md"
+            // Constant-size panel: fixed width + height (clamped to viewport) so it
+            // doesn't reflow when navigating between cards with different name /
+            // text lengths. The text column scrolls internally if it overflows.
+            className="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 w-full max-w-5xl h-[min(calc(100vh-180px),780px)] overflow-hidden rounded-3xl border border-white/15 bg-slate-900/85 px-6 py-6 lg:px-12 lg:py-10 shadow-[0_24px_90px_rgba(0,0,0,0.75)] backdrop-blur-md"
             onClick={e => e.stopPropagation()}
           >
             {spotlightCard.printingDetails?.image_url && (
@@ -793,10 +796,10 @@ export default function PresenterPage() {
                 foiling={spotlightCard.printingDetails.foiling}
                 artStyle={spotlightArtStyles}
                 foilInset={spotlightFoilInset}
-                className="flex-shrink-0 w-[min(62vw,330px,calc(46vh*63/88))] lg:w-[min(380px,calc(64vh*63/88))]"
+                className="flex-shrink-0 w-[min(62vw,330px,calc(46vh*63/88))] lg:w-[min(380px,calc(60vh*63/88))]"
               />
             )}
-            <div className="flex-1 min-w-0 text-gray-100 max-w-xl">
+            <div className="flex-1 min-w-0 min-h-0 max-h-full overflow-y-auto text-gray-100 max-w-xl">
               {/* Large qty "×N" to the left of the name when > 1 */}
               <div className="flex items-baseline gap-4 flex-wrap">
                 {(spotlightCard.quantity || 1) > 1 && (
