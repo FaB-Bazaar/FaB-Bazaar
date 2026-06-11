@@ -70,7 +70,7 @@ function ArtChip({
           </div>
         )}
       </div>
-      <span className="text-xs leading-tight truncate w-full text-center capitalize">{label}</span>
+      <span className="text-xs leading-tight w-full text-center capitalize break-words">{label}</span>
     </button>
   );
 }
@@ -532,7 +532,7 @@ export default function SearchPage() {
                   : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
               )}
             >
-              {groupByCard ? 'Grouped' : 'All printings'}
+              {groupByCard ? 'One per card' : 'All printings'}
             </button>
 
             {/* View mode toggle */}
