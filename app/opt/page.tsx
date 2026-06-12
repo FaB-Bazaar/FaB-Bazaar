@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDebounce } from 'use-debounce';
-import { Search, X, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown } from 'lucide-react';
+import { Search, X, Check, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetImageOrFallback } from '@/lib/set-images';
@@ -444,28 +444,32 @@ export default function OptSearchPage() {
           <div className="flex flex-wrap items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
 
-            {/* Pitch */}
+            {/* Pitch — text + color dot, ✓ on active (SC 1.4.1: never color alone) */}
             <Popover label="Pitch" count={selectedPitch !== null ? 1 : 0} panelClassName="w-auto">
               <p className={SECTION}>Pitch</p>
               <div className="flex items-center gap-2">
-                {PITCH_CHIPS.map(chip => (
-                  <button
-                    key={chip.value}
-                    type="button"
-                    title={chip.label}
-                    aria-pressed={selectedPitch === chip.value}
-                    onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
-                    className={cn(
-                      'p-1 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                      selectedPitch === chip.value
-                        ? 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-white/30'
-                        : 'border-transparent opacity-55 dark:opacity-40 hover:opacity-90 hover:border-gray-300 dark:hover:border-gray-600',
-                    )}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={chip.iconUrl} alt={chip.label} className="w-7 h-7 object-contain" draggable={false} />
-                  </button>
-                ))}
+                {PITCH_CHIPS.map(chip => {
+                  const isActive = selectedPitch === chip.value;
+                  return (
+                    <button
+                      key={chip.value}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-1.5 rounded-md border text-base font-medium transition-all',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                        isActive
+                          ? cn(chip.active, 'text-gray-900 dark:text-white')
+                          : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700',
+                      )}
+                    >
+                      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', chip.dot)} aria-hidden />
+                      {chip.label}
+                      {isActive && <Check className="w-4 h-4 shrink-0" aria-hidden />}
+                    </button>
+                  );
+                })}
               </div>
             </Popover>
 
