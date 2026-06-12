@@ -3,16 +3,23 @@
 import { SET_MAP, FOILING_MAP, RARITY_MAP, EDITION_MAP } from "@/lib/fab-constants"
 
 /**
- * Selects the best printing for a card based on edition, foiling, and price priority
+ * Selects the best printing for a card based on language, edition, foiling, and price priority
+ * Language: English always wins when an English printing exists (missing language = English)
  * Priority: Normal edition > Unlimited > First edition
  * Foiling: Standard > Rainbow > Cold foil
  * Within same tier, highest tcg_low price wins
  */
 export function selectDefaultPrinting(card: any): any | null {
-  const printings = card.printings || [card];
-  
+  let printings = card.printings || [card];
+
   if (printings.length === 0) return null;
-  
+
+  // Never default to a localized printing when an English one exists
+  const englishPrintings = printings.filter(
+    (p: any) => (p.language || 'en').toLowerCase() === 'en'
+  );
+  if (englishPrintings.length > 0) printings = englishPrintings;
+
   // Filter by edition and foiling priority
   const candidates = printings.filter((p: any) => {
     const edition = p.edition;

@@ -58,6 +58,23 @@ describe('PostgresPrintingsService — grouped search (opt-in)', () => {
     }
   });
 
+  it('GROUPED representative is an English printing when the card has one', async () => {
+    // 'steel on steel' has ja/fr printings whose tcg_low is NULL alongside
+    // English ones — without a language preference the printing_id tiebreak
+    // can (and does) pick a non-English representative.
+    const res = await service.searchPrintings(
+      { name: 'steel on steel' },
+      { limit: 50, searchMode: 'strict', groupByCard: true },
+    );
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+
+    expect(res.data.printings.length).toBeGreaterThan(0);
+    for (const p of res.data.printings) {
+      expect(p.language).toBe('en');
+    }
+  });
+
   it('GROUPED total counts distinct cards, not printings', async () => {
     const grouped = await service.searchPrintings(
       { classes: ['ninja'], rarities: ['c'], languages: ['en'] },

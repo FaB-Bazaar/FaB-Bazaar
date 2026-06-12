@@ -142,9 +142,11 @@ export class PostgresPrintingsService implements IPrintingsService {
         cardCreatedAt: sql`${cards.createdAt}`.as('card_created_at'),
       };
 
-      // Representative printing per card: cheapest first (NULL prices last),
-      // tie-broken by printing_id for determinism. DISTINCT ON requires the
-      // ORDER BY to lead with the distinct key.
+      // Representative printing per card: English before localized printings
+      // (defaults shown to users must be English when an English copy exists),
+      // then cheapest first (NULL prices last), tie-broken by printing_id for
+      // determinism. DISTINCT ON requires the ORDER BY to lead with the
+      // distinct key.
       const repr = db
         .selectDistinctOn([printings.cardUniqueId], reprFields)
         .from(printings)
@@ -157,7 +159,12 @@ export class PostgresPrintingsService implements IPrintingsService {
           )
         )
         .where(where)
-        .orderBy(printings.cardUniqueId, sql`${printings.tcgLow} ASC NULLS LAST`, printings.printingId)
+        .orderBy(
+          printings.cardUniqueId,
+          sql`CASE WHEN ${printings.language} = 'en' THEN 0 ELSE 1 END`,
+          sql`${printings.tcgLow} ASC NULLS LAST`,
+          printings.printingId
+        )
         .as('repr');
 
       // Outer: re-sort the representatives by the user's choice + paginate.
