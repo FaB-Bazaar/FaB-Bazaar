@@ -716,6 +716,7 @@ export default function Navbar() {
     "/admin/curation": ListChecks,
     "/admin/banned-cards": Ban,
     "/admin/heroes": Swords,
+    "/admin/sets": Layers,
     "/admin/locations": MapPin,
     "/admin/image-uploads": Upload,
     "/admin/user-access": UserCog,

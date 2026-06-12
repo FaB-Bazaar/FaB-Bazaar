@@ -26,6 +26,7 @@ export const ADMIN_LINKS: readonly AdminLink[] = [
   { href: '/admin/curation', label: 'Curation', roles: ['superAdmin', 'curator'] },
   { href: '/admin/banned-cards', label: 'Banned Cards', roles: ['superAdmin'] },
   { href: '/admin/heroes', label: 'Heroes', roles: ['superAdmin'] },
+  { href: '/admin/sets', label: 'Set Order', roles: ['superAdmin'] },
   { href: '/admin/locations', label: 'Locations & Events', roles: ['superAdmin'] },
   { href: '/admin/image-uploads', label: 'Image Uploads', roles: ['superAdmin'] },
   { href: '/admin/user-access', label: 'User Access', roles: ['superAdmin'] },
