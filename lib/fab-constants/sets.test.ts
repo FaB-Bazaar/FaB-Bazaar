@@ -64,6 +64,47 @@ describe('sortPrintings — language priority', () => {
     expect(sorted.map((p) => p.set)).toEqual(['wtr', '1hp', 'asr']);
   });
 
+  it('orders within a set edition-major: Unl NF → Unl RF → 1st NF → 1st CF → Marvel (WTR rules)', () => {
+    // wtr is an unlimited-before-first set. Edition outranks foiling: all
+    // unlimited printings come before any first-edition printing.
+    const unlRF = { set: 'wtr', foiling: 'r', edition: 'u', language: 'en' };
+    const firstNF = { set: 'wtr', foiling: 's', edition: 'f', language: 'en' };
+    const unlNF = { set: 'wtr', foiling: 's', edition: 'u', language: 'en' };
+    const firstCF = { set: 'wtr', foiling: 'c', edition: 'f', language: 'en' };
+    const marvel = { set: 'wtr', foiling: 'c', edition: 'u', rarity: 'v', language: 'en' };
+
+    const sorted = sortPrintings([marvel, firstCF, unlRF, firstNF, unlNF]);
+
+    expect(sorted.map((p) => `${p.edition}${p.foiling}${(p as any).rarity ?? ''}`)).toEqual([
+      'us', 'ur', 'fs', 'fc', 'ucv',
+    ]);
+  });
+
+  it('reads unlimited-before-first from set metadata (ELE flipped via the sets table)', () => {
+    // Tales of Aria had both editions; the DB row (not a hardcoded list) says
+    // unlimited is the accessible printing. Pins that the flag flows from the
+    // sets table through the generated snapshot.
+    const first = { set: 'ele', foiling: 's', edition: 'f', language: 'en' };
+    const unlimited = { set: 'ele', foiling: 's', edition: 'u', language: 'en' };
+
+    const sorted = sortPrintings([first, unlimited]);
+
+    expect(sorted.map((p) => p.edition)).toEqual(['u', 'f']);
+  });
+
+  it('sorts gold foils last regardless of set order (tournament-prize cards)', () => {
+    // FAB promos (display_order 270) normally sort before GEM Pack (360), but
+    // gold foils are tournament-winner prizes — effectively unacquirable — so
+    // they always sink below every other printing.
+    const goldPromo = { set: 'fab', foiling: 'g', edition: 'n', language: 'en' };
+    const gemRainbow = { set: 'gem', foiling: 'r', edition: 'n', language: 'en' };
+    const dynCold = { set: 'dyn', foiling: 'c', edition: 'n', language: 'en' };
+
+    const sorted = sortPrintings([goldPromo, gemRainbow, dynCold]);
+
+    expect(sorted.map((p) => p.set)).toEqual(['dyn', 'gem', 'fab']);
+  });
+
   it('orders non-English groups deterministically (fr, ja, then others by code)', () => {
     const de = { set: 'wtr', foiling: 's', edition: 'u', language: 'de' };
     const ja = { set: 'wtr', foiling: 's', edition: 'u', language: 'ja' };

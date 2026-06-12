@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions, sets } from '@/lib/postgres/schema';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -142,15 +142,19 @@ export class PostgresPrintingsService implements IPrintingsService {
         cardCreatedAt: sql`${cards.createdAt}`.as('card_created_at'),
       };
 
-      // Representative printing per card: English before localized printings
-      // (defaults shown to users must be English when an English copy exists),
-      // then cheapest first (NULL prices last), tie-broken by printing_id for
-      // determinism. DISTINCT ON requires the ORDER BY to lead with the
-      // distinct key.
+      // Representative printing per card: the CANONICAL printing, mirroring
+      // the client-side sortPrintings cascade — English first, then the
+      // curated sets.display_order (live JOIN, so admin reorders apply to
+      // search tiles immediately, no snapshot regeneration), then within the
+      // set: Marvels last, edition (unlimited before 1st for sets flagged
+      // unlimited_before_first), foiling (NF → RF → CF → GF), price and
+      // printing_id as final tiebreaks. DISTINCT ON requires the ORDER BY to
+      // lead with the distinct key.
       const repr = db
         .selectDistinctOn([printings.cardUniqueId], reprFields)
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(sets, eq(sets.code, printings.set))
         .leftJoin(
           cardTranslations,
           and(
@@ -162,6 +166,15 @@ export class PostgresPrintingsService implements IPrintingsService {
         .orderBy(
           printings.cardUniqueId,
           sql`CASE WHEN ${printings.language} = 'en' THEN 0 ELSE 1 END`,
+          // Gold foils are tournament-winner prizes — never the representative
+          sql`CASE WHEN ${printings.foiling} = 'g' THEN 1 ELSE 0 END`,
+          sql`COALESCE(${sets.displayOrder}, 2147483647)`,
+          sql`CASE WHEN ${printings.rarity} = 'v' THEN 1 ELSE 0 END`,
+          sql`CASE WHEN COALESCE(${sets.unlimitedBeforeFirst}, false)
+                THEN CASE ${printings.edition} WHEN 'u' THEN 0 WHEN 'a' THEN 1 WHEN 'f' THEN 2 ELSE 3 END
+                ELSE CASE ${printings.edition} WHEN 'a' THEN 0 WHEN 'f' THEN 1 WHEN 'u' THEN 2 ELSE 3 END
+              END`,
+          sql`CASE ${printings.foiling} WHEN 's' THEN 0 WHEN 'n' THEN 0 WHEN 'r' THEN 1 WHEN 'c' THEN 2 WHEN 'g' THEN 3 ELSE 0 END`,
           sql`${printings.tcgLow} ASC NULLS LAST`,
           printings.printingId
         )

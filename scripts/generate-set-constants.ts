@@ -41,6 +41,7 @@ async function main() {
         `category: ${q(s.category)}`,
         `tier: ${s.tier}`,
         `displayOrder: ${s.displayOrder}`,
+        `unlimitedBeforeFirst: ${s.unlimitedBeforeFirst}`,
       ];
       if (s.defaultRarity) fields.push(`defaultRarity: ${q(s.defaultRarity)}`);
       return `  ${q(s.code)}: { ${fields.join(', ')} },`;

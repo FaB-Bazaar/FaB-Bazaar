@@ -46,6 +46,11 @@ export interface SetMetadata {
    * the row and regenerating this snapshot.
    */
   displayOrder: number;
+  /**
+   * Sets where unlimited is the common accessible printing and should lead
+   * edition ordering (WTR/ARC/CRU/MON/ELE). Stored on the `sets` DB row.
+   */
+  unlimitedBeforeFirst: boolean;
 }
 
 
@@ -56,15 +61,13 @@ const NON_STANDARD_ORDER = [
 ];
 
 /**
- * Sets where unlimited should appear before first edition.
- * WTR/ARC/CRU/MON had both, but unlimited is the common accessible printing.
- * EVR was the last set with editions; from HP1 onwards only normal edition exists.
+ * Returns edition sort priority for a given set code. Sets flagged
+ * unlimited_before_first on their `sets` DB row (WTR/ARC/CRU/MON/ELE — both
+ * editions existed, unlimited is the common accessible printing) lead with
+ * unlimited; everyone else alpha → 1st → unlimited → normal.
  */
-const UNLIMITED_BEFORE_FIRST_EDITION_SETS = new Set(['wtr', 'arc', 'cru', 'mon']);
-
-/** Returns edition sort priority for a given set code */
 function getEditionPriority(setCode: string): Record<string, number> {
-  if (UNLIMITED_BEFORE_FIRST_EDITION_SETS.has(setCode)) {
+  if (SET_METADATA[setCode]?.unlimitedBeforeFirst) {
     return { u: 0, a: 1, f: 2, n: 3 };
   }
   return { a: 0, f: 1, u: 2, n: 3 };
@@ -86,12 +89,14 @@ function languageRank(language?: string | null): number {
  * Primary: language (English → French → Japanese → others) — the first entry
  *          is used as the default printing for imports, and a native English
  *          speaker should never default to a localized printing
+ * Then gold foils last regardless of set (tournament-winner prizes)
  * Then within each language:
  *   set displayOrder — the CURATED ranking stored on the `sets` DB row
  *   (seeded main booster → supplemental → promo → blitz deck → armory,
  *   release date within tier; re-order by updating the row + regenerating)
- *   foiling (non-foil → RF → CF → Marvel → GF)
- *   edition (alpha → 1st → unlimited → normal)
+ *   then within a set, edition-major with Marvels last:
+ *     edition (unlimited before 1st for WTR/ARC/CRU/MON, else alpha → 1st →
+ *     unlimited → normal) → foiling (non-foil → RF → CF → GF) → Marvel last
  *
  * Works with any printing object that has `set`, `foiling`, `rarity`, and `edition` fields.
  */
@@ -106,6 +111,12 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
       if (langCompare !== 0) return langCompare;
     }
 
+    // 0b. Gold foils last regardless of set — tournament-winner prizes,
+    // effectively unacquirable, never a sensible default
+    const aGold = (a.foiling || '').toLowerCase() === 'g' ? 1 : 0;
+    const bGold = (b.foiling || '').toLowerCase() === 'g' ? 1 : 0;
+    if (aGold !== bGold) return aGold - bGold;
+
     const aCode = (a.set || '').toLowerCase();
     const bCode = (b.set || '').toLowerCase();
     const aMeta = SET_METADATA[aCode];
@@ -116,19 +127,22 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
     const bOrder = bMeta?.displayOrder ?? Number.MAX_SAFE_INTEGER;
     if (aOrder !== bOrder) return aOrder - bOrder;
 
-    // 2. Foiling priority — Marvel identified by rarity='v', not foiling code
-    const aMarvel = (a.rarity || '').toLowerCase() === 'v';
-    const bMarvel = (b.rarity || '').toLowerCase() === 'v';
-    const FOIL_PRIORITY: Record<string, number> = { s: 0, n: 0, r: 1, c: 2, g: 4 };
-    const aFoil = aMarvel ? 3 : (FOIL_PRIORITY[(a.foiling || 's').toLowerCase()] ?? 0);
-    const bFoil = bMarvel ? 3 : (FOIL_PRIORITY[(b.foiling || 's').toLowerCase()] ?? 0);
-    if (aFoil !== bFoil) return aFoil - bFoil;
+    // 2. Marvels (rarity 'v') always sort after every regular printing of the set
+    const aMarvel = (a.rarity || '').toLowerCase() === 'v' ? 1 : 0;
+    const bMarvel = (b.rarity || '').toLowerCase() === 'v' ? 1 : 0;
+    if (aMarvel !== bMarvel) return aMarvel - bMarvel;
 
-    // 3. Edition — priority varies by set (unlimited before 1st for WTR/ARC/CRU/MON)
+    // 3. Edition (major) — priority varies by set (unlimited before 1st for WTR/ARC/CRU/MON)
     const editionPriority = getEditionPriority(aCode || bCode);
     const aEd = editionPriority[a.edition ?? 'n'] ?? 3;
     const bEd = editionPriority[b.edition ?? 'n'] ?? 3;
-    return aEd - bEd;
+    if (aEd !== bEd) return aEd - bEd;
+
+    // 4. Foiling (minor within edition)
+    const FOIL_PRIORITY: Record<string, number> = { s: 0, n: 0, r: 1, c: 2, g: 3 };
+    const aFoil = FOIL_PRIORITY[(a.foiling || 's').toLowerCase()] ?? 0;
+    const bFoil = FOIL_PRIORITY[(b.foiling || 's').toLowerCase()] ?? 0;
+    return aFoil - bFoil;
   });
 }
 

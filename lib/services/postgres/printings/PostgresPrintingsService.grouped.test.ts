@@ -36,26 +36,31 @@ describe('PostgresPrintingsService — grouped search (opt-in)', () => {
     expect(new Set(ids).size).toBe(ids.length); // no duplicate cards
   });
 
-  it('GROUPED represents each card by its cheapest printing', async () => {
+  it('GROUPED represents each card by its canonical printing (curated set order, not price)', async () => {
+    // Fyendal's Spring Tunic: original printing is WTR150 (display_order 10);
+    // the CHEAPEST printing is the 1HP reprint (display_order 200). The tile
+    // must show the canonical WTR printing — unlimited before alpha per the
+    // unlimited_before_first flag, rainbow foil because WTR had no non-foil
+    // run of it — not the cheapest reprint.
     const [grouped, flat] = await Promise.all([
-      service.searchPrintings(CC, { limit: 100, searchMode: 'strict', groupByCard: true }),
-      service.searchPrintings(CC, { limit: 300, searchMode: 'strict' }),
+      service.searchPrintings({ name: "fyendal's spring tunic", languages: ['en'] }, { limit: 100, searchMode: 'strict', groupByCard: true }),
+      service.searchPrintings({ name: "fyendal's spring tunic", languages: ['en'] }, { limit: 300, searchMode: 'strict' }),
     ]);
     expect(grouped.success && flat.success).toBe(true);
     if (!grouped.success || !flat.success) return;
 
-    const minByCard = new Map<string, number>();
-    for (const p of flat.data.printings) {
-      if (p.tcg_low == null) continue;
-      const cur = minByCard.get(p.card_unique_id);
-      if (cur === undefined || p.tcg_low < cur) minByCard.set(p.card_unique_id, p.tcg_low);
-    }
-    for (const g of grouped.data.printings) {
-      const min = minByCard.get(g.card_unique_id);
-      if (min !== undefined && g.tcg_low != null) {
-        expect(g.tcg_low).toBeLessThanOrEqual(min + 1e-9);
-      }
-    }
+    expect(grouped.data.printings.length).toBe(1);
+    const repr = grouped.data.printings[0];
+
+    // Sanity: the original wtr printing and the cheap 1hp reprint both exist
+    const wtr = flat.data.printings.filter((p) => p.set === 'wtr');
+    const hp = flat.data.printings.filter((p) => p.set === '1hp');
+    expect(wtr.length).toBeGreaterThan(0);
+    expect(hp.length).toBeGreaterThan(0);
+
+    expect(repr.set).toBe('wtr');
+    expect(repr.edition).toBe('u');
+    expect(repr.foiling).toBe('r');
   });
 
   it('GROUPED representative is an English printing when the card has one', async () => {

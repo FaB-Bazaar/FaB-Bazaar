@@ -39,6 +39,7 @@ describe('fab-constants ↔ sets table sync', () => {
       if (meta.hasFirstEdition !== s.hasFirstEdition) mismatches.push(`${s.code}: hasFirstEdition ${meta.hasFirstEdition} ≠ ${s.hasFirstEdition}`);
       if ((meta.defaultRarity ?? null) !== s.defaultRarity) mismatches.push(`${s.code}: defaultRarity ${meta.defaultRarity} ≠ ${s.defaultRarity}`);
       if (meta.displayOrder !== s.displayOrder) mismatches.push(`${s.code}: displayOrder ${meta.displayOrder} ≠ ${s.displayOrder}`);
+      if (meta.unlimitedBeforeFirst !== s.unlimitedBeforeFirst) mismatches.push(`${s.code}: unlimitedBeforeFirst ${meta.unlimitedBeforeFirst} ≠ ${s.unlimitedBeforeFirst}`);
     }
 
     // And no constants for codes the DB doesn't know
