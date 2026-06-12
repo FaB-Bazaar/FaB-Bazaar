@@ -145,10 +145,11 @@ function SearchResultsContent() {
     edition: 'editions',
     rarity: 'rarities',
     foiling: 'foilings',
+    language: 'languages',
   };
 
   // All column filter URL param keys
-  const columnFilterParams = ['sets', 'colors', 'editions', 'rarities', 'foilings'];
+  const columnFilterParams = ['sets', 'colors', 'editions', 'rarities', 'foilings', 'languages'];
 
   // Derive active column filters from URL params (for ChecklistView filter dropdowns)
   const activeFilters = useMemo(() => {
@@ -160,6 +161,7 @@ function SearchResultsContent() {
       editions: 'edition',
       rarities: 'rarity',
       foilings: 'foiling',
+      languages: 'language',
     };
     for (const [param, field] of Object.entries(paramToField)) {
       const val = searchParams.get(param);

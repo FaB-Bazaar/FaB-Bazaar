@@ -1,11 +1,18 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { RarityIcon } from '@/components/shared/RarityIcon';
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TcgAffiliateLink } from '@/components/tracking';
 import { ArrowUp, ArrowDown, Filter, X, Minus, Plus } from 'lucide-react';
 import { RARITY_MAP, FOILING_MAP, FOILING_STYLES, SET_MAP, COLOR_STYLES } from '@/lib/fab-constants';
+import { languageFlag } from '@/lib/utils/printing-language';
+
+// Missing language = English (matches the printings.language DB default)
+const getLanguageDisplay = (language?: string | null): { code: string; flag: string } => {
+  const lang = (language || 'en').toLowerCase();
+  return { code: lang.toUpperCase(), flag: languageFlag(lang) };
+};
 
 interface ChecklistViewProps {
   printings: any[];
@@ -319,6 +326,15 @@ export function ChecklistView({
               className="text-center"
               getDisplayValue={(val) => FOILING_MAP[val?.toLowerCase()] || val || ''}
             />
+            <FilterableHeader
+              field="language"
+              label="LANG"
+              className="text-center"
+              getDisplayValue={(val) => {
+                const { code, flag } = getLanguageDisplay(val);
+                return `${flag} ${code}`;
+              }}
+            />
             <SortableHeader field="price" label={getPriceFieldLabel(priceField).toUpperCase()} className="text-right" />
           </tr>
         </thead>
@@ -461,6 +477,19 @@ export function ChecklistView({
                       );
                     })()}
                   </div>
+                </td>
+
+                {/* LANGUAGE */}
+                <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-200">
+                  {(() => {
+                    const { code, flag } = getLanguageDisplay(printing.language);
+                    return (
+                      <span title={code} className="inline-flex items-center gap-1 text-xs font-semibold">
+                        <span aria-hidden="true">{flag}</span>
+                        <span>{code}</span>
+                      </span>
+                    );
+                  })()}
                 </td>
 
                 {/* PRICE - Dynamic based on priceField */}

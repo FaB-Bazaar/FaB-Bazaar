@@ -1,4 +1,5 @@
 //components/RarityIcon.tsx
+import React from "react"
 import { cn } from "@/lib/utils"
 
 // Visual mapping for rarity icons (UI-specific)

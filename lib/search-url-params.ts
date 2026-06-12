@@ -14,6 +14,7 @@ export interface SearchFilters {
   sets?: string[];
   rarities?: string[];
   foilings?: string[];
+  languages?: string[];
   editions?: string[];
   colors?: string[];
   types?: string[];
@@ -127,6 +128,7 @@ export function filtersToURLParams(
   if (filters.sets?.length) params.set('sets', filters.sets.join(','));
   if (filters.rarities?.length) params.set('rarities', filters.rarities.join(','));
   if (filters.foilings?.length) params.set('foilings', filters.foilings.join(','));
+  if (filters.languages?.length) params.set('languages', filters.languages.join(','));
   if (filters.editions?.length) params.set('editions', filters.editions.join(','));
   if (filters.colors?.length) params.set('colors', filters.colors.join(','));
   if (filters.types?.length) params.set('types', filters.types.join(','));
@@ -218,6 +220,7 @@ export function urlParamsToFilters(searchParams: URLSearchParams | ReadonlyURLSe
   filters.sets = parseArray('sets');
   filters.rarities = parseArray('rarities');
   filters.foilings = parseArray('foilings');
+  filters.languages = parseArray('languages');
   filters.editions = parseArray('editions');
   filters.colors = parseArray('colors');
   filters.types = parseArray('types');
