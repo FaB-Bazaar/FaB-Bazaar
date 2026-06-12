@@ -1033,6 +1033,30 @@ export const oauthClientsRelations = relations(oauthClients, ({ one }) => ({
 }));
 
 // ============================================================================
+// SETS (reference data — source of truth for set metadata; migration 0061)
+// ============================================================================
+
+export const sets = pgTable('sets', {
+  code: text('code').primaryKey(),                    // lowercase, matches printings.set
+  displayCode: text('display_code').notNull(),        // e.g. 'WTR'
+  name: text('name').notNull(),
+  releaseDate: date('release_date'),                  // NULL = unannounced
+  releaseOrder: integer('release_order').notNull().unique(),
+  displayOrder: integer('display_order').notNull().unique(), // curated printing-display ranking (lower = earlier)
+  category: text('category').notNull().default('non-standard'), // standard | armory | non-standard | excluded
+  tier: smallint('tier').notNull().default(5),        // 1 main … 5 promo (display order 1→2→5→3→4)
+  isCore: boolean('is_core').notNull().default(false),
+  hasFirstEdition: boolean('has_first_edition').notNull().default(false),
+  unlimitedBeforeFirst: boolean('unlimited_before_first').notNull().default(false),
+  defaultRarity: text('default_rarity'),
+  imageId: text('image_id'),                          // Cloudflare image id (set logo)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  releaseOrderIdx: index('idx_sets_release_order').on(table.releaseOrder),
+}));
+
+// ============================================================================
 // SITE SETTINGS
 // ============================================================================
 

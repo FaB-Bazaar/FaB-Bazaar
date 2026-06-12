@@ -59,6 +59,7 @@ import { PostgresCuratorHeroAssignmentService } from './postgres/curator-heroes/
 import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/PostgresCustomTokenCardService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
+import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
 import { PostgresBannedCardsService } from './postgres/banned-cards/PostgresBannedCardsService';
 import { PostgresDailyMoversService } from './postgres/daily-movers/PostgresDailyMoversService';
 import { PostgresLeagueService } from './postgres/league/PostgresLeagueService';
@@ -568,6 +569,7 @@ export const curatorHeroAssignmentService = ServiceFactory.curatorHeroAssignment
 export const customTokenCardService = ServiceFactory.customTokenCardService;
 export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
+export const setsService = new PostgresSetsService();
 export const bannedCardsService = ServiceFactory.bannedCardsService;
 export const dailyMoversService = ServiceFactory.dailyMoversService;
 export const leagueService = ServiceFactory.leagueService;

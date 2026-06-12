@@ -33,6 +33,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | `oauth_authorization_codes` | Short-lived auth codes with PKCE support | — |
 | `oauth_access_tokens` | Bearer + refresh tokens | — |
 | `site_settings` | Key-value store (key text PK, value JSONB) | — |
+| `sets` | Set metadata reference data — SOURCE OF TRUTH for set names, release dates, `release_order` (global chronological, spaced by 10), `display_order` (curated printing-carousel ranking used by `sortPrintings`; migration 0062), category/tier, `is_core`. Seeded by migration 0061. `lib/fab-constants/sets-data.generated.ts` is a generated snapshot — never edit it by hand; run `scripts/generate-set-constants.ts` after changing rows (sync pinned by `lib/fab-constants/sets-sync.test.ts`) | — |
 | `daily_movers` | Daily price-signal sink (gainers, decliners, breakouts, steady risers). 1-year retention. PK `(as_of_date, signal_type, printing_id)` | `printings.printingId` (logical) |
 
 ## Relationship Map
