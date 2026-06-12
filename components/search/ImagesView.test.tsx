@@ -114,3 +114,17 @@ describe('ImagesView card preview', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
+
+describe('ImagesView language flag', () => {
+  it('shows flag + code for a localized printing in the info badge', () => {
+    renderView({ printings: [{ ...printing, language: 'fr' }] });
+    expect(screen.getByText('FR')).toBeInTheDocument();
+    expect(screen.getByText('🇫🇷')).toBeInTheDocument();
+  });
+
+  it('treats a missing language as English', () => {
+    renderView({ printings: [{ ...printing, language: undefined }] });
+    expect(screen.getByText('EN')).toBeInTheDocument();
+    expect(screen.getByText('🇬🇧')).toBeInTheDocument();
+  });
+});

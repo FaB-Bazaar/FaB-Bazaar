@@ -7,6 +7,7 @@ import { FOILING_STYLES, EDITION_MAP } from '@/lib/fab-constants';
 import { Minus, Plus, Check, Expand, X } from 'lucide-react';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
+import { languageFlag } from '@/lib/utils/printing-language';
 
 interface ImagesViewProps {
   printings: any[];
@@ -92,8 +93,18 @@ export function ImagesView({
                   </svg>
                 </Link>
 
-                {/* Right: Edition and Foiling */}
+                {/* Right: Language, Edition and Foiling */}
                 <div className="flex items-center gap-1.5">
+                  {(() => {
+                    // Missing language = English (matches the printings.language DB default)
+                    const lang = (printing.language || 'en').toLowerCase();
+                    return (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-400" title={lang.toUpperCase()}>
+                        <span aria-hidden="true">{languageFlag(lang)}</span>
+                        <span>{lang.toUpperCase()}</span>
+                      </span>
+                    );
+                  })()}
                   {printing.edition && (
                     <span className="text-[10px] text-gray-600 dark:text-gray-400">
                       {getEditionDisplay(printing.edition)}
