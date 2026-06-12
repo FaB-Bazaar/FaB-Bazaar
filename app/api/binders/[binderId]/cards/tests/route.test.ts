@@ -1,348 +1,190 @@
+/**
+ * Route unit tests for GET /api/binders/[binderId]/cards
+ *
+ * Service layer is mocked — these tests prove auth handling, filter/option
+ * parsing, visibility rules, and HTTP response shape.
+ */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from '../route';
 import { NextRequest } from 'next/server';
 
-// Mock binderService
-const mockBinderService = {
-  findBinderByIdOrSlug: vi.fn(),
-  getBinderCards: vi.fn(),
-  addCardsToBinder: vi.fn(),
-  getOrCreateBinderBySlug: vi.fn(),
-};
-
 vi.mock('@/lib/services', () => ({
-  binderService: mockBinderService,
-  printingsService: {
-    getPrintingsByIds: vi.fn().mockResolvedValue({ success: true, data: { printings: [] } }),
+  binderService: {
+    getBinder: vi.fn(),
+    getBinderCards: vi.fn(),
+    addCardsToBinder: vi.fn(),
   },
-}));
-
-// Mock next-auth to prevent module resolution issues
-vi.mock('@/auth', () => ({
-  auth: vi.fn().mockResolvedValue(null),
+  printingsService: {
+    getPrintingsByIds: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/auth/multi-auth', () => ({
-  authenticateRequest: vi.fn().mockResolvedValue({ success: false }),
-  AuthResult: {},
+  authenticateRequest: vi.fn(),
 }));
 
 vi.mock('@/lib/discord/discord-webhooks', () => ({
-  DiscordWebhooks: {
-    sendBinderUpdate: vi.fn(),
-  },
+  DiscordWebhooks: { sendBinderUpdate: vi.fn() },
 }));
 
-describe('/api/binders/[binderId]/cards API Route', () => {
+// Import AFTER mocks (vi.mock is hoisted)
+import { GET } from '../route';
+import { binderService } from '@/lib/services';
+import { authenticateRequest } from '@/lib/auth/multi-auth';
 
-  const MOCK_BINDER_ID = '68acbd2c27d38b1af2694536';
-  const createMockRequest = (url: string) => new NextRequest(`http://localhost${url}`);
+const mockGetBinder = vi.mocked(binderService.getBinder);
+const mockGetBinderCards = vi.mocked(binderService.getBinderCards);
+const mockAuthenticateRequest = vi.mocked(authenticateRequest);
 
-  beforeEach(() => { 
-    vi.clearAllMocks();
-  });
+const BINDER_ID = '68acbd2c27d38b1af2694536';
+const createMockRequest = (url: string) => new NextRequest(`http://localhost${url}`);
+const getCards = async (query = '') => {
+  const request = createMockRequest(`/api/binders/${BINDER_ID}/cards${query}`);
+  const response = await GET(request, { params: Promise.resolve({ binderId: BINDER_ID }) });
+  return { response, data: await response.json() };
+};
 
-  const mockCards = [ 
-    { 
-      _id: '1',
-      id: 'card-1',
-      name: 'Card A', 
-      quantity: 2,
-      condition: 'mint',
-      forTrade: true,
-      printingDetails: { 
-        rarity: 'common',
-        foiling: 'standard',
-        set_id: 'set1',
-        tcg_market: 10
-      } 
-    }, 
-    { 
-      _id: '2',
-      id: 'card-2',
-      name: 'Card B', 
-      quantity: 1,
-      condition: 'near-mint',
-      forTrade: false,
-      printingDetails: { 
-        rarity: 'rare',
-        foiling: 'foil',
-        set_id: 'set2',
-        tcg_market: 25
-      } 
-    }, 
-    { 
-      _id: '3',
-      id: 'card-3',
-      name: 'Card C', 
-      quantity: 3,
-      condition: 'played',
-      forTrade: true,
-      printingDetails: { 
-        rarity: 'legendary',
-        foiling: 'standard',
-        set_id: 'set1',
-        tcg_market: 50
-      } 
-    } 
-  ];
+const publicBinder = {
+  _id: BINDER_ID,
+  name: 'Test Binder',
+  userId: 'user123',
+  visibility: { level: 'public' },
+} as any;
 
-  const mockBeastWithin = { 
-    _id: '4',
-    id: 'card-4',
-    name: 'beast within', 
-    quantity: 1,
-    condition: 'mint',
-    forTrade: false,
-    printingDetails: { 
-      rarity: 'common',
-      foiling: 'standard',
-      set_id: 'wtr',
-      tcg_market: 5
-    } 
-  };
+const cardsResult = (overrides: Partial<{ cards: any[]; pagination: any }> = {}) => ({
+  success: true as const,
+  data: {
+    cards: overrides.cards ?? [
+      { _id: '1', name: 'Card A', quantity: 2 },
+      { _id: '2', name: 'Card B', quantity: 3 },
+    ],
+    pagination: overrides.pagination ?? { page: 1, limit: 2, total: 3, totalPages: 2, totalQuantity: 10 },
+    metadata: {
+      uniqueValues: { rarities: [], foilings: [], sets: [], conditions: [] },
+      counts: { forTrade: 2, notForTrade: 1 },
+    },
+  } as any,
+});
 
-  it('should return paginated cards with no filters', async () => {
-    // Mock findBinderByIdOrSlug to return a public binder
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Test Binder',
-        userId: 'user123',
-        visibility: { level: 'public' },
-      },
-    });
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockAuthenticateRequest.mockResolvedValue({ success: false } as any);
+  mockGetBinder.mockResolvedValue({ success: true, data: publicBinder });
+});
 
-    // Mock getBinderCards to return cards with pagination/metadata
-    mockBinderService.getBinderCards.mockResolvedValueOnce({
-      success: true,
-      data: {
-        cards: mockCards.slice(0, 2),
-        pagination: { page: 1, limit: 2, totalPages: 2, totalItems: 3 },
-        metadata: {
-          counts: { forTrade: 2, notForTrade: 1 },
-          rarities: [{ _id: 'common', count: 1 }, { _id: 'rare', count: 1 }],
-          foilings: [{ _id: 'standard', count: 2 }],
-          sets: [{ _id: 'set1', count: 2 }],
-          conditions: [{ _id: 'mint', count: 1 }],
-        },
-      },
-    });
+describe('GET /api/binders/[binderId]/cards', () => {
+  it('reports totalCards from the service-wide totalQuantity, not the current page sum', async () => {
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult());
 
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards?page=1&limit=2`);
-    const response = await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
-    const data = await response.json();
+    const { response, data } = await getCards('?page=1&limit=2');
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.cards.length).toBe(2);
-    expect(data.pagination.totalCards).toBe(3);
-    expect(data.metadata.counts.forTrade).toBe(2);
-    expect(data.metadata.counts.notForTrade).toBe(1);
+    expect(data.cards).toHaveLength(2);
+    // Page quantities sum to 5; the whole filtered set is 10 — the tab count must be 10
+    expect(data.pagination.totalCards).toBe(10);
+    expect(data.pagination.total).toBe(3);
   });
 
-  it('should pass filters to binderService.getBinderCards', async () => {
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Test Binder',
-        userId: 'user123',
-        visibility: { level: 'public' },
-      },
-    });
+  it('adds id field to each card for backwards compatibility', async () => {
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult());
 
-    mockBinderService.getBinderCards.mockResolvedValueOnce({
-      success: true,
-      data: {
-        cards: [mockBeastWithin],
-        pagination: { page: 1, limit: 48, totalPages: 1, totalItems: 1 },
-        metadata: {
-          counts: { forTrade: 0, notForTrade: 1 },
-          rarities: [{ _id: 'common', count: 1 }],
-          foilings: [{ _id: 'r', count: 1 }],
-          sets: [{ _id: 'wtr', count: 1 }],
-          conditions: [{ _id: 'mint', count: 1 }],
-        },
-      },
-    });
+    const { data } = await getCards();
 
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards?foiling=r&set=wtr`);
-    await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
+    expect(data.cards[0].id).toBe('1');
+    expect(data.cards[1].id).toBe('2');
+  });
 
-    // Verify getBinderCards was called with correct filters
-    expect(mockBinderService.getBinderCards).toHaveBeenCalledWith(
-      MOCK_BINDER_ID,
-      expect.objectContaining({ foiling: 'r', set: 'wtr' }),
+  it('passes filters through to binderService.getBinderCards', async () => {
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult());
+
+    await getCards('?foiling=r&set=wtr&search=beast&forTrade=true&class=warrior&startsWith=B');
+
+    expect(mockGetBinderCards).toHaveBeenCalledWith(
+      BINDER_ID,
+      expect.objectContaining({
+        foiling: 'r',
+        set: 'wtr',
+        search: 'beast',
+        forTrade: true,
+        class: 'warrior',
+        startsWith: 'B',
+      }),
       expect.any(Object)
     );
   });
 
-  it('should pass sortBy option to binderService.getBinderCards', async () => {
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Test Binder',
-        userId: 'user123',
-        visibility: { level: 'public' },
-      },
-    });
+  it('passes pagination and sort options through to binderService.getBinderCards', async () => {
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult());
 
-    mockBinderService.getBinderCards.mockResolvedValueOnce({
-      success: true,
-      data: {
-        cards: mockCards,
-        pagination: { page: 1, limit: 48, totalPages: 1, totalItems: 3 },
-        metadata: { counts: { forTrade: 2, notForTrade: 1 }, rarities: [], foilings: [], sets: [], conditions: [] },
-      },
-    });
+    await getCards('?page=3&limit=200&sortBy=tcg-low-desc');
 
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards?sortBy=name`);
-    await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
-
-    expect(mockBinderService.getBinderCards).toHaveBeenCalledWith(
-      MOCK_BINDER_ID,
+    expect(mockGetBinderCards).toHaveBeenCalledWith(
+      BINDER_ID,
       expect.any(Object),
-      expect.objectContaining({ sortBy: 'name' })
+      expect.objectContaining({ page: 3, limit: 200, sortBy: 'tcg-low-desc' })
     );
   });
 
-  it('should pass search filter to binderService.getBinderCards', async () => {
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Test Binder',
-        userId: 'user123',
-        visibility: { level: 'public' },
-      },
-    });
+  it('handles empty results gracefully', async () => {
+    mockGetBinderCards.mockResolvedValueOnce(
+      cardsResult({ cards: [], pagination: { page: 1, limit: 48, total: 0, totalPages: 0, totalQuantity: 0 } })
+    );
 
-    mockBinderService.getBinderCards.mockResolvedValueOnce({
-      success: true,
-      data: {
-        cards: [mockBeastWithin],
-        pagination: { page: 1, limit: 48, totalPages: 1, totalItems: 1 },
-        metadata: { counts: { forTrade: 0, notForTrade: 1 }, rarities: [], foilings: [], sets: [], conditions: [] },
-      },
-    });
-
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards?search=beast`);
-    const response = await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
-    const data = await response.json();
+    const { response, data } = await getCards('?search=nonexistent');
 
     expect(response.status).toBe(200);
-    expect(data.cards.length).toBe(1);
-    expect(mockBinderService.getBinderCards).toHaveBeenCalledWith(
-      MOCK_BINDER_ID,
-      expect.objectContaining({ search: 'beast' }),
-      expect.any(Object)
-    );
+    expect(data.cards).toEqual([]);
+    expect(data.pagination.totalCards).toBe(0);
   });
 
-  it('should pass forTrade filter to binderService.getBinderCards', async () => {
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Test Binder',
-        userId: 'user123',
-        visibility: { level: 'public' },
-      },
-    });
+  it('returns 404 when the binder does not exist', async () => {
+    mockGetBinder.mockResolvedValueOnce({ success: true, data: null as any });
 
-    const forTradeCards = mockCards.filter(c => c.forTrade);
-    mockBinderService.getBinderCards.mockResolvedValueOnce({
-      success: true,
-      data: {
-        cards: forTradeCards,
-        pagination: { page: 1, limit: 48, totalPages: 1, totalItems: 2 },
-        metadata: { counts: { forTrade: 2, notForTrade: 0 }, rarities: [], foilings: [], sets: [], conditions: [] },
-      },
-    });
-
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards?forTrade=true`);
-    const response = await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.cards.length).toBe(2);
-    expect(mockBinderService.getBinderCards).toHaveBeenCalledWith(
-      MOCK_BINDER_ID,
-      expect.objectContaining({ forTrade: true }),
-      expect.any(Object)
-    );
-  });
-
-  it('should handle slug-based binder lookup (non-ObjectId treated as slug)', async () => {
-    // Non-ObjectId identifiers are now treated as slugs, not rejected
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: null, // Binder not found by slug
-    });
-
-    const request = createMockRequest(`/api/binders/my-binder-slug/cards`);
-    const response = await GET(request, { params: Promise.resolve({ binderId: 'my-binder-slug' }) });
-    const data = await response.json();
+    const { response, data } = await getCards();
 
     expect(response.status).toBe(404);
     expect(data.success).toBe(false);
     expect(data.error).toBe('Binder not found');
-    expect(mockBinderService.findBinderByIdOrSlug).toHaveBeenCalledWith('my-binder-slug');
   });
 
-  it('should handle empty results gracefully', async () => {
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
+  it('denies access to private binders for unauthenticated requests', async () => {
+    mockGetBinder.mockResolvedValueOnce({
       success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Test Binder',
-        userId: 'user123',
-        visibility: { level: 'public' },
-      },
+      data: { ...publicBinder, visibility: { level: 'private' }, isPublic: false },
     });
 
-    mockBinderService.getBinderCards.mockResolvedValueOnce({
-      success: true,
-      data: {
-        cards: [],
-        pagination: { page: 1, limit: 48, totalPages: 0, totalItems: 0 },
-        metadata: { counts: { forTrade: 0, notForTrade: 0 }, rarities: [], foilings: [], sets: [], conditions: [] },
-      },
-    });
-
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards?search=nonexistent`);
-    const response = await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-    expect(data.cards).toEqual([]);
-    expect(data.pagination.totalCards).toBe(0);
-    expect(data.metadata.counts.forTrade).toBe(0);
-    expect(data.metadata.counts.notForTrade).toBe(0);
-  });
-
-  it('should deny access to private binders for non-owners', async () => {
-    mockBinderService.findBinderByIdOrSlug.mockResolvedValueOnce({
-      success: true,
-      data: {
-        _id: MOCK_BINDER_ID,
-        name: 'Private Binder',
-        userId: 'other-user-id',
-        visibility: { level: 'private' },
-        isPublic: false,
-      },
-    });
-
-    const request = createMockRequest(`/api/binders/${MOCK_BINDER_ID}/cards`);
-    const response = await GET(request, { params: Promise.resolve({ binderId: MOCK_BINDER_ID }) });
-    const data = await response.json();
+    const { response, data } = await getCards();
 
     expect(response.status).toBe(403);
     expect(data.success).toBe(false);
     expect(data.error).toBe('Access denied: This binder is private');
+    expect(mockGetBinderCards).not.toHaveBeenCalled();
+  });
+
+  it('allows the owner to view a private binder', async () => {
+    mockAuthenticateRequest.mockResolvedValueOnce({ success: true, userId: 'user123' } as any);
+    mockGetBinder.mockResolvedValueOnce({
+      success: true,
+      data: { ...publicBinder, visibility: { level: 'private' }, isPublic: false },
+    });
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult());
+
+    const { response, data } = await getCards();
+
+    expect(response.status).toBe(200);
+    expect(data.binder.isOwner).toBe(true);
+  });
+
+  it('allows unauthenticated access to unlisted binders', async () => {
+    mockGetBinder.mockResolvedValueOnce({
+      success: true,
+      data: { ...publicBinder, visibility: { level: 'unlisted' }, isPublic: false },
+    });
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult());
+
+    const { response } = await getCards();
+
+    expect(response.status).toBe(200);
   });
 });

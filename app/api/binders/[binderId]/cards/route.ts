@@ -95,15 +95,13 @@ export async function GET(
       id: card._id
     }));
 
-    // Calculate total cards (sum of quantities)
-    const totalCards = cards.reduce((sum, card) => sum + (card.quantity || 1), 0);
-
     return NextResponse.json({
       success: true,
       cards: cardsWithId,
       pagination: {
         ...pagination,
-        totalCards
+        // Sum of quantities across the whole filtered set — not just this page
+        totalCards: pagination.totalQuantity
       },
       metadata,
       binder: {

@@ -439,15 +439,19 @@ export class PostgresBinderService implements IBinderService {
         conditions.push(sql`${cards.displayName} ILIKE ${filters.startsWith + '%'}`);
       }
 
-      // Get total count
+      // Get total count and total quantity across the whole filtered set
       const [countResult] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({
+          count: sql<number>`count(*)::int`,
+          totalQuantity: sql<number>`coalesce(sum(${inventoryItems.quantity}), 0)::int`,
+        })
         .from(inventoryItems)
         .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .where(and(...conditions));
 
       const total = countResult?.count || 0;
+      const totalQuantity = countResult?.totalQuantity || 0;
 
       // Pagination
       const page = options.page || 1;
@@ -480,7 +484,7 @@ export class PostgresBinderService implements IBinderService {
         success: true,
         data: {
           cards: cardDTOs,
-          pagination: { page, limit, total, totalPages },
+          pagination: { page, limit, total, totalPages, totalQuantity },
           metadata,
         },
       };
@@ -1817,12 +1821,14 @@ export class PostgresBinderService implements IBinderService {
         return [desc(inventoryItems.quantity), asc(cards.displayName)];
       case 'quantity-asc':
         return [asc(inventoryItems.quantity), asc(cards.displayName)];
+      // DESC price sorts need NULLS LAST — Postgres defaults to NULLS FIRST on DESC,
+      // which would float unpriced cards to the top of the list
       case 'tcg-market-desc':
-        return [desc(printings.tcgMarket), asc(cards.displayName)];
+        return [sql`${printings.tcgMarket} DESC NULLS LAST`, asc(cards.displayName)];
       case 'tcg-market-asc':
         return [asc(printings.tcgMarket), asc(cards.displayName)];
       case 'tcg-low-desc':
-        return [desc(printings.tcgLow), asc(cards.displayName)];
+        return [sql`${printings.tcgLow} DESC NULLS LAST`, asc(cards.displayName)];
       case 'tcg-low-asc':
         return [asc(printings.tcgLow), asc(cards.displayName)];
       case 'name':

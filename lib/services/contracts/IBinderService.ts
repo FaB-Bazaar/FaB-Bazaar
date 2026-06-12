@@ -204,6 +204,8 @@ export interface BinderCardsResult {
     limit: number;
     total: number;
     totalPages: number;
+    /** Sum of quantities across ALL items matching the filters, not just the current page */
+    totalQuantity: number;
   };
   metadata: {
     uniqueValues: {
