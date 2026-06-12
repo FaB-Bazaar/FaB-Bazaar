@@ -22,12 +22,14 @@ describe('DeckRightRail', () => {
     expect(container.textContent).toMatch(/5 \/ 80 cards owned/i);
   });
 
-  it('hides on small screens via responsive class on the aside', () => {
+  it('hides on small screens via responsive class on the rail container', () => {
     render(<DeckRightRail {...baseProps} />);
     const aside = screen.getByRole('complementary', { name: /deck overview/i });
-    // Desktop-only sidebar: hidden by default, shown at xl breakpoint
-    expect(aside.className).toMatch(/hidden/);
-    expect(aside.className).toMatch(/(xl|lg):block/);
+    // Desktop-only sidebar: the in-flow placeholder wrapper hides the whole
+    // rail below the xl breakpoint (the aside itself pins via position:fixed).
+    const wrapper = aside.parentElement!;
+    expect(wrapper.className).toMatch(/hidden/);
+    expect(wrapper.className).toMatch(/(xl|lg):block/);
   });
 
   it('renders an extra slot when provided (e.g. matchups / results panels)', () => {
