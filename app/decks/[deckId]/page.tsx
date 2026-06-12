@@ -1093,7 +1093,8 @@ export default function DeckEditorPage() {
   const modKey = isMac ? '⌘' : 'Ctrl';
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-hidden">
+    // overflow-x-clip (not -hidden): hidden creates a scroll container, which breaks the right rail's position:sticky
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-clip">
       {/* Dormant HUD trigger */}
       {!chordMode && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
