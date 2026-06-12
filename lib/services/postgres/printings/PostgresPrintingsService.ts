@@ -59,11 +59,12 @@ export class PostgresPrintingsService implements IPrintingsService {
       // Sorting
       const orderByClause = this.buildOrderBy(options, filters.priceField, filters);
 
-      // Execute query with JOIN
+      // Execute query with JOIN (sets join feeds the canonical order-by tiebreak)
       const results = await db
         .select(this.buildSelectFields())
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(sets, eq(sets.code, printings.set))
         .leftJoin(
           cardTranslations,
           and(
@@ -163,21 +164,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           )
         )
         .where(where)
-        .orderBy(
-          printings.cardUniqueId,
-          sql`CASE WHEN ${printings.language} = 'en' THEN 0 ELSE 1 END`,
-          // Gold foils are tournament-winner prizes — never the representative
-          sql`CASE WHEN ${printings.foiling} = 'g' THEN 1 ELSE 0 END`,
-          sql`COALESCE(${sets.displayOrder}, 2147483647)`,
-          sql`CASE WHEN ${printings.rarity} = 'v' THEN 1 ELSE 0 END`,
-          sql`CASE WHEN COALESCE(${sets.unlimitedBeforeFirst}, false)
-                THEN CASE ${printings.edition} WHEN 'u' THEN 0 WHEN 'a' THEN 1 WHEN 'f' THEN 2 ELSE 3 END
-                ELSE CASE ${printings.edition} WHEN 'a' THEN 0 WHEN 'f' THEN 1 WHEN 'u' THEN 2 ELSE 3 END
-              END`,
-          sql`CASE ${printings.foiling} WHEN 's' THEN 0 WHEN 'n' THEN 0 WHEN 'r' THEN 1 WHEN 'c' THEN 2 WHEN 'g' THEN 3 ELSE 0 END`,
-          sql`${printings.tcgLow} ASC NULLS LAST`,
-          printings.printingId
-        )
+        .orderBy(printings.cardUniqueId, ...this.canonicalPrintingOrder())
         .as('repr');
 
       // Outer: re-sort the representatives by the user's choice + paginate.
@@ -349,6 +336,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         .select(this.buildSelectFields())
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(sets, eq(sets.code, printings.set))
         .leftJoin(
           cardTranslations,
           and(
@@ -1570,9 +1558,42 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
-   * Build ORDER BY clause from options
+   * Canonical printing-order cascade — orders the PRINTINGS of a card once the
+   * primary sort has found the right cards. Mirrors lib/fab-constants
+   * sortPrintings: English → gold foils last (tournament prizes) → curated
+   * sets.display_order (live JOIN — admin reorders apply immediately) →
+   * Marvels last within a set → edition (unlimited-first where flagged) →
+   * foiling (NF → RF → CF) → price → printing_id. Queries using this MUST
+   * leftJoin(sets, eq(sets.code, printings.set)).
+   */
+  private canonicalPrintingOrder(): any[] {
+    return [
+      // Language-major: en → fr → ja → all others alphabetically by code
+      sql`CASE ${printings.language} WHEN 'en' THEN 0 WHEN 'fr' THEN 1 WHEN 'ja' THEN 2 ELSE 3 END`,
+      printings.language,
+      sql`CASE WHEN ${printings.foiling} = 'g' THEN 1 ELSE 0 END`,
+      sql`COALESCE(${sets.displayOrder}, 2147483647)`,
+      sql`CASE WHEN ${printings.rarity} = 'v' THEN 1 ELSE 0 END`,
+      sql`CASE WHEN COALESCE(${sets.unlimitedBeforeFirst}, false)
+            THEN CASE ${printings.edition} WHEN 'u' THEN 0 WHEN 'a' THEN 1 WHEN 'f' THEN 2 ELSE 3 END
+            ELSE CASE ${printings.edition} WHEN 'a' THEN 0 WHEN 'f' THEN 1 WHEN 'u' THEN 2 ELSE 3 END
+          END`,
+      sql`CASE ${printings.foiling} WHEN 's' THEN 0 WHEN 'n' THEN 0 WHEN 'r' THEN 1 WHEN 'c' THEN 2 WHEN 'g' THEN 3 ELSE 0 END`,
+      sql`${printings.tcgLow} ASC NULLS LAST`,
+      printings.printingId,
+    ];
+  }
+
+  /**
+   * Build ORDER BY clause from options. The user's choice (or name relevance)
+   * finds the right CARDS; the canonical cascade is appended as the trailing
+   * tiebreak so each card's PRINTINGS always list in canonical order.
    */
   private buildOrderBy(options?: PrintingsSearchOptions, priceField?: string, filters?: PrintingsSearchFilters): any[] {
+    return [...this.buildPrimaryOrderBy(options, priceField, filters), ...this.canonicalPrintingOrder()];
+  }
+
+  private buildPrimaryOrderBy(options?: PrintingsSearchOptions, priceField?: string, filters?: PrintingsSearchFilters): any[] {
     const sortBy = options?.sortBy || 'name';
     const sortOrder = options?.sortOrder || 'asc';
 
