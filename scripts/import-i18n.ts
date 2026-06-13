@@ -42,9 +42,15 @@ loadEnvConfig(process.cwd());
 import { Pool } from "pg";
 import { nanoid } from "nanoid";
 import { readFileSync } from "node:fs";
+import { deriveForeignPrinting } from "@/lib/import/derive-foreign-printing";
 
 const argv = process.argv.slice(2);
 const DRY_RUN = argv.includes("--dry-run");
+// Foreign-language-exclusive sets (e.g. 2HP, RAP) have no English printing to
+// mirror. With this flag, a print with no English counterpart is built from the
+// LSS print itself (deriveForeignPrinting) instead of being counted "unmatched".
+// Off by default, so the standard English-anchored runs are byte-for-byte the same.
+const ALLOW_FOREIGN_ONLY = argv.includes("--allow-foreign-only");
 const LANG_ARG = argv.find((a) => a.startsWith("--lang="));
 const CARD_UUID_ARG = argv.find((a) => a.startsWith("--card-uuid="));
 const MAX_CARDS_ARG = argv.find((a) => a.startsWith("--max-cards="));
@@ -259,6 +265,38 @@ async function importFaceLanguage(
     );
 
     if (enMatch.rows.length === 0) {
+      // No same-set English to mirror. For foreign-exclusive sets, derive the
+      // printing's attributes from the LSS print itself; otherwise it's unmatched.
+      if (ALLOW_FOREIGN_ONLY) {
+        const d = deriveForeignPrinting(p, f);
+        const newId = nanoid();
+        plans.push({
+          new_printing_id: newId,
+          set: d.set,
+          collector_number: d.collector_number,
+          edition: d.edition,
+          foiling: d.foiling,
+          rarity: d.rarity,
+          is_extended_art: d.is_extended_art,
+          art_variations: null,
+          is_first_edition: d.is_first_edition,
+          is_unlimited: d.is_unlimited,
+          is_normal_edition: d.is_normal_edition,
+          is_normal_foil: d.is_normal_foil,
+          is_rainbow_foil: d.is_rainbow_foil,
+          is_cold_foil: d.is_cold_foil,
+          is_common: d.is_common,
+          is_rare: d.is_rare,
+          is_super_rare: d.is_super_rare,
+          is_majestic: d.is_majestic,
+          is_legendary: d.is_legendary,
+          is_fabled: d.is_fabled,
+          is_promo: d.is_promo,
+          image_url: `${CF_BASE}/${newId}/public`,
+          image_source_url: f.image.normal,
+        });
+        continue;
+      }
       stats.unmatched++;
       continue;
     }
