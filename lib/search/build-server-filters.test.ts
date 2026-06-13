@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildServerFilters, type SearchUiState } from './build-server-filters';
-import { FORMAT_OPTIONS } from './card-filter-chips';
+import { FORMAT_OPTIONS, PRICE_PRESETS } from './card-filter-chips';
 
 const baseState: SearchUiState = {
   query: '',
@@ -41,6 +41,45 @@ describe('buildServerFilters — format', () => {
   it('still parses shorthand format: when no chip is selected', () => {
     const f = buildServerFilters({ ...baseState, query: 'format:cc t:attack' });
     expect(f.format).toBe('cc');
+  });
+});
+
+describe('buildServerFilters — price', () => {
+  it('maps a maximum to priceMax against tcg_low', () => {
+    const f = buildServerFilters({ ...baseState, priceMax: '25' });
+    expect(f.priceMax).toBe(25);
+    expect(f.priceField).toBe('tcg_low');
+  });
+
+  it('maps a minimum to priceMin against tcg_low ("above an amount")', () => {
+    const f = buildServerFilters({ ...baseState, priceMin: '50' });
+    expect(f.priceMin).toBe(50);
+    expect(f.priceField).toBe('tcg_low');
+  });
+
+  it('supports a min+max range together', () => {
+    const f = buildServerFilters({ ...baseState, priceMin: '25', priceMax: '100' });
+    expect(f.priceMin).toBe(25);
+    expect(f.priceMax).toBe(100);
+    expect(f.priceField).toBe('tcg_low');
+  });
+
+  it('omits price fields when neither bound is set', () => {
+    const f = buildServerFilters({ ...baseState, query: 'snatch' });
+    expect(f).not.toHaveProperty('priceMin');
+    expect(f).not.toHaveProperty('priceMax');
+    expect(f).not.toHaveProperty('priceField');
+  });
+});
+
+describe('PRICE_PRESETS', () => {
+  it('offers the under-10/25/50 and over-50 buckets', () => {
+    expect(PRICE_PRESETS.map(p => ({ min: p.min, max: p.max }))).toEqual([
+      { min: '', max: '10' },
+      { min: '', max: '25' },
+      { min: '', max: '50' },
+      { min: '50', max: '' },
+    ]);
   });
 });
 

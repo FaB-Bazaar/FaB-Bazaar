@@ -11,7 +11,7 @@ import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import {
   TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, ALL_CLASSES, PITCH_CHIPS,
-  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS,
+  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, PRICE_PRESETS,
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
@@ -115,6 +115,7 @@ export default function SearchPage() {
   const [powerMax, setPowerMax] = useState('');
   const [defenseMin, setDefenseMin] = useState('');
   const [defenseMax, setDefenseMax] = useState('');
+  const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
 
   // ── UI state ──
@@ -142,10 +143,10 @@ export default function SearchPage() {
     query: debouncedQuery,
     selectedType, selectedClass, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
-    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
   }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets,
-       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax]);
+       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
   const hasAnyFilter = Object.keys(filters).length > 0;
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
@@ -167,7 +168,7 @@ export default function SearchPage() {
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
-    setDefenseMin(''); setDefenseMax(''); setPriceMax('');
+    setDefenseMin(''); setDefenseMax(''); setPriceMin(''); setPriceMax('');
     setSelectedLanguages(DEFAULT_LANGUAGES);
     inputRef.current?.focus();
   };
@@ -432,12 +433,39 @@ export default function SearchPage() {
             </div>
           </SidebarSection>
 
-          {/* Price cap */}
-          <SidebarSection title="Max Price" defaultOpen={false}>
-            <div className="flex items-center gap-1.5">
+          {/* Price — quick buckets + custom range (tcg_low, English only) */}
+          <SidebarSection title="Price" defaultOpen={false}>
+            <div className="flex flex-wrap gap-1">
+              {PRICE_PRESETS.map(p => {
+                const active = priceMin === p.min && priceMax === p.max;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      if (active) { setPriceMin(''); setPriceMax(''); }
+                      else { setPriceMin(p.min); setPriceMax(p.max); }
+                    }}
+                    aria-pressed={active}
+                    className={cn(
+                      'px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                      active
+                        ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
+                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex items-center gap-1.5">
               <span className="text-xs text-gray-500">$</span>
-              <input type="number" min="0" placeholder="e.g. 25" value={priceMax} onChange={e => setPriceMax(e.target.value)}
-                className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="number" min="0" placeholder="Min" value={priceMin} onChange={e => setPriceMin(e.target.value)}
+                className="w-20 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <span className="text-gray-400 text-xs">–</span>
+              <input type="number" min="0" placeholder="Max" value={priceMax} onChange={e => setPriceMax(e.target.value)}
+                className="w-20 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </SidebarSection>
 

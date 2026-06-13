@@ -11,7 +11,7 @@ import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import {
   TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, ALL_CLASSES, PITCH_CHIPS,
-  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS,
+  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS,
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
@@ -233,6 +233,7 @@ export default function OptSearchPage() {
   const [powerMax, setPowerMax] = useState('');
   const [defenseMin, setDefenseMin] = useState('');
   const [defenseMax, setDefenseMax] = useState('');
+  const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   // Language selection: ['en'] = English default, [] = ALL languages.
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
@@ -259,10 +260,10 @@ export default function OptSearchPage() {
     selectedType, selectedClass, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     selectedFormat,
-    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
   }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedFormat,
-       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax]);
+       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
   const hasAnyFilter = Object.keys(filters).length > 0;
 
@@ -286,7 +287,7 @@ export default function OptSearchPage() {
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
-    setDefenseMin(''); setDefenseMax(''); setPriceMax('');
+    setDefenseMin(''); setDefenseMax(''); setPriceMin(''); setPriceMax('');
     setSelectedLanguages(DEFAULT_LANGUAGES);
     inputRef.current?.focus();
   };
@@ -335,7 +336,12 @@ export default function OptSearchPage() {
   if (costMin || costMax) activeChips.push({ key: 'cost', label: rangeLabel('Cost', costMin, costMax), onRemove: () => { setCostMin(''); setCostMax(''); } });
   if (powerMin || powerMax) activeChips.push({ key: 'power', label: rangeLabel('Power', powerMin, powerMax), onRemove: () => { setPowerMin(''); setPowerMax(''); } });
   if (defenseMin || defenseMax) activeChips.push({ key: 'def', label: rangeLabel('Defense', defenseMin, defenseMax), onRemove: () => { setDefenseMin(''); setDefenseMax(''); } });
-  if (priceMax) activeChips.push({ key: 'price', label: `≤ $${priceMax}`, onRemove: () => setPriceMax('') });
+  if (priceMin || priceMax) {
+    const priceLabel = priceMin && priceMax
+      ? `$${priceMin}–$${priceMax}`
+      : priceMin ? `≥ $${priceMin}` : `≤ $${priceMax}`;
+    activeChips.push({ key: 'price', label: priceLabel, onRemove: () => { setPriceMin(''); setPriceMax(''); } });
+  }
   if (!isDefaultLang) {
     const label = selectedLanguages.length === 0
       ? 'All languages'
@@ -568,14 +574,33 @@ export default function OptSearchPage() {
               </div>
             </Popover>
 
-            {/* Price */}
-            <Popover label="Price" count={priceMax ? 1 : 0} panelClassName="w-56">
-              <p className={SECTION}>Max Price</p>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-500">$</span>
-                <input type="number" min="0" placeholder="e.g. 25" value={priceMax} onChange={e => setPriceMax(e.target.value)}
-                  className="w-28 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            {/* Price — quick buckets + custom range (tcg_low, English only) */}
+            <Popover label="Price" count={(priceMin || priceMax) ? 1 : 0} panelClassName="w-64">
+              <p className={SECTION}>Price</p>
+              <div className="flex flex-wrap gap-1">
+                {PRICE_PRESETS.map(p => {
+                  const active = priceMin === p.min && priceMax === p.max;
+                  return (
+                    <Pill
+                      key={p.label}
+                      active={active}
+                      onClick={() => {
+                        if (active) { setPriceMin(''); setPriceMax(''); }
+                        else { setPriceMin(p.min); setPriceMax(p.max); }
+                      }}
+                    >
+                      {p.label}
+                    </Pill>
+                  );
+                })}
               </div>
+              <div className="mt-3">
+                <p className={SECTION}>Custom range ($)</p>
+                <RangeRow label="Price" min={priceMin} setMin={setPriceMin} max={priceMax} setMax={setPriceMax} />
+              </div>
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 leading-snug">
+                Based on TCGplayer low; English printings only.
+              </p>
             </Popover>
 
             {/* More: foiling + edition + sets */}

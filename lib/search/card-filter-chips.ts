@@ -109,6 +109,15 @@ export const FOILING_OPTIONS = [
   { value: 'g', label: 'Gold Foil',   swatch: 'bg-gradient-to-br from-yellow-300 to-yellow-500' },
 ];
 
+// Quick price buckets (priced on tcg_low, English printings only). Each maps to
+// a (priceMin, priceMax) pair as strings — '' means that bound is unset.
+export const PRICE_PRESETS = [
+  { label: 'Under $10', min: '', max: '10' },
+  { label: 'Under $25', min: '', max: '25' },
+  { label: 'Under $50', min: '', max: '50' },
+  { label: 'Over $50', min: '50', max: '' },
+] as const;
+
 // Values match PrintingsSearchFilters['format']. CC and Silver Age lead — the
 // two formats players filter for most.
 export const FORMAT_OPTIONS = [
