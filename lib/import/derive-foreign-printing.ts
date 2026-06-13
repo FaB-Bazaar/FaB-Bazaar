@@ -69,6 +69,21 @@ const RARITY_TO_CODE: Record<string, string> = {
   basic: 'b',
 };
 
+// The three foil-flag booleans for a foiling code. A printing's foil flags must
+// come from ITS OWN foiling, never from a mirrored English row (e.g. a cold-foil
+// foreign card whose English counterpart is standard).
+export function foilingFlags(foiling: string): {
+  is_normal_foil: boolean;
+  is_rainbow_foil: boolean;
+  is_cold_foil: boolean;
+} {
+  return {
+    is_normal_foil: foiling === 's',
+    is_rainbow_foil: foiling === 'r',
+    is_cold_foil: foiling === 'c',
+  };
+}
+
 export function deriveForeignPrinting(print: LssPrintLike, face: LssFaceLike): DerivedPrinting {
   const foiling = FINISH_TO_FOILING[face.finish_type];
   if (!foiling) {
@@ -91,9 +106,7 @@ export function deriveForeignPrinting(print: LssPrintLike, face: LssFaceLike): D
     is_unlimited: false,
     is_normal_edition: true,
     is_extended_art: face.art_type === 'extended-art',
-    is_normal_foil: foiling === 's',
-    is_rainbow_foil: foiling === 'r',
-    is_cold_foil: foiling === 'c',
+    ...foilingFlags(foiling),
     is_common: rarity === 'c',
     is_rare: rarity === 'r',
     is_super_rare: rarity === 's',

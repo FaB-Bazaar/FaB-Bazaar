@@ -42,7 +42,7 @@ loadEnvConfig(process.cwd());
 import { Pool } from "pg";
 import { nanoid } from "nanoid";
 import { readFileSync } from "node:fs";
-import { deriveForeignPrinting } from "@/lib/import/derive-foreign-printing";
+import { deriveForeignPrinting, foilingFlags } from "@/lib/import/derive-foreign-printing";
 import { selectPrintsForImport } from "@/lib/import/select-prints";
 
 const argv = process.argv.slice(2);
@@ -226,19 +226,22 @@ async function importFaceLanguage(
       continue;
     }
     const setCode = p.print_set.set_code.toLowerCase();
+    // A printing is identified by its FOILING too — a card can have a standard
+    // AND a cold-foil/rainbow printing at the same collector+language (e.g. the
+    // History Pack hero cold foils). Keying without foiling skipped/duplicated them.
+    const lssFoiling = FINISH_TO_FOILING[f.finish_type] ?? "s";
 
     const existing = await pool.query<{ printing_id: string }>(
       `SELECT printing_id FROM printings
-        WHERE card_unique_id = $1 AND set = $2 AND collector_number = $3 AND language = $4
+        WHERE card_unique_id = $1 AND set = $2 AND collector_number = $3 AND language = $4 AND foiling = $5
         LIMIT 1`,
-      [cardUniqueId, setCode, collector, lang],
+      [cardUniqueId, setCode, collector, lang, lssFoiling],
     );
     if (existing.rows.length > 0) {
       stats.skipped++;
       continue;
     }
 
-    const lssFoiling = FINISH_TO_FOILING[f.finish_type] ?? "s";
     const enMatch = await pool.query<{
       printing_id: string;
       edition: string;
@@ -315,16 +318,16 @@ async function importFaceLanguage(
       set: setCode,
       collector_number: collector,
       edition: en.edition,
-      foiling: en.foiling,
+      // Foiling + its flags come from the FOREIGN print itself, not the English
+      // row — a cold-foil foreign printing must not inherit the English standard.
+      foiling: lssFoiling,
       rarity: en.rarity,
       is_extended_art: en.is_extended_art,
       art_variations: en.art_variations,
       is_first_edition: en.is_first_edition,
       is_unlimited: en.is_unlimited,
       is_normal_edition: en.is_normal_edition,
-      is_normal_foil: en.is_normal_foil,
-      is_rainbow_foil: en.is_rainbow_foil,
-      is_cold_foil: en.is_cold_foil,
+      ...foilingFlags(lssFoiling),
       is_common: en.is_common,
       is_rare: en.is_rare,
       is_super_rare: en.is_super_rare,

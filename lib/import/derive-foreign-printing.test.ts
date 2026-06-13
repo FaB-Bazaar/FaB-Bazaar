@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { deriveForeignPrinting } from './derive-foreign-printing';
+import { deriveForeignPrinting, foilingFlags } from './derive-foreign-printing';
+
+describe('foilingFlags', () => {
+  it('standard foil -> is_normal_foil', () => {
+    expect(foilingFlags('s')).toEqual({ is_normal_foil: true, is_rainbow_foil: false, is_cold_foil: false });
+  });
+  it('rainbow foil -> is_rainbow_foil', () => {
+    expect(foilingFlags('r')).toEqual({ is_normal_foil: false, is_rainbow_foil: true, is_cold_foil: false });
+  });
+  it('cold foil -> is_cold_foil', () => {
+    expect(foilingFlags('c')).toEqual({ is_normal_foil: false, is_rainbow_foil: false, is_cold_foil: true });
+  });
+});
 
 // Builds printings-row attributes for a foreign-language-exclusive printing
 // (2HP / RAP) straight from the LSS CardVault print + face, since there is no
