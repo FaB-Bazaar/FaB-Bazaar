@@ -20,6 +20,7 @@ import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { languageFlag } from '@/lib/utils/printing-language';
 import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/build-server-filters';
+import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
 
@@ -642,7 +643,7 @@ export default function OptSearchPage() {
                 </Pill>
                 <div className="flex flex-wrap gap-1">
                   {LANGUAGES.map(l => (
-                    <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => toggleArr(selectedLanguages, setSelectedLanguages, l.code)}>
+                    <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => setSelectedLanguages(prev => toggleLanguageSelection(prev, l.code))}>
                       <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
                     </Pill>
                   ))}

@@ -19,6 +19,7 @@ import { AppShellAttribution } from '@/components/search/AppShellAttribution';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/build-server-filters';
+import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import { languageFlag } from '@/lib/utils/printing-language';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
@@ -462,7 +463,7 @@ export default function SearchPage() {
                   <button
                     key={l.code}
                     type="button"
-                    onClick={() => toggleArr(selectedLanguages, setSelectedLanguages, l.code)}
+                    onClick={() => setSelectedLanguages(prev => toggleLanguageSelection(prev, l.code))}
                     aria-pressed={active}
                     className={cn(
                       'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
