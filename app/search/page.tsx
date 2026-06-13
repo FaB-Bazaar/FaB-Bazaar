@@ -634,7 +634,9 @@ export default function SearchPage() {
         })()}
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
+        {/* overscroll-contain: keep wheel/touch momentum inside this pane so it
+            can't chain to the window when the next page is still loading. */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 bg-gray-50 dark:bg-gray-900">
           {!hasAnyFilter ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
               <SlidersHorizontal className="w-10 h-10 mb-3 opacity-20" />

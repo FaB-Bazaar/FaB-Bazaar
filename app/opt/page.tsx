@@ -730,7 +730,9 @@ export default function OptSearchPage() {
       })()}
 
       {/* ── RESULTS ── */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
+      {/* overscroll-contain: keep wheel/touch momentum inside this pane so it
+          can't chain to the window when the next page is still loading. */}
+      <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
         {!hasAnyFilter ? (
           // Empty state — surfaces the search syntax with clickable examples.
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center px-4">
