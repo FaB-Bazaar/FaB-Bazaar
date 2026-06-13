@@ -43,6 +43,7 @@ import { Pool } from "pg";
 import { nanoid } from "nanoid";
 import { readFileSync } from "node:fs";
 import { deriveForeignPrinting } from "@/lib/import/derive-foreign-printing";
+import { selectPrintsForImport } from "@/lib/import/select-prints";
 
 const argv = process.argv.slice(2);
 const DRY_RUN = argv.includes("--dry-run");
@@ -51,6 +52,12 @@ const DRY_RUN = argv.includes("--dry-run");
 // LSS print itself (deriveForeignPrinting) instead of being counted "unmatched".
 // Off by default, so the standard English-anchored runs are byte-for-byte the same.
 const ALLOW_FOREIGN_ONLY = argv.includes("--allow-foreign-only");
+// Restrict printing creation to a single set (e.g. --set=2hp). Without this, a
+// per-card run processes the card's prints across EVERY set it appears in. The
+// translation upsert stays set-agnostic (a card's translated name is the same
+// regardless of set).
+const SET_ARG = argv.find((a) => a.startsWith("--set="));
+const SET_FILTER = SET_ARG ? SET_ARG.replace("--set=", "").toLowerCase() : null;
 const LANG_ARG = argv.find((a) => a.startsWith("--lang="));
 const CARD_UUID_ARG = argv.find((a) => a.startsWith("--card-uuid="));
 const MAX_CARDS_ARG = argv.find((a) => a.startsWith("--max-cards="));
@@ -181,7 +188,7 @@ async function importFaceLanguage(
     source_card_id: card.id,
   };
 
-  const prints = card.card_prints.filter((p) => p.print_language === lang);
+  const prints = selectPrintsForImport(card.card_prints, lang, SET_FILTER);
 
   type PrintingPlan = {
     new_printing_id: string;
