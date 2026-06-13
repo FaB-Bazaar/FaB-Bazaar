@@ -123,6 +123,8 @@ export const SET_MAP = {
   "mpw": "Mastery Pack Warrior",
   "ddd": "Dorinthea Demo Deck",
   "aol": "Armory Deck: Olympia",
+  "2hp": "History Pack Vol.2",
+  "rap": "Archive Pack - Rosetta",
 } as const;
 
 export const SET_METADATA: Record<string, SetMetadata> = {
@@ -238,4 +240,6 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   "mpw": { code: "MPW", name: "Mastery Pack Warrior", releaseDate: "2026-07-08", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 400, unlimitedBeforeFirst: false },
   "ddd": { code: "DDD", name: "Dorinthea Demo Deck", releaseDate: "2026-08-07", hasFirstEdition: false, category: "excluded", tier: 3, displayOrder: 950, unlimitedBeforeFirst: false },
   "aol": { code: "AOL", name: "Armory Deck: Olympia", releaseDate: "2026-08-07", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1120, unlimitedBeforeFirst: false },
+  "2hp": { code: "2HP", name: "History Pack Vol.2", releaseDate: "", hasFirstEdition: false, category: "standard", tier: 2, displayOrder: 1121, unlimitedBeforeFirst: false },
+  "rap": { code: "RAP", name: "Archive Pack - Rosetta", releaseDate: "", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 1122, unlimitedBeforeFirst: false },
 };
