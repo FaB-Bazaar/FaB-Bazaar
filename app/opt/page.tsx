@@ -15,6 +15,7 @@ import {
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
+import { AppShellAttribution } from '@/components/search/AppShellAttribution';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { languageFlag } from '@/lib/utils/printing-language';
@@ -800,6 +801,8 @@ export default function OptSearchPage() {
           </div>
         )}
       </div>
+
+      <AppShellAttribution />
 
       <SyntaxGuideModal isOpen={syntaxGuideOpen} onClose={() => setSyntaxGuideOpen(false)} />
     </div>
