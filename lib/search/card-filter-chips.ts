@@ -109,6 +109,16 @@ export const FOILING_OPTIONS = [
   { value: 'g', label: 'Gold Foil',   swatch: 'bg-gradient-to-br from-yellow-300 to-yellow-500' },
 ];
 
+// Values match PrintingsSearchFilters['format']. CC and Silver Age lead — the
+// two formats players filter for most.
+export const FORMAT_OPTIONS = [
+  { value: 'cc', label: 'Classic Constructed' },
+  { value: 'silver_age', label: 'Silver Age' },
+  { value: 'blitz', label: 'Blitz' },
+  { value: 'll', label: 'Living Legend' },
+  { value: 'commoner', label: 'Commoner' },
+] as const;
+
 export const EDITION_OPTIONS = [
   { value: 'f', label: '1st Edition' },
   { value: 'a', label: 'Alpha' },

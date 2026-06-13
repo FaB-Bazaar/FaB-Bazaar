@@ -11,7 +11,7 @@ import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import {
   TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, ALL_CLASSES, PITCH_CHIPS,
-  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS,
+  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS,
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
@@ -224,6 +224,7 @@ export default function OptSearchPage() {
   const [selectedFoilings, setSelectedFoilings] = useState<string[]>([]);
   const [selectedEditions, setSelectedEditions] = useState<string[]>([]);
   const [selectedSets, setSelectedSets] = useState<string[]>([]);
+  const [selectedFormat, setSelectedFormat] = useState<PrintingsSearchFilters['format'] | null>(null);
   const [costMin, setCostMin] = useState('');
   const [costMax, setCostMax] = useState('');
   const [powerMin, setPowerMin] = useState('');
@@ -255,9 +256,10 @@ export default function OptSearchPage() {
     query: debouncedQuery,
     selectedType, selectedClass, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+    selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax,
   }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
-       selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+       selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedFormat,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMax]);
 
   const hasAnyFilter = Object.keys(filters).length > 0;
@@ -280,7 +282,7 @@ export default function OptSearchPage() {
   const clearAll = () => {
     setQuery(''); setSelectedType(null); setSelectedClass(null); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
-    setSelectedEditions([]); setSelectedSets([]);
+    setSelectedEditions([]); setSelectedSets([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
     setDefenseMin(''); setDefenseMax(''); setPriceMax('');
     setSelectedLanguages(DEFAULT_LANGUAGES);
@@ -321,6 +323,10 @@ export default function OptSearchPage() {
     const def = EDITION_OPTIONS.find(o => o.value === e);
     activeChips.push({ key: `ed:${e}`, label: def?.label ?? e, onRemove: () => toggleArr(selectedEditions, setSelectedEditions, e) });
   });
+  if (selectedFormat) {
+    const def = FORMAT_OPTIONS.find(o => o.value === selectedFormat);
+    activeChips.push({ key: 'format', label: `Format: ${def?.label ?? selectedFormat}`, onRemove: () => setSelectedFormat(null) });
+  }
   selectedSets.forEach(s => {
     activeChips.push({ key: `set:${s}`, label: SET_MAP[s.toLowerCase() as keyof typeof SET_MAP] ?? s, onRemove: () => toggleArr(selectedSets, setSelectedSets, s) });
   });
@@ -516,6 +522,25 @@ export default function OptSearchPage() {
                   </Pill>
                 ))}
               </div>
+            </Popover>
+
+            {/* Format — legality filter (CC, Silver Age, …). Single-select. */}
+            <Popover label="Format" count={selectedFormat ? 1 : 0} panelClassName="w-56">
+              <p className={SECTION}>Format</p>
+              <div className="flex flex-wrap gap-1">
+                {FORMAT_OPTIONS.map(fmt => (
+                  <Pill
+                    key={fmt.value}
+                    active={selectedFormat === fmt.value}
+                    onClick={() => setSelectedFormat(f => f === fmt.value ? null : fmt.value)}
+                  >
+                    {fmt.label}
+                  </Pill>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 leading-snug">
+                Shows cards legal in the selected format (banned &amp; suspended excluded).
+              </p>
             </Popover>
 
             {/* Rarity */}
