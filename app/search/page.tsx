@@ -10,7 +10,7 @@ import { SET_MAP } from '@/lib/fab-constants';
 import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import {
-  TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, ALL_CLASSES, PITCH_CHIPS,
+  TYPE_CHIPS, CLASS_ICONS, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
   KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, PRICE_PRESETS,
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
@@ -102,7 +102,8 @@ export default function SearchPage() {
   // ── Filter state ──
   const [query, setQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedTalents, setSelectedTalents] = useState<string[]>([]);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
@@ -141,10 +142,10 @@ export default function SearchPage() {
   // ── Build structured server filters from the sidebar state ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     query: debouncedQuery,
-    selectedType, selectedClass, selectedPitch,
+    selectedType, selectedClasses, selectedTalents, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
+  }), [debouncedQuery, selectedType, selectedClasses, selectedTalents, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
@@ -164,7 +165,7 @@ export default function SearchPage() {
   const displayed = results;
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedClass(null); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedClasses([]); setSelectedTalents([]); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -274,7 +275,7 @@ export default function SearchPage() {
           {/* Type chips */}
           <SidebarSection title="Type">
             <div className="grid grid-cols-4 gap-1">
-              {[...TYPE_CHIPS, GENERIC_CHIP].map(chip => (
+              {TYPE_CHIPS.map(chip => (
                 <ArtChip
                   key={chip.value}
                   label={chip.label}
@@ -288,7 +289,7 @@ export default function SearchPage() {
             </div>
           </SidebarSection>
 
-          {/* Class chips */}
+          {/* Class chips — multi-select (OR). Includes Generic and Pirate. */}
           <SidebarSection title="Class">
             <div className="grid grid-cols-4 gap-1">
               {ALL_CLASSES.map(cls => {
@@ -299,9 +300,29 @@ export default function SearchPage() {
                     label={cls}
                     iconUrl={icon?.iconUrl}
                     iconPosition={icon?.iconPosition}
-                    active={selectedClass === cls}
+                    active={selectedClasses.includes(cls)}
                     activeClass="bg-indigo-900/50 border-indigo-600"
-                    onClick={() => setSelectedClass(c => c === cls ? null : cls)}
+                    onClick={() => toggleArr(selectedClasses, setSelectedClasses, cls)}
+                  />
+                );
+              })}
+            </div>
+          </SidebarSection>
+
+          {/* Talent chips — multi-select (OR), independent of class. */}
+          <SidebarSection title="Talent">
+            <div className="grid grid-cols-4 gap-1">
+              {ALL_TALENTS.map(tal => {
+                const icon = CLASS_ICONS[tal];
+                return (
+                  <ArtChip
+                    key={tal}
+                    label={tal}
+                    iconUrl={icon?.iconUrl}
+                    iconPosition={icon?.iconPosition}
+                    active={selectedTalents.includes(tal)}
+                    activeClass="bg-teal-900/50 border-teal-600"
+                    onClick={() => toggleArr(selectedTalents, setSelectedTalents, tal)}
                   />
                 );
               })}
@@ -597,9 +618,14 @@ export default function SearchPage() {
               <option value="name">Name</option>
               <option value="price">Price</option>
               <option value="set">Set</option>
+              <option value="edition">Edition</option>
+              <option value="collector_number">Collector #</option>
               <option value="rarity">Rarity</option>
-              <option value="power">Power</option>
+              <option value="foiling">Foiling</option>
+              <option value="color">Color</option>
               <option value="cost">Cost</option>
+              <option value="power">Power</option>
+              <option value="defense">Defense</option>
             </select>
             <button
               onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}

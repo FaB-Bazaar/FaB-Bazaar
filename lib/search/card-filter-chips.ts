@@ -3,6 +3,8 @@
  * Used by both QuickAddCardDialog (hero-constrained) and the global /search page (unconstrained).
  */
 
+import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
+
 export interface ChipDef {
   label: string;
   value: string;
@@ -57,14 +59,39 @@ export const CLASS_ICONS: Record<string, { iconUrl: string; iconPosition?: strin
   earth:         { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/Nmj6pwhDHtgGncCTktrLK/public', iconPosition: 'center 24%' },
   lightning:     { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/gchhRHddRfR7jpdc8T9LB/public', iconPosition: 'center 24%' },
   chaos:         { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/mRCB6tmCdLwgQwthtcq7G/public', iconPosition: 'center 24%' },
-  reviled:       { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/LFwThrpfbjP7jPqPQfqQc/public', iconPosition: 'center 24%' },
-  revered:       { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/7phpCFbGLBMNw8h88JQr6/public', iconPosition: 'center 24%' },
+  reviled:       { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/7BfOQOoEUfgEMh7fm59t8/public', iconPosition: 'center 24%' }, // SUP090
+  revered:       { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/4gSGB3M9OUZq1nUFbn-4s/public', iconPosition: 'center 24%' }, // SUP046
+  // 'generic' reuses the generic art used by the (former) Type chip.
+  generic:       { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/8TWrBzGKFPwKkCL9jtpRg/public', iconPosition: 'center 24%' },
+  // Talent tiles that had no art — chosen card images (PEN206 / MST096 / ELE146 / DYN001).
+  elemental:     { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/K7BqzPwNpqqttK7bHmwLm/public', iconPosition: 'center 24%' },
+  mystic:        { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/FZ-_BfveEq7ZedW5tFSKM/public', iconPosition: 'center 24%' },
+  ice:           { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/FRWzJzfBKFRqmjLQCttnt/public', iconPosition: 'center 24%' },
+  royal:         { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/qW78NRQmkKP6GPDh6dRCB/public', iconPosition: 'center 24%' },
+  // Previously icon-less classes — card / hero art.
+  assassin:      { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/2DF95EVFM8PDjNOo3NytR/public', iconPosition: 'center 24%' }, // Shred (SAR032)
+  adjudicator:   { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/B7QFbCGqHjFKdC8Wn8TqK/public', iconPosition: 'center 24%' }, // Taipanis (JDG001)
+  bard:          { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/GnmWwCqcQ79GtNQQbcHHd/public', iconPosition: 'center 24%' }, // Yorick (LSS004)
+  merchant:      { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/90JmWxus0qChG7rcOFyGg/public', iconPosition: 'center 24%' }, // Kavdaen (1HP220)
+  shapeshifter:  { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/GHfrk8cwR8qC7JLfNqdg7/public', iconPosition: 'center 24%' }, // Shiyana (CRU097)
+  thief:         { iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/7KcHWBh7tRn6rcWzRCnwj/public', iconPosition: 'center 24%' }, // Scurv (SEA123)
 };
 
 export const ALL_CLASSES = [
-  'guardian', 'warrior', 'ninja', 'wizard', 'brute',
-  'ranger', 'runeblade', 'necromancer', 'mechanologist',
+  // Playable classes + generic, alphabetical.
+  'assassin', 'brute', 'generic', 'guardian', 'illusionist', 'mechanologist',
+  'necromancer', 'ninja', 'pirate', 'ranger', 'runeblade', 'warrior', 'wizard',
+  // Niche / NPC classes (small card counts), alphabetical — kept at the bottom.
+  'adjudicator', 'bard', 'merchant', 'shapeshifter', 'thief',
 ] as const;
+
+// Talent chips are sourced from the official talent enum, minus 'pirate' which
+// is a CLASS (migration 0065 reclassified it), plus revered/reviled which are
+// real talents in the data but not yet in OFFICIAL_TALENTS. Sorted alphabetically.
+export const ALL_TALENTS: string[] = [
+  ...OFFICIAL_TALENTS.filter((t) => t !== 'pirate'),
+  'revered', 'reviled',
+].sort();
 
 export const PITCH_CHIPS = [
   { label: 'Red',    value: 1, active: 'bg-red-900/50 border-red-500',       dot: 'bg-red-500',    iconUrl: '/fab/symbols/pitch1.png' },

@@ -221,6 +221,12 @@ export interface PrintingsSearchFilters {
   classes?: string[];
   classesNot?: string[];
   talents?: string[];
+  /**
+   * When true AND both `classes` and `talents` are set, the two are OR'd into a
+   * single affiliation union (class ∪ talent) instead of intersected. Models a
+   * hero's card pool (class ∪ talent ∪ generic). Default (unset) = AND.
+   */
+  classTalentUnion?: boolean;
   talentsAll?: string[];
   talentsNot?: string[];
 

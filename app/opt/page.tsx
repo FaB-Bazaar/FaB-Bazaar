@@ -10,7 +10,7 @@ import { SET_MAP } from '@/lib/fab-constants';
 import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import {
-  TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, ALL_CLASSES, PITCH_CHIPS,
+  TYPE_CHIPS, CLASS_ICONS, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
   KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
@@ -221,7 +221,8 @@ export default function OptSearchPage() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   // Hero ages are multi-select (OR), mutually exclusive with a regular type.
   const [selectedHeroAges, setSelectedHeroAges] = useState<Array<'adult' | 'young'>>([]);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedTalents, setSelectedTalents] = useState<string[]>([]);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
@@ -259,11 +260,11 @@ export default function OptSearchPage() {
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     query: debouncedQuery,
-    selectedType, selectedHeroAges, selectedClass, selectedPitch,
+    selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, selectedType, selectedHeroAges, selectedClass, selectedPitch, selectedKeywords,
+  }), [debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedFormat,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
@@ -285,7 +286,7 @@ export default function OptSearchPage() {
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClass(null); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -306,16 +307,19 @@ export default function OptSearchPage() {
     activeChips.push({ key: 'pitch', label: `Pitch: ${p?.label ?? selectedPitch}`, onRemove: () => setSelectedPitch(null) });
   }
   if (selectedType) {
-    const t = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType);
+    const t = TYPE_CHIPS.find(c => c.value === selectedType);
     activeChips.push({ key: 'type', label: t?.label ?? selectedType, onRemove: () => setSelectedType(null) });
   }
   selectedHeroAges.forEach(age => {
     const def = HERO_AGE_CHIPS.find(c => c.value === age);
     activeChips.push({ key: `hero:${age}`, label: def?.label ?? age, onRemove: () => setSelectedHeroAges(a => a.filter(x => x !== age)) });
   });
-  if (selectedClass) {
-    activeChips.push({ key: 'class', label: selectedClass, onRemove: () => setSelectedClass(null) });
-  }
+  selectedClasses.forEach(cls => {
+    activeChips.push({ key: `class:${cls}`, label: cls, onRemove: () => toggleArr(selectedClasses, setSelectedClasses, cls) });
+  });
+  selectedTalents.forEach(tal => {
+    activeChips.push({ key: `talent:${tal}`, label: tal, onRemove: () => toggleArr(selectedTalents, setSelectedTalents, tal) });
+  });
   selectedKeywords.forEach(kw => {
     const def = KEYWORD_CHIPS.find(k => k.value === kw);
     activeChips.push({ key: `kw:${kw}`, label: def?.label ?? kw, onRemove: () => toggleArr(selectedKeywords, setSelectedKeywords, kw) });
@@ -444,9 +448,14 @@ export default function OptSearchPage() {
                 <option value="name">Name</option>
                 <option value="price">Price</option>
                 <option value="set">Set</option>
+                <option value="edition">Edition</option>
+                <option value="collector_number">Collector #</option>
                 <option value="rarity">Rarity</option>
-                <option value="power">Power</option>
+                <option value="foiling">Foiling</option>
+                <option value="color">Color</option>
                 <option value="cost">Cost</option>
+                <option value="power">Power</option>
+                <option value="defense">Defense</option>
               </select>
               <button
                 onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
@@ -497,7 +506,7 @@ export default function OptSearchPage() {
             <Popover label="Type" count={(selectedType ? 1 : 0) + selectedHeroAges.length} panelClassName="w-72">
               <p className={SECTION}>Type</p>
               <div className="grid grid-cols-4 gap-1">
-                {[...TYPE_CHIPS, GENERIC_CHIP].map(chip => (
+                {TYPE_CHIPS.map(chip => (
                   <ArtChip
                     key={chip.value}
                     label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
@@ -524,8 +533,8 @@ export default function OptSearchPage() {
               </div>
             </Popover>
 
-            {/* Class */}
-            <Popover label="Class" count={selectedClass ? 1 : 0} panelClassName="w-72">
+            {/* Class — multi-select (OR). Includes Generic and Pirate. */}
+            <Popover label="Class" count={selectedClasses.length} panelClassName="w-72">
               <p className={SECTION}>Class</p>
               <div className="grid grid-cols-4 gap-1">
                 {ALL_CLASSES.map(cls => {
@@ -534,8 +543,26 @@ export default function OptSearchPage() {
                     <ArtChip
                       key={cls}
                       label={cls} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
-                      active={selectedClass === cls} activeClass="bg-indigo-900/50 border-indigo-600"
-                      onClick={() => setSelectedClass(c => c === cls ? null : cls)}
+                      active={selectedClasses.includes(cls)} activeClass="bg-indigo-900/50 border-indigo-600"
+                      onClick={() => toggleArr(selectedClasses, setSelectedClasses, cls)}
+                    />
+                  );
+                })}
+              </div>
+            </Popover>
+
+            {/* Talent — multi-select (OR), independent of class (a card can be Warrior + Light). */}
+            <Popover label="Talent" count={selectedTalents.length} panelClassName="w-72">
+              <p className={SECTION}>Talent</p>
+              <div className="grid grid-cols-4 gap-1">
+                {ALL_TALENTS.map(tal => {
+                  const icon = CLASS_ICONS[tal];
+                  return (
+                    <ArtChip
+                      key={tal}
+                      label={tal} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
+                      active={selectedTalents.includes(tal)} activeClass="bg-teal-900/50 border-teal-600"
+                      onClick={() => toggleArr(selectedTalents, setSelectedTalents, tal)}
                     />
                   );
                 })}

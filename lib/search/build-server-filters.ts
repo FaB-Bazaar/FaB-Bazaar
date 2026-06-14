@@ -35,7 +35,8 @@ export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rar
 export interface SearchUiState {
   query: string;
   selectedType: string | null;
-  selectedClass: string | null;
+  selectedClasses: string[];
+  selectedTalents: string[];
   selectedPitch: number | null;
   selectedKeywords: string[];
   selectedRarities: string[];
@@ -77,7 +78,15 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
       if (chip) f.types = [chip.apiType];
     }
   }
-  if (s.selectedClass) f.classes = [s.selectedClass];
+  // Classes are OR'd server-side (array overlap). 'generic' is just another
+  // class value here — selecting a class + Generic returns the union, not the
+  // (empty) intersection the old isGenericOnly Type chip produced.
+  if (s.selectedClasses.length) f.classes = s.selectedClasses;
+  if (s.selectedTalents.length) f.talents = s.selectedTalents;
+  // Class + Talent chips form one OR'd affiliation set (a hero's pool is
+  // class ∪ talent ∪ generic), so e.g. Generic + Lightning returns all generic
+  // cards AND all lightning cards rather than their intersection.
+  if (s.selectedClasses.length || s.selectedTalents.length) f.classTalentUnion = true;
   if (s.selectedKeywords.length) f.keywords = s.selectedKeywords;
   if (s.selectedRarities.length) f.rarities = s.selectedRarities;
   if (s.selectedFoilings.length) f.foilings = s.selectedFoilings;

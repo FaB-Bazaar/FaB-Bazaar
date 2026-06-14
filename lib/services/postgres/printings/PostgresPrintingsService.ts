@@ -141,6 +141,9 @@ export class PostgresPrintingsService implements IPrintingsService {
         ...this.buildSelectFields(),
         printingCreatedAt: sql`${printings.createdAt}`.as('printing_created_at'),
         cardCreatedAt: sql`${cards.createdAt}`.as('card_created_at'),
+        // Carry the representative's set release order so the outer sort can
+        // order by it (edition tiebreak + the "set" sort itself).
+        setReleaseOrder: sql`${sets.releaseOrder}`.as('set_release_order'),
       };
 
       // Representative printing per card: the CANONICAL printing, mirroring
@@ -218,9 +221,21 @@ export class PostgresPrintingsService implements IPrintingsService {
       case 'power':   return [orderFn(repr.power), asc(repr.name)];
       case 'cost':    return [orderFn(repr.cost), asc(repr.name)];
       case 'defense': return [orderFn(repr.defense), asc(repr.name)];
-      case 'set':     return [orderFn(repr.set), asc(repr.name)];
+      // Release order (oldest set first), then collector number within the set.
+      case 'set':     return [orderFn(sql`COALESCE(${repr.setReleaseOrder}, 2147483647)`), orderFn(repr.collectorNumber), asc(repr.name)];
       case 'rarity':  return [orderFn(repr.rarity), asc(repr.name)];
       case 'collector_number': return [orderFn(repr.collectorNumber), asc(repr.name)];
+      // Pitch order; non-pitch (color='') always last in BOTH directions.
+      case 'color':   return [asc(this.colorPitchRank(repr.color, options?.sortOrder)), asc(repr.name)];
+      // Canonical foiling order: non-foil → rainbow → cold → gold.
+      case 'foiling': return [orderFn(this.foilingRank(repr.foiling)), asc(repr.name)];
+      // Alpha → First → Unlimited → Normal, then set release order, then collector number.
+      case 'edition': return [
+        orderFn(this.editionRank(repr.edition)),
+        orderFn(sql`COALESCE(${repr.setReleaseOrder}, 2147483647)`),
+        orderFn(repr.collectorNumber),
+        asc(repr.name),
+      ];
       case 'name':
       default:        return [orderFn(repr.name)];
     }
@@ -1128,16 +1143,26 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(sql`${cards.keywords} && ARRAY[${sql.join(lc(filters.keywords).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
-    if (filters.classes && filters.classes.length > 0) {
-      conditions.push(sql`${cards.classes} && ARRAY[${sql.join(lc(filters.classes).map(t => sql`${t}`), sql`, `)}]::text[]`);
+    // Class and talent are both card affiliations. By default each constrains
+    // independently (AND). With classTalentUnion set (the search UI), they OR
+    // into a single affiliation set — a hero's pool is class ∪ talent ∪ generic,
+    // so e.g. Generic + Lightning shows all generic cards AND all lightning cards.
+    const classesOverlap = filters.classes && filters.classes.length > 0
+      ? sql`${cards.classes} && ARRAY[${sql.join(lc(filters.classes).map(t => sql`${t}`), sql`, `)}]::text[]`
+      : null;
+    const talentsOverlap = filters.talents && filters.talents.length > 0
+      ? sql`${cards.talents} && ARRAY[${sql.join(lc(filters.talents).map(t => sql`${t}`), sql`, `)}]::text[]`
+      : null;
+
+    if (filters.classTalentUnion && classesOverlap && talentsOverlap) {
+      conditions.push(or(classesOverlap, talentsOverlap)!);
+    } else {
+      if (classesOverlap) conditions.push(classesOverlap);
+      if (talentsOverlap) conditions.push(talentsOverlap);
     }
 
     if (filters.classesNot && filters.classesNot.length > 0) {
       conditions.push(sql`NOT (${cards.classes} && ARRAY[${sql.join(lc(filters.classesNot).map(t => sql`${t}`), sql`, `)}]::text[])`);
-    }
-
-    if (filters.talents && filters.talents.length > 0) {
-      conditions.push(sql`${cards.talents} && ARRAY[${sql.join(lc(filters.talents).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
     if (filters.talentsAll && filters.talentsAll.length > 0) {
@@ -1608,6 +1633,29 @@ export class PostgresPrintingsService implements IPrintingsService {
     return [...this.buildPrimaryOrderBy(options, priceField, filters), ...this.canonicalPrintingOrder()];
   }
 
+  // ── Shared sort-rank expressions (used by both flat and grouped builders) ──
+
+  /** Edition rank: Alpha → First → Unlimited → Normal (unknown last). */
+  private editionRank(col: any): any {
+    return sql`CASE ${col} WHEN 'a' THEN 1 WHEN 'f' THEN 2 WHEN 'u' THEN 3 WHEN 'n' THEN 4 ELSE 5 END`;
+  }
+
+  /** Canonical foiling rank: non-foil → rainbow → cold → gold (unknown last). */
+  private foilingRank(col: any): any {
+    return sql`CASE ${col} WHEN 's' THEN 0 WHEN 'n' THEN 0 WHEN 'r' THEN 1 WHEN 'c' THEN 2 WHEN 'g' THEN 3 ELSE 4 END`;
+  }
+
+  /**
+   * Pitch-color rank. Always evaluated ASC by the caller so non-pitch cards
+   * (color='') stay last in both directions: asc = red→yellow→blue,
+   * desc = blue→yellow→red.
+   */
+  private colorPitchRank(col: any, sortOrder?: string): any {
+    return sortOrder === 'desc'
+      ? sql`CASE ${col} WHEN 'blue' THEN 1 WHEN 'yellow' THEN 2 WHEN 'red' THEN 3 ELSE 4 END`
+      : sql`CASE ${col} WHEN 'red' THEN 1 WHEN 'yellow' THEN 2 WHEN 'blue' THEN 3 ELSE 4 END`;
+  }
+
   private buildPrimaryOrderBy(options?: PrintingsSearchOptions, priceField?: string, filters?: PrintingsSearchFilters): any[] {
     const sortBy = options?.sortBy || 'name';
     const sortOrder = options?.sortOrder || 'asc';
@@ -1656,12 +1704,31 @@ export class PostgresPrintingsService implements IPrintingsService {
         return [orderFn(cards.cost), orderFn(cards.name)];
       case 'defense':
         return [orderFn(cards.defense), orderFn(cards.name)];
+      // Release order (oldest set first), then collector number within the set.
       case 'set':
-        return [orderFn(printings.set), orderFn(cards.name)];
+        return [
+          orderFn(sql`COALESCE(${sets.releaseOrder}, 2147483647)`),
+          orderFn(printings.collectorNumber),
+          orderFn(cards.name),
+        ];
       case 'rarity':
         return [orderFn(printings.rarity), orderFn(cards.name)];
       case 'collector_number':
         return [orderFn(printings.collectorNumber), orderFn(cards.name)];
+      // Pitch order; non-pitch (color='') always last in BOTH directions.
+      case 'color':
+        return [asc(this.colorPitchRank(cards.color, sortOrder)), asc(cards.name)];
+      // Canonical foiling order: non-foil → rainbow → cold → gold.
+      case 'foiling':
+        return [orderFn(this.foilingRank(printings.foiling)), orderFn(cards.name)];
+      // Alpha → First → Unlimited → Normal, then set release order, then collector number.
+      case 'edition':
+        return [
+          orderFn(this.editionRank(printings.edition)),
+          orderFn(sql`COALESCE(${sets.releaseOrder}, 2147483647)`),
+          orderFn(printings.collectorNumber),
+          orderFn(cards.name),
+        ];
       default:
         return [orderFn(cards.name)];
     }

@@ -5,7 +5,8 @@ import { FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS } from './card-filter-chi
 const baseState: SearchUiState = {
   query: '',
   selectedType: null,
-  selectedClass: null,
+  selectedClasses: [],
+  selectedTalents: [],
   selectedPitch: null,
   selectedKeywords: [],
   selectedRarities: [],
@@ -41,6 +42,58 @@ describe('buildServerFilters — format', () => {
   it('still parses shorthand format: when no chip is selected', () => {
     const f = buildServerFilters({ ...baseState, query: 'format:cc t:attack' });
     expect(f.format).toBe('cc');
+  });
+});
+
+describe('buildServerFilters — classes (multi-select, OR)', () => {
+  it('maps a single class to filters.classes', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['guardian'] });
+    expect(f.classes).toEqual(['guardian']);
+  });
+
+  it('passes multiple classes through (OR applied server-side via array overlap)', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['guardian', 'generic'] });
+    expect(f.classes).toEqual(['guardian', 'generic']);
+  });
+
+  it('treats generic as just another class value', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['generic'] });
+    expect(f.classes).toEqual(['generic']);
+    // generic-as-class must NOT route through the stricter isGenericOnly flag
+    expect(f).not.toHaveProperty('isGenericOnly');
+  });
+
+  it('omits classes when none are selected', () => {
+    const f = buildServerFilters({ ...baseState, query: 'snatch' });
+    expect(f).not.toHaveProperty('classes');
+  });
+});
+
+describe('buildServerFilters — talents (multi-select, OR)', () => {
+  it('maps selected talents to filters.talents', () => {
+    const f = buildServerFilters({ ...baseState, selectedTalents: ['light', 'shadow'] });
+    expect(f.talents).toEqual(['light', 'shadow']);
+  });
+
+  it('unions class + talent (sets classTalentUnion) so the pool is class ∪ talent', () => {
+    const f = buildServerFilters({
+      ...baseState,
+      selectedClasses: ['warrior'],
+      selectedTalents: ['light'],
+    });
+    expect(f.classes).toEqual(['warrior']);
+    expect(f.talents).toEqual(['light']);
+    expect(f.classTalentUnion).toBe(true);
+  });
+
+  it('does not set classTalentUnion when nothing is selected', () => {
+    const f = buildServerFilters({ ...baseState, query: 'snatch' });
+    expect(f).not.toHaveProperty('classTalentUnion');
+  });
+
+  it('omits talents when none are selected', () => {
+    const f = buildServerFilters({ ...baseState, query: 'snatch' });
+    expect(f).not.toHaveProperty('talents');
   });
 });
 
