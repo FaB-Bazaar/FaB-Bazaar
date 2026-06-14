@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { duplicateDeck } from './decks-client';
+import { duplicateDeck, copyDeck } from './decks-client';
 
 function mockJsonResponse(body: any, ok = true, status = 200): Response {
   return {
@@ -53,5 +53,29 @@ describe('decksClient.duplicateDeck', () => {
 
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.name).toBe('Copy of X');
+  });
+});
+
+describe('decksClient.copyDeck', () => {
+  it('includes language in the POST body when given', async () => {
+    fetchMock.mockResolvedValue(
+      mockJsonResponse({ success: true, data: { publicId: 'new', name: 'Copy of X' } }),
+    );
+
+    await copyDeck('abc123', 'Copy of X', 'fr');
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ name: 'Copy of X', language: 'fr' });
+  });
+
+  it('omits language from the body for a verbatim copy', async () => {
+    fetchMock.mockResolvedValue(
+      mockJsonResponse({ success: true, data: { publicId: 'new', name: 'Copy of X' } }),
+    );
+
+    await copyDeck('abc123', 'Copy of X');
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ name: 'Copy of X' });
   });
 });

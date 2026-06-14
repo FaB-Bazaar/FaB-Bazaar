@@ -274,16 +274,20 @@ export default function DecksToBeatPage() {
     });
   };
 
-  const handleCopy = async (deck: PublicDeckSummaryDTO) => {
+  const handleCopy = async (deck: PublicDeckSummaryDTO, language?: string) => {
     if (!user) {
       router.push("/auth/signin?callbackUrl=/decks/to-beat");
       return;
     }
+    const langLabel: Record<string, string> = {
+      fr: "French", de: "German", it: "Italian", es: "Spanish", ja: "Japanese",
+    };
     setCopyingId(deck.publicId);
     try {
-      const result = await decksClient.copyDeck(deck.publicId, `Copy of ${deck.name}`);
+      const result = await decksClient.copyDeck(deck.publicId, `Copy of ${deck.name}`, language);
       if (result.success) {
-        toast({ title: "Deck copied", description: `"${deck.name}" has been copied to your decks.` });
+        const suffix = language && langLabel[language] ? ` in ${langLabel[language]}` : "";
+        toast({ title: "Deck copied", description: `"${deck.name}" has been copied to your decks${suffix}.` });
       } else {
         toast({ title: "Error", description: result.error ?? "Failed to copy deck.", variant: "destructive" });
       }

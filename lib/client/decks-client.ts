@@ -447,13 +447,14 @@ export async function importFromFabrary(
  */
 export async function copyDeck(
   publicId: string,
-  newName: string
+  newName: string,
+  language?: string
 ): Promise<ApiResponse<DeckDTO>> {
   try {
     const response = await fetch(`/api/decks/${publicId}/copy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName }),
+      body: JSON.stringify({ name: newName, ...(language ? { language } : {}) }),
     });
     return await handleResponse<DeckDTO>(response);
   } catch (error) {

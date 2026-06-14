@@ -596,11 +596,66 @@ export class PostgresDeckService implements IDeckService {
           .from(deckCards)
           .where(eq(deckCards.deckId, sourceDeck[0].id));
 
+        // When copying into a target language, resolve each source card to its
+        // closest printing in that language (same scoring as the deck-language
+        // converter). Cards with no printing in that language keep their
+        // original printing. Omitted / 'en' copyLanguage = verbatim copy.
+        const lang = data.copyLanguage?.toLowerCase();
+        const convertedPrintingId = new Map<string, string>();
+        if (lang && lang !== 'en' && sourceCards.length > 0) {
+          const sourcePrintingIds = [...new Set(sourceCards.map((c) => c.printingId))];
+          const sourcePrintingRows = await db
+            .select({
+              printing_id: printings.printingId,
+              card_unique_id: printings.cardUniqueId,
+              set: printings.set,
+              edition: printings.edition,
+              foiling: printings.foiling,
+              language: printings.language,
+            })
+            .from(printings)
+            .where(inArray(printings.printingId, sourcePrintingIds));
+
+          const cardUniqueIds = [
+            ...new Set(sourcePrintingRows.map((r) => r.card_unique_id).filter(Boolean) as string[]),
+          ];
+          const candidateRows = cardUniqueIds.length
+            ? await db
+                .select({
+                  printing_id: printings.printingId,
+                  card_unique_id: printings.cardUniqueId,
+                  set: printings.set,
+                  edition: printings.edition,
+                  foiling: printings.foiling,
+                  language: printings.language,
+                })
+                .from(printings)
+                .where(and(inArray(printings.cardUniqueId, cardUniqueIds), eq(printings.language, lang)))
+            : [];
+
+          const byCard = new Map<string, typeof candidateRows>();
+          for (const c of candidateRows) {
+            const arr = byCard.get(c.card_unique_id!) ?? [];
+            arr.push(c);
+            byCard.set(c.card_unique_id!, arr);
+          }
+
+          for (const sp of sourcePrintingRows) {
+            if (!sp.card_unique_id || !sp.set) continue;
+            const match = pickLanguageVariant(
+              { printing_id: sp.printing_id, set: sp.set, edition: sp.edition!, foiling: sp.foiling!, language: sp.language! },
+              byCard.get(sp.card_unique_id) ?? [],
+              lang,
+            );
+            if (match) convertedPrintingId.set(sp.printing_id, match.printing_id);
+          }
+        }
+
         for (const card of sourceCards) {
           await db.insert(deckCards).values({
             id: nanoid(21),
             deckId,
-            printingId: card.printingId,
+            printingId: convertedPrintingId.get(card.printingId) ?? card.printingId,
             quantity: card.quantity,
             category: card.category,
             notes: card.notes,

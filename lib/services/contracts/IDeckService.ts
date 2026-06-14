@@ -182,6 +182,12 @@ export interface CreateDeckDTO {
   isPublic?: boolean;  // Backward compat: maps to visibility
   slug?: string;
   copyFromDeckId?: string;
+  /**
+   * When copying (copyFromDeckId set), convert each copied card to its closest
+   * printing in this language, falling back to the original printing when the
+   * card has no printing in the target language. Omit or 'en' = verbatim copy.
+   */
+  copyLanguage?: string;
 }
 
 /**

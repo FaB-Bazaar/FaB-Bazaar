@@ -8,10 +8,29 @@ import { Copy, Calendar, User, BookOpen, ChevronDown, ChevronUp, Swords, Trophy 
 import { cn } from "@/lib/utils";
 import type { PublicDeckSummaryDTO } from "@/lib/services/contracts/IDeckService";
 import { displayUsername, profileHref } from "@/lib/utils/display-username";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+
+// English = verbatim copy; the rest convert each card to its closest printing
+// in that language (falling back to the original printing per card).
+const COPY_LANGUAGES: { code?: string; label: string }[] = [
+  { code: undefined, label: "English" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "es", label: "Spanish" },
+  { code: "ja", label: "Japanese" },
+];
 
 interface CommunityDeckCardProps {
   deck: PublicDeckSummaryDTO;
-  onCopy: (deck: PublicDeckSummaryDTO) => void;
+  onCopy: (deck: PublicDeckSummaryDTO, language?: string) => void;
   copying?: boolean;
   showUsername?: boolean;
 }
@@ -218,16 +237,32 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
                 View Deck
               </Link>
             </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => onCopy(deck)}
-              disabled={copying}
-              className="flex-1"
-            >
-              <Copy className="h-4 w-4 mr-1" />
-              {copying ? 'Copying...' : 'Copy'}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={copying}
+                  className="flex-1"
+                >
+                  <Copy className="h-4 w-4 mr-1" />
+                  {copying ? 'Copying...' : 'Copy'}
+                  <ChevronDown className="h-4 w-4 ml-1" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Copy in language</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {COPY_LANGUAGES.map((lang, i) => (
+                  <React.Fragment key={lang.label}>
+                    {i === 1 && <DropdownMenuSeparator />}
+                    <DropdownMenuItem onSelect={() => onCopy(deck, lang.code)}>
+                      {lang.label}
+                    </DropdownMenuItem>
+                  </React.Fragment>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

@@ -40,6 +40,10 @@ export async function POST(
 
     const newName = body.name?.trim() || `Copy of ${sourceDeck.name}`;
 
+    // Optional: convert copied cards to a target language where a printing
+    // exists (falls back to the original printing per card). Omit / 'en' = verbatim.
+    const language = typeof body.language === 'string' ? body.language.toLowerCase() : undefined;
+
     const result = await deckService.createDeck(authResult.userId!, {
       name: newName,
       description: sourceDeck.description,
@@ -47,6 +51,7 @@ export async function POST(
       heroName: sourceDeck.heroName,
       visibility: 'unlisted',
       copyFromDeckId: resolvedParams.deckId,
+      copyLanguage: language,
     });
 
     if (!result.success) {
