@@ -499,6 +499,8 @@ export class PostgresPrintingsService implements IPrintingsService {
           ${cards.cost} AS cost,
           ${cards.defense} AS defense,
           ${cards.power} AS power,
+          ${cards.health} AS health,
+          ${cards.intelligence} AS intelligence,
           ${cards.keywords} AS keywords,
           ${cards.classes} AS classes,
           ${cards.talents} AS talents,
@@ -530,6 +532,8 @@ export class PostgresPrintingsService implements IPrintingsService {
         cost: (r.cost as number | null) ?? null,
         defense: (r.defense as number | null) ?? null,
         power: (r.power as number | null) ?? null,
+        health: (r.health as number | null) ?? null,
+        intelligence: (r.intelligence as number | null) ?? null,
         keywords: (r.keywords as string[] | null) ?? [],
         classes: (r.classes as string[] | null) ?? [],
         talents: (r.talents as string[] | null) ?? [],
@@ -561,8 +565,8 @@ export class PostgresPrintingsService implements IPrintingsService {
         return { success: true, data: [] };
       }
 
-      // DISTINCT ON picks one printing per card via foiling priority (matches
-      // FOIL_PRIORITY in lib/fab-constants/sets.ts:415: standard → rainbow → cold → others → gold).
+      // DISTINCT ON picks one representative printing per card: the EARLIEST set
+      // (the card's original art), then non-foil within that set, then printingId.
       // printings_count is a correlated subselect for the TOTAL printings of each card.
       const result = await db.execute(sql`
         SELECT DISTINCT ON (${cards.cardUniqueId})
@@ -573,6 +577,8 @@ export class PostgresPrintingsService implements IPrintingsService {
           ${cards.cost} AS cost,
           ${cards.defense} AS defense,
           ${cards.power} AS power,
+          ${cards.health} AS health,
+          ${cards.intelligence} AS intelligence,
           ${cards.keywords} AS keywords,
           ${cards.classes} AS classes,
           ${cards.talents} AS talents,
@@ -582,9 +588,11 @@ export class PostgresPrintingsService implements IPrintingsService {
           (SELECT COUNT(*) FROM ${printings} p2 WHERE p2.card_unique_id = ${cards.cardUniqueId}) AS printings_count
         FROM ${cards}
         INNER JOIN ${printings} ON ${printings.cardUniqueId} = ${cards.cardUniqueId}
+        LEFT JOIN ${sets} ON ${sets.code} = ${printings.set}
         WHERE ${inArray(cards.cardUniqueId, cardUniqueIds)}
         ORDER BY
           ${cards.cardUniqueId},
+          COALESCE(${sets.releaseOrder}, 2147483647) ASC,
           CASE ${printings.foiling}
             WHEN 's' THEN 0
             WHEN 'n' THEN 0
@@ -604,6 +612,8 @@ export class PostgresPrintingsService implements IPrintingsService {
         cost: (r.cost as number | null) ?? null,
         defense: (r.defense as number | null) ?? null,
         power: (r.power as number | null) ?? null,
+        health: (r.health as number | null) ?? null,
+        intelligence: (r.intelligence as number | null) ?? null,
         keywords: (r.keywords as string[] | null) ?? [],
         classes: (r.classes as string[] | null) ?? [],
         talents: (r.talents as string[] | null) ?? [],

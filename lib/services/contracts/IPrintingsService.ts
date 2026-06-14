@@ -514,10 +514,13 @@ export interface CardSummaryDTO {
   cost: number | null;
   defense: number | null;
   power: number | null;
+  health: number | null;
+  intelligence: number | null;
   keywords: string[];
   classes: string[];
   talents: string[];
   color: string;
+  /** The EARLIEST printing (by set release order) — the card's original art. */
   representativePrintingId: string;
   representativeImageUrl: string | null;
   /** Total printings of this card across all sets/foilings (unfiltered) */

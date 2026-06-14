@@ -69,6 +69,31 @@ describe('PostgresPrintingsService.getCardSummariesByUniqueIds', () => {
     }
   });
 
+  it('picks the EARLIEST printing as the representative (Rhinar → WTR)', async () => {
+    const RHINAR = 'wr9wBtTWwRrPrdhCRHCdN'; // rhinar, reckless rampage (earliest set: wtr)
+    const res = await service.getCardSummariesByUniqueIds([RHINAR]);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data).toHaveLength(1);
+    // Resolve the chosen representative printing's set — must be the original (WTR).
+    const p = await service.searchPrintings(
+      { printingIds: [res.data[0].representativePrintingId] },
+      { limit: 1 },
+    );
+    expect(p.success).toBe(true);
+    if (!p.success) return;
+    expect(p.data.printings[0].set).toBe('wtr');
+  });
+
+  it('includes card-level health and intelligence (for hero tiles)', async () => {
+    const RHINAR = 'wr9wBtTWwRrPrdhCRHCdN';
+    const res = await service.getCardSummariesByUniqueIds([RHINAR]);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data[0].health ?? 0).toBeGreaterThan(0);
+    expect(res.data[0].intelligence ?? 0).toBeGreaterThan(0);
+  });
+
   it('returns an empty array for an empty input (no DB round trip needed)', async () => {
     const result = await service.getCardSummariesByUniqueIds([]);
     expect(result.success).toBe(true);

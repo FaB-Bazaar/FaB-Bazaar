@@ -114,28 +114,20 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
     }
     if (heroIdToName.size > 0) {
       const cardUniqueIds = Array.from(heroIdToName.keys());
-      const printingsResult = await printingsService.searchPrintings(
-        { cardUniqueIds },
-        { limit: cardUniqueIds.length * 10 }
-      );
-      if (printingsResult.success) {
-        const idToPrinting = new Map<string, { imageUrl?: string; health?: number; intelligence?: number }>();
-        for (const p of printingsResult.data.printings) {
-          if (!idToPrinting.has(p.card_unique_id)) {
-            idToPrinting.set(p.card_unique_id, {
-              imageUrl: p.image_url,
-              health: p.health ?? undefined,
-              intelligence: p.intelligence ?? undefined,
-            });
-          }
-        }
+      // One lean row per hero — the earliest printing (original art) plus
+      // card-level stats. The purpose-built summary query avoids over-fetching
+      // every printing (heroes average >10) and the row-limit truncation that
+      // previously blanked late-sorting heroes' portraits.
+      const summariesResult = await printingsService.getCardSummariesByUniqueIds(cardUniqueIds);
+      if (summariesResult.success) {
+        const idToSummary = new Map(summariesResult.data.map((s) => [s.cardUniqueId, s]));
         for (const [cardUniqueId, heroName] of heroIdToName) {
-          const stats = idToPrinting.get(cardUniqueId);
+          const s = idToSummary.get(cardUniqueId);
           const summary = byHero.get(heroName);
-          if (summary && stats) {
-            summary.imageUrl = stats.imageUrl ?? summary.imageUrl;
-            summary.health = stats.health;
-            summary.intelligence = stats.intelligence;
+          if (summary && s) {
+            summary.imageUrl = s.representativeImageUrl ?? summary.imageUrl;
+            summary.health = s.health ?? undefined;
+            summary.intelligence = s.intelligence ?? undefined;
           }
         }
       }
