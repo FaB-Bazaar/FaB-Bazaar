@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildServerFilters, type SearchUiState } from './build-server-filters';
-import { FORMAT_OPTIONS, PRICE_PRESETS } from './card-filter-chips';
+import { FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS } from './card-filter-chips';
 
 const baseState: SearchUiState = {
   query: '',
@@ -80,6 +80,30 @@ describe('PRICE_PRESETS', () => {
       { min: '', max: '50' },
       { min: '50', max: '' },
     ]);
+  });
+});
+
+describe('buildServerFilters — hero ages', () => {
+  it('maps a single hero age to filters.heroAges', () => {
+    const f = buildServerFilters({ ...baseState, selectedHeroAges: ['young'] });
+    expect(f.heroAges).toEqual(['young']);
+  });
+
+  it('passes both ages through (OR is applied server-side)', () => {
+    const f = buildServerFilters({ ...baseState, selectedHeroAges: ['adult', 'young'] });
+    expect(f.heroAges).toEqual(['adult', 'young']);
+  });
+
+  it('omits heroAges when none are selected', () => {
+    const f = buildServerFilters({ ...baseState, query: 'snatch' });
+    expect(f).not.toHaveProperty('heroAges');
+  });
+});
+
+describe('HERO_AGE_CHIPS', () => {
+  it('offers adult then young, each with a card image', () => {
+    expect(HERO_AGE_CHIPS.map((c) => c.value)).toEqual(['adult', 'young']);
+    expect(HERO_AGE_CHIPS.every((c) => c.iconUrl.startsWith('https://imagedelivery.net'))).toBe(true);
   });
 });
 

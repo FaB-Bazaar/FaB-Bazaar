@@ -43,6 +43,7 @@ export interface SearchUiState {
   selectedEditions: string[];
   selectedSets: string[];
   selectedFormat?: PrintingsSearchFilters['format'] | null;
+  selectedHeroAges?: Array<'adult' | 'young'>;
   costMin: string; costMax: string;
   powerMin: string; powerMax: string;
   defenseMin: string; defenseMax: string;
@@ -83,6 +84,7 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   if (s.selectedEditions.length) f.editions = s.selectedEditions;
   if (s.selectedSets.length) f.sets = s.selectedSets;
   if (s.selectedFormat) f.format = s.selectedFormat;
+  if (s.selectedHeroAges?.length) f.heroAges = s.selectedHeroAges;
   if (s.costMin)    f.costMin    = parseFloat(s.costMin);
   if (s.costMax)    f.costMax    = parseFloat(s.costMax);
   if (s.powerMin)   f.powerMin   = parseFloat(s.powerMin);

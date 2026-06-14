@@ -109,6 +109,24 @@ export const FOILING_OPTIONS = [
   { value: 'g', label: 'Gold Foil',   swatch: 'bg-gradient-to-br from-yellow-300 to-yellow-500' },
 ];
 
+// Hero age chips — multi-select (OR): adult and/or young. Unlike the single-select
+// regular types, a hero can be filtered as adult, young, or both. Images: WTR038
+// (Bravo, Showstopper — adult) and WTR039 (Bravo — young).
+export const HERO_AGE_CHIPS = [
+  {
+    value: 'adult', label: 'Adult Hero',
+    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/fd6ztBbmtntbwDJBq89kh/public',
+    iconPosition: 'center 22%',
+    active: 'bg-amber-900/50 border-amber-600',
+  },
+  {
+    value: 'young', label: 'Young Hero',
+    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/KRRQkM6NQMLdKfnfqJgkk/public',
+    iconPosition: 'center 22%',
+    active: 'bg-lime-900/50 border-lime-600',
+  },
+] as const;
+
 // Quick price buckets (priced on tcg_low, English printings only). Each maps to
 // a (priceMin, priceMax) pair as strings — '' means that bound is unset.
 export const PRICE_PRESETS = [

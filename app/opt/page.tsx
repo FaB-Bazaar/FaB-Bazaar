@@ -11,7 +11,7 @@ import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import {
   TYPE_CHIPS, GENERIC_CHIP, CLASS_ICONS, ALL_CLASSES, PITCH_CHIPS,
-  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS,
+  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
 } from '@/lib/search/card-filter-chips';
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
@@ -219,6 +219,8 @@ export default function OptSearchPage() {
   // ── Filter state ──
   const [query, setQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  // Hero ages are multi-select (OR), mutually exclusive with a regular type.
+  const [selectedHeroAges, setSelectedHeroAges] = useState<Array<'adult' | 'young'>>([]);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
@@ -257,11 +259,11 @@ export default function OptSearchPage() {
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     query: debouncedQuery,
-    selectedType, selectedClass, selectedPitch,
+    selectedType, selectedHeroAges, selectedClass, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, selectedType, selectedClass, selectedPitch, selectedKeywords,
+  }), [debouncedQuery, selectedType, selectedHeroAges, selectedClass, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedFormat,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
@@ -283,7 +285,7 @@ export default function OptSearchPage() {
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedClass(null); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClass(null); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -307,6 +309,10 @@ export default function OptSearchPage() {
     const t = [...TYPE_CHIPS, GENERIC_CHIP].find(c => c.value === selectedType);
     activeChips.push({ key: 'type', label: t?.label ?? selectedType, onRemove: () => setSelectedType(null) });
   }
+  selectedHeroAges.forEach(age => {
+    const def = HERO_AGE_CHIPS.find(c => c.value === age);
+    activeChips.push({ key: `hero:${age}`, label: def?.label ?? age, onRemove: () => setSelectedHeroAges(a => a.filter(x => x !== age)) });
+  });
   if (selectedClass) {
     activeChips.push({ key: 'class', label: selectedClass, onRemove: () => setSelectedClass(null) });
   }
@@ -488,7 +494,7 @@ export default function OptSearchPage() {
             </Popover>
 
             {/* Type */}
-            <Popover label="Type" count={selectedType ? 1 : 0} panelClassName="w-72">
+            <Popover label="Type" count={(selectedType ? 1 : 0) + selectedHeroAges.length} panelClassName="w-72">
               <p className={SECTION}>Type</p>
               <div className="grid grid-cols-4 gap-1">
                 {[...TYPE_CHIPS, GENERIC_CHIP].map(chip => (
@@ -496,7 +502,23 @@ export default function OptSearchPage() {
                     key={chip.value}
                     label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
                     active={selectedType === chip.value} activeClass={chip.active}
-                    onClick={() => setSelectedType(t => t === chip.value ? null : chip.value)}
+                    // Regular types are single-select and exclusive with hero ages.
+                    onClick={() => { setSelectedHeroAges([]); setSelectedType(t => t === chip.value ? null : chip.value); }}
+                  />
+                ))}
+              </div>
+              {/* Hero — multi-select (adult and/or young), OR'd. Clears any regular type. */}
+              <p className={cn(SECTION, 'mt-3')}>Hero</p>
+              <div className="grid grid-cols-2 gap-1">
+                {HERO_AGE_CHIPS.map(chip => (
+                  <ArtChip
+                    key={chip.value}
+                    label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
+                    active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
+                    onClick={() => {
+                      setSelectedType(null);
+                      setSelectedHeroAges(a => a.includes(chip.value) ? a.filter(x => x !== chip.value) : [...a, chip.value]);
+                    }}
                   />
                 ))}
               </div>

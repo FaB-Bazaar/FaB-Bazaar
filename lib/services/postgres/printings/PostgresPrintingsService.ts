@@ -1105,6 +1105,21 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(sql`${cards.types} && ARRAY[${sql.join(lc(filters.types).map(t => sql`${t}`), sql`, `)}]::text[]`);
     }
 
+    // Hero ages, OR-combined. 'adult' = hero and NOT young; 'young' = young in types.
+    // adult OR young covers every hero.
+    if (filters.heroAges && filters.heroAges.length > 0) {
+      const ageConds: ReturnType<typeof sql>[] = [];
+      if (filters.heroAges.includes('adult')) {
+        ageConds.push(sql`(${cards.isHero} = true AND NOT ('young' = ANY(${cards.types})))`);
+      }
+      if (filters.heroAges.includes('young')) {
+        ageConds.push(sql`('young' = ANY(${cards.types}))`);
+      }
+      if (ageConds.length > 0) {
+        conditions.push(sql`(${sql.join(ageConds, sql` OR `)})`);
+      }
+    }
+
     if (filters.traits && filters.traits.length > 0) {
       conditions.push(sql`${cards.traits} && ARRAY[${sql.join(filters.traits.map(t => sql`${t}`), sql`, `)}]::text[]`);
     }

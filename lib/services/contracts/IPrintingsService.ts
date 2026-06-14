@@ -268,6 +268,9 @@ export interface PrintingsSearchFilters {
   isEquipment?: boolean;
   isWeapon?: boolean;
   isHero?: boolean;
+  // Hero age filter, OR-combined: ['adult'] = non-young heroes, ['young'] = young
+  // heroes, both = all heroes. 'adult' = isHero AND NOT 'young' in types.
+  heroAges?: Array<'adult' | 'young'>;
   isMentor?: boolean;
   isToken?: boolean;
 
