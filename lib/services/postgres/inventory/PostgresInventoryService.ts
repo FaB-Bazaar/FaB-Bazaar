@@ -5,7 +5,7 @@
  * Uses JOINs to eliminate denormalization, groups results in-memory
  */
 
-import { eq, and, sql, inArray, gte } from 'drizzle-orm';
+import { eq, and, sql, inArray, gte, exists } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { inventoryItems, users, binders, printings, cards, wantsItems, userFollowedStores } from '@/lib/postgres/schema';
 import { sumOwnedByPrintingId, sumOwnedByCardUniqueId } from './ownership-queries';
@@ -305,6 +305,24 @@ export class PostgresInventoryService implements IInventoryService {
       // if (filters.state) {
       //   whereConditions.push(eq(users.state, filters.state));
       // }
+
+      // Followed-stores filtering: restrict owners to those who follow at least
+      // one of the given stores. An empty array means no restriction.
+      if (filters.followedStoreIds && filters.followedStoreIds.length > 0) {
+        whereConditions.push(
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(userFollowedStores)
+              .where(
+                and(
+                  eq(userFollowedStores.userId, inventoryItems.userId),
+                  inArray(userFollowedStores.locationId, filters.followedStoreIds),
+                ),
+              ),
+          ),
+        );
+      }
 
       // Activity filtering: exclude binders not touched in X days
       // COALESCE falls back to updatedAt then createdAt for binders that predate this feature

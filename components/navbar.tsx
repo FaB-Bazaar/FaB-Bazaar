@@ -779,8 +779,8 @@ export default function Navbar() {
             <nav className="hidden md:flex items-center space-x-1">
               {/* Search Link */}
               <Link
-                href="/search"
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/search") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
+                href="/opt"
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isActive("/opt") ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400"}`}
               >
                 <Search className="h-4 w-4 inline mr-1" />
                 Search

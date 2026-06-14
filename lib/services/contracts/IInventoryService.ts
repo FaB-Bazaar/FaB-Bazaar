@@ -27,6 +27,11 @@ export interface WhoHasFilters {
   state?: string;
   /** Exclude binders not touched in X days (uses lastActivityAt with fallback to updatedAt/createdAt) */
   activeWithinDays?: number;
+  /**
+   * Restrict owners to those who follow at least one of these store (location) IDs.
+   * An empty or omitted array means no restriction (show everyone).
+   */
+  followedStoreIds?: string[];
 }
 
 // ====================================

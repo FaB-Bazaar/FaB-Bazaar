@@ -1,7 +1,7 @@
 //app/api/whohas/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { inventoryService, userService } from '@/lib/services';
+import { inventoryService, locationService } from '@/lib/services';
 import type { WhoHasFilters } from '@/lib/services/contracts/IInventoryService';
 
 export async function GET(req: NextRequest) {
@@ -74,31 +74,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Handle followed stores auth (keep auth in route layer)
+    // Handle followed-stores filtering (auth stays in the route layer).
+    // Gracefully falls back to "show everyone" when the viewer is logged out or
+    // follows no stores — leave followedStoreIds undefined so no filter applies.
     let followedStoreIds: string[] | undefined;
     if (followedStoresOnly) {
       const session = await auth();
-      if (!session?.user?.id) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Authentication required for followed stores filtering',
-          },
-          { status: 401 }
-        );
-      }
-
-      // Look up user's followed stores via service
-      const followedStoresResult = await userService.getFollowedStores(session.user.id);
-      if (followedStoresResult.success) {
-        followedStoreIds = followedStoresResult.data;
-        // If user has no followed stores, return empty results
-        if (followedStoreIds.length === 0) {
-          followedStoreIds = [];
+      if (session?.user?.id) {
+        const followedStoresResult = await locationService.getUserFollowedStores(session.user.id);
+        if (followedStoresResult.success && followedStoresResult.data.length > 0) {
+          followedStoreIds = followedStoresResult.data.map((store) => store.id);
         }
-      } else {
-        // If service call fails, treat as no followed stores
-        followedStoreIds = [];
       }
     }
 

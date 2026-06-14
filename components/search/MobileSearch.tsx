@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import WhoHasDropdown from '@/components/shared/WhoHasDropdown'; 
+import WhoHasDropdown from '@/components/shared/WhoHasDropdown';
+import { languageFlag, sortPrintingsByLanguage } from '@/lib/utils/printing-language';
 
 interface SearchResult {
   printing_id: string;
@@ -16,6 +17,7 @@ interface SearchResult {
   foiling: string;
   edition?: string;
   color?: string;
+  language?: string;
   hasOwners?: boolean | null;
 }
 
@@ -84,7 +86,9 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 
       const printingIds = printings.map((p: SearchResult) => p.printing_id).join(',');
 
-      const ownershipResponse = await fetch(`/api/whohas?printingIds=${encodeURIComponent(printingIds)}&forTradeOnly=true`);
+      // followedStoresOnly: restrict owners to people who follow the same stores
+      // as the viewer (server falls back to everyone when logged out / no stores).
+      const ownershipResponse = await fetch(`/api/whohas?printingIds=${encodeURIComponent(printingIds)}&forTradeOnly=true&followedStoresOnly=true`);
 
       let printingsWithOwners = new Set<string>();
 
@@ -194,13 +198,14 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
                 return groups;
               }, {} as Record<string, SearchResult[]>);
 
-              // Sort printings within each group by TCG low price (highest to lowest)
+              // Order printings within each group by language (English first, then
+              // French, Japanese, then others), with price as a tiebreak within
+              // each language (highest first).
               Object.keys(groupedResults).forEach(cardName => {
-                groupedResults[cardName].sort((a, b) => {
-                  const priceA = a.tcg_low || 0;
-                  const priceB = b.tcg_low || 0;
-                  return priceB - priceA; // Descending order (highest first)
-                });
+                const byPrice = [...groupedResults[cardName]].sort(
+                  (a, b) => (b.tcg_low || 0) - (a.tcg_low || 0),
+                );
+                groupedResults[cardName] = sortPrintingsByLanguage(byPrice);
               });
 
               return Object.entries(groupedResults).map(([cardName, cardResults]) => (
@@ -241,20 +246,30 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
                             <span className={`px-1.5 py-0.5 text-xs rounded font-medium ${getRarityBadgeColor(result.rarity)}`}>
                               {result.rarity?.charAt(0)?.toUpperCase()}
                             </span>
+                            <span
+                              className="px-1.5 py-0.5 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium"
+                              title={`Language: ${(result.language || 'en').toUpperCase()}`}
+                            >
+                              <span aria-hidden>{languageFlag(result.language || 'en')}</span>{' '}
+                              {(result.language || 'en').toUpperCase()}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                              {formatPrice(result.tcg_low)}
+                          {result.tcg_low != null && result.tcg_low > 0 && (
+                            <div className="text-right">
+                              <div className="font-bold text-lg text-gray-900 dark:text-gray-100">
+                                {formatPrice(result.tcg_low)}
+                              </div>
                             </div>
-                          </div>
+                          )}
                           <div className="flex items-center">
                             {result.hasOwners ? (
                               <WhoHasDropdown
                                 printingId={result.printing_id}
                                 cardName={result.display_name || result.name}
                                 searchMode="printing"
+                                followedStoresOnly
                                 buttonText=""
                                 className="relative z-10 p-2 bg-blue-500 dark:bg-blue-600 text-white rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 transition-colors flex items-center justify-center min-h-[40px] min-w-[40px]"
                               />

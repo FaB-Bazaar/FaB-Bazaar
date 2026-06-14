@@ -21,6 +21,8 @@ interface WhoHasDropdownProps {
   cardUniqueId?: string;
   searchMode?: 'printing' | 'unique';
   buttonText?: string;
+  /** Restrict owners to people who follow the same stores as the viewer. */
+  followedStoresOnly?: boolean;
 }
 
 interface Card {
@@ -170,6 +172,7 @@ export default function WhoHasDropdown({
   cardUniqueId,
   searchMode = 'printing',
   buttonText,
+  followedStoresOnly = false,
 }: WhoHasDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -201,7 +204,8 @@ export default function WhoHasDropdown({
       } else {
         throw new Error('Required ID for the search mode was not provided.');
       }
-      const response = await fetch(`/api/whohas?${query}&forTradeOnly=true&limit=20`);
+      const storeFilter = followedStoresOnly ? '&followedStoresOnly=true' : '';
+      const response = await fetch(`/api/whohas?${query}&forTradeOnly=true&limit=20${storeFilter}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       const result: WhoHasResponse = await response.json();
       if (!result.success) throw new Error(result.error || 'Failed to fetch data');
@@ -229,7 +233,7 @@ export default function WhoHasDropdown({
     } finally {
       setLoading(false);
     }
-  }, [printingId, cardUniqueId, searchMode]);
+  }, [printingId, cardUniqueId, searchMode, followedStoresOnly]);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
