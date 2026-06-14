@@ -103,6 +103,13 @@ Every feature gets two test files:
 | **Service integration** | `lib/services/postgres/**/*.test.ts` | Real (local Docker) | Business logic, transactions, edge cases |
 | **Route unit** | `app/api/**/*.test.ts` | None (mocked service) | Auth, validation, grouping, HTTP response shape |
 
+### UI components & flows → prefer Playwright e2e
+
+For React components and multi-step UI flows (admin forms, dialogs, pages), reach for the **`/e2e-test` skill** (Playwright) — **whenever possible** — instead of a jsdom/vitest component test. e2e runs the real Next dev server: automatic JSX runtime, real APIs, real routing.
+
+- **Never add `import React` to a component just to make a vitest/jsdom component test render.** Next uses the automatic JSX runtime, so components don't need `React` in scope. If a jsdom component test throws `React is not defined`, that's a test-harness JSX-transform quirk — **switch to an e2e test**, don't mutate production code to satisfy the runner.
+- e2e specs live in `e2e/` (gitignored), conventions in the `e2e-test` skill. Superadmin-only pages work with `storageState: 'e2e/auth.json'` (seeded user is a superadmin).
+
 ### Service integration test conventions
 
 - `beforeAll`: query a real FK value (e.g. `printingId`) needed to insert test rows

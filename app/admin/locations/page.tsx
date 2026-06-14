@@ -23,7 +23,7 @@ export default async function AdminLocationsPage() {
     <div className="max-w-5xl mx-auto p-4 md:p-8">
       <h1 className="text-3xl font-bold mb-2">Locations &amp; Events</h1>
       <p className="text-muted-foreground mb-8">
-        Review store submissions, or add a venue and event (e.g. a Pro Tour or Calling).
+        Review store submissions, or add a location — with or without an event (e.g. a Pro Tour or Calling).
       </p>
       <AdminLocationsClient initialSubmissions={JSON.parse(JSON.stringify(initialSubmissions))} />
     </div>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { locationsClient } from "@/lib/client";
 import type {
   EventType,
   CreateLocationDTO,
   LocationSummaryDTO,
+  CountryDTO,
 } from "@/types/location";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,11 +45,30 @@ function Field({
 
 type LocationMode = "new" | "existing";
 
+const LOCATION_CATEGORIES: { value: "venue" | "store"; label: string }[] = [
+  { value: "venue", label: "Venue (event site)" },
+  { value: "store", label: "Store" },
+];
+
 export function CreateEventForm() {
+  // Whether to attach an event. When off, the form just creates a location.
+  const [withEvent, setWithEvent] = useState(true);
+
+  // Country reference list (for the country selector), loaded once.
+  const [countries, setCountries] = useState<CountryDTO[]>([]);
+  useEffect(() => {
+    locationsClient.getCountries().then((res) => {
+      if (res.success) {
+        setCountries([...res.data].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+    });
+  }, []);
+
   // ── Location selection ──────────────────────────────────────
   const [mode, setMode] = useState<LocationMode>("new");
 
   // New venue fields
+  const [category, setCategory] = useState<"venue" | "store">("venue");
   const [name, setName] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressCity, setAddressCity] = useState("");
@@ -92,6 +112,7 @@ export function CreateEventForm() {
   }
 
   function resetForm() {
+    setCategory("venue");
     setName("");
     setAddressLine1("");
     setAddressCity("");
@@ -115,15 +136,18 @@ export function CreateEventForm() {
   }
 
   function validate(): string | null {
-    if (!eventName.trim()) return "Event name is required.";
-    if (!startDate) return "Start date is required.";
-    if (!endDate) return "End date is required.";
-    if (endDate < startDate) return "End date must be on or after the start date.";
-    if (mode === "new") {
-      if (!name.trim()) return "Venue name is required.";
-      if (!addressLine1.trim()) return "Venue address is required.";
-      if (!addressCity.trim()) return "Venue city is required.";
-      if (!addressCountry.trim()) return "Venue country is required.";
+    if (withEvent) {
+      if (!eventName.trim()) return "Event name is required.";
+      if (!startDate) return "Start date is required.";
+      if (!endDate) return "End date is required.";
+      if (endDate < startDate) return "End date must be on or after the start date.";
+    }
+    // Location-only always creates a new location; an event may reuse an existing one.
+    if (!withEvent || mode === "new") {
+      if (!name.trim()) return "Location name is required.";
+      if (!addressLine1.trim()) return "Location address is required.";
+      if (!addressCity.trim()) return "Location city is required.";
+      if (!addressCountry.trim()) return "Location country is required.";
     } else if (!selectedLocation) {
       return "Select an existing location, or switch to creating a new venue.";
     }
@@ -143,15 +167,16 @@ export function CreateEventForm() {
 
     // 1. Resolve the location id (create a venue, or use the selected one).
     let locationId: string;
-    if (mode === "new") {
+    if (!withEvent || mode === "new") {
       const venue: CreateLocationDTO = {
-        category: "venue",
+        category,
         name: name.trim(),
         addressLine1: addressLine1.trim(),
         addressCity: addressCity.trim(),
         addressState: addressState.trim() || undefined,
         addressPostalCode: addressPostalCode.trim() || undefined,
         addressCountry: addressCountry.trim(),
+        addressCountryId: countries.find((c) => c.iso2 === addressCountry)?.id,
         contactWebsite: contactWebsite.trim() || undefined,
         discordInviteUrl: discordInviteUrl.trim() || undefined,
         tags: venueTags
@@ -168,6 +193,14 @@ export function CreateEventForm() {
       locationId = locRes.data.id;
     } else {
       locationId = selectedLocation!.id;
+    }
+
+    // Location-only: done after step 1, no event to create.
+    if (!withEvent) {
+      setSuccess({ locationId, eventName: name.trim() });
+      setSubmitting(false);
+      resetForm();
+      return;
     }
 
     // 2. Create the event attached to that location.
@@ -216,40 +249,72 @@ export function CreateEventForm() {
         </div>
       )}
 
+      {/* ── Add-an-event toggle ── */}
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={withEvent}
+          onChange={(e) => setWithEvent(e.target.checked)}
+        />
+        <span className="text-gray-700 dark:text-gray-300">
+          Create an event for this location
+        </span>
+        <span className="text-gray-400">
+          (uncheck to add a location only)
+        </span>
+      </label>
+
       {/* ── Location section ── */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Location</h3>
-          <div className="flex gap-1 text-sm">
-            <button
-              type="button"
-              onClick={() => setMode("new")}
-              className={`px-3 py-1 rounded-md ${
-                mode === "new"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              New venue
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("existing")}
-              className={`px-3 py-1 rounded-md ${
-                mode === "existing"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              Use existing
-            </button>
-          </div>
+          {withEvent && (
+            <div className="flex gap-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setMode("new")}
+                className={`px-3 py-1 rounded-md ${
+                  mode === "new"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                New venue
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("existing")}
+                className={`px-3 py-1 rounded-md ${
+                  mode === "existing"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                Use existing
+              </button>
+            </div>
+          )}
         </div>
 
-        {mode === "new" ? (
+        {!withEvent || mode === "new" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2">
-              <Field label="Venue name" required>
+              <Field label="Category" required>
+                <select
+                  className={inputClass}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as "venue" | "store")}
+                >
+                  {LOCATION_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field label="Location name" required>
                 <input
                   className={inputClass}
                   value={name}
@@ -293,12 +358,20 @@ export function CreateEventForm() {
               />
             </Field>
             <Field label="Country" required>
-              <input
+              <select
                 className={inputClass}
                 value={addressCountry}
                 onChange={(e) => setAddressCountry(e.target.value)}
-                placeholder="US"
-              />
+              >
+                {countries.length === 0 && (
+                  <option value={addressCountry}>{addressCountry}</option>
+                )}
+                {countries.map((c) => (
+                  <option key={c.id} value={c.iso2}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Website">
               <input
@@ -384,6 +457,7 @@ export function CreateEventForm() {
       </section>
 
       {/* ── Event section ── */}
+      {withEvent && (
       <section className="flex flex-col gap-3 border-t border-gray-200 dark:border-gray-700 pt-5">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Event</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -476,12 +550,13 @@ export function CreateEventForm() {
           </label>
         </div>
       </section>
+      )}
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
       <div className="flex gap-2">
         <Button onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving…" : "Create event"}
+          {submitting ? "Saving…" : withEvent ? "Create event" : "Create location"}
         </Button>
         <Button variant="ghost" onClick={resetForm} disabled={submitting}>
           Reset
