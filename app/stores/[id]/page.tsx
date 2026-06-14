@@ -5,14 +5,14 @@ import Link from "next/link";
 import { use } from "react";
 import {
   MapPin, Phone, Globe, Users, Calendar, ChevronLeft,
-  Check, ExternalLink, ArrowLeftRight,
+  Check, ExternalLink, ArrowLeftRight, Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { locationsClient } from "@/lib/client";
 import type { LocationDTO, EventDTO, LocationFollowerDTO } from "@/types/location";
-import type { StoreTradeMatchDTO } from "@/lib/services/contracts/IInventoryService";
+import type { StoreTradeMatchDTO, StoreWantMatchDTO } from "@/lib/services/contracts/IInventoryService";
 import { profileHref } from "@/lib/utils/display-username";
 
 function formatDate(date: Date | string) {
@@ -112,6 +112,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [followPending, setFollowPending] = useState(false);
   const [tradeMatches, setTradeMatches] = useState<StoreTradeMatchDTO[]>([]);
+  const [wantMatches, setWantMatches] = useState<StoreWantMatchDTO[]>([]);
   const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -148,6 +149,12 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
       fetch(`/api/stores/${id}/trade-matches`, { credentials: 'include' })
         .then((r) => r.json())
         .then((data) => { if (data.success) setTradeMatches(data.matches || []); })
+        .catch(() => {});
+
+      // "Who at this store has what I want" (auth-only; silently skipped otherwise)
+      fetch(`/api/stores/${id}/want-matches`, { credentials: 'include' })
+        .then((r) => r.json())
+        .then((data) => { if (data.success) setWantMatches(data.data || []); })
         .catch(() => {});
 
       setLoading(false);
@@ -315,6 +322,61 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                 )}
               </div>
+            </section>
+          )}
+
+          {/* From your wants list — who at this store has them for trade */}
+          {wantMatches.length > 0 && (
+            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-1">
+                <Heart className="w-4 h-4 text-pink-500" />
+                From your wants list ({wantMatches.length})
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Cards you want that followers of this store have for trade.
+              </p>
+              <ul className="flex flex-col gap-3">
+                {wantMatches.map((m) => (
+                  <li key={m.printingId} className="flex gap-3 items-start border-b border-gray-100 dark:border-gray-700 last:border-0 pb-3 last:pb-0">
+                    {m.imageUrl ? (
+                      <img
+                        src={m.imageUrl}
+                        alt={m.displayName}
+                        className="h-14 w-10 rounded object-cover flex-shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
+                        onClick={() => setZoomedImageUrl(m.imageUrl!)}
+                      />
+                    ) : (
+                      <div className="h-14 w-10 rounded bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {m.foiling !== 'NF' && <span className="text-gray-500 dark:text-gray-400">{m.foiling} </span>}
+                        {m.displayName}
+                        {m.collectorNumber && <span className="text-gray-400 dark:text-gray-500"> ({m.collectorNumber})</span>}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                        {m.owners.map((o) => (
+                          <Link
+                            key={o.userId}
+                            href={`/profile/${o.username}`}
+                            className="inline-flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/60 rounded-full pl-1 pr-2 py-0.5 hover:bg-gray-200 dark:hover:bg-gray-600"
+                          >
+                            {o.avatarUrl ? (
+                              <img src={o.avatarUrl} alt={o.username} className="w-5 h-5 rounded-full object-cover" />
+                            ) : (
+                              <span className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-[10px] font-semibold text-gray-600 dark:text-gray-200">
+                                {(o.displayUsername || o.username).charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                            <span className="font-medium">{o.displayUsername || o.username}</span>
+                            <span className="text-green-600 dark:text-green-400">×{o.quantity}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 

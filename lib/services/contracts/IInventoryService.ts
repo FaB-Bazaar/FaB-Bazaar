@@ -235,6 +235,17 @@ export interface IInventoryService {
   ): AsyncResult<StoreTradeMatchDTO[]>;
 
   /**
+   * For each card on the user's wants list, which followers of the given store
+   * have it for trade. Card-first view ("who at this store has what I want").
+   * Only counts for-trade items in binders with allowInMatching, owned by other
+   * users who follow the store. Returns only wanted cards with ≥1 owner.
+   */
+  getStoreWantMatches(
+    storeId: string,
+    userId: string
+  ): AsyncResult<StoreWantMatchDTO[]>;
+
+  /**
    * Sum owned quantity per printingId for a user.
    *
    * Returns a map of printingId → total owned across all the user's binders.
@@ -280,6 +291,30 @@ export interface StoreTradeMatchDTO {
   avatarUrl?: string | null;
   theyHaveYouWant: StoreTradeCardDTO[];
   theyWantYouHave: StoreTradeCardDTO[];
+}
+
+/** An owner (store follower) who has a wanted card for trade. */
+export interface StoreWantMatchOwnerDTO {
+  userId: string;
+  username: string;
+  displayUsername?: string | null;
+  avatarUrl?: string | null;
+  /** How many of this printing the owner has for trade (matching binders). */
+  quantity: number;
+}
+
+/** A card on the viewer's wants list that ≥1 store follower has for trade. */
+export interface StoreWantMatchDTO {
+  printingId: string;
+  collectorNumber?: string | null;
+  displayName: string;
+  set: string;
+  foiling: string;
+  imageUrl?: string | null;
+  tcgMarket?: number | null;
+  /** How many the viewer wants. */
+  wantedQuantity: number;
+  owners: StoreWantMatchOwnerDTO[];
 }
 
 /**

@@ -24,6 +24,8 @@ import type {
   TradeableCardDTO,
   StoreTradeMatchDTO,
   StoreTradeCardDTO,
+  StoreWantMatchDTO,
+  StoreWantMatchOwnerDTO,
 } from '@/lib/services/contracts/IInventoryService';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 
@@ -725,6 +727,107 @@ export class PostgresInventoryService implements IInventoryService {
       return { success: true, data: matches };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to get store trade matches' };
+    }
+  }
+
+  async getStoreWantMatches(
+    storeId: string,
+    userId: string
+  ): AsyncResult<StoreWantMatchDTO[]> {
+    try {
+      // The viewer's wants joined to store-followers' for-trade inventory.
+      // One row per (wanted printing × owner × matching binder holding it).
+      const rows = await db
+        .select({
+          printingId: wantsItems.printingId,
+          wantedQuantity: wantsItems.quantity,
+          collectorNumber: printings.collectorNumber,
+          displayName: cards.displayName,
+          set: printings.set,
+          foiling: printings.foiling,
+          imageUrl: printings.imageUrl,
+          tcgMarket: printings.tcgMarket,
+          ownerId: users.id,
+          ownerUsername: users.username,
+          ownerDisplayUsername: users.displayUsername,
+          ownerAvatarUrl: users.avatarUrl,
+          ownerDiscordAvatar: users.discordAvatar,
+          ownerQuantity: inventoryItems.quantity,
+        })
+        .from(wantsItems)
+        .innerJoin(inventoryItems, eq(inventoryItems.printingId, wantsItems.printingId))
+        .innerJoin(
+          binders,
+          and(eq(binders.id, inventoryItems.binderId), eq(binders.allowInMatching, true))
+        )
+        .innerJoin(users, eq(users.id, inventoryItems.userId))
+        .innerJoin(
+          userFollowedStores,
+          and(
+            eq(userFollowedStores.userId, inventoryItems.userId),
+            eq(userFollowedStores.locationId, storeId)
+          )
+        )
+        .innerJoin(printings, eq(printings.printingId, wantsItems.printingId))
+        .innerJoin(cards, eq(cards.cardUniqueId, printings.cardUniqueId))
+        .where(
+          and(
+            eq(wantsItems.userId, userId),
+            sql`${inventoryItems.userId} != ${userId}`,
+            eq(inventoryItems.forTrade, true)
+          )
+        );
+
+      const foilingLabel = (f: string | null): string => {
+        switch (f?.toLowerCase()) {
+          case 'r': case 'rf': case 'rainbow': return 'RF';
+          case 'c': case 'cf': case 'cold': return 'CF';
+          default: return 'NF';
+        }
+      };
+
+      // Group by wanted printing; sum each owner's for-trade quantity (an owner
+      // may hold the printing across several matching binders).
+      const byPrinting = new Map<string, StoreWantMatchDTO & { _owners: Map<string, StoreWantMatchOwnerDTO> }>();
+
+      for (const row of rows) {
+        let entry = byPrinting.get(row.printingId);
+        if (!entry) {
+          entry = {
+            printingId: row.printingId,
+            collectorNumber: row.collectorNumber,
+            displayName: row.displayName ?? row.printingId,
+            set: row.set ?? '',
+            foiling: foilingLabel(row.foiling),
+            imageUrl: row.imageUrl,
+            tcgMarket: row.tcgMarket,
+            wantedQuantity: row.wantedQuantity ?? 1,
+            owners: [],
+            _owners: new Map(),
+          };
+          byPrinting.set(row.printingId, entry);
+        }
+        const existing = entry._owners.get(row.ownerId);
+        if (existing) {
+          existing.quantity += row.ownerQuantity ?? 1;
+        } else {
+          entry._owners.set(row.ownerId, {
+            userId: row.ownerId,
+            username: row.ownerUsername,
+            displayUsername: row.ownerDisplayUsername,
+            avatarUrl: row.ownerAvatarUrl ?? row.ownerDiscordAvatar ?? null,
+            quantity: row.ownerQuantity ?? 1,
+          });
+        }
+      }
+
+      const data = [...byPrinting.values()]
+        .map(({ _owners, ...rest }) => ({ ...rest, owners: [..._owners.values()] }))
+        .sort((a, b) => b.owners.length - a.owners.length || a.displayName.localeCompare(b.displayName));
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to get store want matches' };
     }
   }
 
