@@ -99,7 +99,6 @@ export default function Navbar() {
   const loadDecksOnDemand = () => {
     if (decksLoaded || decksLoading || !user) return
     
-    console.log('[Navbar] Loading decks on demand...')
     setDecksLoading(true)
     
     fetch("/api/decks/user?limit=5&pinned=true")
@@ -108,7 +107,6 @@ export default function Navbar() {
         if (data.success) {
           setDecks(data.decks || [])
           setDecksHasPinned(Boolean(data.hasPinned))
-          console.log('[Navbar] Decks loaded on demand:', data.decks?.length || 0)
         } else {
           setDecks([])
           setDecksHasPinned(false)
@@ -145,7 +143,6 @@ export default function Navbar() {
   const loadBindersOnDemand = () => {
     if (bindersLoaded || bindersLoading || !user) return
   
-    console.log('[Navbar] Loading binders on demand...')
     setBindersLoading(true)
   
     fetch('/api/binders?summary=true&limit=5&pinned=true')
@@ -155,7 +152,6 @@ export default function Navbar() {
         setBindersHasPinned(Boolean(data.hasPinned))
         setBindersLoaded(true)
         setBindersLoading(false)
-        console.log('[Navbar] Binders loaded on demand:', data.binders?.length || 0)
       })
       .catch(() => {
         setBinders([])
@@ -170,14 +166,11 @@ export default function Navbar() {
     if (!user) return
 
     const handleBindersUpdate = () => {
-      console.log('[Navbar] Refreshing binders due to binder event')
-
       fetch('/api/binders?summary=true&limit=5&pinned=true')
         .then(res => res.json())
         .then(data => {
           setBinders(data.binders || [])
           setBindersHasPinned(Boolean(data.hasPinned))
-          console.log('[Navbar] Binders refreshed successfully', data.binders?.length || 0)
         })
         .catch((error) => {
           console.error('[Navbar] Failed to refresh binders:', error)
@@ -186,15 +179,12 @@ export default function Navbar() {
 
     /* DECKS-FEATURE: Commented out deck update logic */
     const handleDecksUpdate = () => {
-      console.log('[Navbar] Refreshing decks due to deck event')
-
       fetch("/api/decks/user?limit=5&pinned=true")
         .then(res => res.json())
         .then(data => {
           if (data.success) {
             setDecks(data.decks || [])
             setDecksHasPinned(Boolean(data.hasPinned))
-            console.log('[Navbar] Decks refreshed successfully', data.decks?.length || 0)
           } else {
             console.error('[Navbar] Decks refresh failed:', data.error)
             setDecks([])
@@ -217,9 +207,7 @@ export default function Navbar() {
     window.addEventListener('decksUpdated', handleDecksUpdate)
     window.addEventListener('deckCreated', handleDecksUpdate)
     window.addEventListener('deckDeleted', handleDecksUpdate)
-    
-    console.log('[Navbar] Event listeners attached for user:', user.id)
-    
+
     return () => {
       window.removeEventListener('bindersUpdated', handleBindersUpdate)
       window.removeEventListener('binderCreated', handleBindersUpdate)
@@ -228,7 +216,6 @@ export default function Navbar() {
       window.removeEventListener('decksUpdated', handleDecksUpdate)
       window.removeEventListener('deckCreated', handleDecksUpdate)
       window.removeEventListener('deckDeleted', handleDecksUpdate)
-      console.log('[Navbar] Event listeners cleaned up')
     }
   }, [user])
 
@@ -242,8 +229,6 @@ export default function Navbar() {
       setStoresLoaded(false)
       return
     }
-
-    console.log('[Navbar] Loading initial data for user:', user.id)
 
   }, [user])
 

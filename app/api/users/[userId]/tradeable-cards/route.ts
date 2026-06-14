@@ -21,15 +21,16 @@ export async function GET(
     const sortBy = (searchParams.get('sortBy') || 'name') as 'name' | 'set' | 'price' | 'quantity';
     const sortOrder = (searchParams.get('sortOrder') || 'asc') as 'asc' | 'desc';
 
-    console.log(`🔍 Fetching tradeable cards for user: ${userId}`);
-
-    // Get tradeable cards using service
+    // Get tradeable cards using service. Pass the authenticated caller so the
+    // owner sees all their own for-trade cards; non-owners get only the
+    // public, trade-discoverable subset (enforced in the service layer).
     const result = await inventoryService.getTradeableCards(userId, {
       skip: (page - 1) * limit,
       limit,
       search: search || undefined,
       sortBy,
       sortOrder,
+      requestingUserId: authResult.userId,
     });
 
     if (!result.success) {
@@ -38,8 +39,6 @@ export async function GET(
         error: result.error
       }, { status: 500 });
     }
-
-    console.log(`✅ Found ${result.data.items.length} tradeable cards for user ${userId} (page ${page})`);
 
     // Transform cards to match expected format
     const transformedCards = result.data.items.map(card => ({

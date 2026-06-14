@@ -496,11 +496,6 @@ const handleBulkToggleForTrade = async (forTrade: boolean) => {
     quantityNotForTrade: forTrade ? 0 : totalCards,
   };
 
-  // --- ADD THESE TWO LOGS ---
-  console.log("Binder state BEFORE update:", originalBinder);
-  console.log("Attempting to set new binder state:", optimisticallyUpdatedBinder);
-  // --- END LOGS ---
-
   // Set the new state for both the binder and the cards
   setBinder(optimisticallyUpdatedBinder);
   setCards(prev => prev.map(c => ({ ...c, forTrade })));

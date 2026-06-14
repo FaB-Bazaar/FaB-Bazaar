@@ -136,6 +136,15 @@ export class PostgresInventoryService implements IInventoryService {
         eq(inventoryItems.forTrade, true),
       ];
 
+      // Privacy scoping: this backs a PUBLIC endpoint. Non-owners only see
+      // for-trade cards from binders the owner made public & trade-discoverable
+      // (same gate as executeWhoHasQuery). The owner sees all their own.
+      const isOwner = !!options.requestingUserId && options.requestingUserId === userId;
+      if (!isOwner) {
+        conditions.push(eq(binders.isPublic, true));
+        conditions.push(eq(binders.allowWhoHas, true));
+      }
+
       // Add search filter
       if (options.search) {
         conditions.push(sql`${cards.displayName} ILIKE ${`%${options.search}%`}`);
@@ -184,6 +193,7 @@ export class PostgresInventoryService implements IInventoryService {
       const [countResult] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(inventoryItems)
+        .innerJoin(binders, eq(inventoryItems.binderId, binders.id))
         .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .where(and(...conditions));

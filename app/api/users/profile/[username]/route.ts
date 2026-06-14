@@ -185,7 +185,6 @@ export async function GET(
         _id: result.data._id,
         username: result.data.username,
         discordUsername: result.data.discordUsername,
-        discordId: result.data.discordId,
         discordAvatar: result.data.discordAvatar,
         createdAt: result.data.createdAt,
         binderStats: result.data.binderStats,
@@ -201,7 +200,6 @@ export async function GET(
       _id: cachedData._id,
       username: cachedData.username,
       discordUsername: cachedData.discordUsername,
-      discordId: cachedData.discordId,
       discordAvatar: cachedData.discordAvatar,
       createdAt: cachedData.createdAt
     };
@@ -219,7 +217,6 @@ export async function GET(
       _id: user._id.toString(),
       username: user.username,
       discordUsername: user.discordUsername || null,
-      discordId: user.discordId || null,
       city: user.city || null,
       state: user.state || null,
       country: user.country || null,

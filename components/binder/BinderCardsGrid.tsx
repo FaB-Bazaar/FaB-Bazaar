@@ -42,16 +42,8 @@ export default function BinderCardsGrid({
   toast
 }: BinderCardsGridProps) {
 
-  console.log('🎯 BinderCardsGrid rendering with:', { 
-    cardsLength: cards?.length, 
-    editable, 
-    hasOnRemoveCard: !!onRemoveCard,
-    binderHasCards: binder?.cards?.length
-  })
-
   // Empty state
   if (cards.length === 0) {
-    console.log('🎯 BinderCardsGrid: No cards, showing empty state')
     return (
       <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -75,15 +67,11 @@ export default function BinderCardsGrid({
     )
   }
 
-  console.log('🎯 BinderCardsGrid: About to render', cards.length, 'BinderCard components')
-
   return (
     <div 
       className="flex flex-wrap gap-4 justify-center sm:justify-start transition-all duration-300" 
     >
       {cards.map((card: any) => {
-        console.log('🎯 BinderCardsGrid: Rendering card:', card.name || card.display_name, { cardId: card.id })
-        
         // Create unique key for card selection
         const key = card.id + '|' + card.printingId
         const selected = selectedCards.find((c) => c.id + '|' + c.printingId === key)
@@ -95,7 +83,6 @@ export default function BinderCardsGrid({
             editable={editable}
             onEdit={onEditCard}
             onRemove={() => {
-              console.log('🎯 BinderCardsGrid: onRemove called for card:', card.id)
               onRemoveCard(binder._id, card.id)
             }}
             onOpenPrintingSwap={onOpenPrintingSwap}

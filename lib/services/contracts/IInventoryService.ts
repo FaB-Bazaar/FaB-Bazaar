@@ -355,6 +355,13 @@ export interface TradeableCardsOptions extends PaginationOptions {
   sortBy?: 'name' | 'set' | 'price' | 'quantity';
   /** Sort order */
   sortOrder?: 'asc' | 'desc';
+  /**
+   * The authenticated caller's user id, if any. When it matches the target
+   * userId the caller is the owner and sees all their for-trade cards
+   * (including private binders). Otherwise results are scoped to binders the
+   * owner made public & trade-discoverable (isPublic + allowWhoHas).
+   */
+  requestingUserId?: string;
 }
 
 /**

@@ -60,7 +60,6 @@ export async function GET(
         isPublic: isPublic,
         cards: [],
         discordUsername: user.discordUsername,
-        discordId: user.discordId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
