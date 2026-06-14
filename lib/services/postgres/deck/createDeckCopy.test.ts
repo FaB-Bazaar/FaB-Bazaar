@@ -165,3 +165,59 @@ describe('PostgresDeckService.createDeck — copyFromDeckId carries matchups', (
     expect(sourceAfter[0].metadata).toEqual({ matchups: matchupsFixture });
   });
 });
+
+describe('PostgresDeckService.createDeck — copyFromDeckId resolves a unique name', () => {
+  // The decks table has a UNIQUE (user_id, name) index. A copy always uses the
+  // same "Copy of <source>" name, so duplicating the same deck more than once
+  // collides unless createDeck auto-suffixes the name. Regression: the second
+  // copy used to fail with a unique-constraint violation.
+  it('auto-suffixes the name when copying the same deck repeatedly', async () => {
+    const source = await insertSourceDeck({
+      name: `Source dup ${Date.now()}`,
+      metadata: null,
+    });
+    const copyName = `Copy of ${source.publicId}`;
+
+    const first = await service.createDeck(testUserId, {
+      name: copyName,
+      format: 'Classic Constructed',
+      copyFromDeckId: source.publicId,
+    });
+    expect(first.success).toBe(true);
+    if (!first.success) return;
+    expect(first.data.name).toBe(copyName);
+
+    const second = await service.createDeck(testUserId, {
+      name: copyName,
+      format: 'Classic Constructed',
+      copyFromDeckId: source.publicId,
+    });
+    expect(second.success).toBe(true);
+    if (!second.success) return;
+    expect(second.data.name).toBe(`${copyName} 2`);
+
+    const third = await service.createDeck(testUserId, {
+      name: copyName,
+      format: 'Classic Constructed',
+      copyFromDeckId: source.publicId,
+    });
+    expect(third.success).toBe(true);
+    if (!third.success) return;
+    expect(third.data.name).toBe(`${copyName} 3`);
+
+    // All three copies carry the source card.
+    for (const r of [first, second, third]) {
+      if (!r.success) continue;
+      const copied = await db
+        .select({ id: decks.id })
+        .from(decks)
+        .where(eq(decks.publicId, r.data.publicId))
+        .limit(1);
+      const cards = await db
+        .select({ id: deckCards.id })
+        .from(deckCards)
+        .where(eq(deckCards.deckId, copied[0].id));
+      expect(cards.length).toBe(1);
+    }
+  });
+});

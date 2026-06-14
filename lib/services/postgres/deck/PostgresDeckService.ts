@@ -323,6 +323,46 @@ export class PostgresDeckService implements IDeckService {
     }
   }
 
+  /**
+   * Resolve a deck name that is unique for this user. The decks table has a
+   * UNIQUE (user_id, name) index, so duplicating a deck (which always reuses the
+   * same "Copy of <source>" name) collides on the second copy. Suffixes the name
+   * with " 2", " 3", ... on collision so repeated copies succeed.
+   */
+  async generateUniqueName(
+    userId: string,
+    baseName: string
+  ): AsyncResult<string> {
+    try {
+      const trimmed = baseName.trim() || 'Untitled Deck';
+      let name = trimmed;
+      let counter = 2;
+
+      while (true) {
+        const existing = await db
+          .select({ id: decks.id })
+          .from(decks)
+          .where(and(eq(decks.userId, userId), eq(decks.name, name)))
+          .limit(1);
+
+        if (existing.length === 0) {
+          break;
+        }
+
+        name = `${trimmed} ${counter}`;
+        counter++;
+      }
+
+      return { success: true, data: name };
+    } catch (error) {
+      console.error('[PostgresDeckService.generateUniqueName] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate name',
+      };
+    }
+  }
+
   // ====================================
   // Lookup Methods
   // ====================================
@@ -458,8 +498,20 @@ export class PostgresDeckService implements IDeckService {
     data: CreateDeckDTO
   ): AsyncResult<DeckDTO> {
     try {
+      // When copying a deck, the name reuses "Copy of <source>" and would
+      // collide on the UNIQUE (user_id, name) index for a second copy. Resolve a
+      // non-colliding name first so the slug (derived from it) stays consistent.
+      let deckName = data.name.trim();
+      if (data.copyFromDeckId) {
+        const nameResult = await this.generateUniqueName(userId, deckName);
+        if (!nameResult.success) {
+          return { success: false, error: nameResult.error };
+        }
+        deckName = nameResult.data;
+      }
+
       // Generate unique slug
-      const slugResult = await this.generateUniqueSlug(userId, data.name);
+      const slugResult = await this.generateUniqueSlug(userId, deckName);
       if (!slugResult.success) {
         return { success: false, error: slugResult.error };
       }
@@ -475,7 +527,7 @@ export class PostgresDeckService implements IDeckService {
           id: deckId,
           publicId,
           userId,
-          name: data.name.trim(),
+          name: deckName,
           slug: deckSlug,
           description: data.description?.trim() || '',
           format: data.format,

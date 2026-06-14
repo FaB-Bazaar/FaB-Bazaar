@@ -585,7 +585,9 @@ export async function duplicateDeck(
   publicId: string
 ): Promise<ApiResponse<DeckDTO>> {
   try {
-    const response = await fetch(`/api/decks/${publicId}/duplicate`, {
+    // Duplicating own deck reuses the /copy route (creates a "Copy of …" with a
+    // fresh publicId + a deduped name/slug). There is no /duplicate route.
+    const response = await fetch(`/api/decks/${publicId}/copy`, {
       method: 'POST',
     });
     return await handleResponse<DeckDTO>(response);
