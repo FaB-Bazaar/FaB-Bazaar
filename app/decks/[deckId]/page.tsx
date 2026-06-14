@@ -14,6 +14,7 @@ import { KEYWORDS } from "@/lib/fab-constants/keywords";
 import { decksClient, bindersClient, wantsClient } from "@/lib/client";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCardsCache } from "@/lib/client/banned-cards-client";
 import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrintingsDialog";
+import DeckLanguageConversionDialog from "@/components/deck/editor/DeckLanguageConversionDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import MobileBuildToolsPanel from "@/components/deck/editor/MobileBuildToolsPanel";
@@ -918,6 +919,11 @@ export default function DeckEditorPage() {
     setShowUpgradeDialog(true);
   };
 
+  const [showLanguageDialog, setShowLanguageDialog] = useState(false);
+  const handleConvertLanguage = async () => {
+    setShowLanguageDialog(true);
+  };
+
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
   const [heroCurators, setHeroCurators] = useState<Array<{ displayUsername: string; avatarUrl: string | null; metafyProductUrl: string | null; metafyLinkLabel: string | null }>>([]);
@@ -1699,6 +1705,7 @@ export default function DeckEditorPage() {
                     onPresent={() => router.push(`/decks/${deckId}/present`)}
                     onSettings={() => setSettingsOpen(true)}
                     onUpdateOwnedPrintings={canEdit ? handleUpgradePrintings : undefined}
+                    onConvertLanguage={canEdit ? handleConvertLanguage : undefined}
                   />
                 )}
                 {!canEdit && state.deck && (
@@ -2326,6 +2333,13 @@ export default function DeckEditorPage() {
       <DeckUpgradePrintingsDialog
         open={showUpgradeDialog}
         onOpenChange={setShowUpgradeDialog}
+        deckId={deckId}
+        onApplied={handlers.refreshDeck}
+      />
+
+      <DeckLanguageConversionDialog
+        open={showLanguageDialog}
+        onOpenChange={setShowLanguageDialog}
         deckId={deckId}
         onApplied={handlers.refreshDeck}
       />

@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, Download, Eye, Tv, Settings, ArrowLeftRight } from "lucide-react";
+import { MoreHorizontal, Copy, Download, Eye, Tv, Settings, ArrowLeftRight, Languages } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DeckToolbarMoreMenuProps {
@@ -20,6 +20,8 @@ interface DeckToolbarMoreMenuProps {
   onSettings: () => void;
   /** Optional — when provided and the user is an owner, exposes a deliberate way to swap unowned printings to owned alternatives. */
   onUpdateOwnedPrintings?: () => void;
+  /** Optional — owner-only: convert every deck card to a specific printing language where available. */
+  onConvertLanguage?: () => void;
   isOwner: boolean;
 }
 
@@ -30,6 +32,7 @@ export default function DeckToolbarMoreMenu({
   onPresent,
   onSettings,
   onUpdateOwnedPrintings,
+  onConvertLanguage,
   isOwner,
 }: DeckToolbarMoreMenuProps) {
   return (
@@ -75,6 +78,12 @@ export default function DeckToolbarMoreMenu({
               Update to owned printings
             </DropdownMenuItem>
           </>
+        )}
+        {isOwner && onConvertLanguage && (
+          <DropdownMenuItem onClick={onConvertLanguage}>
+            <Languages className="h-4 w-4 mr-2" aria-hidden="true" />
+            Convert to language
+          </DropdownMenuItem>
         )}
         {isOwner && (
           <>

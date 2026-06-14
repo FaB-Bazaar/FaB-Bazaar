@@ -445,6 +445,17 @@ export interface ApplyPrintingUpgradesResultDTO {
 }
 
 /**
+ * Plan for converting a deck's printings to a target language. `swaps` are the
+ * cards with an exact same-variant (set/edition/foiling) printing in the target
+ * language; `skipped` are left as-is (no such printing, or already there).
+ */
+export interface DeckLanguageConversionPlanDTO {
+  targetLanguage: string;
+  swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: DeckCategory }>;
+  skipped: Array<{ printingId: string; cardName: string; reason: string }>;
+}
+
+/**
  * Allocation import format
  */
 export interface AllocationDTO {
@@ -912,6 +923,17 @@ export interface IDeckService {
     userId: string,
     swaps: Array<{ currentPrintingId: string; newPrintingId: string; category: DeckCategory }>
   ): AsyncResult<ApplyPrintingUpgradesResultDTO>;
+
+  /**
+   * Plan (do not apply) the swaps to convert every deck card to a target
+   * language, exact-variant only. Apply the returned `swaps` via
+   * applyPrintingUpgrades.
+   */
+  convertDeckToLanguage(
+    publicId: string,
+    userId: string,
+    targetLanguage: string
+  ): AsyncResult<DeckLanguageConversionPlanDTO>;
 
   // ====================================
   // Utilities

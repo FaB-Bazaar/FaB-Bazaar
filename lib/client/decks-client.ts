@@ -25,6 +25,7 @@ import type {
   DeckCategory,
   UpgradePrintingSuggestionDTO,
   ApplyPrintingUpgradesResultDTO,
+  DeckLanguageConversionPlanDTO,
 } from '@/lib/services/contracts/IDeckService';
 
 // ====================================
@@ -523,6 +524,44 @@ export async function applyPrintingUpgrades(
       body: JSON.stringify({ swaps }),
     });
     return await handleResponse<ApplyPrintingUpgradesResultDTO>(res);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Preview converting a deck's printings to a target language (exact-variant only).
+ * Returns the planned swaps + the cards that would be left as-is.
+ */
+export async function previewDeckLanguageConversion(
+  publicId: string,
+  language: string
+): Promise<ApiResponse<DeckLanguageConversionPlanDTO>> {
+  try {
+    const res = await fetch(
+      `/api/decks/${publicId}/convert-language?language=${encodeURIComponent(language)}`
+    );
+    return await handleResponse<DeckLanguageConversionPlanDTO>(res);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Apply the language conversion: swaps every deck card that has a same-variant
+ * printing in the target language; leaves the rest as-is.
+ */
+export async function convertDeckToLanguage(
+  publicId: string,
+  targetLanguage: string
+): Promise<ApiResponse<{ swapped: number; skipped: number; errors: string[] }>> {
+  try {
+    const res = await fetch(`/api/decks/${publicId}/convert-language`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetLanguage }),
+    });
+    return await handleResponse<{ swapped: number; skipped: number; errors: string[] }>(res);
   } catch (error) {
     return handleError(error);
   }

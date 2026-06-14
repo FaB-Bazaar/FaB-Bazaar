@@ -79,6 +79,31 @@ describe('DeckToolbarMoreMenu', () => {
     expect(onUpdate).toHaveBeenCalledTimes(1);
   });
 
+  it('shows "Convert to language" only when isOwner and onConvertLanguage are provided', async () => {
+    const user = userEvent.setup();
+    const onConvert = vi.fn();
+    const { rerender } = render(
+      <DeckToolbarMoreMenu {...baseProps} isOwner={true} onConvertLanguage={onConvert} />
+    );
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    expect(await screen.findByRole('menuitem', { name: /convert to language/i })).toBeInTheDocument();
+
+    rerender(<DeckToolbarMoreMenu {...baseProps} isOwner={false} onConvertLanguage={onConvert} />);
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    expect(await screen.findByRole('menuitem', { name: /^copy list$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /convert to language/i })).not.toBeInTheDocument();
+  });
+
+  it('fires onConvertLanguage when the menu item is clicked', async () => {
+    const user = userEvent.setup();
+    const onConvert = vi.fn();
+    render(<DeckToolbarMoreMenu {...baseProps} isOwner={true} onConvertLanguage={onConvert} />);
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /convert to language/i }));
+    expect(onConvert).toHaveBeenCalledTimes(1);
+  });
+
   it('trigger has focus ring and text-sm minimum', () => {
     render(<DeckToolbarMoreMenu {...baseProps} />);
     const trigger = screen.getByRole('button', { name: /more/i });

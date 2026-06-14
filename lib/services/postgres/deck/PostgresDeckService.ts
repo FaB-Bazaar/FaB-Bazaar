@@ -36,8 +36,10 @@ import type {
   UpgradePrintingSuggestionDTO,
   UpgradePrintingAlternativeDTO,
   ApplyPrintingUpgradesResultDTO,
+  DeckLanguageConversionPlanDTO,
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
+import { pickLanguageVariant } from '@/lib/deck/language-variant';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import {
   validateCardForHero,
@@ -2287,6 +2289,95 @@ export class PostgresDeckService implements IDeckService {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update co-owners',
       };
+    }
+  }
+
+  async convertDeckToLanguage(
+    publicId: string,
+    _userId: string,
+    targetLanguage: string
+  ): AsyncResult<DeckLanguageConversionPlanDTO> {
+    try {
+      const lang = targetLanguage.toLowerCase();
+
+      const deckRow = await db
+        .select({ id: decks.id })
+        .from(decks)
+        .where(or(eq(decks.id, publicId), eq(decks.publicId, publicId)))
+        .limit(1);
+      if (!deckRow.length) return { success: false, error: 'Deck not found' };
+      const internalDeckId = deckRow[0].id;
+
+      const deckCardRows = await db
+        .select({
+          printingId: deckCards.printingId,
+          category: deckCards.category,
+          cardUniqueId: printings.cardUniqueId,
+          setCode: printings.set,
+          edition: printings.edition,
+          foiling: printings.foiling,
+          language: printings.language,
+          cardName: sql<string>`COALESCE(${cards.displayName}, ${cards.name}, ${deckCards.printingId})`,
+        })
+        .from(deckCards)
+        .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .where(eq(deckCards.deckId, internalDeckId));
+
+      const cardUniqueIds = [
+        ...new Set(deckCardRows.map((r) => r.cardUniqueId).filter(Boolean) as string[]),
+      ];
+
+      // One bulk query for every deck card's printings in the target language.
+      const candidateRows = cardUniqueIds.length
+        ? await db
+            .select({
+              printing_id: printings.printingId,
+              card_unique_id: printings.cardUniqueId,
+              set: printings.set,
+              edition: printings.edition,
+              foiling: printings.foiling,
+              language: printings.language,
+            })
+            .from(printings)
+            .where(and(inArray(printings.cardUniqueId, cardUniqueIds), eq(printings.language, lang)))
+        : [];
+
+      const byCard = new Map<string, typeof candidateRows>();
+      for (const c of candidateRows) {
+        const arr = byCard.get(c.card_unique_id) ?? [];
+        arr.push(c);
+        byCard.set(c.card_unique_id, arr);
+      }
+
+      const swaps: DeckLanguageConversionPlanDTO['swaps'] = [];
+      const skipped: DeckLanguageConversionPlanDTO['skipped'] = [];
+
+      for (const row of deckCardRows) {
+        if (!row.cardUniqueId || !row.setCode) {
+          skipped.push({ printingId: row.printingId, cardName: row.cardName, reason: 'unknown printing' });
+          continue;
+        }
+        const match = pickLanguageVariant(
+          { printing_id: row.printingId, set: row.setCode, edition: row.edition!, foiling: row.foiling! },
+          byCard.get(row.cardUniqueId) ?? [],
+          lang,
+        );
+        if (match) {
+          swaps.push({ currentPrintingId: row.printingId, newPrintingId: match.printing_id, category: row.category as DeckCategory });
+        } else {
+          skipped.push({
+            printingId: row.printingId,
+            cardName: row.cardName,
+            reason: row.language === lang ? 'already in target language' : 'no matching printing',
+          });
+        }
+      }
+
+      return { success: true, data: { targetLanguage: lang, swaps, skipped } };
+    } catch (error) {
+      console.error('[PostgresDeckService.convertDeckToLanguage] Error:', error);
+      return { success: false, error: 'Failed to plan language conversion' };
     }
   }
 
