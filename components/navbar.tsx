@@ -1051,6 +1051,9 @@ export default function Navbar() {
                       <Link href="/decks/community" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Community Decks</div>
                       </Link>
+                      <Link href="/decks/to-beat" onClick={() => setIsMenuOpen(false)}>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Decks to Beat</div>
+                      </Link>
                       {decksLoading ? (
                         <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
                       ) : decks.length > 0 ? (
