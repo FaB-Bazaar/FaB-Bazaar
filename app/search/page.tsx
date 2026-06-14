@@ -104,6 +104,7 @@ export default function SearchPage() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedTalents, setSelectedTalents] = useState<string[]>([]);
+  const [selectedTalentless, setSelectedTalentless] = useState(false);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
@@ -142,10 +143,10 @@ export default function SearchPage() {
   // ── Build structured server filters from the sidebar state ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     query: debouncedQuery,
-    selectedType, selectedClasses, selectedTalents, selectedPitch,
+    selectedType, selectedClasses, selectedTalents, selectedTalentless, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, selectedType, selectedClasses, selectedTalents, selectedPitch, selectedKeywords,
+  }), [debouncedQuery, selectedType, selectedClasses, selectedTalents, selectedTalentless, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
@@ -165,7 +166,7 @@ export default function SearchPage() {
   const displayed = results;
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedClasses([]); setSelectedTalents([]); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -309,8 +310,23 @@ export default function SearchPage() {
             </div>
           </SidebarSection>
 
-          {/* Talent chips — multi-select (OR), independent of class. */}
+          {/* Talent chips — multi-select (OR), independent of class. "Talentless" = cards
+              any hero of the class can play; mutually exclusive with specific talents. */}
           <SidebarSection title="Talent">
+            <div className="mb-2">
+              <button
+                type="button"
+                onClick={() => { setSelectedTalents([]); setSelectedTalentless(v => !v); }}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                  selectedTalentless
+                    ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
+                    : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
+                )}
+              >
+                Talentless
+              </button>
+            </div>
             <div className="grid grid-cols-4 gap-1">
               {ALL_TALENTS.map(tal => {
                 const icon = CLASS_ICONS[tal];
@@ -322,7 +338,7 @@ export default function SearchPage() {
                     iconPosition={icon?.iconPosition}
                     active={selectedTalents.includes(tal)}
                     activeClass="bg-teal-900/50 border-teal-600"
-                    onClick={() => toggleArr(selectedTalents, setSelectedTalents, tal)}
+                    onClick={() => { setSelectedTalentless(false); toggleArr(selectedTalents, setSelectedTalents, tal); }}
                   />
                 );
               })}

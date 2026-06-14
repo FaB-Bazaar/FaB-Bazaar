@@ -37,6 +37,7 @@ export interface SearchUiState {
   selectedType: string | null;
   selectedClasses: string[];
   selectedTalents: string[];
+  selectedTalentless?: boolean;
   selectedPitch: number | null;
   selectedKeywords: string[];
   selectedRarities: string[];
@@ -87,6 +88,8 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   // class ∪ talent ∪ generic), so e.g. Generic + Lightning returns all generic
   // cards AND all lightning cards rather than their intersection.
   if (s.selectedClasses.length || s.selectedTalents.length) f.classTalentUnion = true;
+  // Talentless: cards any hero of the selected class(es) can play (no talent).
+  if (s.selectedTalentless) f.talentless = true;
   if (s.selectedKeywords.length) f.keywords = s.selectedKeywords;
   if (s.selectedRarities.length) f.rarities = s.selectedRarities;
   if (s.selectedFoilings.length) f.foilings = s.selectedFoilings;

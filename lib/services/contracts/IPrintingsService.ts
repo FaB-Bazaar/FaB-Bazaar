@@ -227,6 +227,10 @@ export interface PrintingsSearchFilters {
    * hero's card pool (class ∪ talent ∪ generic). Default (unset) = AND.
    */
   classTalentUnion?: boolean;
+  /** Restrict to cards with NO talent. A talentless class card is playable by
+   * ANY hero of that class; talented cards (e.g. draconic/mystic illusionist)
+   * are a subset only playable by heroes of that class who share the talent. */
+  talentless?: boolean;
   talentsAll?: string[];
   talentsNot?: string[];
 

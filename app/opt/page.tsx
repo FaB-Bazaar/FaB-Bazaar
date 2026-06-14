@@ -223,6 +223,7 @@ export default function OptSearchPage() {
   const [selectedHeroAges, setSelectedHeroAges] = useState<Array<'adult' | 'young'>>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedTalents, setSelectedTalents] = useState<string[]>([]);
+  const [selectedTalentless, setSelectedTalentless] = useState(false);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
@@ -260,11 +261,11 @@ export default function OptSearchPage() {
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     query: debouncedQuery,
-    selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedPitch,
+    selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedPitch, selectedKeywords,
+  }), [debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedFormat,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
@@ -286,7 +287,7 @@ export default function OptSearchPage() {
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -320,6 +321,9 @@ export default function OptSearchPage() {
   selectedTalents.forEach(tal => {
     activeChips.push({ key: `talent:${tal}`, label: tal, onRemove: () => toggleArr(selectedTalents, setSelectedTalents, tal) });
   });
+  if (selectedTalentless) {
+    activeChips.push({ key: 'talentless', label: 'Talentless', onRemove: () => setSelectedTalentless(false) });
+  }
   selectedKeywords.forEach(kw => {
     const def = KEYWORD_CHIPS.find(k => k.value === kw);
     activeChips.push({ key: `kw:${kw}`, label: def?.label ?? kw, onRemove: () => toggleArr(selectedKeywords, setSelectedKeywords, kw) });
@@ -551,9 +555,15 @@ export default function OptSearchPage() {
               </div>
             </Popover>
 
-            {/* Talent — multi-select (OR), independent of class (a card can be Warrior + Light). */}
-            <Popover label="Talent" count={selectedTalents.length} panelClassName="w-72">
+            {/* Talent — multi-select (OR), independent of class. "Talentless" = cards any
+                hero of the class can play; mutually exclusive with specific talents. */}
+            <Popover label="Talent" count={selectedTalents.length + (selectedTalentless ? 1 : 0)} panelClassName="w-72">
               <p className={SECTION}>Talent</p>
+              <div className="mb-2">
+                <Pill active={selectedTalentless} onClick={() => { setSelectedTalents([]); setSelectedTalentless(v => !v); }}>
+                  Talentless
+                </Pill>
+              </div>
               <div className="grid grid-cols-4 gap-1">
                 {ALL_TALENTS.map(tal => {
                   const icon = CLASS_ICONS[tal];
@@ -562,7 +572,7 @@ export default function OptSearchPage() {
                       key={tal}
                       label={tal} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
                       active={selectedTalents.includes(tal)} activeClass="bg-teal-900/50 border-teal-600"
-                      onClick={() => toggleArr(selectedTalents, setSelectedTalents, tal)}
+                      onClick={() => { setSelectedTalentless(false); toggleArr(selectedTalents, setSelectedTalents, tal); }}
                     />
                   );
                 })}

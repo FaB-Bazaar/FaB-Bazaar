@@ -91,6 +91,17 @@ describe('buildServerFilters — talents (multi-select, OR)', () => {
     expect(f).not.toHaveProperty('classTalentUnion');
   });
 
+  it('maps selectedTalentless to filters.talentless (class + talentless)', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['illusionist'], selectedTalentless: true });
+    expect(f.classes).toEqual(['illusionist']);
+    expect(f.talentless).toBe(true);
+  });
+
+  it('omits talentless when not selected', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['illusionist'] });
+    expect(f).not.toHaveProperty('talentless');
+  });
+
   it('omits talents when none are selected', () => {
     const f = buildServerFilters({ ...baseState, query: 'snatch' });
     expect(f).not.toHaveProperty('talents');

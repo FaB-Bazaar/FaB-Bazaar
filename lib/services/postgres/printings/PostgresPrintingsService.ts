@@ -1165,6 +1165,12 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(sql`NOT (${cards.classes} && ARRAY[${sql.join(lc(filters.classesNot).map(t => sql`${t}`), sql`, `)}]::text[])`);
     }
 
+    // Talentless: cards with no talent — playable by ANY hero of the class
+    // (talented cards are a subset for heroes sharing the talent). NULL or empty.
+    if (filters.talentless) {
+      conditions.push(sql`COALESCE(cardinality(${cards.talents}), 0) = 0`);
+    }
+
     if (filters.talentsAll && filters.talentsAll.length > 0) {
       // All talents must be present (contains operator @>)
       conditions.push(sql`${cards.talents} @> ARRAY[${sql.join(lc(filters.talentsAll).map(t => sql`${t}`), sql`, `)}]::text[]`);
