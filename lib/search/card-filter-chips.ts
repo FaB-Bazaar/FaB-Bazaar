@@ -85,13 +85,9 @@ export const ALL_CLASSES = [
   'adjudicator', 'bard', 'merchant', 'shapeshifter', 'thief',
 ] as const;
 
-// Talent chips are sourced from the official talent enum, minus 'pirate' which
-// is a CLASS (migration 0065 reclassified it), plus revered/reviled which are
-// real talents in the data but not yet in OFFICIAL_TALENTS. Sorted alphabetically.
-export const ALL_TALENTS: string[] = [
-  ...OFFICIAL_TALENTS.filter((t) => t !== 'pirate'),
-  'revered', 'reviled',
-].sort();
+// Talent chips, sourced from the official talent enum (single source of truth),
+// alphabetical. Pirate is a CLASS, not a talent (migration 0065).
+export const ALL_TALENTS: string[] = [...OFFICIAL_TALENTS].sort();
 
 export const PITCH_CHIPS = [
   { label: 'Red',    value: 1, active: 'bg-red-900/50 border-red-500',       dot: 'bg-red-500',    iconUrl: '/fab/symbols/pitch1.png' },

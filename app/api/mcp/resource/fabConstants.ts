@@ -193,11 +193,12 @@ export const fabConstantsResource = {
           'verdance': { classes: ['wizard'], talents: ['elemental'], essences: ['earth'] }
         },
         
-        // Pirate Heroes
+        // Pirate Heroes — pirate is a secondary CLASS (migration 0065), not a talent
         pirate_heroes: {
-          'gravy': { classes: ['necromancer'], talents: ['pirate'] },
-          'marlynn': { classes: ['ranger'], talents: ['pirate'] },
-          'puffin': { classes: ['mechanologist'], talents: ['pirate'] }
+          'gravy': { classes: ['necromancer', 'pirate'] },
+          'marlynn': { classes: ['ranger', 'pirate'] },
+          'puffin': { classes: ['mechanologist', 'pirate'] },
+          'scurv': { classes: ['thief', 'pirate'] }
         },
         
         // Light Heroes
@@ -212,6 +213,23 @@ export const fabConstantsResource = {
           'chane': { classes: ['runeblade'], talents: ['shadow'] },
           'levia': { classes: ['brute'], talents: ['shadow'] },
           'vynnset': { classes: ['runeblade'], talents: ['shadow'] }
+        },
+
+        // Mystic Heroes (Part the Mistveil — assassin / illusionist / ninja)
+        mystic_heroes: {
+          'nuu': { classes: ['assassin'], talents: ['mystic'] },
+          'enigma': { classes: ['illusionist'], talents: ['mystic'] },
+          'zen': { classes: ['ninja'], talents: ['mystic'] }
+        },
+
+        // Revered / Reviled Heroes (Guardian & Brute)
+        revered_heroes: {
+          'tuffnut': { classes: ['brute'], talents: ['revered'] },
+          'pleiades': { classes: ['guardian'], talents: ['revered'] }
+        },
+        reviled_heroes: {
+          'kayo, strong-arm': { classes: ['brute'], talents: ['reviled'] },
+          'lyath': { classes: ['guardian'], talents: ['reviled'] }
         }
       },
       shorthand_examples: ['hero:gravy', 'hero:oldhim', 'hero:!puffin'],
@@ -246,21 +264,23 @@ export const fabConstantsResource = {
       },
       talents: {
         elemental: "Generic elemental talent",
-        pirate: "Pirate-themed cards",
         light: "Light/holy themed cards",
         shadow: "Shadow/dark themed cards",
         draconic: "Dragon-themed cards",
         royal: "Royal/noble themed cards",
         chaos: "Chaos-themed cards",
-        mystic: "Mystic/spiritual themed cards"
+        mystic: "Mystic-themed cards (assassin / illusionist / ninja)",
+        revered: "Revered talent (guardian & brute heroes)",
+        reviled: "Reviled talent (guardian & brute heroes)"
       },
+      talents_note: "Valid talents[] values: elemental, light, shadow, draconic, royal, chaos, mystic, revered, reviled, plus the essences earth / ice / lightning. NOTE: 'pirate' is a CLASS — filter via classes:['pirate'], not talents.",
       shorthand_examples: [
         'talent:light', 'tal:i,e', 'talent:!shadow',
-        'talent:elemental', 'tal:pirate', 'talent:draconic'
+        'talent:elemental', 'tal:mystic', 'talent:draconic'
       ],
       abbreviations: {
         'e': 'earth', 'i': 'ice', 'l': 'lightning', 'li': 'light',
-        'p': 'pirate', 's': 'shadow', 'd': 'draconic'
+        's': 'shadow', 'd': 'draconic', 'm': 'mystic'
       }
     },
     

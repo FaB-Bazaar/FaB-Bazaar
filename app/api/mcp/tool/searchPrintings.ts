@@ -334,7 +334,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
         properties: {
           limit:     { type: 'number', default: 12, minimum: 1, maximum: 100 },
           page:      { type: 'number', default: 1, minimum: 1 },
-          sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'relevance'] },
+          sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'color', 'foiling', 'edition', 'relevance'] },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] },
           includeImage:   { type: 'boolean', description: 'Include image_url per printing. Default false.' },
           includeArtists: { type: 'boolean', description: 'Include artists[] per printing. Default false.' },

@@ -4,18 +4,21 @@
  * Official FAB Talents List
  * Update this list when new talents are introduced
  */
+// NOTE: 'pirate' is a CLASS (see migration 0065), not a talent — filter it via
+// classes, not talents. revered/reviled are Mystic talents (Part the Mistveil).
 export const OFFICIAL_TALENTS = [
     'mystic',
-    'light', 
+    'light',
     'draconic',
     'ice',
     'elemental',
     'earth',
     'lightning',
-    'pirate',
     'chaos',
     'shadow',
-    'royal'
+    'royal',
+    'revered',
+    'reviled'
   ] as const;
   
   export type TalentType = typeof OFFICIAL_TALENTS[number];
@@ -33,9 +36,8 @@ export const OFFICIAL_TALENTS = [
     's': 'shadow',
     'c': 'chaos',
     'r': 'royal',
-    'p': 'pirate',
     'm': 'mystic',
-    
+
     // Two letter abbreviations
     'el': 'elemental',
     'li': 'lightning',
@@ -44,8 +46,7 @@ export const OFFICIAL_TALENTS = [
     'ro': 'royal',
     'my': 'mystic',
     'ch': 'chaos',
-    'pi': 'pirate',
-    
+
     // Common aliases
     'elem': 'elemental',
     'electric': 'lightning',
@@ -61,13 +62,10 @@ export const OFFICIAL_TALENTS = [
     'queen': 'royal',
     'noble': 'royal',
     'crown': 'royal',
-    'sailor': 'pirate',
-    'buccaneer': 'pirate',
-    'corsair': 'pirate',
-    'sea': 'pirate',
     'magic': 'mystic',
     'magical': 'mystic',
-    'arcane': 'mystic',
+    // 'arcane' intentionally NOT mapped — it's a Wizard/Runeblade (class) concept
+    // / arcane damage, not the Mystic talent.
     'void': 'chaos',
     'random': 'chaos',
     'earth': 'earth',
@@ -93,10 +91,11 @@ export const OFFICIAL_TALENTS = [
     'shadow': 'has_shadow',
     'draconic': 'has_draconic',
     'elemental': 'has_elemental',
-    'pirate': 'has_pirate',
     'chaos': 'has_chaos',
     'royal': 'has_royal',
-    'mystic': 'has_mystic'
+    'mystic': 'has_mystic',
+    'revered': 'has_revered',
+    'reviled': 'has_reviled'
   };
   
   /**
@@ -110,10 +109,11 @@ export const OFFICIAL_TALENTS = [
     'shadow': 'Shadow essence - dark and corrupting effects',
     'draconic': 'Draconic talent - dragon-themed cards and effects',
     'elemental': 'Elemental talent - nature-based magic and effects',
-    'pirate': 'Pirate talent - seafaring and treasure-hunting theme',
     'chaos': 'Chaos talent - unpredictable and random effects',
     'royal': 'Royal talent - nobility and leadership theme',
-    'mystic': 'Mystic talent - arcane knowledge and wisdom'
+    'mystic': 'Mystic talent - arcane knowledge and wisdom',
+    'revered': 'Revered talent - introduced with Guardian & Brute heroes',
+    'reviled': 'Reviled talent - introduced with Guardian & Brute heroes'
   };
   
   /**
@@ -124,9 +124,9 @@ export const OFFICIAL_TALENTS = [
     ['ice', 'lightning'],       // Some elemental combinations
     ['earth', 'lightning'],     // Other elemental combinations
     ['draconic', 'royal'],      // Dragon nobility themes
-    ['pirate', 'shadow'],       // Dark seafaring themes
     ['mystic', 'light'],        // Holy magic themes
-    ['chaos', 'shadow']         // Dark chaos themes
+    ['chaos', 'shadow'],        // Dark chaos themes
+    ['revered', 'reviled']      // Mystic light/shadow (Part the Mistveil)
   ] as const;
 
   /**
