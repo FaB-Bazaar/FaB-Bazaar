@@ -92,8 +92,8 @@ export default function DeckLanguageConversionDialog({ open, onOpenChange, deckI
         <DialogHeader>
           <DialogTitle>Convert deck to a language</DialogTitle>
           <DialogDescription className="text-gray-300">
-            Swaps each card to the same printing (same set, edition &amp; foil) in your chosen language. Cards
-            with no matching printing are left as-is.
+            Swaps each card to its closest printing in your chosen language — keeping the same foil where
+            possible. Cards with no printing in that language are left as-is.
           </DialogDescription>
         </DialogHeader>
 

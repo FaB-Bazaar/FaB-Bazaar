@@ -1,11 +1,14 @@
 /**
- * Pick the printing of the same card in a target language that exactly matches
- * the current printing's variant (set + edition + foiling). Returns null when no
- * such printing exists, or when the only match is the current printing itself
- * (already in the target language) — in both cases the deck card is left as-is.
+ * Pick the CLOSEST printing of the same card in a target language. Preference,
+ * highest first:
+ *   1. exact variant — same set + edition + foiling
+ *   2. same foiling (preserve rainbow/cold/standard) in another set/edition
+ *   3. any printing in the target language
+ * Returns null when the card has no printing in the target language, or when the
+ * only candidate is the current printing itself (already that language).
  *
- * "Exact variant only": a rainbow-foil OMN171 converts only to a rainbow-foil
- * OMN171 in the target language, never to a standard or different-set printing.
+ * Foiling is preserved over set/edition — a rainbow-foil card prefers a
+ * rainbow-foil printing. Ties break deterministically (set, then printing_id).
  */
 export interface VariantPrinting {
   printing_id: string;
@@ -16,17 +19,27 @@ export interface VariantPrinting {
 }
 
 export function pickLanguageVariant<T extends VariantPrinting>(
-  current: { printing_id: string; set: string; edition: string; foiling: string },
+  current: { printing_id: string; set: string; edition: string; foiling: string; language: string },
   candidates: T[],
   targetLanguage: string,
 ): T | null {
-  const match = candidates.find(
-    (p) =>
-      p.language === targetLanguage &&
-      p.set === current.set &&
-      p.edition === current.edition &&
-      p.foiling === current.foiling &&
-      p.printing_id !== current.printing_id,
+  // Already in the target language — leave it as-is, don't reshuffle to another printing.
+  if (current.language === targetLanguage) return null;
+
+  const pool = candidates.filter(
+    (p) => p.language === targetLanguage && p.printing_id !== current.printing_id,
   );
-  return match ?? null;
+  if (!pool.length) return null;
+
+  const score = (p: T) =>
+    (p.foiling === current.foiling ? 4 : 0) +
+    (p.edition === current.edition ? 2 : 0) +
+    (p.set === current.set ? 1 : 0);
+
+  return [...pool].sort((a, b) => {
+    const d = score(b) - score(a);
+    if (d !== 0) return d;
+    if (a.set !== b.set) return a.set < b.set ? -1 : 1;
+    return a.printing_id < b.printing_id ? -1 : 1;
+  })[0];
 }

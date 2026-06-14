@@ -2359,7 +2359,7 @@ export class PostgresDeckService implements IDeckService {
           continue;
         }
         const match = pickLanguageVariant(
-          { printing_id: row.printingId, set: row.setCode, edition: row.edition!, foiling: row.foiling! },
+          { printing_id: row.printingId, set: row.setCode, edition: row.edition!, foiling: row.foiling!, language: row.language! },
           byCard.get(row.cardUniqueId) ?? [],
           lang,
         );
