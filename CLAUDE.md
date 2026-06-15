@@ -49,6 +49,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - **`isSystemDeck` on decks** — superadmin-owned "Decks to Beat" reference decks. Filtered out of all personal views (`listUserDecks`, `listUserDecksBasic`, Talishar sync, navbar, MCP). Still publicly accessible via URL and the Decks to Beat page. Toggle via `/api/decks/[deckId]/featured` PATCH (superadmin only).
 - **Talishar DFC card identifiers** — double-faced cards (e.g. `"comet storm // shock"`) must export as `comet_storm__shock_red` (double underscore between faces). `toTalisharIdentifier` collapses `_+` — always split on ` // ` and join parts with `__` before appending pitch color. See `buildTalisharIdentifier` in `app/api/decks/[deckId]/talishar/route.ts`.
 - **Major OP events = venue + event** — a Pro Tour / Calling / National is a `location` (category `venue`) plus an `event` row (`events.location_id` is NOT NULL). Add both via `/admin/locations` → "Add event / venue" tab (superadmin), not by direct DB/API calls.
+- **History Pack set codes are `1hp`/`2hp`, not `hp1`/`hp2`** — "WB"/"Welcome Back" reprints. The legacy/community `hp1`/`hp2` spelling returns 0 results; `normalizeSetCode` (`lib/fab-constants/sets.ts`) aliases it for the shorthand parser + MCP structured filters. Don't hand-list set codes — the MCP constants resource generates them from `CARD_FILTER_SETS`.
 
 ## API Route Pattern
 

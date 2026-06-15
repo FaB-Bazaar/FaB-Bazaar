@@ -47,3 +47,29 @@ describe.each([
     expect(f.types).toContain('attack');
   });
 });
+
+// History Pack reprints are "1hp"/"2hp" in the DB, but trade posts/docs say
+// "hp1"/"hp2". The set parser must normalize the alias on BOTH parsers so
+// `set:hp1` resolves instead of returning 0 results.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser set-code aliases — %s', (_label, parser) => {
+  it('normalizes set:hp1 → 1hp', () => {
+    expect(parser.parseQuery('set:hp1').filters.sets).toContain('1hp');
+    expect(parser.parseQuery('set:hp1').filters.sets).not.toContain('hp1');
+  });
+
+  it('normalizes set:hp2 → 2hp', () => {
+    expect(parser.parseQuery('set:hp2').filters.sets).toContain('2hp');
+  });
+
+  it('normalizes the negated form set:!hp1 → setsNot 1hp', () => {
+    expect(parser.parseQuery('set:!hp1').filters.setsNot).toContain('1hp');
+  });
+
+  it('leaves canonical codes untouched (set:1hp, set:wtr)', () => {
+    expect(parser.parseQuery('set:1hp').filters.sets).toContain('1hp');
+    expect(parser.parseQuery('set:wtr').filters.sets).toContain('wtr');
+  });
+});

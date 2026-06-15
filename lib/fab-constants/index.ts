@@ -5,6 +5,9 @@
 export {
   SET_MAP,
   SET_METADATA,
+  CARD_FILTER_SETS,
+  SET_CODE_ALIASES,
+  normalizeSetCode,
   getSetMetadata,
   hasFirstEdition,
   getAllSetCodes,

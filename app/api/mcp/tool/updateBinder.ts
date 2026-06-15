@@ -60,8 +60,8 @@ Workflow: search_printings → pick printing_id(s) → add_to_binder.
             },
             forTrade: {
               type: 'boolean',
-              default: true,
-              description: 'Whether card is available for trade'
+              default: false,
+              description: 'Whether the card is listed for trade. Defaults to false — adding to a collection does NOT list it for trade. Only set true when the user explicitly says the cards are for trade.'
             },
             notes: {
               type: 'string',
@@ -158,7 +158,7 @@ Workflow: search_printings → pick printing_id(s) → add_to_binder.
           printingId: p.printingId,
           quantity: p.quantity || 1,
           condition: p.condition || 'NM',
-          forTrade: p.forTrade !== undefined ? p.forTrade : true,
+          forTrade: p.forTrade !== undefined ? p.forTrade : false,
           notes: p.notes || ''
         }))
       };

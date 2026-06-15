@@ -18,4 +18,27 @@ describe('fabConstantsResource', () => {
     expect(serialized).toMatch(/classes.*card.?class|card.?class.*classes/i);
     expect(serialized).toMatch(/legal.*hero|hero.*legal/i);
   });
+
+  it('generates core_sets from the curated set list so newest sets are present', async () => {
+    const data = await (fabConstantsResource as any).handler();
+    const coreSets = data.set_mappings.core_sets;
+
+    // Newest standard sets that the old hand-maintained list omitted
+    expect(coreSets).toHaveProperty('pen');
+    expect(coreSets).toHaveProperty('omn');
+    // Classic anchor still present
+    expect(coreSets).toHaveProperty('wtr');
+    // Values are human-readable set names, not the bare code
+    expect(coreSets.pen).not.toBe('pen');
+  });
+
+  it('never advertises the dead "hp1"/"hp2" set codes (DB uses 1hp/2hp)', async () => {
+    const data = await (fabConstantsResource as any).handler();
+    const serialized = JSON.stringify(data);
+
+    expect(serialized).not.toMatch(/hp1/);
+    expect(serialized).not.toMatch(/hp2/);
+    // and the working codes ARE present in the WB guidance
+    expect(serialized).toMatch(/1hp/);
+  });
 });

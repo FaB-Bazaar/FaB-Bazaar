@@ -22,6 +22,23 @@ export const CARD_FILTER_SETS = [
 
 export type CardFilterSet = typeof CARD_FILTER_SETS[number];
 
+/**
+ * Common community/legacy set-code spellings → the canonical DB code.
+ * History Pack reprints are written "1HP"/"2HP" in the DB, but trade posts and
+ * older docs say "HP1"/"HP2" (and the MCP constants resource historically did
+ * too). Normalize so either form resolves instead of returning 0 results.
+ */
+export const SET_CODE_ALIASES: Record<string, string> = {
+  hp1: '1hp',
+  hp2: '2hp',
+};
+
+/** Lowercase a set code and map known aliases (e.g. hp1 → 1hp) to the DB code. */
+export function normalizeSetCode(code: string): string {
+  const lc = code.trim().toLowerCase();
+  return SET_CODE_ALIASES[lc] ?? lc;
+}
+
 // Set metadata including release dates
 export interface SetMetadata {
   code: string;

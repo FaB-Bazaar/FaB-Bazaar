@@ -4,6 +4,7 @@ import {
   FOILING_MAP,
   EDITION_MAP,
   SET_MAP,
+  CARD_FILTER_SETS,
   RARITY_MAP,
   CARD_NAME_ABBREVIATIONS,
   KEYWORDS,
@@ -106,12 +107,12 @@ export const fabConstantsResource = {
         'BB (Black Border)': [
           'Means the original black-bordered print from the card\'s release set — NOT Alpha or 1st Edition specifically (those are also BB but expensive).',
           'In trade posts, BB almost always means the CHEAPEST black-bordered version = Unlimited or Normal edition from original set.',
-          'Correct filter: editions: ["u","n"], setsNot: ["hp1","hp2"]',
+          'Correct filter: editions: ["u","n"], setsNot: ["1hp","2hp"]',
           'Do NOT use editions: ["a","f"] for BB — that targets expensive Alpha/1st prints the buyer usually doesn\'t want.',
         ],
         'WB (White Border)': [
-          'History Pack reprints ONLY — sets: ["hp1","hp2"].',
-          'Unlimited editions are NOT white-bordered. Only HP1 and HP2 are white-bordered.',
+          'History Pack reprints ONLY — sets: ["1hp","2hp"]. DB set codes are written digit-first as "1hp"/"2hp" (the parser also accepts the digit-last spelling).',
+          'Unlimited editions are NOT white-bordered. Only History Pack Vol.1 (set:1hp) and Vol.2 (set:2hp) are white-bordered.',
         ],
         note: 'When a post says "one BB one WB": BB = original-set Unlimited/Normal, WB = History Pack reprint.'
       }
@@ -119,24 +120,12 @@ export const fabConstantsResource = {
     
     set_mappings: {
       description: "Use these set codes for searching specific sets:",
-      core_sets: {
-        wtr: 'Welcome to Rathe',
-        arc: 'Arcane Rising',
-        cru: 'Crucible of War',
-        mon: 'Monarch',
-        ele: 'Tales of Aria',
-        evr: 'Everfest',
-        upr: 'Uprising',
-        dyn: 'Dynasty',
-        out: 'Outsiders',
-        dtd: 'Dusk till Dawn',
-        evo: 'Bright Lights',
-        hvy: 'Heavy Hitters',
-        mst: 'Part the Mistveil',
-        ros: 'Rosetta',
-        hnt: 'The Hunted',
-        sea: 'High Seas'
-      },
+      // Generated from CARD_FILTER_SETS (the single curated standard-set list the
+      // app filter chips read) so new sets appear automatically — do NOT hand-edit.
+      // History Pack 1 (1hp) lives here too; it's the one non-booster in that list.
+      core_sets: Object.fromEntries(
+        CARD_FILTER_SETS.map(code => [code, SET_MAP[code as keyof typeof SET_MAP] ?? code])
+      ),
       blitz_sets: Object.fromEntries(
         Object.entries(SET_MAP).filter(([key]) => 
           ['bol', 'chn', 'psm', 'lev', 'bri', 'lxi', 'old', 'dro', 'fai', 'ara', 'azl', 'ben', 'kat', 'rip', 'uzu', 'bet', 'ksi', 'kyo', 'ola', 'rhi', 'vic', 'eng', 'nuu', 'zen'].includes(key)
@@ -464,7 +453,7 @@ export const fabConstantsResource = {
       },
       border_terms: {
         'BB (Black Border)': 'editions: ["u","n"] — Unlimited/Normal edition (excludes expensive Alpha/1st). History Pack (set:1hp) is white-bordered but edition "n"; results may include it — buyer can distinguish visually.',
-        'WB (White Border)': 'sets: ["hp1","hp2"] — History Pack reprints only',
+        'WB (White Border)': 'sets: ["1hp","2hp"] — History Pack reprints only (DB codes are "1hp"/"2hp")',
       },
       fallback_strategy: [
         '1. Try exact: true with full name + all filters',

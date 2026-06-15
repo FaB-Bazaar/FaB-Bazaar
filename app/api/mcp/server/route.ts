@@ -1412,6 +1412,10 @@ The new tool provides the same functionality with better guidance for proper wor
               id,
               result: {
                 content: [{ type: 'text', text: result.message || (result.success ? 'Search complete.' : 'Search returned no results.') }],
+                // Spec-compliant surface: clients that read structuredContent get the
+                // FULL per-printing list (every set/edition/foiling), not just the
+                // collapsed text representative. See searchPrintings tail note.
+                ...(result.success ? { structuredContent: { results: result.results ?? [] } } : {}),
                 isError: !result.success,
                 ...result,
               }

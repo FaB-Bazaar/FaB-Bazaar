@@ -68,7 +68,40 @@ describe('formatSearchSections', () => {
     const text = sections[0];
     expect(text).toContain('Beast Within');
     expect(text).toMatch(/\+4 more printings of this card/);
+    // The hidden printings are enumerated as SET·edition·foiling so the client
+    // can see the other versions without a second query.
+    expect(text).toMatch(/CRU·u·s/);
     expect(text).not.toMatch(/across \d+ cards/);
+  });
+
+  it('collapses near-identical printings into TOKEN ×count', () => {
+    // 5 printings, all the same set/edition/foiling (e.g. language variants).
+    const variants = Array.from({ length: 5 }, (_, i) =>
+      printing({ name: 'Beast Within', card_unique_id: 'cuid_beast', printing_id: `bw_${i}` })
+    );
+
+    const text = formatSearchSections(
+      [{ index: 0, query: 'beast within', total: 5, printings: variants }],
+      {}
+    )[0];
+
+    // 1 representative + 4 identical others → one deduped token "×4", not 4 repeats.
+    expect(text).toMatch(/CRU·u·s ×4/);
+  });
+
+  it('caps distinct tail tokens at 8 and reports the overflow', () => {
+    // 13 printings each in a DISTINCT set → 12 distinct "other" tokens.
+    const many = Array.from({ length: 13 }, (_, i) =>
+      printing({ name: 'Beast Within', card_unique_id: 'cuid_beast', printing_id: `bw_${i}`, set: `s${i}` })
+    );
+
+    const text = formatSearchSections(
+      [{ index: 0, query: 'beast within', total: 13, printings: many }],
+      {}
+    )[0];
+
+    expect(text).toMatch(/\+12 more printings of this card/);
+    expect(text).toMatch(/\+4 more/); // 12 distinct tokens, 8 shown, 4 overflow
   });
 
   it('preserves the foiling-fallback warning when set', () => {
@@ -139,6 +172,19 @@ describe('searchPrintingsTool.handler — heroLegal × format guardrail', () => 
     expect(callArgs.heroClasses).toEqual(['runeblade']);
     expect(callArgs.heroTalents).toEqual(['elemental']);
     expect([...(callArgs.heroEssences ?? [])].sort()).toEqual(['earth', 'lightning']);
+  });
+
+  it('normalizes a legacy set code in structured filters (sets:["hp1"] → 1hp)', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+
+    await searchPrintingsTool.handler({
+      cards: [{ filters: { name: 'Braveforge Bracers', exact: true, sets: ['hp1'] } }],
+    });
+
+    expect(printingsService.searchPrintings).toHaveBeenCalled();
+    const callArgs = (printingsService.searchPrintings as any).mock.calls[0][0];
+    expect(callArgs.sets).toEqual(['1hp']);
   });
 
   it('omits heroEssences when the hero has no essence (e.g. Kano)', async () => {

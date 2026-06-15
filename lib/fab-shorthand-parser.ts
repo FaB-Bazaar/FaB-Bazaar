@@ -4,7 +4,7 @@
 // FIXED: Improved text removal to prevent fragments
 
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
-import { HERO_NICKNAMES, CARD_NAME_ABBREVIATIONS } from './fab-constants';
+import { HERO_NICKNAMES, CARD_NAME_ABBREVIATIONS, normalizeSetCode } from './fab-constants';
 import { TalentUtils } from './talent-constants';
 
 interface ShorthandPattern {
@@ -384,17 +384,17 @@ export class FABShorthandParser {
         
         setTokens.forEach(token => {
           const isNot = token.startsWith('!') || token.startsWith('-');
-          const setCode = isNot ? token.substring(1) : token;
-          
+          const setCode = normalizeSetCode(isNot ? token.substring(1) : token);
+
           if (isNot) {
             if (!filters.setsNot) filters.setsNot = [];
-            if (!filters.setsNot.includes(setCode.toLowerCase())) {
-              filters.setsNot.push(setCode.toLowerCase());
+            if (!filters.setsNot.includes(setCode)) {
+              filters.setsNot.push(setCode);
             }
           } else {
             if (!filters.sets) filters.sets = [];
-            if (!filters.sets.includes(setCode.toLowerCase())) {
-              filters.sets.push(setCode.toLowerCase());
+            if (!filters.sets.includes(setCode)) {
+              filters.sets.push(setCode);
             }
           }
         });

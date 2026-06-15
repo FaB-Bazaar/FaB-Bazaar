@@ -2,7 +2,7 @@
 import { printingsService } from '@/lib/services';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
-import { sortPrintings } from '@/lib/fab-constants/sets';
+import { sortPrintings, normalizeSetCode } from '@/lib/fab-constants/sets';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
 const shorthandParser = new FABShorthandParser();
@@ -55,6 +55,7 @@ type SectionInput = {
 };
 
 const MAX_SECTION_GROUPS = 10;
+const MAX_TAIL_PRINTINGS = 8;
 
 export function formatSearchSections(output: SectionInput[], projectOpts: ProjectOptions = {}): string[] {
   return output.map(r => {
@@ -81,8 +82,33 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
       : '';
 
     const body = shown.map(group => {
-      const best = sortPrintings(group)[0];
-      const tail = group.length > 1 ? ` (+${group.length - 1} more printings of this card)` : '';
+      const sorted = sortPrintings(group);
+      const best = sorted[0];
+      const others = sorted.slice(1);
+      if (others.length === 0) return formatPrinting(best, projectOpts);
+      // Enumerate the hidden printings as SET·edition·foiling·price so the client
+      // can SEE the other versions (and their sets) without a second query — the
+      // representative is just the earliest-released set, NOT necessarily the
+      // one the user means. Collapse near-identical printings (e.g. the same
+      // set/edition/foiling across languages) into one TOKEN ×count entry so the
+      // list stays scannable; distinct sets/foilings each get their own entry.
+      const tokenCounts = new Map<string, { count: number; price?: number }>();
+      for (const p of others) {
+        const set = (p.set || '?').toUpperCase();
+        const ed = p.edition || 'n';
+        const fo = p.foiling || 's';
+        const ea = p.is_extended_art ? '·EA' : '';
+        const key = `${set}·${ed}·${fo}${ea}`;
+        const price = p[resolvePriceField(projectOpts.priceField)];
+        const cur = tokenCounts.get(key);
+        if (cur) { cur.count++; if (cur.price == null && price) cur.price = price; }
+        else tokenCounts.set(key, { count: 1, price: price ?? undefined });
+      }
+      const shownOthers = [...tokenCounts.entries()].slice(0, MAX_TAIL_PRINTINGS).map(([k, v]) =>
+        `${k}${v.price ? ` $${v.price.toFixed(2)}` : ''}${v.count > 1 ? ` ×${v.count}` : ''}`
+      );
+      const overflow = tokenCounts.size > MAX_TAIL_PRINTINGS ? `, +${tokenCounts.size - MAX_TAIL_PRINTINGS} more` : '';
+      const tail = `\n    +${others.length} more printing${others.length !== 1 ? 's' : ''} of this card: ${shownOthers.join(', ')}${overflow}`;
       return `${formatPrinting(best, projectOpts)}${tail}`;
     }).join('\n');
 
@@ -172,6 +198,11 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
   ];
   passThrough.forEach(k => { if (mcpFilters[k] != null) (f as any)[k] = mcpFilters[k]; });
 
+  // Normalize set codes so legacy/community spellings resolve (hp1 → 1hp).
+  // Covers the structured path; the shorthand parser normalizes its own tokens.
+  if (Array.isArray(f.sets)) f.sets = f.sets.map(normalizeSetCode);
+  if (Array.isArray((f as any).setsNot)) (f as any).setsNot = (f as any).setsNot.map(normalizeSetCode);
+
   // heroLegal → resolve to heroClasses + heroTalents + heroEssences for precise filtering
   if (mcpFilters.heroLegal) {
     const names = Array.isArray(mcpFilters.heroLegal) ? mcpFilters.heroLegal : [mcpFilters.heroLegal];
@@ -253,6 +284,8 @@ Use this for ANY card lookup: by name, by set, by rarity, by price, by hero lega
 This is the tool for queries like: "find Command and Conquer red", "look up Pummel printings", "what equipment does Dash play", "show me cheap Majestics", "search for Enlightened Strike", "any blue attacks under $5".
 
 Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText to opt into extra fields.
+
+⚠️ DISAMBIGUATING PRINTINGS: the text view collapses to ONE representative printing per card (the earliest-released set), then a "+N more printings of this card:" line enumerates the others as SET·edition·foiling·price. The representative is NOT necessarily the user's copy — do NOT assume it's WTR/the oldest set. To pin a specific printing, pass sets[] / foilings[] / editions[] (e.g. foilings:["r"] for Rainbow Foil, sets:["1hp"] for the History Pack reprint). The full per-printing list is also returned in structuredContent for clients that read it.
 
 Always pass ALL cards you need in one call — never loop.
 
