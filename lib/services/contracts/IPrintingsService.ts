@@ -193,6 +193,10 @@ export interface PrintingDTO {
 
   // Original data
   printing_data?: any;
+
+  // Card-level grouping only (groupByCard): how many printings this card has
+  // within the current filter/language scope. Undefined on the flat path.
+  printing_count?: number;
 }
 
 /**

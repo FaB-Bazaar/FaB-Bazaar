@@ -11,6 +11,7 @@ import { getHeroInfo, SET_MAP } from "@/lib/fab-constants";
 import { SET_IMAGES } from "@/lib/set-images";
 import { getApiFormatCode } from "@/lib/format-constants";
 import { sortPrintings, CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
+import { groupSearchPrintingsToCards } from "@/lib/deck/group-search-results";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import {
   type CardResult,
@@ -587,6 +588,9 @@ export default function QuickAddCardDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  // Strict name matching by default (substring only). Toggle on for fuzzy
+  // (word_similarity) matching that also surfaces approximate name matches.
+  const [fuzzy, setFuzzy] = useState(false);
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 40; // multiple of grid columns
@@ -785,10 +789,22 @@ export default function QuickAddCardDialog({
     // name searches get a smaller limit so closest matches surface first.
     // Swap mode (initialSearch) needs a higher limit to show all printings of one card.
     const isFilterOnly = hasQuery && !initialSearch && shorthandParser.parseQuery(rawQuery).remainingText.trim() === "";
-    params.set("limit", initialSearch ? "100" : (!hasQuery || isFilterOnly) ? "500" : "15");
+    // Group by card for every mode except swap (initialSearch), which needs the
+    // flat printing list of one exact card. Grouping makes `limit` count CARDS,
+    // so a heavily-reprinted card (e.g. "Gustwave", 100+ printings) can no longer
+    // crowd every other match off the page. Each row carries printing_count, and
+    // the full printing list is lazy-loaded when a card is selected.
+    const groupByCard = !initialSearch;
+    if (groupByCard) params.set("groupByCard", "true");
+    params.set("limit", initialSearch ? "100" : (!hasQuery || isFilterOnly) ? "500" : "50");
     params.set("sortBy", "name");
     params.set("sortOrder", "asc");
     params.set("show", "all");
+    // Strict name matching (substring only, no fuzzy word_similarity) so "hammer"
+    // returns the 6 hammer cards, not also Aether Hail / Take the Upper Hand.
+    // Mirrors the catalog search (/opt + /search via useCardSearch). The Fuzzy
+    // toggle opts back into approximate matching.
+    if (!initialSearch && !fuzzy) params.set("searchMode", "strict");
 
     if (targetCategory === "hero") {
       params.set("types", "hero");
@@ -818,18 +834,10 @@ export default function QuickAddCardDialog({
       .then((data: { success?: boolean; data?: { printings?: PrintingResult[] } }) => {
         if (cancelled) return;
         if (data.success && data.data?.printings) {
-          // Inline group for name search results (not cached)
-          const map = new Map<string, CardResult>();
-          for (const p of data.data.printings) {
-            const id = (p.card_unique_id || p.cardId || p.display_name || p.name || '?') as string;
-            if (!map.has(id)) map.set(id, { unique_id: id, name: (p.display_name || p.name || 'Unknown') as string, types: ((p.types || []) as string[]).map(t => String(t).toLowerCase()), pitch: (p.pitch ?? null) as number | null, printings: [] });
-            map.get(id)!.printings.push(p);
-          }
-          // Sort printings within each card so carousel and default match sortPrintings order
-          for (const card of map.values()) {
-            card.printings = sortPrintings(card.printings) as typeof card.printings;
-          }
-          setCards(Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name)));
+          // Collapse to one row per card. Grouped responses carry printing_count
+          // → __printingsCount (full list lazy-loaded on click); flat swap-mode
+          // responses keep every printing inline.
+          setCards(groupSearchPrintingsToCards(data.data.printings));
         } else {
           setError("Search failed. Please try again.");
         }
@@ -842,7 +850,7 @@ export default function QuickAddCardDialog({
 
     return () => { cancelled = true; controller.abort(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, selectedType, effectiveType, selectedPitch, effectivePitch, selectedKeyword, selectedSets.join(","), effectiveSets.join(","), targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat]);
+  }, [debouncedQuery, selectedType, effectiveType, selectedPitch, effectivePitch, selectedKeyword, selectedSets.join(","), effectiveSets.join(","), targetCategory, heroClasses.join(","), heroTalents.join(","), heroEssences.join(","), deckFormat, fuzzy]);
 
   // Auto-select card when opening in swap mode and search returns exactly one result.
   // Uses a ref so Escape can clear selectedCard without triggering re-selection.
@@ -932,6 +940,27 @@ export default function QuickAddCardDialog({
   const zoneLabel = ZONE_LABELS[targetCategory] ?? targetCategory;
   const selectedPitchStyle = selectedCard?.pitch ? PITCH_STYLE[selectedCard.pitch] : null;
 
+  // Strict/Fuzzy name-matching toggle (placed beside whichever search input is
+  // active). Strict is the default; Fuzzy opts into approximate matches.
+  const fuzzyToggle = (
+    <button
+      type="button"
+      onClick={() => setFuzzy(f => !f)}
+      aria-pressed={fuzzy}
+      title={fuzzy
+        ? "Fuzzy matching on — also shows approximate name matches"
+        : "Strict matching — exact substring only. Click for fuzzy name matches."}
+      className={cn(
+        "shrink-0 text-[10px] px-2 py-0.5 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+        fuzzy
+          ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700"
+          : "bg-gray-800 border-gray-600 text-gray-400 hover:text-gray-200",
+      )}
+    >
+      {fuzzy ? "Fuzzy" : "Strict"}
+    </button>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -982,6 +1011,10 @@ export default function QuickAddCardDialog({
                   {query && (
                     <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">✕</button>
                   )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-500">Match</span>
+                  {fuzzyToggle}
                 </div>
                 {targetCategory === "maindeck" && (
                   <div className="flex items-center gap-1">
@@ -1225,6 +1258,10 @@ export default function QuickAddCardDialog({
                   {query && (
                     <button onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs">✕</button>
                   )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span className="text-[10px] text-gray-500">Match</span>
+                  {fuzzyToggle}
                 </div>
               </div>
             )}

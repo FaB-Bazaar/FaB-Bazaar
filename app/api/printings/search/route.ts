@@ -189,6 +189,9 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('sortOrder')) options.sortOrder = searchParams.get('sortOrder') as any;
     if (searchParams.get('show')) options.show = searchParams.get('show') as any;
     if (searchParams.get('searchMode')) options.searchMode = searchParams.get('searchMode') as any;
+    // Card-level grouping: makes `limit` count distinct cards, not printings, so
+    // a heavily-reprinted card can't crowd others out of the result page.
+    if (searchParams.get('groupByCard') === 'true') options.groupByCard = true;
     
     // In your API route, add this after the existing printingIds handling:
     if (searchParams.get('printingId')) {

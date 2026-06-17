@@ -144,6 +144,11 @@ export class PostgresPrintingsService implements IPrintingsService {
         // Carry the representative's set release order so the outer sort can
         // order by it (edition tiebreak + the "set" sort itself).
         setReleaseOrder: sql`${sets.releaseOrder}`.as('set_release_order'),
+        // How many printings this card has in the current filter scope. The
+        // window is evaluated over the full matching set BEFORE DISTINCT ON
+        // collapses it, so the surviving representative carries the true count.
+        // Lets the dialog skip the per-card printings fetch for singletons.
+        printingCount: sql<number>`count(*) OVER (PARTITION BY ${printings.cardUniqueId})::int`.as('printing_count'),
       };
 
       // Representative printing per card: the CANONICAL printing, mirroring
@@ -1039,7 +1044,9 @@ export class PostgresPrintingsService implements IPrintingsService {
       } else if (options?.searchMode === 'strict') {
         // Strict mode: whole-phrase substring match only, no word splitting, no fuzzy matching.
         // Prevents "mangle" from matching "Entangle", "widow claw" matches "Widow Claw Tarsus" as a phrase.
-        const phraseCondition = sql`${cards.name} ILIKE ${'%' + normalizedName + '%'}`;
+        // Accent-insensitive (immutable_unaccent both sides, backed by
+        // cards_name_unaccent_trgm_idx) so "tropal" matches "Trōpal-Dhani".
+        const phraseCondition = sql`immutable_unaccent(${cards.name}) ILIKE immutable_unaccent(${'%' + normalizedName + '%'})`;
         if (/^[a-zA-Z0-9]{2,5}\d{2,4}$/.test(normalizedName)) {
           conditions.push(or(phraseCondition, sql`LOWER(${printings.collectorNumber}) = ${normalizedName}`));
         } else {
@@ -1890,6 +1897,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       tcgplayer_url: row.tcgplayerUrl,
       created_at: row.cardCreatedAt || row.printingCreatedAt,
       printing_data: undefined, // Not stored in PostgreSQL
+      // Present only on the grouped path (window count); undefined when flat.
+      printing_count: row.printingCount ?? undefined,
     };
   }
 

@@ -80,6 +80,33 @@ describe('PostgresPrintingsService — grouped search (opt-in)', () => {
     }
   });
 
+  it('GROUPED representative carries printing_count = printings for that card', async () => {
+    // Lets the dialog skip the per-card "expand" request for singleton cards:
+    // each card-level row reports how many printings it stands for (same
+    // filter/language scope), so the client knows whether a second fetch is
+    // worthwhile.
+    const [grouped, flat] = await Promise.all([
+      service.searchPrintings(CC, { limit: 100, searchMode: 'strict', groupByCard: true }),
+      service.searchPrintings(CC, { limit: 300, searchMode: 'strict' }),
+    ]);
+    expect(grouped.success && flat.success).toBe(true);
+    if (!grouped.success || !flat.success) return;
+
+    // True per-card printing counts from the flat path.
+    const flatCounts = new Map<string, number>();
+    for (const p of flat.data.printings) {
+      flatCounts.set(p.card_unique_id, (flatCounts.get(p.card_unique_id) ?? 0) + 1);
+    }
+
+    expect(grouped.data.printings.length).toBeGreaterThan(0);
+    for (const repr of grouped.data.printings) {
+      expect(repr.printing_count).toBe(flatCounts.get(repr.card_unique_id));
+    }
+    // Sanity: Command and Conquer has cards with multiple printings, so we're
+    // actually exercising counts > 1 (not just trivially-1 singletons).
+    expect(Math.max(...grouped.data.printings.map((r) => r.printing_count ?? 0))).toBeGreaterThan(1);
+  });
+
   it('GROUPED total counts distinct cards, not printings', async () => {
     const grouped = await service.searchPrintings(
       { classes: ['ninja'], rarities: ['c'], languages: ['en'] },
