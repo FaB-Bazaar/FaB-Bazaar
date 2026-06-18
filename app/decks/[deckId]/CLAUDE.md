@@ -14,6 +14,7 @@ See `components/CLAUDE.md` for shared UI/WCAG standards.
 
 - **Playwright vs presenter fit view** — the cookie banner intercepts clicks (pre-seed localStorage `cookieConsent` + `cookieConsentOptions` via addInitScript); fit-view tiles overlap, so click a tile's top ~30% or use dispatchEvent('click'). `e2e/deck-presenter.spec.ts` selectors predate the fit-view default and need updating.
 - **Mobile fit view clips lanes** — the lane row is `overflow-hidden`; narrow viewports cut off outer columns (known, unfixed).
+- **QuickAddCardDialog name search is card-grouped** — it sends `groupByCard=true` so the result `limit` counts CARDS, not printings (else a heavily-reprinted card like "Gustwave", 100+ printings, crowds every other match off the page). Each row is one card carrying `printing_count` → `__printingsCount`; the full printing list is lazy-loaded on select via `fetchPrintingsForCard` (`/api/cards/[cardUniqueId]/printings`). Matching is `searchMode=strict` (substring, accent-insensitive) by default with a Strict/Fuzzy toggle (`fuzzy` state) to opt into `word_similarity`. Swap mode (`initialSearch`) stays flat/ungrouped — it needs every printing of one exact card.
 
 ## Custom Events
 
