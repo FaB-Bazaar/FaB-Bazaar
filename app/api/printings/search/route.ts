@@ -8,11 +8,39 @@ import { TalentUtils } from '@/lib/talent-constants';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { authenticateRequest, hasAuthParams } from '@/lib/auth/multi-auth';
 import { getRedisClient } from '@/lib/redis';
+import { rateLimit } from '@/lib/rate-limit';
 import { db } from '@/lib/postgres/db';
 import { printings } from '@/lib/postgres/schema';
 import { sql } from 'drizzle-orm';
 
 const shorthandParser = new FABShorthandParser();
+
+// Global (all-callers) throughput ceiling for search. A SINGLE shared counter —
+// not per-IP like the middleware circuit breaker — so a broad/distributed spike
+// can't saturate the Postgres pool (20 conns, shared with the rest of the app).
+// Tunable via env; read per-request so it's easy to retune.
+const SEARCH_RATE_WINDOW_MS = 60_000;
+function searchGlobalLimit(): number {
+  const v = parseInt(process.env.SEARCH_GLOBAL_RATE_LIMIT_PER_MIN || '5000', 10);
+  return Number.isFinite(v) && v > 0 ? v : 5000;
+}
+async function enforceSearchRateLimit(): Promise<NextResponse | null> {
+  const limit = searchGlobalLimit();
+  const result = await rateLimit({ key: 'printings-search:global', limit, window: SEARCH_RATE_WINDOW_MS });
+  if (result.success) return null;
+  return NextResponse.json(
+    { error: 'Search is busy right now — please retry shortly.' },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': '60',
+        'X-RateLimit-Limit': String(limit),
+        'X-RateLimit-Remaining': '0',
+        ...(result.resetTime ? { 'X-RateLimit-Reset': String(Math.ceil(result.resetTime / 1000)) } : {}),
+      },
+    }
+  );
+}
 
 function sortedKeys<T extends object>(obj: T): T {
   return Object.fromEntries(
@@ -30,6 +58,9 @@ function buildSearchCacheKey(filters: PrintingsSearchFilters, options: Printings
 
 export async function GET(request: NextRequest) {
   try {
+    const limited = await enforceSearchRateLimit();
+    if (limited) return limited;
+
     // Short-circuit auth check for public requests (avoid DB overhead)
     let authResult = null;
     if (hasAuthParams(request, {})) {
@@ -242,6 +273,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = await enforceSearchRateLimit();
+    if (limited) return limited;
+
     const body = await request.json();
 
     // Short-circuit auth check for public requests (avoid DB overhead)
