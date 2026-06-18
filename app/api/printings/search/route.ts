@@ -28,6 +28,8 @@ async function enforceSearchRateLimit(): Promise<NextResponse | null> {
   const limit = searchGlobalLimit();
   const result = await rateLimit({ key: 'printings-search:global', limit, window: SEARCH_RATE_WINDOW_MS });
   if (result.success) return null;
+  // Surfaced so real aggregate pressure is visible in logs (vs. silent shedding).
+  console.warn(`[search] global rate limit hit (${limit}/min) — shedding requests`);
   return NextResponse.json(
     { error: 'Search is busy right now — please retry shortly.' },
     {

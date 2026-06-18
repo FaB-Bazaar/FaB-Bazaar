@@ -51,6 +51,15 @@ describe('GET /api/printings/search — global rate limit', () => {
     expect(res.headers.get('Retry-After')).toBe('60');
   });
 
+  it('logs a warning when the global cap sheds load (visibility into real pressure)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const call = await freshGet();
+    for (let i = 0; i < 3; i++) await call(i);
+    await call(99); // 4th trips the cap
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('stays under the default 5000 cap for ordinary traffic', async () => {
     delete process.env.SEARCH_GLOBAL_RATE_LIMIT_PER_MIN; // default 5000
     const call = await freshGet();
