@@ -366,7 +366,7 @@ async function handleMessageComponent(body) {
         // Return updated message
         return NextResponse.json({
           type: InteractionResponseType.UPDATE_MESSAGE,
-          data: { content, components },
+          data: { content, components, flags: 68 }, // EPHEMERAL (64) + SUPPRESS_EMBEDS (4) — matches the initial wants view
         });
 
       } catch (error) {
@@ -506,7 +506,7 @@ async function handleMessageComponent(body) {
           data: {
             content: responseData?.content || "Loading binder...",
             components: responseData?.components || [],
-            flags: 64 // EPHEMERAL
+            flags: 68 // EPHEMERAL (64) + SUPPRESS_EMBEDS (4) — stop each card link unfurling into a preview
           }
         });
         
@@ -553,7 +553,7 @@ async function handleMessageComponent(body) {
         // Step 4: Return an UPDATE_MESSAGE response to edit the original message
         return NextResponse.json({
           type: InteractionResponseType.UPDATE_MESSAGE,
-          data: { content, components },
+          data: { content, components, flags: 68 }, // EPHEMERAL (64) + SUPPRESS_EMBEDS (4)
         });
       } catch (error) {
         // Return a visible error if the pagination fails

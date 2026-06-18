@@ -141,8 +141,8 @@ export async function handlePublicWantsPage(customId, body) {
       type: InteractionResponseType.UPDATE_MESSAGE,
       data: {
         content: publicContent,
-        components: publicComponents
-        // No flags = PUBLIC message
+        components: publicComponents,
+        flags: 4 // SUPPRESS_EMBEDS — stays public, just no per-card link previews
       },
     });
 
