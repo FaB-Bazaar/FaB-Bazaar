@@ -58,6 +58,9 @@ interface PresenterDeck {
 // WebGL holo card — client-only, lazy so three.js stays out of the main bundle.
 const HoloCard3D = dynamic(() => import("@/components/deck/HoloCard3D"), { ssr: false })
 
+// Freehand whiteboard overlay — only renders client-side (uses canvas + window).
+const DrawingOverlay = dynamic(() => import("@/components/deck/DrawingOverlay"), { ssr: false })
+
 const PITCH_LABEL: Record<number, { dot: string; text: string; bg: string }> = {
   1: { dot: "bg-red-500", text: "text-red-300", bg: "bg-red-500/10" },
   2: { dot: "bg-yellow-400", text: "text-yellow-300", bg: "bg-yellow-400/10" },
@@ -884,6 +887,9 @@ export default function PresenterPage() {
           </div>
         </div>
       )}
+
+      {/* Whiteboard overlay — drawable in the fit view and while a card is spotlighted */}
+      <DrawingOverlay available={viewMode === 'fit' || spotlightCard != null} />
     </div>
   )
 }
