@@ -96,3 +96,11 @@ jobs:
             echo "No pipeline changes, skipping python-pipeline rebuild"
           fi
           docker compose restart caddy
+
+          # Reclaim disk: each deploy pulls a fresh image, leaving the prior
+          # SHA-tagged images behind. Left unchecked these filled /dev/sda2 to
+          # 100% and broke a deploy (containerd snapshots hit 14GB). Pruning
+          # here is safe — images backing running containers are kept; only
+          # dangling/unreferenced layers and stale build cache are removed.
+          docker image prune -af
+          docker builder prune -af
