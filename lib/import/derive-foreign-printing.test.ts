@@ -97,6 +97,21 @@ describe('deriveForeignPrinting', () => {
     expect(d.is_fabled).toBe(true);
   });
 
+  it('maps a promo-marvel cold-foil hero to v / c (HER Marvel reprints)', () => {
+    const d = deriveForeignPrinting(
+      { print_language: 'en', rarity: 'promo-marvel', print_set: { set_code: 'HER' } },
+      { printed_code: 'HER154', finish_type: 'cold-foil', art_type: 'regular' },
+    );
+    expect(d.set).toBe('her');
+    expect(d.collector_number).toBe('HER154');
+    expect(d.rarity).toBe('v');
+    expect(d.foiling).toBe('c');
+    expect(d.is_cold_foil).toBe(true);
+    // Marvel is identified by rarity='v'; none of the boolean rarity flags apply.
+    expect(d.is_promo).toBe(false);
+    expect(d.is_majestic).toBe(false);
+  });
+
   it('throws on an unknown rarity rather than guessing', () => {
     expect(() =>
       deriveForeignPrinting(

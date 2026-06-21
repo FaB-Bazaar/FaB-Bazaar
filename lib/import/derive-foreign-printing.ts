@@ -64,6 +64,9 @@ const RARITY_TO_CODE: Record<string, string> = {
   legendary: 'l',
   fabled: 'f',
   marvel: 'v',
+  // CardVault tags premium Marvel hero reprints (e.g. HER cold/rainbow foils)
+  // as "promo-marvel"; they're still Marvel rarity ('v'), not plain promo.
+  'promo-marvel': 'v',
   promo: 'p',
   token: 't',
   basic: 'b',
