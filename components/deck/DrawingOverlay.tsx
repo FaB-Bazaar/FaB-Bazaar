@@ -85,7 +85,10 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
     resize()
     window.addEventListener("resize", resize)
     return () => window.removeEventListener("resize", resize)
-  }, [redraw])
+    // `available` is a dep so the canvas is re-sized when the overlay returns to
+    // the DOM (e.g. scroll view → fit view). Without it the effect keeps a stale
+    // reference to the old, detached canvas and the new one is never sized.
+  }, [redraw, available])
 
   // Repaint committed strokes whenever they change (undo / clear).
   useEffect(() => { redraw() }, [strokes, redraw])
@@ -109,6 +112,25 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
     if (s) setStrokes(prev => [...prev, s])
   }, [])
 
+  // Keyboard shortcuts: D toggles the pen, U undoes the last stroke, C clears.
+  // Active only while the tool is available; ignored while typing in a field or
+  // when a modifier is held (so browser/page chords aren't hijacked).
+  useEffect(() => {
+    if (!available) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return
+      switch (e.key.toLowerCase()) {
+        case "d": e.preventDefault(); setPenMode(m => !m); break
+        case "u": e.preventDefault(); setStrokes(undoStrokes); break
+        case "c": e.preventDefault(); setStrokes([]); break
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [available])
+
   if (!available) return null
 
   return (
@@ -124,13 +146,14 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
         style={{ pointerEvents: penMode ? "auto" : "none", cursor: penMode ? "crosshair" : "default", touchAction: "none" }}
       />
 
-      {/* Minimal toolbar — pen toggle, undo, clear */}
-      <div className="fixed bottom-4 left-4 z-[70] flex items-center gap-1.5 rounded-full bg-gray-900/90 border border-gray-600 backdrop-blur-md shadow-xl p-1.5">
+      {/* Minimal toolbar — pen toggle, undo, clear. Top-center, between the
+          "Back to editor" and "Scroll view" pills. */}
+      <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-1.5 rounded-full bg-gray-900/90 border border-gray-600 backdrop-blur-md shadow-xl p-1.5">
         <button
           type="button"
           onClick={() => setPenMode(m => !m)}
           aria-pressed={penMode}
-          title={penMode ? "Disable drawing" : "Draw over the deck (pen)"}
+          title={penMode ? "Disable drawing (D)" : "Draw over the deck (D)"}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
             penMode
               ? "bg-amber-400 text-gray-900 hover:bg-amber-300"
@@ -146,7 +169,7 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
               type="button"
               onClick={() => setStrokes(undoStrokes)}
               disabled={strokes.length === 0}
-              title="Undo last stroke"
+              title="Undo last stroke (U)"
               className="flex items-center justify-center w-9 h-9 rounded-full text-gray-200 hover:bg-gray-800 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <Undo2 className="h-4 w-4" />
@@ -155,7 +178,7 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
               type="button"
               onClick={() => setStrokes([])}
               disabled={strokes.length === 0}
-              title="Clear all"
+              title="Clear all (C)"
               className="flex items-center justify-center w-9 h-9 rounded-full text-gray-200 hover:bg-gray-800 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               <Trash2 className="h-4 w-4" />
