@@ -206,6 +206,13 @@ export interface PrintingDTO {
 /**
  * Search filters for printings
  */
+/** A TCGplayer group (sub-set pack) present in a set, with its printing count. */
+export interface SetGroupDTO {
+  groupId: number;
+  name: string;
+  count: number;
+}
+
 export interface PrintingsSearchFilters {
   // Text searches
   name?: string;
@@ -262,6 +269,9 @@ export interface PrintingsSearchFilters {
   collectorNumber?: string | string[];
   printingIds?: string[];
   sets?: string[];
+  // TCGplayer group ids (sub-set packs) — e.g. the seasonal GEM Pack a card
+  // belongs to. Filters printings.tcg_group_id. See tcg_groups (migration 0067).
+  tcgGroupIds?: number[];
   editions?: string[];
   foilings?: string[];
   rarities?: string[];
@@ -646,6 +656,13 @@ export interface IPrintingsService {
    * ```
    */
   getPrintingById(printingId: string): AsyncResult<PrintingDTO | null>;
+
+  /**
+   * List the TCGplayer groups (sub-set packs) present in a set, ordered by
+   * release. Empty for ordinary single-group sets — used to conditionally show
+   * a pack filter (e.g. GEM's seasonal packs) only where it applies.
+   */
+  getSetGroups(setCode: string): AsyncResult<SetGroupDTO[]>;
 
   /**
    * Get all printings for a specific card

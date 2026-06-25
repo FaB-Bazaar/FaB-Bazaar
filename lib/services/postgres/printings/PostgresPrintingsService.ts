@@ -11,6 +11,7 @@ import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTa
 import type {
   IPrintingsService,
   PrintingDTO,
+  SetGroupDTO,
   PrintingsSearchFilters,
   PrintingsSearchOptions,
   PrintingsSearchResult,
@@ -425,6 +426,33 @@ export class PostgresPrintingsService implements IPrintingsService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get printing by ID',
+      };
+    }
+  }
+
+  /**
+   * List the TCGplayer groups (packs) present in a set, ordered by release.
+   * Empty for ordinary single-group sets.
+   */
+  async getSetGroups(setCode: string): AsyncResult<SetGroupDTO[]> {
+    try {
+      const rows = await db
+        .select({
+          groupId: tcgGroups.groupId,
+          name: tcgGroups.name,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(printings)
+        .innerJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
+        .where(eq(printings.set, setCode.toLowerCase()))
+        .groupBy(tcgGroups.groupId, tcgGroups.name, tcgGroups.publishedOn)
+        .orderBy(asc(tcgGroups.publishedOn), asc(tcgGroups.groupId));
+
+      return { success: true, data: rows };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get set groups',
       };
     }
   }
@@ -1298,6 +1326,10 @@ export class PostgresPrintingsService implements IPrintingsService {
     // ===== PRINTING ATTRIBUTES =====
     if (filters.sets && filters.sets.length > 0) {
       conditions.push(inArray(printings.set, filters.sets.map((s) => s.toLowerCase())));
+    }
+
+    if (filters.tcgGroupIds && filters.tcgGroupIds.length > 0) {
+      conditions.push(inArray(printings.tcgGroupId, filters.tcgGroupIds));
     }
 
     if (filters.editions && filters.editions.length > 0) {

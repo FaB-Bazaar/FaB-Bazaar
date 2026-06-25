@@ -26,6 +26,12 @@ import { trackSearch } from '@/lib/gtag';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-2';
 
+// Sets selectable in the /opt set grid: the shared curated list plus GEM. GEM is
+// a promo set kept out of CARD_FILTER_SETS (and thus the deck builder's filters),
+// but it's offered here so its per-pack filter facet is reachable. Extend this
+// list if other multi-group sets ever need pack filtering on /opt.
+const OPT_FILTER_SETS: string[] = [...CARD_FILTER_SETS, 'gem'];
+
 // Clickable example queries shown in the empty state. Either a plain card name
 // or `key:value` shorthand (a bare phrase is treated as a name). All verified to
 // return results.
@@ -230,6 +236,11 @@ export default function OptSearchPage() {
   const [selectedFoilings, setSelectedFoilings] = useState<string[]>([]);
   const [selectedEditions, setSelectedEditions] = useState<string[]>([]);
   const [selectedSets, setSelectedSets] = useState<string[]>([]);
+  // TCGplayer packs (sub-set groups) available for the currently-selected sets,
+  // plus the user's pack selection. The pack facet only renders when a selected
+  // set actually has packs (e.g. GEM), so it stays invisible for normal sets.
+  const [availablePacks, setAvailablePacks] = useState<{ groupId: number; name: string }[]>([]);
+  const [selectedPacks, setSelectedPacks] = useState<number[]>([]);
   const [selectedFormat, setSelectedFormat] = useState<PrintingsSearchFilters['format'] | null>(null);
   const [costMin, setCostMin] = useState('');
   const [costMax, setCostMax] = useState('');
@@ -258,15 +269,50 @@ export default function OptSearchPage() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  // Load the packs available for the selected sets (only multi-group sets like
+  // GEM return any). Drives the conditional pack facet below.
+  useEffect(() => {
+    if (selectedSets.length === 0) { setAvailablePacks([]); return; }
+    let cancelled = false;
+    Promise.all(
+      selectedSets.map(s =>
+        fetch(`/api/sets/${s.toLowerCase()}/packs`)
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => (d?.success ? d.data as { groupId: number; name: string }[] : []))
+          .catch(() => [])
+      )
+    ).then(lists => {
+      if (cancelled) return;
+      // Dedupe by groupId across selected sets, preserve release order.
+      const seen = new Set<number>();
+      const merged: { groupId: number; name: string }[] = [];
+      for (const list of lists) for (const p of list) {
+        if (!seen.has(p.groupId)) { seen.add(p.groupId); merged.push({ groupId: p.groupId, name: p.name }); }
+      }
+      setAvailablePacks(merged);
+    });
+    return () => { cancelled = true; };
+  }, [selectedSets]);
+
+  // Drop any selected packs that are no longer offered (set deselected).
+  useEffect(() => {
+    setSelectedPacks(prev => {
+      const valid = new Set(availablePacks.map(p => p.groupId));
+      const next = prev.filter(g => valid.has(g));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [availablePacks]);
+
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     query: debouncedQuery,
     selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
+    selectedTcgGroups: selectedPacks,
     selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
   }), [debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch, selectedKeywords,
-       selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedFormat,
+       selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedPacks, selectedFormat,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
   const hasAnyFilter = Object.keys(filters).length > 0;
@@ -289,7 +335,7 @@ export default function OptSearchPage() {
   const clearAll = () => {
     setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
-    setSelectedEditions([]); setSelectedSets([]); setSelectedFormat(null);
+    setSelectedEditions([]); setSelectedSets([]); setSelectedPacks([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
     setDefenseMin(''); setDefenseMax(''); setPriceMin(''); setPriceMax('');
     setSelectedLanguages(DEFAULT_LANGUAGES);
@@ -346,6 +392,10 @@ export default function OptSearchPage() {
   }
   selectedSets.forEach(s => {
     activeChips.push({ key: `set:${s}`, label: SET_MAP[s.toLowerCase() as keyof typeof SET_MAP] ?? s, onRemove: () => toggleArr(selectedSets, setSelectedSets, s) });
+  });
+  selectedPacks.forEach(g => {
+    const pack = availablePacks.find(p => p.groupId === g);
+    activeChips.push({ key: `pack:${g}`, label: pack?.name ?? `Pack ${g}`, onRemove: () => setSelectedPacks(prev => prev.filter(x => x !== g)) });
   });
   if (costMin || costMax) activeChips.push({ key: 'cost', label: rangeLabel('Cost', costMin, costMax), onRemove: () => { setCostMin(''); setCostMax(''); } });
   if (powerMin || powerMax) activeChips.push({ key: 'power', label: rangeLabel('Power', powerMin, powerMax), onRemove: () => { setPowerMin(''); setPowerMax(''); } });
@@ -663,7 +713,7 @@ export default function OptSearchPage() {
             </Popover>
 
             {/* More: foiling + edition + sets */}
-            <Popover label="More" count={selectedFoilings.length + selectedEditions.length + selectedSets.length} align="right" panelClassName="w-80">
+            <Popover label="More" count={selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length} align="right" panelClassName="w-80">
               <div className="space-y-3">
                 <div>
                   <p className={SECTION}>Foiling</p>
@@ -689,11 +739,14 @@ export default function OptSearchPage() {
                 <div>
                   <p className={SECTION}>Set</p>
                   <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
-                    {CARD_FILTER_SETS.map(setCode => (
+                    {/* Curated main sets + GEM. GEM is a promo set normally excluded from
+                        the shared CARD_FILTER_SETS, but it's selectable here so its
+                        per-pack facet (below) is reachable on /opt. */}
+                    {OPT_FILTER_SETS.map(setCode => (
                       <button
                         key={setCode}
                         type="button"
-                        title={SET_MAP[setCode]}
+                        title={SET_MAP[setCode as keyof typeof SET_MAP]}
                         aria-pressed={selectedSets.includes(setCode)}
                         onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
                         className={cn(
@@ -707,7 +760,7 @@ export default function OptSearchPage() {
                         <img
                           src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
                           className="w-7 h-7 object-contain"
-                          alt={SET_MAP[setCode] || setCode}
+                          alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                         <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
@@ -715,6 +768,23 @@ export default function OptSearchPage() {
                     ))}
                   </div>
                 </div>
+                {/* Pack — only shown when a selected set is split into TCGplayer groups (e.g. GEM) */}
+                {availablePacks.length > 0 && (
+                  <div>
+                    <p className={SECTION}>Pack</p>
+                    <div className="flex flex-wrap gap-1">
+                      {availablePacks.map(p => (
+                        <Pill
+                          key={p.groupId}
+                          active={selectedPacks.includes(p.groupId)}
+                          onClick={() => setSelectedPacks(prev => prev.includes(p.groupId) ? prev.filter(x => x !== p.groupId) : [...prev, p.groupId])}
+                        >
+                          {p.name}
+                        </Pill>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </Popover>
 

@@ -46,3 +46,29 @@ describe('GET /api/printings/search — groupByCard forwarding', () => {
     expect(options?.groupByCard).toBeUndefined();
   });
 });
+
+describe('GET /api/printings/search — tcgGroup (pack) filter forwarding', () => {
+  it('parses a single tcgGroup id into filters.tcgGroupIds', async () => {
+    await call('sets=gem&tcgGroup=24720');
+    const filters = mockSearch.mock.calls[0][0];
+    expect(filters.tcgGroupIds).toEqual([24720]);
+  });
+
+  it('parses a comma-separated list of pack ids', async () => {
+    await call('sets=gem&tcgGroup=24176,24720');
+    const filters = mockSearch.mock.calls[0][0];
+    expect(filters.tcgGroupIds).toEqual([24176, 24720]);
+  });
+
+  it('leaves tcgGroupIds unset when the param is absent', async () => {
+    await call('sets=gem');
+    const filters = mockSearch.mock.calls[0][0];
+    expect(filters.tcgGroupIds).toBeUndefined();
+  });
+
+  it('ignores non-numeric junk rather than passing NaN', async () => {
+    await call('sets=gem&tcgGroup=abc');
+    const filters = mockSearch.mock.calls[0][0];
+    expect(filters.tcgGroupIds).toBeUndefined();
+  });
+});

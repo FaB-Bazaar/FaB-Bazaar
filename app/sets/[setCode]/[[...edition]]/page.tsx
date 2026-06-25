@@ -86,6 +86,10 @@ export default function SetPage() {
   const [selectedRarity, setSelectedRarity] = useState<string>('');
   const [selectedFoiling, setSelectedFoiling] = useState<string>('');
   const [imageError, setImageError] = useState(false);
+  // TCGplayer packs present in this set (e.g. GEM's seasonal packs). Empty for
+  // ordinary sets, which hides the pack filter. selectedPack is a group id.
+  const [packs, setPacks] = useState<{ groupId: number; name: string; count: number }[]>([]);
+  const [selectedPack, setSelectedPack] = useState<number | null>(null);
 
   // Initialize rarity/foiling defaults when setCode/setInfo changes
   useEffect(() => {
@@ -104,7 +108,19 @@ export default function SetPage() {
     } else {
       setSelectedFoiling('');
     }
+    setSelectedPack(null);
   }, [setCode, setInfo?.defaultRarity]);
+
+  // Load the TCGplayer packs present in this set (for the conditional pack filter)
+  useEffect(() => {
+    if (!setCode) { setPacks([]); return; }
+    let cancelled = false;
+    fetch(`/api/sets/${setCode}/packs`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.success) setPacks(d.data); })
+      .catch(() => { /* non-fatal: just no pack filter */ });
+    return () => { cancelled = true; };
+  }, [setCode]);
 
   // Fetch cards with cancellation support
   useEffect(() => {
@@ -136,6 +152,11 @@ export default function SetPage() {
           if (selectedRarity) {
             queryParams.rarities = selectedRarity;
           }
+        }
+
+        // Pack (TCGplayer group) filter — e.g. a single GEM seasonal pack
+        if (selectedPack != null) {
+          queryParams.tcgGroup = String(selectedPack);
         }
 
         // Get all cards in the set (no limit)
@@ -209,7 +230,7 @@ export default function SetPage() {
       isCancelled = true;
       abortController.abort();
     };
-  }, [setCode, editionCode, selectedRarity, selectedFoiling]);
+  }, [setCode, editionCode, selectedRarity, selectedFoiling, selectedPack]);
 
   return (
     <main className="min-h-screen bg-gray-200 dark:bg-page">
@@ -287,6 +308,30 @@ export default function SetPage() {
 
           {/* Filter - Foiling for GEM and FAB sets, Rarity for others */}
           <div className="mt-4 flex flex-col items-center gap-2">
+            {/* Pack filter — only for sets split across TCGplayer groups (e.g. GEM) */}
+            {packs.length > 0 && (
+              <div className="flex flex-wrap gap-2 justify-center">
+                <Button
+                  variant={selectedPack === null ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedPack(null)}
+                  aria-pressed={selectedPack === null}
+                >
+                  All Packs
+                </Button>
+                {packs.map((p) => (
+                  <Button
+                    key={p.groupId}
+                    variant={selectedPack === p.groupId ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedPack(p.groupId)}
+                    aria-pressed={selectedPack === p.groupId}
+                  >
+                    {p.name}
+                  </Button>
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 justify-center">
               {setCode === 'gem' ? (
                 // Foiling filter for GEM set (no Gold Foil)

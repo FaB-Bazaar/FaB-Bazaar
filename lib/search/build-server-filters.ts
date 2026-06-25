@@ -44,6 +44,9 @@ export interface SearchUiState {
   selectedFoilings: string[];
   selectedEditions: string[];
   selectedSets: string[];
+  // TCGplayer group ids (sub-set packs, e.g. GEM Pack N). Only meaningful when a
+  // multi-group set like GEM is selected.
+  selectedTcgGroups?: number[];
   selectedFormat?: PrintingsSearchFilters['format'] | null;
   selectedHeroAges?: Array<'adult' | 'young'>;
   costMin: string; costMax: string;
@@ -95,6 +98,7 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   if (s.selectedFoilings.length) f.foilings = s.selectedFoilings;
   if (s.selectedEditions.length) f.editions = s.selectedEditions;
   if (s.selectedSets.length) f.sets = s.selectedSets;
+  if (s.selectedTcgGroups?.length) f.tcgGroupIds = s.selectedTcgGroups;
   if (s.selectedFormat) f.format = s.selectedFormat;
   if (s.selectedHeroAges?.length) f.heroAges = s.selectedHeroAges;
   if (s.costMin)    f.costMin    = parseFloat(s.costMin);

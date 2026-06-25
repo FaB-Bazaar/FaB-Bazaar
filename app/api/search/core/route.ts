@@ -28,6 +28,11 @@ export async function GET(request: NextRequest) {
 
     // Printing attributes
     if (searchParams.get('sets')) filters.sets = searchParams.get('sets')!.split(',');
+    // TCGplayer group ids (sub-set packs, e.g. GEM Pack N). Comma-separated ints.
+    if (searchParams.get('tcgGroup')) {
+      const ids = searchParams.get('tcgGroup')!.split(',').map((s) => parseInt(s, 10)).filter((n) => !Number.isNaN(n));
+      if (ids.length > 0) filters.tcgGroupIds = ids;
+    }
     if (searchParams.get('editions')) filters.editions = searchParams.get('editions')!.split(',');
     if (searchParams.get('foilings')) filters.foilings = searchParams.get('foilings')!.split(',');
     if (searchParams.get('rarities')) filters.rarities = searchParams.get('rarities')!.split(',');
