@@ -20,6 +20,7 @@ import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { languageFlag } from '@/lib/utils/printing-language';
 import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/build-server-filters';
+import { paramsToUiState, uiStateToParams } from '@/lib/search/opt-url-state';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { trackSearch } from '@/lib/gtag';
@@ -269,10 +270,77 @@ export default function OptSearchPage() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // Load the packs available for the selected sets (only multi-group sets like
-  // GEM return any). Drives the conditional pack facet below.
+  // ── URL <-> filter-state sync (shareable / bookmarkable searches) ──
+  // Hydrate once on mount from the URL (client-only: avoids SSR hydration
+  // mismatch). `urlReady` gates the write-back so we never serialize default
+  // state over the incoming params before we've read them.
+  const [urlReady, setUrlReady] = useState(false);
   useEffect(() => {
-    if (selectedSets.length === 0) { setAvailablePacks([]); return; }
+    const s = paramsToUiState(new URLSearchParams(window.location.search));
+    if (s.query !== undefined) setQuery(s.query);
+    if (s.selectedType !== undefined) setSelectedType(s.selectedType);
+    if (s.selectedHeroAges !== undefined) setSelectedHeroAges(s.selectedHeroAges);
+    if (s.selectedClasses !== undefined) setSelectedClasses(s.selectedClasses);
+    if (s.selectedTalents !== undefined) setSelectedTalents(s.selectedTalents);
+    if (s.selectedTalentless !== undefined) setSelectedTalentless(s.selectedTalentless);
+    if (s.selectedPitch !== undefined) setSelectedPitch(s.selectedPitch);
+    if (s.selectedKeywords !== undefined) setSelectedKeywords(s.selectedKeywords);
+    if (s.selectedRarities !== undefined) setSelectedRarities(s.selectedRarities);
+    if (s.selectedFoilings !== undefined) setSelectedFoilings(s.selectedFoilings);
+    if (s.selectedEditions !== undefined) setSelectedEditions(s.selectedEditions);
+    if (s.selectedSets !== undefined) setSelectedSets(s.selectedSets);
+    if (s.selectedPacks !== undefined) setSelectedPacks(s.selectedPacks);
+    if (s.selectedFormat !== undefined) setSelectedFormat(s.selectedFormat as PrintingsSearchFilters['format']);
+    if (s.costMin !== undefined) setCostMin(s.costMin);
+    if (s.costMax !== undefined) setCostMax(s.costMax);
+    if (s.powerMin !== undefined) setPowerMin(s.powerMin);
+    if (s.powerMax !== undefined) setPowerMax(s.powerMax);
+    if (s.defenseMin !== undefined) setDefenseMin(s.defenseMin);
+    if (s.defenseMax !== undefined) setDefenseMax(s.defenseMax);
+    if (s.priceMin !== undefined) setPriceMin(s.priceMin);
+    if (s.priceMax !== undefined) setPriceMax(s.priceMax);
+    if (s.selectedLanguages !== undefined) setSelectedLanguages(s.selectedLanguages);
+    if (s.sortBy !== undefined) setSortBy(s.sortBy);
+    if (s.sortOrder !== undefined) setSortOrder(s.sortOrder);
+    if (s.viewMode !== undefined) setViewMode(s.viewMode);
+    if (s.groupByCard !== undefined) setGroupByCard(s.groupByCard);
+    setUrlReady(true);
+  }, []);
+
+  // Write current state back to the URL (no history spam, back button intact).
+  // Uses the debounced query so typing doesn't rewrite the URL every keystroke.
+  useEffect(() => {
+    if (!urlReady) return;
+    const qs = uiStateToParams({
+      query: debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
+      selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
+      selectedEditions, selectedSets, selectedPacks, selectedFormat: selectedFormat ?? null,
+      costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
+      selectedLanguages, sortBy, sortOrder, viewMode, groupByCard,
+    }).toString();
+    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', url);
+  }, [urlReady, debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
+      selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
+      selectedEditions, selectedSets, selectedPacks, selectedFormat,
+      costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
+      selectedLanguages, sortBy, sortOrder, viewMode, groupByCard]);
+
+  // Load the packs available for the selected sets (only multi-group sets like
+  // GEM return any). Drives the conditional pack facet below. Pruning of
+  // selectedPacks happens HERE — once the authoritative list is fetched — rather
+  // than on every availablePacks change, so a URL-restored pack isn't wiped
+  // during the transient pre-fetch window where availablePacks is still empty.
+  useEffect(() => {
+    // Wait until URL hydration has applied — otherwise this runs once with the
+    // pre-hydration selectedSets=[] and its functional setSelectedPacks would
+    // wipe a pack just restored from the URL (StrictMode double-mount race).
+    if (!urlReady) return;
+    if (selectedSets.length === 0) {
+      setAvailablePacks([]);
+      setSelectedPacks(prev => (prev.length ? [] : prev));
+      return;
+    }
     let cancelled = false;
     Promise.all(
       selectedSets.map(s =>
@@ -290,18 +358,15 @@ export default function OptSearchPage() {
         if (!seen.has(p.groupId)) { seen.add(p.groupId); merged.push({ groupId: p.groupId, name: p.name }); }
       }
       setAvailablePacks(merged);
+      // Drop any selected packs not offered by the current sets.
+      const valid = new Set(merged.map(p => p.groupId));
+      setSelectedPacks(prev => {
+        const next = prev.filter(g => valid.has(g));
+        return next.length === prev.length ? prev : next;
+      });
     });
     return () => { cancelled = true; };
-  }, [selectedSets]);
-
-  // Drop any selected packs that are no longer offered (set deselected).
-  useEffect(() => {
-    setSelectedPacks(prev => {
-      const valid = new Set(availablePacks.map(p => p.groupId));
-      const next = prev.filter(g => valid.has(g));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [availablePacks]);
+  }, [selectedSets, urlReady]);
 
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
