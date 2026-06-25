@@ -472,6 +472,10 @@ export const printings = pgTable('printings', {
   tcgplayerProductId: text('tcgplayer_product_id'),
   tcgplayerUrl: text('tcgplayer_url'),
   tcgplayerSubtypeName: text('tcgplayer_subtype_name'),
+  // TCGplayer group (product grouping) this printing was sold in. Source of
+  // truth for sub-set packs that `set` collapses — e.g. which seasonal "GEM
+  // Pack N" a GEM card belongs to. FK to tcg_groups (migration 0067).
+  tcgGroupId: integer('tcg_group_id').references(() => tcgGroups.groupId),
 
   // Pricing (per printing - varies wildly!)
   tcgMarket: real('tcg_market'),
@@ -1055,6 +1059,24 @@ export const sets = pgTable('sets', {
 }, (table) => ({
   releaseOrderIdx: index('idx_sets_release_order').on(table.releaseOrder),
 }));
+
+// ============================================================================
+// TCG GROUPS (TCGplayer product-group dimension — migration 0067)
+// ============================================================================
+// Source of truth for sub-set product groupings that `printings.set` collapses.
+// A TCGplayer group is coarser than our set codes (group→set is many-to-many),
+// so the only link is per-printing via `printings.tcgGroupId`. Motivating case:
+// each seasonal "GEM Pack N" is its own group but all map to the `gem` set code.
+// Names/dates are canonical from tcgcsv (https://tcgcsv.com/tcgplayer/62/groups).
+
+export const tcgGroups = pgTable('tcg_groups', {
+  groupId: integer('group_id').primaryKey(),        // TCGplayer group id
+  name: text('name').notNull(),                     // e.g. 'GEM Pack 5'
+  abbreviation: text('abbreviation'),               // e.g. 'GEM'
+  publishedOn: date('published_on'),                // seasonal release marker
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 
 // ============================================================================
 // SITE SETTINGS

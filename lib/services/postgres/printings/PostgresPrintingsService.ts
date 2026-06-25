@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions, sets } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions, sets, tcgGroups } from '@/lib/postgres/schema';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -65,6 +65,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .leftJoin(sets, eq(sets.code, printings.set))
+        .leftJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
         .leftJoin(
           cardTranslations,
           and(
@@ -164,6 +165,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .leftJoin(sets, eq(sets.code, printings.set))
+        .leftJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
         .leftJoin(
           cardTranslations,
           and(
@@ -357,6 +359,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .leftJoin(sets, eq(sets.code, printings.set))
+        .leftJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
         .leftJoin(
           cardTranslations,
           and(
@@ -399,6 +402,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         .select(this.buildSelectFields())
         .from(printings)
         .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+        .leftJoin(tcgGroups, eq(tcgGroups.groupId, printings.tcgGroupId))
         .leftJoin(
           cardTranslations,
           and(
@@ -872,6 +876,10 @@ export class PostgresPrintingsService implements IPrintingsService {
       imageUrl: printings.imageUrl,
       tcgplayerProductId: printings.tcgplayerProductId,
       tcgplayerUrl: printings.tcgplayerUrl,
+      // TCGplayer group (pack) this printing belongs to. Aliased explicitly so
+      // tcg_groups.name doesn't collide with cards.name in the grouped subquery.
+      tcgGroupId: printings.tcgGroupId,
+      tcgGroupName: sql<string | null>`${tcgGroups.name}`.as('tcg_group_name'),
       tcgLow: printings.tcgLow,
       tcgMid: printings.tcgMid,
       tcgHigh: printings.tcgHigh,
@@ -1895,6 +1903,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       image_url: row.imageUrl || '',
       tcgplayer_product_id: row.tcgplayerProductId,
       tcgplayer_url: row.tcgplayerUrl,
+      tcg_group_id: row.tcgGroupId ?? null,
+      tcg_group_name: row.tcgGroupName ?? null,
       created_at: row.cardCreatedAt || row.printingCreatedAt,
       printing_data: undefined, // Not stored in PostgreSQL
       // Present only on the grouped path (window count); undefined when flat.

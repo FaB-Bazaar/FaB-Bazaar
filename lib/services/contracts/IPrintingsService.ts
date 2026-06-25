@@ -189,6 +189,10 @@ export interface PrintingDTO {
   image_url: string;
   tcgplayer_product_id?: string;
   tcgplayer_url?: string;
+  // TCGplayer group (sub-set pack) this printing was sold in, e.g. which
+  // seasonal "GEM Pack N" a GEM card belongs to. Null when ungrouped. (0067)
+  tcg_group_id?: number | null;
+  tcg_group_name?: string | null;
   created_at: Date;
 
   // Original data
