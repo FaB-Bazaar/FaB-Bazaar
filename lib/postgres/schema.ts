@@ -712,6 +712,18 @@ export const gameResults = pgTable('game_results', {
   uniqueDeckGuid: uniqueIndex('idx_game_results_deck_guid').on(table.deckId, table.talisharGameGuid),
 }));
 
+// Raw Talishar payload archive (sidecar to game_results). Stores the full deck
+// blob verbatim — including the fields the typed game_results columns drop
+// (arenaCardResults, tokenResults, character, precomputed aggregates). Written
+// only for admin/superadmin-owned decks; opponent data is consent-gated.
+// Separate table so it can be dropped wholesale and never leaks into a default
+// game_results SELECT. See migration 0069.
+export const gameResultPayloads = pgTable('game_result_payloads', {
+  resultId: text('result_id').primaryKey().references(() => gameResults.id, { onDelete: 'cascade' }),
+  payload: jsonb('payload').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ============================================================================
 // OAUTH CLIENTS
 // ============================================================================

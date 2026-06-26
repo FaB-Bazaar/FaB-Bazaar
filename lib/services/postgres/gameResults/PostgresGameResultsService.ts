@@ -1,5 +1,5 @@
 import { db, pool } from '@/lib/postgres/db';
-import { gameResults } from '@/lib/postgres/schema';
+import { gameResults, gameResultPayloads, decks, users } from '@/lib/postgres/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { normalizeTalisharId } from '@/lib/talishar/cardId';
@@ -173,12 +173,66 @@ export class PostgresGameResultsService {
         return { success: true, data: null as unknown as GameResultDTO };
       }
 
+      // Archive the full raw deck blob for admin-owned decks (consent-gated
+      // opponent). Best-effort — never blocks the result from being saved.
+      await this.archiveRawPayload(
+        deckId,
+        row.id,
+        payload,
+        deckEntry,
+        opponentConsented ? opponentEntry : undefined
+      );
+
       return { success: true, data: toDTO(row) };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const cause = (error as any)?.cause;
       console.error('[GameResults] Insert failed:', message, cause ? `\ncause: ${cause}` : '');
       return { success: false, error: message };
+    }
+  }
+
+  // Archive the full Talishar deck blob into the game_result_payloads sidecar —
+  // but ONLY when the deck owner is an admin/superadmin (opt-in data capture).
+  // The typed game_results columns drop several fields Talishar sends
+  // (arenaCardResults, tokenResults, character, precomputed aggregates); this
+  // keeps the lot verbatim. Opponent data is consent-gated by the caller.
+  //
+  // Best-effort: any failure is swallowed so it can never block ingestion (the
+  // webhook must keep returning 200 to Talishar).
+  private async archiveRawPayload(
+    deckId: string,
+    resultId: string,
+    payload: TalisharGamePayload,
+    deckEntry: TalisharDeckPayload,
+    opponentEntry: TalisharDeckPayload | undefined
+  ): Promise<void> {
+    try {
+      const [owner] = await db
+        .select({ isAdmin: users.isAdmin, isSuperAdmin: users.isSuperAdmin })
+        .from(decks)
+        .innerJoin(users, eq(users.id, decks.userId))
+        .where(eq(decks.id, deckId))
+        .limit(1);
+
+      if (!owner || (!owner.isAdmin && !owner.isSuperAdmin)) return;
+
+      // Drop the raw deck1/deck2 (deck2 is the opponent's full, possibly
+      // non-consented blob) and re-attach a consent-gated view instead.
+      const { deck1: _deck1, deck2: _deck2, ...gameMeta } = payload as Record<string, unknown>;
+
+      await db
+        .insert(gameResultPayloads)
+        .values({
+          resultId,
+          payload: { ...gameMeta, self: deckEntry, opponent: opponentEntry ?? null },
+        })
+        .onConflictDoNothing();
+    } catch (error) {
+      console.error(
+        '[GameResults] Raw payload archive failed:',
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
 
