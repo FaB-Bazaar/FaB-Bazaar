@@ -63,6 +63,35 @@ function prettyCard(id: string): string {
     .trim();
 }
 
+const TEMPO_METRICS = [
+  { key: "Dealt", color: DEALT },
+  { key: "Taken", color: TAKEN },
+  { key: "Blocked", color: BLOCKED },
+  { key: "Threatened", color: THREAT },
+] as const;
+
+function MetricChip({ label, color, active, onClick }: { label: string; color: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+        active
+          ? "border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-100"
+          : "border-dashed border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500"
+      )}
+    >
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: active ? color : "transparent", border: `1.5px solid ${color}` }}
+      />
+      {active ? "✓ " : ""}
+      {label}
+    </button>
+  );
+}
+
 function ReplayColumn({ label, side, entries }: { label: string; side: "you" | "opp"; entries: ReplayAction[] }) {
   return (
     <div className="min-w-0">
@@ -157,6 +186,8 @@ function PlayerPanel({ p }: { p: PlayerAnalysis }) {
     Threatened: t.threatened,
   }));
   const topCards = [...p.cards].sort((a, b) => b.played - a.played).slice(0, 12);
+  const [metrics, setMetrics] = useState<Record<string, boolean>>({ Dealt: true, Taken: true, Blocked: true, Threatened: true });
+  const toggleMetric = (k: string) => setMetrics((m) => ({ ...m, [k]: !m[k] }));
 
   return (
     <div className="space-y-5">
@@ -173,20 +204,26 @@ function PlayerPanel({ p }: { p: PlayerAnalysis }) {
         <StatCard label="Avg dealt / turn" value={p.totals.avgDamageDealtPerTurn} />
       </div>
 
-      {/* Per-turn tempo */}
+      {/* Per-turn tempo with per-metric filters */}
       <div>
-        <SectionTitle>Per-turn damage — dealt · taken · blocked (threatened = dashed)</SectionTitle>
+        <SectionTitle>Per-turn damage</SectionTitle>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {TEMPO_METRICS.map((m) => (
+            <MetricChip key={m.key} label={m.key} color={m.color} active={metrics[m.key]} onClick={() => toggleMetric(m.key)} />
+          ))}
+        </div>
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart data={tempo} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={AXIS} strokeOpacity={0.2} vertical={false} />
             <XAxis dataKey="turn" tick={{ fill: AXIS, fontSize: 11 }} />
             <YAxis tick={{ fill: AXIS, fontSize: 11 }} />
             <Tooltip cursor={{ fill: AXIS, fillOpacity: 0.1 }} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="Dealt" fill={DEALT} radius={[2, 2, 0, 0]} />
-            <Bar dataKey="Taken" fill={TAKEN} radius={[2, 2, 0, 0]} />
-            <Bar dataKey="Blocked" fill={BLOCKED} radius={[2, 2, 0, 0]} />
-            <Line type="monotone" dataKey="Threatened" stroke={THREAT} strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
+            {metrics.Dealt && <Bar dataKey="Dealt" fill={DEALT} radius={[2, 2, 0, 0]} />}
+            {metrics.Taken && <Bar dataKey="Taken" fill={TAKEN} radius={[2, 2, 0, 0]} />}
+            {metrics.Blocked && <Bar dataKey="Blocked" fill={BLOCKED} radius={[2, 2, 0, 0]} />}
+            {metrics.Threatened && (
+              <Line type="monotone" dataKey="Threatened" stroke={THREAT} strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
