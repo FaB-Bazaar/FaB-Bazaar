@@ -9,6 +9,10 @@ describe('getHeroPrimer', () => {
       expect(p).toMatch(/Evo engine/i);
       // bakes in the temper correction
       expect(p).toMatch(/temper/i);
+      // tournament-derived gems: control plan, disruption, matchup awareness
+      expect(p).toMatch(/Pulsewave|Ripple Away/);
+      expect(p).toMatch(/Oscilio/);
+      expect(p).toMatch(/Shred/);
     }
   });
 
