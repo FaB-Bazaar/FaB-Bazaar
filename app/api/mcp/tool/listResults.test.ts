@@ -59,4 +59,20 @@ describe('list_results MCP tool', () => {
     expect(res.success).toBe(true);
     expect(res.results).toEqual([]);
   });
+
+  it('filters to a single matchup with opponentHero (loose name match)', async () => {
+    wire({
+      decks: [{ name: 'Dash', publicId: 'pub1' }],
+      results: [
+        { id: 'r1', result: 'loss', opponentHero: 'kassai_of_the_golden_sand', totalTurns: 16 },
+        { id: 'r2', result: 'win', opponentHero: 'zyggy_starlight', totalTurns: 4 },
+        { id: 'r3', result: 'win', opponentHero: 'kassai_of_the_golden_sand', totalTurns: 8 },
+      ],
+    });
+    const res = await listResultsTool.handler({ deckName: 'Dash', opponentHero: 'Kassai' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.results.map((r: any) => r.resultId)).toEqual(['r1', 'r3']); // only Kassai games
+    expect(res.message).toMatch(/vs Kassai/i);
+    expect(res.message).toMatch(/2 games \(1W–1L\)/);
+  });
 });

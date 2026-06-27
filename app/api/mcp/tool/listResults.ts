@@ -6,6 +6,19 @@ function prettyHero(slug?: string | null): string {
   return slug.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
+function normHero(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+// Loose matchup match: "Kassai" or "kassai_of_the_golden_sand" both match the
+// stored opponent slug.
+function heroMatches(slug: string | null | undefined, query: string): boolean {
+  if (!slug) return false;
+  const a = normHero(slug);
+  const b = normHero(query);
+  return !!b && (a.includes(b) || b.includes(a));
+}
+
 // Resolve a deck name to its publicId among the caller's OWN decks. The
 // /api/decks list is owner-scoped, so this also enforces "your decks only".
 export async function resolveOwnedDeck(
@@ -29,24 +42,27 @@ export async function resolveOwnedDeck(
 
 export const listResultsTool = {
   name: 'list_results',
-  description: `📊 LIST GAME RESULTS: your recent recorded games for one of your decks.
+  description: `📊 LIST GAME RESULTS: your recorded games for one of your decks.
 
-  Returns the last N games (default 10) you played with a deck, synced from Talishar.
-  Use it to pick a game, then call get_results with the gameNumber (or resultId) for the full data.
+  Returns recent games (default last 10), synced from Talishar. Pass opponentHero
+  to get EVERY game vs a matchup (scans a wider window) — then call get_results on
+  each resultId and analyze the matchup across games (trends, what wins vs loses).
 
   🔒 Your own decks only.
 
   📋 CALL FORMAT: { "deckName": "Dash Nitro Mechanoid" }
+  📋 CALL FORMAT — a matchup: { "deckName": "Dash Nitro Mechanoid", "opponentHero": "Kassai" }
   📋 CALL FORMAT — fewer: { "deckName": "Dash Nitro Mechanoid", "limit": 5 }
 
-  🖥️ DISPLAY: present as a numbered list — # | W/L | vs Opponent | Format | Turns | Date —
-  then tip: "Use get_results with a gameNumber to see the full game."`,
+  🖥️ DISPLAY: numbered list — # | W/L | vs Opponent | Format | Turns | Date.
+  To analyze a matchup, call get_results with each resultId, then compare the games.`,
 
   parameters: {
     type: 'object',
     properties: {
       deckName: { type: 'string', description: 'Name of the deck (case-insensitive exact match).' },
-      limit: { type: 'number', description: 'How many recent games to list (default 10, max 50).' },
+      opponentHero: { type: 'string', description: 'Optional matchup filter — e.g. "Kassai" or "kassai_of_the_golden_sand". Returns every game vs that hero.' },
+      limit: { type: 'number', description: 'How many recent games to list when not filtering (default 10, max 50).' },
     },
     required: ['deckName'],
   },
@@ -59,12 +75,16 @@ export const listResultsTool = {
 
       const deckName = params?.deckName;
       if (!deckName) return { success: false, error: 'deckName is required.' };
+      const opponentHero = typeof params?.opponentHero === 'string' && params.opponentHero.trim() ? params.opponentHero.trim() : null;
       const limit = Math.min(Math.max(parseInt(String(params.limit ?? 10), 10) || 10, 1), 50);
 
       const deck = await resolveOwnedDeck(API_BASE_URL, tokenToUse, deckName);
       if (!deck.ok) return { success: false, error: deck.error };
 
-      const res = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/results?limit=${limit}&offset=0`, {
+      // When filtering by matchup, scan a wider window so we catch every game vs
+      // that hero, not just within the last 10.
+      const fetchLimit = opponentHero ? 100 : limit;
+      const res = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/results?limit=${fetchLimit}&offset=0`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenToUse}` },
       });
@@ -72,18 +92,27 @@ export const listResultsTool = {
       const body = await res.json();
       if (!body.success) return { success: false, error: body.error || 'Could not load results.' };
 
-      const games: any[] = body.data || [];
+      let games: any[] = body.data || [];
+      if (opponentHero) games = games.filter((g) => heroMatches(g.opponentHero, opponentHero));
+
       if (games.length === 0) {
-        return { success: true, message: `📭 No recorded games for "${deck.name}".`, deckName: deck.name, results: [] };
+        const where = opponentHero ? ` vs ${prettyHero(normHero(opponentHero))}` : '';
+        return { success: true, message: `📭 No recorded games${where} for "${deck.name}".`, deckName: deck.name, results: [] };
       }
 
-      let message = `📊 **Last ${games.length} games — ${deck.name}** (of ${body.total ?? games.length})\n\n`;
+      // Per-matchup win tally for the header, when filtering.
+      const wins = games.filter((g) => g.result === 'win').length;
+      let message = opponentHero
+        ? `📊 **${deck.name} vs ${prettyHero(normHero(opponentHero))}** — ${games.length} games (${wins}W–${games.length - wins}L)\n\n`
+        : `📊 **Last ${games.length} games — ${deck.name}** (of ${body.total ?? games.length})\n\n`;
       games.forEach((g, i) => {
         const date = g.playedAt ? new Date(g.playedAt).toISOString().slice(0, 10) : '—';
         const wl = g.result === 'win' ? 'W' : 'L';
         message += `${i + 1}. ${wl} vs ${prettyHero(g.opponentHero)} | ${g.format ?? '—'} | ${g.totalTurns ?? '?'} turns | ${date}${g.conceded ? ' (conceded)' : ''}\n`;
       });
-      message += `\nUse get_results with deckName + gameNumber (or resultId) to see the full game data.`;
+      message += opponentHero
+        ? `\nCall get_results with each resultId above to pull these games, then compare them to analyze the matchup.`
+        : `\nUse get_results with deckName + gameNumber (or resultId) to see the full game data.`;
 
       return {
         success: true,
