@@ -17,7 +17,10 @@ export interface CardMeta {
 
 const PITCH_NAME: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
 
-export function renderCardGlossary(cards: CardMeta[]): string {
+// `notes` is the player's per-card notes keyed by `${name}|${pitch}` (same key
+// the glossary dedupes on) — when present, the matching note is merged onto that
+// card's line instead of being sent as a separate, redundant section.
+export function renderCardGlossary(cards: CardMeta[], notes?: Record<string, string>): string {
   const seen = new Set<string>();
   const lines: string[] = [];
 
@@ -37,10 +40,12 @@ export function renderCardGlossary(cards: CardMeta[]): string {
 
     let line = `- ${c.name}${pitchLabel}${bits.length ? ` — ${bits.join(' · ')}` : ''}`;
     if (c.text) line += ` — ${c.text.replace(/\s+/g, ' ').trim()}`;
+    const note = notes?.[key]?.trim();
+    if (note) line += ` 📝 your note: ${note}`;
     lines.push(line);
   }
 
   if (lines.length === 0) return '';
   lines.sort();
-  return `Card glossary (what each card does):\n${lines.join('\n')}`;
+  return `Card glossary (what each card does${notes && Object.keys(notes).length ? "; 📝 = your own note" : ''}):\n${lines.join('\n')}`;
 }

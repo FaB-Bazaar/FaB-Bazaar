@@ -37,4 +37,12 @@ describe('renderCardGlossary', () => {
   it('returns empty string when there is nothing to show', () => {
     expect(renderCardGlossary([])).toBe('');
   });
+
+  it('merges the player note onto the matching card line (joined, not separate)', () => {
+    const g = renderCardGlossary([sink, hot], { 'sink below|1': 'block vs aggro' });
+    expect(g).toMatch(/Sink Below \(red\).*📝 your note: block vs aggro/);
+    // a card without a note gets no marker
+    const hotLine = g.split('\n').find((l) => l.includes('Hot Streak'))!;
+    expect(hotLine).not.toContain('your note');
+  });
 });

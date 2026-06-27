@@ -15,34 +15,32 @@ function titleCase(slug?: string | null): string {
 
 // The player's OWN notes (game plan + per-card notes + the matchup note(s) for
 // the opponent hero(es) in this batch). Most personal context.
-async function buildDeckNotes(apiBase: string, token: string, publicId: string, opponentHeroes: string[]): Promise<string> {
+// Returns the deck-level notes TEXT (game plan + matchup notes for this batch's
+// opponents) AND the raw per-card notes map. Per-card notes are NOT emitted as a
+// section here — they're merged onto the matching glossary lines instead (no
+// redundant duplication).
+async function buildDeckContext(
+  apiBase: string,
+  token: string,
+  publicId: string,
+  opponentHeroes: string[]
+): Promise<{ notesText: string; cardNotes: Record<string, string> }> {
   try {
     const res = await mcpFetch(`${apiBase}/api/decks/${publicId}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) return '';
+    if (!res.ok) return { notesText: '', cardNotes: {} };
     const body = await res.json();
     const meta = body?.data?.metadata ?? {};
+    const cardNotes: Record<string, string> =
+      meta.cardNotes && typeof meta.cardNotes === 'object' ? meta.cardNotes : {};
     const sections: string[] = [];
 
     const gamePlan = typeof meta.gamePlan === 'string' ? meta.gamePlan.trim() : '';
     const desc = typeof body?.data?.description === 'string' ? body.data.description.trim() : '';
     const plan = gamePlan || desc;
     if (plan) sections.push(`Player's own deck notes (their stated game plan — weigh the analysis against THIS):\n${plan}`);
-
-    const cardNotes = meta.cardNotes;
-    if (cardNotes && typeof cardNotes === 'object') {
-      const lines = Object.entries(cardNotes as Record<string, unknown>)
-        .filter(([, v]) => typeof v === 'string' && (v as string).trim())
-        .map(([key, v]) => {
-          const [name, pitch] = key.split('|');
-          const pretty = name.replace(/\b\w/g, (c) => c.toUpperCase());
-          const pc = pitch === '1' ? ' (red)' : pitch === '2' ? ' (yellow)' : pitch === '3' ? ' (blue)' : '';
-          return `- ${pretty}${pc}: ${(v as string).trim()}`;
-        });
-      if (lines.length) sections.push(`Player's per-card notes (their own reminders for specific cards):\n${lines.join('\n')}`);
-    }
 
     // Matchup note(s) the player wrote for the opponent hero(es) in this batch.
     const matchupNotes = meta.matchupNotes;
@@ -56,9 +54,9 @@ async function buildDeckNotes(apiBase: string, token: string, publicId: string, 
       if (lines.length) sections.push(`Player's matchup notes (their own plan for THIS opponent):\n${lines.join('\n\n')}`);
     }
 
-    return sections.join('\n\n');
+    return { notesText: sections.join('\n\n'), cardNotes };
   } catch {
-    return '';
+    return { notesText: '', cardNotes: {} };
   }
 }
 
@@ -110,7 +108,7 @@ function collectCardIds(payload: RawGamePayload, into: Set<string>): void {
 
 // One glossary covering every card across all games in the batch (deduped). The
 // by-talishar-id endpoint is public, so no auth header is needed. Best-effort.
-async function buildGlossary(apiBase: string, blobs: RawGamePayload[]): Promise<string> {
+async function buildGlossary(apiBase: string, blobs: RawGamePayload[], cardNotes?: Record<string, string>): Promise<string> {
   try {
     const idSet = new Set<string>();
     for (const b of blobs) collectCardIds(b, idSet);
@@ -133,7 +131,7 @@ async function buildGlossary(apiBase: string, blobs: RawGamePayload[]): Promise<
       keywords: c.keywords,
       text: c.text,
     }));
-    return renderCardGlossary(cards);
+    return renderCardGlossary(cards, cardNotes);
   } catch {
     return '';
   }
@@ -224,9 +222,9 @@ export const getResultsTool = {
       const oppHeroes = [...new Set(blobs.map((b) => (b.opponent as any)?.playerHero).filter(Boolean) as string[])];
 
       // Shared context — built ONCE for the whole batch.
-      const deckNotes = await buildDeckNotes(API_BASE_URL, tokenToUse, deck.publicId, oppHeroes);
+      const { notesText: deckNotes, cardNotes } = await buildDeckContext(API_BASE_URL, tokenToUse, deck.publicId, oppHeroes);
       const heroPlans = buildHeroPlans(blobs);
-      const glossary = await buildGlossary(API_BASE_URL, blobs);
+      const glossary = await buildGlossary(API_BASE_URL, blobs, cardNotes);
 
       // Per-game readable turn-by-turn.
       const gameSections = fetched.map((f, i) => {

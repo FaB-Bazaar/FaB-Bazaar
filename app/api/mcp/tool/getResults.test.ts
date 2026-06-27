@@ -98,16 +98,19 @@ describe('get_results MCP tool', () => {
     expect(res.message).not.toContain('public blurb');
   });
 
-  it('includes the player per-card notes from metadata.cardNotes', async () => {
+  it('merges per-card notes onto the matching glossary line (no separate section)', async () => {
     wire({
       decks: [{ name: 'Dash', publicId: 'pub1' }],
       results: [{ id: 'r1' }],
       raw: RAW,
-      deckDetail: { metadata: { cardNotes: { 'command and conquer|1': 'save vs control' } } },
+      meta: { boom_grenade_red: { displayName: 'Boom Grenade', pitch: 1, typeText: 'Action - Attack', cost: 0, power: 3, keywords: ['Go again'], text: 'Deal damage.' } },
+      deckDetail: { metadata: { cardNotes: { 'boom grenade|1': 'save vs control' } } },
     });
-    const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
-    expect(res.message).toContain('per-card notes');
-    expect(res.message).toContain('Command And Conquer (red): save vs control');
+    const res = await getResultsTool.handler({ deckName: 'Dash', resultId: 'r1' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    // note is joined onto the Boom Grenade glossary line, not a separate block
+    expect(res.message).toMatch(/Boom Grenade \(red\).*your note: save vs control/);
+    expect(res.message).not.toContain('per-card notes');
   });
 
   it('falls back to the public description when there is no gamePlan note', async () => {
