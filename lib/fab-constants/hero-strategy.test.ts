@@ -25,6 +25,16 @@ describe('getHeroPrimer', () => {
     }
   });
 
+  it('resolves Zyggy (incl. the Ziggy spelling) with her key engines', () => {
+    for (const slug of ['zyggy_starlight', 'zyggy', 'ziggy']) {
+      const p = getHeroPrimer(slug);
+      expect(p, slug).toBeTruthy();
+      expect(p).toMatch(/Gone in a Flash/);
+      expect(p).toMatch(/arcane/i);
+      expect(p).toMatch(/ward/i);
+    }
+  });
+
   it('returns null for a hero without a curated primer', () => {
     expect(getHeroPrimer('dash_io')).toBeNull();
     expect(getHeroPrimer(null)).toBeNull();

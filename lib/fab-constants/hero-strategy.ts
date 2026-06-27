@@ -39,6 +39,16 @@ const HERO_PRIMERS: HeroPrimer[] = [
       'She scales with the gold economy (especially ~turn 12+), so be threatening lethal before she stabilizes — racing her before the engine comes online is the classic answer. Weak to: color-consistency hiccups, graveyard disruption, and simply being outraced early.',
     ].join('\n'),
   },
+  {
+    aliases: ['zyggy_starlight', 'zyggy', 'ziggy'],
+    primer: [
+      'Zyggy Starlight — Illusionist tempo/combo-control. New hero with a small card pool, so it leans on a few broken engines; the Reality Refractor build is the consistent baseline (a weapon swing most turns that banks ward for the opponent\'s next turn, like a Dynamo reset).',
+      'Win conditions: (1) WARD / spectra pre-block value — bank ward so the opponent\'s NEXT turn is worse; "illusionist math" means your life total isn\'t real until you must block, so taking damage to the face to deploy ward while staying UNMARKED can lock the opponent out of their plan. (2) GONE IN A FLASH — the payoff combo turn, chaining instants + Embodiment of Lightning (Elliptical Conflux) for go again into a ~4-card 20+ spike; the deck needs this spike or it just grinds. (3) ARCANE reach — Corrosive Space Dust + Cosmic Duality forces the opponent to run Arcane Barrier or die; many wins come from arcane damage on the OPPONENT\'s turn.',
+      'Engine pieces: Lightning Greaves (boots) power the big Gone-in-a-Flash turns — cash their value in EARLY rather than waiting for a perfect hand, especially vs disruption; Restless Coalescence + Astral Etchings make shield value (etchings on a coalescence keeps spectral shields alive through removal / Clash of Bravado); an early Cosmic Duality (flow) is sneaky-high value. Crackle from Afar kills allies/arsenal and pumps Command and Conquer.',
+      'Game plan by speed: vs aggro and Gravy — be the aggressor and END FAST (you get outvalued over a long game), forcing the block-or-die-to-arcane fork. vs Guardian / Victor / control — ward + Haze Bending are hard to clear, abuse Gone in a Flash, and arcane closes; vs combo Victor, sticking an Astral Etchings EARLY matters far more than late-game tech.',
+      'Playing AGAINST Zyggy: run Arcane Barrier or you lose to arcane reach; block early arcane attacks with equipment to deny the fork; pressure her before Gone in a Flash + arcane come online and disrupt the boots/arsenal turn (good pilots telegraph it); do NOT dip into arcane-lethal range while her deck is full of dust. Her ward pre-blocks your attacks, so efficient, decisive pressure beats slow grinding — deny the Gone-in-a-Flash spike and the deck stumbles.',
+    ].join('\n'),
+  },
 ];
 
 /** Resolve a Talishar hero slug to its curated primer, or null if none exists. */
