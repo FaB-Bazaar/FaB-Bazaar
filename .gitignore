@@ -103,8 +103,11 @@ pipeline/scripts/market_analysis_export.json
 pipeline/scripts/price_history/
 pipeline/scripts/logs/post-tournament-decklists.zip
 
-# Local scratch notes (draft article content, throwaway scratchpads)
-notes/
+# Local scratch notes (draft article content, throwaway scratchpads).
+# Root-anchored so it ONLY ignores a top-level notes/ dir — an unanchored
+# "notes/" also matched nested app routes like app/api/decks/[deckId]/notes/,
+# silently dropping that route from git (and therefore from prod builds).
+/notes/
 
 # Database dumps / backups (pg_dump artifacts — never commit)
 *.dump
