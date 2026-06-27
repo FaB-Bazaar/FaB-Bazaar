@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Loader2, Save, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { readApiResult } from "@/lib/client/safe-json";
+import { collectUniqueCards } from "@/lib/deck/unique-cards";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 
 const MAX = 10000;
@@ -14,12 +15,6 @@ const PITCH_BADGE: Record<number, string> = {
   2: "bg-yellow-400 text-gray-900",
   3: "bg-blue-500 text-white",
 };
-
-// One note per UNIQUE card (name+pitch), not per copy. Key matches what
-// get_results uses so notes thread into the coaching.
-function cardKey(name: string, pitch: number): string {
-  return `${name.trim().toLowerCase()}|${pitch}`;
-}
 
 /**
  * Owner/co-owner-only deck notes: a free-text game plan + one short note per
@@ -47,19 +42,9 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
       .finally(() => setLoaded(true));
   }, [deckId]);
 
-  // Unique cards across the whole deck, deduped by name+pitch.
-  const uniqueCards = useMemo(() => {
-    const map = new Map<string, { key: string; name: string; pitch: number }>();
-    const all = [...(deck?.maindeck ?? []), ...(deck?.equipment ?? []), ...(deck?.hero ?? [])];
-    for (const c of all) {
-      const name = c.printingDetails?.display_name;
-      if (!name) continue;
-      const pitch = c.printingDetails?.pitch ?? 0;
-      const key = cardKey(name, pitch);
-      if (!map.has(key)) map.set(key, { key, name, pitch });
-    }
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name) || a.pitch - b.pitch);
-  }, [deck]);
+  // Every unique card across the deck — maindeck, equipment, hero, and the
+  // inventory (sideboard pool) — deduped by name+pitch.
+  const uniqueCards = useMemo(() => collectUniqueCards(deck), [deck]);
 
   const save = async () => {
     setSaving(true);

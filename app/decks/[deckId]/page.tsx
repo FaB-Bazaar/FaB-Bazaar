@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -198,6 +198,7 @@ function buildDeckExportText(deck: DeckDTO): string {
 export default function DeckEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const deckId = params.deckId as string;
@@ -322,6 +323,13 @@ export default function DeckEditorPage() {
   const isOwner = !!(user && state.deck && state.deck.userId === user.id);
   const isCoOwner = !!(user && state.deck && !isOwner && (state.deck.coOwners ?? []).includes(user.id));
   const canEdit = isOwner || isCoOwner;
+
+  // Deep-link support: /decks/[id]?tab=notes (and ?tab=results) opens that tab
+  // directly once we know the viewer can edit. /decks/[id]/notes redirects here.
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if ((tab === "notes" || tab === "results") && canEdit) setActiveTab(tab);
+  }, [searchParams, canEdit]);
 
   const stagedCards = state.bulkResults.filter(c => c.isStaged);
 
