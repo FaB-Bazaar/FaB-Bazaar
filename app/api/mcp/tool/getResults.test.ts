@@ -25,12 +25,13 @@ const RAW = {
 };
 
 // Order matters: the raw URL also contains "/results", so match "/raw" first.
-function wire({ decks, results, raw, meta }: { decks: any[]; results: any[]; raw: unknown; meta?: Record<string, any> }) {
+function wire({ decks, results, raw, meta, deckDetail }: { decks: any[]; results: any[]; raw: unknown; meta?: Record<string, any>; deckDetail?: Record<string, any> }) {
   mockFetch.mockImplementation((url: string) => {
     if (url.includes('/api/decks?')) return Promise.resolve(ok({ success: true, decks }));
     if (url.includes('/cards/by-talishar-id')) return Promise.resolve(ok({ success: true, data: meta ?? {} }));
     if (url.includes('/raw')) return Promise.resolve(ok({ success: true, data: raw }));
     if (url.includes('/results')) return Promise.resolve(ok({ success: true, data: results, total: results.length }));
+    if (/\/api\/decks\/[^/?]+$/.test(url)) return Promise.resolve(ok({ success: true, data: deckDetail ?? {} }));
     return Promise.resolve(ok({ success: false, error: 'unexpected url ' + url }));
   });
 }
@@ -81,6 +82,19 @@ describe('get_results MCP tool', () => {
     expect(res.success).toBe(true);
     expect(res.message).toContain('Hero game plans');
     expect(res.message).toMatch(/temper/i); // the corrected blocking nuance
+  });
+
+  it("includes the player's own deck notes when the deck has a description", async () => {
+    wire({
+      decks: [{ name: 'Dash', publicId: 'pub1' }],
+      results: [{ id: 'r1' }],
+      raw: RAW,
+      deckDetail: { description: 'Game plan: stabilize early, combo on turn 8.' },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.message).toContain("Player's own deck notes");
+    expect(res.message).toContain('combo on turn 8');
   });
 
   it('honours an explicit resultId without needing the list', async () => {

@@ -6,6 +6,25 @@ import { renderCardGlossary, type CardMeta } from '@/lib/talishar/renderCardGlos
 import { getHeroPrimer } from '@/lib/fab-constants/hero-strategy';
 import type { RawGamePayload } from '@/lib/talishar/analyzeGame';
 
+// The player's OWN deck notes (the deck.description field) — their stated game
+// plan / how they intend to pilot it. This is the most personal context we have,
+// so the coaching should weigh the analysis against it. Best-effort.
+async function buildDeckNotes(apiBase: string, token: string, publicId: string): Promise<string> {
+  try {
+    const res = await mcpFetch(`${apiBase}/api/decks/${publicId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return '';
+    const body = await res.json();
+    const desc = typeof body?.data?.description === 'string' ? body.data.description.trim() : '';
+    if (!desc) return '';
+    return `Player's own deck notes (their stated game plan — weigh the analysis against THIS; it's how they intend to pilot the deck):\n${desc}`;
+  } catch {
+    return '';
+  }
+}
+
 // Curated hero game-plan primers for whichever heroes we have them for.
 function buildHeroPlans(payload: RawGamePayload): string {
   const lines: string[] = [];
@@ -176,9 +195,12 @@ export const getResultsTool = {
       const glossary = await buildGlossary(API_BASE_URL, rawBody.data as RawGamePayload);
       // Curated hero game-plan context (game plan first, before the turn-by-turn).
       const heroPlans = buildHeroPlans(rawBody.data as RawGamePayload);
+      // The player's own deck notes (their stated intent) — most personal context.
+      const deckNotes = await buildDeckNotes(API_BASE_URL, tokenToUse, deck.publicId);
 
       const parts = [
         `📊 **${deck.name}** — game ${resultId}`,
+        deckNotes,
         heroPlans,
         readable,
         glossary,
