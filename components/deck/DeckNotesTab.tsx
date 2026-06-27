@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Loader2, Save, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { readApiResult } from "@/lib/client/safe-json";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 
 const MAX = 10000;
@@ -35,7 +36,7 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
 
   useEffect(() => {
     fetch(`/api/decks/${deckId}/notes`)
-      .then((r) => r.json())
+      .then(readApiResult<{ notes?: string; cardNotes?: Record<string, string> }>)
       .then((d) => {
         if (d.success) {
           setNotes(d.data?.notes ?? "");
@@ -70,7 +71,7 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes, cardNotes }),
       });
-      const d = await res.json();
+      const d = await readApiResult<{ cardNotes?: Record<string, string> }>(res);
       if (!d.success) throw new Error(d.error ?? "Save failed");
       if (d.data?.cardNotes) setCardNotes(d.data.cardNotes); // reflect server sanitization
       setSaved(true);
