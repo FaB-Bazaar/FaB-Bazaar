@@ -51,4 +51,9 @@ describe('renderGameText', () => {
       expect(text).toMatch(new RegExp(`^T${t} YOU:`, 'm'));
     }
   });
+
+  it('annotates each turn with momentum (life + damage) for trend/pivot analysis', () => {
+    // T11 was a damage spike: took 12, dropped to 12 life
+    expect(text).toMatch(/T11 {2}\[your life 12 \/ opp 10 · you dealt 8, took 12/);
+  });
 });

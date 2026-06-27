@@ -75,9 +75,16 @@ export function renderGameText(payload: RawGamePayload): string {
     );
   }
   lines.push('');
-  lines.push('Turn-by-turn — exact order per player. Draws and triggered sub-effects are NOT logged by Talishar.');
+  lines.push('Turn-by-turn — exact order per player. Each turn shows momentum (life + damage). Draws and triggered sub-effects are NOT logged by Talishar.');
 
+  const tempo = new Map(a.you.perTurn.map((r) => [r.turn, r]));
   for (const t of a.replay) {
+    const m = tempo.get(t.turn);
+    if (m) {
+      lines.push(
+        `T${t.turn}  [your life ${m.lifeAtEnd ?? '?'} / opp ${m.oppLifeAtEnd ?? '?'} · you dealt ${m.dealt}, took ${m.taken}, blocked ${m.blocked}, threatened ${m.threatened}]`
+      );
+    }
     const you = t.you.map((e) => `${label(e.action)} ${nm(e.cardId)}`).join(', ') || '—';
     lines.push(`T${t.turn} YOU: ${you}`);
     if (a.opponent) {

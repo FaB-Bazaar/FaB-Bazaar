@@ -5,6 +5,18 @@ import { renderGameText } from '@/lib/talishar/renderGameText';
 import { renderCardGlossary, type CardMeta } from '@/lib/talishar/renderCardGlossary';
 import type { RawGamePayload } from '@/lib/talishar/analyzeGame';
 
+// Strategic framework appended to every game so the model coaches like a FaB
+// player instead of pattern-matching surface stats. These are general concepts —
+// not game-specific claims.
+const COACHING_LENS = `Coaching lens — apply these when analyzing (general FaB concepts, not claims about this game):
+- Hero game plan: first state what THIS deck is trying to do (win condition + engine + the synergies in the glossary), then judge each turn against that plan.
+- Value vs. tempo: value/turn is potential; dealt/turn is realized. A big gap means value went to blocks/pitch instead of the opponent — that can be correct defense, not automatically a misplay.
+- Pivot turns: find where momentum flips (use the per-turn life + damage numbers). A player usually CHOOSES to take damage on the turn(s) BEFORE a pivot to set up a bigger swing — a big damage-taken turn followed by a big value turn is often a deliberate plan, not an error.
+- Draw variance vs. misplay: never fault a card that wasn't drawn or wasn't playable yet. The log shows what was played, not the hand — separate "rough draw" from "wrong decision," and say which you can't tell.
+- Pitch & sequencing: cards pitched set up future turns; look at what was pitched to enable what.
+- Trends, not just totals: read life totals and threatened/dealt across turns to find where the game was actually decided.
+- Be honest about limits: no hands/draws are logged. Flag reads that depend on info you don't have, and ask the player.`;
+
 // Every distinct Talishar card id referenced anywhere in the game (both
 // players' decks, arena/tokens, loadout, and the turn log).
 function collectCardIds(payload: RawGamePayload): string[] {
@@ -152,7 +164,7 @@ export const getResultsTool = {
 
       return {
         success: true,
-        message: `📊 **${deck.name}** — game ${resultId}\n\n${readable}${glossary ? `\n\n${glossary}` : ''}`,
+        message: `📊 **${deck.name}** — game ${resultId}\n\n${readable}${glossary ? `\n\n${glossary}` : ''}\n\n${COACHING_LENS}`,
         deckName: deck.name,
         resultId,
         data: rawBody.data,

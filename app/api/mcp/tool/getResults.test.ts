@@ -62,6 +62,9 @@ describe('get_results MCP tool', () => {
     // server-side card glossary is appended (what each card does)
     expect(res.message).toContain('Card glossary');
     expect(res.message).toContain('Action - Attack');
+    // coaching lens primes the model with FaB analysis concepts
+    expect(res.message).toContain('Coaching lens');
+    expect(res.message).toMatch(/Pivot turns/);
     // fetched the raw shape for the most-recent result id
     const rawCall = mockFetch.mock.calls.find((c) => String(c[0]).includes('/raw'));
     expect(String(rawCall?.[0])).toContain('/results/r1/raw');
