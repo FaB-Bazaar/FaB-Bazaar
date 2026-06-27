@@ -121,6 +121,27 @@ describe('get_results MCP tool', () => {
     expect(res.message).toContain('fallback plan text');
   });
 
+  it('batches multiple games (resultIds) with shared context sent once', async () => {
+    wire({
+      decks: [{ name: 'Dash', publicId: 'pub1' }],
+      results: [],
+      raw: RAW,
+      meta: { boom_grenade_red: { displayName: 'Boom Grenade', pitch: 1, typeText: 'Action - Attack', cost: 0, power: 3, keywords: ['Go again'], text: 'Deal damage.' } },
+      deckDetail: { metadata: { gamePlan: 'race the gold engine' } },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Dash', resultIds: ['r1', 'r2'] }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.message).toContain('=== Game 1 (result r1)');
+    expect(res.message).toContain('=== Game 2 (result r2)');
+    // shared context appears exactly once across the batch
+    expect(res.message.match(/Card glossary/g)?.length).toBe(1);
+    expect(res.message.match(/Coaching lens/g)?.length).toBe(1);
+    expect(res.message.match(/race the gold engine/g)?.length).toBe(1);
+    // batch stays concise — no raw blob dump
+    expect(res.data).toBeNull();
+    expect(res.resultIds).toEqual(['r1', 'r2']);
+  });
+
   it('honours an explicit resultId without needing the list', async () => {
     wire({ decks: [{ name: 'Dash', publicId: 'pub1' }], results: [], raw: RAW });
     const res = await getResultsTool.handler({ deckName: 'Dash', resultId: 'rX' }, undefined, 'tok');
