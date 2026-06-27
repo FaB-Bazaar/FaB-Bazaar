@@ -11,7 +11,18 @@ import { mcpFetch } from '@/lib/mcp-fetch';
 const mockFetch = vi.mocked(mcpFetch);
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => '' }) as never;
 
-const RAW = { self: { playerHero: 'dash_io' }, opponent: null, format: '1' };
+const RAW = {
+  self: {
+    playerHero: 'dash_io',
+    result: 0,
+    turns: 1,
+    cardResults: [{ cardId: 'boom_grenade_red', cardName: 'Boom Grenade', played: 1 }],
+    turnLog: [[0, 'boom_grenade_red', 'M']],
+    turnResults: { turn_0: { damageDealt: 3 } },
+  },
+  opponent: null,
+  format: '1',
+};
 
 // Order matters: the raw URL also contains "/results", so match "/raw" first.
 function wire({ decks, results, raw }: { decks: any[]; results: any[]; raw: unknown }) {
@@ -36,6 +47,10 @@ describe('get_results MCP tool', () => {
     const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
     expect(res.success).toBe(true);
     expect(res.data.self.playerHero).toBe('dash_io');
+    // message is the readable rendering — card names + a turn line, not raw slugs
+    expect(res.message).toContain('Boom Grenade');
+    expect(res.message).toMatch(/T0 YOU:/);
+    expect(res.message).not.toContain('boom_grenade_red');
     // fetched the raw shape for the most-recent result id
     const rawCall = mockFetch.mock.calls.find((c) => String(c[0]).includes('/raw'));
     expect(String(rawCall?.[0])).toContain('/results/r1/raw');

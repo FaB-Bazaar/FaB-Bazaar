@@ -1,13 +1,16 @@
 // app/api/mcp/tool/getResults.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { resolveOwnedDeck } from './listResults';
+import { renderGameText } from '@/lib/talishar/renderGameText';
+import type { RawGamePayload } from '@/lib/talishar/analyzeGame';
 
 export const getResultsTool = {
   name: 'get_results',
   description: `📊 GET FULL GAME DATA: the complete raw game blob for one recorded game.
 
-  Returns everything Talishar recorded — both players' card plays, the turn-by-turn
-  log, per-card stats, and aggregates — uncurated, exactly as stored.
+  Returns a READABLE turn-by-turn rendering (card names + what each player did,
+  in exact order) plus the complete uncurated raw blob in the data field for
+  anything deeper. Read the message text to coach on specific turns.
 
   Defaults to your MOST RECENT game with the deck (covers "show me my last game of deck X").
   To pick a specific game, call list_results first and pass its gameNumber or resultId.
@@ -82,9 +85,19 @@ export const getResultsTool = {
         };
       }
 
+      // Render the blob as readable, name-resolved turn-by-turn text so the
+      // model reads prose (not raw [turn, slug, action] tuples). The full raw
+      // blob is still returned in `data` for anything deeper.
+      let readable: string;
+      try {
+        readable = renderGameText(rawBody.data as RawGamePayload);
+      } catch {
+        readable = `Full game data for "${deck.name}" (result ${resultId}).`;
+      }
+
       return {
         success: true,
-        message: `📊 Full game data for "${deck.name}" (result ${resultId}). This is the complete uncurated Talishar blob.`,
+        message: `📊 **${deck.name}** — game ${resultId}\n\n${readable}`,
         deckName: deck.name,
         resultId,
         data: rawBody.data,
