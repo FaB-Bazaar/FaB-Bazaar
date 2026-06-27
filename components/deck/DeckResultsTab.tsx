@@ -8,6 +8,7 @@ import type {
   GameResultDetailDTO,
 } from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
 import type { DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
+import GameDeepDive from "./GameDeepDive";
 
 interface CardResult {
   cardId: string;
@@ -99,6 +100,7 @@ function getCardNameFromId(cardId: string): string {
 
 interface GameRowProps {
   game: GameResultSummaryDTO;
+  deckId: string;
   // Populated once the user expands this row and the detail endpoint has
   // returned. The summary shape has no turn-log fields — those live here.
   detail?: GameResultDetailDTO;
@@ -117,7 +119,7 @@ interface TableCellTooltip {
   y: number;
 }
 
-function GameRow({ game, detail, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, playerHeroName }: GameRowProps) {
+function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, onToggle, onHover, onDelete, playerHeroName }: GameRowProps) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const allCardResults = (game.cardResults as CardResult[] | null) ?? [];
@@ -272,6 +274,14 @@ function GameRow({ game, detail, cardLookup, cardIdLookup, isExpanded, onToggle,
 
       {isExpanded && (
         <div className="border-t border-gray-100 dark:border-gray-800 px-3 pb-4 pt-3 space-y-4">
+
+          {/* Raw-blob deep dive — renders nothing for games without an archive */}
+          <GameDeepDive
+            deckId={deckId}
+            resultId={game.id}
+            playerHeroName={playerHeroName}
+            opponentHeroName={game.opponentHero ?? undefined}
+          />
 
           {/* Turn summary table */}
           {turnResults.length > 0 && (() => {
@@ -915,6 +925,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
               <GameRow
                 key={r.id}
                 game={r}
+                deckId={deckId}
                 detail={detailById.get(r.id)}
                 cardLookup={cardLookup}
                 cardIdLookup={cardIdLookup}

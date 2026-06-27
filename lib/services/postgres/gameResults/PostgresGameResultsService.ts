@@ -236,6 +236,31 @@ export class PostgresGameResultsService {
     }
   }
 
+  // Read the archived raw Talishar blob for a single result, scoped to its
+  // deck. Returns null when no archive exists (non-admin-owned games never get
+  // one) or the result doesn't belong to the deck. Authorization is the
+  // caller's responsibility (route checks deck ownership).
+  async getRawGamePayload(
+    resultId: string,
+    deckId: string
+  ): Promise<AsyncResult<Record<string, unknown> | null>> {
+    try {
+      const { rows } = await pool.query<{ payload: Record<string, unknown> }>(
+        `SELECT grp.payload
+           FROM game_result_payloads grp
+           JOIN game_results gr ON gr.id = grp.result_id
+          WHERE grp.result_id = $1 AND gr.deck_id = $2
+          LIMIT 1`,
+        [resultId, deckId]
+      );
+      return { success: true, data: rows[0]?.payload ?? null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] getRawGamePayload failed:', message);
+      return { success: false, error: message };
+    }
+  }
+
   async getGameResultsForDeck(
     deckId: string,
     options: { limit?: number; offset?: number } = {}

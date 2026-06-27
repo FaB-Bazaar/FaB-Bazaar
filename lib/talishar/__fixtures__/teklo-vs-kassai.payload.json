@@ -1,0 +1,3232 @@
+{
+    "self": {
+        "turns": 16,
+        "deckId": "-",
+        "gameId": "1461916",
+        "result": 0,
+        "winner": 2,
+        "turnLog": [
+            [
+                0,
+                "adaptive_alpha_mold",
+                "B"
+            ],
+            [
+                0,
+                "adaptive_alpha_mold",
+                "B"
+            ],
+            [
+                0,
+                "teklovossen_esteemed_magnate",
+                "INSTANT"
+            ],
+            [
+                0,
+                "cognition_nodes_blue",
+                "P"
+            ],
+            [
+                0,
+                "evo_steel_soul_tower_blue",
+                "INSTANT"
+            ],
+            [
+                0,
+                "command_and_conquer_red",
+                "P"
+            ],
+            [
+                0,
+                "evo_beta_base_chest_blue",
+                "P"
+            ],
+            [
+                0,
+                "fate_foreseen_red",
+                "D"
+            ],
+            [
+                1,
+                "fabricate_red",
+                "M"
+            ],
+            [
+                1,
+                "teklovossen_esteemed_magnate",
+                "M"
+            ],
+            [
+                1,
+                "ghost_protocol_mainframe_blue",
+                "P"
+            ],
+            [
+                1,
+                "evo_beta_base_head_blue",
+                "M"
+            ],
+            [
+                1,
+                "command_and_conquer_red",
+                "M"
+            ],
+            [
+                1,
+                "steel_street_enforcement_blue",
+                "P"
+            ],
+            [
+                1,
+                "evo_steel_soul_tower_blue_equip",
+                "B"
+            ],
+            [
+                1,
+                "evo_beta_base_head_blue_equip",
+                "B"
+            ],
+            [
+                2,
+                "teklovossen_esteemed_magnate",
+                "M"
+            ],
+            [
+                2,
+                "ripple_away_blue",
+                "P"
+            ],
+            [
+                2,
+                "evo_steel_soul_memory_blue",
+                "M"
+            ],
+            [
+                2,
+                "evo_beta_base_head_blue",
+                "P"
+            ],
+            [
+                2,
+                "war_machine_red",
+                "M"
+            ],
+            [
+                2,
+                "meganetic_protocol_blue",
+                "P"
+            ],
+            [
+                2,
+                "evo_steel_soul_memory_blue_equip",
+                "B"
+            ],
+            [
+                2,
+                "evo_steel_soul_tower_blue_equip",
+                "B"
+            ],
+            [
+                2,
+                "teklovossen_esteemed_magnate",
+                "INSTANT"
+            ],
+            [
+                2,
+                "evo_beta_base_arms_blue",
+                "P"
+            ],
+            [
+                2,
+                "evo_steel_soul_controller_blue",
+                "INSTANT"
+            ],
+            [
+                2,
+                "evo_steel_soul_tower_blue",
+                "P"
+            ],
+            [
+                2,
+                "pulsewave_protocol_yellow",
+                "P"
+            ],
+            [
+                2,
+                "evo_steel_soul_controller_blue_equip",
+                "B"
+            ],
+            [
+                2,
+                "ghost_protocol_architect_red",
+                "B"
+            ],
+            [
+                3,
+                "ghost_protocol_architect_red",
+                "M"
+            ],
+            [
+                3,
+                "teklovossen_esteemed_magnate",
+                "INSTANT"
+            ],
+            [
+                3,
+                "evo_steel_soul_tower_blue",
+                "P"
+            ],
+            [
+                3,
+                "evo_beta_base_chest_blue",
+                "INSTANT"
+            ],
+            [
+                3,
+                "evo_beta_base_chest_blue_equip",
+                "B"
+            ],
+            [
+                3,
+                "fabricate_red",
+                "INSTANT"
+            ],
+            [
+                3,
+                "evo_steel_soul_tower_blue_equip",
+                "B"
+            ],
+            [
+                4,
+                "teklo_leveler",
+                "M"
+            ],
+            [
+                4,
+                "steel_street_enforcement_blue",
+                "P"
+            ],
+            [
+                4,
+                "terminator_tank_red",
+                "M"
+            ],
+            [
+                4,
+                "sink_below_red",
+                "P"
+            ],
+            [
+                4,
+                "terminator_tank_red",
+                "HIT"
+            ],
+            [
+                4,
+                "evo_steel_soul_tower_blue",
+                "B"
+            ],
+            [
+                4,
+                "evo_steel_soul_controller_blue_equip",
+                "B"
+            ],
+            [
+                4,
+                "evo_steel_soul_memory_blue_equip",
+                "B"
+            ],
+            [
+                4,
+                "fate_foreseen_red",
+                "D"
+            ],
+            [
+                5,
+                "teklo_leveler",
+                "M"
+            ],
+            [
+                5,
+                "shelter_from_the_storm_red",
+                "P"
+            ],
+            [
+                5,
+                "evo_steel_soul_processor_blue",
+                "M"
+            ],
+            [
+                5,
+                "evo_steel_soul_controller_blue",
+                "P"
+            ],
+            [
+                5,
+                "evo_steel_soul_processor_blue_equip",
+                "B"
+            ],
+            [
+                5,
+                "command_and_conquer_red",
+                "B"
+            ],
+            [
+                5,
+                "fate_foreseen_red",
+                "D"
+            ],
+            [
+                6,
+                "terminator_tank_red",
+                "M"
+            ],
+            [
+                6,
+                "ghost_protocol_mainframe_blue",
+                "P"
+            ],
+            [
+                6,
+                "evo_steel_soul_processor_blue_equip",
+                "B"
+            ],
+            [
+                7,
+                "teklo_leveler",
+                "M"
+            ],
+            [
+                7,
+                "ghost_protocol_mainframe_blue",
+                "P"
+            ],
+            [
+                7,
+                "teklo_leveler",
+                "HIT"
+            ],
+            [
+                7,
+                "pulsewave_protocol_yellow",
+                "M"
+            ],
+            [
+                7,
+                "ripple_away_blue",
+                "P"
+            ],
+            [
+                7,
+                "pulsewave_protocol_yellow",
+                "HIT"
+            ],
+            [
+                7,
+                "teklovossen_esteemed_magnate",
+                "INSTANT"
+            ],
+            [
+                7,
+                "ghost_protocol_architect_red",
+                "P"
+            ],
+            [
+                7,
+                "evo_beta_base_head_blue",
+                "B"
+            ],
+            [
+                8,
+                "teklovossen_esteemed_magnate",
+                "M"
+            ],
+            [
+                8,
+                "ripple_away_blue",
+                "P"
+            ],
+            [
+                8,
+                "evo_beta_base_arms_blue",
+                "M"
+            ],
+            [
+                8,
+                "cognition_nodes_blue",
+                "M"
+            ],
+            [
+                8,
+                "shelter_from_the_storm_red",
+                "P"
+            ],
+            [
+                8,
+                "steel_street_enforcement_blue",
+                "B"
+            ],
+            [
+                8,
+                "evo_steel_soul_memory_blue",
+                "B"
+            ],
+            [
+                8,
+                "steel_street_enforcement_blue",
+                "B"
+            ],
+            [
+                9,
+                "scrap_compactor_blue",
+                "M"
+            ],
+            [
+                9,
+                "teklovossen_esteemed_magnate",
+                "M"
+            ],
+            [
+                9,
+                "scrap_compactor_blue",
+                "P"
+            ],
+            [
+                9,
+                "evo_beta_base_head_blue",
+                "M"
+            ],
+            [
+                9,
+                "fabricate_red",
+                "INSTANT"
+            ],
+            [
+                9,
+                "evo_steel_soul_processor_blue_equip",
+                "B"
+            ],
+            [
+                9,
+                "sink_below_red",
+                "D"
+            ],
+            [
+                9,
+                "evo_beta_base_head_blue_equip",
+                "B"
+            ],
+            [
+                9,
+                "evo_beta_base_arms_blue_equip",
+                "B"
+            ],
+            [
+                9,
+                "pulsewave_protocol_yellow",
+                "B"
+            ],
+            [
+                10,
+                "teklovossen_esteemed_magnate",
+                "M"
+            ],
+            [
+                10,
+                "evo_steel_soul_processor_blue",
+                "P"
+            ],
+            [
+                10,
+                "evo_beta_base_legs_blue",
+                "M"
+            ],
+            [
+                10,
+                "scrap_compactor_blue",
+                "M"
+            ],
+            [
+                10,
+                "terminator_tank_red",
+                "M"
+            ],
+            [
+                10,
+                "evo_beta_base_chest_blue",
+                "P"
+            ],
+            [
+                10,
+                "terminator_tank_red",
+                "HIT"
+            ],
+            [
+                10,
+                "evo_beta_base_legs_blue_equip",
+                "B"
+            ],
+            [
+                10,
+                "terminator_tank_red",
+                "B"
+            ],
+            [
+                11,
+                "war_machine_red",
+                "M"
+            ],
+            [
+                11,
+                "evo_beta_base_arms_blue",
+                "P"
+            ],
+            [
+                11,
+                "war_machine_red",
+                "HIT"
+            ],
+            [
+                11,
+                "sink_below_red",
+                "D"
+            ],
+            [
+                12,
+                "teklovossen_esteemed_magnate",
+                "M"
+            ],
+            [
+                12,
+                "evo_steel_soul_controller_blue",
+                "P"
+            ],
+            [
+                12,
+                "evo_steel_soul_memory_blue",
+                "M"
+            ],
+            [
+                12,
+                "evo_steel_soul_memory_blue",
+                "P"
+            ],
+            [
+                12,
+                "cognition_nodes_blue",
+                "M"
+            ],
+            [
+                12,
+                "command_and_conquer_red",
+                "P"
+            ],
+            [
+                12,
+                "teklo_leveler",
+                "M"
+            ],
+            [
+                12,
+                "pulsewave_protocol_yellow",
+                "P"
+            ],
+            [
+                12,
+                "teklo_leveler",
+                "HIT"
+            ],
+            [
+                12,
+                "teklovossen_esteemed_magnate",
+                "INSTANT"
+            ],
+            [
+                12,
+                "remembrance_yellow",
+                "P"
+            ],
+            [
+                12,
+                "midas_touch_yellow",
+                "P"
+            ],
+            [
+                12,
+                "evo_steel_soul_processor_blue",
+                "INSTANT"
+            ],
+            [
+                12,
+                "evo_beta_base_legs_blue",
+                "P"
+            ],
+            [
+                12,
+                "evo_steel_soul_memory_blue_equip",
+                "B"
+            ],
+            [
+                12,
+                "evo_steel_soul_processor_blue_equip",
+                "B"
+            ],
+            [
+                13,
+                "teklo_leveler",
+                "M"
+            ],
+            [
+                13,
+                "ripple_away_blue",
+                "P"
+            ],
+            [
+                13,
+                "teklo_leveler",
+                "HIT"
+            ],
+            [
+                13,
+                "ghost_protocol_mainframe_blue",
+                "M"
+            ],
+            [
+                13,
+                "cognition_nodes_blue",
+                "A"
+            ],
+            [
+                13,
+                "ghost_protocol_mainframe_blue",
+                "HIT"
+            ],
+            [
+                13,
+                "cognition_nodes_blue",
+                "HIT"
+            ],
+            [
+                13,
+                "evo_steel_soul_memory_blue_equip",
+                "B"
+            ],
+            [
+                13,
+                "evo_steel_soul_processor_blue_equip",
+                "B"
+            ],
+            [
+                13,
+                "sink_below_red",
+                "D"
+            ],
+            [
+                13,
+                "steel_street_enforcement_blue",
+                "B"
+            ],
+            [
+                14,
+                "war_machine_red",
+                "M"
+            ],
+            [
+                14,
+                "evo_steel_soul_tower_blue",
+                "P"
+            ],
+            [
+                14,
+                "shelter_from_the_storm_red",
+                "D"
+            ],
+            [
+                15,
+                "teklo_leveler",
+                "M"
+            ],
+            [
+                15,
+                "ghost_protocol_architect_red",
+                "P"
+            ],
+            [
+                15,
+                "ghost_protocol_mainframe_blue",
+                "M"
+            ],
+            [
+                15,
+                "ghost_protocol_mainframe_blue",
+                "HIT"
+            ],
+            [
+                15,
+                "shelter_from_the_storm_red",
+                "D"
+            ],
+            [
+                15,
+                "ripple_away_blue",
+                "B"
+            ],
+            [
+                16,
+                "singularity_red",
+                "M"
+            ],
+            [
+                16,
+                "ghost_protocol_mainframe_blue",
+                "P"
+            ],
+            [
+                16,
+                "ripple_away_blue",
+                "P"
+            ],
+            [
+                16,
+                "teklovossen_the_mechropotentb",
+                "B"
+            ],
+            [
+                16,
+                "evo_steel_soul_processor_blue",
+                "B"
+            ],
+            [
+                16,
+                "scrap_compactor_blue",
+                "B"
+            ],
+            [
+                16,
+                "meganetic_protocol_blue",
+                "B"
+            ],
+            [
+                16,
+                "evo_beta_base_chest_blue",
+                "B"
+            ],
+            [
+                16,
+                "evo_beta_base_arms_blue",
+                "B"
+            ]
+        ],
+        "gameName": "1461916",
+        "yourTime": "1097",
+        "character": [
+            {
+                "cardId": "teklovossen_esteemed_magnate",
+                "cardName": "Teklovossen, Esteemed Magnate",
+                "numCopies": 1
+            },
+            {
+                "cardId": "teklo_leveler",
+                "cardName": "Teklo Leveler",
+                "numCopies": 1
+            },
+            {
+                "cardId": "synapse_sparkcap",
+                "cardName": "Synapse Sparkcap",
+                "numCopies": 1
+            },
+            {
+                "cardId": "NONE00",
+                "cardName": "",
+                "numCopies": 3
+            }
+        ],
+        "totalTime": 1628,
+        "playerHero": "teklovossen_the_mechropotent",
+        "cardResults": [
+            {
+                "hits": 0,
+                "cardId": "command_and_conquer_red",
+                "played": 1,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Command and Conquer",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_arms_blue",
+                "played": 1,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Evo Beta Base Arms",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_chest_blue",
+                "played": 1,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Evo Beta Base Chest",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_head_blue",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Evo Beta Base Head",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_legs_blue",
+                "played": 1,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Evo Beta Base Legs",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_controller_blue",
+                "played": 1,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Evo Steel Soul Controller",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_memory_blue",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Evo Steel Soul Memory",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_processor_blue",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Evo Steel Soul Processor",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_tower_blue",
+                "played": 1,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 3,
+                "cardName": "Evo Steel Soul Tower",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "fabricate_red",
+                "played": 3,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Fabricate",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "fate_foreseen_red",
+                "played": 3,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Fate Foreseen",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "ghost_protocol_architect_red",
+                "played": 1,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Ghost Protocol: Architect",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 2,
+                "cardId": "ghost_protocol_mainframe_blue",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 4,
+                "cardName": "Ghost Protocol: Mainframe",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "meganetic_protocol_blue",
+                "played": 0,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Meganetic Protocol",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 1,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 1,
+                "cardId": "pulsewave_protocol_yellow",
+                "played": 1,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Pulsewave Protocol",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "remembrance_yellow",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Remembrance",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 1,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "ripple_away_blue",
+                "played": 0,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 5,
+                "cardName": "Ripple Away",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "scrap_compactor_blue",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Scrap Compactor",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "shelter_from_the_storm_red",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Shelter from the Storm",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "singularity_red",
+                "played": 1,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Singularity",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 1,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "sink_below_red",
+                "played": 3,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Sink Below",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "steel_street_enforcement_blue",
+                "played": 0,
+                "blocked": 3,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Steel Street Enforcement",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 2,
+                "cardId": "terminator_tank_red",
+                "played": 3,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Terminator Tank",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 1,
+                "cardId": "war_machine_red",
+                "played": 3,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "War Machine",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 1,
+                "cardId": "cognition_nodes_blue",
+                "played": 1,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Cognition Nodes",
+                "activated": 2,
+                "discarded": 0,
+                "numCopies": 1,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "midas_touch_yellow",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Midas Touch",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 1,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            }
+        ],
+        "firstPlayer": 0,
+        "turnResults": {
+            "turn_0": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 3,
+                "damageBlocked": 6,
+                "lifeAtTurnEnd": 40,
+                "resourcesLeft": 0,
+                "resourcesUsed": 7,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 0,
+                "opponentLifeAtTurnEnd": 40
+            },
+            "turn_1": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 3,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 3,
+                "cardsBlocked": 0,
+                "cardsPitched": 2,
+                "damageBlocked": 0,
+                "lifeAtTurnEnd": 37,
+                "resourcesLeft": 1,
+                "resourcesUsed": 5,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 6,
+                "opponentLifeAtTurnEnd": 40
+            },
+            "turn_2": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 3,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 37,
+                "resourcesLeft": 0,
+                "resourcesUsed": 9,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 6,
+                "opponentLifeAtTurnEnd": 40
+            },
+            "turn_3": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 3,
+                "damageBlocked": 11,
+                "lifeAtTurnEnd": 37,
+                "resourcesLeft": 0,
+                "resourcesUsed": 7,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 1,
+                "opponentLifeAtTurnEnd": 40
+            },
+            "turn_4": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 3,
+                "lifeGained": 0,
+                "damageDealt": 8,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 3,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 37,
+                "resourcesLeft": 0,
+                "resourcesUsed": 7,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 12,
+                "opponentLifeAtTurnEnd": 32
+            },
+            "turn_5": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 2,
+                "damageBlocked": 10,
+                "lifeAtTurnEnd": 37,
+                "resourcesLeft": 3,
+                "resourcesUsed": 4,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 3,
+                "opponentLifeAtTurnEnd": 32
+            },
+            "turn_6": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 10,
+                "lifeAtTurnEnd": 37,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 9,
+                "opponentLifeAtTurnEnd": 32
+            },
+            "turn_7": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 1,
+                "lifeGained": 0,
+                "damageDealt": 5,
+                "damageTaken": 9,
+                "cardsBlocked": 0,
+                "cardsPitched": 3,
+                "damageBlocked": 2,
+                "lifeAtTurnEnd": 28,
+                "resourcesLeft": 0,
+                "resourcesUsed": 7,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 9,
+                "opponentLifeAtTurnEnd": 27
+            },
+            "turn_8": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 2,
+                "damageBlocked": 1,
+                "lifeAtTurnEnd": 28,
+                "resourcesLeft": 0,
+                "resourcesUsed": 4,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 0,
+                "opponentLifeAtTurnEnd": 27
+            },
+            "turn_9": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 3,
+                "cardsPitched": 1,
+                "damageBlocked": 13,
+                "lifeAtTurnEnd": 28,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 1,
+                "opponentLifeAtTurnEnd": 27
+            },
+            "turn_10": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 5,
+                "lifeGained": 0,
+                "damageDealt": 9,
+                "damageTaken": 4,
+                "cardsBlocked": 1,
+                "cardsPitched": 2,
+                "damageBlocked": 8,
+                "lifeAtTurnEnd": 24,
+                "resourcesLeft": 0,
+                "resourcesUsed": 6,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 10,
+                "opponentLifeAtTurnEnd": 18
+            },
+            "turn_11": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 1,
+                "lifeGained": 0,
+                "damageDealt": 8,
+                "damageTaken": 12,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 12,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 9,
+                "opponentLifeAtTurnEnd": 10
+            },
+            "turn_12": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 2,
+                "damageTaken": 3,
+                "cardsBlocked": 0,
+                "cardsPitched": 4,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 9,
+                "resourcesLeft": 1,
+                "resourcesUsed": 8,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 2,
+                "opponentLifeAtTurnEnd": 10
+            },
+            "turn_13": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 5,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 4,
+                "damageBlocked": 5,
+                "lifeAtTurnEnd": 9,
+                "resourcesLeft": 2,
+                "resourcesUsed": 8,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 8,
+                "opponentLifeAtTurnEnd": 5
+            },
+            "turn_14": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 2,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 11,
+                "lifeAtTurnEnd": 7,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 9,
+                "opponentLifeAtTurnEnd": 5
+            },
+            "turn_15": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 1,
+                "damageTaken": 4,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 3,
+                "resourcesLeft": 0,
+                "resourcesUsed": 1,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 8,
+                "opponentLifeAtTurnEnd": 4
+            },
+            "turn_16": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 4,
+                "cardsBlocked": 1,
+                "cardsPitched": 2,
+                "damageBlocked": 7,
+                "lifeAtTurnEnd": 3,
+                "resourcesLeft": 6,
+                "resourcesUsed": 6,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 0,
+                "opponentLifeAtTurnEnd": 4
+            }
+        },
+        "opposingHero": "kassai_of_the_golden_sand",
+        "startingLife": 20,
+        "tokenResults": [
+        ],
+        "deckbuilderID": "NmuPhtKiJAcLILPUTFgiE",
+        "totalLifeLost": 0,
+        "totalLifeGained": 0,
+        "arenaCardResults": [
+            {
+                "hits": 0,
+                "cardId": "adaptive_alpha_mold",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Adaptive Alpha Mold",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "teklovossen_esteemed_magnate",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Teklovossen, Esteemed Magnate",
+                "activated": 11,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_tower_blue_equip",
+                "played": 0,
+                "blocked": 3,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Steel Soul Tower",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_head_blue_equip",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Beta Base Head",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_memory_blue_equip",
+                "played": 0,
+                "blocked": 4,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Steel Soul Memory",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_controller_blue_equip",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Steel Soul Controller",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_chest_blue_equip",
+                "played": 0,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Beta Base Chest",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 3,
+                "cardId": "teklo_leveler",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Teklo Leveler",
+                "activated": 6,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_steel_soul_processor_blue_equip",
+                "played": 0,
+                "blocked": 5,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Steel Soul Processor",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_arms_blue_equip",
+                "played": 0,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Beta Base Arms",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "evo_beta_base_legs_blue_equip",
+                "played": 0,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Evo Beta Base Legs",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 3,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "teklovossen_the_mechropotentb",
+                "played": 0,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 1,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            }
+        ],
+        "totalDamageDealt": 38,
+        "totalDamageBlocked": 104,
+        "averageValuePerTurn": 11.94,
+        "opponentStartingLife": 40,
+        "totalDamagePrevented": 0,
+        "totalLifeLost_NoLast": 0,
+        "totalDamageThreatened": 93,
+        "totalLifeGained_NoLast": 0,
+        "totalDamageDealt_NoLast": 38,
+        "averageCombatValuePerTurn": 11.94,
+        "averageDamageDealtPerTurn": 2.38,
+        "totalDamageBlocked_NoLast": 97,
+        "averageValuePerTurn_NoLast": 12.27,
+        "averageCardsLeftOverPerTurn": 0,
+        "averageResourcesUsedPerTurn": 5.25,
+        "totalDamagePrevented_NoLast": 0,
+        "totalDamageThreatened_NoLast": 93,
+        "averageDamageThreatenedPerCard": 2.38,
+        "averageDamageThreatenedPerTurn": 5.81,
+        "averageCombatValuePerTurn_NoLast": 12.27,
+        "averageDamageDealtPerTurn_NoLast": 2.53,
+        "averageCardsLeftOverPerTurn_NoLast": 0,
+        "averageResourcesUsedPerTurn_NoLast": 5.2,
+        "averageDamageThreatenedPerCard_NoLast": 2.51,
+        "averageDamageThreatenedPerTurn_NoLast": 6.2
+    },
+    "format": "1",
+    "gameID": "1461916",
+    "conceded": false,
+    "gameGUID": "f741a2bf-1d54-4695-b899-c6ff76195f46",
+    "gameName": "1461916",
+    "isPublic": true,
+    "opponent": {
+        "turns": 16,
+        "deckId": "-",
+        "gameId": "1461916",
+        "result": 1,
+        "winner": 2,
+        "turnLog": [
+            [
+                0,
+                "hot_streak",
+                "M"
+            ],
+            [
+                0,
+                "high_current_currency_blue",
+                "P"
+            ],
+            [
+                0,
+                "run_through_yellow",
+                "A"
+            ],
+            [
+                0,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                1,
+                "trot_along_blue",
+                "B"
+            ],
+            [
+                1,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                1,
+                "braveforge_bracers",
+                "B"
+            ],
+            [
+                1,
+                "hot_streak",
+                "M"
+            ],
+            [
+                1,
+                "hit_and_run_blue",
+                "P"
+            ],
+            [
+                1,
+                "blade_runner_red",
+                "A"
+            ],
+            [
+                1,
+                "hot_streak",
+                "HIT"
+            ],
+            [
+                1,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                1,
+                "cintari_saber",
+                "HIT"
+            ],
+            [
+                1,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                2,
+                "spoils_of_war_red",
+                "B"
+            ],
+            [
+                2,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                2,
+                "grains_of_bloodspill",
+                "B"
+            ],
+            [
+                2,
+                "unsheathed_red",
+                "M"
+            ],
+            [
+                2,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                2,
+                "blade_runner_blue",
+                "P"
+            ],
+            [
+                2,
+                "nourishing_emptiness_red",
+                "M"
+            ],
+            [
+                3,
+                "take_it_on_the_chin_red",
+                "INSTANT"
+            ],
+            [
+                3,
+                "hot_streak",
+                "M"
+            ],
+            [
+                3,
+                "spoils_of_war_red",
+                "P"
+            ],
+            [
+                3,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                3,
+                "blood_on_her_hands_yellow",
+                "P"
+            ],
+            [
+                3,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                4,
+                "slice_and_dice_yellow",
+                "B"
+            ],
+            [
+                4,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                4,
+                "hit_and_run_blue",
+                "DISCARD"
+            ],
+            [
+                4,
+                "unsheathed_red",
+                "M"
+            ],
+            [
+                4,
+                "kassai_of_the_golden_sand",
+                "M"
+            ],
+            [
+                4,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                4,
+                "blood_on_her_hands_yellow",
+                "P"
+            ],
+            [
+                4,
+                "hot_streak",
+                "M"
+            ],
+            [
+                4,
+                "in_the_swing_red",
+                "A"
+            ],
+            [
+                4,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                5,
+                "high_current_currency_blue",
+                "B"
+            ],
+            [
+                5,
+                "slice_and_dice_red",
+                "M"
+            ],
+            [
+                5,
+                "hot_streak",
+                "M"
+            ],
+            [
+                5,
+                "high_current_currency_blue",
+                "P"
+            ],
+            [
+                5,
+                "blade_runner_blue",
+                "A"
+            ],
+            [
+                5,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                6,
+                "provoke_blue",
+                "B"
+            ],
+            [
+                6,
+                "provoke_blue",
+                "B"
+            ],
+            [
+                6,
+                "trot_along_blue",
+                "B"
+            ],
+            [
+                6,
+                "hot_streak",
+                "M"
+            ],
+            [
+                6,
+                "glint_the_quicksilver_blue",
+                "P"
+            ],
+            [
+                7,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                7,
+                "outland_skirmish_red",
+                "M"
+            ],
+            [
+                7,
+                "unsheathed_red",
+                "M"
+            ],
+            [
+                7,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                7,
+                "slice_and_dice_yellow",
+                "P"
+            ],
+            [
+                7,
+                "cintari_saber",
+                "HIT"
+            ],
+            [
+                7,
+                "outland_skirmish_red",
+                "HIT"
+            ],
+            [
+                7,
+                "hot_streak",
+                "M"
+            ],
+            [
+                7,
+                "hot_streak",
+                "HIT"
+            ],
+            [
+                7,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                8,
+                "draw_swords_red",
+                "M"
+            ],
+            [
+                8,
+                "glint_the_quicksilver_blue",
+                "P"
+            ],
+            [
+                8,
+                "outland_skirmish_red",
+                "M"
+            ],
+            [
+                8,
+                "hot_streak",
+                "M"
+            ],
+            [
+                8,
+                "blade_runner_red",
+                "A"
+            ],
+            [
+                8,
+                "run_through_yellow",
+                "P"
+            ],
+            [
+                8,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                9,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                9,
+                "slice_and_dice_red",
+                "M"
+            ],
+            [
+                9,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                9,
+                "hit_and_run_blue",
+                "P"
+            ],
+            [
+                9,
+                "blood_follows_blade_yellow",
+                "A"
+            ],
+            [
+                9,
+                "hot_streak",
+                "M"
+            ],
+            [
+                9,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                10,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                10,
+                "nourishing_emptiness_red",
+                "DISCARD"
+            ],
+            [
+                10,
+                "hot_streak",
+                "M"
+            ],
+            [
+                10,
+                "trot_along_blue",
+                "P"
+            ],
+            [
+                10,
+                "blood_follows_blade_yellow",
+                "A"
+            ],
+            [
+                10,
+                "hot_streak",
+                "HIT"
+            ],
+            [
+                10,
+                "grains_of_bloodspill",
+                "PASSIVE"
+            ],
+            [
+                10,
+                "blood_follows_blade_yellow",
+                "HIT"
+            ],
+            [
+                10,
+                "cintari_sellsword",
+                "M"
+            ],
+            [
+                10,
+                "cintari_sellsword",
+                "HIT"
+            ],
+            [
+                10,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                10,
+                "raise_an_army_yellow",
+                "P"
+            ],
+            [
+                10,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                11,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                11,
+                "sharpened_senses_yellow",
+                "M"
+            ],
+            [
+                11,
+                "kassai_of_the_golden_sand",
+                "M"
+            ],
+            [
+                11,
+                "slice_and_dice_yellow",
+                "M"
+            ],
+            [
+                11,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                11,
+                "blade_flurry_red",
+                "A"
+            ],
+            [
+                11,
+                "cintari_saber",
+                "HIT"
+            ],
+            [
+                11,
+                "kassai_of_the_golden_sand",
+                "HIT"
+            ],
+            [
+                11,
+                "cintari_sellsword",
+                "M"
+            ],
+            [
+                11,
+                "sharpened_senses_yellow",
+                "P"
+            ],
+            [
+                11,
+                "cintari_sellsword",
+                "HIT"
+            ],
+            [
+                11,
+                "hot_streak",
+                "M"
+            ],
+            [
+                11,
+                "hot_streak",
+                "HIT"
+            ],
+            [
+                11,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                12,
+                "kassai_of_the_golden_sand",
+                "M"
+            ],
+            [
+                12,
+                "hot_streak",
+                "M"
+            ],
+            [
+                12,
+                "glint_the_quicksilver_blue",
+                "P"
+            ],
+            [
+                12,
+                "blade_runner_blue",
+                "A"
+            ],
+            [
+                12,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                12,
+                "in_the_swing_red",
+                "A"
+            ],
+            [
+                12,
+                "cintari_saber",
+                "HIT"
+            ],
+            [
+                12,
+                "kassai_of_the_golden_sand",
+                "HIT"
+            ],
+            [
+                13,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                13,
+                "take_it_on_the_chin_red",
+                "D"
+            ],
+            [
+                13,
+                "draw_swords_red",
+                "M"
+            ],
+            [
+                13,
+                "run_through_yellow",
+                "P"
+            ],
+            [
+                13,
+                "outland_skirmish_red",
+                "P"
+            ],
+            [
+                13,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                13,
+                "blade_flurry_red",
+                "A"
+            ],
+            [
+                13,
+                "hot_streak",
+                "M"
+            ],
+            [
+                13,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                14,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                14,
+                "grains_of_bloodspill",
+                "B"
+            ],
+            [
+                14,
+                "braveforge_bracers",
+                "B"
+            ],
+            [
+                14,
+                "draw_swords_red",
+                "B"
+            ],
+            [
+                14,
+                "blade_flurry_red",
+                "B"
+            ],
+            [
+                14,
+                "gold",
+                "M"
+            ],
+            [
+                14,
+                "sharpened_senses_yellow",
+                "P"
+            ],
+            [
+                14,
+                "spoils_of_war_red",
+                "M"
+            ],
+            [
+                14,
+                "blood_follows_blade_yellow",
+                "P"
+            ],
+            [
+                14,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                14,
+                "provoke_blue",
+                "A"
+            ],
+            [
+                14,
+                "hot_streak",
+                "M"
+            ],
+            [
+                14,
+                "hot_streak",
+                "HIT"
+            ],
+            [
+                14,
+                "spoils_of_war_red",
+                "HIT"
+            ],
+            [
+                14,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                15,
+                "high_current_currency_blue",
+                "B"
+            ],
+            [
+                15,
+                "valiant_dynamo",
+                "B"
+            ],
+            [
+                15,
+                "blade_runner_blue",
+                "B"
+            ],
+            [
+                15,
+                "gold",
+                "M"
+            ],
+            [
+                15,
+                "hit_and_run_blue",
+                "P"
+            ],
+            [
+                15,
+                "spoils_of_war_red",
+                "M"
+            ],
+            [
+                15,
+                "blood_on_her_hands_yellow",
+                "M"
+            ],
+            [
+                15,
+                "hot_streak",
+                "M"
+            ],
+            [
+                15,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                15,
+                "cintari_saber",
+                "HIT"
+            ],
+            [
+                15,
+                "spoils_of_war_red",
+                "HIT"
+            ],
+            [
+                15,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                15,
+                "cintari_saber",
+                "HIT"
+            ],
+            [
+                15,
+                "spoils_of_war_red",
+                "HIT"
+            ],
+            [
+                15,
+                "valiant_dynamo",
+                "PASSIVE"
+            ],
+            [
+                16,
+                "gold",
+                "M"
+            ],
+            [
+                16,
+                "high_current_currency_blue",
+                "P"
+            ],
+            [
+                16,
+                "blood_on_her_hands_yellow",
+                "M"
+            ],
+            [
+                16,
+                "slice_and_dice_yellow",
+                "M"
+            ],
+            [
+                16,
+                "kassai_of_the_golden_sand",
+                "M"
+            ],
+            [
+                16,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                16,
+                "hot_streak",
+                "M"
+            ],
+            [
+                16,
+                "run_through_yellow",
+                "A"
+            ],
+            [
+                16,
+                "cintari_saber",
+                "M"
+            ],
+            [
+                16,
+                "glint_the_quicksilver_blue",
+                "A"
+            ],
+            [
+                16,
+                "glint_the_quicksilver_blue",
+                "A"
+            ]
+        ],
+        "gameName": "1461916",
+        "yourTime": "531",
+        "character": [
+            {
+                "cardId": "kassai_of_the_golden_sand",
+                "cardName": "Kassai of the Golden Sand",
+                "numCopies": 1
+            },
+            {
+                "cardId": "cintari_saber",
+                "cardName": "Cintari Saber",
+                "numCopies": 1
+            },
+            {
+                "cardId": "hot_streak",
+                "cardName": "Hot Streak",
+                "numCopies": 1
+            },
+            {
+                "cardId": "crown_of_dominion",
+                "cardName": "Crown of Dominion",
+                "numCopies": 1
+            },
+            {
+                "cardId": "grains_of_bloodspill",
+                "cardName": "Grains of Bloodspill",
+                "numCopies": 1
+            },
+            {
+                "cardId": "braveforge_bracers",
+                "cardName": "Braveforge Bracers",
+                "numCopies": 1
+            },
+            {
+                "cardId": "valiant_dynamo",
+                "cardName": "Valiant Dynamo",
+                "numCopies": 1
+            }
+        ],
+        "totalTime": 1628,
+        "playerHero": "kassai_of_the_golden_sand",
+        "cardResults": [
+            {
+                "hits": 0,
+                "cardId": "blade_flurry_red",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Blade Flurry",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "blade_runner_blue",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Blade Runner",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "blade_runner_red",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Blade Runner",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 1,
+                "cardId": "blood_follows_blade_yellow",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Blood Follows Blade",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "blood_on_her_hands_yellow",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Blood on Her Hands",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "draw_swords_red",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Draw Swords",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "glint_the_quicksilver_blue",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 3,
+                "cardName": "Glint the Quicksilver",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "high_current_currency_blue",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 3,
+                "cardName": "High Current Currency",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "hit_and_run_blue",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 3,
+                "cardName": "Hit and Run",
+                "activated": 0,
+                "discarded": 1,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 1,
+                "cardId": "outland_skirmish_red",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Outland Skirmish",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "provoke_blue",
+                "played": 1,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Provoke",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "run_through_yellow",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Run Through",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "sharpened_senses_yellow",
+                "played": 1,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 2,
+                "cardName": "Sharpened Senses",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "slice_and_dice_yellow",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Slice and Dice",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 3,
+                "cardId": "spoils_of_war_red",
+                "played": 2,
+                "blocked": 1,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Spoils of War",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "trot_along_blue",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Trot Along",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 3,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "unsheathed_red",
+                "played": 3,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Unsheathed",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 3,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "raise_an_army_yellow",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 1,
+                "cardName": "Raise an Army",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 2,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "in_the_swing_red",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "In the Swing",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "take_it_on_the_chin_red",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Take it on the Chin",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "slice_and_dice_red",
+                "played": 2,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Slice and Dice",
+                "activated": 0,
+                "discarded": 0,
+                "numCopies": 2,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "nourishing_emptiness_red",
+                "played": 1,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Nourishing Emptiness",
+                "activated": 0,
+                "discarded": 1,
+                "numCopies": 2,
+                "pitchValue": 1,
+                "passiveTriggered": 0
+            }
+        ],
+        "firstPlayer": 1,
+        "turnResults": {
+            "turn_0": {
+                "lifeLost": 0,
+                "cardsLeft": 1,
+                "cardsUsed": 1,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 0,
+                "lifeAtTurnEnd": 40,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 6,
+                "opponentLifeAtTurnEnd": 40
+            },
+            "turn_1": {
+                "lifeLost": 0,
+                "cardsLeft": 1,
+                "cardsUsed": 1,
+                "lifeGained": 0,
+                "damageDealt": 3,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 6,
+                "lifeAtTurnEnd": 40,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 7,
+                "opponentLifeAtTurnEnd": 37
+            },
+            "turn_2": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 6,
+                "lifeAtTurnEnd": 40,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 11,
+                "opponentLifeAtTurnEnd": 37
+            },
+            "turn_3": {
+                "lifeLost": 0,
+                "cardsLeft": 1,
+                "cardsUsed": 1,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 2,
+                "damageBlocked": 0,
+                "lifeAtTurnEnd": 40,
+                "resourcesLeft": 1,
+                "resourcesUsed": 2,
+                "cardsDiscarded": 0,
+                "damagePrevented": 1,
+                "damageThreatened": 4,
+                "opponentLifeAtTurnEnd": 37
+            },
+            "turn_4": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 8,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 32,
+                "resourcesLeft": 0,
+                "resourcesUsed": 2,
+                "cardsDiscarded": 1,
+                "damagePrevented": 0,
+                "damageThreatened": 10,
+                "opponentLifeAtTurnEnd": 37
+            },
+            "turn_5": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 1,
+                "cardsPitched": 1,
+                "damageBlocked": 3,
+                "lifeAtTurnEnd": 32,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 10,
+                "opponentLifeAtTurnEnd": 37
+            },
+            "turn_6": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 0,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 3,
+                "cardsPitched": 1,
+                "damageBlocked": 9,
+                "lifeAtTurnEnd": 32,
+                "resourcesLeft": 2,
+                "resourcesUsed": 1,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 2,
+                "opponentLifeAtTurnEnd": 37
+            },
+            "turn_7": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 9,
+                "damageTaken": 5,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 4,
+                "lifeAtTurnEnd": 27,
+                "resourcesLeft": 0,
+                "resourcesUsed": 2,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 10,
+                "opponentLifeAtTurnEnd": 28
+            },
+            "turn_8": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 3,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 2,
+                "damageBlocked": 0,
+                "lifeAtTurnEnd": 27,
+                "resourcesLeft": 1,
+                "resourcesUsed": 4,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 13,
+                "opponentLifeAtTurnEnd": 28
+            },
+            "turn_9": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 1,
+                "lifeAtTurnEnd": 27,
+                "resourcesLeft": 1,
+                "resourcesUsed": 2,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 8,
+                "opponentLifeAtTurnEnd": 28
+            },
+            "turn_10": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 1,
+                "lifeGained": 0,
+                "damageDealt": 4,
+                "damageTaken": 9,
+                "cardsBlocked": 0,
+                "cardsPitched": 2,
+                "damageBlocked": 1,
+                "lifeAtTurnEnd": 18,
+                "resourcesLeft": 1,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 1,
+                "damagePrevented": 0,
+                "damageThreatened": 8,
+                "opponentLifeAtTurnEnd": 24
+            },
+            "turn_11": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 3,
+                "lifeGained": 0,
+                "damageDealt": 12,
+                "damageTaken": 8,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 1,
+                "lifeAtTurnEnd": 10,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 16,
+                "opponentLifeAtTurnEnd": 12
+            },
+            "turn_12": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 3,
+                "damageTaken": 2,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 0,
+                "lifeAtTurnEnd": 10,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 3,
+                "damageThreatened": 8,
+                "opponentLifeAtTurnEnd": 9
+            },
+            "turn_13": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 3,
+                "lifeGained": 0,
+                "damageDealt": 0,
+                "damageTaken": 5,
+                "cardsBlocked": 0,
+                "cardsPitched": 2,
+                "damageBlocked": 1,
+                "lifeAtTurnEnd": 5,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 2,
+                "damageThreatened": 11,
+                "opponentLifeAtTurnEnd": 9
+            },
+            "turn_14": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 2,
+                "damageTaken": 0,
+                "cardsBlocked": 2,
+                "cardsPitched": 2,
+                "damageBlocked": 9,
+                "lifeAtTurnEnd": 5,
+                "resourcesLeft": 0,
+                "resourcesUsed": 4,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 6,
+                "opponentLifeAtTurnEnd": 7
+            },
+            "turn_15": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 2,
+                "lifeGained": 0,
+                "damageDealt": 4,
+                "damageTaken": 1,
+                "cardsBlocked": 2,
+                "cardsPitched": 1,
+                "damageBlocked": 7,
+                "lifeAtTurnEnd": 4,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 11,
+                "opponentLifeAtTurnEnd": 3
+            },
+            "turn_16": {
+                "lifeLost": 0,
+                "cardsLeft": 0,
+                "cardsUsed": 5,
+                "lifeGained": 0,
+                "damageDealt": 4,
+                "damageTaken": 0,
+                "cardsBlocked": 0,
+                "cardsPitched": 1,
+                "damageBlocked": 0,
+                "lifeAtTurnEnd": 4,
+                "resourcesLeft": 0,
+                "resourcesUsed": 3,
+                "cardsDiscarded": 0,
+                "damagePrevented": 0,
+                "damageThreatened": 15,
+                "opponentLifeAtTurnEnd": 3
+            }
+        },
+        "opposingHero": "teklovossen_the_mechropotent",
+        "startingLife": 40,
+        "tokenResults": [
+        ],
+        "deckbuilderID": "54979996-b7cd-47dc-b32b-54415d57b9fd",
+        "totalLifeLost": 0,
+        "totalLifeGained": 0,
+        "arenaCardResults": [
+            {
+                "hits": 5,
+                "cardId": "hot_streak",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Hot Streak",
+                "activated": 16,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 6,
+                "cardId": "cintari_saber",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Cintari Saber",
+                "activated": 18,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "valiant_dynamo",
+                "played": 0,
+                "blocked": 10,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Valiant Dynamo",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 10
+            },
+            {
+                "hits": 0,
+                "cardId": "braveforge_bracers",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Braveforge Bracers",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "grains_of_bloodspill",
+                "played": 0,
+                "blocked": 2,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Grains of Bloodspill",
+                "activated": 0,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 1
+            },
+            {
+                "hits": 2,
+                "cardId": "kassai_of_the_golden_sand",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Kassai of the Golden Sand",
+                "activated": 4,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 2,
+                "cardId": "cintari_sellsword",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Cintari Sellsword",
+                "activated": 2,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            },
+            {
+                "hits": 0,
+                "cardId": "gold",
+                "played": 0,
+                "blocked": 0,
+                "charged": 0,
+                "pitched": 0,
+                "cardName": "Gold",
+                "activated": 3,
+                "discarded": 0,
+                "pitchValue": 0,
+                "katsuDiscard": 0,
+                "passiveTriggered": 0
+            }
+        ],
+        "totalDamageDealt": 41,
+        "totalDamageBlocked": 52,
+        "averageValuePerTurn": 13,
+        "opponentStartingLife": 20,
+        "totalDamagePrevented": 6,
+        "totalLifeLost_NoLast": 0,
+        "totalDamageThreatened": 156,
+        "totalLifeGained_NoLast": 0,
+        "totalDamageDealt_NoLast": 37,
+        "averageCombatValuePerTurn": 12.63,
+        "averageDamageDealtPerTurn": 2.56,
+        "totalDamageBlocked_NoLast": 52,
+        "averageValuePerTurn_NoLast": 12.87,
+        "averageCardsLeftOverPerTurn": 0.13,
+        "averageResourcesUsedPerTurn": 2.75,
+        "totalDamagePrevented_NoLast": 6,
+        "totalDamageThreatened_NoLast": 141,
+        "averageDamageThreatenedPerCard": 2.94,
+        "averageDamageThreatenedPerTurn": 9.38,
+        "averageCombatValuePerTurn_NoLast": 12.47,
+        "averageDamageDealtPerTurn_NoLast": 2.47,
+        "averageCardsLeftOverPerTurn_NoLast": 0.13,
+        "averageResourcesUsedPerTurn_NoLast": 2.73,
+        "averageDamageThreatenedPerCard_NoLast": 2.87,
+        "averageDamageThreatenedPerTurn_NoLast": 9
+    },
+    "countLoserDeck": 14,
+    "countWinnerDeck": 9
+}
