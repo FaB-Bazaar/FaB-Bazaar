@@ -52,6 +52,7 @@ export interface RawDeckBlob {
   cardResults?: RawCard[];
   arenaCardResults?: RawCard[];
   turnResults?: Record<string, RawTurn>;
+  turnLog?: [number, string, string][];
   [k: string]: unknown; // aggregate scalars (totalDamageDealt, averageValuePerTurn, …)
 }
 
@@ -132,12 +133,29 @@ export interface PlayerAnalysis {
   cards: CardStat[];
 }
 
+export interface ReplayAction {
+  cardId: string;
+  action: string; // M | P | B | D | INSTANT | A | HIT | PASSIVE | DISCARD | …
+}
+
+export interface ReplayTurn {
+  turn: number;
+  you: ReplayAction[]; // exact stored order — never regrouped
+  opp: ReplayAction[]; // exact stored order — never regrouped
+}
+
 export interface GameAnalysis {
   meta: { gameId?: string; gameGUID?: string; format?: string; conceded: boolean };
   lifeRace: LifePoint[];
   you: PlayerAnalysis;
   opponent: PlayerAnalysis | null;
   insights: string[];
+  /**
+   * Turn-by-turn replay preserving EXACT stored order per player. Each player's
+   * line is fully deterministic; the two are shown in parallel because Talishar
+   * sends separate per-player logs with no cross-player sequence key.
+   */
+  replay: ReplayTurn[];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -239,6 +257,27 @@ function analyzePlayer(blob: RawDeckBlob): PlayerAnalysis {
   };
 }
 
+function buildReplay(
+  selfLog?: [number, string, string][],
+  oppLog?: [number, string, string][]
+): ReplayTurn[] {
+  const turns = new Set<number>();
+  const collectTurns = (log?: [number, string, string][]) => {
+    for (const e of log ?? []) if (Array.isArray(e) && typeof e[0] === 'number') turns.add(e[0]);
+  };
+  collectTurns(selfLog);
+  collectTurns(oppLog);
+
+  const entriesFor = (log: [number, string, string][] | undefined, turn: number): ReplayAction[] =>
+    (log ?? [])
+      .filter((e) => Array.isArray(e) && e[0] === turn && typeof e[1] === 'string')
+      .map((e) => ({ cardId: e[1], action: e[2] }));
+
+  return [...turns]
+    .sort((a, b) => a - b)
+    .map((turn) => ({ turn, you: entriesFor(selfLog, turn), opp: entriesFor(oppLog, turn) }));
+}
+
 function buildLifeRace(turnResults?: Record<string, RawTurn>): LifePoint[] {
   return sortedTurns(turnResults).map(([turn, t]) => ({
     turn,
@@ -293,5 +332,6 @@ export function analyzeGame(payload: RawGamePayload): GameAnalysis {
     you,
     opponent,
     insights: buildInsights(you),
+    replay: buildReplay(self.turnLog, payload.opponent?.turnLog),
   };
 }

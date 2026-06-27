@@ -92,6 +92,32 @@ describe('analyzeGame', () => {
     expect(a.insights.join(' ')).toMatch(/41%|threatened/i);
   });
 
+  it('preserves EXACT per-turn ordering for replay (no offense/defense regrouping)', () => {
+    const t0 = a.replay.find((r) => r.turn === 0)!;
+    expect(t0.you.map((e) => `${e.cardId}:${e.action}`)).toEqual([
+      'adaptive_alpha_mold:B',
+      'adaptive_alpha_mold:B',
+      'teklovossen_esteemed_magnate:INSTANT',
+      'cognition_nodes_blue:P',
+      'evo_steel_soul_tower_blue:INSTANT',
+      'command_and_conquer_red:P',
+      'evo_beta_base_chest_blue:P',
+      'fate_foreseen_red:D',
+    ]);
+    // opponent's turn-0 line is preserved in its own exact order, including the
+    // `A` (arsenal/ally) action the grouped play-by-play used to drop.
+    expect(t0.opp.map((e) => `${e.cardId}:${e.action}`)).toEqual([
+      'hot_streak:M',
+      'high_current_currency_blue:P',
+      'run_through_yellow:A',
+      'cintari_saber:M',
+    ]);
+  });
+
+  it('covers every turn 0..16 in the replay', () => {
+    expect(a.replay.map((r) => r.turn)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  });
+
   it('returns a null opponent when the opponent did not consent', () => {
     const solo = analyzeGame({ ...payload, opponent: null });
     expect(solo.opponent).toBeNull();

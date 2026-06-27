@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2, Lightbulb } from "lucide-react";
+import { Loader2, Lightbulb, ChevronDown, ChevronRight } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
   Line,
-  BarChart,
+  ComposedChart,
   Bar,
   XAxis,
   YAxis,
@@ -15,7 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import type { GameAnalysis, PlayerAnalysis } from "@/lib/talishar/analyzeGame";
+import type { GameAnalysis, PlayerAnalysis, ReplayAction } from "@/lib/talishar/analyzeGame";
 
 interface Props {
   deckId: string; // public id (route param)
@@ -28,11 +28,72 @@ const YOU = "#3b82f6"; // blue-500
 const OPP = "#f97316"; // orange-500
 const DEALT = "#22c55e"; // green-500
 const TAKEN = "#ef4444"; // red-500
+const BLOCKED = "#0ea5e9"; // sky-500 — damage you absorbed
+const THREAT = "#f59e0b"; // amber-500 — what you swung for
 const AXIS = "#9ca3af"; // gray-400 — legible in both themes
 
 function heroLabel(name?: string): string {
   if (!name) return "—";
   return name.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+// Best-effort labels for Talishar action codes. Order/card are authoritative;
+// the label for A/PASSIVE/DISCARD is a friendly guess.
+const ACTION_META: Record<string, { label: string; cls: string }> = {
+  M: { label: "play", cls: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
+  P: { label: "pitch", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+  B: { label: "block", cls: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
+  D: { label: "defend", cls: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
+  INSTANT: { label: "instant", cls: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
+  HIT: { label: "hit", cls: "bg-green-600 text-white" },
+  A: { label: "arsenal", cls: "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200" },
+  PASSIVE: { label: "passive", cls: "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200" },
+  DISCARD: { label: "discard", cls: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" },
+};
+function actionMeta(a: string) {
+  return ACTION_META[a] ?? { label: a.toLowerCase(), cls: "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300" };
+}
+
+function prettyCard(id: string): string {
+  return id
+    .replace(/_(red|yellow|blue)$/, "")
+    .replace(/_equip$/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+function ReplayColumn({ label, side, entries }: { label: string; side: "you" | "opp"; entries: ReplayAction[] }) {
+  return (
+    <div className="min-w-0">
+      <div
+        className={cn(
+          "text-xs font-bold px-1.5 py-0.5 rounded inline-block mb-1",
+          side === "you"
+            ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300"
+            : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-300"
+        )}
+      >
+        {label}
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">—</p>
+      ) : (
+        <ol className="space-y-0.5">
+          {entries.map((e, i) => {
+            const m = actionMeta(e.action);
+            return (
+              <li key={i} className="flex items-center gap-1.5 text-xs min-w-0">
+                <span className="w-4 shrink-0 text-right tabular-nums text-gray-400">{i + 1}</span>
+                <span className={cn("shrink-0 px-1 py-0.5 rounded text-[10px] font-semibold leading-none", m.cls)}>{m.label}</span>
+                <span className="truncate text-gray-700 dark:text-gray-300">{prettyCard(e.cardId)}</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
 }
 
 // ─── Small presentational helpers ────────────────────────────────────────────
@@ -88,7 +149,13 @@ function BarList({
 // ─── Per-player sections (driven by the You/Opp toggle) ──────────────────────
 
 function PlayerPanel({ p }: { p: PlayerAnalysis }) {
-  const tempo = p.perTurn.map((t) => ({ turn: `T${t.turn}`, Dealt: t.dealt, Taken: t.taken }));
+  const tempo = p.perTurn.map((t) => ({
+    turn: `T${t.turn}`,
+    Dealt: t.dealt,
+    Taken: t.taken,
+    Blocked: t.blocked,
+    Threatened: t.threatened,
+  }));
   const topCards = [...p.cards].sort((a, b) => b.played - a.played).slice(0, 12);
 
   return (
@@ -108,16 +175,19 @@ function PlayerPanel({ p }: { p: PlayerAnalysis }) {
 
       {/* Per-turn tempo */}
       <div>
-        <SectionTitle>Per-turn tempo (dealt vs taken)</SectionTitle>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={tempo} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+        <SectionTitle>Per-turn damage — dealt · taken · blocked (threatened = dashed)</SectionTitle>
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart data={tempo} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={AXIS} strokeOpacity={0.2} vertical={false} />
             <XAxis dataKey="turn" tick={{ fill: AXIS, fontSize: 11 }} />
             <YAxis tick={{ fill: AXIS, fontSize: 11 }} />
             <Tooltip cursor={{ fill: AXIS, fillOpacity: 0.1 }} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="Dealt" fill={DEALT} radius={[2, 2, 0, 0]} />
             <Bar dataKey="Taken" fill={TAKEN} radius={[2, 2, 0, 0]} />
-          </BarChart>
+            <Bar dataKey="Blocked" fill={BLOCKED} radius={[2, 2, 0, 0]} />
+            <Line type="monotone" dataKey="Threatened" stroke={THREAT} strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
@@ -191,6 +261,7 @@ export default function GameDeepDive({ deckId, resultId, playerHeroName, opponen
   const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [side, setSide] = useState<"you" | "opp">("you");
+  const [showReplay, setShowReplay] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -279,6 +350,32 @@ export default function GameDeepDive({ deckId, resultId, playerHeroName, opponen
       )}
 
       {active ? <PlayerPanel p={active} /> : <p className="text-xs text-gray-400">No data for this side.</p>}
+
+      {/* True-order replay — exact stored sequence per player, no regrouping */}
+      <div>
+        <button
+          onClick={() => setShowReplay((v) => !v)}
+          className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+        >
+          {showReplay ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
+          <span className="text-xs font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400">Game replay — exact order</span>
+        </button>
+        {showReplay && (
+          <div className="mt-2 space-y-2">
+            {analysis.replay.map((rt) => (
+              <div key={rt.turn} className="grid grid-cols-[2.25rem_1fr_1fr] gap-3 border-t border-gray-100 dark:border-gray-800 pt-2">
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400">T{rt.turn}</div>
+                <ReplayColumn label={youLabel} side="you" entries={rt.you} />
+                <ReplayColumn label={oppLabel} side="opp" entries={rt.opp} />
+              </div>
+            ))}
+            <p className="text-[11px] text-gray-400 pt-1">
+              Each column is in exact resolution order. Draws and triggered sub-effects aren&apos;t logged by Talishar, and the
+              two columns are concurrent (Talishar sends separate per-player logs with no cross-player order key).
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
