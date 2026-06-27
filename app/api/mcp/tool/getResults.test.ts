@@ -44,7 +44,7 @@ describe('get_results MCP tool', () => {
     expect(res.success).toBe(false);
   });
 
-  it('defaults to the most recent game and returns the raw blob (shape=raw)', async () => {
+  it('defaults to the most recent game and renders it WITHOUT inlining the raw blob', async () => {
     wire({
       decks: [{ name: 'Dash', publicId: 'pub1' }],
       results: [{ id: 'r1' }],
@@ -55,7 +55,9 @@ describe('get_results MCP tool', () => {
     });
     const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
     expect(res.success).toBe(true);
-    expect(res.data.self.playerHero).toBe('dash_io');
+    // raw blob is NOT inlined — it's ~16k redundant tokens; the message already
+    // encodes the whole game. (Available via /raw?shape=raw for manual review.)
+    expect(res.data).toBeNull();
     // message is the readable rendering — card names + a turn line, not raw slugs
     expect(res.message).toContain('Boom Grenade');
     expect(res.message).toMatch(/T0 YOU:/);

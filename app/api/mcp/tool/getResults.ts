@@ -248,8 +248,11 @@ export const getResultsTool = {
         message,
         deckName: deck.name,
         resultIds: fetched.map((f) => f.resultId),
-        // Single call keeps the raw blob for anything deeper; batch stays concise.
-        data: single ? fetched[0].blob : null,
+        // The readable message already encodes the whole game (turn-by-turn +
+        // glossary + notes), so the raw blob is NOT inlined — it's ~16k redundant
+        // tokens. Fetch it via GET /api/decks/[id]/results/[resultId]/raw?shape=raw
+        // if the unprocessed Talishar payload is ever needed.
+        data: null,
       };
     } catch (error) {
       console.error('[GetResults] Unexpected error:', error);
