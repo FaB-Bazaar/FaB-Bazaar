@@ -17,9 +17,12 @@ async function buildDeckNotes(apiBase: string, token: string, publicId: string):
     });
     if (!res.ok) return '';
     const body = await res.json();
+    // Prefer the private game-plan notes (Notes tab); fall back to the public description.
+    const gamePlan = typeof body?.data?.metadata?.gamePlan === 'string' ? body.data.metadata.gamePlan.trim() : '';
     const desc = typeof body?.data?.description === 'string' ? body.data.description.trim() : '';
-    if (!desc) return '';
-    return `Player's own deck notes (their stated game plan — weigh the analysis against THIS; it's how they intend to pilot the deck):\n${desc}`;
+    const notes = gamePlan || desc;
+    if (!notes) return '';
+    return `Player's own deck notes (their stated game plan — weigh the analysis against THIS; it's how they intend to pilot the deck):\n${notes}`;
   } catch {
     return '';
   }

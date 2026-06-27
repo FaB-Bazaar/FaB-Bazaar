@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
@@ -24,6 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import DeckSettings from "@/components/deck/DeckSettings";
 import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
+import DeckNotesTab from "@/components/deck/DeckNotesTab";
 import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/editor/QuickAddCardDialog";
 import { getHeroInfo } from "@/lib/fab-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
@@ -204,7 +205,7 @@ export default function DeckEditorPage() {
   const { state, handlers } = useDeckEditor(deckId);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<"search" | "deck" | "results">("deck");
+  const [activeTab, setActiveTab] = useState<"search" | "deck" | "results" | "notes">("deck");
 
   // Quick-add dialog state
   const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
@@ -1793,6 +1794,20 @@ export default function DeckEditorPage() {
                   Results
                 </button>
               )}
+              {canEdit && (
+                <button
+                  onClick={() => setActiveTab("notes")}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                    activeTab === "notes"
+                      ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  )}
+                >
+                  <FileText className="h-4 w-4" />
+                  Notes
+                </button>
+              )}
               <Link
                 href={`/decks/${deckId}/present`}
                 className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-t"
@@ -2181,6 +2196,11 @@ export default function DeckEditorPage() {
               <DeckResultsTab deckId={deckId} deck={state.deck ?? undefined} />
             )}
 
+            {/* Notes tab content (owner/co-owner only) */}
+            {canEdit && activeTab === "notes" && (
+              <DeckNotesTab deckId={deckId} />
+            )}
+
               </div>
               {activeTab === "deck" && state.deck && railStats && (() => {
                 const cardOwnership = hoveredCard?.printingId ? state.ownershipMap.get(hoveredCard.printingId) : null;
@@ -2314,6 +2334,20 @@ export default function DeckEditorPage() {
           >
             <Trophy className="h-5 w-5" />
             Results
+          </button>
+        )}
+        {canEdit && (
+          <button
+            onClick={() => setActiveTab("notes")}
+            className={cn(
+              "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
+              activeTab === "notes"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400"
+            )}
+          >
+            <FileText className="h-5 w-5" />
+            Notes
           </button>
         )}
       </div>

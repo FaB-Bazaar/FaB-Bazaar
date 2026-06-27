@@ -84,17 +84,29 @@ describe('get_results MCP tool', () => {
     expect(res.message).toMatch(/temper/i); // the corrected blocking nuance
   });
 
-  it("includes the player's own deck notes when the deck has a description", async () => {
+  it("includes the player's own deck notes, preferring metadata.gamePlan over description", async () => {
     wire({
       decks: [{ name: 'Dash', publicId: 'pub1' }],
       results: [{ id: 'r1' }],
       raw: RAW,
-      deckDetail: { description: 'Game plan: stabilize early, combo on turn 8.' },
+      deckDetail: { description: 'public blurb', metadata: { gamePlan: 'Game plan: stabilize early, combo on turn 8.' } },
     });
     const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
     expect(res.success).toBe(true);
     expect(res.message).toContain("Player's own deck notes");
     expect(res.message).toContain('combo on turn 8');
+    expect(res.message).not.toContain('public blurb');
+  });
+
+  it('falls back to the public description when there is no gamePlan note', async () => {
+    wire({
+      decks: [{ name: 'Dash', publicId: 'pub1' }],
+      results: [{ id: 'r1' }],
+      raw: RAW,
+      deckDetail: { description: 'fallback plan text' },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
+    expect(res.message).toContain('fallback plan text');
   });
 
   it('honours an explicit resultId without needing the list', async () => {
