@@ -71,6 +71,18 @@ describe('get_results MCP tool', () => {
     expect(String(rawCall?.[0])).toContain('shape=raw');
   });
 
+  it('injects the curated hero primer when one exists for the hero', async () => {
+    wire({
+      decks: [{ name: 'Teklo', publicId: 'pub1' }],
+      results: [{ id: 'r1' }],
+      raw: { ...RAW, self: { ...RAW.self, playerHero: 'teklovossen_the_mechropotent' } },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Teklo' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.message).toContain('Hero game plans');
+    expect(res.message).toMatch(/temper/i); // the corrected blocking nuance
+  });
+
   it('honours an explicit resultId without needing the list', async () => {
     wire({ decks: [{ name: 'Dash', publicId: 'pub1' }], results: [], raw: RAW });
     const res = await getResultsTool.handler({ deckName: 'Dash', resultId: 'rX' }, undefined, 'tok');

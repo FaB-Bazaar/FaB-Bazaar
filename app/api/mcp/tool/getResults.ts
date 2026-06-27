@@ -3,7 +3,19 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { resolveOwnedDeck } from './listResults';
 import { renderGameText } from '@/lib/talishar/renderGameText';
 import { renderCardGlossary, type CardMeta } from '@/lib/talishar/renderCardGlossary';
+import { getHeroPrimer } from '@/lib/fab-constants/hero-strategy';
 import type { RawGamePayload } from '@/lib/talishar/analyzeGame';
+
+// Curated hero game-plan primers for whichever heroes we have them for.
+function buildHeroPlans(payload: RawGamePayload): string {
+  const lines: string[] = [];
+  const you = getHeroPrimer((payload.self as any)?.playerHero);
+  const opp = getHeroPrimer((payload.opponent as any)?.playerHero);
+  if (you) lines.push(`YOUR HERO —\n${you}`);
+  if (opp) lines.push(`OPPONENT HERO —\n${opp}`);
+  if (lines.length === 0) return '';
+  return `Hero game plans (curated — treat as authoritative for what the deck wants to do):\n\n${lines.join('\n\n')}`;
+}
 
 // Strategic framework appended to every game so the model coaches like a FaB
 // player instead of pattern-matching surface stats. These are general concepts —
@@ -162,10 +174,20 @@ export const getResultsTool = {
 
       // Append a card glossary (what each card does) resolved server-side.
       const glossary = await buildGlossary(API_BASE_URL, rawBody.data as RawGamePayload);
+      // Curated hero game-plan context (game plan first, before the turn-by-turn).
+      const heroPlans = buildHeroPlans(rawBody.data as RawGamePayload);
+
+      const parts = [
+        `📊 **${deck.name}** — game ${resultId}`,
+        heroPlans,
+        readable,
+        glossary,
+        COACHING_LENS,
+      ].filter(Boolean);
 
       return {
         success: true,
-        message: `📊 **${deck.name}** — game ${resultId}\n\n${readable}${glossary ? `\n\n${glossary}` : ''}\n\n${COACHING_LENS}`,
+        message: parts.join('\n\n'),
         deckName: deck.name,
         resultId,
         data: rawBody.data,
