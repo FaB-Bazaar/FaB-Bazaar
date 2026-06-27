@@ -8,7 +8,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { users, decks } from '@/lib/postgres/schema';
+import { users, decks, gameResults } from '@/lib/postgres/schema';
 import { PostgresGameResultsService } from './PostgresGameResultsService';
 import type { TalisharGamePayload, TalisharDeckPayload } from './PostgresGameResultsService';
 
@@ -66,14 +66,12 @@ describe('PostgresGameResultsService.getRawGamePayload', () => {
     expect((res.data!.self as { playerHero?: string }).playerHero).toBe('dash_io');
   });
 
-  it('returns null when the result has no archive (non-admin owner)', async () => {
-    await setupDeck({ isAdmin: false });
-    const { payload, self, opp } = makeGame();
-    const created = await service.createGameResult(deckId, payload, self, opp);
-    expect(created.success).toBe(true);
-    if (!created.success) return;
+  it('returns null for a result that has no archived payload', async () => {
+    await setupDeck({ isAdmin: true });
+    const bareId = crypto.randomUUID();
+    await db.insert(gameResults).values({ id: bareId, deckId, result: 'win', conceded: false });
 
-    const res = await service.getRawGamePayload(created.data.id, deckId);
+    const res = await service.getRawGamePayload(bareId, deckId);
     expect(res.success).toBe(true);
     if (!res.success) return;
     expect(res.data).toBeNull();

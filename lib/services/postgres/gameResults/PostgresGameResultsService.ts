@@ -1,5 +1,5 @@
 import { db, pool } from '@/lib/postgres/db';
-import { gameResults, gameResultPayloads, decks, users } from '@/lib/postgres/schema';
+import { gameResults, gameResultPayloads } from '@/lib/postgres/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { normalizeTalisharId } from '@/lib/talishar/cardId';
@@ -173,10 +173,9 @@ export class PostgresGameResultsService {
         return { success: true, data: null as unknown as GameResultDTO };
       }
 
-      // Archive the full raw deck blob for admin-owned decks (consent-gated
-      // opponent). Best-effort — never blocks the result from being saved.
+      // Archive the full raw deck blob (consent-gated opponent). Best-effort —
+      // never blocks the result from being saved.
       await this.archiveRawPayload(
-        deckId,
         row.id,
         payload,
         deckEntry,
@@ -192,31 +191,22 @@ export class PostgresGameResultsService {
     }
   }
 
-  // Archive the full Talishar deck blob into the game_result_payloads sidecar —
-  // but ONLY when the deck owner is an admin/superadmin (opt-in data capture).
+  // Archive the full Talishar deck blob into the game_result_payloads sidecar.
   // The typed game_results columns drop several fields Talishar sends
   // (arenaCardResults, tokenResults, character, precomputed aggregates); this
-  // keeps the lot verbatim. Opponent data is consent-gated by the caller.
+  // keeps the lot verbatim. Opponent data is consent-gated by the caller, and
+  // reads are owner/co-owner-gated at the route — so every player gets their own
+  // game archived, but can only ever read their own.
   //
   // Best-effort: any failure is swallowed so it can never block ingestion (the
   // webhook must keep returning 200 to Talishar).
   private async archiveRawPayload(
-    deckId: string,
     resultId: string,
     payload: TalisharGamePayload,
     deckEntry: TalisharDeckPayload,
     opponentEntry: TalisharDeckPayload | undefined
   ): Promise<void> {
     try {
-      const [owner] = await db
-        .select({ isAdmin: users.isAdmin, isSuperAdmin: users.isSuperAdmin })
-        .from(decks)
-        .innerJoin(users, eq(users.id, decks.userId))
-        .where(eq(decks.id, deckId))
-        .limit(1);
-
-      if (!owner || (!owner.isAdmin && !owner.isSuperAdmin)) return;
-
       // Drop the raw deck1/deck2 (deck2 is the opponent's full, possibly
       // non-consented blob) and re-attach a consent-gated view instead.
       const { deck1: _deck1, deck2: _deck2, ...gameMeta } = payload as Record<string, unknown>;

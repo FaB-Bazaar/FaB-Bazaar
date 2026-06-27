@@ -715,7 +715,8 @@ export const gameResults = pgTable('game_results', {
 // Raw Talishar payload archive (sidecar to game_results). Stores the full deck
 // blob verbatim — including the fields the typed game_results columns drop
 // (arenaCardResults, tokenResults, character, precomputed aggregates). Written
-// only for admin/superadmin-owned decks; opponent data is consent-gated.
+// for every archived game; opponent data is consent-gated, and reads are
+// owner/co-owner-gated at the route — so each player only ever sees their own.
 // Separate table so it can be dropped wholesale and never leaks into a default
 // game_results SELECT. See migration 0069.
 export const gameResultPayloads = pgTable('game_result_payloads', {

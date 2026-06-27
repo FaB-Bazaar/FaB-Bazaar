@@ -124,7 +124,7 @@ describe('PostgresGameResultsService.createGameResult — raw payload archive', 
     expect(await fetchArchive(res.data.id)).not.toBeNull();
   });
 
-  it('does NOT archive for a non-admin-owned deck', async () => {
+  it('archives for any owner regardless of role (admin gate removed)', async () => {
     await setupDeck({ isAdmin: false, isSuperAdmin: false });
     const { payload, self, opponent } = makeGame();
 
@@ -132,11 +132,9 @@ describe('PostgresGameResultsService.createGameResult — raw payload archive', 
     expect(res.success).toBe(true);
     if (!res.success) return;
 
-    // The game result itself is still saved — only the raw archive is gated.
-    const { rows } = await pool.query('SELECT id FROM game_results WHERE id = $1', [res.data.id]);
-    expect(rows).toHaveLength(1);
-
-    expect(await fetchArchive(res.data.id)).toBeNull();
+    const archived = await fetchArchive(res.data.id);
+    expect(archived).not.toBeNull();
+    expect((archived!.self as Record<string, unknown>).playerHero).toBe('dash_io');
   });
 
   it('nulls the opponent entry when the opponent did not consent', async () => {
