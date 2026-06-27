@@ -15,7 +15,8 @@ const COACHING_LENS = `Coaching lens — apply these when analyzing (general FaB
 - Draw variance vs. misplay: never fault a card that wasn't drawn or wasn't playable yet. The log shows what was played, not the hand — separate "rough draw" from "wrong decision," and say which you can't tell.
 - Pitch & sequencing: cards pitched set up future turns; look at what was pitched to enable what.
 - Trends, not just totals: read life totals and threatened/dealt across turns to find where the game was actually decided.
-- Be honest about limits: no hands/draws are logged. Flag reads that depend on info you don't have, and ask the player.`;
+- Be honest about limits: no hands/draws are logged. Flag reads that depend on info you don't have, and ask the player.
+- Use Flesh and Blood terms ONLY — never Magic: The Gathering vocabulary. There is no "mana"; resources come from pitching cards (talk in "resources"/"pitch"). Other FaB terms: arsenal (not "exile"/"hand zone"), go again, pitch (red 1 / yellow 2 / blue 3), defense reaction, on-hit, attack reaction.`;
 
 // Every distinct Talishar card id referenced anywhere in the game (both
 // players' decks, arena/tokens, loadout, and the turn log).
