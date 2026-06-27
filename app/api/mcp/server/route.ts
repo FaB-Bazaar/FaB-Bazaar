@@ -38,6 +38,8 @@ import { listCardRestrictionsTool } from '../tool/bannedCards/listCardRestrictio
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
+import { listResultsTool } from '../tool/listResults';
+import { getResultsTool } from '../tool/getResults';
 import { getDeckTool, shapeDeckForMcp } from '../tool/getDeck';
 import { createDeckTool } from '../tool/createDeck';
 import { addCardsToDeckTool } from '../tool/addCardsToDeck';
@@ -581,6 +583,16 @@ Step 5: get_binder (verify additions)
                 _meta: (getDeckTool as any)._meta
               },
               {
+                name: listResultsTool.name,
+                description: listResultsTool.description,
+                inputSchema: listResultsTool.parameters
+              },
+              {
+                name: getResultsTool.name,
+                description: getResultsTool.description,
+                inputSchema: getResultsTool.parameters
+              },
+              {
                 name: createDeckTool.name,
                 description: createDeckTool.description,
                 inputSchema: createDeckTool.parameters
@@ -974,6 +986,52 @@ The new tool provides the same functionality with better guidance for proper wor
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: { content: [{ type: 'text', text: `💥 Error listing decks: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'list_results') {
+          if (DEBUG_MCP) console.log('📊 Executing list results');
+          try {
+            const tokenToPass = bearerToken;
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await listResultsTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Results listed.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in list_results:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error listing results: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'get_results') {
+          if (DEBUG_MCP) console.log('📊 Executing get results');
+          try {
+            const tokenToPass = bearerToken;
+            const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
+            const result = await getResultsTool.handler(toolInput, userWithToken, tokenToPass);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Game data retrieved.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in get_results:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error getting results: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }

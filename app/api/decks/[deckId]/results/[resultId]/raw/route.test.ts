@@ -15,7 +15,7 @@ const mockFindByPublicId = vi.mocked(deckService.findByPublicId);
 const mockGetRaw = vi.mocked(gameResultsService.getRawGamePayload);
 
 const ctx = (deckId = 'pub1', resultId = 'res1') => ({ params: Promise.resolve({ deckId, resultId }) });
-const req = {} as Parameters<typeof GET>[0];
+const reqUrl = (qs = '') => ({ url: `http://t/api/decks/pub1/results/res1/raw${qs}` }) as Parameters<typeof GET>[0];
 
 // minimal valid raw blob the analyzer can chew on
 const rawPayload = {
@@ -40,24 +40,24 @@ beforeEach(() => {
 describe('GET /api/decks/[deckId]/results/[resultId]/raw', () => {
   it('401s when unauthenticated', async () => {
     mockAuth.mockResolvedValue({ success: false, error: 'no auth' } as never);
-    const res = await GET(req, ctx());
+    const res = await GET(reqUrl(), ctx());
     expect(res.status).toBe(401);
   });
 
   it('404s when the deck does not exist', async () => {
     mockFindByPublicId.mockResolvedValue({ success: true, data: null } as never);
-    const res = await GET(req, ctx());
+    const res = await GET(reqUrl(), ctx());
     expect(res.status).toBe(404);
   });
 
   it('403s when the requester is not the owner', async () => {
     mockFindByPublicId.mockResolvedValue({ success: true, data: { _id: 'd', userId: 'someoneElse', coOwners: [] } } as never);
-    const res = await GET(req, ctx());
+    const res = await GET(reqUrl(), ctx());
     expect(res.status).toBe(403);
   });
 
   it('returns analyzed data when a raw blob exists', async () => {
-    const res = await GET(req, ctx());
+    const res = await GET(reqUrl(), ctx());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -69,10 +69,20 @@ describe('GET /api/decks/[deckId]/results/[resultId]/raw', () => {
 
   it('returns data:null when no archive exists for the game', async () => {
     mockGetRaw.mockResolvedValue({ success: true, data: null } as never);
-    const res = await GET(req, ctx());
+    const res = await GET(reqUrl(), ctx());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data).toBeNull();
+  });
+
+  it('returns the raw stored blob verbatim (not analyzed) when shape=raw', async () => {
+    const res = await GET(reqUrl('?shape=raw'), ctx());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    // passed through untouched — NOT run through analyzeGame
+    expect(body.data.self.playerHero).toBe('dash_io');
+    expect(body.data.you).toBeUndefined();
   });
 });

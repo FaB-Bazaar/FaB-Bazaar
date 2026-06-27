@@ -1,0 +1,62 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('@/lib/mcp-fetch', () => ({
+  mcpFetch: vi.fn(),
+  getMcpApiBaseUrl: () => 'http://test',
+}));
+
+import { listResultsTool } from './listResults';
+import { mcpFetch } from '@/lib/mcp-fetch';
+
+const mockFetch = vi.mocked(mcpFetch);
+const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => '' }) as never;
+
+// Wire mcpFetch to respond by URL: deck list, then results list.
+function wire({ decks, results, total }: { decks: any[]; results: any[]; total?: number }) {
+  mockFetch.mockImplementation((url: string) => {
+    if (url.includes('/api/decks?')) return Promise.resolve(ok({ success: true, decks }));
+    if (url.includes('/results')) return Promise.resolve(ok({ success: true, data: results, total: total ?? results.length }));
+    return Promise.resolve(ok({ success: false, error: 'unexpected url ' + url }));
+  });
+}
+
+beforeEach(() => vi.clearAllMocks());
+
+describe('list_results MCP tool', () => {
+  it('requires authentication', async () => {
+    const res = await listResultsTool.handler({ deckName: 'Dash' }, undefined, undefined);
+    expect(res.success).toBe(false);
+  });
+
+  it('returns a numbered list of recent games with resultIds', async () => {
+    wire({
+      decks: [{ name: 'Dash Nitro Mechanoid', publicId: 'pub1' }],
+      results: [
+        { id: 'r1', result: 'loss', opponentHero: 'kassai_of_the_golden_sand', format: '1', totalTurns: 16, playedAt: '2026-06-26T00:00:00Z' },
+        { id: 'r2', result: 'win', opponentHero: 'zyggy_starlight', format: '1', totalTurns: 4, playedAt: '2026-06-24T00:00:00Z' },
+      ],
+      total: 31,
+    });
+
+    const res = await listResultsTool.handler({ deckName: 'dash nitro mechanoid' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.results).toHaveLength(2);
+    expect(res.results[0]).toMatchObject({ gameNumber: 1, resultId: 'r1', result: 'loss' });
+    expect(res.results[1]).toMatchObject({ gameNumber: 2, resultId: 'r2' });
+    expect(res.message).toMatch(/Kassai/i); // opponent hero prettified in the menu
+  });
+
+  it('errors clearly when the deck is not found among your decks', async () => {
+    wire({ decks: [{ name: 'Other Deck', publicId: 'pubX' }], results: [] });
+    const res = await listResultsTool.handler({ deckName: 'Nonexistent' }, undefined, 'tok');
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/nonexistent|not found|no deck/i);
+  });
+
+  it('handles a deck with no recorded games', async () => {
+    wire({ decks: [{ name: 'Dash', publicId: 'pub1' }], results: [] });
+    const res = await listResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.results).toEqual([]);
+  });
+});
