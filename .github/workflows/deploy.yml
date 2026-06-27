@@ -48,8 +48,12 @@ jobs:
             ghcr.io/fab-bazaar/fab-bazaar-nextjs:${{ github.sha }}
           # Registry-based layer cache — first build cold (~2–3 min), subsequent
           # builds ~30–60s once node_modules and the standalone output cache.
-          cache-from: type=registry,ref=ghcr.io/fab-bazaar/fab-bazaar-nextjs:buildcache
-          cache-to: type=registry,ref=ghcr.io/fab-bazaar/fab-bazaar-nextjs:buildcache,mode=max
+          # NOTE: ref bumped to -v2 to discard a poisoned cache that was reusing a
+          # stale `next build` layer and dropping a newly-added App Router route
+          # (app/api/decks/[deckId]/notes) from the standalone output. A fresh ref
+          # forces one clean build, then resumes normal fast cached builds.
+          cache-from: type=registry,ref=ghcr.io/fab-bazaar/fab-bazaar-nextjs:buildcache-v2
+          cache-to: type=registry,ref=ghcr.io/fab-bazaar/fab-bazaar-nextjs:buildcache-v2,mode=max
           # Only the build-time-inlined NEXT_PUBLIC_* vars. Real secrets never
           # enter the build; the running container picks them up at runtime
           # from /opt/fabbazaar/.env via env_file in docker-compose.yml.
