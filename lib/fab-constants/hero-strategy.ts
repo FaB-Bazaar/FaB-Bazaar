@@ -28,6 +28,15 @@ const HERO_PRIMERS: HeroPrimer[] = [
       'Weak to: equipment disruption; losing the race to fast go-wide decks (e.g. Kassai). Survive early, win the long value game, be threatening before their nut turn.',
     ].join('\n'),
   },
+  {
+    aliases: ['kassai_of_the_golden_sand', 'kassai'],
+    primer: [
+      'Kassai of the Golden Sand — Volcor Warrior; fast go-wide tempo/aggro on a self-fueling gold engine. Gets scarier the longer the game runs.',
+      'Plan: pressure early and often with dual Cintari Sabers (multiple weapon activations per turn) and Cintari Sellsword tokens to go wide. Her hero ability banishes 2 red + 2 yellow from the graveyard to make a Gold token when a weapon hits; Gold converts spent cards into draw and free sword activations — a snowball that compounds over the game. Spoils of War + Gold turn the mid-to-late game into burst. Wins by racing, fatigue, punishing nut go-wide turns, and well-timed attack reactions.',
+      'Playing AGAINST Kassai (key): do NOT block her weapon attacks with ATTACK ACTION cards — Hot Streak gains go again and Cintari Saber gains +power when defended by an attack action, so you actively power her engine. Block with equipment / defense reactions, or take the hit. Deny Gold value where you can, and disrupt her arsenal / banked weapon reactions (on-hit arsenal destruction is real disruption).',
+      'She scales with the gold economy (especially ~turn 12+), so be threatening lethal before she stabilizes — racing her before the engine comes online is the classic answer. Weak to: color-consistency hiccups, graveyard disruption, and simply being outraced early.',
+    ].join('\n'),
+  },
 ];
 
 /** Resolve a Talishar hero slug to its curated primer, or null if none exists. */

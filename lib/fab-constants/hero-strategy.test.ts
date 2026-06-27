@@ -12,8 +12,16 @@ describe('getHeroPrimer', () => {
     }
   });
 
+  it('resolves Kassai across her slug + name fragment', () => {
+    for (const slug of ['kassai_of_the_golden_sand', 'kassai']) {
+      const p = getHeroPrimer(slug);
+      expect(p, slug).toBeTruthy();
+      // includes the "don't block her weapons with attack actions" guidance
+      expect(p).toMatch(/attack action/i);
+    }
+  });
+
   it('returns null for a hero without a curated primer', () => {
-    expect(getHeroPrimer('kassai_of_the_golden_sand')).toBeNull();
     expect(getHeroPrimer('dash_io')).toBeNull();
     expect(getHeroPrimer(null)).toBeNull();
     expect(getHeroPrimer(undefined)).toBeNull();
