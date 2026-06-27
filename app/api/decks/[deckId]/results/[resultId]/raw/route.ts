@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ deckId: string; resultId: string }> }
 ) {
   try {
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
     }

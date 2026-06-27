@@ -44,6 +44,11 @@ describe('GET /api/decks/[deckId]/results/[resultId]/raw', () => {
     expect(res.status).toBe(401);
   });
 
+  it('enables OAuth/MCP bearer auth (passes allowOAuth: true)', async () => {
+    await GET(reqUrl(), ctx());
+    expect(mockAuth).toHaveBeenCalledWith(expect.anything(), expect.anything(), { allowOAuth: true });
+  });
+
   it('404s when the deck does not exist', async () => {
     mockFindByPublicId.mockResolvedValue({ success: true, data: null } as never);
     const res = await GET(reqUrl(), ctx());
