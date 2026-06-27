@@ -2,7 +2,59 @@
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { resolveOwnedDeck } from './listResults';
 import { renderGameText } from '@/lib/talishar/renderGameText';
+import { renderCardGlossary, type CardMeta } from '@/lib/talishar/renderCardGlossary';
 import type { RawGamePayload } from '@/lib/talishar/analyzeGame';
+
+// Every distinct Talishar card id referenced anywhere in the game (both
+// players' decks, arena/tokens, loadout, and the turn log).
+function collectCardIds(payload: RawGamePayload): string[] {
+  const ids = new Set<string>();
+  const addCards = (arr?: unknown) => {
+    if (Array.isArray(arr)) for (const c of arr) if (typeof (c as any)?.cardId === 'string') ids.add((c as any).cardId);
+  };
+  const addLog = (log?: unknown) => {
+    if (Array.isArray(log)) for (const e of log) if (Array.isArray(e) && typeof e[1] === 'string') ids.add(e[1]);
+  };
+  for (const side of [payload.self, payload.opponent]) {
+    if (!side) continue;
+    const s = side as Record<string, unknown>;
+    addCards(s.cardResults);
+    addCards(s.arenaCardResults);
+    addCards(s.tokenResults);
+    addCards(s.character);
+    addLog(s.turnLog);
+  }
+  return [...ids];
+}
+
+// Resolve every card to its semantics (type/keywords/stats/text) server-side so
+// the model never has to call search_printings itself. Best-effort.
+async function buildGlossary(apiBase: string, payload: RawGamePayload): Promise<string> {
+  try {
+    const ids = collectCardIds(payload);
+    if (ids.length === 0) return '';
+    const res = await mcpFetch(`${apiBase}/api/cards/by-talishar-id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, details: true }),
+    });
+    if (!res.ok) return '';
+    const body = await res.json();
+    const cards: CardMeta[] = Object.values(body.data || {}).map((c: any) => ({
+      name: c.displayName,
+      pitch: c.pitch,
+      typeText: c.typeText,
+      cost: c.cost,
+      power: c.power,
+      defense: c.defense,
+      keywords: c.keywords,
+      text: c.text,
+    }));
+    return renderCardGlossary(cards);
+  } catch {
+    return '';
+  }
+}
 
 export const getResultsTool = {
   name: 'get_results',
@@ -95,9 +147,12 @@ export const getResultsTool = {
         readable = `Full game data for "${deck.name}" (result ${resultId}).`;
       }
 
+      // Append a card glossary (what each card does) resolved server-side.
+      const glossary = await buildGlossary(API_BASE_URL, rawBody.data as RawGamePayload);
+
       return {
         success: true,
-        message: `📊 **${deck.name}** — game ${resultId}\n\n${readable}`,
+        message: `📊 **${deck.name}** — game ${resultId}\n\n${readable}${glossary ? `\n\n${glossary}` : ''}`,
         deckName: deck.name,
         resultId,
         data: rawBody.data,
