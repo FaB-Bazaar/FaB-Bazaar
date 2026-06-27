@@ -3,14 +3,16 @@ import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { deckService } from '@/lib/services';
 
 // Private notes for a deck. Owner/co-owner only — never shown publicly (the deck
-// GET strips metadata.gamePlan / metadata.cardNotes for non-owners). Stored in
-// deck.metadata so no migration is needed (matchups already live there):
-//   metadata.gamePlan   — free-text deck game plan (string)
-//   metadata.cardNotes  — one short note per unique card, keyed by `${name}|${pitch}`
+// GET strips these from metadata for non-owners). Stored in deck.metadata so no
+// migration is needed (matchups already live there):
+//   metadata.gamePlan      — free-text deck game plan (string)
+//   metadata.cardNotes     — one short note per unique card, keyed by `${name}|${pitch}`
+//   metadata.matchupNotes  — context per opponent hero, keyed by the Talishar hero slug
 
 const MAX_NOTES = 10_000;
 const MAX_CARD_NOTE = 280;
-const MAX_CARD_ENTRIES = 400;
+const MAX_MATCHUP_NOTE = 2_000;
+const MAX_MAP_ENTRIES = 400;
 
 type OwnedDeck =
   | { ok: false; response: NextResponse }
@@ -31,13 +33,13 @@ async function ownedDeck(request: NextRequest, publicId: string): Promise<OwnedD
 }
 
 // Keep only string values, trim, drop empties, cap length and count.
-function sanitizeCardNotes(input: Record<string, unknown>): Record<string, string> {
+function sanitizeNoteMap(input: Record<string, unknown>, maxLen: number): Record<string, string> {
   const out: Record<string, string> = {};
   let n = 0;
   for (const [key, val] of Object.entries(input)) {
-    if (n >= MAX_CARD_ENTRIES) break;
+    if (n >= MAX_MAP_ENTRIES) break;
     if (typeof val !== 'string') continue;
-    const trimmed = val.trim().slice(0, MAX_CARD_NOTE);
+    const trimmed = val.trim().slice(0, maxLen);
     if (!trimmed) continue;
     out[key] = trimmed;
     n++;
@@ -53,7 +55,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const meta = res.deck.metadata ?? {};
     const notes = typeof meta.gamePlan === 'string' ? meta.gamePlan : '';
     const cardNotes = meta.cardNotes && typeof meta.cardNotes === 'object' ? meta.cardNotes : {};
-    return NextResponse.json({ success: true, data: { notes, cardNotes } });
+    const matchupNotes = meta.matchupNotes && typeof meta.matchupNotes === 'object' ? meta.matchupNotes : {};
+    return NextResponse.json({ success: true, data: { notes, cardNotes, matchupNotes } });
   } catch (error) {
     console.error('[Deck Notes] GET error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
@@ -66,6 +69,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json().catch(() => null);
     const notes = body?.notes;
     const cardNotes = body?.cardNotes;
+    const matchupNotes = body?.matchupNotes;
+    const isMap = (v: unknown) => typeof v === 'object' && v !== null && !Array.isArray(v);
 
     if (notes !== undefined && typeof notes !== 'string') {
       return NextResponse.json({ success: false, error: 'notes must be a string' }, { status: 400 });
@@ -73,11 +78,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (typeof notes === 'string' && notes.length > MAX_NOTES) {
       return NextResponse.json({ success: false, error: `notes must be ${MAX_NOTES} characters or fewer` }, { status: 400 });
     }
-    if (cardNotes !== undefined && (typeof cardNotes !== 'object' || cardNotes === null || Array.isArray(cardNotes))) {
+    if (cardNotes !== undefined && !isMap(cardNotes)) {
       return NextResponse.json({ success: false, error: 'cardNotes must be an object map' }, { status: 400 });
     }
-    if (notes === undefined && cardNotes === undefined) {
-      return NextResponse.json({ success: false, error: 'Provide notes and/or cardNotes' }, { status: 400 });
+    if (matchupNotes !== undefined && !isMap(matchupNotes)) {
+      return NextResponse.json({ success: false, error: 'matchupNotes must be an object map' }, { status: 400 });
+    }
+    if (notes === undefined && cardNotes === undefined && matchupNotes === undefined) {
+      return NextResponse.json({ success: false, error: 'Provide notes, cardNotes, and/or matchupNotes' }, { status: 400 });
     }
 
     const res = await ownedDeck(request, publicId);
@@ -86,7 +94,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Read-modify-write so we don't clobber other metadata keys (e.g. matchups).
     const metadata: Record<string, any> = { ...(res.deck.metadata || {}) };
     if (notes !== undefined) metadata.gamePlan = notes;
-    if (cardNotes !== undefined) metadata.cardNotes = sanitizeCardNotes(cardNotes as Record<string, unknown>);
+    if (cardNotes !== undefined) metadata.cardNotes = sanitizeNoteMap(cardNotes as Record<string, unknown>, MAX_CARD_NOTE);
+    if (matchupNotes !== undefined) metadata.matchupNotes = sanitizeNoteMap(matchupNotes as Record<string, unknown>, MAX_MATCHUP_NOTE);
 
     const update = await deckService.updateDeck(publicId, res.userId, { metadata });
     if (!update.success) {
@@ -94,7 +103,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     return NextResponse.json({
       success: true,
-      data: { notes: metadata.gamePlan ?? '', cardNotes: metadata.cardNotes ?? {} },
+      data: { notes: metadata.gamePlan ?? '', cardNotes: metadata.cardNotes ?? {}, matchupNotes: metadata.matchupNotes ?? {} },
     });
   } catch (error) {
     console.error('[Deck Notes] PUT error:', error);

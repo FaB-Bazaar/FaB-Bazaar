@@ -16,6 +16,10 @@ const PITCH_BADGE: Record<number, string> = {
   3: "bg-blue-500 text-white",
 };
 
+function titleCase(slug: string): string {
+  return slug.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
 /**
  * Owner/co-owner-only deck notes: a free-text game plan + one short note per
  * unique card. Stored privately in deck.metadata (gamePlan + cardNotes) and
@@ -24,6 +28,9 @@ const PITCH_BADGE: Record<number, string> = {
 export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: DeckDTO }) {
   const [notes, setNotes] = useState("");
   const [cardNotes, setCardNotes] = useState<Record<string, string>>({});
+  const [matchupNotes, setMatchupNotes] = useState<Record<string, string>>({});
+  const [facedHeroes, setFacedHeroes] = useState<string[]>([]);
+  const [selectedHero, setSelectedHero] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -31,20 +38,45 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
 
   useEffect(() => {
     fetch(`/api/decks/${deckId}/notes`)
-      .then(readApiResult<{ notes?: string; cardNotes?: Record<string, string> }>)
+      .then(readApiResult<{ notes?: string; cardNotes?: Record<string, string>; matchupNotes?: Record<string, string> }>)
       .then((d) => {
         if (d.success) {
           setNotes(d.data?.notes ?? "");
           setCardNotes(d.data?.cardNotes ?? {});
+          setMatchupNotes(d.data?.matchupNotes ?? {});
         } else setError(d.error ?? "Failed to load notes");
       })
       .catch(() => setError("Failed to load notes"))
       .finally(() => setLoaded(true));
   }, [deckId]);
 
+  // Opponents you've actually faced (for the matchup-notes hero list).
+  useEffect(() => {
+    fetch(`/api/decks/${deckId}/results?limit=100`)
+      .then(readApiResult<Array<{ opponentHero?: string | null }>>)
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) {
+          const set = new Set<string>();
+          for (const g of d.data) if (g?.opponentHero) set.add(g.opponentHero);
+          setFacedHeroes([...set]);
+        }
+      })
+      .catch(() => {});
+  }, [deckId]);
+
   // Every unique card across the deck — maindeck, equipment, hero, and the
   // inventory (sideboard pool) — deduped by name+pitch.
   const uniqueCards = useMemo(() => collectUniqueCards(deck), [deck]);
+
+  // Heroes to show in the matchup sidebar: faced opponents + any already noted.
+  const matchupHeroes = useMemo(() => {
+    const set = new Set<string>([...facedHeroes, ...Object.keys(matchupNotes)]);
+    return [...set].filter(Boolean).sort((a, b) => titleCase(a).localeCompare(titleCase(b)));
+  }, [facedHeroes, matchupNotes]);
+
+  useEffect(() => {
+    if (!selectedHero && matchupHeroes.length) setSelectedHero(matchupHeroes[0]);
+  }, [matchupHeroes, selectedHero]);
 
   const save = async () => {
     setSaving(true);
@@ -54,11 +86,13 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
       const res = await fetch(`/api/decks/${deckId}/notes`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes, cardNotes }),
+        body: JSON.stringify({ notes, cardNotes, matchupNotes }),
       });
-      const d = await readApiResult<{ cardNotes?: Record<string, string> }>(res);
+      const d = await readApiResult<{ cardNotes?: Record<string, string>; matchupNotes?: Record<string, string> }>(res);
       if (!d.success) throw new Error(d.error ?? "Save failed");
-      if (d.data?.cardNotes) setCardNotes(d.data.cardNotes); // reflect server sanitization
+      // reflect server sanitization
+      if (d.data?.cardNotes) setCardNotes(d.data.cardNotes);
+      if (d.data?.matchupNotes) setMatchupNotes(d.data.matchupNotes);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -130,6 +164,50 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
                 />
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Matchup notes — per opponent hero (sideboard / matchup context) */}
+      {matchupHeroes.length > 0 && (
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Matchup Notes</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Per-opponent context — pick a hero, write your sideboard / matchup plan. Surfaced when you analyze that matchup.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-44 shrink-0 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+              {matchupHeroes.map((h) => (
+                <button
+                  key={h}
+                  onClick={() => setSelectedHero(h)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-1 px-2.5 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                    selectedHero === h
+                      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+                  )}
+                >
+                  <span className="truncate">{titleCase(h)}</span>
+                  {matchupNotes[h]?.trim() && <span className="shrink-0 text-blue-500" title="has notes">●</span>}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1">
+              {selectedHero ? (
+                <textarea
+                  value={matchupNotes[selectedHero] ?? ""}
+                  onChange={(e) => setMatchupNotes((prev) => ({ ...prev, [selectedHero]: e.target.value }))}
+                  rows={8}
+                  placeholder={`Plan vs ${titleCase(selectedHero)} — sideboard swaps, what to block, how this matchup is won or lost…`}
+                  className="w-full min-h-[8rem] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                />
+              ) : (
+                <p className="text-sm text-gray-400">Select a hero to add matchup notes.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

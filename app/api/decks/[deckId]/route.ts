@@ -154,11 +154,11 @@ export async function GET(
       ? displayUsername(ownerResult.data.username)
       : null;
 
-    // Private notes (metadata.gamePlan / metadata.cardNotes) are owner/co-owner only.
+    // Private notes (gamePlan / cardNotes / matchupNotes) are owner/co-owner only.
     const safeMetadata =
       canEdit || !deck.metadata
         ? deck.metadata
-        : { ...deck.metadata, gamePlan: undefined, cardNotes: undefined };
+        : { ...deck.metadata, gamePlan: undefined, cardNotes: undefined, matchupNotes: undefined };
 
     return NextResponse.json({
       success: true,

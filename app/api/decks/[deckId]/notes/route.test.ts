@@ -72,6 +72,21 @@ describe('PUT /api/decks/[deckId]/notes', () => {
     expect((await PUT(putReq('x'), ctx())).status).toBe(404);
   });
 
+  it('saves matchup notes keyed by opponent hero, preserving other metadata', async () => {
+    const res = await PUT(
+      putBody({ matchupNotes: { kassai_of_the_golden_sand: '  race the gold engine  ', dorinthea: '   ' } }),
+      ctx()
+    );
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('pub1', 'owner1', {
+      metadata: {
+        matchups: [{ heroId: 'kassai' }],
+        gamePlan: 'stabilize then combo',
+        matchupNotes: { kassai_of_the_golden_sand: 'race the gold engine' }, // empty dorinthea dropped, trimmed
+      },
+    });
+  });
+
   it('saves deduped per-card notes (trimmed, empties dropped), preserving other metadata', async () => {
     const res = await PUT(
       putBody({ cardNotes: { 'command and conquer|1': '  vs control  ', 'big bertha|3': '   ' } }),

@@ -13,8 +13,9 @@ function titleCase(slug?: string | null): string {
   return slug.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-// The player's OWN deck notes (game plan + per-card notes). Most personal context.
-async function buildDeckNotes(apiBase: string, token: string, publicId: string): Promise<string> {
+// The player's OWN notes (game plan + per-card notes + the matchup note(s) for
+// the opponent hero(es) in this batch). Most personal context.
+async function buildDeckNotes(apiBase: string, token: string, publicId: string, opponentHeroes: string[]): Promise<string> {
   try {
     const res = await mcpFetch(`${apiBase}/api/decks/${publicId}`, {
       method: 'GET',
@@ -22,13 +23,15 @@ async function buildDeckNotes(apiBase: string, token: string, publicId: string):
     });
     if (!res.ok) return '';
     const body = await res.json();
+    const meta = body?.data?.metadata ?? {};
     const sections: string[] = [];
-    const gamePlan = typeof body?.data?.metadata?.gamePlan === 'string' ? body.data.metadata.gamePlan.trim() : '';
+
+    const gamePlan = typeof meta.gamePlan === 'string' ? meta.gamePlan.trim() : '';
     const desc = typeof body?.data?.description === 'string' ? body.data.description.trim() : '';
     const plan = gamePlan || desc;
     if (plan) sections.push(`Player's own deck notes (their stated game plan — weigh the analysis against THIS):\n${plan}`);
 
-    const cardNotes = body?.data?.metadata?.cardNotes;
+    const cardNotes = meta.cardNotes;
     if (cardNotes && typeof cardNotes === 'object') {
       const lines = Object.entries(cardNotes as Record<string, unknown>)
         .filter(([, v]) => typeof v === 'string' && (v as string).trim())
@@ -40,6 +43,19 @@ async function buildDeckNotes(apiBase: string, token: string, publicId: string):
         });
       if (lines.length) sections.push(`Player's per-card notes (their own reminders for specific cards):\n${lines.join('\n')}`);
     }
+
+    // Matchup note(s) the player wrote for the opponent hero(es) in this batch.
+    const matchupNotes = meta.matchupNotes;
+    if (matchupNotes && typeof matchupNotes === 'object') {
+      const lines = opponentHeroes
+        .map((h) => {
+          const note = (matchupNotes as Record<string, unknown>)[h];
+          return typeof note === 'string' && note.trim() ? `vs ${titleCase(h)}: ${note.trim()}` : null;
+        })
+        .filter((x): x is string => !!x);
+      if (lines.length) sections.push(`Player's matchup notes (their own plan for THIS opponent):\n${lines.join('\n\n')}`);
+    }
+
     return sections.join('\n\n');
   } catch {
     return '';
@@ -205,9 +221,10 @@ export const getResultsTool = {
 
       const blobs = fetched.map((f) => f.blob);
       const single = fetched.length === 1 && !isBatch;
+      const oppHeroes = [...new Set(blobs.map((b) => (b.opponent as any)?.playerHero).filter(Boolean) as string[])];
 
       // Shared context — built ONCE for the whole batch.
-      const deckNotes = await buildDeckNotes(API_BASE_URL, tokenToUse, deck.publicId);
+      const deckNotes = await buildDeckNotes(API_BASE_URL, tokenToUse, deck.publicId, oppHeroes);
       const heroPlans = buildHeroPlans(blobs);
       const glossary = await buildGlossary(API_BASE_URL, blobs);
 

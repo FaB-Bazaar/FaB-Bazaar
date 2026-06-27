@@ -142,6 +142,19 @@ describe('get_results MCP tool', () => {
     expect(res.resultIds).toEqual(['r1', 'r2']);
   });
 
+  it('injects the matchup note for the opponent hero', async () => {
+    wire({
+      decks: [{ name: 'Teklo', publicId: 'pub1' }],
+      results: [{ id: 'r1' }],
+      raw: { self: { playerHero: 'teklovossen_the_mechropotent' }, opponent: { playerHero: 'kassai_of_the_golden_sand' }, format: '1' },
+      deckDetail: { metadata: { matchupNotes: { kassai_of_the_golden_sand: 'race the gold engine' } } },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Teklo', resultId: 'r1' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.message).toContain('matchup notes');
+    expect(res.message).toContain('vs Kassai Of The Golden Sand: race the gold engine');
+  });
+
   it('honours an explicit resultId without needing the list', async () => {
     wire({ decks: [{ name: 'Dash', publicId: 'pub1' }], results: [], raw: RAW });
     const res = await getResultsTool.handler({ deckName: 'Dash', resultId: 'rX' }, undefined, 'tok');
