@@ -1,18 +1,33 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Loader2, Save, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 
 const MAX = 10000;
+const MAX_CARD = 280;
+
+const PITCH_BADGE: Record<number, string> = {
+  1: "bg-red-500 text-white",
+  2: "bg-yellow-400 text-gray-900",
+  3: "bg-blue-500 text-white",
+};
+
+// One note per UNIQUE card (name+pitch), not per copy. Key matches what
+// get_results uses so notes thread into the coaching.
+function cardKey(name: string, pitch: number): string {
+  return `${name.trim().toLowerCase()}|${pitch}`;
+}
 
 /**
- * Owner/co-owner-only game-plan notes for a deck. Free-text v1 — how the player
- * intends to pilot the deck (game plan, mulligan, matchup notes). Stored in
- * deck.metadata.gamePlan and surfaced to the get_results MCP coaching so the
- * analysis is judged against the player's stated intent. Never shown publicly.
+ * Owner/co-owner-only deck notes: a free-text game plan + one short note per
+ * unique card. Stored privately in deck.metadata (gamePlan + cardNotes) and
+ * surfaced to the get_results MCP coaching. v1 — iterate on layout.
  */
-export default function DeckNotesTab({ deckId }: { deckId: string }) {
+export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: DeckDTO }) {
   const [notes, setNotes] = useState("");
+  const [cardNotes, setCardNotes] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -22,12 +37,28 @@ export default function DeckNotesTab({ deckId }: { deckId: string }) {
     fetch(`/api/decks/${deckId}/notes`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success) setNotes(d.data?.notes ?? "");
-        else setError(d.error ?? "Failed to load notes");
+        if (d.success) {
+          setNotes(d.data?.notes ?? "");
+          setCardNotes(d.data?.cardNotes ?? {});
+        } else setError(d.error ?? "Failed to load notes");
       })
       .catch(() => setError("Failed to load notes"))
       .finally(() => setLoaded(true));
   }, [deckId]);
+
+  // Unique cards across the whole deck, deduped by name+pitch.
+  const uniqueCards = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; pitch: number }>();
+    const all = [...(deck?.maindeck ?? []), ...(deck?.equipment ?? []), ...(deck?.hero ?? [])];
+    for (const c of all) {
+      const name = c.printingDetails?.display_name;
+      if (!name) continue;
+      const pitch = c.printingDetails?.pitch ?? 0;
+      const key = cardKey(name, pitch);
+      if (!map.has(key)) map.set(key, { key, name, pitch });
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name) || a.pitch - b.pitch);
+  }, [deck]);
 
   const save = async () => {
     setSaving(true);
@@ -37,10 +68,11 @@ export default function DeckNotesTab({ deckId }: { deckId: string }) {
       const res = await fetch(`/api/decks/${deckId}/notes`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ notes, cardNotes }),
       });
       const d = await res.json();
       if (!d.success) throw new Error(d.error ?? "Save failed");
+      if (d.data?.cardNotes) setCardNotes(d.data.cardNotes); // reflect server sanitization
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -59,27 +91,64 @@ export default function DeckNotesTab({ deckId }: { deckId: string }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Game Plan Notes</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Private to you and co-owners. How you want to pilot this deck — game plan, mulligan, key turns, matchup
-          notes. Your AI game analysis (Results) reads this to coach against your stated plan.
-        </p>
+    <div className="space-y-6">
+      {/* Game plan */}
+      <div className="space-y-2">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Game Plan Notes</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Private to you and co-owners. How you want to pilot this deck — game plan, mulligan, key turns, matchups.
+            Your AI game analysis (Results) reads this to coach against your stated plan.
+          </p>
+        </div>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value.slice(0, MAX))}
+          rows={12}
+          placeholder={
+            "e.g. Game plan: block down base equipment, bank evos, threaten Singularity ~turn 9–11.\n" +
+            "Vs Kassai: don't block her weapons with attack actions; race the gold engine."
+          }
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        />
+        <div className="text-xs text-gray-400 tabular-nums">{notes.length}/{MAX}</div>
       </div>
 
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value.slice(0, MAX))}
-        rows={16}
-        placeholder={
-          "e.g. Game plan: block down base equipment, bank evos, threaten Singularity around turn 9–11.\n" +
-          "Mulligan: keep a hand that equips 1–2 evos.\n" +
-          "Vs Kassai: don't block her weapons with attack actions; race the gold engine."
-        }
-        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-900 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-      />
+      {/* Per-card notes */}
+      {uniqueCards.length > 0 && (
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Card Notes</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              One short note per unique card (not per copy) — e.g. when to hold it, what to block, what it answers.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            {uniqueCards.map((c) => (
+              <div key={c.key} className="flex items-center gap-2">
+                <span className="flex w-44 shrink-0 items-center gap-1.5 truncate text-sm text-gray-700 dark:text-gray-300" title={c.name}>
+                  {c.pitch > 0 && (
+                    <span className={cn("inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold", PITCH_BADGE[c.pitch])}>
+                      {c.pitch}
+                    </span>
+                  )}
+                  <span className="truncate">{c.name}</span>
+                </span>
+                <input
+                  type="text"
+                  value={cardNotes[c.key] ?? ""}
+                  maxLength={MAX_CARD}
+                  onChange={(e) => setCardNotes((prev) => ({ ...prev, [c.key]: e.target.value }))}
+                  placeholder="short note…"
+                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
+      {/* Save */}
       <div className="flex items-center gap-3">
         <button
           onClick={save}
@@ -89,7 +158,6 @@ export default function DeckNotesTab({ deckId }: { deckId: string }) {
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           {saving ? "Saving…" : saved ? "Saved" : "Save notes"}
         </button>
-        <span className="text-xs text-gray-400 tabular-nums">{notes.length}/{MAX}</span>
         {error && <span className="text-xs text-red-500">{error}</span>}
       </div>
     </div>

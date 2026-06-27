@@ -98,6 +98,18 @@ describe('get_results MCP tool', () => {
     expect(res.message).not.toContain('public blurb');
   });
 
+  it('includes the player per-card notes from metadata.cardNotes', async () => {
+    wire({
+      decks: [{ name: 'Dash', publicId: 'pub1' }],
+      results: [{ id: 'r1' }],
+      raw: RAW,
+      deckDetail: { metadata: { cardNotes: { 'command and conquer|1': 'save vs control' } } },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
+    expect(res.message).toContain('per-card notes');
+    expect(res.message).toContain('Command And Conquer (red): save vs control');
+  });
+
   it('falls back to the public description when there is no gamePlan note', async () => {
     wire({
       decks: [{ name: 'Dash', publicId: 'pub1' }],

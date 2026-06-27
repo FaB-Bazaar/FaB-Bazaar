@@ -2198,7 +2198,7 @@ export default function DeckEditorPage() {
 
             {/* Notes tab content (owner/co-owner only) */}
             {canEdit && activeTab === "notes" && (
-              <DeckNotesTab deckId={deckId} />
+              <DeckNotesTab deckId={deckId} deck={state.deck ?? undefined} />
             )}
 
               </div>

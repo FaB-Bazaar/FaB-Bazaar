@@ -17,12 +17,33 @@ async function buildDeckNotes(apiBase: string, token: string, publicId: string):
     });
     if (!res.ok) return '';
     const body = await res.json();
+    const sections: string[] = [];
+
     // Prefer the private game-plan notes (Notes tab); fall back to the public description.
     const gamePlan = typeof body?.data?.metadata?.gamePlan === 'string' ? body.data.metadata.gamePlan.trim() : '';
     const desc = typeof body?.data?.description === 'string' ? body.data.description.trim() : '';
-    const notes = gamePlan || desc;
-    if (!notes) return '';
-    return `Player's own deck notes (their stated game plan — weigh the analysis against THIS; it's how they intend to pilot the deck):\n${notes}`;
+    const plan = gamePlan || desc;
+    if (plan) {
+      sections.push(`Player's own deck notes (their stated game plan — weigh the analysis against THIS; it's how they intend to pilot the deck):\n${plan}`);
+    }
+
+    // Per-card notes (keyed by "name|pitch").
+    const cardNotes = body?.data?.metadata?.cardNotes;
+    if (cardNotes && typeof cardNotes === 'object') {
+      const lines = Object.entries(cardNotes as Record<string, unknown>)
+        .filter(([, v]) => typeof v === 'string' && (v as string).trim())
+        .map(([key, v]) => {
+          const [name, pitch] = key.split('|');
+          const pretty = name.replace(/\b\w/g, (c) => c.toUpperCase());
+          const pc = pitch === '1' ? ' (red)' : pitch === '2' ? ' (yellow)' : pitch === '3' ? ' (blue)' : '';
+          return `- ${pretty}${pc}: ${(v as string).trim()}`;
+        });
+      if (lines.length) {
+        sections.push(`Player's per-card notes (their own reminders for specific cards):\n${lines.join('\n')}`);
+      }
+    }
+
+    return sections.join('\n\n');
   } catch {
     return '';
   }
