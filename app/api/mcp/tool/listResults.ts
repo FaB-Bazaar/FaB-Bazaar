@@ -42,29 +42,34 @@ export async function resolveOwnedDeck(
 
 export const listResultsTool = {
   name: 'list_results',
-  description: `📊 LIST GAME RESULTS: your recorded games for one of your decks.
+  description: `📊 LIST GAME RESULTS: your recorded games, synced from Talishar.
 
-  Returns recent games (default last 10), synced from Talishar. Pass opponentHero
-  to get EVERY game vs a matchup (scans a wider window) — then call get_results on
-  each resultId and analyze the matchup across games (trends, what wins vs loses).
+  THREE MODES:
+  • No deckName → your most recent games across ALL your decks, each labeled with its
+    deck. Use this FIRST when you don't know / can't remember which deck a game is on.
+    The user picks one; then call get_results with that game's deckName + resultId
+    (both shown per row).
+  • deckName → that deck's recent games (default last 10).
+  • deckName + opponentHero → EVERY game vs that matchup (scans a wider window), for
+    cross-game analysis.
 
-  🔒 Your own decks only.
+  🔒 Your own games only.
+  ⚠️ The id in a deck's /decks/<id> URL is the DECK id, NOT a game id. Game (result)
+  ids come from THIS tool — never pass a deck/URL id to get_results as a resultId.
 
-  📋 CALL FORMAT: { "deckName": "Dash Nitro Mechanoid" }
-  📋 CALL FORMAT — a matchup: { "deckName": "Dash Nitro Mechanoid", "opponentHero": "Kassai" }
-  📋 CALL FORMAT — fewer: { "deckName": "Dash Nitro Mechanoid", "limit": 5 }
+  📋 recent (all decks): {}
+  📋 one deck:           { "deckName": "Dash Nitro Mechanoid" }
+  📋 a matchup:          { "deckName": "Dash Nitro Mechanoid", "opponentHero": "Kassai" }
 
-  🖥️ DISPLAY: numbered list — # | W/L | vs Opponent | Format | Turns | Date.
-  To analyze a matchup, call get_results with each resultId, then compare the games.`,
+  🖥️ DISPLAY: numbered list — # | W/L | vs Opponent | Deck | Turns | Date.`,
 
   parameters: {
     type: 'object',
     properties: {
-      deckName: { type: 'string', description: 'Name of the deck (case-insensitive exact match).' },
-      opponentHero: { type: 'string', description: 'Optional matchup filter — e.g. "Kassai" or "kassai_of_the_golden_sand". Returns every game vs that hero.' },
-      limit: { type: 'number', description: 'How many recent games to list when not filtering (default 10, max 50).' },
+      deckName: { type: 'string', description: 'Deck name (case-insensitive exact match). OMIT to list recent games across ALL your decks.' },
+      opponentHero: { type: 'string', description: 'Optional matchup filter (requires deckName) — e.g. "Kassai". Returns every game vs that hero.' },
+      limit: { type: 'number', description: 'How many games to list (default 10, max 50).' },
     },
-    required: ['deckName'],
   },
 
   async handler(params: any, authenticatedUser?: any, token?: string) {
@@ -74,9 +79,44 @@ export const listResultsTool = {
       if (!tokenToUse) return { success: false, error: 'Authentication failed: No token was found.' };
 
       const deckName = params?.deckName;
-      if (!deckName) return { success: false, error: 'deckName is required.' };
       const opponentHero = typeof params?.opponentHero === 'string' && params.opponentHero.trim() ? params.opponentHero.trim() : null;
       const limit = Math.min(Math.max(parseInt(String(params.limit ?? 10), 10) || 10, 1), 50);
+      const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenToUse}` };
+
+      // No deck specified → most recent games across ALL the user's decks, so the
+      // caller can pick one without knowing the deck name.
+      if (!deckName) {
+        const res = await mcpFetch(`${API_BASE_URL}/api/results/recent?limit=${limit}`, { method: 'GET', headers: authHeaders });
+        if (!res.ok) return { success: false, error: `Failed to fetch recent games (HTTP ${res.status}).` };
+        const body = await res.json();
+        if (!body.success) return { success: false, error: body.error || 'Could not load recent games.' };
+        const games: any[] = body.data || [];
+        if (games.length === 0) {
+          return { success: true, message: `📭 No recorded games on any of your decks yet.`, results: [] };
+        }
+        let message = `📊 **Your last ${games.length} games (all decks)**\n\n`;
+        games.forEach((g, i) => {
+          const date = g.playedAt ? new Date(g.playedAt).toISOString().slice(0, 10) : '—';
+          const wl = g.result === 'win' ? 'W' : 'L';
+          message += `${i + 1}. ${wl} vs ${prettyHero(g.opponentHero)} | ${g.deckName} | ${g.totalTurns ?? '?'} turns | ${date}${g.conceded ? ' (conceded)' : ''}\n`;
+        });
+        message += `\nTo dig into one, call get_results with that game's deckName + resultId (shown below).`;
+        return {
+          success: true,
+          message,
+          results: games.map((g, i) => ({
+            gameNumber: i + 1,
+            resultId: g.id,
+            deckName: g.deckName,
+            deckPublicId: g.deckPublicId,
+            result: g.result,
+            opponentHero: g.opponentHero,
+            totalTurns: g.totalTurns,
+            conceded: g.conceded,
+            playedAt: g.playedAt,
+          })),
+        };
+      }
 
       const deck = await resolveOwnedDeck(API_BASE_URL, tokenToUse, deckName);
       if (!deck.ok) return { success: false, error: deck.error };

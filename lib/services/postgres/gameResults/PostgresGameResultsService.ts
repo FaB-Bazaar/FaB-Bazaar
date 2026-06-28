@@ -56,6 +56,23 @@ export interface GameResultSummaryDTO {
   createdAt: Date;
 }
 
+// A recent game across ALL of a user's decks — each row carries its deck so the
+// caller can pick a game without already knowing the deck name.
+export interface RecentGameResultDTO {
+  id: string;
+  deckId: string;
+  deckPublicId: string;
+  deckName: string;
+  format?: string | null;
+  playerHero?: string | null;
+  opponentHero?: string | null;
+  result: 'win' | 'loss';
+  conceded: boolean;
+  firstPlayer?: boolean | null;
+  totalTurns?: number | null;
+  playedAt: Date;
+}
+
 export interface TalisharDeckPayload {
   gameId?: string;
   gameName?: string;
@@ -247,6 +264,47 @@ export class PostgresGameResultsService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[GameResults] getRawGamePayload failed:', message);
+      return { success: false, error: message };
+    }
+  }
+
+  // Most recent games across ALL of the user's own decks (newest first), each
+  // labeled with its deck. Powers "show me my last games when I don't remember
+  // which deck" — the caller then picks a game and fetches it by deckName+id.
+  async getRecentGameResultsForUser(
+    userId: string,
+    limit: number
+  ): Promise<AsyncResult<RecentGameResultDTO[]>> {
+    try {
+      const { rows } = await pool.query(
+        `SELECT gr.id, gr.deck_id, d.public_id AS deck_public_id, d.name AS deck_name,
+                gr.format, gr.player_hero, gr.opponent_hero, gr.result::text AS result,
+                gr.conceded, gr.first_player, gr.total_turns, gr.played_at
+           FROM game_results gr
+           JOIN decks d ON d.id = gr.deck_id
+          WHERE d.user_id = $1
+          ORDER BY gr.played_at DESC
+          LIMIT $2`,
+        [userId, limit]
+      );
+      const data: RecentGameResultDTO[] = rows.map((row: any) => ({
+        id: row.id,
+        deckId: row.deck_id,
+        deckPublicId: row.deck_public_id,
+        deckName: row.deck_name,
+        format: row.format ?? null,
+        playerHero: row.player_hero ?? null,
+        opponentHero: row.opponent_hero ?? null,
+        result: row.result as 'win' | 'loss',
+        conceded: row.conceded,
+        firstPlayer: row.first_player ?? null,
+        totalTurns: row.total_turns ?? null,
+        playedAt: row.played_at,
+      }));
+      return { success: true, data };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] getRecentGameResultsForUser failed:', message);
       return { success: false, error: message };
     }
   }

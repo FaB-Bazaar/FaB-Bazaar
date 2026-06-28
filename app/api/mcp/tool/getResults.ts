@@ -150,6 +150,10 @@ export const getResultsTool = {
   — the glossary/primers/notes aren't repeated per game, so it stays compact.
 
   🔒 Your own games only.
+  ⚠️ resultId / resultIds come from list_results — NOT from a deck's /decks/<id> URL
+  (that's the DECK id and will return "no archive"). Don't know which deck? Call
+  list_results with NO deckName to see recent games across all decks, pick one, then
+  pass its deckName + resultId here.
 
   📋 last game:   { "deckName": "Dash Nitro Mechanoid" }
   📋 one game:    { "deckName": "Dash Nitro Mechanoid", "resultId": "<id>" }

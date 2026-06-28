@@ -11,9 +11,10 @@ import { mcpFetch } from '@/lib/mcp-fetch';
 const mockFetch = vi.mocked(mcpFetch);
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => '' }) as never;
 
-// Wire mcpFetch to respond by URL: deck list, then results list.
-function wire({ decks, results, total }: { decks: any[]; results: any[]; total?: number }) {
+// Wire mcpFetch to respond by URL: recent-across-decks, deck list, then results list.
+function wire({ decks, results, total, recent }: { decks: any[]; results: any[]; total?: number; recent?: any[] }) {
   mockFetch.mockImplementation((url: string) => {
+    if (url.includes('/api/results/recent')) return Promise.resolve(ok({ success: true, data: recent ?? [] }));
     if (url.includes('/api/decks?')) return Promise.resolve(ok({ success: true, decks }));
     if (url.includes('/results')) return Promise.resolve(ok({ success: true, data: results, total: total ?? results.length }));
     return Promise.resolve(ok({ success: false, error: 'unexpected url ' + url }));
@@ -58,6 +59,26 @@ describe('list_results MCP tool', () => {
     const res = await listResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
     expect(res.success).toBe(true);
     expect(res.results).toEqual([]);
+  });
+
+  it('lists recent games across ALL decks when no deckName is given', async () => {
+    wire({
+      decks: [],
+      results: [],
+      recent: [
+        { id: 'g1', deckName: 'Teklosaucen', deckPublicId: 'p1', result: 'loss', opponentHero: 'kassai_of_the_golden_sand', totalTurns: 16, playedAt: '2026-06-26' },
+        { id: 'g2', deckName: 'Dash Nitro Mechanoid', deckPublicId: 'p2', result: 'win', opponentHero: 'oscilio_forked_continuum', totalTurns: 7, playedAt: '2026-06-25' },
+      ],
+    });
+    const res = await listResultsTool.handler({}, undefined, 'tok');
+    expect(res.success).toBe(true);
+    expect(res.message).toMatch(/all decks/i);
+    expect(res.message).toContain('Teklosaucen');
+    expect(res.message).toContain('Dash Nitro Mechanoid');
+    // each row carries the resultId + its deck so get_results can be called next
+    const rows = (res.results ?? []) as any[];
+    expect(rows.map((r) => r.resultId)).toEqual(['g1', 'g2']);
+    expect(rows[0].deckName).toBe('Teklosaucen');
   });
 
   it('filters to a single matchup with opponentHero (loose name match)', async () => {
