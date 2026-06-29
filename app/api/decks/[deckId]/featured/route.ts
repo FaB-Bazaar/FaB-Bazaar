@@ -10,7 +10,9 @@ export async function PATCH(
     const { deckId } = await params;
     const body = await request.json();
 
-    const authResult = await authenticateRequest(request, body);
+    // allowOAuth so MCP / OAuth bearer tokens can flag Decks to Beat
+    // (create_deck / update_deck route the isSystemDeck toggle here).
+    const authResult = await authenticateRequest(request, body, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }

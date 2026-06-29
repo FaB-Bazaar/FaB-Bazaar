@@ -15,6 +15,7 @@ export const updateDeckTool = {
   📖 EXAMPLES:
   Rename:      deckName: "Old Name", updates: { name: "New Name" }
   Make public: deckName: "My Deck", updates: { isPublic: true }
+  Deck to Beat: deckName: "My Deck", updates: { isPublic: true, isSystemDeck: true }  (superadmin only)
   Add desc:    deckName: "My Deck", updates: { description: "Tournament deck for Spring 2026" }
   Set event:   deckName: "My Deck", updates: { eventName: "Pro Tour Indianapolis", eventDate: "2026-03-15", placing: 1 }`,
 
@@ -40,6 +41,10 @@ export const updateDeckTool = {
           isPublic: {
             type: 'boolean',
             description: 'Whether the deck is publicly visible'
+          },
+          isSystemDeck: {
+            type: 'boolean',
+            description: 'Superadmin only. Flag (true) or unflag (false) this deck as a "Decks to Beat" reference deck. Routed through the superadmin-only endpoint; non-superadmins receive a 403. Pair with isPublic: true since Decks to Beat are public.'
           },
           description: {
             type: 'string',
@@ -94,16 +99,36 @@ export const updateDeckTool = {
         return { success: false, error: `No deck named "${deckName}" found. Available: ${available}` };
       }
 
-      // Update deck metadata
-      const res = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` },
-        body: JSON.stringify(updates)
-      });
+      // isSystemDeck ("Decks to Beat") is superadmin-gated and lives on a
+      // separate endpoint — the generic update route ignores it. Split it out
+      // so the rest of the metadata goes to the standard PATCH.
+      const { isSystemDeck, ...metadataUpdates } = updates;
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, error: data.error || `Failed to update deck (HTTP ${res.status}).` };
+      // Update deck metadata (skip if isSystemDeck was the only field provided)
+      if (Object.keys(metadataUpdates).length > 0) {
+        const res = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` },
+          body: JSON.stringify(metadataUpdates)
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          return { success: false, error: data.error || `Failed to update deck (HTTP ${res.status}).` };
+        }
+      }
+
+      // Toggle the Deck-to-Beat flag via the superadmin-only endpoint.
+      if (isSystemDeck !== undefined) {
+        const featRes = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/featured`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` },
+          body: JSON.stringify({ isSystemDeck })
+        });
+        const featData = await featRes.json().catch(() => ({}));
+        if (!featRes.ok || !featData.success) {
+          return { success: false, error: featData.error || `Failed to set Deck to Beat flag (HTTP ${featRes.status}).` };
+        }
       }
 
       const changed = Object.entries(updates).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`).join('\n');
