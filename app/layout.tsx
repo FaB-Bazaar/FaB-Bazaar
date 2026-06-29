@@ -197,7 +197,9 @@ export default async function RootLayout({
                 <Suspense fallback={null}>
                   <AnalyticsListener />
                 </Suspense>
-                <div className="relative flex flex-col min-h-screen">
+                {/* pb-14 reserves space for the mobile bottom tab bar (sm:hidden) so
+                    it never covers the footer / page content. */}
+                <div className="relative flex flex-col min-h-screen pb-14 sm:pb-0">
                   
                   <header className="sticky top-0 z-50">
                     <Navbar />

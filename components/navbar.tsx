@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DarkModeToggle } from '@/components/DarkModeToggle'
 import MobileSearch from '@/components/search/MobileSearch'
+import MobileTabBar from '@/components/navbar/MobileTabBar'
 import { profileHref } from '@/lib/utils/display-username'
 import { handleSignOut } from "@/app/actions/auth"
 
@@ -1154,6 +1155,20 @@ export default function Navbar() {
          setSearchQuery('')
        }}
        defaultQuery={searchQuery}
+     />
+
+     <MobileTabBar
+       user={user}
+       binders={binders}
+       bindersLoading={bindersLoading}
+       bindersHasPinned={bindersHasPinned}
+       loadBindersOnDemand={loadBindersOnDemand}
+       decks={decks}
+       decksLoading={decksLoading}
+       decksHasPinned={decksHasPinned}
+       loadDecksOnDemand={loadDecksOnDemand}
+       navDeckSort={navDeckSort}
+       setNavDeckSort={setNavDeckSort}
      />
    </>
  )
