@@ -5,7 +5,8 @@
 // Talishar hero slug identifiers — the exact string keys Talishar uses internally.
 // Source: https://github.com/Talishar/Talishar/blob/main/Libraries/LegalHeroesHelper.php ($ALL_HEROES_OF_RATHE)
 // When new heroes are added to our roster, cross-check that file for their Talishar slug and add here.
-// Heroes not yet in Talishar (e.g. zyggy, oscilio forked continuum) are omitted.
+// Heroes Talishar hasn't wired with an active card object yet (e.g. the librarian,
+// magister of history; melody, sing-along; chane young) are omitted on purpose.
 export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   // Adult heroes (HERO_INFO)
   'arakni, 5l!p3d 7hru 7h3 cr4x':      'arakni_5lp3d_7hru_7h3_cr4x',
@@ -47,6 +48,7 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'marlynn, treasure hunter':            'marlynn_treasure_hunter',
   'riptide, lurker of the deep':         'riptide_lurker_of_the_deep',
   'aurora, shooting star':               'aurora_shooting_star',
+  'aurora, legacy of tempest':           'aurora_legacy_of_tempest',
   'briar, warden of thorns':             'briar_warden_of_thorns',
   'chane, bound by shadow':              'chane_bound_by_shadow',
   'florian, rotwood harbinger':          'florian_rotwood_harbinger',
@@ -61,10 +63,13 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'iyslander, stormbind':                'iyslander_stormbind',
   'kano, dracai of aether':              'kano_dracai_of_aether',
   'oscilio, constella intelligence':     'oscilio_constella_intelligence',
+  'oscilio, forked continuum':           'oscilio_forked_continuum',
   'verdance, thorn of the rose':         'verdance_thorn_of_the_rose',
+  'zyggy starlight':                     'zyggy_starlight',
 
   // Young heroes (YOUNG_HERO_INFO)
   'arakni':                              'arakni',
+  'baalghor, omen of the end':           'baalghor_omen_of_the_end',
   'arakni, solitary confinement':        'arakni_solitary_confinement',
   'arakni, web of deceit':               'arakni_web_of_deceit',
   'nuu':                                 'nuu',
@@ -76,6 +81,7 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'iyslander':                           'iyslander',
   'kano':                                'kano',
   'oscilio':                             'oscilio',
+  'oscilio, scion of the third age':     'oscilio_scion_of_the_third_age',
   'verdance':                            'verdance',
   'boltyn':                              'boltyn',
   'dorinthea':                           'dorinthea',
@@ -85,6 +91,7 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'olympia':                             'olympia',
   'scurv, stowaway':                     'scurv_stowaway',
   'aurora':                              'aurora',
+  'aurora, emissary of lightning':       'aurora_emissary_of_lightning',
   'briar':                               'briar',
   'florian':                             'florian',
   'viserai':                             'viserai',
@@ -121,6 +128,7 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'levia':                               'levia',
   'rhinar':                              'rhinar',
   'tuffnut':                             'tuffnut',
+  'zyggy':                               'zyggy',
 };
 
 export function getTalisharHeroSlug(heroName: string): string | null {
@@ -171,6 +179,7 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'marlynn, treasure hunter':            'SEA082',
   'riptide, lurker of the deep':         'OUT091',
   'aurora, shooting star':               'ROS007',
+  'aurora, legacy of tempest':           'OMN047',
   'briar, warden of thorns':             'ELE062',
   'chane, bound by shadow':              'MON153',
   'florian, rotwood harbinger':          'ROS001',
@@ -185,10 +194,13 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'iyslander, stormbind':                'EVR120',
   'kano, dracai of aether':              'ARC113',
   'oscilio, constella intelligence':     'ROS019',
+  'oscilio, forked continuum':           'OMN094',
   'verdance, thorn of the rose':         'ROS013',
+  'zyggy starlight':                     'OMN001',
 
   // Young heroes (YOUNG_HERO_INFO)
   'arakni':                              'DYN114',
+  'baalghor, omen of the end':           'IAR159',
   'arakni, solitary confinement':        'OUT003',
   'arakni, web of deceit':               'HNT002',
   'nuu':                                 'MST002',
@@ -200,6 +212,7 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'iyslander':                           'UPR103',
   'kano':                                'ARC114',
   'oscilio':                             'ROS020',
+  'oscilio, scion of the third age':     'OMN095',
   'verdance':                            'ROS014',
   'boltyn':                              'MON030',
   'dorinthea':                           'WTR114',
@@ -209,6 +222,7 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'olympia':                             'HVY093',
   'scurv, stowaway':                     'SEA123',
   'aurora':                              'ROS008',
+  'aurora, emissary of lightning':       'OMN048',
   'briar':                               'ELE063',
   'florian':                             'ROS002',
   'viserai':                             'ARC076',
@@ -245,6 +259,7 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'levia':                               'MON120',
   'rhinar':                              'WTR002',
   'tuffnut':                             'SUP002',
+  'zyggy':                               'OMN002',
 };
 
 // Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.

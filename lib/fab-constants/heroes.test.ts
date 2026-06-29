@@ -147,6 +147,22 @@ describe('TALISHAR_HERO_IDS', () => {
     expect(TALISHAR_HERO_IDS['dorinthea ironsong']).toBe('WTR113');
     expect(TALISHAR_HERO_IDS['dorinthea']).toBe('WTR114');
   });
+
+  it('includes the OMN ("Omni") heroes — collector numbers', () => {
+    // Zyggy
+    expect(TALISHAR_HERO_IDS['zyggy starlight']).toBe('OMN001');
+    expect(TALISHAR_HERO_IDS['zyggy']).toBe('OMN002');
+    // Aurora (adult / young)
+    expect(TALISHAR_HERO_IDS['aurora, legacy of tempest']).toBe('OMN047');
+    expect(TALISHAR_HERO_IDS['aurora, emissary of lightning']).toBe('OMN048');
+    // Oscilio (adult / young)
+    expect(TALISHAR_HERO_IDS['oscilio, forked continuum']).toBe('OMN094');
+    expect(TALISHAR_HERO_IDS['oscilio, scion of the third age']).toBe('OMN095');
+  });
+
+  it('includes Baalghor, Omen of the End (young — IAR159)', () => {
+    expect(TALISHAR_HERO_IDS['baalghor, omen of the end']).toBe('IAR159');
+  });
 });
 
 describe('TALISHAR_HERO_SLUGS', () => {
@@ -161,6 +177,16 @@ describe('TALISHAR_HERO_SLUGS', () => {
     expect(TALISHAR_HERO_SLUGS['arakni, 5l!p3d 7hru 7h3 cr4x']).toBe('arakni_5lp3d_7hru_7h3_cr4x');
     expect(TALISHAR_HERO_SLUGS['jarl vetreiði']).toBe('jarl_vetreidi');
     expect(TALISHAR_HERO_SLUGS['kayo, strong-arm']).toBe('kayo_strong-arm');
+  });
+
+  it('includes the OMN ("Omni") hero slugs (deck export hero identifier)', () => {
+    expect(TALISHAR_HERO_SLUGS['zyggy starlight']).toBe('zyggy_starlight');
+    expect(TALISHAR_HERO_SLUGS['zyggy']).toBe('zyggy');
+    expect(TALISHAR_HERO_SLUGS['aurora, legacy of tempest']).toBe('aurora_legacy_of_tempest');
+    expect(TALISHAR_HERO_SLUGS['aurora, emissary of lightning']).toBe('aurora_emissary_of_lightning');
+    expect(TALISHAR_HERO_SLUGS['oscilio, forked continuum']).toBe('oscilio_forked_continuum');
+    expect(TALISHAR_HERO_SLUGS['oscilio, scion of the third age']).toBe('oscilio_scion_of_the_third_age');
+    expect(TALISHAR_HERO_SLUGS['baalghor, omen of the end']).toBe('baalghor_omen_of_the_end');
   });
 
   it('getTalisharHeroSlug is case-insensitive', () => {
