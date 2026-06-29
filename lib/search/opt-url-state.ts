@@ -19,6 +19,8 @@ export type ViewMode = 'images' | 'checklist';
 
 export interface OptUiState {
   query: string;
+  // 'name' searches card names (default), 'text' searches rule text only.
+  searchMode: 'name' | 'text';
   selectedType: string | null;
   selectedHeroAges: HeroAge[];
   selectedClasses: string[];
@@ -46,6 +48,7 @@ export interface OptUiState {
 // Default values — anything equal to these is omitted from the URL.
 export const DEFAULT_OPT_STATE: OptUiState = {
   query: '',
+  searchMode: 'name',
   selectedType: null,
   selectedHeroAges: [],
   selectedClasses: [],
@@ -78,6 +81,7 @@ const splitCsv = (v: string | null): string[] =>
 export function uiStateToParams(s: OptUiState): URLSearchParams {
   const p = new URLSearchParams();
   if (s.query.trim()) p.set('q', s.query.trim());
+  if (s.searchMode === 'text') p.set('mode', 'text');
   if (s.selectedType) p.set('type', s.selectedType);
   if (s.selectedHeroAges.length) p.set('heroAge', csv(s.selectedHeroAges));
   if (s.selectedClasses.length) p.set('classes', csv(s.selectedClasses));
@@ -114,6 +118,7 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
 export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   const out: Partial<OptUiState> = {};
   const q = p.get('q'); if (q) out.query = q;
+  if (p.get('mode') === 'text') out.searchMode = 'text';
   const type = p.get('type'); if (type) out.selectedType = type;
   if (p.get('heroAge')) out.selectedHeroAges = splitCsv(p.get('heroAge')).filter((a): a is HeroAge => a === 'adult' || a === 'young');
   if (p.get('classes')) out.selectedClasses = splitCsv(p.get('classes'));

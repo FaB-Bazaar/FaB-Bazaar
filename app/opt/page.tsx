@@ -9,6 +9,8 @@ import { getSetImageOrFallback } from '@/lib/set-images';
 import { SET_MAP } from '@/lib/fab-constants';
 import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose } from '@/components/ui/drawer';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import {
   TYPE_CHIPS, CLASS_ICONS, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
   KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
@@ -225,6 +227,9 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
 export default function OptSearchPage() {
   // ── Filter state ──
   const [query, setQuery] = useState('');
+  // 'name' (default): a bare query matches card names. 'text': it matches rule
+  // text only. Shorthand (t:, text:"…") works in either mode.
+  const [searchMode, setSearchMode] = useState<'name' | 'text'>('name');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   // Hero ages are multi-select (OR), mutually exclusive with a regular type.
   const [selectedHeroAges, setSelectedHeroAges] = useState<Array<'adult' | 'young'>>([]);
@@ -259,6 +264,8 @@ export default function OptSearchPage() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
+  // Mobile-only: the filter bottom sheet (desktop uses the inline popover row).
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Grouped is always the default on load (session-only toggle, not persisted) —
   // so a prior "All printings" choice never becomes the sticky default.
@@ -278,6 +285,7 @@ export default function OptSearchPage() {
   useEffect(() => {
     const s = paramsToUiState(new URLSearchParams(window.location.search));
     if (s.query !== undefined) setQuery(s.query);
+    if (s.searchMode !== undefined) setSearchMode(s.searchMode);
     if (s.selectedType !== undefined) setSelectedType(s.selectedType);
     if (s.selectedHeroAges !== undefined) setSelectedHeroAges(s.selectedHeroAges);
     if (s.selectedClasses !== undefined) setSelectedClasses(s.selectedClasses);
@@ -312,7 +320,7 @@ export default function OptSearchPage() {
   useEffect(() => {
     if (!urlReady) return;
     const qs = uiStateToParams({
-      query: debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
+      query: debouncedQuery, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
       selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
       selectedEditions, selectedSets, selectedPacks, selectedFormat: selectedFormat ?? null,
       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
@@ -320,7 +328,7 @@ export default function OptSearchPage() {
     }).toString();
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, '', url);
-  }, [urlReady, debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
+  }, [urlReady, debouncedQuery, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
       selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
       selectedEditions, selectedSets, selectedPacks, selectedFormat,
       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
@@ -370,13 +378,13 @@ export default function OptSearchPage() {
 
   // ── Build structured server filters from UI state (debounced query) ──
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
-    query: debouncedQuery,
+    query: debouncedQuery, searchMode,
     selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch,
     selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
     selectedTcgGroups: selectedPacks,
     selectedFormat,
     costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch, selectedKeywords,
+  }), [debouncedQuery, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch, selectedKeywords,
        selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedPacks, selectedFormat,
        costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
 
@@ -398,7 +406,7 @@ export default function OptSearchPage() {
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
+    setQuery(''); setSearchMode('name'); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]); setSelectedPacks([]); setSelectedFormat(null);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -480,9 +488,393 @@ export default function OptSearchPage() {
 
   const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
 
+  // ── Reusable control snippets (rendered inline on desktop, inside the mobile
+  //    filter sheet on small screens). Controlled components, so mounting the
+  //    same element in both places is safe. ──
+  const searchModeToggle = (
+    <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden shrink-0" role="group" aria-label="Search scope">
+      {(['name', 'text'] as const).map(mode => (
+        <button
+          key={mode}
+          type="button"
+          onClick={() => { setSearchMode(mode); inputRef.current?.focus(); }}
+          aria-pressed={searchMode === mode}
+          title={mode === 'name' ? 'Search card names' : 'Search rule text'}
+          className={cn(
+            'px-3 py-2 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+            mode === 'text' && 'border-l border-gray-300 dark:border-gray-700',
+            searchMode === mode
+              ? 'bg-blue-600 text-white'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700',
+          )}
+        >
+          {mode}
+        </button>
+      ))}
+    </div>
+  );
+
+  const groupedToggle = (
+    <button
+      onClick={() => setGroupByCard(g => !g)}
+      title={groupByCard ? 'Grouping printings by card — click to show every printing' : 'Showing every printing — click to group by card'}
+      className={cn(
+        'px-2.5 py-1.5 text-xs rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+        groupByCard
+          ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
+      )}
+    >
+      {groupByCard ? 'Grouped' : 'All printings'}
+    </button>
+  );
+
+  const sortControls = (
+    <>
+      <select
+        value={sortBy}
+        onChange={e => setSortBy(e.target.value)}
+        aria-label="Sort by"
+        className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="name">Name</option>
+        <option value="price">Price</option>
+        <option value="set">Set</option>
+        <option value="edition">Edition</option>
+        <option value="collector_number">Collector #</option>
+        <option value="rarity">Rarity</option>
+        <option value="foiling">Foiling</option>
+        <option value="color">Color</option>
+        <option value="cost">Cost</option>
+        <option value="power">Power</option>
+        <option value="defense">Defense</option>
+      </select>
+      <button
+        onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
+        aria-label={`Sort ${sortOrder === 'asc' ? 'ascending' : 'descending'}`}
+        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+        className="flex items-center gap-1 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      >
+        <ArrowUpDown className="w-3.5 h-3.5" />
+        {sortOrder === 'asc' ? 'Asc' : 'Desc'}
+      </button>
+    </>
+  );
+
+  // ── Filter facet descriptors — single source rendered both as desktop
+  //    popovers and as mobile filter-sheet accordion sections. ──
+  type FilterFacet = { key: string; label: string; count: number; align?: 'left' | 'right'; panelClassName?: string; body: React.ReactNode };
+  const filterFacets: FilterFacet[] = [
+    {
+      key: 'pitch', label: 'Pitch', count: selectedPitch !== null ? 1 : 0, panelClassName: 'w-auto',
+      body: (
+        <>
+          <p className={SECTION}>Pitch</p>
+          <div className="flex items-center gap-2">
+            {PITCH_CHIPS.map(chip => {
+              const isActive = selectedPitch === chip.value;
+              return (
+                <button
+                  key={chip.value}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 rounded-md border text-base font-medium transition-all',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                    isActive
+                      ? cn(chip.active, 'text-gray-900 dark:text-white')
+                      : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700',
+                  )}
+                >
+                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', chip.dot)} aria-hidden />
+                  {chip.label}
+                  {isActive && <Check className="w-4 h-4 shrink-0" aria-hidden />}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'type', label: 'Type', count: (selectedType ? 1 : 0) + selectedHeroAges.length, panelClassName: 'w-72',
+      body: (
+        <>
+          <p className={SECTION}>Type</p>
+          <div className="grid grid-cols-4 gap-1">
+            {TYPE_CHIPS.map(chip => (
+              <ArtChip
+                key={chip.value}
+                label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
+                active={selectedType === chip.value} activeClass={chip.active}
+                onClick={() => { setSelectedHeroAges([]); setSelectedType(t => t === chip.value ? null : chip.value); }}
+              />
+            ))}
+          </div>
+          <p className={cn(SECTION, 'mt-3')}>Hero</p>
+          <div className="grid grid-cols-2 gap-1">
+            {HERO_AGE_CHIPS.map(chip => (
+              <ArtChip
+                key={chip.value}
+                label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
+                active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
+                onClick={() => {
+                  setSelectedType(null);
+                  setSelectedHeroAges(a => a.includes(chip.value) ? a.filter(x => x !== chip.value) : [...a, chip.value]);
+                }}
+              />
+            ))}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'class', label: 'Class', count: selectedClasses.length, panelClassName: 'w-72',
+      body: (
+        <>
+          <p className={SECTION}>Class</p>
+          <div className="grid grid-cols-4 gap-1">
+            {ALL_CLASSES.map(cls => {
+              const icon = CLASS_ICONS[cls];
+              return (
+                <ArtChip
+                  key={cls}
+                  label={cls} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
+                  active={selectedClasses.includes(cls)} activeClass="bg-indigo-900/50 border-indigo-600"
+                  onClick={() => toggleArr(selectedClasses, setSelectedClasses, cls)}
+                />
+              );
+            })}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'talent', label: 'Talent', count: selectedTalents.length + (selectedTalentless ? 1 : 0), panelClassName: 'w-72',
+      body: (
+        <>
+          <p className={SECTION}>Talent</p>
+          <div className="mb-2">
+            <Pill active={selectedTalentless} onClick={() => { setSelectedTalents([]); setSelectedTalentless(v => !v); }}>
+              Talentless
+            </Pill>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {ALL_TALENTS.map(tal => {
+              const icon = CLASS_ICONS[tal];
+              return (
+                <ArtChip
+                  key={tal}
+                  label={tal} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
+                  active={selectedTalents.includes(tal)} activeClass="bg-teal-900/50 border-teal-600"
+                  onClick={() => { setSelectedTalentless(false); toggleArr(selectedTalents, setSelectedTalents, tal); }}
+                />
+              );
+            })}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'keywords', label: 'Keywords', count: selectedKeywords.length, panelClassName: 'w-72',
+      body: (
+        <>
+          <p className={SECTION}>Keywords</p>
+          <div className="flex flex-wrap gap-1">
+            {KEYWORD_CHIPS.map(kw => (
+              <Pill key={kw.value} active={selectedKeywords.includes(kw.value)} onClick={() => toggleArr(selectedKeywords, setSelectedKeywords, kw.value)}>
+                {kw.label}
+              </Pill>
+            ))}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'format', label: 'Format', count: selectedFormat ? 1 : 0, panelClassName: 'w-56',
+      body: (
+        <>
+          <p className={SECTION}>Format</p>
+          <div className="flex flex-wrap gap-1">
+            {FORMAT_OPTIONS.map(fmt => (
+              <Pill
+                key={fmt.value}
+                active={selectedFormat === fmt.value}
+                onClick={() => setSelectedFormat(f => f === fmt.value ? null : fmt.value)}
+              >
+                {fmt.label}
+              </Pill>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 leading-snug">
+            Shows cards legal in the selected format (banned &amp; suspended excluded).
+          </p>
+        </>
+      ),
+    },
+    {
+      key: 'rarity', label: 'Rarity', count: selectedRarities.length, panelClassName: 'w-64',
+      body: (
+        <>
+          <p className={SECTION}>Rarity</p>
+          <div className="flex flex-wrap gap-1">
+            {RARITY_OPTIONS.map(r => (
+              <Pill key={r.value} active={selectedRarities.includes(r.value)} onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}>
+                <RarityIcon rarityCode={r.value} size="sm" />
+                {r.label}
+              </Pill>
+            ))}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'stats', label: 'Stats', count: statsCount, panelClassName: 'w-64',
+      body: (
+        <>
+          <p className={SECTION}>Stats</p>
+          <div className="space-y-2">
+            <RangeRow label="Cost"    min={costMin}    setMin={setCostMin}    max={costMax}    setMax={setCostMax} />
+            <RangeRow label="Power"   min={powerMin}   setMin={setPowerMin}   max={powerMax}   setMax={setPowerMax} />
+            <RangeRow label="Defense" min={defenseMin} setMin={setDefenseMin} max={defenseMax} setMax={setDefenseMax} />
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'price', label: 'Price', count: (priceMin || priceMax) ? 1 : 0, panelClassName: 'w-64',
+      body: (
+        <>
+          <p className={SECTION}>Price</p>
+          <div className="flex flex-wrap gap-1">
+            {PRICE_PRESETS.map(p => {
+              const active = priceMin === p.min && priceMax === p.max;
+              return (
+                <Pill
+                  key={p.label}
+                  active={active}
+                  onClick={() => {
+                    if (active) { setPriceMin(''); setPriceMax(''); }
+                    else { setPriceMin(p.min); setPriceMax(p.max); }
+                  }}
+                >
+                  {p.label}
+                </Pill>
+              );
+            })}
+          </div>
+          <div className="mt-3">
+            <p className={SECTION}>Custom range ($)</p>
+            <RangeRow label="Price" min={priceMin} setMin={setPriceMin} max={priceMax} setMax={setPriceMax} />
+          </div>
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 leading-snug">
+            Based on TCGplayer low; English printings only.
+          </p>
+        </>
+      ),
+    },
+    {
+      key: 'more', label: 'More', count: selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80',
+      body: (
+        <div className="space-y-3">
+          <div>
+            <p className={SECTION}>Foiling</p>
+            <div className="flex flex-wrap gap-1">
+              {FOILING_OPTIONS.map(f => (
+                <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => toggleArr(selectedFoilings, setSelectedFoilings, f.value)}>
+                  <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', f.swatch)} />
+                  {f.label}
+                </Pill>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={SECTION}>Edition</p>
+            <div className="flex flex-wrap gap-1">
+              {EDITION_OPTIONS.map(e => (
+                <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => toggleArr(selectedEditions, setSelectedEditions, e.value)}>
+                  {e.label}
+                </Pill>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={SECTION}>Set</p>
+            <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
+              {OPT_FILTER_SETS.map(setCode => (
+                <button
+                  key={setCode}
+                  type="button"
+                  title={SET_MAP[setCode as keyof typeof SET_MAP]}
+                  aria-pressed={selectedSets.includes(setCode)}
+                  onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
+                  className={cn(
+                    'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                    selectedSets.includes(setCode)
+                      ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
+                    className="w-7 h-7 object-contain"
+                    alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {availablePacks.length > 0 && (
+            <div>
+              <p className={SECTION}>Pack</p>
+              <div className="flex flex-wrap gap-1">
+                {availablePacks.map(p => (
+                  <Pill
+                    key={p.groupId}
+                    active={selectedPacks.includes(p.groupId)}
+                    onClick={() => setSelectedPacks(prev => prev.includes(p.groupId) ? prev.filter(x => x !== p.groupId) : [...prev, p.groupId])}
+                  >
+                    {p.name}
+                  </Pill>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'language', label: 'Language', count: isDefaultLang ? 0 : (selectedLanguages.length || 1), align: 'right', panelClassName: 'w-56',
+      body: (
+        <>
+          <p className={SECTION}>Language</p>
+          <div className="space-y-2">
+            <Pill active={selectedLanguages.length === 0} onClick={() => setSelectedLanguages([])}>
+              All languages
+            </Pill>
+            <div className="flex flex-wrap gap-1">
+              {LANGUAGES.map(l => (
+                <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => setSelectedLanguages(prev => toggleLanguageSelection(prev, l.code))}>
+                  <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
+                </Pill>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 leading-snug">
+              Only English printings have prices &amp; TCGplayer links.
+            </p>
+          </div>
+        </>
+      ),
+    },
+  ];
+
   // ── Render ──
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-64px-3.5rem)] sm:h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
 
       {/* ── COMMAND BAR ── */}
       <div className="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
@@ -490,14 +882,18 @@ export default function OptSearchPage() {
 
           {/* Row 1: search + result count + view/sort controls */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Name / Text scope toggle — desktop only; on mobile it lives in the filter sheet. */}
+            <div className="hidden sm:block">{searchModeToggle}</div>
             <div className="relative flex-1 min-w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search by name or syntax — e.g. blue ninja go again, t:equipment p:<5"
-                aria-label="Search cards"
+                placeholder={searchMode === 'text'
+                  ? 'Search rule text — e.g. prevent, deal arcane damage, go again'
+                  : 'Search by name or syntax — e.g. blue ninja go again, t:equipment p:<5'}
+                aria-label={searchMode === 'text' ? 'Search rule text' : 'Search cards by name'}
                 className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {query && (
@@ -526,19 +922,25 @@ export default function OptSearchPage() {
             </span>
 
             <div className="flex items-center gap-2">
+              {/* Mobile: single entry point to the filter sheet (with active count). */}
               <button
-                onClick={() => setGroupByCard(g => !g)}
-                title={groupByCard ? 'Grouping printings by card — click to show every printing' : 'Showing every printing — click to group by card'}
-                className={cn(
-                  'px-2.5 py-1.5 text-xs rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                  groupByCard
-                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                    : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
-                )}
+                onClick={() => setFiltersOpen(true)}
+                aria-label="Open filters"
+                className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               >
-                {groupByCard ? 'Grouped' : 'All printings'}
+                <SlidersHorizontal className="w-4 h-4" />
+                Filters
+                {activeChips.length > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-xs leading-none">
+                    {activeChips.length}
+                  </span>
+                )}
               </button>
 
+              {/* Grouped — desktop inline; in the sheet on mobile. */}
+              <div className="hidden sm:block">{groupedToggle}</div>
+
+              {/* View mode — kept inline on every breakpoint (most-used quick toggle). */}
               <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
                 <button
                   onClick={() => setViewMode('images')}
@@ -558,321 +960,20 @@ export default function OptSearchPage() {
                 </button>
               </div>
 
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                aria-label="Sort by"
-                className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="name">Name</option>
-                <option value="price">Price</option>
-                <option value="set">Set</option>
-                <option value="edition">Edition</option>
-                <option value="collector_number">Collector #</option>
-                <option value="rarity">Rarity</option>
-                <option value="foiling">Foiling</option>
-                <option value="color">Color</option>
-                <option value="cost">Cost</option>
-                <option value="power">Power</option>
-                <option value="defense">Defense</option>
-              </select>
-              <button
-                onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
-                aria-label={`Sort ${sortOrder === 'asc' ? 'ascending' : 'descending'}`}
-                title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                className="flex items-center gap-1 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5" />
-                {sortOrder === 'asc' ? 'Asc' : 'Desc'}
-              </button>
+              {/* Sort — desktop inline; in the sheet on mobile. */}
+              <div className="hidden sm:flex items-center gap-2">{sortControls}</div>
             </div>
           </div>
 
-          {/* Row 2: quick-filter dropdowns. (No overflow container — it would clip the popovers.) */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Row 2: quick-filter popovers — desktop only. On mobile these live in
+              the filter bottom sheet, opened via the "Filters" button above. */}
+          <div className="hidden sm:flex flex-wrap items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
-
-            {/* Pitch — text + color dot, ✓ on active (SC 1.4.1: never color alone) */}
-            <Popover label="Pitch" count={selectedPitch !== null ? 1 : 0} panelClassName="w-auto">
-              <p className={SECTION}>Pitch</p>
-              <div className="flex items-center gap-2">
-                {PITCH_CHIPS.map(chip => {
-                  const isActive = selectedPitch === chip.value;
-                  return (
-                    <button
-                      key={chip.value}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
-                      className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-md border text-base font-medium transition-all',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                        isActive
-                          ? cn(chip.active, 'text-gray-900 dark:text-white')
-                          : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700',
-                      )}
-                    >
-                      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', chip.dot)} aria-hidden />
-                      {chip.label}
-                      {isActive && <Check className="w-4 h-4 shrink-0" aria-hidden />}
-                    </button>
-                  );
-                })}
-              </div>
-            </Popover>
-
-            {/* Type */}
-            <Popover label="Type" count={(selectedType ? 1 : 0) + selectedHeroAges.length} panelClassName="w-72">
-              <p className={SECTION}>Type</p>
-              <div className="grid grid-cols-4 gap-1">
-                {TYPE_CHIPS.map(chip => (
-                  <ArtChip
-                    key={chip.value}
-                    label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
-                    active={selectedType === chip.value} activeClass={chip.active}
-                    // Regular types are single-select and exclusive with hero ages.
-                    onClick={() => { setSelectedHeroAges([]); setSelectedType(t => t === chip.value ? null : chip.value); }}
-                  />
-                ))}
-              </div>
-              {/* Hero — multi-select (adult and/or young), OR'd. Clears any regular type. */}
-              <p className={cn(SECTION, 'mt-3')}>Hero</p>
-              <div className="grid grid-cols-2 gap-1">
-                {HERO_AGE_CHIPS.map(chip => (
-                  <ArtChip
-                    key={chip.value}
-                    label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
-                    active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
-                    onClick={() => {
-                      setSelectedType(null);
-                      setSelectedHeroAges(a => a.includes(chip.value) ? a.filter(x => x !== chip.value) : [...a, chip.value]);
-                    }}
-                  />
-                ))}
-              </div>
-            </Popover>
-
-            {/* Class — multi-select (OR). Includes Generic and Pirate. */}
-            <Popover label="Class" count={selectedClasses.length} panelClassName="w-72">
-              <p className={SECTION}>Class</p>
-              <div className="grid grid-cols-4 gap-1">
-                {ALL_CLASSES.map(cls => {
-                  const icon = CLASS_ICONS[cls];
-                  return (
-                    <ArtChip
-                      key={cls}
-                      label={cls} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
-                      active={selectedClasses.includes(cls)} activeClass="bg-indigo-900/50 border-indigo-600"
-                      onClick={() => toggleArr(selectedClasses, setSelectedClasses, cls)}
-                    />
-                  );
-                })}
-              </div>
-            </Popover>
-
-            {/* Talent — multi-select (OR), independent of class. "Talentless" = cards any
-                hero of the class can play; mutually exclusive with specific talents. */}
-            <Popover label="Talent" count={selectedTalents.length + (selectedTalentless ? 1 : 0)} panelClassName="w-72">
-              <p className={SECTION}>Talent</p>
-              <div className="mb-2">
-                <Pill active={selectedTalentless} onClick={() => { setSelectedTalents([]); setSelectedTalentless(v => !v); }}>
-                  Talentless
-                </Pill>
-              </div>
-              <div className="grid grid-cols-4 gap-1">
-                {ALL_TALENTS.map(tal => {
-                  const icon = CLASS_ICONS[tal];
-                  return (
-                    <ArtChip
-                      key={tal}
-                      label={tal} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
-                      active={selectedTalents.includes(tal)} activeClass="bg-teal-900/50 border-teal-600"
-                      onClick={() => { setSelectedTalentless(false); toggleArr(selectedTalents, setSelectedTalents, tal); }}
-                    />
-                  );
-                })}
-              </div>
-            </Popover>
-
-            {/* Keywords */}
-            <Popover label="Keywords" count={selectedKeywords.length} panelClassName="w-72">
-              <p className={SECTION}>Keywords</p>
-              <div className="flex flex-wrap gap-1">
-                {KEYWORD_CHIPS.map(kw => (
-                  <Pill key={kw.value} active={selectedKeywords.includes(kw.value)} onClick={() => toggleArr(selectedKeywords, setSelectedKeywords, kw.value)}>
-                    {kw.label}
-                  </Pill>
-                ))}
-              </div>
-            </Popover>
-
-            {/* Format — legality filter (CC, Silver Age, …). Single-select. */}
-            <Popover label="Format" count={selectedFormat ? 1 : 0} panelClassName="w-56">
-              <p className={SECTION}>Format</p>
-              <div className="flex flex-wrap gap-1">
-                {FORMAT_OPTIONS.map(fmt => (
-                  <Pill
-                    key={fmt.value}
-                    active={selectedFormat === fmt.value}
-                    onClick={() => setSelectedFormat(f => f === fmt.value ? null : fmt.value)}
-                  >
-                    {fmt.label}
-                  </Pill>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 leading-snug">
-                Shows cards legal in the selected format (banned &amp; suspended excluded).
-              </p>
-            </Popover>
-
-            {/* Rarity */}
-            <Popover label="Rarity" count={selectedRarities.length} panelClassName="w-64">
-              <p className={SECTION}>Rarity</p>
-              <div className="flex flex-wrap gap-1">
-                {RARITY_OPTIONS.map(r => (
-                  <Pill key={r.value} active={selectedRarities.includes(r.value)} onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}>
-                    <RarityIcon rarityCode={r.value} size="sm" />
-                    {r.label}
-                  </Pill>
-                ))}
-              </div>
-            </Popover>
-
-            {/* Stats */}
-            <Popover label="Stats" count={statsCount} panelClassName="w-64">
-              <p className={SECTION}>Stats</p>
-              <div className="space-y-2">
-                <RangeRow label="Cost"    min={costMin}    setMin={setCostMin}    max={costMax}    setMax={setCostMax} />
-                <RangeRow label="Power"   min={powerMin}   setMin={setPowerMin}   max={powerMax}   setMax={setPowerMax} />
-                <RangeRow label="Defense" min={defenseMin} setMin={setDefenseMin} max={defenseMax} setMax={setDefenseMax} />
-              </div>
-            </Popover>
-
-            {/* Price — quick buckets + custom range (tcg_low, English only) */}
-            <Popover label="Price" count={(priceMin || priceMax) ? 1 : 0} panelClassName="w-64">
-              <p className={SECTION}>Price</p>
-              <div className="flex flex-wrap gap-1">
-                {PRICE_PRESETS.map(p => {
-                  const active = priceMin === p.min && priceMax === p.max;
-                  return (
-                    <Pill
-                      key={p.label}
-                      active={active}
-                      onClick={() => {
-                        if (active) { setPriceMin(''); setPriceMax(''); }
-                        else { setPriceMin(p.min); setPriceMax(p.max); }
-                      }}
-                    >
-                      {p.label}
-                    </Pill>
-                  );
-                })}
-              </div>
-              <div className="mt-3">
-                <p className={SECTION}>Custom range ($)</p>
-                <RangeRow label="Price" min={priceMin} setMin={setPriceMin} max={priceMax} setMax={setPriceMax} />
-              </div>
-              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 leading-snug">
-                Based on TCGplayer low; English printings only.
-              </p>
-            </Popover>
-
-            {/* More: foiling + edition + sets */}
-            <Popover label="More" count={selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length} align="right" panelClassName="w-80">
-              <div className="space-y-3">
-                <div>
-                  <p className={SECTION}>Foiling</p>
-                  <div className="flex flex-wrap gap-1">
-                    {FOILING_OPTIONS.map(f => (
-                      <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => toggleArr(selectedFoilings, setSelectedFoilings, f.value)}>
-                        <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', f.swatch)} />
-                        {f.label}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className={SECTION}>Edition</p>
-                  <div className="flex flex-wrap gap-1">
-                    {EDITION_OPTIONS.map(e => (
-                      <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => toggleArr(selectedEditions, setSelectedEditions, e.value)}>
-                        {e.label}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className={SECTION}>Set</p>
-                  <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
-                    {/* Curated main sets + GEM. GEM is a promo set normally excluded from
-                        the shared CARD_FILTER_SETS, but it's selectable here so its
-                        per-pack facet (below) is reachable on /opt. */}
-                    {OPT_FILTER_SETS.map(setCode => (
-                      <button
-                        key={setCode}
-                        type="button"
-                        title={SET_MAP[setCode as keyof typeof SET_MAP]}
-                        aria-pressed={selectedSets.includes(setCode)}
-                        onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
-                        className={cn(
-                          'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                          selectedSets.includes(setCode)
-                            ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
-                            : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
-                        )}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
-                          className="w-7 h-7 object-contain"
-                          alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* Pack — only shown when a selected set is split into TCGplayer groups (e.g. GEM) */}
-                {availablePacks.length > 0 && (
-                  <div>
-                    <p className={SECTION}>Pack</p>
-                    <div className="flex flex-wrap gap-1">
-                      {availablePacks.map(p => (
-                        <Pill
-                          key={p.groupId}
-                          active={selectedPacks.includes(p.groupId)}
-                          onClick={() => setSelectedPacks(prev => prev.includes(p.groupId) ? prev.filter(x => x !== p.groupId) : [...prev, p.groupId])}
-                        >
-                          {p.name}
-                        </Pill>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Popover>
-
-            {/* Language — default English; expand to specific languages or ALL */}
-            <Popover label="Language" count={isDefaultLang ? 0 : (selectedLanguages.length || 1)} align="right" panelClassName="w-56">
-              <p className={SECTION}>Language</p>
-              <div className="space-y-2">
-                <Pill active={selectedLanguages.length === 0} onClick={() => setSelectedLanguages([])}>
-                  All languages
-                </Pill>
-                <div className="flex flex-wrap gap-1">
-                  {LANGUAGES.map(l => (
-                    <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => setSelectedLanguages(prev => toggleLanguageSelection(prev, l.code))}>
-                      <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
-                    </Pill>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 leading-snug">
-                  Only English printings have prices &amp; TCGplayer links.
-                </p>
-              </div>
-            </Popover>
-
+            {filterFacets.map(f => (
+              <Popover key={f.key} label={f.label} count={f.count} align={f.align} panelClassName={f.panelClassName}>
+                {f.body}
+              </Popover>
+            ))}
             <button
               onClick={() => setSyntaxGuideOpen(true)}
               className="ml-auto shrink-0 text-xs text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
@@ -1023,6 +1124,75 @@ export default function OptSearchPage() {
       </div>
 
       <AppShellAttribution />
+
+      {/* ── MOBILE FILTER SHEET ── (sm:hidden trigger; desktop uses the popover row) */}
+      <Drawer open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DrawerContent className="max-h-[88vh]">
+          <DrawerHeader className="flex flex-row items-center justify-between py-3">
+            <DrawerTitle>Filters</DrawerTitle>
+            <div className="flex items-center gap-3">
+              {activeChips.length > 0 && (
+                <button
+                  onClick={clearAll}
+                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 dark:hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
+                >
+                  <X className="w-3 h-3" /> Clear all
+                </button>
+              )}
+              <button
+                onClick={() => setSyntaxGuideOpen(true)}
+                className="text-xs text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
+              >
+                Syntax →
+              </button>
+            </div>
+          </DrawerHeader>
+
+          <div className="overflow-y-auto px-4 pb-2">
+            {/* Search scope + display options — only surfaced here on mobile. */}
+            <div className="flex flex-col gap-3 pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className={SECTION + ' mb-0'}>Search in</span>
+                {searchModeToggle}
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className={SECTION + ' mb-0'}>Grouping</span>
+                {groupedToggle}
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className={SECTION + ' mb-0'}>Sort</span>
+                <div className="flex items-center gap-2">{sortControls}</div>
+              </div>
+            </div>
+
+            <Accordion type="multiple" className="border-t border-gray-200 dark:border-gray-800">
+              {filterFacets.map(f => (
+                <AccordionItem key={f.key} value={f.key}>
+                  <AccordionTrigger className="text-sm">
+                    <span className="flex items-center gap-2">
+                      {f.label}
+                      {f.count > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-xs leading-none">
+                          {f.count}
+                        </span>
+                      )}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>{f.body}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+
+          <DrawerFooter className="pt-2">
+            <DrawerClose asChild>
+              <button className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                {hasAnyFilter ? `Show ${total.toLocaleString()} ${groupByCard ? 'cards' : 'printings'}` : 'Done'}
+              </button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       <SyntaxGuideModal isOpen={syntaxGuideOpen} onClose={() => setSyntaxGuideOpen(false)} />
     </div>

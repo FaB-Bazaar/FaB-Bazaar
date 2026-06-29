@@ -34,6 +34,10 @@ export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rar
 
 export interface SearchUiState {
   query: string;
+  // 'name' (default): a bare query matches card names. 'text': a bare query
+  // matches rule text only. Shorthand (t:, text:"…") parses the same either way
+  // — the mode only changes the plain-string fallback below.
+  searchMode?: 'name' | 'text';
   selectedType: string | null;
   selectedClasses: string[];
   selectedTalents: string[];
@@ -68,6 +72,8 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
     if (SHORTHAND_RE.test(q)) {
       const { filters } = shorthandParser.parseQuery(q);
       f = { ...filters };
+    } else if (s.searchMode === 'text') {
+      f.text = q;
     } else {
       f.name = q;
     }

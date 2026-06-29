@@ -19,6 +19,32 @@ const baseState: SearchUiState = {
   priceMax: '',
 };
 
+describe('buildServerFilters — search mode', () => {
+  it('maps a bare query to filters.name by default (name mode)', () => {
+    const f = buildServerFilters({ ...baseState, query: 'prevent' });
+    expect(f.name).toBe('prevent');
+    expect(f).not.toHaveProperty('text');
+  });
+
+  it('maps a bare query to filters.text in text mode (rule text only, not name)', () => {
+    const f = buildServerFilters({ ...baseState, query: 'prevent', searchMode: 'text' });
+    expect(f.text).toBe('prevent');
+    expect(f).not.toHaveProperty('name');
+  });
+
+  it('still parses shorthand in text mode (mode only affects the bare-string fallback)', () => {
+    const f = buildServerFilters({ ...baseState, query: 't:equipment', searchMode: 'text' });
+    expect(f.types).toEqual(['equipment']);
+    expect(f).not.toHaveProperty('text');
+  });
+
+  it('lets chips layer on top of a text-mode query', () => {
+    const f = buildServerFilters({ ...baseState, query: 'prevent', searchMode: 'text', selectedClasses: ['guardian'] });
+    expect(f.text).toBe('prevent');
+    expect(f.classes).toEqual(['guardian']);
+  });
+});
+
 describe('buildServerFilters — format', () => {
   it('maps selectedFormat to filters.format', () => {
     const f = buildServerFilters({ ...baseState, selectedFormat: 'cc' });

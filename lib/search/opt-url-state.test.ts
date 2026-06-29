@@ -38,6 +38,13 @@ describe('opt-url-state', () => {
     expect(round).toEqual(s);
   });
 
+  it('omits search mode when name (default) and serializes text mode', () => {
+    expect(uiStateToParams(state({ searchMode: 'name' })).has('mode')).toBe(false);
+    expect(uiStateToParams(state({ searchMode: 'text' })).get('mode')).toBe('text');
+    expect(paramsToUiState(new URLSearchParams('mode=text')).searchMode).toBe('text');
+    expect(paramsToUiState(new URLSearchParams('mode=bogus')).searchMode).toBeUndefined();
+  });
+
   it('treats ["en"] languages as default (omitted) and [] as all', () => {
     expect(uiStateToParams(state({ selectedLanguages: ['en'] })).has('lang')).toBe(false);
     expect(uiStateToParams(state({ selectedLanguages: [] })).get('lang')).toBe('all');
