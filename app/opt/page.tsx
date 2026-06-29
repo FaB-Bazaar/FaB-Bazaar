@@ -884,7 +884,7 @@ export default function OptSearchPage() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Name / Text scope toggle — desktop only; on mobile it lives in the filter sheet. */}
             <div className="hidden sm:block">{searchModeToggle}</div>
-            <div className="relative flex-1 min-w-[220px]">
+            <div className="relative w-full sm:flex-1 sm:min-w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               <input
                 ref={inputRef}
@@ -907,7 +907,7 @@ export default function OptSearchPage() {
               )}
             </div>
 
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap" aria-live="polite">
+            <span className="flex-1 sm:flex-none text-xs text-gray-600 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap" aria-live="polite">
               {error ? (
                 <span className="text-red-500 dark:text-red-400">{error}</span>
               ) : !hasAnyFilter ? (
@@ -922,6 +922,10 @@ export default function OptSearchPage() {
             </span>
 
             <div className="flex items-center gap-2">
+              {/* Name / Text scope toggle — mobile only (desktop renders it left of
+                  the search input). Lives inline to the left of the Filters button. */}
+              <div className="sm:hidden">{searchModeToggle}</div>
+
               {/* Mobile: single entry point to the filter sheet (with active count). */}
               <button
                 onClick={() => setFiltersOpen(true)}
@@ -1003,7 +1007,7 @@ export default function OptSearchPage() {
       {(() => {
         const none = selection.selectedCount === 0;
         return (
-        <div className={cn('shrink-0 flex flex-wrap items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-blue-950/60 border-blue-800/40')}>
+        <div className={cn('shrink-0 flex-wrap items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'hidden sm:flex bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'flex bg-blue-950/60 border-blue-800/40')}>
           <span className={cn('text-sm font-medium', none ? 'text-gray-500 dark:text-gray-400' : 'text-blue-200')}>
             {selection.selectedCount} card{selection.selectedCount !== 1 ? 's' : ''} selected
           </span>
@@ -1015,7 +1019,7 @@ export default function OptSearchPage() {
               <X className="w-3 h-3" /> Clear
             </button>
           )}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 min-w-0">
             <button
               onClick={selection.handleAddToWants}
               disabled={selection.isImporting || none}
@@ -1030,7 +1034,7 @@ export default function OptSearchPage() {
                   value={selection.selectedBinderSlug}
                   onChange={e => selection.setSelectedBinderSlug(e.target.value)}
                   disabled={none}
-                  className="bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-w-0 max-w-[40vw] sm:max-w-none bg-gray-800 border border-gray-700 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {selection.binders.map((b: any) => (
                     <option key={b._id || b.slug} value={b.slug}>{b.name}</option>
@@ -1149,12 +1153,9 @@ export default function OptSearchPage() {
           </DrawerHeader>
 
           <div className="overflow-y-auto px-4 pb-2">
-            {/* Search scope + display options — only surfaced here on mobile. */}
+            {/* Display options — only surfaced here on mobile. (The Name/Text
+                scope toggle lives inline in the command bar, not in this sheet.) */}
             <div className="flex flex-col gap-3 pb-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className={SECTION + ' mb-0'}>Search in</span>
-                {searchModeToggle}
-              </div>
               <div className="flex items-center justify-between gap-2">
                 <span className={SECTION + ' mb-0'}>Grouping</span>
                 {groupedToggle}

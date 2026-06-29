@@ -255,7 +255,139 @@ export function ChecklistView({
   const selectionEnabled = onToggleSelection && isCardSelected && getCardQuantity && onUpdateQuantity;
 
   return (
-    <div className="overflow-x-auto">
+    <div>
+      {/* ── MOBILE: stacked card rows (the wide table is unreadable on phones) ── */}
+      <ul className="sm:hidden divide-y divide-gray-100 dark:divide-gray-700/50">
+        {printings.map((printing: any) => {
+          const colorInfo = getColorDisplay(printing.color);
+          const foilingDisplay = getFoilingDisplay(printing.foiling);
+          const { code: langCode, flag: langFlag } = getLanguageDisplay(printing.language);
+          const isSelected = selectionEnabled && isCardSelected(printing.printing_id);
+          const quantity = selectionEnabled ? getCardQuantity(printing.printing_id) : 1;
+          const price = printing[priceField];
+          const rarityLabel = printing.rarity ? (RARITY_MAP[printing.rarity?.toLowerCase()] || printing.rarity) : null;
+
+          return (
+            <li
+              key={printing.printing_id}
+              className={`flex items-start gap-3 py-3 px-1 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+            >
+              {selectionEnabled && (
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelection(printing)}
+                  aria-label={`Select ${printing.display_name || printing.name}`}
+                  className="mt-0.5 shrink-0 focus-visible:ring-2 focus-visible:ring-blue-400"
+                />
+              )}
+
+              <div className="min-w-0 flex-1">
+                {/* Line 1: name + price */}
+                <div className="flex items-start justify-between gap-2">
+                  <Link
+                    href={`/printing/${printing.printing_id}`}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-base leading-snug break-words"
+                  >
+                    {printing.display_name || printing.name}
+                  </Link>
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {price !== undefined && price !== null ? (
+                      <>
+                        <span className="text-green-600 dark:text-green-400 font-semibold text-sm tabular-nums">
+                          ${price.toFixed(2)}
+                        </span>
+                        {printing.tcgplayer_url && (
+                          <TcgAffiliateLink
+                            tcgplayerUrl={printing.tcgplayer_url}
+                            feature="SearchResultsPriceClick"
+                            className="hover:opacity-80 transition-opacity"
+                            title="Purchase on TCGPlayer"
+                          >
+                            <img
+                              src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+                              alt="TCGPlayer"
+                              className="h-4 w-auto"
+                            />
+                          </TcgAffiliateLink>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Line 2: set · collector · rarity · color */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
+                  <span className="font-medium">{printing.set ? printing.set.toUpperCase() : '—'}</span>
+                  {printing.collector_number && (
+                    <>
+                      <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
+                      <span className="font-mono text-xs">{printing.collector_number}</span>
+                    </>
+                  )}
+                  {rarityLabel && (
+                    <>
+                      <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <RarityIcon rarityCode={printing.rarity} size="sm" />
+                        {rarityLabel}
+                      </span>
+                    </>
+                  )}
+                  {colorInfo.label !== '-' && (
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${colorInfo.className}`}>
+                      {colorInfo.label}
+                    </span>
+                  )}
+                </div>
+
+                {/* Line 3: foiling · edition · language */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${foilingDisplay.className}`}>
+                    {foilingDisplay.shortName}
+                  </span>
+                  {printing.edition && (
+                    <>
+                      <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
+                      <span>{printing.edition.toUpperCase()}</span>
+                    </>
+                  )}
+                  <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1 font-medium" title={langCode}>
+                    <span aria-hidden>{langFlag}</span>{langCode}
+                  </span>
+                </div>
+
+                {/* Quantity stepper (only once selected) */}
+                {selectionEnabled && isSelected && (
+                  <div className="mt-2 inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onUpdateQuantity(printing.printing_id, Math.max(1, quantity - 1)); }}
+                      disabled={quantity <= 1}
+                      aria-label="Decrease quantity"
+                      className="w-7 h-7 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-sm font-medium min-w-[20px] text-center tabular-nums">{quantity}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onUpdateQuantity(printing.printing_id, quantity + 1); }}
+                      aria-label="Increase quantity"
+                      className="w-7 h-7 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* ── DESKTOP: full table (hidden on phones) ── */}
+      <div className="hidden sm:block overflow-x-auto">
       <table className="w-full text-sm md:text-base">
         <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700/50">
           <tr>
@@ -523,6 +655,7 @@ export function ChecklistView({
           })}
         </tbody>
       </table>
+      </div>
 
       {/* Image Hover Overlay */}
       {hoveredRow && printings.find(p => p.printing_id === hoveredRow)?.image_url && (

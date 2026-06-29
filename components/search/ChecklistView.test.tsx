@@ -59,3 +59,22 @@ describe('ChecklistView — language column', () => {
     expect(within(rows[0]).getByText(/EN/)).toBeInTheDocument();
   });
 });
+
+describe('ChecklistView — mobile stacked layout', () => {
+  it('renders a non-table stacked list (one item per printing) for small screens', () => {
+    render(<ChecklistView printings={PRINTINGS} />);
+    // The mobile layout is a <ul> (role=list), distinct from the <table>.
+    const list = screen.getByRole('list');
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(PRINTINGS.length);
+    // Each card row surfaces the name and set without horizontal scrolling.
+    expect(within(items[0]).getByText('Sink Below')).toBeInTheDocument();
+    expect(within(items[0]).getByText('WTR')).toBeInTheDocument();
+  });
+
+  it('shows a price on the stacked card when present', () => {
+    render(<ChecklistView printings={PRINTINGS} />);
+    const items = within(screen.getByRole('list')).getAllByRole('listitem');
+    expect(within(items[0]).getByText('$0.90')).toBeInTheDocument();
+  });
+});
