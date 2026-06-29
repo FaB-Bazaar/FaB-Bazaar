@@ -244,8 +244,10 @@ export class PostgresPrintingsService implements IPrintingsService {
         orderFn(repr.collectorNumber),
         asc(repr.name),
       ];
+      // Name ties (same card across pitches, e.g. red/yellow/blue "Sink Below")
+      // break by canonical pitch order red→yellow→blue, never arbitrarily.
       case 'name':
-      default:        return [orderFn(repr.name)];
+      default:        return [orderFn(repr.name), asc(this.colorPitchRank(repr.color))];
     }
   }
 
@@ -1732,13 +1734,15 @@ export class PostgresPrintingsService implements IPrintingsService {
         // best word-level match within the full name, unlike <-> which compares full strings.
         if (filters?.name && !filters.exact) {
           const normalizedName = filters.name.replace(/[\u2018\u2019\u0027\u0060]/g, "'").toLowerCase().trim();
-          return [desc(sql`word_similarity(${normalizedName}, ${cards.name})`), orderFn(cards.name)];
+          return [desc(sql`word_similarity(${normalizedName}, ${cards.name})`), orderFn(cards.name), asc(this.colorPitchRank(cards.color))];
         }
         if (filters?.searchableText) {
           const normalizedQuery = filters.searchableText.replace(/[\u2018\u2019\u0027\u0060]/g, "'").toLowerCase().trim();
-          return [desc(sql`word_similarity(${normalizedQuery}, ${cards.name})`), orderFn(cards.name)];
+          return [desc(sql`word_similarity(${normalizedQuery}, ${cards.name})`), orderFn(cards.name), asc(this.colorPitchRank(cards.color))];
         }
-        return [orderFn(cards.name)];
+        // Pitch tiebreak (red→yellow→blue) keeps same-named cards across pitches
+        // in canonical order instead of falling through to the price tiebreak.
+        return [orderFn(cards.name), asc(this.colorPitchRank(cards.color))];
       }
       case 'relevance': {
         if (filters?.name && !filters.exact) {
@@ -1793,7 +1797,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           orderFn(cards.name),
         ];
       default:
-        return [orderFn(cards.name)];
+        return [orderFn(cards.name), asc(this.colorPitchRank(cards.color))];
     }
   }
 

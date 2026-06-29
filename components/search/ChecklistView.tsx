@@ -4,9 +4,10 @@ import { RarityIcon } from '@/components/shared/RarityIcon';
 import React, { useState, useRef, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TcgAffiliateLink } from '@/components/tracking';
-import { ArrowUp, ArrowDown, Filter, X, Minus, Plus } from 'lucide-react';
+import { ArrowUp, ArrowDown, Filter, X, Minus, Plus, ExternalLink } from 'lucide-react';
 import { RARITY_MAP, FOILING_MAP, FOILING_STYLES, SET_MAP, COLOR_STYLES } from '@/lib/fab-constants';
 import { languageFlag } from '@/lib/utils/printing-language';
+import { cn } from '@/lib/utils';
 
 // Missing language = English (matches the printings.language DB default)
 const getLanguageDisplay = (language?: string | null): { code: string; flag: string } => {
@@ -91,6 +92,15 @@ export function ChecklistView({
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [openFilterField, setOpenFilterField] = useState<string | null>(null);
   const filterRef = useRef<HTMLDivElement>(null);
+  // Mobile-only: tap a row thumbnail to enlarge it without leaving the list view.
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreview(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [preview]);
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -257,7 +267,7 @@ export function ChecklistView({
   return (
     <div>
       {/* ── MOBILE: stacked card rows (the wide table is unreadable on phones) ── */}
-      <ul className="sm:hidden divide-y divide-gray-100 dark:divide-gray-700/50">
+      <ul className="sm:hidden divide-y divide-gray-200/70 dark:divide-gray-800">
         {printings.map((printing: any) => {
           const colorInfo = getColorDisplay(printing.color);
           const foilingDisplay = getFoilingDisplay(printing.foiling);
@@ -266,64 +276,91 @@ export function ChecklistView({
           const quantity = selectionEnabled ? getCardQuantity(printing.printing_id) : 1;
           const price = printing[priceField];
           const rarityLabel = printing.rarity ? (RARITY_MAP[printing.rarity?.toLowerCase()] || printing.rarity) : null;
+          const cardName = printing.display_name || printing.name;
 
           return (
             <li
               key={printing.printing_id}
-              className={`flex items-start gap-3 py-3 px-1 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+              className={cn(
+                'relative flex items-start gap-3 py-3 pl-3 pr-2 transition-colors',
+                // Selected rows get a clear, multi-cue signifier: tinted bg + a
+                // left accent bar (color is never the sole differentiator).
+                isSelected
+                  ? 'bg-blue-500/[0.07] dark:bg-blue-500/10 before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-blue-500'
+                  : '',
+              )}
             >
               {selectionEnabled && (
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={() => onToggleSelection(printing)}
-                  aria-label={`Select ${printing.display_name || printing.name}`}
-                  className="mt-0.5 shrink-0 focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label={`Select ${cardName}`}
+                  className="mt-1 shrink-0 focus-visible:ring-2 focus-visible:ring-blue-400"
                 />
               )}
 
+              {/* Tappable thumbnail — enlarge in place, no trip to image view. */}
+              {printing.image_url && (
+                <button
+                  type="button"
+                  onClick={() => setPreview({ url: printing.image_url, name: cardName })}
+                  aria-label={`Enlarge ${cardName}`}
+                  className="shrink-0 w-12 overflow-hidden rounded-md ring-1 ring-black/10 dark:ring-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  style={{ aspectRatio: '3 / 4' }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={printing.image_url}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover object-top"
+                    draggable={false}
+                  />
+                </button>
+              )}
+
               <div className="min-w-0 flex-1">
-                {/* Line 1: name + price */}
+                {/* Line 1: name (primary) + price (secondary) */}
                 <div className="flex items-start justify-between gap-2">
                   <Link
                     href={`/printing/${printing.printing_id}`}
-                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-base leading-snug break-words"
+                    className="font-semibold text-[15px] leading-snug text-blue-700 dark:text-blue-300 hover:underline break-words rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   >
-                    {printing.display_name || printing.name}
+                    {cardName}
                   </Link>
-                  <div className="shrink-0 flex items-center gap-1.5">
+                  <div className="shrink-0">
                     {price !== undefined && price !== null ? (
-                      <>
-                        <span className="text-green-600 dark:text-green-400 font-semibold text-sm tabular-nums">
+                      printing.tcgplayer_url ? (
+                        // The price IS the affiliate link on mobile — keeps the
+                        // TCGplayer integration secondary instead of letting a wide
+                        // wordmark compete with the card name (and overflow the row).
+                        <TcgAffiliateLink
+                          tcgplayerUrl={printing.tcgplayer_url}
+                          feature="SearchResultsPriceClick"
+                          className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 hover:underline rounded px-0.5 -mx-0.5 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          title="Buy on TCGplayer"
+                        >
+                          <span className="font-semibold text-xs tabular-nums">${price.toFixed(2)}</span>
+                          <ExternalLink className="w-3 h-3 opacity-60" aria-hidden />
+                        </TcgAffiliateLink>
+                      ) : (
+                        <span className="text-emerald-700 dark:text-emerald-300 font-semibold text-xs tabular-nums">
                           ${price.toFixed(2)}
                         </span>
-                        {printing.tcgplayer_url && (
-                          <TcgAffiliateLink
-                            tcgplayerUrl={printing.tcgplayer_url}
-                            feature="SearchResultsPriceClick"
-                            className="hover:opacity-80 transition-opacity"
-                            title="Purchase on TCGPlayer"
-                          >
-                            <img
-                              src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-                              alt="TCGPlayer"
-                              className="h-4 w-auto"
-                            />
-                          </TcgAffiliateLink>
-                        )}
-                      </>
+                      )
                     ) : (
-                      <span className="text-gray-400 dark:text-gray-500 text-sm">—</span>
+                      <span className="text-gray-400 dark:text-gray-400 text-xs">—</span>
                     )}
                   </div>
                 </div>
 
-                {/* Line 2: set · collector · rarity · color */}
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">{printing.set ? printing.set.toUpperCase() : '—'}</span>
+                {/* Line 2: identity — set · collector · rarity (uniform muted text) */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                  <span className="font-semibold tracking-wide">{printing.set ? printing.set.toUpperCase() : '—'}</span>
                   {printing.collector_number && (
                     <>
                       <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
-                      <span className="font-mono text-xs">{printing.collector_number}</span>
+                      <span className="font-mono">{printing.collector_number}</span>
                     </>
                   )}
                   {rarityLabel && (
@@ -335,49 +372,51 @@ export function ChecklistView({
                       </span>
                     </>
                   )}
+                </div>
+
+                {/* Line 3: variant badges — color, foiling, edition, language,
+                    all aligned on one baseline as a single grouped cluster. */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {colorInfo.label !== '-' && (
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold ${colorInfo.className}`}>
+                    <span className={cn('inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded text-xs font-bold', colorInfo.className)}>
                       {colorInfo.label}
                     </span>
                   )}
-                </div>
-
-                {/* Line 3: foiling · edition · language */}
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${foilingDisplay.className}`}>
+                  <span className={cn('inline-flex items-center h-5 px-2 rounded-full text-xs font-semibold', foilingDisplay.className)}>
                     {foilingDisplay.shortName}
                   </span>
                   {printing.edition && (
-                    <>
-                      <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
-                      <span>{printing.edition.toUpperCase()}</span>
-                    </>
+                    <span className="inline-flex items-center h-5 px-2 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                      {printing.edition.toUpperCase()}
+                    </span>
                   )}
-                  <span className="text-gray-300 dark:text-gray-600" aria-hidden>·</span>
-                  <span className="inline-flex items-center gap-1 font-medium" title={langCode}>
+                  <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300" title={langCode}>
                     <span aria-hidden>{langFlag}</span>{langCode}
                   </span>
                 </div>
 
-                {/* Quantity stepper (only once selected) */}
+                {/* Quantity stepper (only once selected) — bounded + labeled. */}
                 {selectionEnabled && isSelected && (
-                  <div className="mt-2 inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onUpdateQuantity(printing.printing_id, Math.max(1, quantity - 1)); }}
-                      disabled={quantity <= 1}
-                      aria-label="Decrease quantity"
-                      className="w-7 h-7 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-sm font-medium min-w-[20px] text-center tabular-nums">{quantity}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onUpdateQuantity(printing.printing_id, quantity + 1); }}
-                      aria-label="Increase quantity"
-                      className="w-7 h-7 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="mt-2.5 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Qty</span>
+                    <div className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onUpdateQuantity(printing.printing_id, Math.max(1, quantity - 1)); }}
+                        disabled={quantity <= 1}
+                        aria-label="Decrease quantity"
+                        className="w-8 h-8 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-9 text-center text-sm font-semibold tabular-nums border-x border-gray-300 dark:border-gray-600">{quantity}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onUpdateQuantity(printing.printing_id, quantity + 1); }}
+                        aria-label="Increase quantity"
+                        className="w-8 h-8 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -656,6 +695,33 @@ export function ChecklistView({
         </tbody>
       </table>
       </div>
+
+      {/* Mobile tap-to-zoom lightbox — dismiss by tapping anywhere or Escape. */}
+      {preview && (
+        <div
+          className="sm:hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setPreview(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${preview.name} card image`}
+        >
+          <button
+            type="button"
+            onClick={() => setPreview(null)}
+            aria-label="Close image preview"
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={preview.url}
+            alt={preview.name}
+            className="max-h-[82vh] w-auto rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Image Hover Overlay */}
       {hoveredRow && printings.find(p => p.printing_id === hoveredRow)?.image_url && (
