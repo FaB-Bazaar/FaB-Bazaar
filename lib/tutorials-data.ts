@@ -109,6 +109,7 @@ export const tutorials: Tutorial[] = [
           "Before your decks can appear in Talishar, you need to connect your Metafy account. Go to Profile \u2192 Edit Profile and click the link button in the Metafy section. You\u2019ll be redirected to Metafy to authorize the connection. Once linked, Talishar can look up your decks by your Metafy ID. You can disconnect your account at any time from the same page.",
       },
       {
+        videoId: "BQ_IzoVnYuk",
         title: "Enabling a Deck for Talishar",
         description:
           "Open any deck and toggle the Talishar switch to make it available for online play. Your deck\u2019s hero, equipment, maindeck, and inventory are automatically converted to Talishar\u2019s format. Cards in your inventory section become your sideboard. Once enabled, the deck appears in your Talishar deck list when you start a game.",
