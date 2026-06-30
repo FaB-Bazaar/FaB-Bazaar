@@ -81,7 +81,7 @@ export default function ArticleCard({
             variant={getStatusVariant(article.status)}
             className={cn(
               "capitalize shrink-0",
-              article.status === 'published' && "bg-green-500 hover:bg-green-600"
+              article.status === 'published' && "bg-green-700 text-white hover:bg-green-800"
             )}
           >
             {article.status}
