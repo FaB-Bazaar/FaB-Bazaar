@@ -216,6 +216,8 @@ interface GroupedCardRowProps {
   /** Extras carry pricing/tcg info to the rail-level preview. Optional; older callers may omit. */
   onHoverImage: (url: string, name: string, extras?: HoverExtras) => void;
   onClearImage: () => void;
+  /** Open the full-card lightbox (tap the thumbnail / "View card" in the sheet). */
+  onEnlarge?: (url: string, name: string, otherFaceUrl?: string) => void;
   isTouchDevice: boolean;
 }
 
@@ -229,9 +231,13 @@ function GroupedCardRow({
   onMove,
   onHoverImage,
   onClearImage,
+  onEnlarge,
   isTouchDevice,
 }: GroupedCardRowProps) {
   const [expanded, setExpanded] = useState(false);
+  // Touch devices have no hover, so the per-printing action buttons are
+  // unreachable there. Tapping the row opens this sheet instead (mirrors tiles).
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const totalOwned = group.printings.reduce((s, pr) => s + (ownershipMap.get(pr.printingId)?.owned ?? 0), 0);
   const hasOwnership = group.printings.some(pr => ownershipMap.has(pr.printingId));
@@ -286,33 +292,51 @@ function GroupedCardRow({
       {/* Group header — data-dense row.
           Stats hug the name on the left; Keywords absorb the remaining row width as flex-1. */}
       <div
-        className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group"
+        className={cn(
+          "flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
+          isTouchDevice && category !== 'hero' && "cursor-pointer",
+        )}
+        onClick={isTouchDevice && category !== 'hero' ? () => setSheetOpen(true) : undefined}
         onMouseEnter={isTouchDevice ? undefined : () => {
           if (!group.imageUrl) return;
           onHoverImage(group.imageUrl, group.displayName, { ...extrasFromPrintingDetails(group.printings[0]?.printingDetails), printingId: group.printings[0]?.printingId });
         }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
-        {/* Thumbnail */}
-        <div className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer">
+        {/* Thumbnail — tap/click opens the full-card lightbox so it can be read */}
+        <button
+          type="button"
+          className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          title="View card"
+          aria-label={`View ${group.displayName}`}
+          onClick={onEnlarge && group.imageUrl
+            ? (e) => { e.stopPropagation(); onEnlarge(group.imageUrl!, group.displayName, group.printings[0]?.printingDetails?.other_face_image_url as string | undefined); }
+            : undefined}
+        >
           <img
             src={group.imageUrl || "/cardback.webp"}
             alt={group.displayName}
             className="w-full h-full object-cover"
           />
-        </div>
+        </button>
 
         {/* Pitch dot */}
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)} aria-hidden="true" />
 
-        {/* Name + class as a stacked block; class is the secondary line */}
-        <div className="w-64 flex-shrink-0 min-w-0">
+        {/* Name + class as a stacked block; class is the secondary line.
+            Mobile: name flexes so the Qty/Own/caret cluster on the right can't be
+            pushed off-screen. Desktop (sm+): fixed 256px, letting Keywords take flex-1. */}
+        <div className="flex-1 min-w-0 sm:flex-none sm:w-64">
           <div className="text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>{group.displayName}</div>
           {summary.classLabel && (
             <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
               {summary.classLabel}
             </div>
           )}
+          {/* Compact stat line — mobile only; the real Cost/P-D/Type columns are hidden below sm */}
+          <div className="sm:hidden mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums truncate" data-testid="list-row-mobile-stats">
+            {[summary.type, summary.cost != null ? `${summary.cost} cost` : null, pdLabel].filter(Boolean).join(' · ')}
+          </div>
         </div>
 
         {/* Type */}
@@ -356,7 +380,7 @@ function GroupedCardRow({
 
         {/* Expand caret */}
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
           className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           title={expanded ? "Collapse printings" : "Expand printings"}
           aria-label={expanded ? "Collapse printings" : "Expand printings"}
@@ -443,6 +467,72 @@ function GroupedCardRow({
           })}
         </div>
       )}
+
+      {/* Mobile action sheet — opened by tapping the row on touch devices.
+          Acts on the group's primary printing (the common single-printing case). */}
+      {isTouchDevice && sheetOpen && category !== 'hero' && (() => {
+        const primary = group.printings[0];
+        if (!primary) return null;
+        const qty = primary.quantity ?? 1;
+        const types = ((primary.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
+        const moveDests: Array<{ to: DeckCategory; label: string }> = [];
+        if (category === 'maindeck' || category === 'equipment') {
+          moveDests.push({ to: 'inventory', label: 'Move to Inventory' });
+          moveDests.push({ to: 'benched', label: 'Move to Bench' });
+        } else if (category === 'inventory') {
+          moveDests.push({ to: 'maindeck', label: 'Move to Library' });
+          moveDests.push({ to: 'benched', label: 'Move to Bench' });
+        } else if (category === 'benched') {
+          if (isEquipmentCompatible(types)) moveDests.push({ to: 'equipment', label: 'Move to Equipment' });
+          if (isLibraryCompatible(types)) moveDests.push({ to: 'maindeck', label: 'Move to Library' });
+          moveDests.push({ to: 'inventory', label: 'Move to Inventory' });
+        }
+        const dismiss = () => setSheetOpen(false);
+        return (
+          <>
+            <div className="fixed inset-0 z-50 bg-black/50" onClick={dismiss} />
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl">
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+              </div>
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+                {group.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={group.imageUrl} alt={group.displayName} className="w-10 rounded-lg border border-gray-300 dark:border-gray-700 flex-shrink-0" style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }} />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{group.displayName}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{category} · {group.totalQty}×</p>
+                </div>
+              </div>
+              <div className="py-1">
+                {onEnlarge && group.imageUrl && (
+                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlarge(group.imageUrl!, group.displayName, primary.printingDetails?.other_face_image_url as string | undefined); dismiss(); }}>
+                    View card
+                  </button>
+                )}
+                <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: primary.printingId, cardUniqueId: primary.printingDetails?.card_unique_id || '', cardName: group.displayName, category }); dismiss(); }}>
+                  Swap printing
+                </button>
+                {onMove && moveDests.map(({ to, label }) => (
+                  <button key={to} type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onMove(primary.printingId, category, to, qty); dismiss(); }}>
+                    {label}
+                  </button>
+                ))}
+                <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-red-600 dark:text-red-400 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onRemove(primary.printingId, category); dismiss(); }}>
+                  Remove from deck
+                </button>
+              </div>
+              <div className="border-t border-gray-100 dark:border-gray-800">
+                <button type="button" className="w-full py-4 text-sm font-semibold text-gray-500 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={dismiss}>
+                  Cancel
+                </button>
+              </div>
+              <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -1608,7 +1698,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         <div className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
           <span className="w-7 flex-shrink-0" />
           <span className="w-2 flex-shrink-0" />
-          <span className="w-64 flex-shrink-0">Name</span>
+          <span className="flex-1 min-w-0 sm:flex-none sm:w-64">Name</span>
           <span className="hidden md:block w-24 flex-shrink-0">Type</span>
           <span className="hidden sm:block w-6 text-center flex-shrink-0">R</span>
           <span className="hidden sm:block w-8 text-right flex-shrink-0">Cost</span>
@@ -1636,6 +1726,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               // Same sticky-preview rationale as tile/game views above.
               setHoveredImage(null);
             }}
+            onEnlarge={(url, name, otherFaceUrl) => setEnlargedImage({ url, name, otherFaceUrl })}
             isTouchDevice={isTouchDevice}
           />
         ))}
