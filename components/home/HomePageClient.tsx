@@ -107,12 +107,11 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
     e.preventDefault();
     const query = searchInputRef.current?.value.trim();
     if (query) {
-      const view = window.innerWidth < 768 ? 'images' : 'checklist';
-      const params = new URLSearchParams({
-        q: query, priceField: 'tcg_low', limit: '24',
-        sortBy: 'name', sortOrder: 'asc', show: 'summary', view
-      });
-      router.push(`/search/results?${params.toString()}`);
+      // /opt hydrates `q` on mount and runs the search; its default view is the
+      // image grid, so switch to the checklist on wider screens.
+      const params = new URLSearchParams({ q: query });
+      if (window.innerWidth >= 768) params.set('view', 'checklist');
+      router.push(`/opt?${params.toString()}`);
     }
   };
 
