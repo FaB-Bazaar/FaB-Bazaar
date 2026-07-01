@@ -190,7 +190,7 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-300">
           <div className="flex items-center gap-3">
             <Filter className="w-6 h-6 text-blue-600" />
             <h2 className="text-2xl font-bold text-gray-900">FAB Search Filter Guide</h2>
@@ -388,7 +388,7 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
         </div>
 
         {/* Modal Footer */}
-        <div className="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex justify-end p-6 border-t border-gray-300 bg-gray-50">
           <button
             onClick={onClose}
             className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"

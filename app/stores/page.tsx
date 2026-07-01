@@ -36,7 +36,7 @@ function LocationCard({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <Link
           href={`/stores/${location.id}`}
@@ -89,7 +89,7 @@ function EventCard({ event }: { event: EventSummaryDTO }) {
   return (
     <Link
       href={`/stores/${event.locationId}`}
-      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-2 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+      className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-2 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-medium text-gray-900 dark:text-gray-100 text-sm leading-snug">
@@ -173,7 +173,7 @@ export default function StoresPage() {
               </h2>
 
               {followedStores.length === 0 ? (
-                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700">
                   <MapPin className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-500 dark:text-gray-400 mb-4">
                     You haven't followed any stores yet.

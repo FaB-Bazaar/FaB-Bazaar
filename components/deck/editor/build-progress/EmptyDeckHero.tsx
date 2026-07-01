@@ -68,7 +68,7 @@ export default function EmptyDeckHero<K extends KitLike>({
             <div
               key={i}
               data-kit-skeleton
-              className="h-[164px] animate-pulse rounded-lg border-2 border-gray-200 dark:border-gray-700/50 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800/40 dark:to-gray-900/40"
+              className="h-[164px] animate-pulse rounded-lg border-2 border-gray-300 dark:border-gray-700/50 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800/40 dark:to-gray-900/40"
             />
           ))}
         </div>
@@ -137,7 +137,7 @@ export default function EmptyDeckHero<K extends KitLike>({
       )}
 
       {onSearchClick && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-800 pt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-300 dark:border-gray-800 pt-4">
           <span className="text-xs uppercase tracking-wider text-gray-600 dark:text-gray-400">Or</span>
           <button
             type="button"

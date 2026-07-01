@@ -106,7 +106,7 @@ export function ConfirmTradeModal({
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col justify-center">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 flex flex-col justify-center">
               <ArrowRight className="h-6 w-6 mx-auto text-gray-500 mb-2" />
               <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Net Difference</div>
               <div className={`text-sm font-semibold ${

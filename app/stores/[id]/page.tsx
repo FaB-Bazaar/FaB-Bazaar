@@ -282,7 +282,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
         <div className="lg:col-span-2 flex flex-col gap-6">
           {/* Upcoming events */}
           {upcomingEvents.length > 0 && (
-            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+            <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-500" />
@@ -307,7 +307,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* Followers */}
           {followers.length > 0 && (
-            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+            <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5">
               <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
                 <Users className="w-4 h-4 text-blue-500" />
                 Players at this store ({followerTotal})
@@ -327,7 +327,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* From your wants list — who at this store has them for trade */}
           {wantMatches.length > 0 && (
-            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+            <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5">
               <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-1">
                 <Heart className="w-4 h-4 text-pink-500" />
                 From your wants list ({wantMatches.length})
@@ -382,7 +382,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* Trade Opportunities */}
           {tradeMatches.length > 0 && (
-            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+            <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5">
               <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
                 <ArrowLeftRight className="w-4 h-4 text-green-500" />
                 Trade Opportunities ({tradeMatches.length})
@@ -471,7 +471,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* Past events */}
           {pastEvents.length > 0 && (
-            <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+            <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5">
               <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 text-sm text-gray-500 dark:text-gray-400">
                 Past Events
               </h2>
@@ -489,7 +489,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Right: store info */}
         <div className="flex flex-col gap-4">
-          <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+          <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 text-sm">Store Info</h2>
             <dl className="flex flex-col gap-3 text-sm">
               {location.contactPhone && (

@@ -99,7 +99,7 @@ function Popover({
       {open && (
         <div
           className={cn(
-            'absolute z-30 mt-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3',
+            'absolute z-30 mt-1.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3',
             align === 'right' ? 'right-0' : 'left-0',
             panelClassName ?? 'w-64',
           )}
@@ -877,7 +877,7 @@ export default function OptSearchPage() {
     <div className="flex flex-col h-[calc(100vh-64px-3.5rem)] sm:h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
 
       {/* ── COMMAND BAR ── */}
-      <div className="shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <div className="shrink-0 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="px-3 sm:px-4 pt-3 pb-2 flex flex-col gap-2.5">
 
           {/* Row 1: search + result count + view/sort controls */}
@@ -1007,7 +1007,7 @@ export default function OptSearchPage() {
       {(() => {
         const none = selection.selectedCount === 0;
         return (
-        <div className={cn('shrink-0 flex-wrap items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'hidden sm:flex bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'flex bg-blue-950/60 border-blue-800/40')}>
+        <div className={cn('shrink-0 flex-wrap items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'hidden sm:flex bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-800' : 'flex bg-blue-950/60 border-blue-800/40')}>
           <span className={cn('text-sm font-medium', none ? 'text-gray-500 dark:text-gray-400' : 'text-blue-200')}>
             {selection.selectedCount} card{selection.selectedCount !== 1 ? 's' : ''} selected
           </span>
@@ -1166,7 +1166,7 @@ export default function OptSearchPage() {
               </div>
             </div>
 
-            <Accordion type="multiple" className="border-t border-gray-200 dark:border-gray-800">
+            <Accordion type="multiple" className="border-t border-gray-300 dark:border-gray-800">
               {filterFacets.map(f => (
                 <AccordionItem key={f.key} value={f.key}>
                   <AccordionTrigger className="text-sm">

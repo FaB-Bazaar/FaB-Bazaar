@@ -39,7 +39,7 @@ const getCategoryColor = (category: string) => {
     case 'equipment': return 'text-purple-600 bg-purple-50 border-purple-200 dark:text-purple-400 dark:bg-purple-900/20 dark:border-purple-700'
     case 'maindeck': return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-700'
     case 'inventory': return 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-700'
-    default: return 'text-gray-600 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-900/20 dark:border-gray-700'
+    default: return 'text-gray-600 bg-gray-50 border-gray-300 dark:text-gray-400 dark:bg-gray-900/20 dark:border-gray-700'
   }
 }
 
@@ -56,7 +56,7 @@ export default function DeckImportCard({
 
   if (!printing) {
     return (
-      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-4">
+      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg p-4">
         <p className="text-sm text-red-500 dark:text-red-400">No printing details available</p>
         <Button size="sm" variant="outline" className="mt-2" onClick={() => onRemove(index)}>
           Remove Card
@@ -73,7 +73,7 @@ export default function DeckImportCard({
   const setCode = (set || '').toUpperCase()
 
   return (
-    <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg group transition-all">
+    <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg group transition-all">
       <div className="relative aspect-[63/88] w-full bg-gray-100 dark:bg-gray-700">
         <img
           src={image_url || "/cardback.webp"}
@@ -101,12 +101,12 @@ export default function DeckImportCard({
             </h3>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-200 dark:border-gray-700 py-2 my-2">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-300 dark:border-gray-700 py-2 my-2">
             <div className="flex flex-col">
               <span className="font-mono">{setCode}</span>
               <span className="text-gray-800 dark:text-gray-300 font-semibold">{getSetName(set)}</span>
             </div>
-            <div className="h-8 border-l border-gray-200 dark:border-gray-700 mx-2"></div>
+            <div className="h-8 border-l border-gray-300 dark:border-gray-700 mx-2"></div>
             <div className="flex flex-col text-right">
               <span className="font-bold text-lg text-green-600 dark:text-green-400">{formatPrice(tcg_low)}</span>
               {formatPrice(tcg_low) !== 'N/A' && <span className="text-[10px] -mt-1 text-green-700 dark:text-green-600">TCG Low</span>}

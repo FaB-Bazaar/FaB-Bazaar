@@ -198,7 +198,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
   return (
     <div className="flex flex-col">
       {/* Sticky search bar */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-3 py-2 border-b border-gray-200 dark:border-gray-800">
+      <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-3 py-2 border-b border-gray-300 dark:border-gray-800">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           <input

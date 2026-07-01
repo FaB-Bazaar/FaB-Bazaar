@@ -137,7 +137,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function StatCard({ label, value, sub, accent }: { label: string; value: React.ReactNode; sub?: string; accent?: string }) {
   return (
-    <div className="flex-1 min-w-[120px] rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+    <div className="flex-1 min-w-[120px] rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2">
       <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
       <div className={cn("text-xl font-bold text-gray-900 dark:text-white", accent)}>{value}</div>
       {sub && <div className="text-xs text-gray-400">{sub}</div>}

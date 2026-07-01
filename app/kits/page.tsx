@@ -200,7 +200,7 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
 
           {isCC && graduatedHeroes.length > 0 && (
             <section className="mt-12">
-              <div className="mb-4 border-t border-gray-200 dark:border-gray-800 pt-6">
+              <div className="mb-4 border-t border-gray-300 dark:border-gray-800 pt-6">
                 <h2 className="text-xl font-bold text-foreground">Graduated Living Legends</h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   Heroes that have reached {LIVING_LEGEND_THRESHOLD.toLocaleString()} Living Legend points and are no longer legal in Classic Constructed.

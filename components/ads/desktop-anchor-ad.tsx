@@ -21,7 +21,7 @@ export function DesktopAnchorAd({ className = "" }: DesktopAnchorAdProps) {
   }
 
   return (
-    <div className={`hidden sm:block fixed bottom-0 left-0 right-0 z-[40] bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+    <div className={`hidden sm:block fixed bottom-0 left-0 right-0 z-[40] bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 ${className}`}>
       <div className="flex items-center justify-center py-2 w-full">
         <div className="flex items-center justify-center w-full max-w-6xl mx-auto px-4">
           <GoogleAdsense

@@ -84,7 +84,7 @@ export function BinderFilterSidebar({
           className={`flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors ${
             activeFilters.forTrade === 'true'
               ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
-              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
+              : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
           }`}
         >
           For Trade
@@ -94,14 +94,14 @@ export function BinderFilterSidebar({
           className={`flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors ${
             activeFilters.forTrade === 'false'
               ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100'
-              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
+              : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
           }`}
         >
           Not for Trade
         </button>
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+      <hr className="border-gray-300 dark:border-gray-700 mb-4" />
 
       {/* Rarity — icon + label, expandable */}
       <div className="mb-4">
@@ -132,7 +132,7 @@ export function BinderFilterSidebar({
         </button>
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+      <hr className="border-gray-300 dark:border-gray-700 mb-4" />
 
       {/* Foiling — color swatch + label */}
       <div className="mb-4">
@@ -156,7 +156,7 @@ export function BinderFilterSidebar({
         })}
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+      <hr className="border-gray-300 dark:border-gray-700 mb-4" />
 
       {/* Set — icon grid */}
       <div>
@@ -192,7 +192,7 @@ export function BinderFilterSidebar({
         </div>
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 my-4" />
+      <hr className="border-gray-300 dark:border-gray-700 my-4" />
 
       {/* Class */}
       <div>

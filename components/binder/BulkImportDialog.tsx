@@ -89,7 +89,7 @@ export default function BulkImportDialog({
             )}
 
             {totalStagedQuantity > 0 && (
-              <div className="sticky top-0 z-10 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg flex items-center justify-between">
+              <div className="sticky top-0 z-10 p-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg flex items-center justify-between">
                 <span className="font-semibold text-gray-900 dark:text-white">
                   Ready to import {totalStagedQuantity} card(s) to {binderName}
                 </span>

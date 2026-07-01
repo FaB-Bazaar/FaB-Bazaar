@@ -129,7 +129,7 @@ function ErrorContent() {
         )}
 
         {/* Troubleshooting Tips */}
-        <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+        <div className="bg-gray-50 border border-gray-300 rounded-md p-4">
           <h3 className="text-sm font-medium text-gray-800 mb-2">
             Common Solutions
           </h3>

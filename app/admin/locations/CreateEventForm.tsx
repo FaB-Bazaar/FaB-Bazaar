@@ -232,7 +232,7 @@ export function CreateEventForm() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-6">
+    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-6">
       {success && (
         <div className="rounded-md border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 p-3 text-sm">
           <p className="text-green-700 dark:text-green-300">
@@ -432,7 +432,7 @@ export function CreateEventForm() {
               </div>
             )}
             {results.length > 0 && (
-              <ul className="flex flex-col gap-1 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-1">
+              <ul className="flex flex-col gap-1 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-700 rounded-md p-1">
                 {results.map((loc) => (
                   <li key={loc.id}>
                     <button
@@ -458,7 +458,7 @@ export function CreateEventForm() {
 
       {/* ── Event section ── */}
       {withEvent && (
-      <section className="flex flex-col gap-3 border-t border-gray-200 dark:border-gray-700 pt-5">
+      <section className="flex flex-col gap-3 border-t border-gray-300 dark:border-gray-700 pt-5">
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Event</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="md:col-span-2">

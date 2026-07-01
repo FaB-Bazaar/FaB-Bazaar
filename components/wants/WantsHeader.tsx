@@ -36,7 +36,7 @@ export function WantsHeader({
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm shadow-gray-200/80 dark:shadow-none">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 shadow-sm shadow-gray-200/80 dark:shadow-none">
       <div className="container mx-auto px-4 py-3">
 
         {/* Row 1: Title + desktop stats + desktop actions / mobile toggle */}
@@ -87,7 +87,7 @@ export function WantsHeader({
               className={`transition-all duration-200 ${
                 isExportCopied
                   ? 'bg-green-100 dark:bg-green-900/30 border-green-500 dark:border-green-600 text-green-700 dark:text-green-300'
-                  : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               {isExportCopied ? <Check className="h-4 w-4 mr-1" /> : <Clipboard className="h-4 w-4 mr-1" />}
@@ -100,7 +100,7 @@ export function WantsHeader({
               className={`transition-all duration-200 ${
                 isShareCopied
                   ? 'bg-green-100 dark:bg-green-900/30 border-green-500 dark:border-green-600 text-green-700 dark:text-green-300'
-                  : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               {isShareCopied ? <Check className="h-4 w-4 mr-1" /> : <Share2 className="h-4 w-4 mr-1" />}
@@ -163,7 +163,7 @@ export function WantsHeader({
                 className={`flex-1 transition-all duration-200 ${
                   isExportCopied
                     ? 'bg-green-100 border-green-500 text-green-700'
-                    : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {isExportCopied ? <Check className="h-4 w-4 mr-1.5" /> : <Clipboard className="h-4 w-4 mr-1.5" />}
@@ -176,7 +176,7 @@ export function WantsHeader({
                 className={`flex-1 transition-all duration-200 ${
                   isShareCopied
                     ? 'bg-green-100 border-green-500 text-green-700'
-                    : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {isShareCopied ? <Check className="h-4 w-4 mr-1.5" /> : <Share2 className="h-4 w-4 mr-1.5" />}

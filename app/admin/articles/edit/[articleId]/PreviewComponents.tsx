@@ -8,7 +8,7 @@ import { Lightbulb, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react
 // They match the actual component structure and appearance
 
 export const PreviewHeroCard = ({ printingId, ...props }: any) => (
-  <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
+  <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg">
     {/* Card Image */}
     <div className="relative aspect-[63/88] w-full bg-gray-100 dark:bg-gray-700">
       <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 flex items-center justify-center">
@@ -30,12 +30,12 @@ export const PreviewHeroCard = ({ printingId, ...props }: any) => (
           </h3>
           <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0 mt-1" title="Red"></div>
         </div>
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-200 dark:border-gray-700 py-2 my-2">
+        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-300 dark:border-gray-700 py-2 my-2">
           <div className="flex flex-col">
             <span className="font-mono">SET</span>
             <span className="text-gray-800 dark:text-gray-300 font-semibold">Set Name</span>
           </div>
-          <div className="h-8 border-l border-gray-200 dark:border-gray-700 mx-2"></div>
+          <div className="h-8 border-l border-gray-300 dark:border-gray-700 mx-2"></div>
           <div className="flex flex-col text-right">
             <span className="font-bold text-lg text-green-600 dark:text-green-400">$12.34</span>
             <span className="text-[10px] -mt-1 text-green-700 dark:text-green-600">TCG Low</span>

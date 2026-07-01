@@ -169,7 +169,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
           <form onSubmit={handleSearch} className="flex-1 flex gap-2">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input ref={searchInputRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cards..." className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-gray-900 dark:text-gray-100" />
+              <input ref={searchInputRef} type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search cards..." className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-gray-900 dark:text-gray-100" />
             </div>
             <button type="submit" disabled={query.length < 3 || loading} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors flex items-center">
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Search'}
@@ -211,7 +211,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
               return Object.entries(groupedResults).map(([cardName, cardResults]) => (
                 <div key={cardName} className="mb-6">
                   {/* Card Name Header */}
-                  <div className="mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="mb-3 pb-2 border-b border-gray-300 dark:border-gray-700">
                     <h2 className={`font-semibold text-lg capitalize ${getColorTextStyle(cardResults[0]?.color)}`}>
                       {cardName}
                     </h2>
@@ -499,7 +499,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 //                 value={query}
 //                 onChange={(e) => setQuery(e.target.value)}
 //                 placeholder="Search cards..."
-//                 className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-gray-900 dark:text-gray-100"
+//                 className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-gray-900 dark:text-gray-100"
 //               />
 //             </div>
 //             <button
@@ -542,7 +542,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 //         {results.length > 0 && (
 //           <div className="px-4 py-2">
 //             {/* Search term header - Apply color styling here */}
-//             <div className="mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+//             <div className="mb-3 pb-2 border-b border-gray-300 dark:border-gray-700">
 //               <h2 className={`font-semibold text-lg capitalize ${getColorTextStyle(results[0]?.color)}`}>
 //                 {results[0]?.display_name || results[0]?.name || query}
 //               </h2>
@@ -827,7 +827,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 // //                 value={query}
 // //                 onChange={(e) => setQuery(e.target.value)}
 // //                 placeholder="Search cards..."
-// //                 className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-gray-900 dark:text-gray-100"
+// //                 className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 text-gray-900 dark:text-gray-100"
 // //               />
 // //             </div>
 // //             <button
@@ -870,7 +870,7 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
 // //         {results.length > 0 && (
 // //           <div className="px-4 py-2">
 // //             {/* Search term header - Apply color styling here */}
-// //             <div className="mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+// //             <div className="mb-3 pb-2 border-b border-gray-300 dark:border-gray-700">
 // //               <h2 className={`font-semibold text-lg capitalize ${getColorTextStyle(results[0]?.color)}`}>
 // //                 {results[0]?.display_name || results[0]?.name || query}
 // //               </h2>

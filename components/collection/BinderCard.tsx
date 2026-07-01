@@ -192,7 +192,7 @@ export function BinderCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex flex-col border-2 border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-800 gap-2 min-h-[420px] shadow dark:shadow-gray-900/30 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-gray-900/50 max-w-lg w-full relative"
+      className="flex flex-col border-2 border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-800 gap-2 min-h-[420px] shadow dark:shadow-gray-900/30 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-gray-900/50 max-w-lg w-full relative"
     >
       {/* Action buttons in upper right */}
       {!isEditing && (
@@ -275,7 +275,7 @@ export function BinderCard({
               
               {/* Advanced Settings Panel */}
               {showAdvancedVisibility && (
-                <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200 dark:border-gray-600">
+                <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-300 dark:border-gray-600">
                   <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                     <input
                       type="checkbox"
@@ -352,7 +352,7 @@ export function BinderCard({
               {binder.isOnHand ? (
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-semibold border border-green-200 dark:border-green-700">On Hand</span>
               ) : (
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-normal border border-gray-200 dark:border-gray-600">Not On Hand</span>
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-normal border border-gray-300 dark:border-gray-600">Not On Hand</span>
               )}
             </div>
             {binder.description && <div className="text-xs text-gray-600 dark:text-gray-300 mb-1 whitespace-pre-line">{binder.description}</div>}
@@ -368,7 +368,7 @@ export function BinderCard({
               <div className="flex gap-3 mb-2 mt-2">
                 {binder.cards.slice(0, 3).map((card: any, idx: number) => (
                   card.printingDetails?.image_url ? (
-                    <div key={card._id || card.id || idx} className="w-20 h-30 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 flex items-center justify-center">
+                    <div key={card._id || card.id || idx} className="w-20 h-30 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 flex items-center justify-center">
                       <Image
                         src={card.printingDetails.image_url}
                         alt={card.name}
@@ -387,7 +387,7 @@ export function BinderCard({
             <div className="overflow-x-auto mt-1 mb-1">
               <table className="text-xs text-gray-700 dark:text-gray-300 w-auto min-w-max">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-600">
+                  <tr className="border-b border-gray-300 dark:border-gray-600">
                     <th className="px-2 py-1 text-left font-semibold">Total</th>
                     <th className="px-2 py-1 text-left font-semibold">Marvel</th>
                     <th className="px-2 py-1 text-left font-semibold">Leg</th>

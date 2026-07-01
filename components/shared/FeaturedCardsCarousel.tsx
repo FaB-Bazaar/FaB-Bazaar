@@ -18,7 +18,7 @@ export function FeaturedCardSmall({ card }: { card: any }) {
   const artStyles = artStylesFromPrinting(card.art_variations, card.is_extended_art);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl shadow-black/25 dark:shadow-xl dark:shadow-black/50 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:shadow-black/30 transition-shadow duration-200 h-full flex flex-col">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl shadow-black/25 dark:shadow-xl dark:shadow-black/50 border border-gray-300 dark:border-gray-700 hover:shadow-2xl hover:shadow-black/30 transition-shadow duration-200 h-full flex flex-col">
       {/* Card Image — links to printing detail page */}
       <Link
         href={card.printing_id ? `/printing/${card.printing_id}` : '#'}

@@ -484,7 +484,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                  </div>
                </div>
 
-               <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700">
+               <div className="flex-shrink-0 p-4 border-t border-gray-300 dark:border-gray-700">
                  <div className="flex flex-col items-center gap-2 mb-4">
                     <Label htmlFor="quantity-stepper" className="font-medium text-sm">Quantity:</Label>
                     <QuantityStepper value={quantity} onChange={setQuantity} minValue={1} />

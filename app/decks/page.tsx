@@ -641,7 +641,7 @@ export default function DecksPage() {
         </div>
 
         {/* Talishar / Metafy info strip */}
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 mb-6 text-sm">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 mb-6 text-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <img
               src="https://talishar.net/assets/CoinLogo-CXy1VyVE.png"
@@ -690,7 +690,7 @@ export default function DecksPage() {
               <select
                 value={filterFormat}
                 onChange={(e) => setFilterFormat(e.target.value)}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
               >
                 <option value="all">All Formats</option>
                 {availableFormats.map(format => (
@@ -701,7 +701,7 @@ export default function DecksPage() {
               <select
                 value={filterVisibility}
                 onChange={(e) => setFilterVisibility(e.target.value)}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
               >
                 <option value="all">All Visibility</option>
                 <option value="public">Public</option>
@@ -713,7 +713,7 @@ export default function DecksPage() {
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
                 >
                   <option value="all">My Decks</option>
                   <option value="featured">⭐ Featured Only</option>
@@ -724,7 +724,7 @@ export default function DecksPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
               >
                 <option value="updated">Last Updated</option>
                 <option value="created">Date Created</option>
@@ -736,7 +736,7 @@ export default function DecksPage() {
 
           {/* Active filters indicator */}
           {(searchQuery || filterFormat !== "all" || filterVisibility !== "all" || filterType !== "all") && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
               <Filter className="h-4 w-4 text-gray-500" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 Showing {filteredAndSortedDecks.length} of {decks.length} decks
@@ -1179,7 +1179,7 @@ export default function DecksPage() {
 //               <select
 //                 value={filterFormat}
 //                 onChange={(e) => setFilterFormat(e.target.value)}
-//                 className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+//                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 //               >
 //                 <option value="all">All Formats</option>
 //                 {availableFormats.map(format => (
@@ -1190,7 +1190,7 @@ export default function DecksPage() {
 //               <select
 //                 value={filterVisibility}
 //                 onChange={(e) => setFilterVisibility(e.target.value)}
-//                 className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+//                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 //               >
 //                 <option value="all">All Decks</option>
 //                 <option value="public">Public Only</option>
@@ -1200,7 +1200,7 @@ export default function DecksPage() {
 //               <select
 //                 value={sortBy}
 //                 onChange={(e) => setSortBy(e.target.value)}
-//                 className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+//                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
 //               >
 //                 <option value="updated">Last Updated</option>
 //                 <option value="created">Date Created</option>
@@ -1212,7 +1212,7 @@ export default function DecksPage() {
 
 //           {/* Active filters indicator */}
 //           {(searchQuery || filterFormat !== "all" || filterVisibility !== "all") && (
-//             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+//             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
 //               <Filter className="h-4 w-4 text-gray-500" />
 //               <span className="text-sm text-gray-600 dark:text-gray-400">
 //                 Showing {filteredAndSortedDecks.length} of {decks.length} decks

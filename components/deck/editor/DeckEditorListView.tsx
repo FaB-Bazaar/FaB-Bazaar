@@ -196,7 +196,7 @@ function HoverImagePreview({ imageUrl, cardName, onDismiss }: { imageUrl: string
       <img
         src={imageUrl}
         alt={cardName}
-        className="w-[240px] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700"
+        className="w-[240px] rounded-xl shadow-2xl border border-gray-300 dark:border-gray-700"
       />
     </div>
   );
@@ -293,7 +293,7 @@ function GroupedCardRow({
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
         {/* Thumbnail */}
-        <div className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer">
+        <div className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer">
           <img
             src={group.imageUrl || "/cardback.webp"}
             alt={group.displayName}
@@ -384,7 +384,7 @@ function GroupedCardRow({
               >
                 {/* Printing thumbnail */}
                 <div
-                  className="w-5 h-7 flex-shrink-0 rounded overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
+                  className="w-5 h-7 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer"
                 >
                   <img
                     src={prImageUrl || "/cardback.webp"}
@@ -1138,7 +1138,7 @@ function DeckTileSection({
                   <img
                     src={tile.imageUrl}
                     alt={tile.name}
-                    className="w-10 rounded-lg border border-gray-200 dark:border-gray-700 flex-shrink-0"
+                    className="w-10 rounded-lg border border-gray-300 dark:border-gray-700 flex-shrink-0"
                     style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
                   />
                 )}
@@ -1600,9 +1600,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const renderCardRows = (cards: DeckPrintingDTO[], category: DeckCategory) => {
     const groups = groupByCardName(cards);
     return (
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
         {/* Column headers — must match the data row's flex layout exactly (widths, gaps, breakpoints) */}
-        <div className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
+        <div className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
           <span className="w-7 flex-shrink-0" />
           <span className="w-2 flex-shrink-0" />
           <span className="w-64 flex-shrink-0">Name</span>
@@ -2136,7 +2136,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     <>
       {/* Display controls — view mode, hover preview, tile density, and highlight popover */}
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <div className="inline-flex items-center rounded border border-gray-200 dark:border-gray-700 overflow-hidden text-sm bg-white dark:bg-gray-900/40">
+        <div className="inline-flex items-center rounded border border-gray-300 dark:border-gray-700 overflow-hidden text-sm bg-white dark:bg-gray-900/40">
           {/* View mode */}
           {([
             { key: 'list', icon: List,       label: 'List'  },
@@ -2150,7 +2150,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               aria-pressed={viewMode === m.key}
               className={cn(
                 "px-3 py-1.5 flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
-                idx > 0 && "border-l border-gray-200 dark:border-gray-700",
+                idx > 0 && "border-l border-gray-300 dark:border-gray-700",
                 viewMode === m.key
                   ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
                   : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
@@ -2167,7 +2167,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               type="button"
               onClick={() => { setHoverMode(m => { setHighlightFilters([]); return !m; }); setHoveredImage(null); }}
               className={cn(
-                "px-3 py-1.5 border-l border-gray-200 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                "px-3 py-1.5 border-l border-gray-300 dark:border-gray-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
                 hoverMode
                   ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
                   : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
@@ -2182,7 +2182,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
           {/* Tile density */}
           {(viewMode === 'tile' || viewMode === 'game') && (
-            <div className="flex items-center border-l border-gray-200 dark:border-gray-700">
+            <div className="flex items-center border-l border-gray-300 dark:border-gray-700">
               <button
                 type="button"
                 disabled={tileSizeIdx === 0}
@@ -2277,7 +2277,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <div className="md:hidden mb-3 -mx-4 flex flex-col gap-0">
 
             {/* Row 1 — Zone chips: Equipment / Inventory / Bench with card counts */}
-            <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto scrollbar-none bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700/60">
+            <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto scrollbar-none bg-gray-50 dark:bg-gray-800/50 border-t border-gray-300 dark:border-gray-700/60">
               {([
                 { zone: 'equipment', label: 'Equipment' },
                 { zone: 'inventory', label: 'Inventory' },
@@ -2324,7 +2324,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             </div>
 
             {/* Row 2 — Attack 3–7+ | Defense 2–4 */}
-            <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto scrollbar-none bg-gray-50 dark:bg-gray-800/50 border-t border-b border-gray-200 dark:border-gray-700/60">
+            <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto scrollbar-none bg-gray-50 dark:bg-gray-800/50 border-t border-b border-gray-300 dark:border-gray-700/60">
               {([3, 4, 5, 6, '7+'] as const).map(v => {
                 const count = getStatCount('power', v);
                 const isActive = highlightFilters.some(f => f.stat === 'power' && f.value === v);
@@ -2399,7 +2399,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           {renderSection("Bench", benchedCards, "benched", "bench")}
         </div>
       ) : viewMode === 'tile' ? (
-        <div className="rounded border border-gray-200 dark:border-gray-700/50 p-2">
+        <div className="rounded border border-gray-300 dark:border-gray-700/50 p-2">
           {tileTopSections.map(s => (
             <DeckTileSection
               key={s.key}
@@ -2414,7 +2414,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         </div>
       ) : (
         /* Game view — one tile per card name, R/Y/B pitch count bubbles */
-        <div className="rounded border border-gray-200 dark:border-gray-700/50 p-2">
+        <div className="rounded border border-gray-300 dark:border-gray-700/50 p-2">
           {buildGameViewSections(displayDeck).map(section => {
             const sectionTotal = section.cards.reduce((s, c) =>
               s + (section.key === 'red' ? c.redQty : section.key === 'yellow' ? c.yellowQty : section.key === 'blue' ? c.blueQty : section.key === 'unpitched' ? c.noPitchQty : c.totalQty), 0);

@@ -115,7 +115,7 @@ export default function HeroRosterTile({ hero, href }: Props) {
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/90 dark:from-black via-black/60 dark:via-black/80 to-transparent pointer-events-none" />
       </div>
 
-      <div className="relative bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-black border-t border-gray-200 dark:border-gray-800 p-3 space-y-2">
+      <div className="relative bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-black border-t border-gray-300 dark:border-gray-800 p-3 space-y-2">
         <div>
           <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight tracking-wide uppercase truncate">
             {hero.displayName}
@@ -138,7 +138,7 @@ export default function HeroRosterTile({ hero, href }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-1 border-t border-gray-200 dark:border-gray-800/80">
+        <div className="flex items-center gap-3 pt-1 border-t border-gray-300 dark:border-gray-800/80">
           <div className="flex items-center gap-1.5" title="Starting life">
             <Heart className="h-3.5 w-3.5 text-red-600 dark:text-red-400 fill-red-500/40 dark:fill-red-400/40" />
             <span className="font-mono font-bold text-sm text-gray-900 dark:text-white tabular-nums">
@@ -156,7 +156,7 @@ export default function HeroRosterTile({ hero, href }: Props) {
         </div>
 
         {(hero.livingLegendPoints !== undefined || (hero.totalTcgLow ?? 0) > 0) && (
-          <div className="pt-2 border-t border-gray-200 dark:border-gray-800/80 space-y-1.5">
+          <div className="pt-2 border-t border-gray-300 dark:border-gray-800/80 space-y-1.5">
             {hero.livingLegendPoints !== undefined && (
               <div title={`${hero.livingLegendPoints} Living Legend points`}>
                 <div className="flex items-center justify-between gap-2 mb-0.5">

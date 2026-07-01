@@ -143,7 +143,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
           <Button
             variant="outline"
             onClick={onExportList}
-            className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 flex-1 sm:flex-initial"
+            className="border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 flex-1 sm:flex-initial"
           >
             <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             Export
@@ -152,7 +152,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
         <Button
           variant="outline"
           onClick={handleCopyLink}
-          className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 flex-1 sm:flex-initial"
+          className="border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4 flex-1 sm:flex-initial"
         >
           {linkCopied ? (
             <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2 text-green-500" />
@@ -179,7 +179,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
           {shortcutGuideOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShortcutGuideOpen(false)} />
-              <div className="absolute left-0 top-full mt-2 z-50 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4">
+              <div className="absolute left-0 top-full mt-2 z-50 w-80 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl shadow-xl p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Keyboard Shortcuts</p>
                 <div className="space-y-2.5">
                   {[
@@ -319,7 +319,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
 //                   Set Trade:
 //                 </span>
 
-//                 <div className="flex gap-1 border border-gray-200 dark:border-gray-600 rounded-lg p-1 bg-gray-50 dark:bg-gray-800">
+//                 <div className="flex gap-1 border border-gray-300 dark:border-gray-600 rounded-lg p-1 bg-gray-50 dark:bg-gray-800">
 //                   <Button
 //                     variant={forTradeCount === totalCards ? "default" : "ghost"}
 //                     onClick={() => onBulkUpdateForTrade(true)}
@@ -360,7 +360,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
 //           <Button 
 //             variant="outline"
 //             onClick={onExportList}
-//             className="border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900"
+//             className="border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900"
 //           >
 //             <Download className="h-4 w-4 mr-2" />
 //             Export

@@ -94,7 +94,7 @@ function HoverImagePreview({ imageUrl, cardName }: { imageUrl: string; cardName:
       <img
         src={imageUrl}
         alt={cardName}
-        className="w-[240px] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700"
+        className="w-[240px] rounded-xl shadow-2xl border border-gray-300 dark:border-gray-700"
       />
     </div>
   );
@@ -577,9 +577,9 @@ export default function DeckEditorSidebar({
 
   return (
     <>
-      <div className="hidden lg:flex fixed left-0 top-16 w-96 h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex-col z-20">
+      <div className="hidden lg:flex fixed left-0 top-16 w-96 h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 flex-col z-20">
         {/* Deck contents — takes all available space */}
-        <div className="flex-1 min-h-0 px-4 py-3 overflow-y-auto border-b border-gray-200 dark:border-gray-700">
+        <div className="flex-1 min-h-0 px-4 py-3 overflow-y-auto border-b border-gray-300 dark:border-gray-700">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
             Deck Contents
           </p>
@@ -683,7 +683,7 @@ export default function DeckEditorSidebar({
                 return (
                   <div
                     key={instance.instanceId}
-                    className="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                    className="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-800/50 rounded-lg border border-gray-300 dark:border-gray-700"
                   >
                     <img
                       src={p?.image_url || "/cardback.webp"}
@@ -754,7 +754,7 @@ export default function DeckEditorSidebar({
         </div>
 
         {/* Save button */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-t border-gray-300 dark:border-gray-700">
           <Button
             className="w-full"
             onClick={onSave}

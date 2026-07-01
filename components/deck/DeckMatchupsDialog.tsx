@@ -153,7 +153,7 @@ function ConfigPanel({
       <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-between w-full px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
+        className="flex items-center justify-between w-full px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors"
       >
         <span className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
           <Settings2 className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ function ConfigPanel({
 
       {/* Expanded content — horizontal on desktop, stacked on mobile */}
       {!collapsed && (
-        <div className="mt-1.5 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+        <div className="mt-1.5 rounded-md border border-gray-300 dark:border-gray-700 p-3">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
             {/* Hero */}
             <div className="space-y-1">
@@ -224,7 +224,7 @@ function ConfigPanel({
                       Core — Baseline List
                     </span>
                   </SelectItem>
-                  <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+                  <div className="my-1 border-t border-gray-300 dark:border-gray-700" />
                   {Object.entries(STRATEGY_MATCHUP_IDS).map(([id, label]) => (
                     <SelectItem key={id} value={id}>
                       <span className="flex items-center gap-1.5">
@@ -233,7 +233,7 @@ function ConfigPanel({
                       </span>
                     </SelectItem>
                   ))}
-                  <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+                  <div className="my-1 border-t border-gray-300 dark:border-gray-700" />
                   {heroOptions.map((hero) => (
                     <SelectItem key={hero.talisharId} value={hero.talisharId}>
                       {hero.displayName}

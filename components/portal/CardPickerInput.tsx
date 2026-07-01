@@ -85,7 +85,7 @@ export function CardPickerInput({
       <Label>{label}</Label>
 
       {value ? (
-        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
           <div className="flex items-center gap-2 min-w-0">
             <Check className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
             <span className="text-sm text-gray-900 dark:text-gray-100 truncate">
@@ -124,7 +124,7 @@ export function CardPickerInput({
           />
 
           {open && (
-            <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
+            <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
               {searching ? (
                 <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Searching…</p>
               ) : results.length === 0 ? (

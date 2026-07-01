@@ -88,7 +88,7 @@ const MobileBinderCard = ({
   return (
     <div
       className={`bg-white dark:bg-gray-800 rounded-lg border ${
-        isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'
+        isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-700'
       } p-3 transition-all`}
       onClick={() => onSelect && onSelect(card)}
     >
@@ -648,7 +648,7 @@ export default function MobileOptimizedBinderPage() {
       )}
 
       {/* Mobile Header */}
-      <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-lg font-bold truncate">
@@ -705,11 +705,11 @@ export default function MobileOptimizedBinderPage() {
       </div>
 
       {/* Sort Bar */}
-      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700">
         <select 
           value={sortBy} 
           onChange={(e) => setSortBy(e.target.value)}
-          className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+          className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
         >
           <option value="default">Sort: Default</option>
           <option value="name">Sort: Name</option>

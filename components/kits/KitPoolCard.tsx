@@ -99,7 +99,7 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover }: P
   return (
     <div
       className={cn(
-        'w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex flex-col shadow-md',
+        'w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex flex-col shadow-md',
       )}
       onMouseEnter={() => onHover?.(card)}
       onMouseLeave={() => onHover?.(null)}
@@ -150,10 +150,10 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover }: P
           <PopoverContent
             side="bottom"
             align="end"
-            className="w-64 p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+            className="w-64 p-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700"
             onClick={e => e.stopPropagation()}
           >
-            <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-3 py-2 border-b border-gray-300 dark:border-gray-700">
               <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                 Included in {card.sources.length} kit{card.sources.length === 1 ? '' : 's'}
               </div>

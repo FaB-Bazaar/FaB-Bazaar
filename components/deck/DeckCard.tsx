@@ -144,7 +144,7 @@ export default function DeckCard({
     <>
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 overflow-visible">
+      <div className="p-4 border-b border-gray-300 dark:border-gray-700 overflow-visible">
         <div className="flex items-start gap-3">
           {/* Hero image with hover expand */}
           {(() => {
@@ -316,7 +316,7 @@ export default function DeckCard({
       </div>
 
       {/* Compact footer: Visibility · Talishar · Date */}
-      <div className="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+      <div className="px-4 pb-4 pt-3 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center gap-2">
           {onChangeVisibility && (
             <div className="flex items-center gap-1">
@@ -396,7 +396,7 @@ export default function DeckCard({
       </div>
 
       {/* Actions */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-t border-gray-300 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <Button
             variant="default"
@@ -576,7 +576,7 @@ export default function DeckCard({
 //   return (
 //     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col">
 //       {/* Header */}
-//       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+//       <div className="p-4 border-b border-gray-300 dark:border-gray-700">
 //         <div className="flex items-start justify-between mb-2">
 //           <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 truncate flex-1 mr-2">
 //             {deck.name}
@@ -664,7 +664,7 @@ export default function DeckCard({
 //       </div>
 
 //       {/* Actions */}
-//       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+//       <div className="p-4 border-t border-gray-300 dark:border-gray-700">
 //         <div className="flex items-center justify-between">
 //           <Button
 //             variant="outline"

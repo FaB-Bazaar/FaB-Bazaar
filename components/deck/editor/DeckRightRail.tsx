@@ -121,7 +121,7 @@ export default function DeckRightRail({
         aria-label="Deck overview"
         style={fixedLeft != null ? { position: "fixed", top: NAVBAR_OFFSET_PX, left: fixedLeft } : undefined}
         className={cn(
-          "w-72 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900",
+          "w-72 p-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900",
           "space-y-4 text-sm text-gray-700 dark:text-gray-200",
           // While pinned, never extend past the viewport bottom — scroll internally instead.
           fixedLeft != null && "max-h-[calc(100vh-6rem)] overflow-y-auto",
@@ -223,7 +223,7 @@ export default function DeckRightRail({
                 <TcgAffiliateLink
                   tcgplayerUrl={hoveredCard.tcgplayerUrl}
                   feature="DeckEditorRailPreview"
-                  className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   title={`Buy ${hoveredCard.name} on TCGplayer`}
                 >
                   <span>Buy on</span>
@@ -246,7 +246,7 @@ export default function DeckRightRail({
                     ? "text-yellow-700 dark:text-yellow-400"
                     : "text-red-600 dark:text-red-400";
                 return (
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm">
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm">
                     <span className="font-medium text-gray-700 dark:text-gray-200">Owned</span>
                     <span className={cn("font-semibold tabular-nums", colorClass)}>
                       {owned} / {needed}

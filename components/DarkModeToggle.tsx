@@ -13,7 +13,7 @@ export function DarkModeToggle() {
       return (
         <button
           disabled
-          className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+          className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700"
           aria-label="Loading theme toggle"
         >
           <div className="w-5 h-5" /> {/* Empty placeholder */}
@@ -24,7 +24,7 @@ export function DarkModeToggle() {
     return (
       <button
         onClick={toggle}
-        className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+        className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700"
         aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
         title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
       >
@@ -40,7 +40,7 @@ export function DarkModeToggle() {
     return (
       <button
         disabled
-        className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-50"
+        className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700 opacity-50"
       >
         <Moon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
       </button>
@@ -60,7 +60,7 @@ export function DarkModeToggle() {
 //     return (
 //       <button
 //         onClick={toggle}
-//         className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700"
+//         className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700"
 //         aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
 //         title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
 //       >
@@ -77,7 +77,7 @@ export function DarkModeToggle() {
 //     return (
 //       <button
 //         disabled
-//         className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-50"
+//         className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-300 dark:border-gray-700 opacity-50"
 //       >
 //         <Moon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
 //       </button>

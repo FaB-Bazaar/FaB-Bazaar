@@ -67,7 +67,7 @@ export default async function TutorialPage({
             {tutorial.videos.map((video, index) => (
               <div
                 key={index}
-                className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800/60"
+                className="rounded-xl border border-gray-300 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800/60"
               >
                 {video.videoId ? (
                   <div className="aspect-video">

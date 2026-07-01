@@ -96,7 +96,7 @@ export function SetsOrderClient({ initialSets }: SetsOrderClientProps) {
         <p role="status" className="text-base text-gray-800 dark:text-gray-200">{status}</p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="overflow-x-auto rounded-lg border border-gray-300 dark:border-gray-700">
         <table className="w-full text-base">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-800 text-left text-gray-700 dark:text-gray-300">
@@ -115,7 +115,7 @@ export function SetsOrderClient({ initialSets }: SetsOrderClientProps) {
             {sets.map((s, i) => (
               <tr
                 key={s.code}
-                className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className="border-t border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
               >
                 <td className="px-3 py-2 tabular-nums text-gray-700 dark:text-gray-300">{i + 1}</td>
                 <td className="px-3 py-2 font-mono uppercase">{s.displayCode}</td>

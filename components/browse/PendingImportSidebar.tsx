@@ -40,8 +40,8 @@ export default function PendingImportSidebar({
   const stagedCards = allCards.filter(c => c.isStaged);
 
   return (
-    <div className="hidden lg:flex fixed left-0 top-16 w-96 h-[calc(100vh-4rem)] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex-col z-20">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+    <div className="hidden lg:flex fixed left-0 top-16 w-96 h-[calc(100vh-4rem)] bg-white dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 flex-col z-20">
+      <div className="p-4 border-b border-gray-300 dark:border-gray-700">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Pending Import
@@ -66,7 +66,7 @@ export default function PendingImportSidebar({
                 variant="outline"
                 size="sm"
                 onClick={() => onSetAllForTrade(false)}
-                className="flex-1 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex-1 text-gray-700 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 <XCircle className="h-4 w-4 mr-1.5" />
                 All Not For Trade
@@ -88,7 +88,7 @@ export default function PendingImportSidebar({
           stagedCards.map(instance => {
             const { selectedPrinting: p } = instance;
             return (
-              <div key={instance.instanceId} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div key={instance.instanceId} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-300 dark:border-gray-700">
                 <img
                   src={p.image_url || "/cardback.webp"}
                   alt={p.display_name}

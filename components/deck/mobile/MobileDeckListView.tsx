@@ -127,7 +127,7 @@ export default function MobileDeckListView({
           </div>
 
           {/* Card rows */}
-          <div className="border border-t-0 rounded-b-md border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="border border-t-0 rounded-b-md border-gray-300 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
             {Object.entries(cards).map(([cardName, cardPrintings]) => {
               const firstPrinting = cardPrintings[0];
               const quantity = cardPrintings.reduce((sum, p) => sum + (p.quantity || 1), 0);

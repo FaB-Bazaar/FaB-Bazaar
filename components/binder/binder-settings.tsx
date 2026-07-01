@@ -215,7 +215,7 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
                 <img
                   src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${thumbnailPrintingId}/public`}
                   alt="Binder thumbnail"
-                  className="w-24 h-auto rounded border-2 border-gray-200 dark:border-gray-700"
+                  className="w-24 h-auto rounded border-2 border-gray-300 dark:border-gray-700"
                 />
                 <button
                   type="button"
@@ -306,7 +306,7 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
 
           {/* Advanced Settings Panel */}
           {showAdvancedVisibility && (
-            <div className="mt-3 space-y-3 pl-3 border-l-2 border-gray-200 dark:border-gray-600">
+            <div className="mt-3 space-y-3 pl-3 border-l-2 border-gray-300 dark:border-gray-600">
               <label className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                 <input
                   type="checkbox"
@@ -357,7 +357,7 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
         </div>
 
         {/* --- NEW: BULK ACTIONS SECTION --- */}
-        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="pt-4 border-t border-gray-300 dark:border-gray-700">
           <h3 className="text-md font-semibold mb-2">Bulk Actions</h3>
           <p className="text-sm text-gray-500 mb-4">
             Quickly mark all cards in this binder as for trade or not for trade. This action cannot be undone.

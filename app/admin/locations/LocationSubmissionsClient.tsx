@@ -50,7 +50,7 @@ function SubmissionCard({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-3">
+    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{submission.storeName}</p>
@@ -168,7 +168,7 @@ export function LocationSubmissionsClient({
 
   return (
     <div>
-      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-1 mb-6 border-b border-gray-300 dark:border-gray-700">
         {TABS.map((tab) => (
           <button
             key={tab.status}

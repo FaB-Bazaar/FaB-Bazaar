@@ -370,7 +370,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
         {/* Main content */}
         <main className="lg:col-span-3 space-y-6">
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <div className="flex border-b border-gray-300 dark:border-gray-700">
             <button
               onClick={() => setActiveTab('collection')}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
@@ -414,7 +414,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
                         const collapsed = collapsedSections[key] ?? (idx !== 0)
                         const count = section.binders.length
                         return (
-                          <div key={key} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                          <div key={key} className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
                             <button
                               type="button"
                               onClick={() => setCollapsedSections(s => ({ ...s, [key]: !collapsed }))}

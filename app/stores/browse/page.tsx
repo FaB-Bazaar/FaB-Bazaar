@@ -36,7 +36,7 @@ function LocationCard({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <Link
           href={`/stores/${location.id}`}
@@ -210,7 +210,7 @@ export default function BrowseStoresPage() {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar filters */}
           <aside className="w-full lg:w-56 flex-shrink-0">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-4 sticky top-4">
+            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-4 flex flex-col gap-4 sticky top-4">
               <div>
                 <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide block mb-1.5">
                   Country
@@ -218,7 +218,7 @@ export default function BrowseStoresPage() {
                 <select
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
-                  className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-2 py-1.5"
+                  className="w-full text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-2 py-1.5"
                 >
                   <option value="">All countries</option>
                   {countries.map((c) => (
@@ -235,7 +235,7 @@ export default function BrowseStoresPage() {
                   <select
                     value={selectedState}
                     onChange={(e) => setSelectedState(e.target.value)}
-                    className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-2 py-1.5"
+                    className="w-full text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-2 py-1.5"
                   >
                     <option value="">All states</option>
                     {states.map((s) => (

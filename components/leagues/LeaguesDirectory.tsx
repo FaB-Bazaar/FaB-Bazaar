@@ -24,7 +24,7 @@ export default function LeaguesDirectory({ leagues }: LeaguesDirectoryProps) {
       </header>
 
       {leagues.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
           <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
             No leagues yet
           </h2>

@@ -71,7 +71,7 @@ function MoverCard({ m }: { m: DailyMoverDTO }) {
   const rarityLabel = RARITY_MAP[m.rarity?.toLowerCase()] || m.rarity?.toUpperCase();
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex gap-3">
+    <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-3 flex gap-3">
       {/* Thumbnail */}
       <Link
         href={`/printing/${m.printingId}`}
@@ -255,7 +255,7 @@ export default function DailyMoversPage() {
         </div>
 
         {data.totalCount === 0 ? (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
+          <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center">
             <p className="text-gray-600 dark:text-gray-300">
               Quiet day for your cards. Check back tomorrow.
             </p>

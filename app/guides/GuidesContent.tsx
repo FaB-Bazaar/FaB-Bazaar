@@ -79,7 +79,7 @@ function getContentTypeBadge(contentType: string): { label: string; className: s
     },
     article: {
       label: 'Article',
-      className: 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-200 border-gray-200 dark:border-gray-700'
+      className: 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-200 border-gray-300 dark:border-gray-700'
     },
     guide: {
       label: 'Guide',

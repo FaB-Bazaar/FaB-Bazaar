@@ -12,7 +12,7 @@ import Link from 'next/link';
 // pages surface priced TCGplayer links).
 export function AppShellAttribution() {
   return (
-    <footer className="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-1.5">
+    <footer className="shrink-0 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-1.5">
       <p className="text-center text-[11px] leading-tight text-gray-400 dark:text-gray-500">
         © {new Date().getFullYear()} FaB Bazaar · Not affiliated with Legend Story Studios — Flesh and Blood™ &amp; set names are LSS trademarks · Some card links earn a commission ·{' '}
         <Link

@@ -51,7 +51,7 @@ export default function SharedWantsCard({
     <button
       type="button"
       className={cn(
-        'w-full rounded-lg overflow-hidden cursor-pointer bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+        'w-full rounded-lg overflow-hidden cursor-pointer bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
         isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-md',
         isSelected && selectedQty >= maxQty && 'border-dashed'
       )}

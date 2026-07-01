@@ -128,8 +128,8 @@ export default function MultiSourceTransferDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
-        <DialogHeader className="border-b border-gray-200 dark:border-gray-600 pb-4">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+        <DialogHeader className="border-b border-gray-300 dark:border-gray-600 pb-4">
           <DialogTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold flex items-center gap-2">
             <Package className="h-5 w-5" />
             Transfer {selectedCards.length} Cards to Another Binder
@@ -141,7 +141,7 @@ export default function MultiSourceTransferDialog({
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">Destination Binder</label>
             {binders.length === 0 ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600 p-4">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 No other binders available for transfer
               </div>
@@ -166,7 +166,7 @@ export default function MultiSourceTransferDialog({
             <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
               Cards to Transfer ({selectedCards.length})
             </label>
-            <div className="space-y-4 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+            <div className="space-y-4 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 border border-gray-300 dark:border-gray-600">
               {[...byBinder.entries()].map(([binderId, { binderName, cards }]) => (
                 <div key={binderId}>
                   <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
@@ -178,7 +178,7 @@ export default function MultiSourceTransferDialog({
                       const transferQty = quantities[cardId] || 1
                       const maxQty = card.quantity || 1
                       return (
-                        <div key={cardId} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <div key={cardId} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                               {card.display_name || card.name}
@@ -232,7 +232,7 @@ export default function MultiSourceTransferDialog({
           </div>
         </div>
 
-        <DialogFooter className="border-t border-gray-200 dark:border-gray-600 pt-4 gap-3">
+        <DialogFooter className="border-t border-gray-300 dark:border-gray-600 pt-4 gap-3">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

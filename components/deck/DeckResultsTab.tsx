@@ -557,7 +557,7 @@ function GameRow({ game, deckId, detail, cardLookup, cardIdLookup, isExpanded, o
       {/* Fixed-position card tooltip for turn summary table cells */}
       {tableCellTooltip && (
         <div
-          className="fixed z-50 flex gap-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5 shadow-xl pointer-events-none"
+          className="fixed z-50 flex gap-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-1.5 shadow-xl pointer-events-none"
           style={{ left: tableCellTooltip.x, top: tableCellTooltip.y - 8, transform: "translate(-50%, -100%)" }}
         >
           {tableCellTooltip.cards.map((entry, i) => (
@@ -844,7 +844,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
         {/* Summary stats */}
         {filteredResults.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700">
             <Stat label="Games" value={filteredResults.length} />
             <Stat label="Wins" value={wins} color="text-green-600 dark:text-green-400" />
             <Stat label="Losses" value={losses} color="text-red-500 dark:text-red-400" />
@@ -860,7 +860,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
         {/* Aggregated card performance */}
         {aggregatedCards.length > 0 && (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="rounded-lg border border-gray-300 dark:border-gray-700">
             <button
               onClick={() => setShowCardStats(v => !v)}
               className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -879,7 +879,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
               ];
               const neverUsed = aggregatedCards.filter(cr => cr.played === 0 && cr.pitched === 0 && cr.blocked === 0);
               return (
-                <div className="border-t border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="border-t border-gray-300 dark:border-gray-700 divide-y divide-gray-300 dark:divide-gray-700">
                   {aggSections.map(({ id, title, cards, statKey }) => {
                     if (cards.length === 0) return null;
                     const collapsed = collapsedSections.has(id);
@@ -920,7 +920,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
         {/* Game list */}
         {filteredResults.length > 0 && (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="rounded-lg border border-gray-300 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
             {filteredResults.map(r => (
               <GameRow
                 key={r.id}
@@ -945,7 +945,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2 rounded border border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-4 py-2 rounded border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               {loadingMore ? "Loading..." : `Load more (${total - results.length} remaining)`}
             </button>

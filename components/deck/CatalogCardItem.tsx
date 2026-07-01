@@ -90,7 +90,7 @@ export default function CatalogCardItem({
         onClick={handleAddCard}
       >
         {/* Card Image Container */}
-        <div className="relative aspect-[63/88] overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
+        <div className="relative aspect-[63/88] overflow-hidden rounded-lg border-2 border-gray-300 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all">
         {/* Card Image */}
         {!imageError && card.image_url ? (
           <Image

@@ -79,7 +79,7 @@ export function ImagesView({
         return (
           <div key={printing.printing_id} className="group relative flex flex-col">
             {/* Info badge - Collector Number, Edition, Foiling */}
-            <div className="mb-1.5 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1 border border-gray-200 dark:border-gray-700">
+            <div className="mb-1.5 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1 border border-gray-300 dark:border-gray-700">
               <div className="flex items-center justify-between gap-2 text-xs">
                 {/* Left: Collector Number as Link */}
                 <Link
@@ -143,7 +143,7 @@ export function ImagesView({
                 className={`relative aspect-[2.5/3.5] rounded-lg overflow-hidden border transition-all ${
                   isSelected
                     ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 dark:ring-blue-400'
-                    : 'border-gray-200 dark:border-gray-700'
+                    : 'border-gray-300 dark:border-gray-700'
                 }${selectionEnabled ? ' cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''}`}
               >
                   {printing.image_url ? (
@@ -231,7 +231,7 @@ export function ImagesView({
 
             {/* Price section - below the card image */}
             {(printing.tcg_low !== undefined && printing.tcg_low !== null) && (
-              <div className="mt-1.5 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1.5 border border-gray-200 dark:border-gray-700">
+              <div className="mt-1.5 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1.5 border border-gray-300 dark:border-gray-700">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     ${printing.tcg_low.toFixed(2)}

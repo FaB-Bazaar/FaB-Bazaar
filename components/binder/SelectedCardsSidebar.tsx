@@ -101,7 +101,7 @@ export default function SelectedCardsSidebar({
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-72 bg-white dark:bg-gray-800 shadow-xl z-50 transition-transform duration-300 transform border-l border-gray-200 dark:border-gray-600 ${
+        className={`fixed top-0 right-0 h-full w-full sm:w-72 bg-white dark:bg-gray-800 shadow-xl z-50 transition-transform duration-300 transform border-l border-gray-300 dark:border-gray-600 ${
           sidebarOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ maxWidth: '100vw' }}
@@ -109,7 +109,7 @@ export default function SelectedCardsSidebar({
         <div className="flex flex-col h-full">
 
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
+          <div className="p-4 border-b border-gray-300 dark:border-gray-600 flex justify-between items-center bg-gray-50 dark:bg-gray-700/50">
             <h2 className="text-lg font-bold flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               {selectedCards.length > 0 ? (
@@ -145,7 +145,7 @@ export default function SelectedCardsSidebar({
                 {selectedCards.map((card, idx) => (
                   <div
                     key={card.id || card._id}
-                    className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1 pr-2">
@@ -170,7 +170,7 @@ export default function SelectedCardsSidebar({
                     </div>
 
                     {/* Quantity controls */}
-                    <div className="flex items-center justify-center gap-3 bg-white dark:bg-gray-700 rounded-md p-2 border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center justify-center gap-3 bg-white dark:bg-gray-700 rounded-md p-2 border border-gray-300 dark:border-gray-600">
                       <Button
                         variant="outline"
                         size="sm"
@@ -202,9 +202,9 @@ export default function SelectedCardsSidebar({
 
           {/* Footer */}
           {selectedCards.length > 0 && (
-            <div className="p-4 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 space-y-3">
+            <div className="p-4 border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 space-y-3">
               {/* Summary */}
-              <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600 space-y-1">
+              <div className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-300 dark:border-gray-600 space-y-1">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-600 dark:text-gray-400">Selected:</span>
                   <span className="font-bold">{selectedCards.length} cards</span>

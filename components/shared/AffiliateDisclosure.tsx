@@ -7,7 +7,7 @@ export function AffiliateDisclosure() {
   const { consentOptions } = useCookieConsent();
 
   return (
-    <div className="bg-white dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+    <div className="bg-white dark:bg-gray-800/50 border-b border-gray-300 dark:border-gray-700">
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center gap-2">
           <img

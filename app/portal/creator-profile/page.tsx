@@ -114,7 +114,7 @@ export default function CreatorProfilePortalPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             href="/portal/token-cards"
@@ -148,7 +148,7 @@ export default function CreatorProfilePortalPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 p-6">
             {existing && (
               <Alert>
                 <AlertTitle>Public page</AlertTitle>
@@ -209,7 +209,7 @@ export default function CreatorProfilePortalPage() {
               Your linked Discord identity is used automatically — no need to re-enter it here.
             </p>
 
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 pt-4 border-t border-gray-300 dark:border-gray-700">
               Links
             </h2>
 
@@ -232,7 +232,7 @@ export default function CreatorProfilePortalPage() {
               </div>
             ))}
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end gap-2 pt-4 border-t border-gray-300 dark:border-gray-700">
               <Button type="submit" disabled={saving} className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600">
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? "Saving…" : existing ? "Save changes" : "Create profile"}

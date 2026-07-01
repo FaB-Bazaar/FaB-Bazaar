@@ -215,7 +215,7 @@ export default function PrintingComparisonDialog({
                               className={`relative rounded-lg overflow-hidden border-2 transition-all ${
                                 isCurrentPrinting
                                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 cursor-default'
-                                  : 'border-gray-200 dark:border-gray-700 hover:border-blue-400 hover:shadow-lg cursor-pointer'
+                                  : 'border-gray-300 dark:border-gray-700 hover:border-blue-400 hover:shadow-lg cursor-pointer'
                               }`}
                             >
                               <div className="aspect-[63/88] bg-gray-100 dark:bg-gray-700 relative">

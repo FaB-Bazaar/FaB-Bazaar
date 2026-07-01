@@ -644,7 +644,7 @@ export default function DeckFlow({ deckId, maindeck, hero }: DeckFlowProps) {
         )}
 
         {selected && (
-          <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
+          <div className="mt-4 border-t border-gray-300 dark:border-gray-700 pt-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium">
                 {selected.label} · {selected.count} card

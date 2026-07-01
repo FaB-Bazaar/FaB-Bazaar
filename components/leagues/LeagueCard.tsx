@@ -32,7 +32,7 @@ function formatEventDate(d: Date | string): string {
 
 export default function LeagueCard({ league }: LeagueCardProps) {
   return (
-    <article className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <article className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       {league.bannerUrl && (
         <img
           src={league.bannerUrl}

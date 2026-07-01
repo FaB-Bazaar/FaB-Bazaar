@@ -397,7 +397,7 @@ export default function MobileDeckSearchOverlay({
   return (
     <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 flex flex-col">
       {/* Top: close button + category pills */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-300 dark:border-gray-700 shrink-0">
         <Button
           variant="ghost"
           size="sm"
@@ -558,7 +558,7 @@ export default function MobileDeckSearchOverlay({
       </div>
 
       {/* Search bar at BOTTOM for thumb reachability */}
-      <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900">
+      <div className="shrink-0 border-t border-gray-300 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
@@ -666,7 +666,7 @@ export default function MobileDeckSearchOverlay({
                             "w-full text-left px-2 py-1.5 rounded-lg border transition-colors",
                             isSelected
                               ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                              : "border-gray-200 dark:border-gray-700 active:bg-gray-100 dark:active:bg-gray-800"
+                              : "border-gray-300 dark:border-gray-700 active:bg-gray-100 dark:active:bg-gray-800"
                           )}
                           onClick={() => setSelectedPrinting(printing)}
                         >

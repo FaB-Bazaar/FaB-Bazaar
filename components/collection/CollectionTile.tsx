@@ -260,7 +260,7 @@ export function CollectionTile({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex flex-col border-2 border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-800 gap-2 min-h-[420px] shadow dark:shadow-gray-900/30 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-gray-900/50 max-w-lg w-full relative"
+      className="flex flex-col border-2 border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-gray-800 gap-2 min-h-[420px] shadow dark:shadow-gray-900/30 transition-shadow duration-200 hover:shadow-lg dark:hover:shadow-gray-900/50 max-w-lg w-full relative"
     >
       {/* Action buttons in upper right (same as before) */}
       {!isEditing && (
@@ -344,7 +344,7 @@ export function CollectionTile({
               
              {/* Advanced Settings Panel */}
               {showAdvancedVisibility && (
-                <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200 dark:border-gray-600">
+                <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-300 dark:border-gray-600">
                   <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                     <input
                       type="checkbox"
@@ -416,7 +416,7 @@ export function CollectionTile({
               {binder.isOnHand ? (
                 <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-semibold border border-green-200 dark:border-green-700">On Hand</span>
               ) : (
-                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-normal border border-gray-200 dark:border-gray-600">Not On Hand</span>
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-normal border border-gray-300 dark:border-gray-600">Not On Hand</span>
               )}
             </div>
 
@@ -452,7 +452,7 @@ export function CollectionTile({
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {binder.showcaseCards.map((card, idx) => (
-                        <div key={card.printingId} className="aspect-[2/3] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 relative">
+                        <div key={card.printingId} className="aspect-[2/3] rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 relative">
                           <Image
                             src={getShowcaseImageUrl(card.printingId)}
                             alt={`${card.rarity} card worth $${card.tcg_low || card.tcg_market || 0}`}
@@ -495,7 +495,7 @@ export function CollectionTile({
                 <div className="text-gray-700 dark:text-gray-300">
                   <table className="w-full text-xs text-left">
                     <thead>
-                      <tr className="border-b-2 border-gray-200 dark:border-gray-600">
+                      <tr className="border-b-2 border-gray-300 dark:border-gray-600">
                         <th className="py-1 pr-2 font-semibold">Rarity</th>
                         <th className="py-1 px-2 font-semibold text-center text-green-600 dark:text-green-400">For Trade</th>
                         <th className="py-1 px-2 font-semibold text-center text-gray-500 dark:text-gray-400">Not For Trade</th>
@@ -511,7 +511,7 @@ export function CollectionTile({
                         if (totalCount === 0) return null;
 
                         return (
-                          <tr key={rarity.key} className="border-b border-gray-200 dark:border-gray-700">
+                          <tr key={rarity.key} className="border-b border-gray-300 dark:border-gray-700">
                             <td className="py-1 pr-2 font-medium flex items-center gap-2">
                                <RarityIcon rarityCode={rarity.apiKeys[0]} size="sm" />
                                <span>{rarity.label}</span>

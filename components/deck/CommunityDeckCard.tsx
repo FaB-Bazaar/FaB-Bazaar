@@ -84,9 +84,9 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-lg transition-all duration-200 flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-300 dark:border-gray-700">
           <div className="flex items-start gap-3">
             {heroImgUrl && (
               <div className="flex-shrink-0">
@@ -225,7 +225,7 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
         )}
 
         {/* Actions */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-t border-gray-300 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

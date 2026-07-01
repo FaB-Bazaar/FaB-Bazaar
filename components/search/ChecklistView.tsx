@@ -211,9 +211,9 @@ export function ChecklistView({
         {isFilterOpen && onFilterChange && (
           <div
             ref={filterRef}
-            className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-[200px] max-h-[300px] overflow-y-auto"
+            className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-[200px] max-h-[300px] overflow-y-auto"
           >
-            <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <div className="p-2 border-b border-gray-300 dark:border-gray-700 flex justify-between items-center">
               <span className="text-xs font-medium">Filter {label}</span>
               {hasActiveFilter && (
                 <button
@@ -267,7 +267,7 @@ export function ChecklistView({
   return (
     <div>
       {/* ── MOBILE: stacked card rows (the wide table is unreadable on phones) ── */}
-      <ul className="sm:hidden divide-y divide-gray-200/70 dark:divide-gray-800">
+      <ul className="sm:hidden divide-y divide-gray-300/70 dark:divide-gray-800">
         {printings.map((printing: any) => {
           const colorInfo = getColorDisplay(printing.color);
           const foilingDisplay = getFoilingDisplay(printing.foiling);

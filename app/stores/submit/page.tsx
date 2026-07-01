@@ -102,7 +102,7 @@ export default function SubmitStorePage() {
   if (status === "unauthenticated") {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8">
+        <div className="max-w-md w-full text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-2xl p-8">
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Sign in required</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
             You need to be logged in to submit a store.
@@ -118,7 +118,7 @@ export default function SubmitStorePage() {
   if (step === "success") {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-8">
+        <div className="max-w-md w-full text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-2xl p-8">
           <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Submission received!
@@ -157,7 +157,7 @@ export default function SubmitStorePage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-8">
           {/* Section 1: About you */}
-          <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-4">
+          <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-4">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">About you</h2>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -180,7 +180,7 @@ export default function SubmitStorePage() {
                 <select
                   value={form.submitterRelationship}
                   onChange={(e) => set("submitterRelationship", e.target.value)}
-                  className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2"
+                  className="w-full text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2"
                   required
                 >
                   {RELATIONSHIPS.map((r) => (
@@ -192,7 +192,7 @@ export default function SubmitStorePage() {
           </section>
 
           {/* Section 2: Store info */}
-          <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-4">
+          <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-4">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">Store information</h2>
 
             <Field label="Store name" required>
@@ -291,7 +291,7 @@ export default function SubmitStorePage() {
           </section>
 
           {/* Section 3: Additional */}
-          <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-4">
+          <section className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl p-5 flex flex-col gap-4">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">Additional details</h2>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Manager name">
@@ -323,7 +323,7 @@ export default function SubmitStorePage() {
                 onChange={(e) => set("notes", e.target.value)}
                 rows={3}
                 placeholder="Anything else we should know…"
-                className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </Field>
           </section>

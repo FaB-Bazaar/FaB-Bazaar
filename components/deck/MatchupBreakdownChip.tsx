@@ -20,7 +20,7 @@ export const EMPTY_BREAKDOWN: Breakdown = {
 
 export function BreakdownChip({ label, bd }: { label: string; bd: Breakdown }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-gray-300 border border-gray-200 dark:border-gray-700 rounded h-4 px-1.5">
+    <span className="inline-flex items-center gap-1 text-[10px] text-gray-300 border border-gray-300 dark:border-gray-700 rounded h-4 px-1.5">
       <span className="font-semibold text-gray-700 dark:text-gray-200">{label}</span>
       <span className="text-gray-500" aria-hidden="true">·</span>
       <span className="font-bold text-gray-700 dark:text-gray-200">{bd.total}</span>

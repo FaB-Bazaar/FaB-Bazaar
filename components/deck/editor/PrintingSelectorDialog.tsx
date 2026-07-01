@@ -167,7 +167,7 @@ export default function PrintingSelectorDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl flex flex-col max-h-[85vh] gap-0 p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-300 dark:border-gray-700 flex-shrink-0">
           <DialogTitle className="text-lg">
             Printings — <span className="font-normal text-gray-600 dark:text-gray-400">{cardName}</span>
           </DialogTitle>
@@ -201,14 +201,14 @@ export default function PrintingSelectorDialog({
                         ? "border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/30"
                         : qty > 0
                         ? "border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-950/20"
-                        : "border-gray-200 dark:border-gray-700"
+                        : "border-gray-300 dark:border-gray-700"
                     )}
                   >
                     {/* Thumbnail — hover triggers large centered preview */}
                     <img
                       src={p.image_url || "/cardback.webp"}
                       alt={p.display_name}
-                      className="w-11 h-[61px] object-cover rounded border border-gray-200 dark:border-gray-700 flex-shrink-0 cursor-zoom-in"
+                      className="w-11 h-[61px] object-cover rounded border border-gray-300 dark:border-gray-700 flex-shrink-0 cursor-zoom-in"
                       onMouseEnter={() => setHoveredPrinting(p)}
                       onMouseLeave={() => setHoveredPrinting(null)}
                     />
@@ -274,7 +274,7 @@ export default function PrintingSelectorDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+        <DialogFooter className="flex-shrink-0 border-t border-gray-300 dark:border-gray-700 px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={applying}>
             Cancel
           </Button>
@@ -298,7 +298,7 @@ export default function PrintingSelectorDialog({
             <img
               src={hoveredPrinting.image_url}
               alt={hoveredPrinting.display_name}
-              className="w-[240px] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700"
+              className="w-[240px] rounded-xl shadow-2xl border border-gray-300 dark:border-gray-700"
             />
           </div>
         )}

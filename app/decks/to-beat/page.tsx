@@ -456,7 +456,7 @@ export default function DecksToBeatPage() {
             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${sidebarOpen ? "rotate-180" : ""}`} />
           </button>
           {sidebarOpen && (
-            <div className="mt-2 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="mt-2 p-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900">
               {sidebarContent}
             </div>
           )}
@@ -468,7 +468,7 @@ export default function DecksToBeatPage() {
         {/* Desktop sidebar */}
         {events.length > 0 && (
           <aside className="hidden lg:block w-64 shrink-0">
-            <div className="sticky top-24 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
+            <div className="sticky top-24 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-3">
               <h3 className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
                 <Trophy className="h-4 w-4" />
                 Events
@@ -508,7 +508,7 @@ export default function DecksToBeatPage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-64 animate-pulse" />
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 h-64 animate-pulse" />
               ))}
             </div>
           ) : decks.length === 0 ? (

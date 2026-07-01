@@ -69,7 +69,7 @@ export default function ClientHeroCard({
 
   if (loading) {
     return (
-      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg animate-pulse">
+      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg animate-pulse">
         <div className="relative aspect-[63/88] w-full bg-gray-300 dark:bg-gray-600"></div>
         <div className="p-3 space-y-2">
           <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
@@ -172,7 +172,7 @@ export default function ClientHeroCard({
 
 //   if (loading) {
 //     return (
-//       <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg animate-pulse">
+//       <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg animate-pulse">
 //         <div className="relative aspect-[63/88] w-full bg-gray-300 dark:bg-gray-600"></div>
 //         <div className="p-3 space-y-2">
 //           <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>

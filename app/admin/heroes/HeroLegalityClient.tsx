@@ -176,7 +176,7 @@ export function HeroLegalityClient({ initial }: { initial: HeroLegalityRow[] }) 
         <select
           value={classFilter}
           onChange={e => setClassFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-sm capitalize"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-sm capitalize"
         >
           <option value="all">All classes</option>
           {allClasses.map(c => (
@@ -192,12 +192,12 @@ export function HeroLegalityClient({ initial }: { initial: HeroLegalityRow[] }) 
         <table className="w-full text-sm border-separate border-spacing-0">
           <thead className="text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-left font-medium px-3 py-2 w-20 border-b border-gray-200 dark:border-gray-700">Art</th>
-              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-left font-medium px-3 py-2 border-b border-gray-200 dark:border-gray-700">Hero</th>
-              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-left font-medium px-3 py-2 w-32 border-b border-gray-200 dark:border-gray-700">Class</th>
-              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-center font-medium px-3 py-2 w-16 border-b border-gray-200 dark:border-gray-700">Young</th>
+              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-left font-medium px-3 py-2 w-20 border-b border-gray-300 dark:border-gray-700">Art</th>
+              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-left font-medium px-3 py-2 border-b border-gray-300 dark:border-gray-700">Hero</th>
+              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-left font-medium px-3 py-2 w-32 border-b border-gray-300 dark:border-gray-700">Class</th>
+              <th className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-center font-medium px-3 py-2 w-16 border-b border-gray-300 dark:border-gray-700">Young</th>
               {FLAGS.map(f => (
-                <th key={f.key} className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-center font-medium px-2 py-2 w-16 border-b border-gray-200 dark:border-gray-700">{f.label}</th>
+                <th key={f.key} className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 text-center font-medium px-2 py-2 w-16 border-b border-gray-300 dark:border-gray-700">{f.label}</th>
               ))}
             </tr>
           </thead>

@@ -22,7 +22,7 @@ const FilterChip = ({ label, isActive, onClick, onRemove }) => (
   <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm ${
     isActive
       ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
-      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
+      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
   }`}>
     <button onClick={onClick} className="hover:underline">
       {label}
@@ -428,7 +428,7 @@ export default function NewWantsPage() {
                 {mobileFiltersExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
               {mobileFiltersExpanded && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 space-y-3">
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600 space-y-3">
                   <div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Priority:</span>
                     <div className="flex gap-2 flex-wrap">
@@ -502,7 +502,7 @@ export default function NewWantsPage() {
                   placeholder="Filter by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <button
@@ -515,7 +515,7 @@ export default function NewWantsPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
               >
                 <option value="default">Sort: Default</option>
                 <option value="priority">Sort: Priority</option>
@@ -533,13 +533,13 @@ export default function NewWantsPage() {
                   placeholder="Filter by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                  className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-2 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                className="px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
               >
                 <option value="default">Default</option>
                 <option value="priority">Priority</option>
@@ -557,10 +557,10 @@ export default function NewWantsPage() {
             {/* Cards grid */}
             <TooltipProvider>
               {sortedCards.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
                   <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">No cards found</h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-4">Try adjusting your search or filters</p>
-                  <Button onClick={clearAllFilters} variant="outline" className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <Button onClick={clearAllFilters} variant="outline" className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     Clear filters
                   </Button>
                 </div>

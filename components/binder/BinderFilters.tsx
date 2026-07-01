@@ -104,7 +104,7 @@ export default function BinderFilters({
 
   return (
     <div className="mb-6">
-      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-600 p-4 space-y-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-600 p-4 space-y-4">
         {/* Search and Primary Filters */}
         <CardFilterBar 
           searchQuery={searchQuery} 
@@ -133,10 +133,10 @@ export default function BinderFilters({
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="w-full sm:w-64">
             <Select value={filterForTrade} onValueChange={setFilterForTrade}>
-              <SelectTrigger className="border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+              <SelectTrigger className="border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
+              <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                 <SelectItem value="all" className="text-gray-900 dark:text-gray-100">
                   All Cards ({binder?.cards.length || 0})
                 </SelectItem>
@@ -179,7 +179,7 @@ export default function BinderFilters({
     {/* "All Not For Trade" Dialog */}
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="outline" disabled={loading} className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+        <Button size="sm" variant="outline" disabled={loading} className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
           All Not For Trade
         </Button>
       </AlertDialogTrigger>
@@ -237,7 +237,7 @@ export default function BinderFilters({
       {/* "All Not For Trade" Dialog for Mobile */}
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button size="sm" variant="outline" disabled={loading} className="flex-1 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <Button size="sm" variant="outline" disabled={loading} className="flex-1 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
             All Not For Trade
           </Button>
         </AlertDialogTrigger>
@@ -270,7 +270,7 @@ export default function BinderFilters({
 
         {/* Active Filters Display */}
         {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
             
             {searchQuery && (

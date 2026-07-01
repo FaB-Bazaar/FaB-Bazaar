@@ -66,7 +66,7 @@ export default function PublicHeroCardDisplay({
   if (variant === 'carousel') {
     return (
       <>
-        <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg group transition-all hover:shadow-xl hover:-translate-y-1 max-w-[200px]">
+        <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg group transition-all hover:shadow-xl hover:-translate-y-1 max-w-[200px]">
           <Link href={`/printing/${printing_id}`} className="block">
             <div className="relative aspect-[63/88] w-full bg-gray-100 dark:bg-gray-700">
               <img src={image_url || "/cardback.webp"} alt={display_name} className="w-full h-full object-cover" loading="lazy" />
@@ -136,7 +136,7 @@ export default function PublicHeroCardDisplay({
   // Full variant - your original full card display
   return (
     <>
-      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg group transition-all hover:shadow-xl hover:-translate-y-1">
+      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg group transition-all hover:shadow-xl hover:-translate-y-1">
         <Link href={`/printing/${printing_id}`} className="block">
           <div className="relative aspect-[63/88] w-full bg-gray-100 dark:bg-gray-700">
             <img src={image_url || "/cardback.webp"} alt={display_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
@@ -152,12 +152,12 @@ export default function PublicHeroCardDisplay({
               {color && <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 ${getColorDotClass(color)}`} title={color.charAt(0).toUpperCase() + color.slice(1)}></div>}
             </div>
             
-            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-200 dark:border-gray-700 py-2 my-2">
+            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-300 dark:border-gray-700 py-2 my-2">
               <div className="flex flex-col">
                 <span className="font-mono">{setCode}</span>
                 <span className="text-gray-800 dark:text-gray-300 font-semibold">{getSetName(set)}</span>
               </div>
-              <div className="h-8 border-l border-gray-200 dark:border-gray-700 mx-2"></div>
+              <div className="h-8 border-l border-gray-300 dark:border-gray-700 mx-2"></div>
               <div className="flex flex-col text-right">
                 <span className="font-bold text-lg text-green-600 dark:text-green-400">{formatPrice(tcg_low)}</span>
                 {formatPrice(tcg_low) !== 'N/A' && <span className="text-[10px] -mt-1 text-green-700 dark:text-green-600">TCG Low</span>}
@@ -200,7 +200,7 @@ export default function PublicHeroCardDisplay({
             )}
 
             {/* Replace basic link with TcgAffiliateLink */}
-            <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between pt-3 border-t border-gray-300 dark:border-gray-700">
               {tcgplayer_url ? (
                 <TcgAffiliateLink
                   tcgplayerUrl={tcgplayer_url}

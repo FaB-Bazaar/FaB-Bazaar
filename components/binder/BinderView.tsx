@@ -220,7 +220,7 @@ export default function BinderView({
                   <p className="text-gray-900 dark:text-gray-100">Loading binder...</p>
                 </div>
               ) : binder?.cards.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700">
                   <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">This binder is empty</h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-4">Add cards to this binder to get started</p>

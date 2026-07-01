@@ -171,7 +171,7 @@ export default function TestBinderInstanceCard({ instance }: TestBinderInstanceC
 //   const foilingInfo = getFoilingInfo(instance.foiling);
 
 //   return (
-//     <div className="w-[200px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex-shrink-0 flex flex-col">
+//     <div className="w-[200px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-md flex-shrink-0 flex flex-col">
 //       {/* Image Section */}
 //       <div className="relative w-full h-[280px] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
 //         <img

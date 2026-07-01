@@ -82,7 +82,7 @@ export default function MobileTabBar({
   return (
     <>
       <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-gray-900/80 pb-[env(safe-area-inset-bottom)]"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-gray-300 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-gray-900/80 pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
         <Link href="/opt" aria-current={searchActive ? "page" : undefined} className={cn(TAB, tone(searchActive))}>
@@ -138,7 +138,7 @@ export default function MobileTabBar({
             <SheetLink href="/wants" icon={FileText}>Wants List</SheetLink>
             <SheetLink href="/daily" icon={TrendingUp}>Daily Movers</SheetLink>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 my-1" />
+            <div className="border-t border-gray-300 dark:border-gray-800 my-1" />
 
             {!bindersLoading && !bindersHasPinned && binders.length > 0 && (
               <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 leading-snug">
@@ -186,7 +186,7 @@ export default function MobileTabBar({
             <SheetLink href="/decks/community" icon={Users}>Community Decks</SheetLink>
             <SheetLink href="/decks/to-beat" icon={Trophy}>Decks to Beat</SheetLink>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 my-1" />
+            <div className="border-t border-gray-300 dark:border-gray-800 my-1" />
 
             {decks.length > 0 && (
               <div className="px-4 py-2 flex items-center justify-between">

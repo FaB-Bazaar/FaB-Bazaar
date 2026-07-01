@@ -967,7 +967,7 @@ const SuperSlamDisclosure = () => {
                     placeholder="Filter by card name or type"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    className="pl-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                   />
                 </div>
                 <button
@@ -980,7 +980,7 @@ const SuperSlamDisclosure = () => {
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value)}
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 >
                   <option value="default">Sort: Default</option>
                   <option value="name">Sort: Name</option>
@@ -1030,7 +1030,7 @@ const SuperSlamDisclosure = () => {
                                     ? 'border-gray-900 dark:border-gray-100 ring-2 ring-gray-900 dark:ring-gray-100'
                                     : matches
                                       ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
-                                      : 'border-gray-200 dark:border-gray-700 opacity-25'
+                                      : 'border-gray-300 dark:border-gray-700 opacity-25'
                                 }`}
                               >
                                 <img src={getSetImageOrFallback(setKey, setKey.toUpperCase())} alt={setKey.toUpperCase()} className="w-14 h-14 object-contain" />
@@ -1070,7 +1070,7 @@ const SuperSlamDisclosure = () => {
                                     ? 'border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
                                     : matches
                                       ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'
-                                      : 'border-gray-200 dark:border-gray-700 opacity-25'
+                                      : 'border-gray-300 dark:border-gray-700 opacity-25'
                                 }`}
                               >
                                 {cls}

@@ -281,7 +281,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImportComplete,
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
         <DialogHeader>
           <DialogTitle className="text-gray-900 dark:text-gray-100">Bulk Import Cards</DialogTitle>
         </DialogHeader>
@@ -306,7 +306,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImportComplete,
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Review and adjust your import list below.</p>
                     <div className="space-y-2">
                       {aiPrintings.map((p, idx) => (
-                        <div key={p.printingId} className="flex items-center gap-3 border border-gray-200 dark:border-gray-600 rounded p-2 bg-gray-50 dark:bg-gray-700">
+                        <div key={p.printingId} className="flex items-center gap-3 border border-gray-300 dark:border-gray-600 rounded p-2 bg-gray-50 dark:bg-gray-700">
                           <img src={p.image_url || "/placeholder.svg"} alt={p.name} className="w-14 h-20 object-contain rounded" />
                           <div className="flex-1">
                             <div className="font-medium text-gray-900 dark:text-gray-100">{p.name}</div>
@@ -362,7 +362,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImportComplete,
                     <div className="mb-4">
                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Click the "Copy card list to clipboard." and paste directly into here.</p>
                       <textarea
-                        className="w-full h-64 p-3 border border-gray-200 dark:border-gray-600 rounded-md font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                        className="w-full h-64 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                         placeholder={"Click the 'Copy card list to clipboard.' and paste directly into here."}
                         value={importText}
                         onChange={(e) => setImportText(e.target.value)}
@@ -389,14 +389,14 @@ export default function BulkImportDialog({ open, onOpenChange, onImportComplete,
                 ) : (
                   <div className="overflow-y-auto flex-1 space-y-4">
                     <div className="grid grid-cols-2 gap-2 mb-4">
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3 border border-gray-300 dark:border-gray-600">
                         <div className="font-medium flex items-center text-gray-900 dark:text-gray-100">
                           <CheckCircle className="h-4 w-4 mr-2 text-green-500 dark:text-green-400" />
                           Added
                         </div>
                         <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{importResult.summary.added}</div>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3 border border-gray-200 dark:border-gray-600">
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3 border border-gray-300 dark:border-gray-600">
                         <div className="font-medium flex items-center text-gray-900 dark:text-gray-100">
                           <XCircle className="h-4 w-4 mr-2 text-red-500 dark:text-red-400" />
                           Failed
@@ -424,7 +424,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImportComplete,
               <TabsContent value="help" className="flex-1 overflow-y-auto p-4 text-sm text-gray-500 dark:text-gray-400">
                 <p>Paste a text export from Fabrary or another card manager.</p>
                 <p>Each line should look like:</p>
-                <pre className="bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 p-2 rounded mt-2 border border-gray-200 dark:border-gray-600">3x Enlightened Strike (red)</pre>
+                <pre className="bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 p-2 rounded mt-2 border border-gray-300 dark:border-gray-600">3x Enlightened Strike (red)</pre>
                 <p className="mt-2">Only lines with this format will be parsed.</p>
               </TabsContent>
             </>

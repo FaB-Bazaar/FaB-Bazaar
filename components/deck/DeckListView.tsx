@@ -296,7 +296,7 @@ export default function DeckListView({
   return (
     <div className="mb-6">
       {/* Category Header */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-300 dark:border-gray-700">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {CATEGORY_LABELS[category]}
@@ -348,9 +348,9 @@ export default function DeckListView({
                 </div>
 
                 {/* Card Rows */}
-                <div className="border-l border-r border-b rounded-b-md border-gray-200 dark:border-gray-700">
+                <div className="border-l border-r border-b rounded-b-md border-gray-300 dark:border-gray-700">
                   {/* Column Headers */}
-                  <div className={cn("py-1.5 px-2 text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 items-center gap-3", editable ? ROW_GRID_EDITABLE : ROW_GRID)}>
+                  <div className={cn("py-1.5 px-2 text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-300 dark:border-gray-700 items-center gap-3", editable ? ROW_GRID_EDITABLE : ROW_GRID)}>
                     <span className="text-right">Qty</span>
                     <span>Card Name</span>
                     <div className="flex justify-center">

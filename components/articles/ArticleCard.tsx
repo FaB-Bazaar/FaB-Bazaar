@@ -61,9 +61,9 @@ export default function ArticleCard({
   const sectionCount = article.sections?.length || 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 hover:shadow-lg overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 hover:shadow-lg overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-300 dark:border-gray-700">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">

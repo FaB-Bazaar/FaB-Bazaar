@@ -123,7 +123,7 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
 
         {/* Carousel */}
         <div className="mb-4">
-          <p className="text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">Featured Cards</p>
+          <p className="text-xs font-medium uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1.5">Featured Cards</p>
           {cardsLoading ? (
             <div className="flex items-center gap-2 py-4 text-gray-400 dark:text-gray-500">
               <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 dark:border-t-blue-400 rounded-full animate-spin" />
@@ -154,8 +154,8 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                <span className="text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">Latest Articles</span>
+                <BookOpen className="w-3.5 h-3.5 text-gray-600 dark:text-gray-500" />
+                <span className="text-xs font-medium uppercase tracking-widest text-gray-600 dark:text-gray-500">Latest Articles</span>
               </div>
               <Link href="/guides?tab=heroes" className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5">
                 View all <ArrowRight className="w-3 h-3" />
@@ -166,7 +166,7 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
                 <Link
                   key={article.publicId}
                   href={`/articles/${article.publicId}`}
-                  className="group flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                  className="group flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
                 >
                   <div className="w-12 h-12 rounded overflow-hidden shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
                     {article.image && (
@@ -240,7 +240,7 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
           </div>
 
           {/* Store finder */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 px-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 px-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
               <div>

@@ -40,7 +40,7 @@ export default function BinderResultsBar({
 }: BinderResultsBarProps) {
 
   return (
-    <div className="mb-6 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+    <div className="mb-6 bg-white dark:bg-gray-900 rounded-lg border border-gray-300 dark:border-gray-600 p-4">
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         
         {/* Results Count and Quick Selection */}
@@ -59,7 +59,7 @@ export default function BinderResultsBar({
                   setSidebarOpen(true)
                 }}
                 disabled={!sortedCards.some((card: any) => card.forTrade)}
-                className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <ShoppingCart className="h-4 w-4 mr-1" />
                 Select For Trade
@@ -72,7 +72,7 @@ export default function BinderResultsBar({
                   onSelectAll()
                   setSidebarOpen(true)
                 }}
-                className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <CheckSquare className="h-4 w-4 mr-1" />
                 Select All
@@ -90,7 +90,7 @@ export default function BinderResultsBar({
               variant="outline" 
               size="sm" 
               onClick={onCopyAll} 
-              className={copied ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 border-green-300 dark:border-green-600" : "border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}
+              className={copied ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 border-green-300 dark:border-green-600" : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}
             >
               {copied ? (
                 <>
@@ -111,7 +111,7 @@ export default function BinderResultsBar({
               size="sm" 
               onClick={onCopySelected} 
               disabled={!selectedCards.length}
-              className={copied && selectedCards.length ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 border-green-300 dark:border-green-600" : "border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}
+              className={copied && selectedCards.length ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 border-green-300 dark:border-green-600" : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"}
             >
               {copied && selectedCards.length ? (
                 <>
@@ -133,7 +133,7 @@ export default function BinderResultsBar({
               variant="outline" 
               size="sm" 
               onClick={onTransfer} 
-              className="border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <ArrowRight className="h-4 w-4 mr-1" />
               Transfer ({selectedCards.length})

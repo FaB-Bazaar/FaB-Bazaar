@@ -187,7 +187,7 @@ export default function DeckPrintingCard({
   return (
     <div
     className={cn(
-      "w-full sm:w-[160px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-0.5 flex-shrink-0 flex flex-col",
+      "w-full sm:w-[160px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-0.5 flex-shrink-0 flex flex-col",
       // Animation classes for removal
       "transform transition-all duration-300 ease-in-out",
       isDragging ? "opacity-50 shadow-2xl" : "shadow-md",
@@ -343,7 +343,7 @@ export default function DeckPrintingCard({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+        <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-300 dark:border-gray-600">
           <div className="flex gap-1">
             {editable && (
               <>
@@ -576,7 +576,7 @@ export default function DeckPrintingCard({
 //   return (
 //     <div
 //       className={cn(
-//         "w-full sm:w-[200px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
+//         "w-full sm:w-[200px] rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
 //         isDragging ? "opacity-50 shadow-2xl" : "shadow-md"
 //       )}
 //     >
@@ -719,7 +719,7 @@ export default function DeckPrintingCard({
 //         </div>
 
 //         {/* Action Buttons */}
-//         <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+//         <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-300 dark:border-gray-600">
 //           <div className="flex gap-1">
 //             {editable && (
 //               <>
@@ -952,7 +952,7 @@ export default function DeckPrintingCard({
 // //   return (
 // //     <div
 // //       className={cn(
-// //         "rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1 flex-shrink-0 flex flex-col relative",
+// //         "rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1 flex-shrink-0 flex flex-col relative",
 // //         cardWidth,
 // //         "shadow-md",
 // //         isDragging && "opacity-50", // DND-KIT: Use the isDragging prop from parent
@@ -1117,7 +1117,7 @@ export default function DeckPrintingCard({
         
 // //         {/* Actions Section */}
 // //         {editable && (
-// //           <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+// //           <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-300 dark:border-gray-600">
 // //             {/* Move between main/sideboard */}
 // //             {canMove && (
 // //               <Button
@@ -1389,7 +1389,7 @@ export default function DeckPrintingCard({
 // // //   return (
 // // //     <div
 // // //       className={cn(
-// // //         "rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1 flex-shrink-0 flex flex-col relative",
+// // //         "rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1 flex-shrink-0 flex flex-col relative",
 // // //         cardWidth,
 // // //         "shadow-md",
 // // //         isDragging && "opacity-50",
@@ -1553,7 +1553,7 @@ export default function DeckPrintingCard({
         
 // // //         {/* Actions Section */}
 // // //         {editable && (
-// // //           <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+// // //           <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-300 dark:border-gray-600">
 // // //             {/* Move between main/sideboard */}
 // // //             {canMove && (
 // // //               <Button
@@ -1711,7 +1711,7 @@ export default function DeckPrintingCard({
 // // //     // Also removed the isDragging class, as the parent wrapper will handle the opacity change.
 // // //     <div
 // // //       className={cn(
-// // //         "rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1 flex-shrink-0 flex flex-col relative",
+// // //         "rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1 flex-shrink-0 flex flex-col relative",
 // // //         cardWidth,
 // // //         "shadow-md",
 // // //         canMove && "hover:border-blue-400 dark:hover:border-blue-500"
@@ -1751,7 +1751,7 @@ export default function DeckPrintingCard({
         
 // // //         {/* Actions Section (No changes here) */}
 // // //         {editable && (
-// // //           <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+// // //           <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-300 dark:border-gray-600">
 // // //             {canMove && (
 // // //               <Button
 // // //                 size="sm"

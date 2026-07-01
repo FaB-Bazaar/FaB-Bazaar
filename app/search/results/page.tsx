@@ -222,7 +222,7 @@ function SearchResultsContent() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Minimal Search Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 sticky top-0 z-20">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             {/* Back to Advanced Search */}
@@ -248,7 +248,7 @@ function SearchResultsContent() {
             </form>
 
             {/* View Mode Toggles */}
-            <div className="flex items-center gap-1 border border-gray-200 dark:border-gray-700 rounded-md">
+            <div className="flex items-center gap-1 border border-gray-300 dark:border-gray-700 rounded-md">
               <Button
                 variant={viewMode === 'checklist' ? 'default' : 'ghost'}
                 size="sm"
@@ -311,9 +311,9 @@ function SearchResultsContent() {
         )}
 
         {results && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-300 dark:border-gray-700">
             {/* Results Header */}
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-300 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -330,7 +330,7 @@ function SearchResultsContent() {
 
             {/* Active Column Filters Bar */}
             {hasColumnFilters && (
-              <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
+              <div className="px-6 py-3 border-b border-gray-300 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filters:</span>
                   {columnFilterParams.map(paramName => {
@@ -418,7 +418,7 @@ function SearchResultsContent() {
 
             {/* Pagination */}
             {results.pages > 1 && (
-              <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="p-6 border-t border-gray-300 dark:border-gray-700">
                 <div className="flex justify-center gap-2">
                   {results.page > 1 && (
                     <Button

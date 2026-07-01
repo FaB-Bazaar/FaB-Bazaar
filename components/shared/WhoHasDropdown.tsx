@@ -314,7 +314,7 @@ export default function WhoHasDropdown({
   return (
     <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>{triggerElement}</DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 max-h-[32rem] overflow-hidden p-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600" align="end" side="bottom">
+      <DropdownMenuContent className="w-80 max-h-[32rem] overflow-hidden p-0 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" align="end" side="bottom">
         {renderContent()}
       </DropdownMenuContent>
     </DropdownMenu>

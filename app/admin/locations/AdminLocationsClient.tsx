@@ -21,7 +21,7 @@ export function AdminLocationsClient({
 
   return (
     <div>
-      <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-1 mb-6 border-b border-gray-300 dark:border-gray-700">
         {TABS.map((tab) => (
           <button
             key={tab.value}

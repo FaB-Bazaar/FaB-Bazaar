@@ -128,9 +128,9 @@ export function SelectedCardsSidebar({
   }
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 dark:border-gray-700 shrink-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Selected Cards</span>
           <Badge className="bg-blue-600 text-white text-xs px-1.5 py-0">{cards.length}</Badge>
@@ -155,7 +155,7 @@ export function SelectedCardsSidebar({
           const qty = quantities[cardId] ?? 1
           const max = card.quantity ?? 1
           return (
-            <div key={cardId} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 p-3">
+            <div key={cardId} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600 p-3">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="font-medium text-sm text-gray-900 dark:text-gray-100 leading-tight">
                   {card.display_name || card.name}
@@ -203,7 +203,7 @@ export function SelectedCardsSidebar({
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 px-4 py-4 space-y-3">
+      <div className="shrink-0 border-t border-gray-300 dark:border-gray-700 px-4 py-4 space-y-3">
         {/* Summary */}
         <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
           <span>Selected:</span>

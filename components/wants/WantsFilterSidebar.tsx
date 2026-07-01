@@ -46,19 +46,19 @@ const PRIORITIES: { key: string; label: string; activeClass: string; inactiveCla
     key: 'high',
     label: 'High',
     activeClass: 'bg-red-600 text-white border-red-600',
-    inactiveClass: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400',
+    inactiveClass: 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400',
   },
   {
     key: 'medium',
     label: 'Medium',
     activeClass: 'bg-yellow-500 text-white border-yellow-500',
-    inactiveClass: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-yellow-300 dark:hover:border-yellow-700 hover:text-yellow-700 dark:hover:text-yellow-400',
+    inactiveClass: 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-yellow-300 dark:hover:border-yellow-700 hover:text-yellow-700 dark:hover:text-yellow-400',
   },
   {
     key: 'low',
     label: 'Low',
     activeClass: 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 border-gray-900 dark:border-gray-100',
-    inactiveClass: 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100',
+    inactiveClass: 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100',
   },
 ];
 
@@ -108,7 +108,7 @@ export function WantsFilterSidebar({
         ))}
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+      <hr className="border-gray-300 dark:border-gray-700 mb-4" />
 
       {/* Rarity */}
       <div className="mb-4">
@@ -139,7 +139,7 @@ export function WantsFilterSidebar({
         </button>
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+      <hr className="border-gray-300 dark:border-gray-700 mb-4" />
 
       {/* Foiling */}
       <div className="mb-4">
@@ -163,7 +163,7 @@ export function WantsFilterSidebar({
         })}
       </div>
 
-      <hr className="border-gray-200 dark:border-gray-700 mb-4" />
+      <hr className="border-gray-300 dark:border-gray-700 mb-4" />
 
       {/* Set */}
       <div>

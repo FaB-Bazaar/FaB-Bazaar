@@ -154,7 +154,7 @@ export default function DeckBuilderSplitView({
         <ResizablePanel defaultSize={25} minSize={15}>
           <div className="flex flex-col h-full">
             {/* Tab bar */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex border-b border-gray-300 dark:border-gray-700 flex-shrink-0">
               <button
                 className={cn(
                   "px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors",

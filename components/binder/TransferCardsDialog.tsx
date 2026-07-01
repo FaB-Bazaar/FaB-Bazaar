@@ -168,8 +168,8 @@ export default function TransferCardsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
-        <DialogHeader className="border-b border-gray-200 dark:border-gray-600 pb-4">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+        <DialogHeader className="border-b border-gray-300 dark:border-gray-600 pb-4">
           <DialogTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold flex items-center gap-2">
             <Package className="h-5 w-5" />
             Transfer Cards to Another Binder
@@ -201,7 +201,7 @@ export default function TransferCardsDialog({
           </div>
           
           {binders.length === 0 && (
-            <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
               <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400">
                 No other binders available for transfer
@@ -216,14 +216,14 @@ export default function TransferCardsDialog({
                 Cards to Transfer ({selectedCards.length})
               </label>
               
-              <div className="max-h-64 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+              <div className="max-h-64 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-300 dark:border-gray-600">
                 {selectedCards.map((card: any) => {
                   const transferQty = quantities[String(card.id)] || 1
                   const maxQty = card.maxQuantity || 1
                   const willTransferAll = transferQty >= maxQty
                   
                   return (
-                    <div key={card.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <div key={card.id} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
                       <div className="flex-1">
                         <div className="font-medium text-gray-900 dark:text-gray-100">
                           {card.display_name || card.name}
@@ -299,7 +299,7 @@ export default function TransferCardsDialog({
           )}
         </div>
         
-        <DialogFooter className="border-t border-gray-200 dark:border-gray-600 pt-4 gap-3">
+        <DialogFooter className="border-t border-gray-300 dark:border-gray-600 pt-4 gap-3">
           <Button 
             variant="outline"
             onClick={() => onOpenChange(false)}

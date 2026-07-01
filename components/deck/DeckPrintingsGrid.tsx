@@ -224,7 +224,7 @@ export default function DeckPrintingsGrid({
     const totalQuantity = group.printings.reduce((sum, p) => sum + (p.quantity || 1), 0);
 
     return (
-      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">{group.cardName}</h4>
@@ -280,7 +280,7 @@ export default function DeckPrintingsGrid({
       id={category} 
       disabled={!isDroppable}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 p-6">
         {/* Category Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -501,7 +501,7 @@ export default function DeckPrintingsGrid({
 //   // Grouped Card Component
 //   const CardGroupComponent = ({ group }: { group: CardGroup }) => {
 //     return (
-//       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+//       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
 //         <div className="flex items-center justify-between mb-3">
 //           <div>
 //             <h4 className="font-semibold text-gray-900 dark:text-gray-100">{group.cardName}</h4>
@@ -557,7 +557,7 @@ export default function DeckPrintingsGrid({
 //       id={category} 
 //       disabled={!isDroppable}
 //     >
-//       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+//       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 p-6">
 //         {/* Category Header */}
 //         <div className="flex items-center justify-between mb-4">
 //           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -700,7 +700,7 @@ export default function DeckPrintingsGrid({
 //   // Grouped Card Component
 //   const CardGroupComponent = ({ group }: { group: CardGroup }) => {
 //     return (
-//       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+//       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
 //         <div className="flex items-center justify-between mb-3">
 //           <div>
 //             <h4 className="font-semibold text-gray-900 dark:text-gray-100">{group.cardName}</h4>
@@ -751,7 +751,7 @@ export default function DeckPrintingsGrid({
 //       id={category} 
 //       disabled={!isDroppable}
 //     >
-//       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+//       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 p-6">
 //         {/* Category Header */}
 //         <div className="flex items-center justify-between mb-4">
 //           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -883,7 +883,7 @@ export default function DeckPrintingsGrid({
 // //   // Grouped Card Component
 // //   const CardGroupComponent = ({ group }: { group: CardGroup }) => {
 // //     return (
-// //       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+// //       <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
 // //         <div className="flex items-center justify-between mb-3">
 // //           <div>
 // //             <h4 className="font-semibold text-gray-900 dark:text-gray-100">{group.cardName}</h4>
@@ -932,7 +932,7 @@ export default function DeckPrintingsGrid({
 // //       id={category} 
 // //       disabled={!isDroppable}
 // //     >
-// //       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+// //       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 p-6">
 // //         {/* Category Header */}
 // //         <div className="flex items-center justify-between mb-4">
 // //           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">

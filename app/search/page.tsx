@@ -564,7 +564,7 @@ export default function SearchPage() {
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* Toolbar */}
-        <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
           <button
             onClick={() => setSidebarOpen(o => !o)}
             className="p-1.5 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -657,7 +657,7 @@ export default function SearchPage() {
         {(() => {
           const none = selection.selectedCount === 0;
           return (
-          <div className={cn('shrink-0 flex items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-blue-950/60 border-blue-800/40')}>
+          <div className={cn('shrink-0 flex items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-800' : 'bg-blue-950/60 border-blue-800/40')}>
             <span className={cn('text-sm font-medium', none ? 'text-gray-500 dark:text-gray-400' : 'text-blue-200')}>
               {selection.selectedCount} card{selection.selectedCount !== 1 ? 's' : ''} selected
             </span>

@@ -26,7 +26,7 @@ export default function MobileDeckHeader({
   const router = useRouter();
 
   return (
-    <div className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 py-2">
+    <div className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700 px-3 py-2">
       {/* Row 1: Back + Name + Count + Menu */}
       <div className="flex items-center gap-2">
         <Button

@@ -178,7 +178,7 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
             </p>
           </div>
           <div className="flex gap-3">
-            <div className="w-44 shrink-0 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="w-44 shrink-0 max-h-72 overflow-y-auto rounded-lg border border-gray-300 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
               {matchupHeroes.map((h) => (
                 <button
                   key={h}

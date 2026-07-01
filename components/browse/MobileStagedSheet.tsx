@@ -69,7 +69,7 @@ export default function MobileStagedSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[85vw] sm:w-96 flex flex-col lg:hidden p-0">
-        <SheetHeader className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <SheetHeader className="p-4 border-b border-gray-300 dark:border-gray-700">
           <SheetTitle className="text-lg font-semibold">Pending Import</SheetTitle>
           <SheetDescription className="text-sm text-gray-500 dark:text-gray-400">
             {totalQuantity} card{totalQuantity !== 1 ? 's' : ''} ready to import
@@ -77,7 +77,7 @@ export default function MobileStagedSheet({
         </SheetHeader>
 
         {stagedCards.length > 0 && (
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          <div className="px-4 py-3 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -92,7 +92,7 @@ export default function MobileStagedSheet({
                 variant="outline"
                 size="sm"
                 onClick={() => onSetAllForTrade(false)}
-                className="flex-1 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex-1 text-gray-700 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 <XCircle className="h-4 w-4 mr-1" />
                 <span className="text-xs">Not For Trade</span>
@@ -110,7 +110,7 @@ export default function MobileStagedSheet({
             stagedCards.map(instance => {
               const { selectedPrinting: p } = instance;
               return (
-                <div key={instance.instanceId} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div key={instance.instanceId} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-300 dark:border-gray-700">
                   <div className="flex gap-3 mb-3">
                     <img
                       src={p.image_url || "/cardback.webp"}
@@ -158,7 +158,7 @@ export default function MobileStagedSheet({
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-300 dark:border-gray-700">
                     <div className="flex items-center gap-2">
                       <Button
                         size="icon"
@@ -196,7 +196,7 @@ export default function MobileStagedSheet({
         </div>
 
         {stagedCards.length > 0 && (
-          <SheetFooter className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+          <SheetFooter className="p-4 border-t border-gray-300 dark:border-gray-700 space-y-3">
             <div className="w-full">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
                 Select Binder

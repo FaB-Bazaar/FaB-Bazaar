@@ -44,7 +44,7 @@ export default function SetsLandingPage() {
                 <Link
                   key={set.code}
                   href={`/sets/${set.code}`}
-                  className="group block bg-white dark:bg-[#0f172a] rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden border border-gray-200 dark:border-gray-700"
+                  className="group block bg-white dark:bg-[#0f172a] rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden border border-gray-300 dark:border-gray-700"
                 >
                   {/* Set Image */}
                   <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center p-3">
@@ -85,7 +85,7 @@ export default function SetsLandingPage() {
                 <Link
                   key={set.code}
                   href={`/sets/${set.code}`}
-                  className="group block bg-white dark:bg-[#0f172a] rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden border border-gray-200 dark:border-gray-700"
+                  className="group block bg-white dark:bg-[#0f172a] rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden border border-gray-300 dark:border-gray-700"
                 >
                   {/* Set Image */}
                   <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center p-3">

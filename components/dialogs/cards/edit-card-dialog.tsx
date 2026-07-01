@@ -126,8 +126,8 @@ export default function EditCardDialog({ card, open, onOpenChange, onSave }: Edi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
-        <DialogHeader className="border-b border-gray-200 dark:border-gray-600 pb-4">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+        <DialogHeader className="border-b border-gray-300 dark:border-gray-600 pb-4">
           <DialogTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold">
             Edit Card
           </DialogTitle>
@@ -135,7 +135,7 @@ export default function EditCardDialog({ card, open, onOpenChange, onSave }: Edi
 
         <div className="grid gap-6 py-6">
           {/* Card Info Section */}
-          <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base">
               {card.name}
             </h3>
@@ -149,7 +149,7 @@ export default function EditCardDialog({ card, open, onOpenChange, onSave }: Edi
             <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
               Select Printing
             </Label>
-            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/30">
+            <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/30">
               <PrintingSelector
                 cardId={parentCardId || ""}
                 cardName={card.name}
@@ -223,7 +223,7 @@ export default function EditCardDialog({ card, open, onOpenChange, onSave }: Edi
           </div>
 
           {/* For Trade Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-300 dark:border-gray-600">
             <div className="space-y-1">
               <Label htmlFor="for-trade" className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
                 Available for Trade
@@ -241,7 +241,7 @@ export default function EditCardDialog({ card, open, onOpenChange, onSave }: Edi
           </div>
         </div>
 
-        <DialogFooter className="border-t border-gray-200 dark:border-gray-600 pt-4 gap-3">
+        <DialogFooter className="border-t border-gray-300 dark:border-gray-600 pt-4 gap-3">
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}

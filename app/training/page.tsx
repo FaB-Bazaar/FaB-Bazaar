@@ -690,7 +690,7 @@ function PuzzleSolver({ puzzle, onBack }: { puzzle: Puzzle; onBack: () => void }
                           ? "border-green-500 bg-green-50 dark:bg-green-950/20"
                           : isClosest
                           ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20"
-                          : "border-gray-200 dark:border-gray-700"
+                          : "border-gray-300 dark:border-gray-700"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3 mb-1">

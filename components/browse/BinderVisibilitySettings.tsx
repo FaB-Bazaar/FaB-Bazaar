@@ -59,7 +59,7 @@ export default function BinderVisibilitySettings({ visibility, onVisibilityChang
       </button>
       
       {showAdvanced && (
-        <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200 dark:border-gray-600">
+        <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-300 dark:border-gray-600">
           <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
             <input type="checkbox" checked={visibility.allowInSearch} onChange={e => handleAdvancedChange('allowInSearch', e.target.checked)} className="rounded text-blue-600 bg-gray-100 border-gray-300 dark:bg-gray-900 dark:border-gray-600 focus:ring-blue-500" />
             Show in card searches

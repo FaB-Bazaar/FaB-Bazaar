@@ -30,7 +30,7 @@ export default function MobileCategoryTabs({
   };
 
   return (
-    <div className="sticky top-[73px] z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-3 py-1.5">
+    <div className="sticky top-[73px] z-20 bg-white dark:bg-gray-900 border-b border-gray-300 dark:border-gray-700 px-3 py-1.5">
       <div className="flex items-center gap-1.5">
         {/* Scrollable category pills */}
         <div className="flex items-center gap-1.5 flex-1 overflow-x-auto scrollbar-hide">
@@ -65,7 +65,7 @@ export default function MobileCategoryTabs({
         </div>
 
         {/* View toggle */}
-        <div className="flex items-center gap-0.5 shrink-0 border-l border-gray-200 dark:border-gray-700 pl-1.5 ml-1">
+        <div className="flex items-center gap-0.5 shrink-0 border-l border-gray-300 dark:border-gray-700 pl-1.5 ml-1">
           <Button
             variant={viewMode === "list" ? "default" : "ghost"}
             size="sm"

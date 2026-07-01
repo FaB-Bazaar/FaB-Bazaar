@@ -167,7 +167,7 @@ export default function EnhancedBinderCard({
   return (
     <div
       className={cn(
-        "w-full sm:w-[200px] h-full min-w-0 rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
+        "w-full sm:w-[200px] h-full min-w-0 rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:-translate-y-1 flex-shrink-0 flex flex-col",
         isSelected ? "shadow-lg bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500" : "shadow-md",
         isSelected && selectedQty >= maxQty && "opacity-70"
       )}
@@ -273,7 +273,7 @@ export default function EnhancedBinderCard({
         </div>
 
         {editable && (
-          <div className="flex justify-center mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex justify-center mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
             <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 ${card.forTrade ? 'bg-green-100 dark:bg-green-900' : 'bg-gray-100 dark:bg-gray-700'}`}>
               <Switch checked={!!card.forTrade} onCheckedChange={onToggleForTrade ? (checked => onToggleForTrade(card, checked)) : undefined} size="sm" className="no-select" />
               <span className={`text-xs font-medium ${card.forTrade ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-300'}`}>For Trade</span>
@@ -281,7 +281,7 @@ export default function EnhancedBinderCard({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-200 dark:border-gray-600">
+        <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-300 dark:border-gray-600">
           <div className="flex items-center gap-2">
             {editable && (
               <div className="flex items-center gap-1">

@@ -231,7 +231,7 @@ export default function CreateDeckDialog({
         {/* Step 1: Hero Selection — inline command search */}
         {step === 1 && (
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <Command className="flex-1 overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg">
+            <Command className="flex-1 overflow-hidden flex flex-col border border-gray-300 dark:border-gray-700 rounded-lg">
               <CommandInput placeholder="Search by name, class, or talent..." autoFocus />
               <CommandList className="flex-1 overflow-y-auto">
                 <CommandEmpty>{heroes.length === 0 ? 'Loading heroes…' : 'No heroes found.'}</CommandEmpty>

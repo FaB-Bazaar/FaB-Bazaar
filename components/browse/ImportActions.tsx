@@ -80,7 +80,7 @@ export default function ImportActions({
 
   return (
     <>
-      <div className="sticky top-4 z-10 p-4 mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="sticky top-4 z-10 p-4 mb-8 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
         <span className="font-semibold text-gray-900 dark:text-white text-center sm:text-left">
           Ready to import {resultsCount} card(s)?
         </span>

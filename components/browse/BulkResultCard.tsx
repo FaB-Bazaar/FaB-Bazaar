@@ -45,7 +45,7 @@ const getColorDotClass = (color: string) => {
   // ✅ Add null check before destructuring
   if (!selectedPrinting) {
     return (
-      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg p-4">
+      <div className="flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg p-4">
         <p className="text-sm text-red-500 dark:text-red-400">No matching printing found for the selected filters.</p>
         <Button size="sm" variant="outline" className="mt-2" onClick={() => onRemove(instanceId)}>
           Remove Card
@@ -63,7 +63,7 @@ const getColorDotClass = (color: string) => {
 
   return (
     <div className={cn(
-      "flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg group transition-all",
+      "flex flex-col rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg group transition-all",
       isStaged && "ring-2 ring-blue-500 dark:ring-blue-400"
     )}>
       <div className="relative aspect-[63/88] w-full bg-gray-100 dark:bg-gray-700">
@@ -82,12 +82,12 @@ const getColorDotClass = (color: string) => {
             {color && <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1 ${getColorDotClass(color)}`} title={color.charAt(0).toUpperCase() + color.slice(1)}></div>}
           </div>
           
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-200 dark:border-gray-700 py-2 my-2">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-b border-gray-300 dark:border-gray-700 py-2 my-2">
               <div className="flex flex-col">
                 <span className="font-mono">{setCode}</span>
                 <span className="text-gray-800 dark:text-gray-300 font-semibold">{getSetName(set)}</span>
               </div>
-              <div className="h-8 border-l border-gray-200 dark:border-gray-700 mx-2"></div>
+              <div className="h-8 border-l border-gray-300 dark:border-gray-700 mx-2"></div>
               <div className="flex flex-col text-right">
                  <span className="font-bold text-lg text-green-600 dark:text-green-400">{formatPrice(tcg_low)}</span>
                  {formatPrice(tcg_low) !== 'N/A' && <span className="text-[10px] -mt-1 text-green-700 dark:text-green-600">TCG Low</span>}
@@ -129,7 +129,7 @@ const getColorDotClass = (color: string) => {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-300 dark:border-gray-700">
              <Button
                 size="sm"
                 variant={isStaged ? "default" : "secondary"}

@@ -164,8 +164,8 @@ export default function DeleteSelectedDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
-        <DialogHeader className="border-b border-gray-200 dark:border-gray-600 pb-4">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+        <DialogHeader className="border-b border-gray-300 dark:border-gray-600 pb-4">
           <DialogTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             Delete Selected Cards
@@ -191,14 +191,14 @@ export default function DeleteSelectedDialog({
                 Cards to Delete ({selectedCards.length})
               </label>
               
-              <div className="max-h-64 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+              <div className="max-h-64 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-300 dark:border-gray-600">
                 {selectedCards.map((card: any, index: number) => {
                   const selectedQty = card.quantity || 1
                   const maxQty = card.maxQuantity || 1
                   const willDelete = selectedQty >= maxQty
                   
                   return (
-                    <div key={card.id || index} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <div key={card.id || index} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
                       <div className="flex-1">
                         <div className="font-medium text-gray-900 dark:text-gray-100">
                           {card.display_name || card.name}
@@ -235,7 +235,7 @@ export default function DeleteSelectedDialog({
           )}
           
           {/* Delete Summary */}
-          <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+          <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <Package className="h-4 w-4 text-gray-600 dark:text-gray-400" />
               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Delete Summary</div>
@@ -249,7 +249,7 @@ export default function DeleteSelectedDialog({
           </div>
         </div>
         
-        <DialogFooter className="border-t border-gray-200 dark:border-gray-600 pt-4 gap-3">
+        <DialogFooter className="border-t border-gray-300 dark:border-gray-600 pt-4 gap-3">
           <Button 
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -400,8 +400,8 @@ export default function DeleteSelectedDialog({
 
 //   return (
 //     <Dialog open={open} onOpenChange={onOpenChange}>
-//       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600">
-//         <DialogHeader className="border-b border-gray-200 dark:border-gray-600 pb-4">
+//       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+//         <DialogHeader className="border-b border-gray-300 dark:border-gray-600 pb-4">
 //           <DialogTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold flex items-center gap-2">
 //             <AlertTriangle className="h-5 w-5 text-red-500" />
 //             Delete Selected Cards
@@ -427,9 +427,9 @@ export default function DeleteSelectedDialog({
 //                 Cards to Delete ({selectedCards.length})
 //               </label>
               
-//               <div className="max-h-64 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+//               <div className="max-h-64 overflow-y-auto space-y-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border border-gray-300 dark:border-gray-600">
 //                 {selectedCards.map((card: any, index: number) => (
-//                   <div key={card.id || index} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+//                   <div key={card.id || index} className="flex items-center gap-3 p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
 //                     <div className="flex-1">
 //                       <div className="font-medium text-gray-900 dark:text-gray-100">{card.name}</div>
 //                       <div className="flex gap-1 text-xs mt-1">
@@ -468,7 +468,7 @@ export default function DeleteSelectedDialog({
 //           )}
           
 //           {/* Delete Summary */}
-//           <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+//           <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
 //             <div className="flex items-center gap-2 mb-2">
 //               <Package className="h-4 w-4 text-gray-600 dark:text-gray-400" />
 //               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Delete Summary</div>
@@ -482,7 +482,7 @@ export default function DeleteSelectedDialog({
 //           </div>
 //         </div>
         
-//         <DialogFooter className="border-t border-gray-200 dark:border-gray-600 pt-4 gap-3">
+//         <DialogFooter className="border-t border-gray-300 dark:border-gray-600 pt-4 gap-3">
 //           <Button 
 //             variant="outline"
 //             onClick={() => onOpenChange(false)}

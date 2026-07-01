@@ -64,7 +64,7 @@ export function MobileAnchorAd() {
   // If user hasn't consented to advertising cookies, show alternative content
   if (!consentOptions.advertising) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-[40] bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-[40] bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 p-2 sm:hidden">
         <div className="max-w-screen-sm mx-auto">
           <div className="text-center">
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
@@ -85,7 +85,7 @@ export function MobileAnchorAd() {
   // Render the AdSense mobile anchor ad
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 z-[40] bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 sm:hidden ${
+      className={`fixed bottom-0 left-0 right-0 z-[40] bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 sm:hidden ${
         isDevelopment ? 'border-4 border-green-500' : ''
       }`}
     >

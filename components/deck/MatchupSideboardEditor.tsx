@@ -182,7 +182,7 @@ function QuantityButtons({
             w-6 h-6 rounded text-xs font-semibold leading-none transition-colors select-none
             ${i === value
               ? `${activeClass} text-white`
-              : 'bg-white dark:bg-gray-900 text-gray-500 border border-gray-200 dark:border-gray-700 hover:border-gray-400'
+              : 'bg-white dark:bg-gray-900 text-gray-500 border border-gray-300 dark:border-gray-700 hover:border-gray-400'
             }
           `}
         >
@@ -240,7 +240,7 @@ function ListSection({
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-300 dark:border-gray-700">
         {section.pitchColor && (
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
         )}
@@ -304,7 +304,7 @@ interface TileHover { imageUrl: string; name: string; pitch?: number | null }
 function TilePreviewRail({ hover }: { hover: TileHover | null }) {
   return (
     <div className="hidden lg:block w-[260px] flex-shrink-0">
-      <div className="sticky top-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3">
+      <div className="sticky top-2 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-3">
         {hover ? (
           <>
             <div className="aspect-[63/88] rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 shadow-lg">
@@ -705,7 +705,7 @@ export default function MatchupSideboardEditor({
                 <span className="text-[10px] text-gray-500">— set how many you&apos;re playing</span>
               )}
             </div>
-            <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
               {deckSections.length === 0
                 ? <p className="text-xs text-gray-500 p-3 text-center">No cards</p>
                 : deckSections.map(s => (
@@ -729,7 +729,7 @@ export default function MatchupSideboardEditor({
                 <span className="text-[10px] text-gray-500">— set how many to bring in</span>
               )}
             </div>
-            <div className="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
               {invSections.length === 0
                 ? <p className="text-xs text-gray-500 p-3 text-center">No cards</p>
                 : invSections.map(s => (

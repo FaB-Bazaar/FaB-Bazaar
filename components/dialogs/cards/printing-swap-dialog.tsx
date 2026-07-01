@@ -326,7 +326,7 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
                     className={`w-full p-3 rounded-lg border transition-all text-left ${
                       isCurrentPrinting
                         ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        : "border-gray-300 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     } ${swapping ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <div className="flex items-center justify-between mb-2">
