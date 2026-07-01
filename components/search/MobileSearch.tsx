@@ -5,6 +5,7 @@ import { Search, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import WhoHasDropdown from '@/components/shared/WhoHasDropdown';
 import { languageFlag, sortPrintingsByLanguage } from '@/lib/utils/printing-language';
+import { getCardImageUrl } from '@/lib/utils';
 
 interface SearchResult {
   printing_id: string;
@@ -18,6 +19,7 @@ interface SearchResult {
   edition?: string;
   color?: string;
   language?: string;
+  image_url?: string | null;
   hasOwners?: boolean | null;
 }
 
@@ -225,6 +227,20 @@ export default function MobileSearch({ isOpen, onClose, defaultQuery }: MobileSe
                     {cardResults.map((result) => (
                       <div key={result.printing_id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Link
+                            href={`/printing/${result.printing_id}?from=search&query=${encodeURIComponent(query)}`}
+                            onClick={onClose}
+                            className="shrink-0"
+                            aria-label={`View ${result.display_name || result.name}`}
+                          >
+                            <img
+                              src={result.image_url || getCardImageUrl({ printingId: result.printing_id })}
+                              alt=""
+                              loading="lazy"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+                              className="h-14 w-10 rounded object-cover object-top bg-gray-200 dark:bg-gray-700"
+                            />
+                          </Link>
                           <Link
                             href={`/printing/${result.printing_id}?from=search&query=${encodeURIComponent(query)}`}
                             onClick={onClose}
