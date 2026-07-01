@@ -244,7 +244,17 @@ def main():
     else:
         today_d = con.execute("SELECT max(snapshot_date) FROM price_snapshots").fetchone()[0]
 
-    yesterday_d = today_d - timedelta(days=1)
+    # Anchor "yesterday" to the most recent snapshot strictly before today, not a
+    # literal calendar day back. A missed pipeline night (e.g. 6/30 failed to
+    # fetch) leaves a gap; using today-1 would point the gainers/decliners diff at
+    # a nonexistent snapshot, yielding 0/0 and silently tripping step 12's skip
+    # guard. Falling back to the last real snapshot keeps day-over-day movers
+    # working across gaps (e.g. 7/1 vs 6/29 when 6/30 is missing).
+    prev_snapshot = con.execute(
+        "SELECT max(snapshot_date) FROM price_snapshots WHERE snapshot_date < ?::DATE",
+        [today_d],
+    ).fetchone()[0]
+    yesterday_d = prev_snapshot if prev_snapshot is not None else today_d - timedelta(days=1)
     window_30d = today_d - timedelta(days=30)
 
     print(f"[010] anchor today={today_d}, yesterday={yesterday_d}, 30d_start={window_30d}")
