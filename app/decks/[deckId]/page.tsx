@@ -2291,8 +2291,10 @@ export default function DeckEditorPage() {
         onSelectPrinting={handleSwapDeckPrinting}
       />
 
-      {/* Mobile bottom tab bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 flex sm:hidden border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+      {/* Mobile bottom tab bar — z-50 so it sits above the site-wide MobileTabBar
+          (Search/Collection/Decks, z-40). On a deck-editor page the deck-context
+          tabs (incl. "Deck" to return from the Cards view) are what the user needs. */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex sm:hidden border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
         {canEdit && (
           <button
             onClick={() => setActiveTab("search")}
