@@ -889,7 +889,7 @@ export default function CollectionPage() {
                 </div>
               </Button>
             </Link>
-            <Link href="/search" onClick={() => setImportChooserOpen(false)}>
+            <Link href="/opt" onClick={() => setImportChooserOpen(false)}>
               <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3">
                 <Search className="h-5 w-5 shrink-0" />
                 <div className="text-left">
