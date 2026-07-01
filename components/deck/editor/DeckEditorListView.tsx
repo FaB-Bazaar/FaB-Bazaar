@@ -10,6 +10,7 @@ import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRig
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
+import { useIsTouchDevice } from "@/components/ui/use-client-env";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
 
@@ -1466,7 +1467,9 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [hoveredImage, setHoveredImage] = useState<{ url: string; name: string } | null>(null);
   const [hoverMode, setHoverMode] = useState(false);
-  const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+  // Mount-guarded — reading matchMedia during render causes a #418 hydration
+  // mismatch (server → false, touch client → true) that alters tile-view markup.
+  const isTouchDevice = useIsTouchDevice();
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string; otherFaceUrl?: string } | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
   const TILE_SIZES = [

@@ -32,6 +32,7 @@ import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
 import EmptyDeckHero from "@/components/deck/editor/build-progress/EmptyDeckHero";
 import { useBuildProgress } from "@/hooks/deck/useBuildProgress";
 import { useIsMobile } from "@/components/ui/use-mobile";
+import { useIsMac } from "@/components/ui/use-client-env";
 import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck-flow/quickAddRouting";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
@@ -1104,7 +1105,9 @@ export default function DeckEditorPage() {
     setDeckSwapTarget(null);
   };
 
-  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+  // Mount-guarded — reading navigator.platform during render causes a #418
+  // hydration mismatch (server has no navigator → 'Ctrl', Mac client → '⌘').
+  const isMac = useIsMac();
   const modKey = isMac ? '⌘' : 'Ctrl';
 
   return (
