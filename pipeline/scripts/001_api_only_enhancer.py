@@ -34,9 +34,9 @@ TCGCSV_HEADERS = {
 
 class APIOnlyEnhancer:
     def __init__(self):
-        # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/card.json"
+        self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/card.json"
         # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/compendium-of-rathe/json/english/card.json"
-        self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/omens-of-the-third-age/json/english/card.json"
+        # self.cards_url = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/omens-of-the-third-age/json/english/card.json"
         self.group_csv_file = "fab_set_with_db.csv"
         
         # Statistics tracking

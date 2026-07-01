@@ -39,7 +39,7 @@ from dotenv import load_dotenv
 # fab-cube card data — source of original image URLs.
 # KEEP IN SYNC with the active branch in 001_api_only_enhancer.py (cards_url).
 # The pipeline tracks the upcoming set's branch until it merges to develop.
-FAB_CUBE_URL = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/omens-of-the-third-age/json/english/card.json"
+FAB_CUBE_URL = "https://raw.githubusercontent.com/the-fab-cube/flesh-and-blood-cards/refs/heads/develop/json/english/card.json"
 
 
 def list_stored_image_ids(account_id: str, api_token: str) -> set:
