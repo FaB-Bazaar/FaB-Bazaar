@@ -322,13 +322,13 @@ async function handleMessageComponent(body) {
     
     if (action === 'select_printing_for_add') {
         // ...
-      const [_, binderSlug, encodedCardName] = customId.split(':');
+      const [_, binderId, encodedCardName] = customId.split(':');
       const cardName = decodeURIComponent(encodedCardName);
       const selectedPrintingId = body.data.values[0];
       const userId = body.member?.user?.id || body.user?.id;
-      
+
       const { addPrintingToBinder } = await import('./commands.js');
-      return await addPrintingToBinder(userId, binderSlug, selectedPrintingId, cardName);
+      return await addPrintingToBinder(userId, binderId, selectedPrintingId, cardName);
     }
     
     if (action === 'wants_page') {

@@ -75,7 +75,9 @@ export async function handleAddToBinder(body, cardUniqueId, cardName) {
       .slice(0, 25)
       .map(binder => ({
         label: binder.name || getBinderSlug(binder),
-        value: getBinderSlug(binder)
+        // ID-only: the web route /api/binders/[binderId]/cards resolves by ID,
+        // never slug. Emitting the slug here 404s the downstream add call.
+        value: binder._id.toString()
       }));
 
     console.log('[Discord DEBUG] 🔧 Binder options:', binderOptions);
@@ -258,10 +260,10 @@ export async function handleBinderSelection(body, cardUniqueId, cardName, select
 }
 
 
-export async function addPrintingToBinder(userId, binderSlug, printingId, cardName) {
+export async function addPrintingToBinder(userId, binderId, printingId, cardName) {
   try {
-    // FIXED: Use the correct endpoint structure
-    const addUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/binders/${binderSlug}/cards`;
+    // Web route is ID-only — binderId is the binder's _id, carried through from the dropdown.
+    const addUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/binders/${binderId}/cards`;
     const addResponse = await fetch(addUrl, {
       method: 'POST',
       headers: { 
@@ -305,7 +307,7 @@ export async function addPrintingToBinder(userId, binderSlug, printingId, cardNa
     
     if (addData.success) {
       return createUpdateResponse(
-        `✅ **${cardName}** added to binder **${binderSlug}**!`,
+        `✅ **${cardName}** added to your binder!`,
         []
       );
     } else {

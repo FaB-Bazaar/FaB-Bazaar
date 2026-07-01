@@ -29,7 +29,7 @@ export default defineConfig({
         name: 'node',
         test: {
           environment: 'node',
-          include: ['security/**/*.test.ts', 'app/api/**/*.test.ts', 'app/stores/**/*.test.ts', 'models/**/*.test.ts', 'lib/**/*.test.ts'],
+          include: ['security/**/*.test.ts', 'app/api/**/*.test.ts', 'app/discord-v2/**/*.test.ts', 'app/stores/**/*.test.ts', 'models/**/*.test.ts', 'lib/**/*.test.ts'],
           setupFiles: ['./vitest.setup.ts'],
           alias: {
             '@': path.resolve(__dirname, './'),
