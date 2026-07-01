@@ -73,7 +73,7 @@ export default function BinderSelector({ printingId, cardName, onSuccess, onCanc
       const result = await bindersClient.addCardsToBinder(binderId, [{
         printingId: printingId,
         quantity: 1,
-        condition: 'Near Mint',
+        condition: 'NM',
         notes: `Added from card details page`
       }]);
 

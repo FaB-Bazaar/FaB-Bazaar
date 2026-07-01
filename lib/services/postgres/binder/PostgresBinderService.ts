@@ -48,6 +48,7 @@ import type {
 } from '@/lib/services/contracts/IBinderService';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 import { v4 as uuidv4 } from 'uuid';
+import { normalizeCondition } from '@/lib/utils/card-condition';
 
 export class PostgresBinderService implements IBinderService {
   // ============================================================================
@@ -286,6 +287,20 @@ export class PostgresBinderService implements IBinderService {
 
       for (const card of cards) {
         try {
+          // Normalize condition (accept labels like "Near Mint" → "NM"). An
+          // unrecognized value must fail cleanly here — passing it to the
+          // `condition` enum cast throws a raw DB error inside a 200 response.
+          const condition = normalizeCondition(card.condition);
+          if (!condition) {
+            failed++;
+            results.push({
+              printingId: card.printingId,
+              success: false,
+              error: `Invalid condition: "${card.condition}". Expected one of NM, LP, MP, HP, DMG.`,
+            });
+            continue;
+          }
+
           // Verify the printing exists before inserting (FK constraint guard)
           const printingExists = await db.query.printings.findFirst({
             where: eq(printings.printingId, card.printingId),
@@ -306,7 +321,7 @@ export class PostgresBinderService implements IBinderService {
             where: and(
               eq(inventoryItems.binderId, binderId),
               eq(inventoryItems.printingId, card.printingId),
-              eq(inventoryItems.condition, card.condition || 'NM'),
+              eq(inventoryItems.condition, condition),
               eq(inventoryItems.language, card.language || 'EN')
             ),
           });
@@ -334,7 +349,7 @@ export class PostgresBinderService implements IBinderService {
               binderId,
               printingId: card.printingId,
               quantity: card.quantity || 1,
-              condition: card.condition || 'NM',
+              condition,
               language: card.language || 'EN',
               notes: card.notes || '',
               forTrade: card.forTrade ?? false,
