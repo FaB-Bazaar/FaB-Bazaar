@@ -11,6 +11,8 @@ import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
 import { useIsTouchDevice } from "@/components/ui/use-client-env";
+import { useToast } from "@/hooks/use-toast";
+import { filterSectionsByOwnership, countUnownedTiles, collectorModeToast } from "./collector-mode";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
 
@@ -1615,6 +1617,15 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
+  // Printings added to a binder during this Collector Mode session — kept
+  // visible (with their green dot) instead of vanishing from the grid
+  const [collectorExemptIds, setCollectorExemptIds] = useState<Set<string>>(new Set());
+  // First-visit affordance: pulse the Add to Binder panel until Collector Mode is used once
+  const [showCollectorHint, setShowCollectorHint] = useState(false);
+  const { toast } = useToast();
+  useEffect(() => {
+    setShowCollectorHint(!localStorage.getItem('collectorModeUsed'));
+  }, []);
   const mouseXRef = useRef(0);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const overlayCardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -2020,20 +2031,24 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
   const tileSections = buildTileSections(displayDeck);
 
-  // Apply ownership filter to tile sections
-  const applyOwnershipFilter = (sections: DeckTileSectionData[]): DeckTileSectionData[] => {
-    if (ownershipFilter === 'all') return sections;
-    return sections.map(section => ({
-      ...section,
-      tiles: section.tiles.filter(tile => {
-        const own = ownershipMap.get(tile.printingId);
-        const isOwned = own ? tile.copyIndex < own.owned : false;
-        return ownershipFilter === 'owned' ? isOwned : !isOwned;
-      }),
-    })).filter(section => section.key === 'hero' || section.tiles.length > 0);
-  };
+  const filteredTileSections = filterSectionsByOwnership(
+    tileSections, ownershipFilter, ownershipMap, collectorExemptIds
+  );
 
-  const filteredTileSections = applyOwnershipFilter(tileSections);
+  // Collector Mode session boundaries: toast the icon legend + unowned count
+  // on enable, and reset the just-added exemptions whenever the mode changes
+  const prevOwnershipFilterRef = useRef(ownershipFilter);
+  useEffect(() => {
+    if (prevOwnershipFilterRef.current === ownershipFilter) return;
+    prevOwnershipFilterRef.current = ownershipFilter;
+    setCollectorExemptIds(new Set());
+    if (ownershipFilter === 'unowned') {
+      toast(collectorModeToast(countUnownedTiles(tileSections, ownershipMap)));
+      localStorage.setItem('collectorModeUsed', '1');
+      setShowCollectorHint(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownershipFilter]);
 
   // Collect matching cards for the focus panel (deduped by printingId, with count)
   const focusCards: Array<{ tile: DeckTileCard; count: number }> = (() => {
@@ -2140,7 +2155,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onMoveTo: canEdit && onMoveSingle ? handleTileMoveTo : undefined,
     onAddTile: canEdit ? handleTileAddOne : undefined,
     onEnlargeImage: (url: string, name: string, otherFaceUrl?: string) => setEnlargedImage({ url, name, otherFaceUrl }),
-    onAddToBinder: onAddToBinder,
+    onAddToBinder: onAddToBinder ? (printingId: string, cardName: string) => {
+      // Exempt from the unowned filter so the card doesn't vanish once owned
+      setCollectorExemptIds(prev => { const next = new Set(prev); next.add(printingId); return next; });
+      onAddToBinder(printingId, cardName);
+    } : undefined,
     onAddToWants: onAddToWants,
     highlightMatchIds: matchingPrintingIds,
     tileWidth,
@@ -2303,10 +2322,25 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         )}
 
         {(viewMode === 'tile' || viewMode === 'game') && onAddToBinder && binders && binders.length > 0 && (
-          <div className="hidden sm:flex flex-col items-end gap-0.5 ml-auto">
+          <div className={cn(
+            "hidden sm:flex flex-col items-end gap-0.5 ml-auto rounded-lg px-2 py-1 -my-1",
+            showCollectorHint && "ring-2 ring-blue-400/60 animate-pulse"
+          )}>
             <div className="flex items-center gap-1 text-xs uppercase tracking-wide text-gray-600 dark:text-gray-400">
-              <BookOpen className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span>Add to Binder</span>
+              <button
+                type="button"
+                title="Turn on Collector Mode to add this deck's cards to a binder"
+                onClick={() => {
+                  const next = ownershipFilter === 'unowned' ? 'all' : 'unowned';
+                  window.dispatchEvent(new CustomEvent('deck-ownership-filter', {
+                    detail: { filter: next, setExplicit: true }
+                  }));
+                }}
+                className="flex items-center gap-1 uppercase tracking-wide hover:text-gray-900 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+              >
+                <BookOpen className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>Add to Binder</span>
+              </button>
               <Popover>
                 <PopoverTrigger asChild>
                   <button
@@ -2360,6 +2394,17 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                 ))}
               </SelectContent>
             </Select>
+            {/* Legend for the per-card ownership dots (JoseR's suggestion) */}
+            <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20" aria-hidden="true" />
+                in your binder
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20" aria-hidden="true" />
+                not in binder
+              </span>
+            </div>
           </div>
         )}
       </div>
