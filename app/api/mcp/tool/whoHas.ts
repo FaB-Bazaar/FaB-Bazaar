@@ -1,5 +1,6 @@
 // app/api/mcp/tool/whoHas.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { displayUsername } from '@/lib/utils/display-username';
 
 export const whoHasTool = {
   name: 'who_has',
@@ -14,6 +15,10 @@ export const whoHasTool = {
   
   📚 WORKFLOW:
   search_printings (returns printing_id + card_unique_id) → who_has (find owners)
+
+  👤 OWNER NAMES: when talking to the user, refer to owners by display_username
+  (internal dc_/gh_ prefixes stripped); the raw username field is for profile
+  URLs (/profile/<username>) and follow-up tool calls.
 
   📋 KEY DISTINCTION:
   • printingIds   — specific printing (one set/edition/foiling combo). Use printing_id from search_printings.
@@ -167,8 +172,15 @@ export const whoHasTool = {
           return `  📁 ${binder.binder_name}: ${binder.total_cards_found}x cards ($${binder.total_value})\n${cardDetails}`;
         }).join('\n');
         
-        return `• ${owner.username} - ${owner.total_cards_found}x total across ${owner.binders.length} binder(s)\n${binderSummaries}\n  💰 Total value: $${owner.total_value}`;
+        return `• ${displayUsername(owner.username)} - ${owner.total_cards_found}x total across ${owner.binders.length} binder(s)\n${binderSummaries}\n  💰 Total value: $${owner.total_value}`;
       });
+
+      // Structured data keeps the raw username (profile URLs and follow-up
+      // tool calls need it) and adds the prefix-stripped display name.
+      const ownersWithDisplay = data.owners.map((owner: any) => ({
+        ...owner,
+        display_username: displayUsername(owner.username),
+      }));
 
       const summaryText = `Found ${data.summary.total_owners_found} owners with ${data.summary.total_cards_found} total cards across ${data.summary.unique_printings_found} unique printings:
 
@@ -186,7 +198,7 @@ ${ownerSummaries.join('\n\n')}
         totalOwners: data.summary.total_owners_found,
         totalCards: data.summary.total_cards_found,
         totalValue: data.summary.total_value_found,
-        owners: data.owners
+        owners: ownersWithDisplay
       };
 
     } catch (error) {
