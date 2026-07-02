@@ -378,3 +378,27 @@ export async function checkWantsItem(
     return handleError(error);
   }
 }
+
+/**
+ * Notify the wants-list owner (via Discord channel webhook) that the
+ * current user copied cards from their wants list — i.e. "I have some
+ * of the cards you're looking for".
+ *
+ * Fire-and-forget: the clipboard copy already succeeded, so a failed or
+ * deduped ping must never surface as an error to the user.
+ */
+export function notifyWantsInterest(
+  ownerUserId: string,
+  payload: {
+    cards: Array<{ name: string; quantity: number; value: number }>;
+    totalValue?: number;
+  }
+): void {
+  fetch(`/api/wants/user/${ownerUserId}/notify-interest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).catch(() => {
+    // best-effort notification — nothing to do on failure
+  });
+}

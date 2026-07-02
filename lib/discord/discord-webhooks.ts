@@ -50,6 +50,20 @@ export interface TradeInterestData {
   totalValue?: number;
 }
 
+export interface WantsInterestData {
+  requesterUsername: string;
+  requesterDiscordId?: string | null;
+  ownerUsername: string;
+  ownerDiscordId?: string | null;
+  wantsUrl: string;
+  cards: Array<{
+    name: string;
+    quantity: number;
+    value: number;
+  }>;
+  totalValue?: number;
+}
+
 export class DiscordWebhooks {
   /**
    * Send Discord notification when someone copies a trade request from
@@ -57,6 +71,47 @@ export class DiscordWebhooks {
    * (mentions land in the inbox even when DMs are closed).
    */
   static async sendTradeInterest(data: TradeInterestData): Promise<boolean> {
+    return this.sendInterestPing({
+      ...data,
+      contentTemplate: (requesterRef, ownerRef) =>
+        `${requesterRef} is interested in cards from ${ownerRef} — reach out to work out a trade!`,
+      embedTitle: '🤝 Trade Interest',
+      linkLabel: '🔗 Binder',
+      linkText: data.binderName,
+      linkUrl: data.binderUrl,
+    });
+  }
+
+  /**
+   * Send Discord notification when someone copies cards from another
+   * user's wants list — the viewer is offering cards the owner wants.
+   * Same channel and mention semantics as sendTradeInterest.
+   */
+  static async sendWantsInterest(data: WantsInterestData): Promise<boolean> {
+    return this.sendInterestPing({
+      ...data,
+      contentTemplate: (requesterRef, ownerRef) =>
+        `${requesterRef} has cards from ${ownerRef}'s wants list — reach out to work out a trade!`,
+      embedTitle: '🎯 Wants List Match',
+      linkLabel: '🔗 Wants List',
+      linkText: `${displayUsername(data.ownerUsername)}'s wants`,
+      linkUrl: data.wantsUrl,
+    });
+  }
+
+  private static async sendInterestPing(data: {
+    requesterUsername: string;
+    requesterDiscordId?: string | null;
+    ownerUsername: string;
+    ownerDiscordId?: string | null;
+    cards: Array<{ name: string; quantity: number; value: number }>;
+    totalValue?: number;
+    contentTemplate: (requesterRef: string, ownerRef: string) => string;
+    embedTitle: string;
+    linkLabel: string;
+    linkText: string;
+    linkUrl: string;
+  }): Promise<boolean> {
     const webhookUrl = process.env.DISCORD_WEBHOOK_TRADE_INTEREST;
     if (!webhookUrl) {
       console.log('[Discord] No trade-interest webhook URL configured, skipping notification');
@@ -85,7 +140,7 @@ export class DiscordWebhooks {
       if (moreCount > 0) cardLines.push(`…and ${moreCount} more`);
 
       const embed = {
-        title: '🤝 Trade Interest',
+        title: data.embedTitle,
         fields: [
           {
             name: '🃏 Cards',
@@ -93,8 +148,8 @@ export class DiscordWebhooks {
             inline: false
           },
           {
-            name: '🔗 Binder',
-            value: `[${data.binderName}](${data.binderUrl})`,
+            name: data.linkLabel,
+            value: `[${data.linkText}](${data.linkUrl})`,
             inline: true
           }
         ],
@@ -113,7 +168,7 @@ export class DiscordWebhooks {
       const payload = {
         username: 'FaB Bazaar',
         avatar_url: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/881e1291-45e3-4c6c-a25c-b9fd7e33bb00/public',
-        content: `${requesterRef} is interested in cards from ${ownerRef} — reach out to work out a trade!`,
+        content: data.contentTemplate(requesterRef, ownerRef),
         allowed_mentions: { users: mentionIds },
         embeds: [embed]
       };

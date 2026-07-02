@@ -33,9 +33,11 @@ import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad"
 import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad"
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure"
-import { profileHref } from "@/lib/utils/display-username"
+import { profileHref, displayUsername } from "@/lib/utils/display-username"
 import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar"
 import { SlidersHorizontal } from "lucide-react"
+import { notifyWantsInterest } from "@/lib/client/wants-client"
+import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links"
 
 
 const useWindowWidth = () => {
@@ -307,7 +309,25 @@ export default function SharedWantsListPage({
     try {
       await navigator.clipboard.writeText(getFormattedList());
       setCopied(true);
-      toast({ title: "List copied!" });
+      if (!isOwnWantsList && session?.user) {
+        // Ping the wants-list owner in the Discord server (fire-and-forget)
+        const notifyCards = selectedCards.map((card) => ({
+          name: card.printingDetails?.display_name || card.name,
+          quantity: card.quantity,
+          value: card.printingDetails?.tcg_low || 0,
+        }));
+        notifyWantsInterest(userId, {
+          cards: notifyCards,
+          totalValue: notifyCards.reduce((sum, c) => sum + c.value * c.quantity, 0),
+        });
+        toast({
+          title: "List copied!",
+          description: `We pinged ${displayUsername(userName)} in #${TRADE_REQUESTS_CHANNEL_NAME} on the FaB Bazaar Discord — paste your list there.`,
+          duration: 5000,
+        });
+      } else {
+        toast({ title: "List copied!" });
+      }
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
@@ -787,6 +807,20 @@ export default function SharedWantsListPage({
                 )}
               </Button>
             </div>
+            {!isOwnWantsList && session?.user && (
+              <div className="text-sm text-gray-700 dark:text-gray-300 text-center mt-3">
+                Copies the list and pings {displayUsername(userName)} in{" "}
+                <a
+                  href={TRADE_REQUESTS_CHANNEL_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:text-blue-700 dark:hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+                >
+                  #{TRADE_REQUESTS_CHANNEL_NAME}
+                </a>{" "}
+                on the FaB Bazaar Discord
+              </div>
+            )}
           </div>
         </div>
       </div>
