@@ -32,7 +32,153 @@ import { toast } from "sonner"
 import Select from 'react-select'
 import { useRouter } from "next/navigation"
 // Client services for API calls
-import { bindersClient, wantsClient, usersClient } from '@/lib/client';
+import { bindersClient, wantsClient, usersClient, locationsClient } from '@/lib/client';
+
+/**
+ * Inline country/state editor for the Overview tab — location is coarse by
+ * design (no city/coords) and editable in place, no trip to /profile/edit.
+ */
+function LocationRow({
+  initialCountry,
+  initialState,
+  username,
+}: {
+  initialCountry?: string | null
+  initialState?: string | null
+  username: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [country, setCountry] = useState(initialCountry || "")
+  const [stateCode, setStateCode] = useState(initialState || "")
+  const [saved, setSaved] = useState({ country: initialCountry || "", state: initialState || "" })
+  const [countries, setCountries] = useState<{ iso2: string; name: string }[]>([])
+  const [states, setStates] = useState<{ id: number; stateCode: string; name: string }[]>([])
+
+  // Profile data arrives async — sync once it lands
+  useEffect(() => {
+    setCountry(initialCountry || "")
+    setStateCode(initialState || "")
+    setSaved({ country: initialCountry || "", state: initialState || "" })
+  }, [initialCountry, initialState])
+
+  // Load reference data lazily, only when editing starts
+  useEffect(() => {
+    if (!editing || countries.length > 0) return
+    locationsClient.getCountries().then((r) => {
+      if (r.success) setCountries(r.data as any)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  useEffect(() => {
+    if (!editing) return
+    setStates([])
+    if (!country) { setStateCode(""); return }
+    locationsClient.getStates(country).then((r) => {
+      if (!r.success) return
+      setStates(r.data as any)
+      setStateCode((prev) => ((r.data as any[]).some((s) => s.stateCode === prev) ? prev : ""))
+    })
+  }, [editing, country])
+
+  async function handleSave() {
+    if (!username) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/user/complete-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, country, state: stateCode }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSaved({ country, state: stateCode })
+        setEditing(false)
+        toast.success("Location updated")
+      } else {
+        toast.error(data.error || "Failed to update location")
+      }
+    } catch {
+      toast.error("Failed to update location")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const display = saved.country
+    ? `${saved.state ? `${saved.state}, ` : ""}${saved.country}`
+    : "Not set"
+
+  if (!editing) {
+    return (
+      <div className="flex items-center">
+        <MapPin className="h-5 w-5 mr-2 text-muted-foreground" />
+        <span className="font-medium mr-2">Location:</span>
+        <span className={saved.country ? "" : "text-muted-foreground"}>{display}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-2 h-7 px-2 text-xs"
+          onClick={() => setEditing(true)}
+        >
+          Edit
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-start">
+      <MapPin className="h-5 w-5 mr-2 mt-2 text-muted-foreground" />
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          aria-label="Country"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="h-9 px-2 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="">Country…</option>
+          {countries.map((c) => (
+            <option key={c.iso2} value={c.iso2}>{c.name}</option>
+          ))}
+        </select>
+        {states.length > 0 && (
+          <select
+            aria-label="State or region"
+            value={stateCode}
+            onChange={(e) => setStateCode(e.target.value)}
+            className="h-9 px-2 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">State…</option>
+            {states.map((s) => (
+              <option key={s.id} value={s.stateCode}>{s.name}</option>
+            ))}
+          </select>
+        )}
+        <Button size="sm" className="h-9" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-9"
+          disabled={saving}
+          onClick={() => {
+            setCountry(saved.country)
+            setStateCode(saved.state)
+            setEditing(false)
+          }}
+        >
+          Cancel
+        </Button>
+        <p className="w-full text-xs text-muted-foreground">
+          Used to suggest nearby stores and events — never shown as an address
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const { data: session } = useSession()
@@ -277,6 +423,11 @@ export default function ProfilePage() {
                         <span>{discordUsername}</span>
                       </div>
                     )}
+                    <LocationRow
+                      initialCountry={userData?.countryCode}
+                      initialState={userData?.stateCode}
+                      username={userData?.username || ""}
+                    />
                   </div>
                 </div>
 
