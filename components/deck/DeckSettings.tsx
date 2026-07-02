@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { displayUsername } from "@/lib/utils/display-username";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -585,7 +586,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-gray-700 shrink-0" />
                       )}
-                      <span className="text-gray-100">{user.username}</span>
+                      <span className="text-gray-100">{displayUsername(user.username)}</span>
                     </button>
                   </li>
                 ))}
@@ -598,7 +599,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
             <ul className="space-y-1">
               {coOwners.map(coOwner => (
                 <li key={coOwner.id} className="flex items-center justify-between text-sm py-0.5">
-                  <span className="text-foreground">{coOwner.username}</span>
+                  <span className="text-foreground">{displayUsername(coOwner.username)}</span>
                   <button
                     onClick={() => handleRemoveCoOwner(coOwner.id)}
                     disabled={coOwnerSaving}

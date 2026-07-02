@@ -456,7 +456,7 @@ const handleCopyToClipboard = async () => {
       <div className="p-4 border-b border-border bg-muted/50">
         <div className="text-sm">
           <span className="text-muted-foreground">Trading with:</span>
-          <span className="ml-2 font-medium">{recipientUsername}</span>
+          <span className="ml-2 font-medium">{displayUsername(recipientUsername)}</span>
         </div>
       </div>
 
@@ -536,7 +536,7 @@ const handleCopyToClipboard = async () => {
 
         <div>
           <label className="text-sm font-medium mb-2 block">
-            Message to {recipientUsername}:
+            Message to {displayUsername(recipientUsername)}:
           </label>
           <Textarea
             value={tradeMessage}

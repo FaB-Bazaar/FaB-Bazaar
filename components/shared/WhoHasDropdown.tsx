@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { displayUsername } from '@/lib/utils/display-username';
 
 //=========== INTERFACES ===========//
 
@@ -149,9 +150,9 @@ function EnhancedOwnerDisplay({ owner, wantCount, hasWants }: { owner: Owner; wa
     <div className="flex-col items-start p-3 space-y-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0">
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2">
-          {owner.avatar_url ? <img src={owner.avatar_url} alt={owner.username} className="h-5 w-5 rounded-full ring-1 ring-gray-200 dark:ring-gray-600" /> : <div className="h-5 w-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center"><span className="text-xs font-semibold text-white">{owner.username.charAt(0).toUpperCase()}</span></div>}
+          {owner.avatar_url ? <img src={owner.avatar_url} alt={owner.username} className="h-5 w-5 rounded-full ring-1 ring-gray-200 dark:ring-gray-600" /> : <div className="h-5 w-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center"><span className="text-xs font-semibold text-white">{displayUsername(owner.username).charAt(0).toUpperCase()}</span></div>}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2"><span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{owner.username}</span><div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><ShoppingCart className="h-3 w-3" /><span>{owner.total_cards_found}x</span></div></div>
+            <div className="flex items-center gap-2"><span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{displayUsername(owner.username)}</span><div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><ShoppingCart className="h-3 w-3" /><span>{owner.total_cards_found}x</span></div></div>
             <div className="text-xs text-gray-500 dark:text-gray-400">{owner.binders.length} binder{owner.binders.length !== 1 ? 's' : ''} • ~${owner.total_value.toFixed(2)}</div>
           </div>
         </div>

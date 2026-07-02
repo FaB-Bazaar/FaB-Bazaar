@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, UserCircle, Download, ArrowLeft, BookOpen, Copy, Check, Keyboard } from 'lucide-react';
 
 import { PricingStatus } from './PricingStatus';
-import { profileHref } from '@/lib/utils/display-username';
+import { profileHref, displayUsername } from '@/lib/utils/display-username';
 
 interface BinderHeaderProps {
   binder: any;
@@ -87,7 +87,7 @@ export const BinderHeader: React.FC<BinderHeaderProps> = ({
             <UserCircle className="hidden sm:block h-4 w-4" />
             <span className="truncate">
               <span className="font-medium">
-                {binder.discordUsername || binder.username}
+                {binder.discordUsername || displayUsername(binder.username)}
               </span>
               <span className="text-blue-600 dark:text-blue-400 ml-1">'s Profile</span>
             </span>

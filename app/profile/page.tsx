@@ -33,6 +33,7 @@ import Select from 'react-select'
 import { useRouter } from "next/navigation"
 // Client services for API calls
 import { bindersClient, wantsClient, usersClient, locationsClient } from '@/lib/client';
+import { displayUsername as stripUsernamePrefix } from '@/lib/utils/display-username';
 
 /**
  * Inline country/state editor for the Overview tab — location is coarse by
@@ -341,10 +342,10 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <Avatar className="h-24 w-24">
               <AvatarImage src={userData?.image || "/cardback.webp"} alt={username} />
-              <AvatarFallback className="text-2xl">{username.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="text-2xl">{stripUsernamePrefix(username).charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex-1 text-center md:text-left">
-              <CardTitle className="text-2xl mb-2">{username}</CardTitle>
+              <CardTitle className="text-2xl mb-2">{stripUsernamePrefix(username)}</CardTitle>
               <div className="flex flex-col md:flex-row gap-2 md:gap-4 items-center md:items-start">
                 <div className="flex items-center text-muted-foreground">
                   <Calendar className="h-4 w-4 mr-1" />

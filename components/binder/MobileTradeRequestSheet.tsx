@@ -164,7 +164,7 @@ export const MobileTradeRequestSheet = ({
         <div className="mx-auto w-full max-w-sm">
           <DrawerHeader>
             <DrawerTitle>Your Trade Request</DrawerTitle>
-            <div className="text-sm text-muted-foreground">For {recipientUsername}</div>
+            <div className="text-sm text-muted-foreground">For {displayUsername(recipientUsername)}</div>
           </DrawerHeader>
           <div className="p-4 max-h-[50vh] overflow-y-auto">
             {selectedCards.map((card: any, index: number) => (

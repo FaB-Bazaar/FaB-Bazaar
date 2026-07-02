@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, ArrowRight } from "lucide-react"
 import Image from "next/image"
+import { displayUsername } from "@/lib/utils/display-username"
 
 interface ProposalItem {
   inventoryId: string;
@@ -138,7 +139,7 @@ export function ConfirmTradeModal({
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Cards You're Giving to {initiatorData?.username}
+                Cards You're Giving to {initiatorData?.username ? displayUsername(initiatorData.username) : ''}
               </h4>
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {proposal.recipientItems.map((item, index) => (
@@ -163,7 +164,7 @@ export function ConfirmTradeModal({
 
             <div>
               <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Cards You're Receiving from {initiatorData?.username}
+                Cards You're Receiving from {initiatorData?.username ? displayUsername(initiatorData.username) : ''}
               </h4>
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {proposal.initiatorItems.map((item, index) => (

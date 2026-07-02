@@ -13,7 +13,7 @@ import Image from "next/image";
 import { locationsClient } from "@/lib/client";
 import type { LocationDTO, EventDTO, LocationFollowerDTO } from "@/types/location";
 import type { StoreTradeMatchDTO, StoreWantMatchDTO, StoreTradeCardDTO } from "@/lib/services/contracts/IInventoryService";
-import { profileHref } from "@/lib/utils/display-username";
+import { profileHref, displayUsername } from "@/lib/utils/display-username";
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString(undefined, {
@@ -171,7 +171,7 @@ function EventRow({
 
 function FollowerAvatar({ follower }: { follower: LocationFollowerDTO }) {
   return (
-    <Link href={profileHref(follower.username)} title={follower.displayUsername || follower.username}>
+    <Link href={profileHref(follower.username)} title={follower.displayUsername || displayUsername(follower.username)}>
       {follower.avatarUrl ? (
         <img
           src={follower.avatarUrl}
@@ -180,7 +180,7 @@ function FollowerAvatar({ follower }: { follower: LocationFollowerDTO }) {
         />
       ) : (
         <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-500 dark:text-gray-300 border-2 border-white dark:border-gray-800">
-          {(follower.displayUsername || follower.username).charAt(0).toUpperCase()}
+          {(follower.displayUsername || displayUsername(follower.username)).charAt(0).toUpperCase()}
         </div>
       )}
     </Link>
@@ -456,10 +456,10 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                               <img src={o.avatarUrl} alt={o.username} className="w-6 h-6 rounded-full object-cover" />
                             ) : (
                               <span className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-200">
-                                {(o.displayUsername || o.username).charAt(0).toUpperCase()}
+                                {(o.displayUsername || displayUsername(o.username)).charAt(0).toUpperCase()}
                               </span>
                             )}
-                            <span className="font-medium">{o.displayUsername || o.username}</span>
+                            <span className="font-medium">{o.displayUsername || displayUsername(o.username)}</span>
                             <span className="font-semibold text-green-600 dark:text-green-400">×{o.quantity}</span>
                           </Link>
                         ))}
@@ -492,11 +492,11 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                           />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-sm font-semibold text-gray-500 dark:text-gray-300 border-2 border-white dark:border-gray-800">
-                            {(match.displayUsername || match.username).charAt(0).toUpperCase()}
+                            {(match.displayUsername || displayUsername(match.username)).charAt(0).toUpperCase()}
                           </div>
                         )}
                         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                          {match.displayUsername || match.username}
+                          {match.displayUsername || displayUsername(match.username)}
                         </span>
                       </Link>
                       {match.theyHaveYouWant.length > 0 && (

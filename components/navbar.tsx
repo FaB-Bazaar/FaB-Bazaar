@@ -53,7 +53,7 @@ import {
 import { DarkModeToggle } from '@/components/DarkModeToggle'
 import MobileSearch from '@/components/search/MobileSearch'
 import MobileTabBar from '@/components/navbar/MobileTabBar'
-import { profileHref } from '@/lib/utils/display-username'
+import { profileHref, displayUsername } from '@/lib/utils/display-username'
 import { handleSignOut } from "@/app/actions/auth"
 
 export default function Navbar() {
@@ -875,7 +875,7 @@ export default function Navbar() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
                     <div className="px-3 py-2 border-b border-gray-300 dark:border-gray-700">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{user.username}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayUsername(user.username)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                     </div>
                     <DropdownMenuItem asChild>

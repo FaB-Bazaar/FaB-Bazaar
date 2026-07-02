@@ -389,7 +389,7 @@ export default function SharedWantsListPage({
     ] || [];
   const getWantsListTitle = () => {
     if (isOwnWantsList) return "My Wants List";
-    return `${userName}'s Wants List`;
+    return `${displayUsername(userName)}'s Wants List`;
   };
 
   return (
@@ -410,7 +410,7 @@ export default function SharedWantsListPage({
               >
                 <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                 <UserCircle className="h-4 w-4" />
-                <span className="font-medium">{userName}</span>
+                <span className="font-medium">{displayUsername(userName)}</span>
                 <span className="text-blue-600 dark:text-blue-400">'s Profile</span>
               </Link>
             ) : (
