@@ -38,6 +38,9 @@ import { listCardRestrictionsTool } from '../tool/bannedCards/listCardRestrictio
 // Import event tools (superadmin only)
 import { createEventTool } from '../tool/events/createEvent';
 
+// Import store/location tools (create_store is superadmin only)
+import { listStoresTool, getStoreTool, createStoreTool } from '../tool/stores/stores';
+
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
@@ -407,6 +410,11 @@ export async function POST(req: Request) {
             description: createEventTool.description,
             inputSchema: createEventTool.parameters,
           },
+          {
+            name: createStoreTool.name,
+            description: createStoreTool.description,
+            inputSchema: createStoreTool.parameters,
+          },
         ] : [];
 
         const curatorTools = isCurator ? [
@@ -589,6 +597,16 @@ Step 5: get_binder (verify additions)
                 description: getDeckTool.description,
                 inputSchema: getDeckTool.parameters,
                 _meta: (getDeckTool as any)._meta
+              },
+              {
+                name: listStoresTool.name,
+                description: listStoresTool.description,
+                inputSchema: listStoresTool.parameters
+              },
+              {
+                name: getStoreTool.name,
+                description: getStoreTool.description,
+                inputSchema: getStoreTool.parameters
               },
               {
                 name: listResultsTool.name,
@@ -1743,8 +1761,8 @@ The new tool provides the same functionality with better guidance for proper wor
         }
 
         // BANNED-CARDS REGISTRY TOOLS (superadmin — the API enforces the role)
-        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions' || toolName === 'create_event') {
-          if (DEBUG_MCP) console.log(`🚫 Executing superadmin tool: ${toolName}`);
+        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions' || toolName === 'create_event' || toolName === 'create_store' || toolName === 'list_stores' || toolName === 'get_store') {
+          if (DEBUG_MCP) console.log(`🚫 Executing location/admin tool: ${toolName}`);
           try {
             const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
@@ -1752,6 +1770,9 @@ The new tool provides the same functionality with better guidance for proper wor
               manage_card_restriction: manageCardRestrictionTool,
               list_card_restrictions: listCardRestrictionsTool,
               create_event: createEventTool,
+              create_store: createStoreTool,
+              list_stores: listStoresTool,
+              get_store: getStoreTool,
             };
             const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({
