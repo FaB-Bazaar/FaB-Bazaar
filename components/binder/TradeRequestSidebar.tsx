@@ -25,6 +25,8 @@ import { useRouter } from "next/navigation";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { notifyTradeInterest } from "@/lib/client/binders-client";
+import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
+import { displayUsername } from "@/lib/utils/display-username";
 
 interface TradeRequestSidebarProps {
   selectedCards: any[];
@@ -388,8 +390,8 @@ const handleCopyToClipboard = async () => {
       if (result.success) {
         toast({
           title: "Copied to Clipboard!",
-          description: "Trade request has been copied. You can now paste it in Discord.",
-          duration: 3000,
+          description: `We pinged ${displayUsername(recipientUsername)} in #${TRADE_REQUESTS_CHANNEL_NAME} on the FaB Bazaar Discord — paste your request there.`,
+          duration: 5000,
         });
 
         // Ping the binder owner in the Discord server (fire-and-forget)
@@ -583,8 +585,17 @@ const handleCopyToClipboard = async () => {
           {isSending ? "Copying..." : "Copy to Clipboard"}
         </Button>
 
-        <div className="text-xs text-muted-foreground text-center">
-          Copy this request to send via Discord or other platforms
+        <div className="text-sm text-gray-300 text-center">
+          Copies the request and pings {displayUsername(recipientUsername)} in{" "}
+          <a
+            href={TRADE_REQUESTS_CHANNEL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 underline underline-offset-2 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+          >
+            #{TRADE_REQUESTS_CHANNEL_NAME}
+          </a>{" "}
+          on the FaB Bazaar Discord
         </div>
       </div>
     </div>

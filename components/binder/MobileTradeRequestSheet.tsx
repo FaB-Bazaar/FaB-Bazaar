@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { notifyTradeInterest } from "@/lib/client/binders-client";
+import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
+import { displayUsername } from "@/lib/utils/display-username";
 
 // A simplified card item specifically for the mobile sheet
 const MobileTradeCardItem = ({ card, onQuantityChange, onRemove }: any) => {
@@ -120,8 +122,8 @@ export const MobileTradeRequestSheet = ({
       if (result.success) {
         toast({
           title: "Copied to Clipboard!",
-          description: "Trade request has been copied. You can now paste it in Discord.",
-          duration: 3000,
+          description: `We pinged ${displayUsername(recipientUsername)} in #${TRADE_REQUESTS_CHANNEL_NAME} on the FaB Bazaar Discord — paste your request there.`,
+          duration: 5000,
         });
 
         // Ping the binder owner in the Discord server (fire-and-forget)
@@ -245,6 +247,18 @@ export const MobileTradeRequestSheet = ({
               {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
               {isSending ? "Copying..." : `Copy Request (${totalCards} ${totalCards === 1 ? 'card' : 'cards'})`}
             </Button>
+            <div className="text-sm text-gray-300 text-center">
+              Copies the request and pings {displayUsername(recipientUsername)} in{" "}
+              <a
+                href={TRADE_REQUESTS_CHANNEL_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 underline underline-offset-2 hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-sm"
+              >
+                #{TRADE_REQUESTS_CHANNEL_NAME}
+              </a>{" "}
+              on the FaB Bazaar Discord
+            </div>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           </DrawerFooter>
         </div>
