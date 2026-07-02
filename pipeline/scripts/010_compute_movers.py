@@ -51,7 +51,17 @@ PG_URL = (
 
 # ─── DuckDB signal queries ────────────────────────────────────────────────────
 
-GAINERS_SQL = """
+# Reject snapshot rows whose lowest listing is an implausible multiple of the
+# TCGPlayer market price. A placeholder / fat-finger listing (e.g. a $189k Briar
+# or a $30k rare equipment) otherwise becomes the tcg_low and dominates the diff,
+# producing absurd movers. 500% is deliberately generous — real moves never
+# approach it. Rows with no market price pass through (nothing to check against).
+MAX_LOW_OVER_MARKET_RATIO = 5.0  # 500% — a multiplier, not dollars
+SANE_LOW = (
+    f"(tcg_market IS NULL OR tcg_market <= 0 OR tcg_low <= tcg_market * {MAX_LOW_OVER_MARKET_RATIO})"
+)
+
+GAINERS_SQL = f"""
 WITH yesterday AS (
     SELECT printing_id,
            any_value(display_name) AS display_name,
@@ -59,13 +69,13 @@ WITH yesterday AS (
            any_value(rarity) AS rarity, any_value(foiling) AS foiling,
            arg_max(tcg_low, snapshot_date) AS p_yesterday
     FROM price_snapshots
-    WHERE snapshot_date = ?::DATE AND has_price
+    WHERE snapshot_date = ?::DATE AND has_price AND {SANE_LOW}
     GROUP BY printing_id
 ),
 today AS (
     SELECT printing_id, arg_max(tcg_low, snapshot_date) AS p_today
     FROM price_snapshots
-    WHERE snapshot_date = ?::DATE AND has_price
+    WHERE snapshot_date = ?::DATE AND has_price AND {SANE_LOW}
     GROUP BY printing_id
 )
 SELECT DISTINCT
@@ -82,7 +92,7 @@ ORDER BY dollar_change DESC
 LIMIT 25
 """
 
-DECLINERS_SQL = """
+DECLINERS_SQL = f"""
 WITH yesterday AS (
     SELECT printing_id,
            any_value(display_name) AS display_name,
@@ -90,13 +100,13 @@ WITH yesterday AS (
            any_value(rarity) AS rarity, any_value(foiling) AS foiling,
            arg_max(tcg_low, snapshot_date) AS p_yesterday
     FROM price_snapshots
-    WHERE snapshot_date = ?::DATE AND has_price
+    WHERE snapshot_date = ?::DATE AND has_price AND {SANE_LOW}
     GROUP BY printing_id
 ),
 today AS (
     SELECT printing_id, arg_max(tcg_low, snapshot_date) AS p_today
     FROM price_snapshots
-    WHERE snapshot_date = ?::DATE AND has_price
+    WHERE snapshot_date = ?::DATE AND has_price AND {SANE_LOW}
     GROUP BY printing_id
 )
 SELECT DISTINCT
@@ -113,7 +123,7 @@ ORDER BY dollar_change ASC
 LIMIT 25
 """
 
-BREAKOUTS_SQL = """
+BREAKOUTS_SQL = f"""
 WITH per_card AS (
     SELECT printing_id,
            any_value(display_name) AS display_name,
@@ -125,7 +135,7 @@ WITH per_card AS (
                  AND snapshot_date <  ?::DATE
            ) AS prior_high
     FROM price_snapshots
-    WHERE has_price AND tcg_low IS NOT NULL
+    WHERE has_price AND tcg_low IS NOT NULL AND {SANE_LOW}
     GROUP BY printing_id
 )
 SELECT DISTINCT
@@ -141,7 +151,7 @@ ORDER BY pct_change DESC
 LIMIT 25
 """
 
-STEADY_RISERS_SQL = """
+STEADY_RISERS_SQL = f"""
 WITH per_card AS (
     SELECT printing_id,
            any_value(display_name) AS display_name,
@@ -151,7 +161,7 @@ WITH per_card AS (
            arg_min(tcg_low, snapshot_date) FILTER (WHERE snapshot_date >= ?::DATE) AS p_30d_ago,
            corr(epoch(snapshot_date)::INT, tcg_low) FILTER (WHERE snapshot_date >= ?::DATE) AS smoothness
     FROM price_snapshots
-    WHERE has_price AND tcg_low IS NOT NULL
+    WHERE has_price AND tcg_low IS NOT NULL AND {SANE_LOW}
     GROUP BY printing_id
 )
 SELECT DISTINCT

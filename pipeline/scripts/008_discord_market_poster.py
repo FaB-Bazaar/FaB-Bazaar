@@ -196,7 +196,6 @@ class MarketAnalysisPoster:
             old_price = self.format_price(card.get('old_price', 0))
             new_price = self.format_price(card.get('new_price', 0))
             pct_change = self.format_percentage(card.get('percent_change', 0))
-            opportunity_score = card.get('opportunity_score', 0)
 
             card_name = card.get('card_name', 'Unknown Card')
             printing_id = card.get('printing_id', '')
@@ -211,8 +210,7 @@ class MarketAnalysisPoster:
                 message += f" *({set_name})*"
             if rarity:
                 message += f" `{rarity}`"
-            message += f"\n{old_price} → {new_price} ({pct_change})"
-            message += f"\n*Opportunity Score: {opportunity_score}/10*\n\n"
+            message += f"\n{old_price} → {new_price} ({pct_change})\n\n"
 
         return message
 

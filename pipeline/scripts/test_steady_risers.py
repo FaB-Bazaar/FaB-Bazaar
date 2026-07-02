@@ -78,6 +78,14 @@ class SteadyRisersMessageTests(unittest.TestCase):
         self.assertIn("Test Card", msg)
         self.assertIn("+30.0%", msg)
 
+    def test_message_omits_unpopulated_opportunity_score(self):
+        # 010_compute_movers never emits opportunity_score, so the old
+        # "Opportunity Score: 0/10" line was always a meaningless 0. It must
+        # not resurface.
+        poster = make_poster()
+        msg = poster.create_steady_risers_message(SAMPLE_DATA)
+        self.assertNotIn("Opportunity Score", msg)
+
     def test_message_handles_empty_input(self):
         poster = make_poster()
         msg = poster.create_steady_risers_message({"advanced_strategies": {"steady_risers": []}})
