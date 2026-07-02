@@ -1097,7 +1097,7 @@ function DeckTileSection({
               )}
             </div>
             <span className="sr-only">{tile.name}</span>
-            {ownershipFilter === 'owned' && showBinderLabel && (
+            {ownershipFilter !== 'all' && showBinderLabel && (
               <div className="flex flex-col items-center gap-0.5 w-full px-0.5 mt-0.5">
                 <a
                   href={`/binder/${own!.binderIds![0]}`}
@@ -1617,9 +1617,6 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const [dragTile, setDragTile] = useState<DeckTileCard | null>(null);
   const [optimisticDeck, setOptimisticDeck] = useState<DeckDTO | null>(null);
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'owned' | 'unowned'>('all');
-  // Printings added to a binder during this Collector Mode session — kept
-  // visible (with their green dot) instead of vanishing from the grid
-  const [collectorExemptIds, setCollectorExemptIds] = useState<Set<string>>(new Set());
   // First-visit affordance: pulse the Add to Binder panel until Collector Mode is used once
   const [showCollectorHint, setShowCollectorHint] = useState(false);
   const { toast } = useToast();
@@ -2032,16 +2029,14 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileSections = buildTileSections(displayDeck);
 
   const filteredTileSections = filterSectionsByOwnership(
-    tileSections, ownershipFilter, ownershipMap, collectorExemptIds
+    tileSections, ownershipFilter, ownershipMap
   );
 
-  // Collector Mode session boundaries: toast the icon legend + unowned count
-  // on enable, and reset the just-added exemptions whenever the mode changes
+  // Toast the icon legend + unowned count when Collector Mode turns on
   const prevOwnershipFilterRef = useRef(ownershipFilter);
   useEffect(() => {
     if (prevOwnershipFilterRef.current === ownershipFilter) return;
     prevOwnershipFilterRef.current = ownershipFilter;
-    setCollectorExemptIds(new Set());
     if (ownershipFilter === 'unowned') {
       toast(collectorModeToast(countUnownedTiles(tileSections, ownershipMap)));
       localStorage.setItem('collectorModeUsed', '1');
@@ -2155,11 +2150,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onMoveTo: canEdit && onMoveSingle ? handleTileMoveTo : undefined,
     onAddTile: canEdit ? handleTileAddOne : undefined,
     onEnlargeImage: (url: string, name: string, otherFaceUrl?: string) => setEnlargedImage({ url, name, otherFaceUrl }),
-    onAddToBinder: onAddToBinder ? (printingId: string, cardName: string) => {
-      // Exempt from the unowned filter so the card doesn't vanish once owned
-      setCollectorExemptIds(prev => { const next = new Set(prev); next.add(printingId); return next; });
-      onAddToBinder(printingId, cardName);
-    } : undefined,
+    onAddToBinder: onAddToBinder,
     onAddToWants: onAddToWants,
     highlightMatchIds: matchingPrintingIds,
     tileWidth,

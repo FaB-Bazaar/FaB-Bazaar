@@ -22,26 +22,21 @@ function tileIsOwned(tile: OwnershipTile, ownershipMap: Map<string, OwnershipLik
 }
 
 /**
- * Filter tile sections by ownership. Under the 'unowned' filter,
- * printings in `exemptIds` stay visible even once owned — this is what
- * keeps a card on screen (with its green dot) right after the user adds
- * it to a binder, instead of vanishing from the deck view.
+ * Filter tile sections by ownership. Collector Mode ('unowned')
+ * intentionally does NOT hide anything — it annotates: owned copies get
+ * a binder-name link, unowned copies get add-to-binder/wants buttons.
+ * Only the 'owned' filter actually removes tiles.
  */
 export function filterSectionsByOwnership<S extends OwnershipSection>(
   sections: S[],
   filter: 'all' | 'owned' | 'unowned',
-  ownershipMap: Map<string, OwnershipLike>,
-  exemptIds?: Set<string>
+  ownershipMap: Map<string, OwnershipLike>
 ): S[] {
-  if (filter === 'all') return sections;
+  if (filter !== 'owned') return sections;
   return sections
     .map(section => ({
       ...section,
-      tiles: section.tiles.filter(tile => {
-        if (filter === 'unowned' && exemptIds?.has(tile.printingId)) return true;
-        const isOwned = tileIsOwned(tile, ownershipMap);
-        return filter === 'owned' ? isOwned : !isOwned;
-      }),
+      tiles: section.tiles.filter(tile => tileIsOwned(tile, ownershipMap)),
     }))
     .filter(section => section.key === 'hero' || section.tiles.length > 0);
 }

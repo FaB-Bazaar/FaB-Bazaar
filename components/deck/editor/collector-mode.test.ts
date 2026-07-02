@@ -1,7 +1,10 @@
 /**
  * Unit tests for the Collector Mode helpers extracted from
- * DeckEditorListView: ownership filtering (including the "just added —
- * don't disappear" exemption) and the toggle-on toast content.
+ * DeckEditorListView: ownership filtering and the toggle-on toast.
+ *
+ * Collector Mode ('unowned') ANNOTATES rather than filters: every tile
+ * stays visible — owned copies get a binder-name link, unowned copies
+ * get add-to-binder/wants buttons. Only the 'owned' filter hides tiles.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -33,20 +36,17 @@ describe('filterSectionsByOwnership', () => {
     expect(filterSectionsByOwnership(input, 'all', ownership())).toBe(input);
   });
 
+  it('keeps every tile visible under the unowned (Collector Mode) filter — it annotates, never hides', () => {
+    const input = sections();
+    expect(filterSectionsByOwnership(input, 'unowned', ownership())).toBe(input);
+  });
+
   it('keeps only owned copies under the owned filter', () => {
     const result = filterSectionsByOwnership(sections(), 'owned', ownership());
     const red = result.find(s => s.key === 'red')!;
     expect(red.tiles).toEqual([tile('p1', 0)]);
     const blue = result.find(s => s.key === 'blue')!;
     expect(blue.tiles).toEqual([tile('p3', 0)]);
-  });
-
-  it('keeps only unowned copies under the unowned filter', () => {
-    const result = filterSectionsByOwnership(sections(), 'unowned', ownership());
-    const red = result.find(s => s.key === 'red')!;
-    expect(red.tiles).toEqual([tile('p1', 1), tile('p2', 0)]);
-    // p3 fully owned → blue section dropped entirely
-    expect(result.find(s => s.key === 'blue')).toBeUndefined();
   });
 
   it('always keeps the hero section even when its tiles are filtered out', () => {
@@ -57,33 +57,11 @@ describe('filterSectionsByOwnership', () => {
   it('treats tiles with no ownership entry as unowned', () => {
     const result = filterSectionsByOwnership(
       [{ key: 'red', tiles: [tile('mystery')] }],
-      'unowned',
+      'owned',
       new Map()
     );
-    expect(result[0].tiles).toEqual([tile('mystery')]);
-  });
-
-  it('keeps exempt printings visible under the unowned filter even when owned (just-added cards must not disappear)', () => {
-    const result = filterSectionsByOwnership(
-      sections(),
-      'unowned',
-      ownership(),
-      new Set(['p3'])
-    );
-    // p3 is fully owned but exempt → its copy stays visible
-    const blue = result.find(s => s.key === 'blue')!;
-    expect(blue.tiles).toEqual([tile('p3', 0)]);
-  });
-
-  it('does not let exemptions leak into the owned filter', () => {
-    const result = filterSectionsByOwnership(
-      sections(),
-      'owned',
-      ownership(),
-      new Set(['p2'])
-    );
-    const red = result.find(s => s.key === 'red')!;
-    expect(red.tiles).toEqual([tile('p1', 0)]);
+    // mystery is unowned → dropped by the owned filter → section removed
+    expect(result.find(s => s.key === 'red')).toBeUndefined();
   });
 });
 
