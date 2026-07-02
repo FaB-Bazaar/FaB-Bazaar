@@ -204,6 +204,7 @@ export interface LocationSubmissionDTO {
 
 export interface StoresContextDTO {
   countryCode?: string | null;
+  stateCode?: string | null;
   followedStores: LocationSummaryDTO[];
   upcomingEvents: EventSummaryDTO[];
 }

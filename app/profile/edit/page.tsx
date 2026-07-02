@@ -13,10 +13,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { toast } from "sonner"
+import { locationsClient } from "@/lib/client"
 
 export default function EditProfilePage() {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const { user, updateDiscordUsername } = useAuth()
 
   const [username, setUsername] = useState("")
@@ -26,6 +27,29 @@ export default function EditProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
+  // Coarse self-set location (country + state only — used to default store discovery)
+  const [country, setCountry] = useState("")
+  const [stateCode, setStateCode] = useState("")
+  const [countries, setCountries] = useState<{ iso2: string; name: string }[]>([])
+  const [states, setStates] = useState<{ id: number; stateCode: string; name: string }[]>([])
+
+  // Load country reference data once
+  useEffect(() => {
+    locationsClient.getCountries().then((r) => {
+      if (r.success) setCountries(r.data as any)
+    })
+  }, [])
+
+  // Load states when the country changes (keep state if it belongs to the new list)
+  useEffect(() => {
+    setStates([])
+    if (!country) { setStateCode(""); return }
+    locationsClient.getStates(country).then((r) => {
+      if (!r.success) return
+      setStates(r.data as any)
+      setStateCode((prev) => ((r.data as any[]).some((s) => s.stateCode === prev) ? prev : ""))
+    })
+  }, [country])
 
   // Fetch current user data
   useEffect(() => {
@@ -39,6 +63,8 @@ export default function EditProfilePage() {
           setUserProfile(data.user)
           setUsername(data.user.username || "")
           setDiscordUsername(data.user.discordUsername || "")
+          setCountry(data.user.countryCode || "")
+          setStateCode(data.user.stateCode || "")
         }
       } catch (err) {
         console.error("Failed to fetch user data:", err)
@@ -47,19 +73,23 @@ export default function EditProfilePage() {
       }
     }
 
+    if (sessionStatus === "loading") return
     if (user || session?.user) {
       fetchUserData()
     } else {
       setIsFetching(false)
     }
-  }, [user, session])
+  }, [user, session, sessionStatus])
 
-  // If not logged in, redirect to login
+  // If not logged in, redirect to login. Wait for session hydration first —
+  // redirecting while useSession is still loading bounces logged-in users
+  // through /auth/login → middleware → /discord.
   useEffect(() => {
+    if (sessionStatus === "loading") return
     if (!isFetching && !user && !session?.user) {
       router.push("/auth/login")
     }
-  }, [isFetching, user, session, router])
+  }, [isFetching, user, session, sessionStatus, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,6 +117,8 @@ export default function EditProfilePage() {
         body: JSON.stringify({
           username,
           discordUsername,
+          country,
+          state: stateCode,
         }),
       })
       const data = await response.json()
@@ -190,6 +222,41 @@ export default function EditProfilePage() {
                   This will be used for contact in your listings and trade agreements
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="country">Country (Optional)</Label>
+                <select
+                  id="country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Not set</option>
+                  {countries.map((c) => (
+                    <option key={c.iso2} value={c.iso2}>{c.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Used to suggest nearby stores and events — never shown as an address
+                </p>
+              </div>
+
+              {states.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="state">State / Region (Optional)</Label>
+                  <select
+                    id="state"
+                    value={stateCode}
+                    onChange={(e) => setStateCode(e.target.value)}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Not set</option>
+                    {states.map((s) => (
+                      <option key={s.id} value={s.stateCode}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (

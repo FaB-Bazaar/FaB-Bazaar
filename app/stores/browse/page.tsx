@@ -111,17 +111,22 @@ export default function BrowseStoresPage() {
       if (r.success) {
         setFollowedIds(new Set(r.data.followedStores.map((s) => s.id)));
         if (r.data.countryCode) setSelectedCountry(r.data.countryCode);
+        // Preselect the user's self-set state too (cleared if the states
+        // effect finds it doesn't belong to the country's list)
+        if (r.data.stateCode) setSelectedState(r.data.stateCode);
       }
     });
   }, []);
 
-  // Load states when country changes
+  // Load states when country changes; keep the selected state only if it
+  // exists in the new country's list (lets the profile preselect survive)
   useEffect(() => {
-    setSelectedState("");
     setStates([]);
-    if (!selectedCountry) return;
+    if (!selectedCountry) { setSelectedState(""); return; }
     locationsClient.getStates(selectedCountry).then((r) => {
-      if (r.success) setStates(r.data);
+      if (!r.success) return;
+      setStates(r.data);
+      setSelectedState((prev) => (r.data.some((s) => s.stateCode === prev) ? prev : ""));
     });
   }, [selectedCountry]);
 

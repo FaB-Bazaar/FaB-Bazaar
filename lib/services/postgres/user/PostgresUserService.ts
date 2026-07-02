@@ -397,6 +397,8 @@ export class PostgresUserService implements IUserService {
           metafyId: user.metafyId || undefined,
           metafyUsername: user.metafyUsername || undefined,
           metafyPartner: user.metafyPartner ?? false,
+          countryCode: user.countryCode || undefined,
+          stateCode: user.stateCode || undefined,
         },
       };
     } catch (error) {
@@ -590,10 +592,20 @@ export class PostgresUserService implements IUserService {
         }
       }
 
-      // Update user
+      // Whitelist DTO fields onto real columns. `country`/`state` keep their
+      // MongoDB-era DTO names (the /api/user/complete-profile contract) but
+      // live in country_code/state_code; legacy fields with no column
+      // (city, location, bio) are deliberately ignored. Spreading the DTO
+      // into .set() breaks drizzle on unknown keys — do not restore it.
+      const set: Record<string, unknown> = { updatedAt: new Date() };
+      if (updates.username !== undefined) set.username = updates.username;
+      if (updates.discordUsername !== undefined) set.discordUsername = updates.discordUsername;
+      if (updates.country !== undefined) set.countryCode = updates.country || null;
+      if (updates.state !== undefined) set.stateCode = updates.state || null;
+
       const result = await db
         .update(users)
-        .set({ ...updates, updatedAt: new Date() })
+        .set(set)
         .where(eq(users.id, userId))
         .returning();
 

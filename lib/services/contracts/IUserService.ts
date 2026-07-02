@@ -75,6 +75,9 @@ export interface UserProfileDTO {
   metafyId?: string;
   metafyUsername?: string;
   metafyPartner?: boolean;
+  /** Self-set location (coarse: country + state only) */
+  countryCode?: string;
+  stateCode?: string;
 }
 
 /**
@@ -136,9 +139,12 @@ export interface UserProfileStatsDTO {
  */
 export interface UpdateProfileDTO {
   username?: string;
+  discordUsername?: string;
   bio?: string;
   location?: string;
+  /** ISO country code — persisted to users.country_code */
   country?: string;
+  /** State/region code — persisted to users.state_code */
   state?: string;
 }
 

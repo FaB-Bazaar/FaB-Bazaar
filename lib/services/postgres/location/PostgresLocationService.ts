@@ -317,12 +317,13 @@ export class PostgresLocationService implements ILocationService {
   async getUserStoresContext(userId: string): AsyncResult<StoresContextDTO> {
     try {
       const userRows = await db
-        .select({ countryCode: users.countryCode })
+        .select({ countryCode: users.countryCode, stateCode: users.stateCode })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
 
       const countryCode = userRows[0]?.countryCode ?? null;
+      const stateCode = userRows[0]?.stateCode ?? null;
 
       const followedResult = await this.getUserFollowedStores(userId);
       const followedStores = followedResult.success ? followedResult.data : [];
@@ -375,7 +376,7 @@ export class PostgresLocationService implements ILocationService {
 
       return {
         success: true,
-        data: { countryCode, followedStores, upcomingEvents },
+        data: { countryCode, stateCode, followedStores, upcomingEvents },
       };
     } catch (error) {
       return { success: false, error: String(error) };

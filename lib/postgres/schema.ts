@@ -117,8 +117,9 @@ export const users = pgTable('users', {
   metafyTokenExpiry: timestamp('metafy_token_expiry'),
   metafyPartner: boolean('metafy_partner').default(false),
 
-  // Location
+  // Location (coarse, user-set on /profile/edit — no city/coords by design)
   countryCode: text('country_code'),
+  stateCode: text('state_code'),
 
   // Roles
   isAdmin: boolean('is_admin').default(false).notNull(),

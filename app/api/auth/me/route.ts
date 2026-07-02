@@ -41,6 +41,8 @@ export async function GET() {
         metafyUsername: profile.metafyUsername,
         metafyPartner: profile.metafyPartner ?? false,
         metafyCommunities,
+        countryCode: profile.countryCode,
+        stateCode: profile.stateCode,
       },
       sessionType: "nextauth",
       debug: {
