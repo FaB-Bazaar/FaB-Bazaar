@@ -30,6 +30,16 @@ const FOIL_STYLES: Record<string, string> = {
 
 type ZoomedCard = { url: string; caption: string };
 
+/** Σ tcg_low × qty for a card list — shown on trader chips for at-a-glance triage. */
+function sideValue(cards: StoreTradeCardDTO[]): number {
+  return cards.reduce((sum, c) => sum + (c.tcgLow ?? 0) * (c.quantity || 1), 0);
+}
+
+function valueSuffix(cards: StoreTradeCardDTO[]): string {
+  const v = sideValue(cards);
+  return v > 0 ? ` · ~$${v.toFixed(0)}` : "";
+}
+
 function cardCaption(card: Pick<StoreTradeCardDTO, "displayName" | "foiling" | "collectorNumber" | "quantity">) {
   const foil = card.foiling && card.foiling !== "NF" ? `${card.foiling} ` : "";
   const num = card.collectorNumber ? ` (${card.collectorNumber})` : "";
@@ -44,10 +54,11 @@ function CardTile({
   card,
   onZoom,
 }: {
-  card: Pick<StoreTradeCardDTO, "displayName" | "foiling" | "collectorNumber" | "quantity" | "imageUrl" | "tcgMarket">;
+  card: Pick<StoreTradeCardDTO, "displayName" | "foiling" | "collectorNumber" | "quantity" | "imageUrl" | "tcgMarket" | "tcgLow">;
   onZoom: (zoom: ZoomedCard) => void;
 }) {
   const caption = cardCaption(card);
+  const price = card.tcgLow ?? card.tcgMarket;
   return (
     <div className="flex w-24 shrink-0 snap-start flex-col items-center">
       <button
@@ -80,9 +91,9 @@ function CardTile({
       <span className="mt-1 w-24 truncate text-center text-xs text-gray-700 dark:text-gray-300" title={card.displayName}>
         {card.displayName}
       </span>
-      {card.tcgMarket != null && (
+      {price != null && (
         <span className="text-xs font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-          ${card.tcgMarket.toFixed(2)}
+          ${Number(price).toFixed(2)}
         </span>
       )}
     </div>
@@ -422,7 +433,8 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                         collectorNumber: m.collectorNumber,
                         quantity: 1,
                         imageUrl: m.imageUrl,
-                        tcgMarket: null,
+                        tcgMarket: m.tcgMarket,
+                        tcgLow: m.tcgLow,
                       }}
                       onZoom={setZoomedCard}
                     />
@@ -489,12 +501,12 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                       </Link>
                       {match.theyHaveYouWant.length > 0 && (
                         <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
-                          Has {match.theyHaveYouWant.length} you want
+                          Has {match.theyHaveYouWant.length} you want{valueSuffix(match.theyHaveYouWant)}
                         </span>
                       )}
                       {match.theyWantYouHave.length > 0 && (
                         <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                          Wants {match.theyWantYouHave.length} you have
+                          Wants {match.theyWantYouHave.length} you have{valueSuffix(match.theyWantYouHave)}
                         </span>
                       )}
                     </div>

@@ -286,6 +286,8 @@ export interface StoreTradeCardDTO {
   /** How many the current user wants (theyHaveYouWant) or has forTrade (theyWantYouHave) */
   quantity: number;
   tcgMarket?: number | null;
+  /** Canonical price used to value-rank matches (wants-page convention) */
+  tcgLow?: number | null;
   imageUrl?: string | null;
 }
 
@@ -317,6 +319,8 @@ export interface StoreWantMatchDTO {
   foiling: string;
   imageUrl?: string | null;
   tcgMarket?: number | null;
+  /** Canonical price; want matches are ordered by it descending */
+  tcgLow?: number | null;
   /** How many the viewer wants. */
   wantedQuantity: number;
   owners: StoreWantMatchOwnerDTO[];

@@ -630,6 +630,7 @@ export class PostgresInventoryService implements IInventoryService {
           foiling: printings.foiling,
           quantity: sql<number>`(SELECT wi.quantity FROM wants_items wi WHERE wi.user_id = ${userId} AND wi.printing_id = ${inventoryItems.printingId} LIMIT 1)`,
           tcgMarket: printings.tcgMarket,
+          tcgLow: printings.tcgLow,
           imageUrl: printings.imageUrl,
           collectorNumber: printings.collectorNumber,
         })
@@ -669,7 +670,9 @@ export class PostgresInventoryService implements IInventoryService {
           foiling: printings.foiling,
           quantity: sql<number>`(SELECT SUM(ii.quantity) FROM inventory_items ii JOIN binders b ON b.id = ii.binder_id WHERE ii.user_id = ${userId} AND ii.printing_id = ${wantsItems.printingId} AND ii.for_trade = true AND b.allow_in_matching = true)`,
           tcgMarket: printings.tcgMarket,
+          tcgLow: printings.tcgLow,
           imageUrl: printings.imageUrl,
+          collectorNumber: printings.collectorNumber,
         })
         .from(wantsItems)
         .innerJoin(users, eq(wantsItems.userId, users.id))
@@ -726,6 +729,7 @@ export class PostgresInventoryService implements IInventoryService {
           foiling: foilingLabel(row.foiling),
           quantity: row.quantity ?? 1,
           tcgMarket: row.tcgMarket,
+          tcgLow: row.tcgLow != null ? Number(row.tcgLow) : null,
           imageUrl: row.imageUrl,
           collectorNumber: row.collectorNumber,
         });
@@ -739,16 +743,25 @@ export class PostgresInventoryService implements IInventoryService {
           foiling: foilingLabel(row.foiling),
           quantity: row.quantity ?? 1,
           tcgMarket: row.tcgMarket,
+          tcgLow: row.tcgLow != null ? Number(row.tcgLow) : null,
           imageUrl: row.imageUrl,
           collectorNumber: row.collectorNumber,
         });
       }
 
-      // Sort: mutual matches first, then by total card count
+      // Sort: mutual matches first (a two-way overlap can actually complete),
+      // then by total matched tcg_low value — one $60 card beats bulk commons.
+      // Count is only a tie-break for unpriced cards.
+      const matchValue = (m: StoreTradeMatchDTO) =>
+        [...m.theyHaveYouWant, ...m.theyWantYouHave].reduce(
+          (sum, c) => sum + (c.tcgLow ?? 0) * (c.quantity || 1), 0
+        );
       const matches = [...matchMap.values()].sort((a, b) => {
         const aMutual = a.theyHaveYouWant.length > 0 && a.theyWantYouHave.length > 0 ? 1 : 0;
         const bMutual = b.theyHaveYouWant.length > 0 && b.theyWantYouHave.length > 0 ? 1 : 0;
         if (bMutual !== aMutual) return bMutual - aMutual;
+        const valueDiff = matchValue(b) - matchValue(a);
+        if (valueDiff !== 0) return valueDiff;
         return (b.theyHaveYouWant.length + b.theyWantYouHave.length) - (a.theyHaveYouWant.length + a.theyWantYouHave.length);
       });
 
@@ -775,6 +788,7 @@ export class PostgresInventoryService implements IInventoryService {
           foiling: printings.foiling,
           imageUrl: printings.imageUrl,
           tcgMarket: printings.tcgMarket,
+          tcgLow: printings.tcgLow,
           ownerId: users.id,
           ownerUsername: users.username,
           ownerDisplayUsername: users.displayUsername,
@@ -829,6 +843,7 @@ export class PostgresInventoryService implements IInventoryService {
             foiling: foilingLabel(row.foiling),
             imageUrl: row.imageUrl,
             tcgMarket: row.tcgMarket,
+            tcgLow: row.tcgLow != null ? Number(row.tcgLow) : null,
             wantedQuantity: row.wantedQuantity ?? 1,
             owners: [],
             _owners: new Map(),
@@ -849,9 +864,14 @@ export class PostgresInventoryService implements IInventoryService {
         }
       }
 
+      // Priciest wanted cards first (tcg_low), then most owners, then name
       const data = [...byPrinting.values()]
         .map(({ _owners, ...rest }) => ({ ...rest, owners: [..._owners.values()] }))
-        .sort((a, b) => b.owners.length - a.owners.length || a.displayName.localeCompare(b.displayName));
+        .sort((a, b) =>
+          (b.tcgLow ?? 0) - (a.tcgLow ?? 0) ||
+          b.owners.length - a.owners.length ||
+          a.displayName.localeCompare(b.displayName)
+        );
 
       return { success: true, data };
     } catch (error) {

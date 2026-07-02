@@ -132,3 +132,42 @@ describe('PostgresInventoryService.getStoreWantMatches', () => {
     expect(res.data.find((m) => m.printingId === wantedOwnedId)).toBeUndefined();
   });
 });
+
+describe('PostgresInventoryService.getStoreWantMatches — value ordering', () => {
+  it('includes tcgLow and orders wanted cards by it descending', async () => {
+    // Hermetic printings with controlled prices
+    const [card] = await db.select({ cardUniqueId: printings.cardUniqueId }).from(printings).limit(1);
+    const mk = async (tcgLow: number) => {
+      const id = nanoid(21);
+      await db.insert(printings).values({
+        printingId: id, cardUniqueId: card.cardUniqueId,
+        set: 'tst', edition: 'N', foiling: 'S', rarity: 'C', tcgLow,
+      });
+      return id;
+    };
+    const cheap = await mk(0.1);
+    const dear = await mk(50);
+
+    try {
+      await db.insert(wantsItems).values([
+        { id: nanoid(21), userId: me, printingId: cheap, quantity: 1 },
+        { id: nanoid(21), userId: me, printingId: dear, quantity: 1 },
+      ]);
+      await giveForTrade(owner, cheap);
+      await giveForTrade(owner, dear);
+
+      const res = await service.getStoreWantMatches(storeId, me);
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+
+      const ids = res.data.map((m) => m.printingId);
+      expect(ids.indexOf(dear)).toBeLessThan(ids.indexOf(cheap));
+      expect(res.data.find((m) => m.printingId === dear)!.tcgLow).toBe(50);
+    } finally {
+      // Delete items referencing the printings first, then the printings
+      await db.delete(inventoryItems).where(inArray(inventoryItems.printingId, [cheap, dear]));
+      await db.delete(wantsItems).where(inArray(wantsItems.printingId, [cheap, dear]));
+      await db.delete(printings).where(inArray(printings.printingId, [cheap, dear]));
+    }
+  });
+});
