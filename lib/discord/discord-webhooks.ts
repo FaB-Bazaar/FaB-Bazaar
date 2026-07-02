@@ -35,7 +35,96 @@ export interface WantsUpdateData {
   wantsUrl: string;
 }
 
+export interface TradeInterestData {
+  requesterUsername: string;
+  requesterDiscordId?: string | null;
+  ownerUsername: string;
+  ownerDiscordId?: string | null;
+  binderName: string;
+  binderUrl: string;
+  cards: Array<{
+    name: string;
+    quantity: number;
+    value: number;
+  }>;
+  totalValue?: number;
+}
+
 export class DiscordWebhooks {
+  /**
+   * Send Discord notification when someone copies a trade request from
+   * another user's binder. Posts to a channel and @mentions both users
+   * (mentions land in the inbox even when DMs are closed).
+   */
+  static async sendTradeInterest(data: TradeInterestData): Promise<boolean> {
+    const webhookUrl = process.env.DISCORD_WEBHOOK_TRADE_INTEREST;
+    if (!webhookUrl) {
+      console.log('[Discord] No trade-interest webhook URL configured, skipping notification');
+      return false;
+    }
+
+    try {
+      const mentionIds: string[] = [];
+      const mention = (discordId: string | null | undefined, username: string) => {
+        if (discordId) {
+          mentionIds.push(discordId);
+          return `<@${discordId}>`;
+        }
+        return `**${displayUsername(username)}**`;
+      };
+
+      const requesterRef = mention(data.requesterDiscordId, data.requesterUsername);
+      const ownerRef = mention(data.ownerDiscordId, data.ownerUsername);
+
+      const cardLines = data.cards.slice(0, 5).map(card => {
+        const quantityText = card.quantity > 1 ? ` x${card.quantity}` : '';
+        const valueText = card.value > 0 ? ` - $${card.value.toFixed(2)}` : '';
+        return `• ${card.name}${quantityText}${valueText}`;
+      });
+      const moreCount = data.cards.length - 5;
+      if (moreCount > 0) cardLines.push(`…and ${moreCount} more`);
+
+      const embed = {
+        title: '🤝 Trade Interest',
+        fields: [
+          {
+            name: '🃏 Cards',
+            value: cardLines.join('\n') || 'No cards listed',
+            inline: false
+          },
+          {
+            name: '🔗 Binder',
+            value: `[${data.binderName}](${data.binderUrl})`,
+            inline: true
+          }
+        ],
+        color: 0x3498db, // Blue
+        timestamp: new Date().toISOString()
+      };
+
+      if (typeof data.totalValue === 'number' && data.totalValue > 0) {
+        embed.fields.push({
+          name: '💰 Est. Value',
+          value: `$${data.totalValue.toFixed(2)}`,
+          inline: true
+        });
+      }
+
+      const payload = {
+        username: 'FaB Bazaar',
+        avatar_url: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/881e1291-45e3-4c6c-a25c-b9fd7e33bb00/public',
+        content: `${requesterRef} is interested in cards from ${ownerRef} — reach out to work out a trade!`,
+        allowed_mentions: { users: mentionIds },
+        embeds: [embed]
+      };
+
+      return await this.sendWebhook(webhookUrl, payload);
+    } catch (error) {
+      console.error('[Discord] ❌ Error sending trade-interest webhook:', error);
+      return false;
+    }
+  }
+
   /**
    * Send Discord notification for binder updates
    */

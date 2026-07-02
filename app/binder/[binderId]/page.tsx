@@ -1223,6 +1223,7 @@ const SuperSlamDisclosure = () => {
             <TradeRequestSidebar
               selectedCards={selectedCards}
               sidebarOpen={sidebarOpen}
+              binderId={binderId}
               recipientId={recipientInfo.id}
               recipientUsername={recipientInfo.username}
               recipientDiscordId={recipientInfo.discordId}
@@ -1285,6 +1286,7 @@ const SuperSlamDisclosure = () => {
                 selectedCards={selectedCards}
                 isOpen={isMobileTradeSheetOpen}
                 onOpenChange={setIsMobileTradeSheetOpen}
+                binderId={binderId}
                 recipientId={recipientInfo.id}
                 recipientUsername={recipientInfo.username}
                 recipientDiscordId={recipientInfo.discordId}

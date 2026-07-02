@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { notifyTradeInterest } from "@/lib/client/binders-client";
 
 // A simplified card item specifically for the mobile sheet
 const MobileTradeCardItem = ({ card, onQuantityChange, onRemove }: any) => {
@@ -45,6 +46,7 @@ export const MobileTradeRequestSheet = ({
   selectedCards,
   isOpen,
   onOpenChange,
+  binderId,
   recipientId,
   recipientUsername,
   recipientDiscordId,
@@ -120,6 +122,17 @@ export const MobileTradeRequestSheet = ({
           title: "Copied to Clipboard!",
           description: "Trade request has been copied. You can now paste it in Discord.",
           duration: 3000,
+        });
+
+        // Ping the binder owner in the Discord server (fire-and-forget)
+        const notifyCards = validCardsToSend.map((card: any) => ({
+          name: card.display_name || card.name,
+          quantity: card.quantity,
+          value: card.tcg_market ?? card.printingDetails?.tcg_market ?? 0,
+        }));
+        notifyTradeInterest(binderId, {
+          cards: notifyCards,
+          totalValue: notifyCards.reduce((sum: number, c: any) => sum + c.value * c.quantity, 0),
         });
 
         setError(null);

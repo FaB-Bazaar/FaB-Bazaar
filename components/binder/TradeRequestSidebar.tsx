@@ -24,10 +24,12 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { notifyTradeInterest } from "@/lib/client/binders-client";
 
 interface TradeRequestSidebarProps {
   selectedCards: any[];
   sidebarOpen: boolean;
+  binderId: string;
   recipientId: string;
   recipientUsername: string;
   recipientDiscordId?: string;
@@ -220,6 +222,7 @@ const TradeCardItem: React.FC<TradeCardItemProps> = ({
 export const TradeRequestSidebar: React.FC<TradeRequestSidebarProps> = ({
   selectedCards,
   sidebarOpen,
+  binderId,
   recipientId,
   recipientUsername,
   recipientDiscordId,
@@ -387,6 +390,17 @@ const handleCopyToClipboard = async () => {
           title: "Copied to Clipboard!",
           description: "Trade request has been copied. You can now paste it in Discord.",
           duration: 3000,
+        });
+
+        // Ping the binder owner in the Discord server (fire-and-forget)
+        const notifyCards = validCardsToSend.map(card => ({
+          name: card.display_name || card.name,
+          quantity: card.quantity,
+          value: card.tcg_market ?? card.printingDetails?.tcg_market ?? 0,
+        }));
+        notifyTradeInterest(binderId, {
+          cards: notifyCards,
+          totalValue: notifyCards.reduce((sum, c) => sum + c.value * c.quantity, 0),
         });
 
         setError(null);
