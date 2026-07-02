@@ -12,13 +12,90 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { locationsClient } from "@/lib/client";
 import type { LocationDTO, EventDTO, LocationFollowerDTO } from "@/types/location";
-import type { StoreTradeMatchDTO, StoreWantMatchDTO } from "@/lib/services/contracts/IInventoryService";
+import type { StoreTradeMatchDTO, StoreWantMatchDTO, StoreTradeCardDTO } from "@/lib/services/contracts/IInventoryService";
 import { profileHref } from "@/lib/utils/display-username";
 
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString(undefined, {
     month: "short", day: "numeric", year: "numeric",
   });
+}
+
+// Foil pill colors on card tiles (NF renders no pill)
+const FOIL_STYLES: Record<string, string> = {
+  RF: "bg-gradient-to-r from-pink-500 via-amber-400 to-sky-500 text-white",
+  CF: "bg-cyan-600 text-white",
+  GF: "bg-amber-500 text-black",
+};
+
+type ZoomedCard = { url: string; caption: string };
+
+function cardCaption(card: Pick<StoreTradeCardDTO, "displayName" | "foiling" | "collectorNumber" | "quantity">) {
+  const foil = card.foiling && card.foiling !== "NF" ? `${card.foiling} ` : "";
+  const num = card.collectorNumber ? ` (${card.collectorNumber})` : "";
+  return `${card.quantity}× ${foil}${card.displayName}${num}`;
+}
+
+/**
+ * Tappable card-art tile for trade/want match sections. Sized for phones —
+ * big enough to recognize art at arm's length and show across a table.
+ */
+function CardTile({
+  card,
+  onZoom,
+}: {
+  card: Pick<StoreTradeCardDTO, "displayName" | "foiling" | "collectorNumber" | "quantity" | "imageUrl" | "tcgMarket">;
+  onZoom: (zoom: ZoomedCard) => void;
+}) {
+  const caption = cardCaption(card);
+  return (
+    <div className="flex w-24 shrink-0 snap-start flex-col items-center">
+      <button
+        type="button"
+        onClick={() => card.imageUrl && onZoom({ url: card.imageUrl, caption })}
+        className="relative w-24 overflow-hidden rounded-lg ring-1 ring-gray-300 dark:ring-gray-600 transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        style={{ aspectRatio: "5 / 7" }}
+        title={caption}
+        aria-label={`Zoom ${caption}`}
+      >
+        {card.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={card.imageUrl} alt={card.displayName} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gray-200 p-1 dark:bg-gray-700">
+            <span className="text-center text-xs leading-tight text-gray-600 dark:text-gray-300">{card.displayName}</span>
+          </div>
+        )}
+        {card.quantity > 1 && (
+          <span className="absolute left-1 top-1 rounded-full bg-black/80 px-1.5 py-0.5 text-xs font-bold text-white">
+            ×{card.quantity}
+          </span>
+        )}
+        {FOIL_STYLES[card.foiling] && (
+          <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-xs font-bold ${FOIL_STYLES[card.foiling]}`}>
+            {card.foiling}
+          </span>
+        )}
+      </button>
+      <span className="mt-1 w-24 truncate text-center text-xs text-gray-700 dark:text-gray-300" title={card.displayName}>
+        {card.displayName}
+      </span>
+      {card.tcgMarket != null && (
+        <span className="text-xs font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+          ${card.tcgMarket.toFixed(2)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Horizontal thumb-swipe strip on phones; wraps into a grid on wider screens. */
+function CardStrip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+      {children}
+    </div>
+  );
 }
 
 function EventRow({
@@ -113,7 +190,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
   const [followPending, setFollowPending] = useState(false);
   const [tradeMatches, setTradeMatches] = useState<StoreTradeMatchDTO[]>([]);
   const [wantMatches, setWantMatches] = useState<StoreWantMatchDTO[]>([]);
-  const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
+  const [zoomedCard, setZoomedCard] = useState<ZoomedCard | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -228,10 +305,10 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Hero bar */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-800 dark:to-indigo-800">
-        <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto px-4 py-4 sm:py-6">
           <Link
             href="/stores/browse"
-            className="inline-flex items-center gap-1 text-blue-100 hover:text-white text-sm mb-4 transition-colors"
+            className="inline-flex items-center gap-1 text-blue-100 hover:text-white text-sm mb-3 sm:mb-4 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
             Back to browse
@@ -239,7 +316,7 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
 
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-white">{location.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">{location.name}</h1>
               <div className="flex items-center gap-1.5 text-blue-100 text-sm mt-1">
                 <MapPin className="w-3.5 h-3.5" />
                 {location.addressLine1}, {location.addressCity}
@@ -335,41 +412,43 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 Cards you want that followers of this store have for trade.
               </p>
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-4">
                 {wantMatches.map((m) => (
-                  <li key={m.printingId} className="flex gap-3 items-start border-b border-gray-100 dark:border-gray-700 last:border-0 pb-3 last:pb-0">
-                    {m.imageUrl ? (
-                      <img
-                        src={m.imageUrl}
-                        alt={m.displayName}
-                        className="h-14 w-10 rounded object-cover flex-shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
-                        onClick={() => setZoomedImageUrl(m.imageUrl!)}
-                      />
-                    ) : (
-                      <div className="h-14 w-10 rounded bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
+                  <li key={m.printingId} className="flex gap-3 items-start border-b border-gray-100 dark:border-gray-700 last:border-0 pb-4 last:pb-0">
+                    <CardTile
+                      card={{
+                        displayName: m.displayName,
+                        foiling: m.foiling,
+                        collectorNumber: m.collectorNumber,
+                        quantity: 1,
+                        imageUrl: m.imageUrl,
+                        tcgMarket: null,
+                      }}
+                      onZoom={setZoomedCard}
+                    />
+                    <div className="flex-1 min-w-0 pt-1">
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {m.foiling !== 'NF' && <span className="text-gray-500 dark:text-gray-400">{m.foiling} </span>}
                         {m.displayName}
-                        {m.collectorNumber && <span className="text-gray-400 dark:text-gray-500"> ({m.collectorNumber})</span>}
+                        {m.collectorNumber && <span className="text-gray-500 dark:text-gray-400"> ({m.collectorNumber})</span>}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Available from:</div>
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         {m.owners.map((o) => (
                           <Link
                             key={o.userId}
-                            href={`/profile/${o.username}`}
-                            className="inline-flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/60 rounded-full pl-1 pr-2 py-0.5 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            href={profileHref(o.username)}
+                            className="inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/60 rounded-full pl-1 pr-2.5 py-1 hover:bg-gray-200 dark:hover:bg-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                           >
                             {o.avatarUrl ? (
-                              <img src={o.avatarUrl} alt={o.username} className="w-5 h-5 rounded-full object-cover" />
+                              <img src={o.avatarUrl} alt={o.username} className="w-6 h-6 rounded-full object-cover" />
                             ) : (
-                              <span className="w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-[10px] font-semibold text-gray-600 dark:text-gray-200">
+                              <span className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-200">
                                 {(o.displayUsername || o.username).charAt(0).toUpperCase()}
                               </span>
                             )}
                             <span className="font-medium">{o.displayUsername || o.username}</span>
-                            <span className="text-green-600 dark:text-green-400">×{o.quantity}</span>
+                            <span className="font-semibold text-green-600 dark:text-green-400">×{o.quantity}</span>
                           </Link>
                         ))}
                       </div>
@@ -387,82 +466,63 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                 <ArrowLeftRight className="w-4 h-4 text-green-500" />
                 Trade Opportunities ({tradeMatches.length})
               </h2>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-5">
                 {tradeMatches.map((match) => (
-                  <div key={match.userId} className="flex gap-3 items-start border-b border-gray-100 dark:border-gray-700 last:border-0 pb-3 last:pb-0">
-                    <Link href={`/profile/${match.username}`} className="flex-shrink-0">
-                      {match.avatarUrl ? (
-                        <img
-                          src={match.avatarUrl}
-                          alt={match.username}
-                          className="w-9 h-9 rounded-full object-cover border-2 border-white dark:border-gray-800"
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-500 dark:text-gray-300 border-2 border-white dark:border-gray-800">
-                          {(match.displayUsername || match.username).charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        href={`/profile/${match.username}`}
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        {match.displayUsername || match.username}
+                  <div key={match.userId} className="border-b border-gray-100 dark:border-gray-700 last:border-0 pb-5 last:pb-0">
+                    {/* Trader header: avatar + name + summary chips */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <Link href={profileHref(match.username)} className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-full">
+                        {match.avatarUrl ? (
+                          <img
+                            src={match.avatarUrl}
+                            alt={match.username}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-gray-800"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-sm font-semibold text-gray-500 dark:text-gray-300 border-2 border-white dark:border-gray-800">
+                            {(match.displayUsername || match.username).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                          {match.displayUsername || match.username}
+                        </span>
                       </Link>
                       {match.theyHaveYouWant.length > 0 && (
-                        <div className="mt-1.5">
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                            Has {match.theyHaveYouWant.length} card{match.theyHaveYouWant.length !== 1 ? 's' : ''} you want:
-                          </span>
-                          <ul className="mt-1 flex flex-col gap-1.5">
-                            {match.theyHaveYouWant.map((c) => (
-                              <li key={c.printingId} className="flex items-center gap-2">
-                                {c.imageUrl ? (
-                                  <img
-                                    src={c.imageUrl}
-                                    alt={c.displayName}
-                                    className="h-10 w-7 rounded object-cover flex-shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
-                                    onClick={() => setZoomedImageUrl(c.imageUrl!)}
-                                  />
-                                ) : (
-                                  <div className="h-10 w-7 rounded bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-                                )}
-                                <span className="text-xs text-gray-600 dark:text-gray-300">
-                                  {c.quantity}x {c.foiling} {c.displayName}{c.collectorNumber && <span className="text-gray-400 dark:text-gray-500"> ({c.collectorNumber})</span>}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                          Has {match.theyHaveYouWant.length} you want
+                        </span>
                       )}
                       {match.theyWantYouHave.length > 0 && (
-                        <div className="mt-1.5">
-                          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                            Wants {match.theyWantYouHave.length} card{match.theyWantYouHave.length !== 1 ? 's' : ''} you have:
-                          </span>
-                          <ul className="mt-1 flex flex-col gap-1.5">
-                            {match.theyWantYouHave.map((c) => (
-                              <li key={c.printingId} className="flex items-center gap-2">
-                                {c.imageUrl ? (
-                                  <img
-                                    src={c.imageUrl}
-                                    alt={c.displayName}
-                                    className="h-10 w-7 rounded object-cover flex-shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity"
-                                    onClick={() => setZoomedImageUrl(c.imageUrl!)}
-                                  />
-                                ) : (
-                                  <div className="h-10 w-7 rounded bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-                                )}
-                                <span className="text-xs text-gray-600 dark:text-gray-300">
-                                  {c.quantity}x {c.foiling} {c.displayName}{c.collectorNumber && <span className="text-gray-400 dark:text-gray-500"> ({c.collectorNumber})</span>}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        <span className="text-xs font-medium rounded-full px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                          Wants {match.theyWantYouHave.length} you have
+                        </span>
                       )}
                     </div>
+
+                    {match.theyHaveYouWant.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">
+                          They have — you want
+                        </div>
+                        <CardStrip>
+                          {match.theyHaveYouWant.map((c) => (
+                            <CardTile key={c.printingId} card={c} onZoom={setZoomedCard} />
+                          ))}
+                        </CardStrip>
+                      </div>
+                    )}
+                    {match.theyWantYouHave.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-2">
+                          They want — you have
+                        </div>
+                        <CardStrip>
+                          {match.theyWantYouHave.map((c) => (
+                            <CardTile key={c.printingId} card={c} onZoom={setZoomedCard} />
+                          ))}
+                        </CardStrip>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -545,20 +605,25 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* Card zoom lightbox */}
-      {zoomedImageUrl && (
+      {/* Card zoom lightbox — tap anywhere to close */}
+      {zoomedCard && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
-          onClick={() => setZoomedImageUrl(null)}
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-3 bg-black/85 backdrop-blur-sm cursor-pointer px-4"
+          onClick={() => setZoomedCard(null)}
+          role="dialog"
+          aria-label={zoomedCard.caption}
         >
           <Image
-            src={zoomedImageUrl}
-            alt="Card zoom"
+            src={zoomedCard.url}
+            alt={zoomedCard.caption}
             width={400}
             height={560}
-            className="max-h-[85vh] max-w-[85vw] w-auto h-auto rounded-xl shadow-2xl border border-gray-600"
-            onClick={(e) => e.stopPropagation()}
+            className="max-h-[78vh] max-w-[90vw] w-auto h-auto rounded-xl shadow-2xl border border-gray-600"
           />
+          <div className="text-center text-base font-medium text-white">
+            {zoomedCard.caption}
+          </div>
+          <div className="text-sm text-gray-300">Tap anywhere to close</div>
         </div>
       )}
     </div>
