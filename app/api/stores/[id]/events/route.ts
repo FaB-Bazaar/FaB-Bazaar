@@ -13,9 +13,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // POST — create event at this location (managers + admins)
+// allowOAuth: called by the create_event MCP tool with a bearer token
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const authResult = await authenticateRequest(request, {});
+  const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
   if (!authResult.success) return NextResponse.json({ error: authResult.error }, { status: 401 });
 
   const canResult = await locationService.canManageLocation(authResult.userId, id);

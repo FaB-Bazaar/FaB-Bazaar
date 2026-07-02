@@ -25,8 +25,10 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/locations — admin create
+// allowOAuth: called by the create_event MCP tool with a bearer token
+// (same opt-in as /api/curated-lists and /api/banned-cards)
 export async function POST(request: NextRequest) {
-  const authResult = await authenticateRequest(request, {});
+  const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
   if (!authResult.success) return NextResponse.json({ error: authResult.error }, { status: 401 });
 
   const body = await request.json();

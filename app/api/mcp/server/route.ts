@@ -35,6 +35,9 @@ import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 import { manageCardRestrictionTool } from '../tool/bannedCards/manageCardRestriction';
 import { listCardRestrictionsTool } from '../tool/bannedCards/listCardRestrictions';
 
+// Import event tools (superadmin only)
+import { createEventTool } from '../tool/events/createEvent';
+
 // Import deck tools
 import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
@@ -398,6 +401,11 @@ export async function POST(req: Request) {
             name: listCardRestrictionsTool.name,
             description: listCardRestrictionsTool.description,
             inputSchema: listCardRestrictionsTool.parameters,
+          },
+          {
+            name: createEventTool.name,
+            description: createEventTool.description,
+            inputSchema: createEventTool.parameters,
           },
         ] : [];
 
@@ -1735,14 +1743,15 @@ The new tool provides the same functionality with better guidance for proper wor
         }
 
         // BANNED-CARDS REGISTRY TOOLS (superadmin — the API enforces the role)
-        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions') {
-          if (DEBUG_MCP) console.log(`🚫 Executing banned-cards tool: ${toolName}`);
+        if (toolName === 'manage_card_restriction' || toolName === 'list_card_restrictions' || toolName === 'create_event') {
+          if (DEBUG_MCP) console.log(`🚫 Executing superadmin tool: ${toolName}`);
           try {
             const tokenToPass = bearerToken;
             const userWithToken = { ...authenticatedUser, mcpToken: tokenToPass };
             const toolMap: Record<string, any> = {
               manage_card_restriction: manageCardRestrictionTool,
               list_card_restrictions: listCardRestrictionsTool,
+              create_event: createEventTool,
             };
             const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
             return NextResponse.json({

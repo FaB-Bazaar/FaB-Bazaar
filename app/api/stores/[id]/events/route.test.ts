@@ -68,6 +68,16 @@ beforeEach(() => {
 // ────────────────────────────────────────────────────────────
 
 describe('POST /api/stores/[id]/events', () => {
+  it('opts into OAuth bearer auth so MCP tools (create_event) can call it', async () => {
+    await POST(makeRequest(validBody), { params });
+
+    expect(mockAuth).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ allowOAuth: true })
+    );
+  });
+
   it('returns 401 when unauthenticated', async () => {
     mockAuth.mockResolvedValue({ success: false, error: 'nope' } as any);
     const res = await POST(makeRequest(validBody), { params });
