@@ -460,6 +460,35 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
+   * List the distinct printing languages present in a set, English first
+   * (then fr, ja, then others alphabetically).
+   */
+  async getSetLanguages(setCode: string): AsyncResult<string[]> {
+    try {
+      const rows = await db
+        .selectDistinct({ language: printings.language })
+        .from(printings)
+        .where(eq(printings.set, setCode.toLowerCase()));
+
+      const priority: Record<string, number> = { en: 0, fr: 1, ja: 2 };
+      const langs = rows
+        .map((r) => (r.language || 'en').toLowerCase())
+        .sort((a, b) => {
+          const pa = priority[a] ?? 3;
+          const pb = priority[b] ?? 3;
+          return pa !== pb ? pa - pb : a.localeCompare(b);
+        });
+
+      return { success: true, data: [...new Set(langs)] };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get set languages',
+      };
+    }
+  }
+
+  /**
    * Get all printings for a specific card
    */
   async getPrintingsForCard(

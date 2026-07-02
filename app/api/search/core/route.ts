@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     if (searchParams.get('editions')) filters.editions = searchParams.get('editions')!.split(',');
     if (searchParams.get('foilings')) filters.foilings = searchParams.get('foilings')!.split(',');
     if (searchParams.get('rarities')) filters.rarities = searchParams.get('rarities')!.split(',');
+    if (searchParams.get('languages')) filters.languages = searchParams.get('languages')!.split(',');
     if (searchParams.get('isExtendedArt')) filters.isExtendedArt = searchParams.get('isExtendedArt') === 'true';
 
     // Price filters

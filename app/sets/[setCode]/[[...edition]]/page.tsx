@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getSetMetadata, hasFirstEdition } from '@/lib/fab-constants'
 import { getSetImageUrl } from "@/lib/set-images"
+import { languageFlag } from "@/lib/utils/printing-language"
 
 // Get the edition code based on set and edition parameter
 function getEditionCode(setCode: string, editionParam?: string): string {
@@ -90,6 +91,10 @@ export default function SetPage() {
   // ordinary sets, which hides the pack filter. selectedPack is a group id.
   const [packs, setPacks] = useState<{ groupId: number; name: string; count: number }[]>([]);
   const [selectedPack, setSelectedPack] = useState<number | null>(null);
+  // Printing languages present in this set. The flag filter renders only when
+  // there's more than one; each page defaults to English.
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
 
   // Initialize rarity/foiling defaults when setCode/setInfo changes
   useEffect(() => {
@@ -109,7 +114,27 @@ export default function SetPage() {
       setSelectedFoiling('');
     }
     setSelectedPack(null);
+    setSelectedLanguage('en');
   }, [setCode, setInfo?.defaultRarity]);
+
+  // Load the printing languages present in this set (for the conditional flag filter)
+  useEffect(() => {
+    if (!setCode) { setLanguages([]); return; }
+    let cancelled = false;
+    fetch(`/api/sets/${setCode}/languages`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.success) return;
+        setLanguages(d.data);
+        // Defensive: if a set somehow has no English printings, fall back to
+        // its first available language so the default view isn't empty
+        if (d.data.length > 0 && !d.data.includes('en')) {
+          setSelectedLanguage(d.data[0]);
+        }
+      })
+      .catch(() => { /* non-fatal: just no language filter */ });
+    return () => { cancelled = true; };
+  }, [setCode]);
 
   // Load the TCGplayer packs present in this set (for the conditional pack filter)
   useEffect(() => {
@@ -158,6 +183,9 @@ export default function SetPage() {
         if (selectedPack != null) {
           queryParams.tcgGroup = String(selectedPack);
         }
+
+        // One language at a time; defaults to English on every page
+        queryParams.languages = selectedLanguage;
 
         // Get all cards in the set (no limit)
         queryParams.limit = '1000';
@@ -230,7 +258,7 @@ export default function SetPage() {
       isCancelled = true;
       abortController.abort();
     };
-  }, [setCode, editionCode, selectedRarity, selectedFoiling, selectedPack]);
+  }, [setCode, editionCode, selectedRarity, selectedFoiling, selectedPack, selectedLanguage]);
 
   return (
     <main className="min-h-screen bg-gray-200 dark:bg-page">
@@ -448,6 +476,24 @@ export default function SetPage() {
                 </>
               )}
             </div>
+            {/* Language filter — only for sets printed in more than one language */}
+            {languages.length > 1 && (
+              <div className="flex flex-wrap gap-2 justify-center" role="group" aria-label="Printing language">
+                {languages.map((lang) => (
+                  <Button
+                    key={lang}
+                    variant={selectedLanguage === lang ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedLanguage(lang)}
+                    aria-pressed={selectedLanguage === lang}
+                    title={`Show ${lang.toUpperCase()} printings`}
+                  >
+                    <span aria-hidden="true" className="mr-1">{languageFlag(lang)}</span>
+                    {lang.toUpperCase()}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -665,6 +665,13 @@ export interface IPrintingsService {
   getSetGroups(setCode: string): AsyncResult<SetGroupDTO[]>;
 
   /**
+   * List the distinct printing languages present in a set, English first
+   * (then fr, ja, then others alphabetically). Used to conditionally show
+   * the language flag filter on set pages — hidden for English-only sets.
+   */
+  getSetLanguages(setCode: string): AsyncResult<string[]>;
+
+  /**
    * Get all printings for a specific card
    *
    * @param cardId - Card name or unique ID
