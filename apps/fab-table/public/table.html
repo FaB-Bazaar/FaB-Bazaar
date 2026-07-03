@@ -113,7 +113,10 @@
     width: auto; min-width: 0; aspect-ratio: auto;
     border-style: dashed; box-shadow: none; background: rgba(20,22,26,.8);
   }
-  .pip.offline video, .pip.offline .piplabel, .pip.offline .rotbtn { display: none; }
+  .pip.offline .vidbox, .pip.offline .piplabel, .pip.offline .rotbtn { display: none; }
+  /* The PiP is small: name labels under hit boxes would collide — the hover
+     preview carries the identity instead. */
+  .pip .hitlbl { display: none; }
   .pip.offline .pipempty {
     position: static; border: none; margin: 0; padding: 7px 14px;
     font-size: .7rem; line-height: 1.4;
@@ -258,7 +261,9 @@
     display: flex; flex-direction: column; align-items: center; gap: 3px;
     flex: none; width: 84px;
     opacity: 1; transition: opacity .6s ease;
+    cursor: pointer;
   }
+  .banner .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .banner .card img {
     height: 90px; border-radius: 4px;
     box-shadow: 0 1px 6px rgba(0,0,0,.5);
@@ -319,7 +324,10 @@
         <div class="sname" id="splashName"></div>
       </div>
       <div class="pip" id="pipWrap" hidden>
-        <video id="pipVideo" autoplay muted playsinline></video>
+        <div class="vidbox" id="pipBox">
+          <video id="pipVideo" autoplay muted playsinline></video>
+          <div class="hitlayer" id="hitPip"></div>
+        </div>
         <div class="pipempty" id="pipEmpty">Your camera<br><small>appears here when it connects</small></div>
         <span class="piplabel">You</span>
         <button class="rotbtn pipbtn" id="rotPip" title="Rotate your view">⟳</button>
@@ -419,7 +427,7 @@ const msgEl = document.getElementById('msg');
 // ?role=camera (default): scans and publishes.  ?role=display: mirrors the HUD.
 // Both talk to this server's tiny relay; the real table page swaps this for
 // the fabbazaar WebSocket with auth + rooms.
-const BUILD = 'v27';
+const BUILD = 'v28';
 const params = new URLSearchParams(location.search);
 const pathParts = location.pathname.split('/').filter(Boolean); // ['r', roomId, 'cam'?]
 const ROLE = pathParts[2] === 'cam' ? 'camera' : 'display';
@@ -574,9 +582,9 @@ function isHeroCard(pid) {
 }
 function renderHero() {
   const p = heroPid && card(heroPid);
-  heroSlot.innerHTML = p
-    ? `<div class="card"><img src="${p.img}" alt=""><div class="nm">${p.name}</div></div>`
-    : `<span class="placeholder">Show your hero card to lock it in.</span>`;
+  heroSlot.innerHTML = '';
+  if (p) heroSlot.appendChild(makeCardNode(heroPid)); // same hover preview as the ticker
+  else heroSlot.innerHTML = `<span class="placeholder">Show your hero card to lock it in.</span>`;
 }
 function lockHero(pid, remote) {
   if (heroPid) return; // a game has exactly one hero; ignore later sightings
@@ -617,6 +625,18 @@ function makeCardNode(pid) {
   el.innerHTML = p
     ? `<img src="${p.img}" alt=""><div class="nm">${p.name}</div>`
     : `<div class="nm">unknown: ${pid}</div>`;
+  // Same affordances as scan-log rows and on-video hits: hover/focus for the
+  // big preview, click/Enter for the printing page.
+  el.tabIndex = 0;
+  el.setAttribute('aria-label', p ? p.name : pid);
+  el.addEventListener('mouseenter', () => showPreview(pid, el));
+  el.addEventListener('mouseleave', hidePreview);
+  el.addEventListener('focus', () => showPreview(pid, el));
+  el.addEventListener('blur', hidePreview);
+  el.addEventListener('click', () => window.open(`https://fabbazaar.app/printing/${pid}`, '_blank'));
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') window.open(`https://fabbazaar.app/printing/${pid}`, '_blank');
+  });
   return el;
 }
 
@@ -938,8 +958,8 @@ function layoutVideo(which) {
   };
   // Video and hit layer live inside one box; rotating the box moves both, so
   // targets can never drift from the pixels they annotate.
-  if (which === 'main') Object.assign(document.getElementById('mainBox').style, style);
-  else Object.assign(v.style, { position: 'absolute', ...style });
+  const box = document.getElementById(which === 'main' ? 'mainBox' : 'pipBox');
+  Object.assign(box.style, style);
 }
 
 // --- Hover targets over the opponent's video --------------------------------
@@ -957,9 +977,8 @@ function remapBox([x, y, w, h], mode) {
     ? [1 - y - h, x, h, w]
     : [y, 1 - x - w, h, w];
 }
-function displayBox(s) {
+function displayBox(s, rv) {
   if (!s.box) return null;
-  const rv = mainVideo;
   if (s.fw && s.fh && rv.videoWidth &&
       (s.fw > s.fh) !== (rv.videoWidth > rv.videoHeight)) {
     document.getElementById('boxFixBtn').hidden = false;
@@ -970,12 +989,15 @@ function displayBox(s) {
 
 function renderHits(now) {
   const hitMain = document.getElementById('hitMain');
+  const hitPip = document.getElementById('hitPip');
   for (const [key, s] of seen) {
     const sep = key.indexOf(':');
     const side = key.slice(0, sep), pid = key.slice(sep + 1);
+    // My cards annotate the PiP (my own feed); the opponent's, the main view.
+    const mine = side === SIDE;
     // Tighter window than the banner linger: a hover target with stale
     // coordinates is worse than none, so hide it 2.5s after last sighting.
-    const active = s.confirmed && s.box && side !== SIDE && now - s.lastSeen < 2500;
+    const active = s.confirmed && s.box && now - s.lastSeen < 2500;
     let el = hitNodes.get(key);
     if (!active) {
       if (el) { el.remove(); hitNodes.delete(key); }
@@ -997,9 +1019,9 @@ function renderHits(now) {
       el.addEventListener('click', () => window.open(`https://fabbazaar.app/printing/${pid}`, '_blank'));
       setTimeout(() => el.classList.remove('new'), 2400);
       hitNodes.set(key, el);
-      hitMain.appendChild(el);
+      (mine ? hitPip : hitMain).appendChild(el);
     }
-    const [x, y, w, h] = displayBox(s);
+    const [x, y, w, h] = displayBox(s, mine ? pipVideo : mainVideo);
     Object.assign(el.style, {
       left: x * 100 + '%', top: y * 100 + '%',
       width: w * 100 + '%', height: h * 100 + '%',
