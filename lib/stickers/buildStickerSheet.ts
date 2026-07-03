@@ -12,7 +12,7 @@ export interface StickerEntry {
 }
 
 export interface StickerSection {
-  section: 'Hero' | 'Equipment' | 'Maindeck' | 'Sideboard';
+  section: 'Hero' | 'Equipment' | 'Maindeck' | 'Inventory';
   stickers: StickerEntry[];
 }
 
@@ -39,7 +39,7 @@ const SECTIONS: Array<[keyof DeckLike, StickerSection['section']]> = [
   ['hero', 'Hero'],
   ['equipment', 'Equipment'],
   ['maindeck', 'Maindeck'],
-  ['inventory', 'Sideboard'],
+  ['inventory', 'Inventory'],
 ];
 
 export function buildStickerSheet(

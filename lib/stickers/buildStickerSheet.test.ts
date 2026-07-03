@@ -32,13 +32,13 @@ describe('buildStickerSheet', () => {
     );
   });
 
-  it('orders sections Hero, Equipment, Maindeck, Sideboard (inventory renamed)', () => {
+  it('orders sections Hero, Equipment, Maindeck, Inventory', () => {
     const sections = buildStickerSheet(baseDeck);
     expect(sections.map((s) => s.section)).toEqual([
       'Hero',
       'Equipment',
       'Maindeck',
-      'Sideboard',
+      'Inventory',
     ]);
   });
 

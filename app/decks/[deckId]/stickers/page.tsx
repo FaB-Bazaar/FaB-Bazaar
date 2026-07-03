@@ -20,8 +20,6 @@ const PITCH_COLORS: Record<number, string> = {
   3: "#2563a8",
 };
 
-const CALIBRATION_SIZES_MM = [16, 20, 24];
-
 export default function DeckStickersPage() {
   const params = useParams();
   const deckId = params.deckId as string;
@@ -47,13 +45,15 @@ export default function DeckStickersPage() {
           for (const s of section.stickers) unique.set(s.printingId, s.payload);
         }
         const svgs: Record<string, string> = {};
-        for (const [pid, payload] of unique) {
-          svgs[pid] = await QRCode.toString(payload, {
-            type: "svg",
-            errorCorrectionLevel: "M",
-            margin: 0,
-          });
-        }
+        await Promise.all(
+          Array.from(unique, async ([pid, payload]) => {
+            svgs[pid] = await QRCode.toString(payload, {
+              type: "svg",
+              errorCorrectionLevel: "M",
+              margin: 0,
+            });
+          })
+        );
         if (cancelled) return;
         setDeckName(json.data.name || "Deck");
         setSections(built);
@@ -71,8 +71,6 @@ export default function DeckStickersPage() {
     () => (sections ? sections.reduce((n, s) => n + s.stickers.length, 0) : 0),
     [sections]
   );
-  const heroPid = sections?.[0]?.stickers[0]?.printingId;
-
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8 text-center">
@@ -103,18 +101,18 @@ export default function DeckStickersPage() {
         .stickers-controls { max-width: 216mm; margin: 0 auto 12px; display: flex; gap: 12px; align-items: center; }
         .stickers-grid { display: flex; flex-wrap: wrap; }
         .sticker-cell {
-          width: 24mm; padding: 2mm 2mm 1.2mm; box-sizing: content-box;
+          width: 30mm; padding: 2mm 2mm 1.2mm; box-sizing: content-box;
           border: 1px dashed #c8ccd4; margin: -0.5px; text-align: center;
           break-inside: avoid; background: #fff;
         }
-        .sticker-cell .qr { width: 20mm; height: 20mm; margin: 0 auto; }
+        .sticker-cell .qr { width: 26mm; height: 26mm; margin: 0 auto; }
         .sticker-cell .qr svg { width: 100%; height: 100%; display: block; }
         .sticker-name {
           display: flex; align-items: center; justify-content: center; gap: 1mm;
           margin-top: 1mm; font-size: 5.4pt; font-weight: 600; line-height: 1.15;
         }
         .sticker-name span {
-          max-width: 22mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          max-width: 28mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .pitch-dot { width: 2.2mm; height: 2.2mm; border-radius: 50%; flex: none; }
         .sticker-num { font-size: 4.6pt; color: #5c6470; margin-top: .4mm; font-family: ui-monospace, monospace; }
@@ -123,15 +121,20 @@ export default function DeckStickersPage() {
           color: #5c6470; border-bottom: 1px solid #c8ccd4; padding-bottom: 4px; margin: 14px 0 8px;
         }
         .section-title small { font-weight: 400; letter-spacing: 0; text-transform: none; float: right; }
-        .calibration { display: flex; align-items: flex-end; gap: 6mm; }
         .stickers-howto {
           font-size: .8rem; color: #5c6470; line-height: 1.5;
           border: 1px solid #c8ccd4; border-radius: 4px; padding: 10px 14px; margin: 0 0 14px;
         }
         @media print {
+          /* Dark mode sets a near-black bg on <body>; without this the space
+             after the last sticker prints as a solid dark block. */
+          html, body { background: #fff !important; }
           .stickers-root { background: #fff; padding: 0; }
           .stickers-sheet { box-shadow: none; padding: 0; max-width: none; }
           .stickers-controls, .stickers-howto { display: none; }
+          /* Hide site chrome (navbar, footer, mobile tab bar, cookie banner) —
+             this style tag only exists while the stickers page is mounted. */
+          body header, body footer, main ~ * { display: none !important; }
           @page { size: letter; margin: 10mm; }
         }
       `}</style>
@@ -162,31 +165,9 @@ export default function DeckStickersPage() {
 
         <div className="stickers-howto">
           Print at <strong>100% scale</strong> (&ldquo;Actual size&rdquo;). Cut along the dashed
-          guides; each sticker keeps a 2mm white quiet zone. Test the calibration strip with your
-          camera before cutting the full sheet — matte sleeves scan far better than gloss.
+          guides; each sticker keeps a 2mm white quiet zone. Matte sleeves scan far better than
+          gloss.
         </div>
-
-        {heroPid && qrSvgs[heroPid] && (
-          <section>
-            <h2 className="section-title">
-              Calibration strip <small>test these sizes first</small>
-            </h2>
-            <div className="calibration">
-              {CALIBRATION_SIZES_MM.map((mm) => (
-                <div key={mm} className="sticker-cell" style={{ width: `${mm + 4}mm` }}>
-                  <div
-                    className="qr"
-                    style={{ width: `${mm}mm`, height: `${mm}mm` }}
-                    dangerouslySetInnerHTML={{ __html: qrSvgs[heroPid] }}
-                  />
-                  <div className="sticker-name">
-                    <span>{mm} mm</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         {sections.map((section) => (
           <section key={section.section}>
