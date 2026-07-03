@@ -428,7 +428,7 @@ const msgEl = document.getElementById('msg');
 // ?role=camera (default): scans and publishes.  ?role=display: mirrors the HUD.
 // Both talk to this server's tiny relay; the real table page swaps this for
 // the fabbazaar WebSocket with auth + rooms.
-const BUILD = 'v29';
+const BUILD = 'v30';
 const params = new URLSearchParams(location.search);
 const pathParts = location.pathname.split('/').filter(Boolean); // ['r', roomId, 'cam'?]
 const ROLE = pathParts[2] === 'cam' ? 'camera' : 'display';
@@ -515,6 +515,7 @@ function handleBusMessage(m) {
     case 'closed':  tableClosed(); break;
     case 'hello':      onHello(ev); break;
     case 'zoom':       if (ROLE === 'camera' && applyZoomRemote) applyZoomRemote(ev.value); break;
+    case 'zoom-state': if (ROLE === 'display') syncRemoteZoom(ev); break;
     case 'rtc-offer':  onRtcOffer(ev); break;
     case 'rtc-answer': onRtcAnswer(ev); break;
     case 'rtc-ice':    onRtcIce(ev); break;
@@ -769,9 +770,15 @@ function sendHello() {
   if (!SIDE) { setTimeout(sendHello, 300); return; } // wait for welcome
   let zoomCaps = null;
   if (ROLE === 'camera' && localStream) {
-    const caps = localStream.getVideoTracks()[0].getCapabilities?.() || {};
+    const track = localStream.getVideoTracks()[0];
+    const caps = track.getCapabilities?.() || {};
     if (caps.zoom && caps.zoom.max > caps.zoom.min) {
-      zoomCaps = { min: caps.zoom.min, max: Math.min(caps.zoom.max, 6), step: caps.zoom.step || 0.1 };
+      // Report the CURRENT zoom too: without it the display slider starts at
+      // the range default (the midpoint), so the first −/+ tap teleported the
+      // camera there instead of nudging from where it actually was.
+      const saved = parseFloat(localStorage.getItem('fab-zoom'));
+      const value = Number.isFinite(saved) ? saved : (track.getSettings?.().zoom ?? caps.zoom.min);
+      zoomCaps = { min: caps.zoom.min, max: Math.min(caps.zoom.max, 6), step: caps.zoom.step || 0.1, value };
     }
   }
   publish({ type: 'hello', role: ROLE, side: SIDE, zoom: zoomCaps });
@@ -812,6 +819,8 @@ function setupRemoteZoom(ev) {
   ctl.min = ev.zoom.min;
   ctl.max = Math.min(ev.zoom.max, 3);
   ctl.step = 0.05;
+  // Start from the camera's actual zoom, not the range default
+  if (ev.zoom.value != null && document.activeElement !== ctl) ctl.value = ev.zoom.value;
   const send = () => {
     val.textContent = (+ctl.value).toFixed(2) + '×';
     publish({ type: 'zoom', to: ev.cid, value: parseFloat(ctl.value) });
@@ -828,6 +837,16 @@ function setupRemoteZoom(ev) {
 function removeRemoteZoom(peer) {
   zoomCtls.get(peer)?.remove();
   zoomCtls.delete(peer);
+}
+// A camera reported its settled zoom (it may have changed on the phone
+// itself — slider or pinch): follow it, unless the user is mid-drag here.
+function syncRemoteZoom(ev) {
+  const wrap = zoomCtls.get(ev.cid);
+  if (!wrap || ev.value == null) return;
+  const ctl = wrap.querySelector('[data-rz=ctl]');
+  if (document.activeElement === ctl) return; // local drag wins
+  ctl.value = ev.value; // assignment clamps to [min, max]
+  wrap.querySelector('[data-rz=val]').textContent = (+ctl.value).toFixed(2) + '×';
 }
 
 function newPc(peer) {
@@ -1286,6 +1305,17 @@ async function main() {
   // get genuinely more pixels — the single best fix for a high camera mount.
   const zoomWrap = document.getElementById('zoomWrap');
   const zoomCtl = document.getElementById('zoomCtl');
+  // Broadcast the settled zoom so every display slider tracks the camera's
+  // real value (local slider, pinch, and remote nudges all land here).
+  // Trailing debounce: pinch fires oninput rapidly; only the final value matters.
+  // Pass the exact applied value when it's finer than the slider step —
+  // reading the slider back would report the snapped approximation.
+  let zoomStateTimer = null;
+  function publishZoomState(z) {
+    clearTimeout(zoomStateTimer);
+    zoomStateTimer = setTimeout(() =>
+      publish({ type: 'zoom-state', value: z ?? parseFloat(zoomCtl.value) }), 250);
+  }
   function setupZoom() {
     const track = localStream.getVideoTracks()[0];
     const caps = track.getCapabilities ? track.getCapabilities() : {};
@@ -1304,10 +1334,17 @@ async function main() {
       const z = parseFloat(zoomCtl.value);
       localStorage.setItem('fab-zoom', String(z));
       track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {});
+      publishZoomState(); // keep display sliders in step with reality
     };
     applyZoomRemote = z => {
-      zoomCtl.value = Math.min(+zoomCtl.max, Math.max(+zoomCtl.min, z));
-      zoomCtl.oninput();
+      // Apply the raw value directly: routing through the local slider snaps
+      // it to the slider's coarser step (0.1), which rounded a remote 0.05
+      // nudge straight back to where it started — a dead button.
+      const clamped = Math.min(+zoomCtl.max, Math.max(+zoomCtl.min, z));
+      zoomCtl.value = clamped; // UI approximation (may snap; harmless)
+      localStorage.setItem('fab-zoom', String(clamped));
+      track.applyConstraints({ advanced: [{ zoom: clamped }] }).catch(() => {});
+      publishZoomState(clamped);
     };
   }
   setupZoom();
