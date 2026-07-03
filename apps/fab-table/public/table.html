@@ -249,13 +249,14 @@
     max-width: 90px; font-size: .72rem; color: var(--sub);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .lifebox .ava {
-    width: 22px; height: 22px; border-radius: 50%; flex: none;
+  /* Hero card thumbnail — the player's identity on the mat once their hero
+     locks in. Hero cards are landscape, so the art reads well cropped wide. */
+  .lifebox .herothumb {
+    width: 40px; height: 28px; border-radius: 4px; flex: none;
     background: #262a32 center/cover no-repeat; border: 1px solid var(--line);
-    display: none; align-items: center; justify-content: center;
-    font-size: .62rem; font-weight: 700; color: var(--sub); text-transform: uppercase;
+    display: none;
   }
-  .lifebox .ava.shown { display: inline-flex; } /* only once an identity is known */
+  .lifebox .herothumb.shown { display: inline-block; } /* only once the hero is identified */
   .lifebox .total {
     font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
     width: 52px; text-align: center;
@@ -356,14 +357,14 @@
   <div class="zone zlife">
     <h3>Life</h3>
     <div class="lifebox">
-      <span class="ava" id="avaMe" aria-hidden="true"></span>
+      <span class="herothumb" id="heroMe" aria-hidden="true"></span>
       <span class="who" id="whoMe">You</span>
       <button class="lbtn" data-side="me" data-delta="-1" aria-label="Your life minus 1">−</button>
       <span class="total" id="lifeMe">40</span>
       <button class="lbtn" data-side="me" data-delta="1" aria-label="Your life plus 1">+</button>
     </div>
     <div class="lifebox">
-      <span class="ava" id="avaOpp" aria-hidden="true"></span>
+      <span class="herothumb" id="heroOpp" aria-hidden="true"></span>
       <span class="who" id="whoOpp">Opp</span>
       <button class="lbtn" data-side="opp" data-delta="-1" aria-label="Opponent life minus 1">−</button>
       <span class="total" id="lifeOpp">40</span>
@@ -520,9 +521,15 @@ function handleBusMessage(m) {
   rxCount++;
   switch (ev.type) {
     case 'welcome': SIDE = ev.side; renderIdentity(); break; // seat known → relabel me/opp
-    case 'presence': if (ev.seat) { profiles[ev.seat] = { username: ev.username, avatar: ev.avatar }; renderIdentity(); } break;
+    case 'presence': if (ev.seat) { profiles[ev.seat] = { username: ev.username }; renderIdentity(); } break;
     case 'card':   remoteCard(ev.pid, ev.side || '1', ev.box, ev.fw, ev.fh); break;
-    case 'hero':   if ((ev.side || '1') === SIDE) lockHero(ev.pid, true); break;
+    case 'hero': {
+      const hs = ev.side || '1';
+      heroBySeat[hs] = ev.pid;      // track both seats' heroes for the life-box thumbnail
+      renderIdentity();
+      if (hs === SIDE) lockHero(ev.pid, true); // ...but the hero ZONE is still just mine
+      break;
+    }
     case 'life':   if (ev.seat) { life[ev.seat] = ev.value; renderLife(); } break;
     case 'newgame': resetGame(false); break;
     case 'closed':  tableClosed(); break;
@@ -588,40 +595,36 @@ function renderLife() {
 }
 
 // --- Player identity on the life boxes (seat-relative: mine left, opponent right) ---
-// Fed by 'presence' events from the relay: { seat, username, avatar }. The relay
-// only ever sends a display name + avatar — no userId — so nothing here leaks it.
-const profiles = { 1: null, 2: null }; // keyed by seat
+// Name comes from the relay's 'presence' event ({ seat, username } — display
+// name only, no userId). The picture is the player's own hero card, tracked per
+// seat from 'hero' events; it appears left of the name once the hero locks in.
+const profiles = { 1: null, 2: null };   // seat -> { username }
+const heroBySeat = { 1: null, 2: null }; // seat -> hero printing id
 const idEls = {
-  me:  { who: document.getElementById('whoMe'),  ava: document.getElementById('avaMe')  },
-  opp: { who: document.getElementById('whoOpp'), ava: document.getElementById('avaOpp') },
+  me:  { who: document.getElementById('whoMe'),  hero: document.getElementById('heroMe')  },
+  opp: { who: document.getElementById('whoOpp'), hero: document.getElementById('heroOpp') },
 };
-function initialsOf(name) {
-  return (name || '').trim().slice(0, 2) || '?';
-}
-// The relay sends a same-origin proxy path (never the Discord URL, which would
-// leak the Discord id). Accept only that exact shape before using it in url().
-function safeAvatar(url) {
-  return typeof url === 'string' && /^\/api\/rooms\/[\w-]+\/avatar\/[12]$/.test(url) ? url : null;
-}
-function paintSeat(el, profile, fallbackLabel) {
+function paintSeat(el, profile, heroPidForSeat, fallbackLabel) {
   el.who.textContent = profile?.username || fallbackLabel;
   el.who.title = profile?.username || '';
-  const avatar = safeAvatar(profile?.avatar);
-  if (avatar) {
-    el.ava.style.backgroundImage = `url("${avatar}")`;
-    el.ava.textContent = '';
-    el.ava.classList.add('shown');
-  } else if (profile?.username) {
-    el.ava.style.backgroundImage = '';
-    el.ava.textContent = initialsOf(profile.username);
-    el.ava.classList.add('shown');
+  if (!heroPidForSeat) {
+    el.hero.classList.remove('shown');
+    el.hero.style.backgroundImage = '';
+    return;
+  }
+  const p = card(heroPidForSeat);
+  if (p && p.img) {
+    el.hero.style.backgroundImage = `url("${p.img}")`;
+    el.hero.classList.add('shown');
   } else {
-    el.ava.classList.remove('shown'); // no identity yet → hide the chip
+    // Card metadata not resolved yet — hide for now, re-render once it arrives.
+    el.hero.classList.remove('shown');
+    whenCardReady(heroPidForSeat, renderIdentity);
   }
 }
 function renderIdentity() {
-  paintSeat(idEls.me,  profiles[mySeat()],  'You');
-  paintSeat(idEls.opp, profiles[oppSeat()], 'Opp');
+  paintSeat(idEls.me,  profiles[mySeat()],  heroBySeat[mySeat()],  'You');
+  paintSeat(idEls.opp, profiles[oppSeat()], heroBySeat[oppSeat()], 'Opp');
 }
 document.querySelectorAll('.lbtn').forEach(btn => {
   btn.addEventListener('click', e => {
@@ -651,15 +654,19 @@ function renderHero() {
 function lockHero(pid, remote) {
   if (heroPid) return; // a game has exactly one hero; ignore later sightings
   heroPid = pid;
+  heroBySeat[mySeat()] = pid;      // my hero thumbnail on the life box
   whenCardReady(pid, renderHero); // slot renders once identity resolves
+  renderIdentity();
   if (!remote) publish({ type: 'hero', pid, side: SIDE });
 }
 renderHero();
 
 function resetGame(broadcast) {
   heroPid = null;
+  heroBySeat[1] = null; heroBySeat[2] = null; // heroes clear; names persist
   life.me = 40; life.opp = 40;
   renderLife();
+  renderIdentity();
   seen.clear();
   logged.clear();
   for (const node of bannerNodes.values()) node.remove();

@@ -73,33 +73,6 @@ describe('GET /api/users/me', () => {
     expect(body.data.displayUsername).toBe('discord_person');
   });
 
-  it('returns the Discord avatar URL when the user has a Discord avatar', async () => {
-    mockAuth.mockResolvedValue({ success: true, userId: 'u3' } as any);
-    mockFindById.mockResolvedValue({
-      success: true,
-      data: { _id: 'u3', username: 'someone', discordId: '123456789', discordAvatar: 'abcdef' },
-    } as any);
-    const res = await GET(makeRequest());
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.data.avatar).toBe(
-      'https://cdn.discordapp.com/avatars/123456789/abcdef.png?size=64'
-    );
-  });
-
-  it('returns a null avatar when the user has no Discord avatar', async () => {
-    mockAuth.mockResolvedValue({ success: true, userId: 'u4' } as any);
-    mockFindById.mockResolvedValue({
-      success: true,
-      data: { _id: 'u4', username: 'someone', avatarUrl: 'https://example.com/pic.png' },
-    } as any);
-    const res = await GET(makeRequest());
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    // Discord-only per product decision: a non-Discord avatarUrl is not surfaced here
-    expect(body.data.avatar).toBeNull();
-  });
-
   it('returns 404 when the user record no longer exists', async () => {
     mockAuth.mockResolvedValue({ success: true, userId: 'ghost' } as any);
     mockFindById.mockResolvedValue({ success: true, data: null } as any);

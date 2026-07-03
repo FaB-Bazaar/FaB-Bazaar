@@ -24,16 +24,6 @@ export async function GET(request: NextRequest) {
   // UserAuthDTO keys the user by _id; username may be unset for
   // Discord-provisioned accounts, so fall back before display-stripping.
   const rawName = result.data.username || result.data.discordUsername || 'player';
-
-  // Discord-only avatar. The URL structurally embeds the Discord user id, so we
-  // only surface it here (to a service acting with the user's own token); the
-  // fab-table relay decides whether to expose it to an opponent.
-  const { discordId, discordAvatar } = result.data;
-  const avatar =
-    discordId && discordAvatar
-      ? `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatar}.png?size=64`
-      : null;
-
   return NextResponse.json(
     {
       success: true,
@@ -41,7 +31,6 @@ export async function GET(request: NextRequest) {
         userId: result.data._id,
         username: rawName,
         displayUsername: displayUsername(rawName),
-        avatar,
       },
     },
     { headers: { 'Cache-Control': 'no-store' } }

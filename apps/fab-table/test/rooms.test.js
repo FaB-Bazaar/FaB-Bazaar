@@ -87,65 +87,44 @@ test('life snapshot is keyed by seat and keeps only the latest per seat', () => 
   assert.equal(lifeEvents.find((e) => e.seat === '2').value, 40);
 });
 
-const REAL_AVATAR = 'https://cdn.discordapp.com/avatars/1/a.png?size=64';
-
-test('create records the owner presence with a NEUTRAL avatar path; the real URL stays server-side', () => {
+test('create records the owner presence (display name only) in the snapshot', () => {
   const { rooms } = make();
-  const { id } = rooms.create('alice', { username: 'Alice', avatar: REAL_AVATAR });
+  const { id } = rooms.create('alice', { username: 'Alice' });
   const presence = rooms.snapshot(id).filter((e) => e.type === 'presence');
   assert.equal(presence.length, 1);
-  assert.deepEqual(presence[0], {
-    type: 'presence',
-    seat: '1',
-    username: 'Alice',
-    avatar: `/api/rooms/${id}/avatar/1`, // proxy path — never the Discord URL
-  });
-  // The real (Discord-ID-bearing) URL is retrievable only server-side, by seat.
-  assert.equal(rooms.avatar(id, '1'), REAL_AVATAR);
-  // ...and must not appear anywhere in a broadcastable payload.
-  assert.ok(!JSON.stringify(rooms.snapshot(id)).includes('discordapp.com'));
+  assert.deepEqual(presence[0], { type: 'presence', seat: '1', username: 'Alice' });
 });
 
-test('join broadcasts seat-2 presence (proxy path) to open subscribers and adds it to the snapshot', () => {
+test('join broadcasts seat-2 presence to open subscribers and adds it to the snapshot', () => {
   const { rooms } = make();
-  const { id } = rooms.create('alice', { username: 'Alice', avatar: null });
+  const { id } = rooms.create('alice', { username: 'Alice' });
   const got = [];
   rooms.subscribe(id, (ev) => got.push(ev)); // seat 1 is already watching
-  rooms.join(id, 'bob', { username: 'Bob', avatar: REAL_AVATAR });
+  rooms.join(id, 'bob', { username: 'Bob' });
 
-  // pushed live to the seated opponent — proxy path only
-  const live = got.filter((e) => e.type === 'presence');
+  const live = got.filter((e) => e.type === 'presence'); // pushed live to the seated opponent
   assert.equal(live.length, 1);
-  assert.deepEqual(live[0], { type: 'presence', seat: '2', username: 'Bob', avatar: `/api/rooms/${id}/avatar/2` });
-  assert.equal(rooms.avatar(id, '2'), REAL_AVATAR);
+  assert.deepEqual(live[0], { type: 'presence', seat: '2', username: 'Bob' });
 
   // and replayable for late joiners / reconnects
   const snap = rooms.snapshot(id).filter((e) => e.type === 'presence');
   assert.deepEqual(snap.map((e) => e.seat).sort(), ['1', '2']);
 });
 
-test('a seat with no avatar broadcasts a null avatar and has no server-side URL', () => {
-  const { rooms } = make();
-  const { id } = rooms.create('alice', { username: 'Alice', avatar: null });
-  const presence = rooms.snapshot(id).find((e) => e.type === 'presence');
-  assert.equal(presence.avatar, null);
-  assert.equal(rooms.avatar(id, '1'), null);
-});
-
 test('an idempotent rejoin does not re-broadcast presence', () => {
   const { rooms } = make();
-  const { id } = rooms.create('alice', { username: 'Alice', avatar: null });
-  rooms.join(id, 'bob', { username: 'Bob', avatar: null });
+  const { id } = rooms.create('alice', { username: 'Alice' });
+  rooms.join(id, 'bob', { username: 'Bob' });
   const got = [];
   rooms.subscribe(id, (ev) => got.push(ev));
-  rooms.join(id, 'bob', { username: 'Bob', avatar: null }); // rejoin, same seat
+  rooms.join(id, 'bob', { username: 'Bob' }); // rejoin, same seat
   assert.equal(got.filter((e) => e.type === 'presence').length, 0);
 });
 
 test('presence survives newgame (same players, fresh board)', () => {
   const { rooms } = make();
-  const { id } = rooms.create('alice', { username: 'Alice', avatar: null });
-  rooms.join(id, 'bob', { username: 'Bob', avatar: null });
+  const { id } = rooms.create('alice', { username: 'Alice' });
+  rooms.join(id, 'bob', { username: 'Bob' });
   rooms.append(id, { type: 'hero', pid: 'heroA', side: '1' });
   rooms.append(id, { type: 'newgame' });
   const types = rooms.snapshot(id).map((e) => e.type).sort();

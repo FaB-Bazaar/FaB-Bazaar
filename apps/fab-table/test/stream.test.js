@@ -72,17 +72,16 @@ function sessionFor(userId, extra = {}) {
   return `ft_session=${encodeURIComponent(signSession({ userId, username: userId, ...extra }, SECRET, 60_000))}`;
 }
 
-test('presence: seats reach the snapshot as name + proxy avatar path — never the userId or Discord URL', async () => {
-  const DISCORD_URL = 'https://cdn.discordapp.com/avatars/9987/deadbeef.png?size=64';
+test('presence: both seats reach the snapshot as a display name — never the userId', async () => {
   const create = await fetch(`${BASE}/api/rooms`, {
     method: 'POST',
-    headers: { cookie: sessionFor('alice-id', { username: 'Alice', avatar: DISCORD_URL }) },
+    headers: { cookie: sessionFor('alice-id', { username: 'Alice' }) },
   }).then((r) => r.json());
   const roomId = create.data.roomId;
 
   await fetch(`${BASE}/api/rooms/${roomId}/join`, {
     method: 'POST',
-    headers: { cookie: sessionFor('bob-id', { username: 'Bob', avatar: null }) },
+    headers: { cookie: sessionFor('bob-id', { username: 'Bob' }) },
   });
 
   // The member-only dump is the most a seated client can read back.
@@ -96,36 +95,13 @@ test('presence: seats reach the snapshot as name + proxy avatar path — never t
   assert.deepEqual(
     presence.sort((a, b) => a.seat.localeCompare(b.seat)),
     [
-      { type: 'presence', seat: '1', username: 'Alice', avatar: `/api/rooms/${roomId}/avatar/1` },
-      { type: 'presence', seat: '2', username: 'Bob', avatar: null },
+      { type: 'presence', seat: '1', username: 'Alice' },
+      { type: 'presence', seat: '2', username: 'Bob' },
     ]
   );
-  // Security boundary: neither the internal userId NOR the Discord-id-bearing
-  // avatar URL may appear anywhere a client can read.
+  // Security boundary: the internal userId must not appear anywhere a client can read.
   const wire = JSON.stringify(data);
   assert.ok(!wire.includes('alice-id') && !wire.includes('bob-id'), 'userId leaked to a client');
-  assert.ok(!wire.includes('discordapp.com') && !wire.includes('9987'), 'Discord URL/id leaked to a client');
-});
-
-test('avatar proxy: seated members pass the auth gate; strangers are refused', async () => {
-  const create = await fetch(`${BASE}/api/rooms`, {
-    method: 'POST',
-    headers: { cookie: sessionFor('owner-id', { username: 'Owner', avatar: null }) },
-  }).then((r) => r.json());
-  const roomId = create.data.roomId;
-
-  // A non-member cannot hit the proxy at all.
-  const stranger = await fetch(`${BASE}/api/rooms/${roomId}/avatar/1`, {
-    headers: { cookie: sessionFor('stranger-id', { username: 'Stranger' }) },
-  });
-  assert.equal(stranger.status, 403);
-
-  // A member passes the gate; this seat has no avatar → a clean 404 (not a 401/403).
-  const member = await fetch(`${BASE}/api/rooms/${roomId}/avatar/1`, {
-    headers: { cookie: sessionFor('owner-id', { username: 'Owner' }) },
-  });
-  assert.equal(member.status, 404);
-  assert.equal((await member.json()).code, 'NO_AVATAR');
 });
 
 test('DELETE room: member closes it, subsequent join is ROOM_NOT_FOUND', async () => {

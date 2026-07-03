@@ -109,10 +109,10 @@ function requireSession(req) {
   return session;
 }
 
-// The subset of the session that is safe to show the opposing player: display
-// name + avatar only. Never the userId. Feeds rooms.create/join → presence.
+// The subset of the session that is safe to show the opposing player: the
+// display name only. Never the userId. Feeds rooms.create/join → presence.
 function profileOf(session) {
-  return { username: session.username, avatar: session.avatar || null };
+  return { username: session.username };
 }
 
 // Camera devices authenticate with a pairing token instead of a session
@@ -165,39 +165,6 @@ async function fetchPrinting(pid) {
       printingCache.delete(printingCache.keys().next().value); // FIFO evict
     }
     printingCache.set(pid, entry);
-  }
-  return entry;
-}
-
-// Avatar image proxy: fetch the Discord CDN image server-side and cache the
-// bytes, so the opponent's browser never sees the Discord-id-bearing URL.
-const avatarCache = new Map(); // realUrl -> { status, contentType, body(Buffer) }
-const AVATAR_CACHE_MAX = 500;
-
-async function fetchAvatar(realUrl) {
-  if (avatarCache.has(realUrl)) return avatarCache.get(realUrl);
-  // Only ever fetch Discord's CDN — the URL originates from our own identity
-  // endpoint, but never let a stored value point us at an arbitrary host.
-  if (!/^https:\/\/cdn\.discordapp\.com\//.test(realUrl)) {
-    return { status: 400, contentType: null, body: null };
-  }
-  let entry;
-  try {
-    const res = await fetch(realUrl);
-    const buf = Buffer.from(await res.arrayBuffer());
-    entry = {
-      status: res.status,
-      contentType: res.headers.get('content-type') || 'image/png',
-      body: buf,
-    };
-  } catch {
-    entry = { status: 502, contentType: null, body: null };
-  }
-  if (entry.status === 200) {
-    if (avatarCache.size >= AVATAR_CACHE_MAX) {
-      avatarCache.delete(avatarCache.keys().next().value); // FIFO evict
-    }
-    avatarCache.set(realUrl, entry);
   }
   return entry;
 }
@@ -295,7 +262,6 @@ async function authCallback(req, res, url, requestId) {
       userId: me.data.userId,
       // Display name only — the raw username may carry an internal dc_/gh_ prefix.
       username: me.data.displayUsername || me.data.username,
-      avatar: me.data.avatar || null,
     },
     SESSION_SECRET,
     SESSION_TTL_MS
@@ -392,24 +358,6 @@ const server = createServer(async (req, res) => {
       event.side = who.side; // side is server-assigned, never client-claimed
       rooms.append(m[1], event);
       return sendJson(res, 200, { success: true });
-    }
-
-    // Avatar image proxy: seated members (or paired cameras) only. Serves the
-    // opponent's Discord avatar bytes without ever revealing the Discord URL.
-    if ((m = path.match(/^\/api\/rooms\/([\w-]+)\/avatar\/([12])$/)) && req.method === 'GET') {
-      identify(req, url, m[1]); // 401/403 for non-members
-      const realUrl = rooms.avatar(m[1], m[2]);
-      if (!realUrl) throw new HttpError(404, 'NO_AVATAR', 'This seat has no avatar', { roomId: m[1], seat: m[2] });
-      const img = await fetchAvatar(realUrl);
-      if (img.status !== 200 || !img.body) {
-        throw new HttpError(502, 'AVATAR_FETCH_FAILED', 'Could not fetch the avatar image', { roomId: m[1], seat: m[2] });
-      }
-      res.writeHead(200, {
-        'Content-Type': img.contentType,
-        'Cache-Control': 'private, max-age=300',
-        'Content-Length': img.body.length,
-      });
-      return res.end(img.body);
     }
 
     // Diagnostic dump: the room's bounded event buffer + snapshot. Member-only.
