@@ -68,9 +68,65 @@ test('event publish to a gone room reports ROOM_NOT_FOUND (client reacts to this
 // --- Close room: explicit teardown so abandoned tables don't wait out the TTL
 import { signSession } from '../lib/auth.js';
 
-function sessionFor(userId) {
-  return `ft_session=${encodeURIComponent(signSession({ userId, username: userId }, SECRET, 60_000))}`;
+function sessionFor(userId, extra = {}) {
+  return `ft_session=${encodeURIComponent(signSession({ userId, username: userId, ...extra }, SECRET, 60_000))}`;
 }
+
+test('presence: seats reach the snapshot as name + proxy avatar path — never the userId or Discord URL', async () => {
+  const DISCORD_URL = 'https://cdn.discordapp.com/avatars/9987/deadbeef.png?size=64';
+  const create = await fetch(`${BASE}/api/rooms`, {
+    method: 'POST',
+    headers: { cookie: sessionFor('alice-id', { username: 'Alice', avatar: DISCORD_URL }) },
+  }).then((r) => r.json());
+  const roomId = create.data.roomId;
+
+  await fetch(`${BASE}/api/rooms/${roomId}/join`, {
+    method: 'POST',
+    headers: { cookie: sessionFor('bob-id', { username: 'Bob', avatar: null }) },
+  });
+
+  // The member-only dump is the most a seated client can read back.
+  const dump = await fetch(`${BASE}/api/rooms/${roomId}/dump`, {
+    method: 'GET', headers: { cookie: sessionFor('alice-id', { username: 'Alice' }) },
+  });
+  assert.equal(dump.status, 200);
+  const { data } = await dump.json();
+  const presence = data.snapshot.filter((e) => e.type === 'presence');
+
+  assert.deepEqual(
+    presence.sort((a, b) => a.seat.localeCompare(b.seat)),
+    [
+      { type: 'presence', seat: '1', username: 'Alice', avatar: `/api/rooms/${roomId}/avatar/1` },
+      { type: 'presence', seat: '2', username: 'Bob', avatar: null },
+    ]
+  );
+  // Security boundary: neither the internal userId NOR the Discord-id-bearing
+  // avatar URL may appear anywhere a client can read.
+  const wire = JSON.stringify(data);
+  assert.ok(!wire.includes('alice-id') && !wire.includes('bob-id'), 'userId leaked to a client');
+  assert.ok(!wire.includes('discordapp.com') && !wire.includes('9987'), 'Discord URL/id leaked to a client');
+});
+
+test('avatar proxy: seated members pass the auth gate; strangers are refused', async () => {
+  const create = await fetch(`${BASE}/api/rooms`, {
+    method: 'POST',
+    headers: { cookie: sessionFor('owner-id', { username: 'Owner', avatar: null }) },
+  }).then((r) => r.json());
+  const roomId = create.data.roomId;
+
+  // A non-member cannot hit the proxy at all.
+  const stranger = await fetch(`${BASE}/api/rooms/${roomId}/avatar/1`, {
+    headers: { cookie: sessionFor('stranger-id', { username: 'Stranger' }) },
+  });
+  assert.equal(stranger.status, 403);
+
+  // A member passes the gate; this seat has no avatar → a clean 404 (not a 401/403).
+  const member = await fetch(`${BASE}/api/rooms/${roomId}/avatar/1`, {
+    headers: { cookie: sessionFor('owner-id', { username: 'Owner' }) },
+  });
+  assert.equal(member.status, 404);
+  assert.equal((await member.json()).code, 'NO_AVATAR');
+});
 
 test('DELETE room: member closes it, subsequent join is ROOM_NOT_FOUND', async () => {
   const create = await fetch(`${BASE}/api/rooms`, {

@@ -33,28 +33,59 @@ export function createRooms({
     room.touchedAt = now();
   }
 
+  // The opponent-facing identity payload. Whitelist ONLY display fields here —
+  // this object is broadcast to the other player, so it must never carry a
+  // userId, email, or the raw (dc_/gh_ prefixed) username. The avatar is a
+  // same-origin PROXY path, never the Discord CDN URL (which embeds the user's
+  // Discord id); the real URL is held server-side in room.avatars and served by
+  // the relay's /avatar/:seat endpoint.
+  function presence(roomId, seat, { username = null, avatar = null } = {}) {
+    return {
+      type: 'presence',
+      seat,
+      username,
+      avatar: avatar ? `/api/rooms/${roomId}/avatar/${seat}` : null,
+    };
+  }
+
   return {
-    create(ownerId) {
+    // `profile` is the ONLY identity that ever reaches the opposing client:
+    // { username, avatar }. Deliberately no userId/email — see presence(), below.
+    create(ownerId, profile = {}) {
       const id = randomBytes(12).toString('base64url');
-      rooms.set(id, {
+      const room = {
         members: { 1: ownerId },
         events: [],
-        snapshot: { heroes: {}, life: {} },
+        snapshot: { heroes: {}, life: {}, presence: {} },
+        avatars: {}, // seat -> real Discord URL; server-only, never broadcast
         subscribers: new Set(),
         touchedAt: now(),
-      });
+      };
+      if (profile.username) {
+        if (profile.avatar) room.avatars['1'] = profile.avatar;
+        room.snapshot.presence['1'] = presence(id, '1', profile);
+      }
+      rooms.set(id, room);
       log?.info('room created', { roomId: id, ownerId });
       return { id, side: '1' };
     },
 
-    join(roomId, userId) {
+    join(roomId, userId, profile = {}) {
       const room = get(roomId);
       touch(room);
       for (const [side, member] of Object.entries(room.members)) {
-        if (member === userId) return { side };
+        if (member === userId) return { side }; // idempotent rejoin: no re-broadcast
       }
       if (!room.members['2']) {
         room.members['2'] = userId;
+        if (profile.username) {
+          if (profile.avatar) room.avatars['2'] = profile.avatar;
+          const ev = presence(roomId, '2', profile);
+          room.snapshot.presence['2'] = ev; // replayable for late joiners / reconnects
+          for (const fn of room.subscribers) { // and pushed live to the seated opponent
+            try { fn(ev); } catch (err) { log?.error('subscriber threw on presence', { roomId, err }); }
+          }
+        }
         log?.info('room joined', { roomId, userId, side: '2' });
         return { side: '2' };
       }
@@ -73,6 +104,12 @@ export function createRooms({
       return null;
     },
 
+    // The real Discord avatar URL for a seat — server-only, for the relay's
+    // image proxy. Never leaves the server as-is (it embeds the Discord id).
+    avatar(roomId, seat) {
+      return get(roomId).avatars[seat] || null;
+    },
+
     append(roomId, event) {
       const room = get(roomId);
       touch(room);
@@ -86,7 +123,8 @@ export function createRooms({
       } else if (event.type === 'life' && (event.seat || event.side)) {
         room.snapshot.life[event.seat || event.side] = event;
       } else if (event.type === 'newgame') {
-        room.snapshot = { heroes: {}, life: {} };
+        // Same players, fresh board: clear hero/life, keep who's seated.
+        room.snapshot = { heroes: {}, life: {}, presence: room.snapshot.presence };
       }
       for (const fn of room.subscribers) {
         try {
@@ -100,7 +138,11 @@ export function createRooms({
 
     snapshot(roomId) {
       const room = get(roomId);
-      return [...Object.values(room.snapshot.heroes), ...Object.values(room.snapshot.life)];
+      return [
+        ...Object.values(room.snapshot.presence),
+        ...Object.values(room.snapshot.heroes),
+        ...Object.values(room.snapshot.life),
+      ];
     },
 
     dump(roomId) {
