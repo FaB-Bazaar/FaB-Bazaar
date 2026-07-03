@@ -9,6 +9,8 @@ import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { existsSync, rmSync } from 'node:fs';
 import { makePairingToken } from '../lib/auth.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -125,4 +127,77 @@ test('DELETE room: member closes it, subsequent join is ROOM_NOT_FOUND', async (
     method: 'POST', headers: { cookie: sessionFor('owner') },
   });
   assert.equal(rejoin.status, 404);
+});
+
+// --- Deploy survival: a graceful restart (SIGTERM) must not drop live games.
+// The process flushes room state to disk on shutdown and reloads it on boot, so
+// every device just reconnects and replays — the game "freezes" for a beat.
+async function bootServer(port, extraEnv) {
+  const child = spawn('node', [join(ROOT, 'server.js')], {
+    env: { ...process.env, PORT: String(port), SESSION_SECRET: SECRET, ...extraEnv },
+    stdio: 'ignore',
+  });
+  for (let i = 0; i < 50; i++) {
+    try { await fetch(`http://localhost:${port}/api/whoami`); return child; }
+    catch { await sleep(100); }
+  }
+  child.kill();
+  throw new Error('server did not start');
+}
+function waitExit(child) {
+  return new Promise((resolve) => child.once('exit', resolve));
+}
+
+test('a graceful restart preserves live rooms — game survives a deploy', async () => {
+  const port = 18820;
+  const base = `http://localhost:${port}`;
+  const snapPath = join(tmpdir(), `fab-table-rooms-${port}-${process.pid}.json`);
+  rmSync(snapPath, { force: true });
+  const env = { ROOMS_SNAPSHOT_PATH: snapPath };
+
+  try {
+    // --- Before the deploy: a table mid-game, hero locked and life adjusted.
+    let child = await bootServer(port, env);
+    const create = await fetch(`${base}/api/rooms`, {
+      method: 'POST', headers: { cookie: sessionFor('alice-id', { username: 'Alice' }) },
+    }).then((r) => r.json());
+    const roomId = create.data.roomId;
+    await fetch(`${base}/api/rooms/${roomId}/join`, {
+      method: 'POST', headers: { cookie: sessionFor('bob-id', { username: 'Bob' }) },
+    });
+    const post = (body, who) => fetch(`${base}/api/rooms/${roomId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: sessionFor(who) },
+      body: JSON.stringify(body),
+    });
+    await post({ type: 'hero', pid: 'h'.repeat(21) }, 'alice-id');
+    await post({ type: 'life', seat: '1', value: 33 }, 'alice-id');
+
+    // --- The deploy: SIGTERM the old container, wait for it to flush and exit.
+    child.kill('SIGTERM');
+    await waitExit(child);
+    assert.ok(existsSync(snapPath), 'shutdown should have written the rooms snapshot');
+
+    // --- After the deploy: a fresh process on the same volume.
+    child = await bootServer(port, env);
+
+    // A reconnecting client authenticates (seats restored) and replays state.
+    const dump = await fetch(`${base}/api/rooms/${roomId}/dump`, {
+      headers: { cookie: sessionFor('alice-id', { username: 'Alice' }) },
+    });
+    assert.equal(dump.status, 200, 'the room survived the restart');
+    const { data } = await dump.json();
+    const snap = data.snapshot;
+    assert.equal(snap.find((e) => e.type === 'hero')?.pid, 'h'.repeat(21), 'hero replayed');
+    assert.equal(snap.find((e) => e.type === 'life' && e.seat === '1')?.value, 33, 'life replayed');
+    assert.deepEqual(
+      snap.filter((e) => e.type === 'presence').map((e) => e.seat).sort(),
+      ['1', '2'],
+      'both players still seated'
+    );
+    child.kill();
+    await waitExit(child);
+  } finally {
+    rmSync(snapPath, { force: true });
+  }
 });

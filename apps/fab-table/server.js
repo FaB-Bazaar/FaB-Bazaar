@@ -3,7 +3,7 @@
 // fabbazaar OAuth. Rooms live in memory (bounded, TTL-swept); the process is
 // safe to kill at any moment — sessions are signed cookies, video is P2P.
 import { createServer } from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { createLogger } from './lib/log.js';
@@ -26,6 +26,9 @@ const {
   OAUTH_CLIENT_SECRET,
   SESSION_SECRET,
   DEBUG,
+  // Where to persist room state across a graceful restart (a deploy). Unset =>
+  // pure in-memory (local dev / tests), exactly the old crash-only behavior.
+  ROOMS_SNAPSHOT_PATH,
 } = process.env;
 
 const BUILD = process.env.BUILD_SHA || 'dev';
@@ -39,7 +42,22 @@ if (!SESSION_SECRET) {
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PAIRING_TTL_MS = 4 * 60 * 60 * 1000; // matches room TTL; camera reuses it all game
 
-const rooms = createRooms({ log });
+// Reload rooms saved by the previous process on a graceful shutdown, so a
+// deploy doesn't drop live games — clients reconnect and replay the snapshot.
+// Best-effort: a missing/corrupt file just means a clean empty start.
+function loadRoomsSnapshot() {
+  if (!ROOMS_SNAPSHOT_PATH || !existsSync(ROOMS_SNAPSHOT_PATH)) return null;
+  try {
+    const data = JSON.parse(readFileSync(ROOMS_SNAPSHOT_PATH, 'utf8'));
+    log.info('rooms snapshot found', { path: ROOMS_SNAPSHOT_PATH, rooms: Object.keys(data).length });
+    return data;
+  } catch (err) {
+    log.error('rooms snapshot unreadable — starting empty', { path: ROOMS_SNAPSHOT_PATH, err });
+    return null;
+  }
+}
+
+const rooms = createRooms({ log, initial: loadRoomsSnapshot() });
 const eventLimiter = createRateLimiter({ capacity: 30, refillPerSec: 10 });
 const authLimiter = createRateLimiter({ capacity: 10, refillPerSec: 0.2 });
 
@@ -420,6 +438,26 @@ process.on('uncaughtException', (err) => {
   log.error('uncaughtException — exiting for clean restart', { err });
   process.exit(1);
 });
+
+// Graceful shutdown (a deploy sends SIGTERM, then SIGKILL after a grace period).
+// Flush room state synchronously so the next process reloads live games. Kept
+// crash-only: an ungraceful kill just skips this and starts empty — no worse
+// than before. Runs at most once even if both signals fire.
+let flushed = false;
+function flushAndExit(signal) {
+  if (!flushed && ROOMS_SNAPSHOT_PATH) {
+    flushed = true;
+    try {
+      writeFileSync(ROOMS_SNAPSHOT_PATH, JSON.stringify(rooms.serialize()));
+      log.info('rooms snapshot written on shutdown', { signal, path: ROOMS_SNAPSHOT_PATH, rooms: rooms.stats().rooms });
+    } catch (err) {
+      log.error('failed to write rooms snapshot on shutdown', { signal, err });
+    }
+  }
+  process.exit(0);
+}
+process.on('SIGTERM', () => flushAndExit('SIGTERM'));
+process.on('SIGINT', () => flushAndExit('SIGINT'));
 
 server.listen(Number(PORT), () => {
   log.info('fab-table listening', { port: Number(PORT), build: BUILD, publicUrl: PUBLIC_URL, fabbazaar: FABBAZAAR_URL });

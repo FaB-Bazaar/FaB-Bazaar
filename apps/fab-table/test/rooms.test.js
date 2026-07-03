@@ -144,6 +144,58 @@ test('idle rooms are swept after TTL; active rooms survive', () => {
   assert.equal(rooms.join(active, 'bob').side, '1');
 });
 
+test('serialize captures room state without the live subscriber sockets', () => {
+  const { rooms } = make();
+  const { id } = rooms.create('alice', { username: 'Alice' });
+  rooms.join(id, 'bob', { username: 'Bob' });
+  rooms.append(id, { type: 'hero', pid: 'heroA', side: '1' });
+  rooms.append(id, { type: 'life', seat: '1', value: 33, side: '1' });
+  rooms.subscribe(id, () => {}); // a live SSE connection — must NOT be serialized
+
+  const dumped = rooms.serialize();
+  assert.deepEqual(Object.keys(dumped), [id]);
+  const r = dumped[id];
+  assert.deepEqual(r.members, { 1: 'alice', 2: 'bob' });
+  assert.ok(!('subscribers' in r), 'subscriber sockets must not be serialized');
+  assert.ok(JSON.stringify(r).length > 0); // fully JSON-serializable
+});
+
+test('a fresh store hydrated from a snapshot restores rooms (empty subscriber sets)', () => {
+  const { rooms } = make();
+  const { id } = rooms.create('alice', { username: 'Alice' });
+  rooms.join(id, 'bob', { username: 'Bob' });
+  rooms.append(id, { type: 'hero', pid: 'heroA', side: '1' });
+  rooms.append(id, { type: 'life', seat: '1', value: 33, side: '1' });
+  const snapshot = JSON.parse(JSON.stringify(rooms.serialize())); // survives a disk round-trip
+
+  // A brand-new store, as if the process restarted and reloaded the file.
+  const { rooms: reborn } = make({ initial: snapshot });
+
+  // Seats survived, so a reconnecting client's stream still authenticates.
+  assert.equal(reborn.memberSide(id, 'alice'), '1');
+  assert.equal(reborn.memberSide(id, 'bob'), '2');
+
+  // Game state replays for the reconnecting clients.
+  const snap = reborn.snapshot(id);
+  assert.equal(snap.find((e) => e.type === 'hero')?.pid, 'heroA');
+  assert.equal(snap.find((e) => e.type === 'life' && e.seat === '1')?.value, 33);
+  assert.deepEqual(
+    reborn.snapshot(id).filter((e) => e.type === 'presence').map((e) => e.seat).sort(),
+    ['1', '2']
+  );
+
+  // Subscribers start empty; new connections attach cleanly.
+  const got = [];
+  reborn.subscribe(id, (ev) => got.push(ev));
+  reborn.append(id, { type: 'life', seat: '1', value: 30, side: '1' });
+  assert.equal(got.length, 1);
+});
+
+test('hydrating with no snapshot is a clean empty store', () => {
+  const { rooms } = make({ initial: undefined });
+  assert.equal(rooms.stats().rooms, 0);
+});
+
 test('stats reports room count for health checks', () => {
   const { rooms } = make();
   rooms.create('a');

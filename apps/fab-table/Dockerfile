@@ -15,6 +15,11 @@ COPY public ./public
 ARG BUILD_SHA=dev
 ENV BUILD_SHA=$BUILD_SHA
 
+# Room-snapshot dir. Owned by `node` so a fresh named volume mounted here
+# inherits that ownership (Docker seeds an empty volume from the image dir),
+# letting the unprivileged process write the graceful-shutdown snapshot.
+RUN mkdir -p /data && chown node:node /data
+
 USER node
 EXPOSE 8787
 # Heap capped below the container's mem_limit so V8 aborts cleanly (verbose

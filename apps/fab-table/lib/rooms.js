@@ -18,8 +18,25 @@ export function createRooms({
   now = Date.now,
   maxEvents = 200,
   roomTtlMs = 4 * 60 * 60 * 1000,
+  initial = null, // a serialize() blob to rehydrate from (survives a deploy)
 } = {}) {
   const rooms = new Map(); // id -> { members, events, snapshot, subscribers, touchedAt }
+
+  // Rehydrate a snapshot written by serialize() before the last shutdown. The
+  // live subscriber sockets can't be persisted, so every room starts with an
+  // empty set; clients reconnect and re-subscribe on their own.
+  if (initial && typeof initial === 'object') {
+    for (const [id, room] of Object.entries(initial)) {
+      rooms.set(id, {
+        members: room.members || {},
+        events: room.events || [],
+        snapshot: room.snapshot || { heroes: {}, life: {}, presence: {} },
+        subscribers: new Set(),
+        touchedAt: room.touchedAt || now(),
+      });
+    }
+    log?.info('rooms rehydrated from snapshot', { count: rooms.size });
+  }
 
   function get(roomId) {
     const room = rooms.get(roomId);
@@ -172,6 +189,21 @@ export function createRooms({
 
     stats() {
       return { rooms: rooms.size };
+    },
+
+    // A JSON-serializable snapshot of all room state for a graceful shutdown.
+    // Excludes `subscribers` (live sockets, meaningless after a restart).
+    serialize() {
+      const out = {};
+      for (const [id, room] of rooms) {
+        out[id] = {
+          members: room.members,
+          events: room.events,
+          snapshot: room.snapshot,
+          touchedAt: room.touchedAt,
+        };
+      }
+      return out;
     },
   };
 }
