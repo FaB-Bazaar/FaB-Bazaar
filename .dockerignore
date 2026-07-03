@@ -27,3 +27,4 @@ coverage
 # Docs / scripts not needed at runtime
 *.md
 scripts/
+apps/
