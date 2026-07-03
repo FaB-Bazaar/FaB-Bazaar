@@ -720,6 +720,15 @@ export interface IDeckService {
     month: number
   ): AsyncResult<{ eventName: string; eventDate: string; format: string; count: number }[]>;
 
+  /**
+   * Most recent month (by event_date) that has featured public decks, so the
+   * Decks to Beat page can default to a month with content instead of the empty
+   * current calendar month. Optionally scoped to a format. Null if none exist.
+   */
+  getLatestFeaturedMonth(
+    format?: DeckFormat
+  ): AsyncResult<{ year: number; month: number } | null>;
+
   // ====================================
   // Card Management
   // ====================================

@@ -493,6 +493,23 @@ export async function getCommunityDecks(
 }
 
 /**
+ * Most recent month that has featured public decks (optionally scoped to a
+ * format), so the Decks to Beat page can default to a month with content
+ * instead of the empty current calendar month. `data` is null if none exist.
+ */
+export async function getLatestFeaturedMonth(
+  format?: string
+): Promise<ApiResponse<{ year: number; month: number } | null>> {
+  try {
+    const qs = format ? `?format=${encodeURIComponent(format)}` : '';
+    const response = await fetch(`/api/decks/featured-latest-month${qs}`);
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Fetch upgrade suggestions: for each unowned non-hero deck printing, every
  * owned alternative printing of the same card. The recommended pick is flagged.
  *

@@ -135,6 +135,10 @@ export default function DecksToBeatPage() {
   const initDate = parseDateParam(searchParams.get("date") ?? "");
   const [year, setYear] = useState(initDate?.year ?? currentYear);
   const [month, setMonth] = useState(initDate?.month ?? currentMonth);
+  // With no explicit ?date=, default to the latest month that actually has
+  // featured decks (resolved async on mount) rather than the empty current
+  // month. Holds off the data/URL effects until resolved. Captured once.
+  const [resolvingDefault, setResolvingDefault] = useState(() => initDate === null);
   const [format, setFormat] = useState<string>(
     FORMAT_MAP[searchParams.get("format")?.toLowerCase() ?? ""] ??
     searchParams.get("format") ??
@@ -158,8 +162,31 @@ export default function DecksToBeatPage() {
   const [expandedFormats, setExpandedFormats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Resolve the default month once, when the URL had no ?date=: jump to the
+  // most recent month with featured decks for the active format (falls back to
+  // the current month if nothing is featured yet).
+  useEffect(() => {
+    if (!resolvingDefault) return;
+    let cancelled = false;
+    decksClient
+      .getLatestFeaturedMonth(format)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setYear(res.data.year);
+          setMonth(res.data.month);
+        }
+        setResolvingDefault(false);
+      })
+      .catch(() => { if (!cancelled) setResolvingDefault(false); });
+    return () => { cancelled = true; };
+    // Run once on mount; `format` is read at its initial value intentionally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetch event summaries when month/year changes
   useEffect(() => {
+    if (resolvingDefault) return;
     fetch(`/api/decks/events?year=${year}&month=${month}`)
       .then((res) => res.json())
       .then((data) => {
@@ -171,7 +198,7 @@ export default function DecksToBeatPage() {
         }
       })
       .catch(() => {});
-  }, [year, month]);
+  }, [year, month, resolvingDefault]);
 
   // Group events by format
   const eventsByFormat = useMemo(() => {
@@ -185,6 +212,7 @@ export default function DecksToBeatPage() {
 
   // Keep URL in sync with filter state
   useEffect(() => {
+    if (resolvingDefault) return; // don't write date= until the default resolves
     const params = new URLSearchParams();
     params.set("date", toDateParam(year, month));
     if (format && format !== "Classic Constructed") {
@@ -196,7 +224,7 @@ export default function DecksToBeatPage() {
     if (selectedEvent) params.set("event", selectedEvent);
     if (page > 1) params.set("page", String(page));
     router.replace(`/decks/to-beat?${params.toString()}`, { scroll: false });
-  }, [year, month, format, heroName, search, username, selectedEvent, page]);
+  }, [year, month, format, heroName, search, username, selectedEvent, page, resolvingDefault]);
 
   // Fetch data
   const fetchDecks = useCallback(async () => {
@@ -221,7 +249,7 @@ export default function DecksToBeatPage() {
     setLoading(false);
   }, [year, month, format, heroName, search, username, selectedEvent, page]);
 
-  useEffect(() => { fetchDecks(); }, [fetchDecks]);
+  useEffect(() => { if (!resolvingDefault) fetchDecks(); }, [fetchDecks, resolvingDefault]);
 
   // Debounce search
   useEffect(() => {

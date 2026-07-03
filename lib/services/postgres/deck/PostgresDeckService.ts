@@ -29,6 +29,7 @@ import type {
   BulkImportResultDTO,
   DeckListFilters,
   PublicDeckFilters,
+  DeckFormat,
   DeckStatsDTO,
   OwnershipStatusDTO,
   InventoryComparisonDTO,
@@ -1350,6 +1351,43 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get event summaries',
+      };
+    }
+  }
+
+  /**
+   * Most recent month (by event_date) that has featured public decks, optionally
+   * scoped to a format. Lets the Decks to Beat page default to a month with
+   * content. Null when no featured public decks exist (for that format).
+   */
+  async getLatestFeaturedMonth(
+    format?: DeckFormat
+  ): AsyncResult<{ year: number; month: number } | null> {
+    try {
+      const conditions = [
+        eq(decks.featured, true),
+        eq(decks.visibility, 'public'),
+        sql`${decks.eventDate} IS NOT NULL`,
+      ];
+      if (format) conditions.push(eq(decks.format, format));
+
+      const rows = await db
+        .select({ eventDate: decks.eventDate })
+        .from(decks)
+        .where(and(...conditions))
+        .orderBy(desc(decks.eventDate))
+        .limit(1);
+
+      const latest = rows[0]?.eventDate; // date column → 'YYYY-MM-DD' string
+      if (!latest) return { success: true, data: null };
+
+      const [y, m] = latest.split('-');
+      return { success: true, data: { year: parseInt(y, 10), month: parseInt(m, 10) } };
+    } catch (error) {
+      console.error('[PostgresDeckService.getLatestFeaturedMonth] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get latest featured month',
       };
     }
   }
