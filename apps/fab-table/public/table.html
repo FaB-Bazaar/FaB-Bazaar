@@ -423,7 +423,7 @@ const msgEl = document.getElementById('msg');
 // ?role=camera (default): scans and publishes.  ?role=display: mirrors the HUD.
 // Both talk to this server's tiny relay; the real table page swaps this for
 // the fabbazaar WebSocket with auth + rooms.
-const BUILD = 'v25';
+const BUILD = 'v26';
 const params = new URLSearchParams(location.search);
 const pathParts = location.pathname.split('/').filter(Boolean); // ['r', roomId, 'cam'?]
 const ROLE = pathParts[2] === 'cam' ? 'camera' : 'display';
@@ -437,11 +437,30 @@ if (ROLE === 'camera' && matchMedia('(max-width: 900px)').matches) {
 const CID = crypto.randomUUID();
 let rxCount = 0;
 
+// Rooms are in-memory on the server, so a deploy/restart wipes them. When the
+// server says our room is gone, say so loudly — silently retrying stranded a
+// player whose phone kept "scanning" into a room that no longer existed.
+const ROOM_GONE_CODES = new Set(['ROOM_NOT_FOUND', 'NOT_A_MEMBER', 'BAD_PAIRING_TOKEN']);
+let roomGone = false;
+function tableGone(code) {
+  if (roomGone) return;
+  roomGone = true;
+  try { es?.close(); } catch (e) { /* already closed */ }
+  fail(ROLE === 'camera'
+    ? `This table has expired (${code}) — start a new game on your computer and rescan the QR code.`
+    : `This table has expired (${code}) — click New game to start another.`);
+}
+
 function publish(ev) {
+  if (roomGone) return;
   fetch(`/api/rooms/${ROOM}/events${PAIR ? `?pair=${encodeURIComponent(PAIR)}` : ''}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cid: CID, build: BUILD, ...ev }),
+  }).then(async (res) => {
+    if (res.ok) return;
+    const body = await res.json().catch(() => null);
+    if (body && ROOM_GONE_CODES.has(body.code)) tableGone(body.code);
   }).catch(() => {});
 }
 
@@ -449,9 +468,24 @@ function publish(ev) {
 // token immediately; displays connect after sign-in + join.
 let es = null;
 function connectStream() {
+  if (roomGone) return;
   es = new EventSource(`/api/rooms/${ROOM}/stream${PAIR ? `?pair=${encodeURIComponent(PAIR)}` : ''}`);
   es.onmessage = handleBusMessage;
   es.onopen = () => { if (ROLE === 'display') sendHello(); };
+  es.onerror = () => {
+    // Transient drop: the browser retries on its own. A CLOSED stream means
+    // the server refused the handshake (e.g. 404 after a restart wiped the
+    // room) — probe the member-only dump endpoint to tell which.
+    if (roomGone || es.readyState !== EventSource.CLOSED) return;
+    fetch(`/api/rooms/${ROOM}/dump${PAIR ? `?pair=${encodeURIComponent(PAIR)}` : ''}`)
+      .then(async (res) => {
+        if (res.ok) { setTimeout(connectStream, 2000); return; }
+        const body = await res.json().catch(() => null);
+        if (body && ROOM_GONE_CODES.has(body.code)) tableGone(body.code);
+        else setTimeout(connectStream, 5000);
+      })
+      .catch(() => setTimeout(connectStream, 5000));
+  };
 }
 function handleBusMessage(m) {
   let ev;

@@ -347,13 +347,18 @@ const server = createServer(async (req, res) => {
 
     if ((m = path.match(/^\/api\/rooms\/([\w-]+)\/stream$/)) && req.method === 'GET') {
       const who = identify(req, url, m[1]);
+      // Resolve the replay BEFORE committing a 200: rooms are in-memory, so a
+      // deploy wipes them — a swept/never-existed room must be a clean 404 the
+      // EventSource client can react to, not a stream that dies mid-handshake
+      // and silently retries forever.
+      const replay = rooms.snapshot(m[1]);
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-store',
         Connection: 'keep-alive',
       });
       res.write(`data: ${JSON.stringify({ type: 'welcome', side: who.side, build: BUILD })}\n\n`);
-      for (const ev of rooms.snapshot(m[1])) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+      for (const ev of replay) res.write(`data: ${JSON.stringify(ev)}\n\n`);
       const unsub = rooms.subscribe(m[1], (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`));
       const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
       req.on('close', () => { unsub(); clearInterval(ping); });
