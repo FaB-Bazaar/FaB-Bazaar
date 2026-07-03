@@ -299,6 +299,7 @@
   <button class="zonebtn" id="ecoBtn" hidden>Hide preview</button>
   <button class="zonebtn" id="logBtn" hidden>Show log</button>
   <button class="zonebtn" id="newGameBtn">New game</button>
+  <button class="zonebtn" id="closeRoomBtn" hidden>Close table</button>
   <button class="zonebtn" id="zoneBtn" hidden>Clear playmat zone</button>
 </header>
 <main>
@@ -427,7 +428,7 @@ const msgEl = document.getElementById('msg');
 // ?role=camera (default): scans and publishes.  ?role=display: mirrors the HUD.
 // Both talk to this server's tiny relay; the real table page swaps this for
 // the fabbazaar WebSocket with auth + rooms.
-const BUILD = 'v28';
+const BUILD = 'v29';
 const params = new URLSearchParams(location.search);
 const pathParts = location.pathname.split('/').filter(Boolean); // ['r', roomId, 'cam'?]
 const ROLE = pathParts[2] === 'cam' ? 'camera' : 'display';
@@ -446,13 +447,21 @@ let rxCount = 0;
 // player whose phone kept "scanning" into a room that no longer existed.
 const ROOM_GONE_CODES = new Set(['ROOM_NOT_FOUND', 'NOT_A_MEMBER', 'BAD_PAIRING_TOKEN']);
 let roomGone = false;
-function tableGone(code) {
+function endTable(text) {
   if (roomGone) return;
   roomGone = true;
   try { es?.close(); } catch (e) { /* already closed */ }
-  fail(ROLE === 'camera'
+  fail(text);
+}
+function tableGone(code) {
+  endTable(ROLE === 'camera'
     ? `This table has expired (${code}) — start a new game on your computer and rescan the QR code.`
     : `This table has expired (${code}) — click New game to start another.`);
+}
+function tableClosed() {
+  endTable(ROLE === 'camera'
+    ? 'This table was closed — start a new game on your computer to play again.'
+    : 'Table closed. Click New game to start another.');
 }
 
 function publish(ev) {
@@ -503,6 +512,7 @@ function handleBusMessage(m) {
     case 'hero':   if ((ev.side || '1') === SIDE) lockHero(ev.pid, true); break;
     case 'life':   if (ev.seat) { life[ev.seat] = ev.value; renderLife(); } break;
     case 'newgame': resetGame(false); break;
+    case 'closed':  tableClosed(); break;
     case 'hello':      onHello(ev); break;
     case 'zoom':       if (ROLE === 'camera' && applyZoomRemote) applyZoomRemote(ev.value); break;
     case 'rtc-offer':  onRtcOffer(ev); break;
@@ -607,6 +617,18 @@ function resetGame(broadcast) {
   if (broadcast) publish({ type: 'newgame' });
 }
 document.getElementById('newGameBtn').addEventListener('click', () => resetGame(true));
+// Free the room server-side now instead of waiting out the idle TTL; every
+// connected client (cameras included) gets the 'closed' event.
+document.getElementById('closeRoomBtn').addEventListener('click', async () => {
+  if (!confirm('Close this table for everyone? Cameras disconnect immediately.')) return;
+  try {
+    const res = await fetch(`/api/rooms/${ROOM}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || `HTTP ${res.status}`);
+    tableClosed(); // our own SSE also gets 'closed', but don't depend on the race
+  } catch (e) {
+    alert('Could not close the table: ' + e.message);
+  }
+});
 const MIN_HITS = 2;          // frames required before a card appears (kills one-frame noise)
 const FADE_AFTER_MS = 2000;  // dim once the QR has been out of frame this long
 let detections = 0, lastLatency = 0;
@@ -1127,6 +1149,7 @@ async function main() {
     const logBtn = document.getElementById('logBtn');
     aside.hidden = true;
     logBtn.hidden = false;
+    document.getElementById('closeRoomBtn').hidden = false; // displays only: cameras auth by token, not session
     logBtn.addEventListener('click', () => {
       aside.hidden = !aside.hidden;
       logBtn.textContent = aside.hidden ? 'Show log' : 'Hide log';

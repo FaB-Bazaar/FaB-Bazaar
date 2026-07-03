@@ -311,6 +311,20 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { success: true, data: { side } });
     }
 
+    // Close the table: seated members only (a session, not a camera token)
+    if ((m = path.match(/^\/api\/rooms\/([\w-]+)$/)) && req.method === 'DELETE') {
+      const session = requireSession(req);
+      const side = rooms.memberSide(m[1], session.userId);
+      if (!side) {
+        throw new HttpError(403, 'NOT_A_MEMBER', 'Only a seated player can close this table', {
+          roomId: m[1],
+          userId: session.userId,
+        });
+      }
+      rooms.close(m[1]);
+      return sendJson(res, 200, { success: true });
+    }
+
     if ((m = path.match(/^\/api\/rooms\/([\w-]+)\/pair$/)) && req.method === 'GET') {
       const session = requireSession(req);
       const side = rooms.memberSide(m[1], session.userId);

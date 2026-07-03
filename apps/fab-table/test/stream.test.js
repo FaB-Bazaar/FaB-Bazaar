@@ -64,3 +64,33 @@ test('event publish to a gone room reports ROOM_NOT_FOUND (client reacts to this
   const body = await res.json();
   assert.equal(body.code, 'ROOM_NOT_FOUND');
 });
+
+// --- Close room: explicit teardown so abandoned tables don't wait out the TTL
+import { signSession } from '../lib/auth.js';
+
+function sessionFor(userId) {
+  return `ft_session=${encodeURIComponent(signSession({ userId, username: userId }, SECRET, 60_000))}`;
+}
+
+test('DELETE room: member closes it, subsequent join is ROOM_NOT_FOUND', async () => {
+  const create = await fetch(`${BASE}/api/rooms`, {
+    method: 'POST', headers: { cookie: sessionFor('owner') },
+  }).then((r) => r.json());
+  const roomId = create.data.roomId;
+
+  // A signed-in non-member cannot close someone else's table
+  const forbidden = await fetch(`${BASE}/api/rooms/${roomId}`, {
+    method: 'DELETE', headers: { cookie: sessionFor('stranger') },
+  });
+  assert.equal(forbidden.status, 403);
+
+  const closed = await fetch(`${BASE}/api/rooms/${roomId}`, {
+    method: 'DELETE', headers: { cookie: sessionFor('owner') },
+  });
+  assert.equal(closed.status, 200);
+
+  const rejoin = await fetch(`${BASE}/api/rooms/${roomId}/join`, {
+    method: 'POST', headers: { cookie: sessionFor('owner') },
+  });
+  assert.equal(rejoin.status, 404);
+});

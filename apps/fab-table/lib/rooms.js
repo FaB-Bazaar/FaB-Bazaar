@@ -113,6 +113,22 @@ export function createRooms({
       return () => room.subscribers.delete(fn);
     },
 
+    // Explicit teardown: tell everyone connected, then free the memory now
+    // instead of waiting out the idle TTL.
+    close(roomId) {
+      const room = get(roomId);
+      const ev = { type: 'closed' };
+      for (const fn of room.subscribers) {
+        try {
+          fn(ev);
+        } catch (err) {
+          log?.error('subscriber threw while handling close', { roomId, err });
+        }
+      }
+      rooms.delete(roomId);
+      log?.info('room closed', { roomId, members: { ...room.members } });
+    },
+
     sweep() {
       let removed = 0;
       for (const [id, room] of rooms) {

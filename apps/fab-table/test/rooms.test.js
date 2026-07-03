@@ -106,3 +106,20 @@ test('stats reports room count for health checks', () => {
   rooms.create('b');
   assert.equal(rooms.stats().rooms, 2);
 });
+
+test('close notifies subscribers then deletes the room', () => {
+  const { rooms } = make();
+  const { id } = rooms.create('alice');
+  const got = [];
+  rooms.subscribe(id, (ev) => got.push(ev));
+  rooms.close(id);
+  assert.equal(got.length, 1);
+  assert.equal(got[0].type, 'closed');
+  assert.throws(() => rooms.join(id, 'alice'), (e) => e.code === 'ROOM_NOT_FOUND');
+  assert.equal(rooms.stats().rooms, 0);
+});
+
+test('close on an unknown room raises ROOM_NOT_FOUND', () => {
+  const { rooms } = make();
+  assert.throws(() => rooms.close('nope'), (e) => e.code === 'ROOM_NOT_FOUND');
+});
