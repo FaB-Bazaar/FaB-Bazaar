@@ -980,9 +980,11 @@ async function makeDetector() {
       return new BarcodeDetector({ formats: ['qr_code'] });
     }
   }
-  await loadScript('zxing-reader.js');
+  // Root-absolute paths: this page is served at /r/<room>/cam, so relative
+  // srcs would resolve under /r/<room>/ and 404.
+  await loadScript('/zxing-reader.js');
   ZXingWASM.prepareZXingModule({
-    overrides: { locateFile: (path, prefix) => path.endsWith('.wasm') ? 'zxing_reader.wasm' : prefix + path },
+    overrides: { locateFile: (path, prefix) => path.endsWith('.wasm') ? '/zxing_reader.wasm' : prefix + path },
   });
   const cv = document.createElement('canvas');
   const cx = cv.getContext('2d', { willReadFrequently: true });
