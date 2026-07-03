@@ -23,6 +23,7 @@ import {
   BookOpen,
   Filter,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +34,7 @@ import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings, TALISHAR_HERO_IDS } from "@/
 // Import deck-specific components
 import DeckCard from "@/components/deck/DeckCard";
 import CreateDeckDialog from "@/components/deck/CreateDeckDialog";
+import ImportFabraryDialog from "@/components/deck/ImportFabraryDialog";
 import DeckStats from "@/components/deck/DeckStats";
 import DeckSettings from "@/components/deck/DeckSettings";
 import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
@@ -111,6 +113,7 @@ export default function DecksPage() {
   const [sortBy, setSortBy] = useState("updated"); // updated, created, name, value
   const [activeTab, setActiveTab] = useState("decks");
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
+  const [importFabraryOpen, setImportFabraryOpen] = useState(false);
   const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
   const [settingsDeck, setSettingsDeck] = useState<Deck | null>(null);
 
@@ -238,6 +241,37 @@ export default function DecksPage() {
         variant: "destructive"
       });
     }
+  };
+
+  // Handle "create deck from pasted FaBrary list". Throws on failure so the
+  // dialog can surface the message; navigates to the new deck on success.
+  const handleImportFabrary = async (text: string) => {
+    const result = await decksClient.importFromFabrary(text);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to import deck');
+    }
+
+    const { publicId, deckName, format, hero, unresolved } = result.data;
+
+    window.dispatchEvent(new CustomEvent('deckCreated'));
+
+    trackDeckCreate({
+      deck_id: publicId,
+      deck_name: deckName,
+      format,
+      hero: hero?.name,
+      is_public: false,
+    });
+
+    toast({
+      title: "Deck created",
+      description: unresolved.length > 0
+        ? `${deckName} created. ${unresolved.length} card(s) couldn't be matched: ${unresolved.join(', ')}`
+        : `${deckName} has been created from your FaBrary list.`,
+      variant: unresolved.length > 0 ? "destructive" : undefined,
+    });
+
+    router.push(`/decks/${publicId}`);
   };
 
   // Handle deck deletion
@@ -566,6 +600,13 @@ export default function DecksPage() {
         onCreateDeck={handleCreateDeck}
       />
 
+      {/* Import from FaBrary Dialog */}
+      <ImportFabraryDialog
+        open={importFabraryOpen}
+        onOpenChange={setImportFabraryOpen}
+        onImport={handleImportFabrary}
+      />
+
       {/* Delete Confirmation Dialog */}
       {settingsDeck && (
         <DeckSettings
@@ -631,13 +672,22 @@ export default function DecksPage() {
             )}
           </div>
 
-          <Button
-            onClick={() => setCreateDeckOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Deck
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() => setCreateDeckOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Deck
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setImportFabraryOpen(true)}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Import from FaBrary
+            </Button>
+          </div>
         </div>
 
         {/* Talishar / Metafy info strip */}

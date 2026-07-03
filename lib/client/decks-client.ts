@@ -27,6 +27,7 @@ import type {
   ApplyPrintingUpgradesResultDTO,
   DeckLanguageConversionPlanDTO,
 } from '@/lib/services/contracts/IDeckService';
+import type { ImportFabraryResult } from '@/lib/decks/import-fabrary';
 
 // ====================================
 // Deck CRUD Operations
@@ -402,29 +403,31 @@ export async function calculateStats(
 // ====================================
 
 /**
- * Import a deck from Fabrary URL
+ * Create a deck from a decklist copy-pasted from FaBrary.
  *
- * @param fabraryUrl - The Fabrary deck URL
- * @returns Created deck with imported cards
+ * Resolves the hero + every card to a printing server-side and returns the new
+ * deck's publicId plus any card lines that couldn't be matched.
+ *
+ * @param text - The raw pasted FaBrary decklist (Name/Hero/Format + card lines)
  *
  * @example
  * ```typescript
- * const result = await importFromFabrary('https://fabrary.net/decks/...');
+ * const result = await importFromFabrary(pastedText);
  * if (result.success) {
- *   console.log(`Imported: ${result.data.name}`);
+ *   router.push(`/decks/${result.data.publicId}`);
  * }
  * ```
  */
 export async function importFromFabrary(
-  fabraryUrl: string
-): Promise<ApiResponse<DeckDTO>> {
+  text: string
+): Promise<ApiResponse<ImportFabraryResult>> {
   try {
     const response = await fetch('/api/decks/import/fabrary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: fabraryUrl }),
+      body: JSON.stringify({ text }),
     });
-    return await handleResponse<DeckDTO>(response);
+    return await handleResponse<ImportFabraryResult>(response);
   } catch (error) {
     return handleError(error);
   }
