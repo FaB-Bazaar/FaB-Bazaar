@@ -288,12 +288,8 @@
   <label class="zoomwrap" id="zoomWrap" hidden>zoom
     <input type="range" id="zoomCtl" aria-label="Camera zoom">
   </label>
-  <span class="zoomwrap" id="rzWrap" hidden>cam zoom
-    <button class="nudge" id="rzMinus" aria-label="Zoom out">−</button>
-    <input type="range" id="rzCtl" aria-label="Remote camera zoom">
-    <button class="nudge" id="rzPlus" aria-label="Zoom in">+</button>
-    <span class="zval" id="rzVal"></span>
-  </span>
+  <!-- One remote-zoom control per connected camera, labeled by whose it is -->
+  <span id="rzZone"></span>
   <select class="zonebtn" id="camSel" hidden aria-label="Camera"></select>
   <button class="zonebtn" id="ecoBtn" hidden>Hide preview</button>
   <button class="zonebtn" id="logBtn" hidden>Show log</button>
@@ -423,7 +419,7 @@ const msgEl = document.getElementById('msg');
 // ?role=camera (default): scans and publishes.  ?role=display: mirrors the HUD.
 // Both talk to this server's tiny relay; the real table page swaps this for
 // the fabbazaar WebSocket with auth + rooms.
-const BUILD = 'v26';
+const BUILD = 'v27';
 const params = new URLSearchParams(location.search);
 const pathParts = location.pathname.split('/').filter(Boolean); // ['r', roomId, 'cam'?]
 const ROLE = pathParts[2] === 'cam' ? 'camera' : 'display';
@@ -748,17 +744,32 @@ function onHello(ev) {
   }
 }
 
-// Display-side slider that drives a camera's zoom over the event channel —
-// handy when the phone is mounted overhead and out of reach.
+// Display-side sliders that drive each camera's zoom over the event channel —
+// handy when the phone is mounted overhead and out of reach. One control per
+// connected camera, labeled by whose playmat it watches: a single shared
+// slider silently re-targeted to whichever camera said hello last, so you
+// lost control of your own phone the moment the opponent's joined.
+const zoomCtls = new Map(); // camera cid -> control root
 function setupRemoteZoom(ev) {
-  const wrap = document.getElementById('rzWrap');
-  const ctl = document.getElementById('rzCtl');
-  const val = document.getElementById('rzVal');
+  const who = (ev.side || '1') === SIDE ? 'your cam' : 'opp cam';
+  let wrap = zoomCtls.get(ev.cid);
+  if (!wrap) {
+    wrap = document.createElement('span');
+    wrap.className = 'zoomwrap';
+    wrap.innerHTML = `${who}
+      <button class="nudge" data-rz="minus" aria-label="Zoom out ${who}">−</button>
+      <input type="range" data-rz="ctl" aria-label="${who} zoom">
+      <button class="nudge" data-rz="plus" aria-label="Zoom in ${who}">+</button>
+      <span class="zval" data-rz="val"></span>`;
+    document.getElementById('rzZone').appendChild(wrap);
+    zoomCtls.set(ev.cid, wrap);
+  }
+  const ctl = wrap.querySelector('[data-rz=ctl]');
+  const val = wrap.querySelector('[data-rz=val]');
   // Useful zoom lives at the low end: cap at 3x, step finely, nudge by 0.05
   ctl.min = ev.zoom.min;
   ctl.max = Math.min(ev.zoom.max, 3);
   ctl.step = 0.05;
-  wrap.hidden = false;
   const send = () => {
     val.textContent = (+ctl.value).toFixed(2) + '×';
     publish({ type: 'zoom', to: ev.cid, value: parseFloat(ctl.value) });
@@ -768,9 +779,13 @@ function setupRemoteZoom(ev) {
     ctl.value = Math.min(+ctl.max, Math.max(+ctl.min, +ctl.value + d));
     send();
   };
-  document.getElementById('rzMinus').onclick = e => { e.preventDefault(); nudge(-0.05); };
-  document.getElementById('rzPlus').onclick = e => { e.preventDefault(); nudge(0.05); };
+  wrap.querySelector('[data-rz=minus]').onclick = e => { e.preventDefault(); nudge(-0.05); };
+  wrap.querySelector('[data-rz=plus]').onclick = e => { e.preventDefault(); nudge(0.05); };
   val.textContent = (+ctl.value || +ctl.min || 1).toFixed(2) + '×';
+}
+function removeRemoteZoom(peer) {
+  zoomCtls.get(peer)?.remove();
+  zoomCtls.delete(peer);
 }
 
 function newPc(peer) {
@@ -782,7 +797,10 @@ function newPc(peer) {
   pc.onconnectionstatechange = () => {
     if (['failed', 'closed'].includes(pc.connectionState)) {
       pc.close();
-      if (pcs.get(peer) === pc) pcs.delete(peer);
+      if (pcs.get(peer) === pc) {
+        pcs.delete(peer);
+        removeRemoteZoom(peer); // its slider re-appears on the camera's next hello
+      }
     }
   };
   return pc;
