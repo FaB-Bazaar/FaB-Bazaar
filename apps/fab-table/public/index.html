@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaB Table — webcam play for Flesh and Blood</title>
+<style>
+  :root { --bg: #14161a; --panel: #1d2026; --ink: #e8eaee; --sub: #9aa1ac; --line: #30343c; --accent: #4c8fd6; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 30rem; padding: 32px; text-align: center; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  p.tag { color: var(--sub); margin: 0 0 28px; line-height: 1.5; }
+  .btn {
+    display: inline-block; font: inherit; font-weight: 600; font-size: 1rem;
+    color: #fff; background: var(--accent); border: none; border-radius: 8px;
+    padding: 12px 28px; cursor: pointer; text-decoration: none;
+  }
+  .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .who { margin-top: 14px; font-size: .8rem; color: var(--sub); }
+  .who a { color: var(--accent); }
+  .steps {
+    margin-top: 36px; text-align: left; font-size: .85rem; color: var(--sub);
+    border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; line-height: 1.7;
+  }
+  .steps b { color: var(--ink); }
+  .err { color: #e08585; margin-top: 12px; font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>FaB Table</h1>
+  <p class="tag">Play Flesh and Blood over webcam — your phone scans QR-stickered sleeves, your opponent sees every card as it hits the mat.</p>
+  <div id="cta"><span class="who">Checking sign-in…</span></div>
+  <div class="err" id="err" hidden></div>
+  <div class="steps">
+    <b>How it works</b><br>
+    1. Print QR stickers for your deck from its fabbazaar.app deck page (More → QR sticker sheet) and sleeve them.<br>
+    2. Create a table here and send the link to your opponent.<br>
+    3. Scan the on-screen QR with your phone — it becomes your playmat camera. Mount it landscape above the mat.
+  </div>
+</main>
+<script>
+(async () => {
+  const cta = document.getElementById('cta');
+  const err = document.getElementById('err');
+  const who = await fetch('/api/whoami').then(r => r.json()).catch(() => ({}));
+  if (!who.signedIn) {
+    cta.innerHTML = '<a class="btn" href="/auth/login">Sign in with FaB Bazaar</a>';
+    return;
+  }
+  cta.innerHTML = '<button class="btn" id="create">Create a table</button>' +
+    `<div class="who">Signed in as <b>${who.username}</b> · <a href="/auth/logout">sign out</a></div>`;
+  document.getElementById('create').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/rooms', { method: 'POST' }).then(r => r.json());
+      if (!res.success) throw new Error(res.error || 'Could not create a table');
+      location.href = '/r/' + res.data.roomId;
+    } catch (e) {
+      err.hidden = false;
+      err.textContent = String(e.message || e);
+    }
+  });
+})();
+</script>
+</body>
+</html>

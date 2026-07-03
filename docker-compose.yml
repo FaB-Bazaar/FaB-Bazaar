@@ -136,6 +136,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Webcam play companion (play.fabbazaar.app). Deploys independently via
+  # .github/workflows/deploy-fab-table.yml — the main deploy never touches it.
+  # Hard-capped so a runaway can only OOM-kill itself (cgroup-scoped), never
+  # trigger the host OOM killer against postgres/nextjs. No volumes, no DB,
+  # no shared state; reaches fabbazaar only via its public HTTPS API.
+  fab-table:
+    image: ghcr.io/fab-bazaar/fab-table:${FAB_TABLE_VERSION:-latest}
+    container_name: fabbazaar-fab-table
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    environment:
+      PORT: 8787
+      PUBLIC_URL: https://play.fabbazaar.app
+      FABBAZAAR_URL: https://fabbazaar.app
+      SESSION_SECRET: ${FAB_TABLE_SESSION_SECRET}
+      OAUTH_CLIENT_ID: ${FAB_TABLE_OAUTH_CLIENT_ID}
+      OAUTH_CLIENT_SECRET: ${FAB_TABLE_OAUTH_CLIENT_SECRET}
+      BUILD_SHA: ${FAB_TABLE_VERSION:-latest}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - fabbazaar
+
 networks:
   fabbazaar:
     driver: bridge

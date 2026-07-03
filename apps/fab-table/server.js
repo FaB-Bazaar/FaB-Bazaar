@@ -37,7 +37,7 @@ if (!SESSION_SECRET) {
 }
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const PAIRING_TTL_MS = 10 * 60 * 1000;
+const PAIRING_TTL_MS = 4 * 60 * 60 * 1000; // matches room TTL; camera reuses it all game
 
 const rooms = createRooms({ log });
 const eventLimiter = createRateLimiter({ capacity: 30, refillPerSec: 10 });
@@ -336,6 +336,15 @@ const server = createServer(async (req, res) => {
       return sendJson(res, 200, { success: true });
     }
 
+    // Diagnostic dump: the room's bounded event buffer + snapshot. Member-only.
+    if ((m = path.match(/^\/api\/rooms\/([\w-]+)\/dump$/)) && req.method === 'GET') {
+      identify(req, url, m[1]);
+      return sendJson(res, 200, {
+        success: true,
+        data: { events: rooms.dump(m[1]), snapshot: rooms.snapshot(m[1]) },
+      });
+    }
+
     if ((m = path.match(/^\/api\/rooms\/([\w-]+)\/stream$/)) && req.method === 'GET') {
       const who = identify(req, url, m[1]);
       res.writeHead(200, {
@@ -359,8 +368,7 @@ const server = createServer(async (req, res) => {
 
     // Pages
     if (path === '/' && serveFile(res, 'index.html')) return;
-    if (/^\/r\/[\w-]+$/.test(path) && serveFile(res, 'display.html')) return;
-    if (/^\/r\/[\w-]+\/cam$/.test(path) && serveFile(res, 'camera.html')) return;
+    if (/^\/r\/[\w-]+(\/cam)?$/.test(path) && serveFile(res, 'table.html')) return;
     if (serveFile(res, path.slice(1))) return;
 
     throw new HttpError(404, 'NOT_FOUND', `No route for ${req.method} ${path}`, {});

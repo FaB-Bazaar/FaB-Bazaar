@@ -1,0 +1,51 @@
+# Deploys ONLY the fab-table service (play.fabbazaar.app), and ONLY when its
+# files change. The main deploy.yml never touches fab-table; this workflow
+# never touches nextjs — active games survive fabbazaar deploys by design.
+name: Deploy fab-table
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/fab-table/**'
+      - '.github/workflows/deploy-fab-table.yml'
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/fab-table
+          push: true
+          build-args: |
+            BUILD_SHA=${{ github.sha }}
+          tags: |
+            ghcr.io/fab-bazaar/fab-table:${{ github.sha }}
+            ghcr.io/fab-bazaar/fab-table:latest
+
+  deploy:
+    needs: build-image
+    runs-on: self-hosted
+    steps:
+      - name: Deploy fab-table only
+        run: |
+          cd /opt/fabbazaar
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker compose pull fab-table
+          docker compose up -d --no-deps fab-table
+          docker image prune -f --filter "label=org.opencontainers.image.title=fab-table" || true
+          curl -sf --max-time 5 http://localhost:8787/healthz || echo "healthz not reachable from host (fine if port unpublished)"

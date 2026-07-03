@@ -11,3 +11,20 @@ fabbazaar.app {
 		-Server
 	}
 }
+
+# Webcam play companion — separate container, separate deploy cadence.
+# NOTE: reuses the Cloudflare origin cert; verify it covers *.fabbazaar.app
+# (CF origin certs usually do) before pointing DNS at this vhost.
+play.fabbazaar.app {
+	tls /certs/fabbazaar.app.pem /certs/fabbazaar.app.key
+
+	reverse_proxy fab-table:8787
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

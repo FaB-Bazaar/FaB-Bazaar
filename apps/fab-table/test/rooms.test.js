@@ -75,6 +75,18 @@ test('snapshot replays hero and latest life, and clears on newgame', () => {
   assert.equal(rooms.snapshot(id).filter((e) => e.type !== 'newgame').length, 0);
 });
 
+test('life snapshot is keyed by seat and keeps only the latest per seat', () => {
+  const { rooms } = make();
+  const { id } = rooms.create('alice');
+  rooms.append(id, { type: 'life', seat: '1', value: 39, side: '1' });
+  rooms.append(id, { type: 'life', seat: '2', value: 40, side: '1' }); // sender adjusts opponent
+  rooms.append(id, { type: 'life', seat: '1', value: 36, side: '1' });
+  const lifeEvents = rooms.snapshot(id).filter((e) => e.type === 'life');
+  assert.equal(lifeEvents.length, 2);
+  assert.equal(lifeEvents.find((e) => e.seat === '1').value, 36);
+  assert.equal(lifeEvents.find((e) => e.seat === '2').value, 40);
+});
+
 test('idle rooms are swept after TTL; active rooms survive', () => {
   const { rooms, clock } = make();
   const { id: idle } = rooms.create('alice');

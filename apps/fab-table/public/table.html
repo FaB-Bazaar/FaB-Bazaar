@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaB Table</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1d2026;
+    --ink: #e8eaee;
+    --sub: #9aa1ac;
+    --line: #30343c;
+    --accent: #4c8fd6;
+    --ok: #3fa66a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 1rem; font-weight: 600; margin: 0; }
+  header .stats { font-size: .78rem; color: var(--sub); font-variant-numeric: tabular-nums; }
+  header .stats b { color: var(--ink); font-weight: 600; }
+  main { flex: 1; display: flex; min-height: 0; }
+  .stage {
+    flex: 1; position: relative; display: flex;
+    align-items: center; justify-content: center;
+    background: #000; min-width: 0; overflow: hidden;
+  }
+  .stage .frame { position: relative; max-width: 100%; max-height: 100%; }
+  .frame.eco video, .frame.eco canvas { visibility: hidden; }
+  .frame.eco::after {
+    content: "preview off — still scanning"; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--sub); font-size: .85rem;
+  }
+  .orient-hint {
+    position: absolute; inset: 0; z-index: 6;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 24px; text-align: center;
+    background: rgba(20,22,26,.93); color: var(--ink);
+    font-size: 1.05rem; font-weight: 600; line-height: 1.4;
+  }
+  .orient-hint::before { content: "🔄"; font-size: 2.4rem; }
+  .orient-hint small { font-weight: 400; font-size: .8rem; color: var(--sub); }
+  .orient-hint[hidden] { display: none; }
+  video { display: block; max-width: 100%; max-height: calc(100vh - 180px); }
+  canvas.overlay { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  .zonebtn {
+    font: inherit; font-size: .72rem; color: var(--ink);
+    background: transparent; border: 1px solid var(--line); border-radius: 4px;
+    padding: 3px 10px; cursor: pointer;
+  }
+  #newGameBtn { margin-left: auto; }
+  .zoomwrap {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .72rem; color: var(--sub);
+  }
+  .zoomwrap[hidden] { display: none; }
+  .zoomwrap input { width: 110px; accent-color: var(--accent); }
+  .nudge {
+    width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line);
+    background: transparent; color: var(--ink); font-size: .8rem; line-height: 1;
+    cursor: pointer; flex: none; padding: 0;
+  }
+  .nudge:hover { border-color: var(--sub); background: #262a32; }
+  .zval {
+    font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600;
+    width: 42px; text-align: right;
+  }
+  .pipempty {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    color: var(--sub); font-size: .78rem; font-weight: 600; line-height: 1.5;
+    border: 1px dashed var(--line); border-radius: 4px; margin: 6px;
+  }
+  .pipempty small { font-weight: 400; font-size: .65rem; }
+  .pairqr { background: #fff; border-radius: 6px; padding: 4px; margin-bottom: 6px; }
+  .pairqr svg { width: 108px; height: 108px; display: block; }
+  .pipempty[hidden] { display: none; }
+  .zonebtn:hover { border-color: var(--sub); }
+  .zonebtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .msg {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--sub); font-size: .9rem; text-align: center; padding: 24px;
+    pointer-events: none;
+  }
+  .msg[hidden] { display: none; }
+  .viewwrap { position: relative; width: 100%; height: 100%; overflow: hidden; }
+  .viewwrap[hidden] { display: none; }
+  .vidbox { position: absolute; background: #000; }
+  .vidbox video { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .vidbox .hitlayer { position: absolute; inset: 0; }
+  .mainlabel {
+    position: absolute; top: 12px; left: 12px; font-size: .75rem; color: var(--ink);
+    background: rgba(20,22,26,.75); padding: 4px 10px; border-radius: 4px;
+  }
+  .pip {
+    position: absolute; left: 14px; bottom: 14px; width: 16%; min-width: 130px;
+    aspect-ratio: 16 / 9;
+    border: 2px solid var(--line); border-radius: 6px; overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0,0,0,.6); background: #000;
+  }
+  .pip[hidden] { display: none; }
+  /* No camera yet: collapse to a small chip so it doesn't cover the mat */
+  .pip.offline {
+    width: auto; min-width: 0; aspect-ratio: auto;
+    border-style: dashed; box-shadow: none; background: rgba(20,22,26,.8);
+  }
+  .pip.offline video, .pip.offline .piplabel, .pip.offline .rotbtn { display: none; }
+  .pip.offline .pipempty {
+    position: static; border: none; margin: 0; padding: 7px 14px;
+    font-size: .7rem; line-height: 1.4;
+  }
+  .pip video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .rotbtn {
+    position: absolute; top: 10px; right: 10px; z-index: 5;
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--line); background: rgba(20,22,26,.8);
+    color: var(--ink); font-size: 1rem; cursor: pointer;
+  }
+  .rotbtn:hover { border-color: var(--sub); }
+  .rotbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .rotbtn.pipbtn { top: 4px; right: 4px; width: 24px; height: 24px; font-size: .75rem; }
+  .rotbtn.boxfix { top: 52px; }
+  .hitlayer { pointer-events: none; z-index: 3; }
+  .hit {
+    position: absolute; pointer-events: auto; cursor: pointer;
+    border: 2px solid var(--hitcol, rgba(63,166,106,.75)); border-radius: 4px;
+  }
+  .hit:hover, .hit:focus-visible {
+    background: rgba(76,143,214,.14); outline: none;
+  }
+  .hit .hitlbl {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    margin-top: 3px; font-size: .62rem; font-weight: 600; white-space: nowrap;
+    background: rgba(20,22,26,.82); color: var(--ink);
+    padding: 1px 7px; border-radius: 3px; pointer-events: none;
+  }
+  .hit.new { animation: hitpulse 1.1s ease-out 2; }
+  @keyframes hitpulse {
+    0% { box-shadow: 0 0 0 0 rgba(76,143,214,.8); }
+    100% { box-shadow: 0 0 0 14px rgba(76,143,214,0); }
+  }
+  .splash {
+    position: absolute; top: 56px; right: 16px; width: 190px; z-index: 7;
+    text-align: center; pointer-events: none;
+  }
+  .splash img { width: 100%; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.7); }
+  .splash .sname {
+    margin-top: 6px; font-size: .8rem; font-weight: 600; display: inline-block;
+    background: rgba(20,22,26,.85); border-radius: 4px; padding: 3px 10px;
+  }
+  .splash.anim { animation: splashin 2.6s ease forwards; }
+  @keyframes splashin {
+    0% { opacity: 0; transform: translateY(-14px) scale(.92); }
+    8% { opacity: 1; transform: none; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .splash[hidden] { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .hit.new { animation: none; }
+    .splash.anim { animation: none; }
+  }
+  aside[hidden] { display: none; }
+  .piplabel {
+    position: absolute; top: 6px; left: 8px; font-size: .65rem; color: #fff;
+    background: rgba(20,22,26,.75); padding: 2px 8px; border-radius: 3px;
+  }
+  aside {
+    width: 240px; flex: none; border-left: 1px solid var(--line);
+    background: var(--panel); padding: 12px; overflow-y: auto;
+  }
+  aside h2 {
+    font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--sub); margin: 0 0 8px;
+  }
+  .log { display: flex; flex-direction: column; gap: 6px; }
+  .log .row {
+    display: flex; gap: 8px; align-items: center; font-size: .78rem;
+    border-radius: 4px; padding: 3px; cursor: pointer;
+  }
+  .log .row:hover { background: #262a32; }
+  .log .row:focus-visible { background: #262a32; outline: none; box-shadow: 0 0 0 2px var(--accent); }
+  .log .row img { width: 34px; border-radius: 2px; flex: none; }
+  .log .row .t { color: var(--sub); font-size: .68rem; font-variant-numeric: tabular-nums; }
+
+  .preview {
+    position: fixed; z-index: 10; width: 460px; max-width: calc(100vw - 290px);
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; box-shadow: 0 6px 28px rgba(0,0,0,.6);
+    pointer-events: none;
+  }
+  .preview[hidden] { display: none; }
+  .preview img { width: 200px; border-radius: 8px; flex: none; }
+  .preview .d { min-width: 0; font-size: .78rem; line-height: 1.45; }
+  .preview .d h3 { font-size: .95rem; margin: 0 0 2px; display: flex; align-items: center; gap: 6px; }
+  .preview .d h3 .pdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .preview .d .types { color: var(--sub); font-size: .68rem; text-transform: capitalize; margin: 0 0 6px; }
+  .preview .d .statline { color: var(--sub); font-size: .72rem; margin: 0 0 6px; }
+  .preview .d .statline b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .preview .d .txt { white-space: pre-line; }
+  .preview .d .price { margin-top: 8px; color: var(--sub); font-size: .72rem; }
+  .preview .d .hint { margin-top: 6px; color: var(--accent); font-size: .68rem; }
+  .banner {
+    height: 150px; flex: none; border-top: 2px solid var(--accent);
+    background: var(--panel); display: flex; align-items: stretch;
+  }
+  .banner .zone { padding: 8px 14px; min-width: 0; display: flex; flex-direction: column; }
+  .banner .zone + .zone { border-left: 1px solid var(--line); }
+  .banner .zone h3 {
+    font-size: .64rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--sub); margin: 0 0 6px; flex: none;
+  }
+  .banner .zmine { flex: 3; }
+  .banner .zopp { flex: 2; }
+  .banner .cards {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+    overflow-x: auto; min-height: 0;
+  }
+  .banner .placeholder { color: var(--sub); font-size: .75rem; max-width: 300px; }
+  .zhero { flex: none; width: 120px; }
+  .heroslot { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .heroslot .placeholder { font-size: .68rem; text-align: center; }
+  .heroslot .card { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .heroslot .card img { height: 88px; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.5); }
+  .heroslot .card .nm {
+    font-size: .6rem; text-align: center; line-height: 1.1; max-width: 100px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Banner order: hero, my cards, opponent, life on the far right */
+  .zhero { order: 1; }
+  .zmine { order: 2; }
+  .zopp { order: 3; }
+  .zlife { order: 4; flex: none; justify-content: flex-start; gap: 6px; }
+  .lifebox { display: flex; align-items: center; gap: 8px; }
+  .lifebox .who { width: 30px; font-size: .72rem; color: var(--sub); }
+  .lifebox .total {
+    font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    width: 52px; text-align: center;
+  }
+  .lbtn {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line);
+    background: transparent; color: var(--ink); font-size: 1rem; line-height: 1;
+    cursor: pointer; flex: none;
+  }
+  .lbtn:hover { border-color: var(--sub); background: #262a32; }
+  .lbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .banner .card {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    flex: none; width: 84px;
+    opacity: 1; transition: opacity .6s ease;
+  }
+  .banner .card img {
+    height: 90px; border-radius: 4px;
+    box-shadow: 0 1px 6px rgba(0,0,0,.5);
+  }
+  .banner .card .nm {
+    font-size: .6rem; text-align: center; line-height: 1.1;
+    max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .banner .card.fading { opacity: .4; }
+  @media (prefers-reduced-motion: reduce) {
+    .banner .card { transition: none; }
+  }
+  /* Phone camera mode: it's a camera, not a game console — video + controls only */
+  @media (max-width: 900px) {
+    body.camonly aside, body.camonly .banner, body.camonly #newGameBtn { display: none; }
+    body.camonly header { flex-wrap: wrap; row-gap: 6px; align-items: center; }
+    body.camonly header h1 { font-size: .85rem; }
+    body.camonly video { max-height: none; }
+    body.camonly .zoomwrap input { width: 150px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>FaB Table</h1>
+  <div class="stats" id="stats">starting camera…</div>
+  <label class="zoomwrap" id="zoomWrap" hidden>zoom
+    <input type="range" id="zoomCtl" aria-label="Camera zoom">
+  </label>
+  <span class="zoomwrap" id="rzWrap" hidden>cam zoom
+    <button class="nudge" id="rzMinus" aria-label="Zoom out">−</button>
+    <input type="range" id="rzCtl" aria-label="Remote camera zoom">
+    <button class="nudge" id="rzPlus" aria-label="Zoom in">+</button>
+    <span class="zval" id="rzVal"></span>
+  </span>
+  <select class="zonebtn" id="camSel" hidden aria-label="Camera"></select>
+  <button class="zonebtn" id="ecoBtn" hidden>Hide preview</button>
+  <button class="zonebtn" id="logBtn" hidden>Show log</button>
+  <button class="zonebtn" id="newGameBtn">New game</button>
+  <button class="zonebtn" id="zoneBtn" hidden>Clear playmat zone</button>
+</header>
+<main>
+  <div class="stage">
+    <div class="frame">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas class="overlay" id="overlay"></canvas>
+      <div class="orient-hint" id="orientHint" hidden>Rotate the phone to landscape
+        <small>Scanning is paused — the camera must match the playmat's orientation.<br>
+        If it stays portrait after rotating, turn off the iOS orientation lock.</small>
+      </div>
+    </div>
+    <div class="viewwrap" id="viewwrap" hidden>
+      <div class="vidbox" id="mainBox">
+        <video id="mainVideo" autoplay muted playsinline></video>
+        <div class="hitlayer" id="hitMain"></div>
+      </div>
+      <div class="mainlabel" id="mainLabel">Waiting for opponent’s camera to join…</div>
+      <button class="rotbtn" id="rotMain" title="Rotate opponent view">⟳</button>
+      <button class="rotbtn boxfix" id="boxFixBtn" title="Flip card-box mapping" hidden>▧</button>
+      <div class="splash" id="splash" hidden>
+        <img id="splashImg" alt="">
+        <div class="sname" id="splashName"></div>
+      </div>
+      <div class="pip" id="pipWrap" hidden>
+        <video id="pipVideo" autoplay muted playsinline></video>
+        <div class="pipempty" id="pipEmpty">Your camera<br><small>appears here when it connects</small></div>
+        <span class="piplabel">You</span>
+        <button class="rotbtn pipbtn" id="rotPip" title="Rotate your view">⟳</button>
+      </div>
+    </div>
+    <div class="msg" id="msg" hidden></div>
+  </div>
+  <aside>
+    <h2>Scan log</h2>
+    <div class="log" id="log"></div>
+  </aside>
+</main>
+<div class="preview" id="preview" hidden></div>
+<div class="banner" id="banner">
+  <div class="zone zlife">
+    <h3>Life</h3>
+    <div class="lifebox">
+      <span class="who">You</span>
+      <button class="lbtn" data-side="me" data-delta="-1" aria-label="Your life minus 1">−</button>
+      <span class="total" id="lifeMe">40</span>
+      <button class="lbtn" data-side="me" data-delta="1" aria-label="Your life plus 1">+</button>
+    </div>
+    <div class="lifebox">
+      <span class="who">Opp</span>
+      <button class="lbtn" data-side="opp" data-delta="-1" aria-label="Opponent life minus 1">−</button>
+      <span class="total" id="lifeOpp">40</span>
+      <button class="lbtn" data-side="opp" data-delta="1" aria-label="Opponent life plus 1">+</button>
+    </div>
+  </div>
+  <div class="zone zhero">
+    <h3>Hero</h3>
+    <div class="heroslot" id="heroSlot">
+      <span class="placeholder">Show your hero card to lock it in.</span>
+    </div>
+  </div>
+  <div class="zone zmine">
+    <h3>My cards</h3>
+    <div class="cards" id="myCards">
+      <span class="placeholder">Cards scanned in your playmat zone appear here.</span>
+    </div>
+  </div>
+  <div class="zone zopp">
+    <h3>Opponent</h3>
+    <div class="cards" id="oppCards">
+      <span class="placeholder">Fed by your opponent’s scanner once tables are connected.</span>
+    </div>
+  </div>
+</div>
+
+<script src="/qrcode-generator.js"></script>
+<script>
+// Card identity resolves lazily via the server's printing proxy (which
+// fronts fabbazaar's immutable printing lookup). Unresolved cards render
+// on the next tick after their fetch lands.
+const CARDS = new Map();
+const CARD_FETCHES = new Set();
+function card(pid) {
+  if (CARDS.has(pid)) return CARDS.get(pid);
+  if (!CARD_FETCHES.has(pid)) {
+    CARD_FETCHES.add(pid);
+    fetch(`/api/printing/${pid}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        const d = j && j.data;
+        if (!d) return;
+        CARDS.set(pid, {
+          name: d.display_name || d.name,
+          img: d.image_url,
+          pitch: d.pitch ?? null,
+          num: d.collector_number,
+          types: d.types || [],
+          text: d.text || '',
+          cost: d.cost, power: d.power, defense: d.defense,
+          life: d.life, intellect: d.intellect,
+          tcg_low: d.tcg_low,
+        });
+      })
+      .catch(() => CARD_FETCHES.delete(pid)); // transient failure: retry on next sighting
+  }
+  return undefined;
+}
+function whenCardReady(pid, fn, tries = 40) {
+  if (card(pid)) return fn();
+  if (tries <= 0) return fn(); // resolve failed; render as unknown
+  setTimeout(() => whenCardReady(pid, fn, tries - 1), 250);
+}
+const LINGER_MS = 5000;
+
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const banner = document.getElementById('banner');
+const logEl = document.getElementById('log');
+const statsEl = document.getElementById('stats');
+const msgEl = document.getElementById('msg');
+
+// --- Roles & event bus ---------------------------------------------------
+// ?role=camera (default): scans and publishes.  ?role=display: mirrors the HUD.
+// Both talk to this server's tiny relay; the real table page swaps this for
+// the fabbazaar WebSocket with auth + rooms.
+const BUILD = 'v25';
+const params = new URLSearchParams(location.search);
+const pathParts = location.pathname.split('/').filter(Boolean); // ['r', roomId, 'cam'?]
+const ROLE = pathParts[2] === 'cam' ? 'camera' : 'display';
+const ROOM = pathParts[1];
+const PAIR = params.get('pair'); // camera devices authenticate with this
+const DEBUG_UI = params.get('debug') === '1';
+let SIDE = null; // seat is assigned by the server (welcome event)
+if (ROLE === 'camera' && matchMedia('(max-width: 900px)').matches) {
+  document.body.classList.add('camonly');
+}
+const CID = crypto.randomUUID();
+let rxCount = 0;
+
+function publish(ev) {
+  fetch(`/api/rooms/${ROOM}/events${PAIR ? `?pair=${encodeURIComponent(PAIR)}` : ''}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cid: CID, build: BUILD, ...ev }),
+  }).catch(() => {});
+}
+
+// Stream connects after the seat is secured: cameras have their pairing
+// token immediately; displays connect after sign-in + join.
+let es = null;
+function connectStream() {
+  es = new EventSource(`/api/rooms/${ROOM}/stream${PAIR ? `?pair=${encodeURIComponent(PAIR)}` : ''}`);
+  es.onmessage = handleBusMessage;
+  es.onopen = () => { if (ROLE === 'display') sendHello(); };
+}
+function handleBusMessage(m) {
+  let ev;
+  try { ev = JSON.parse(m.data); } catch (e) { return; }
+  if (ev.cid === CID) return;          // ignore our own echoes
+  if (ev.to && ev.to !== CID) return;  // addressed to someone else
+  rxCount++;
+  switch (ev.type) {
+    case 'welcome': SIDE = ev.side; break;
+    case 'card':   remoteCard(ev.pid, ev.side || '1', ev.box, ev.fw, ev.fh); break;
+    case 'hero':   if ((ev.side || '1') === SIDE) lockHero(ev.pid, true); break;
+    case 'life':   if (ev.seat) { life[ev.seat] = ev.value; renderLife(); } break;
+    case 'newgame': resetGame(false); break;
+    case 'hello':      onHello(ev); break;
+    case 'zoom':       if (ROLE === 'camera' && applyZoomRemote) applyZoomRemote(ev.value); break;
+    case 'rtc-offer':  onRtcOffer(ev); break;
+    case 'rtc-answer': onRtcAnswer(ev); break;
+    case 'rtc-ice':    onRtcIce(ev); break;
+  }
+}
+if (ROLE === 'camera') connectStream();
+
+// Broadcast-style "card played" toast for newly seen opponent cards
+let splashTimer = null;
+function showSplash(pid) {
+  const p = card(pid);
+  if (!p) return;
+  const sp = document.getElementById('splash');
+  document.getElementById('splashImg').src = p.img;
+  document.getElementById('splashName').textContent = p.name;
+  sp.hidden = false;
+  sp.classList.remove('anim');
+  void sp.offsetWidth; // restart the animation
+  sp.classList.add('anim');
+  clearTimeout(splashTimer);
+  splashTimer = setTimeout(() => { sp.hidden = true; }, 2600);
+}
+
+function remoteCard(pid, side, box, fw, fh) {
+  const now = Date.now();
+  const key = side + ':' + pid;
+  const s = seen.get(key) || { firstSeen: now, hits: 0 };
+  const isOpp = side !== SIDE;
+  const firstSighting = !logged.has((isOpp ? 'o:' : 'm:') + pid);
+  s.confirmed = true;
+  s.lastSeen = now;
+  if (box) { s.box = box; s.fw = fw; s.fh = fh; }
+  seen.set(key, s);
+  whenCardReady(pid, () => {
+    addLog(pid, isOpp);
+    if (firstSighting && isOpp && ROLE === 'display' && !isHeroCard(pid)) showSplash(pid);
+    if (isHeroCard(pid) && side === SIDE) lockHero(pid, true);
+  });
+}
+
+const seen = new Map();      // "side:pid" -> { lastSeen, firstSeen, hits, confirmed }
+const logged = new Set();
+const bannerNodes = new Map(); // "side:pid" -> element (stable DOM; never rebuilt)
+const myCards = document.getElementById('myCards');
+const oppCards = document.getElementById('oppCards');
+const myPlaceholder = myCards.querySelector('.placeholder');
+const oppPlaceholder = oppCards.querySelector('.placeholder');
+
+// --- Life totals (persisted; the real table syncs these over the connection) ---
+const life = { 1: 40, 2: 40 }; // keyed by seat; the room snapshot restores it
+const lifeEls = { me: document.getElementById('lifeMe'), opp: document.getElementById('lifeOpp') };
+function mySeat() { return SIDE || '1'; }
+function oppSeat() { return mySeat() === '1' ? '2' : '1'; }
+function renderLife() {
+  lifeEls.me.textContent = life[mySeat()];
+  lifeEls.opp.textContent = life[oppSeat()];
+}
+document.querySelectorAll('.lbtn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    const step = e.shiftKey ? 5 : 1; // shift-click for big hits
+    const seat = btn.dataset.side === 'me' ? mySeat() : oppSeat();
+    life[seat] += Number(btn.dataset.delta) * step;
+    renderLife();
+    publish({ type: 'life', seat, value: life[seat] });
+  });
+});
+renderLife();
+
+// --- Hero: locked in by the first hero card confirmed on the mat; immutable until New game ---
+const heroSlot = document.getElementById('heroSlot');
+let heroPid = null;
+function isHeroCard(pid) {
+  const p = card(pid);
+  return !!(p && p.types.includes('hero'));
+}
+function renderHero() {
+  const p = heroPid && card(heroPid);
+  heroSlot.innerHTML = p
+    ? `<div class="card"><img src="${p.img}" alt=""><div class="nm">${p.name}</div></div>`
+    : `<span class="placeholder">Show your hero card to lock it in.</span>`;
+}
+function lockHero(pid, remote) {
+  if (heroPid) return; // a game has exactly one hero; ignore later sightings
+  heroPid = pid;
+  whenCardReady(pid, renderHero); // slot renders once identity resolves
+  if (!remote) publish({ type: 'hero', pid, side: SIDE });
+}
+renderHero();
+
+function resetGame(broadcast) {
+  heroPid = null;
+  life.me = 40; life.opp = 40;
+  renderLife();
+  seen.clear();
+  logged.clear();
+  for (const node of bannerNodes.values()) node.remove();
+  bannerNodes.clear();
+  logEl.innerHTML = '';
+  renderHero();
+  if (broadcast) publish({ type: 'newgame' });
+}
+document.getElementById('newGameBtn').addEventListener('click', () => resetGame(true));
+const MIN_HITS = 2;          // frames required before a card appears (kills one-frame noise)
+const FADE_AFTER_MS = 2000;  // dim once the QR has been out of frame this long
+let detections = 0, lastLatency = 0;
+
+function fail(text) { msgEl.hidden = false; msgEl.textContent = text; }
+
+function pidFromValue(v) {
+  const m = v.match(/fabbazaar\.app\/printing\/([A-Za-z0-9_-]{21})/);
+  return m ? m[1] : null;
+}
+
+function makeCardNode(pid) {
+  const p = card(pid);
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = p
+    ? `<img src="${p.img}" alt=""><div class="nm">${p.name}</div>`
+    : `<div class="nm">unknown: ${pid}</div>`;
+  return el;
+}
+
+function renderBanner(now) {
+  for (const [key, s] of seen) {
+    if (!s.confirmed) continue;
+    const sep = key.indexOf(':');
+    const side = key.slice(0, sep), pid = key.slice(sep + 1);
+    if (isHeroCard(pid)) continue; // heroes live in the hero slot, not the ticker
+    const expired = now - s.lastSeen >= LINGER_MS;
+    let node = bannerNodes.get(key);
+    if (expired) {
+      if (node) { node.remove(); bannerNodes.delete(key); }
+      continue;
+    }
+    if (!node) {
+      if (!card(pid)) continue; // identity still resolving; next tick
+      node = makeCardNode(pid);
+      bannerNodes.set(key, node);
+      const container = side === SIDE ? myCards : oppCards;
+      const ph = side === SIDE ? myPlaceholder : oppPlaceholder;
+      container.insertBefore(node, ph.nextSibling); // newest slides in at the left
+    }
+    node.classList.toggle('fading', now - s.lastSeen > FADE_AFTER_MS);
+  }
+  myPlaceholder.hidden = myCards.querySelector('.card') !== null;
+  oppPlaceholder.hidden = oppCards.querySelector('.card') !== null;
+}
+
+// --- Hover preview: enlarged card + details next to the scan log ---
+const previewEl = document.getElementById('preview');
+const PITCH_DOTS = { 1: '#c0392b', 2: '#d4a017', 3: '#2563a8' };
+
+function showPreview(pid, row) {
+  const p = card(pid);
+  if (!p) return;
+  const dot = p.pitch ? `<span class="pdot" style="background:${PITCH_DOTS[p.pitch]}"></span>` : '';
+  const stats = [
+    p.cost    != null ? `cost <b>${p.cost}</b>`       : '',
+    p.power   != null ? `power <b>${p.power}</b>`     : '',
+    p.defense != null ? `defense <b>${p.defense}</b>` : '',
+    p.life    != null ? `life <b>${p.life}</b>`       : '',
+    p.intellect != null ? `intellect <b>${p.intellect}</b>` : '',
+  ].filter(Boolean).join(' · ');
+  previewEl.innerHTML =
+    `<img src="${p.img}" alt="">` +
+    `<div class="d">` +
+      `<h3>${dot}${p.name}</h3>` +
+      `<p class="types">${p.types.join(' · ')} — ${p.num}</p>` +
+      (stats ? `<p class="statline">${stats}</p>` : '') +
+      `<div class="txt">${p.text}</div>` +
+      (p.tcg_low != null ? `<p class="price">TCG low $${p.tcg_low.toFixed(2)}</p>` : '') +
+    `</div>`;
+  previewEl.hidden = false;
+  // Position beside the anchor (log row or on-video hit box), clamped to viewport
+  const r = row.getBoundingClientRect();
+  const pw = previewEl.offsetWidth, ph = previewEl.offsetHeight;
+  let left = r.right + 12;
+  if (left + pw > window.innerWidth - 8) left = r.left - pw - 12;
+  left = Math.max(8, left);
+  previewEl.style.left = left + 'px';
+  previewEl.style.top = Math.min(Math.max(8, r.top - 20), window.innerHeight - ph - 8) + 'px';
+}
+function hidePreview() { previewEl.hidden = true; }
+
+function addLog(pid, isOpp) {
+  const logKey = (isOpp ? 'o:' : 'm:') + pid;
+  if (logged.has(logKey)) return;
+  logged.add(logKey);
+  const p = card(pid);
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.tabIndex = 0;
+  const t = new Date().toLocaleTimeString();
+  const tag = isOpp ? 'opp · ' : '';
+  row.innerHTML = p
+    ? `<img src="${p.img}" alt=""><div><div>${p.name}</div><div class="t">${tag}${p.num} · ${t}</div></div>`
+    : `<div><div>unknown QR</div><div class="t">${tag}${pid} · ${t}</div></div>`;
+  row.addEventListener('mouseenter', () => showPreview(pid, row));
+  row.addEventListener('mouseleave', hidePreview);
+  row.addEventListener('focus', () => showPreview(pid, row));
+  row.addEventListener('blur', hidePreview);
+  row.addEventListener('click', () => window.open(`https://fabbazaar.app/printing/${pid}`, '_blank'));
+  row.addEventListener('keydown', e => {
+    if (e.key === 'Enter') window.open(`https://fabbazaar.app/printing/${pid}`, '_blank');
+  });
+  logEl.prepend(row);
+}
+
+// --- WebRTC playmat video --------------------------------------------------
+// Cameras publish their stream; displays subscribe to every camera in the room.
+// A camera whose side matches mine lands in the lower-left PiP ("my playmat");
+// any other side becomes the main view ("opponent's playmat").
+// The SSE relay is the signaling channel (offer/answer/ICE are just events).
+const RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const pcs = new Map();        // peer cid -> RTCPeerConnection
+const pendingIce = new Map(); // peer cid -> queued candidates
+let localStream = null;       // camera role: set once getUserMedia succeeds
+
+const mainVideo = document.getElementById('mainVideo');
+const mainLabel = document.getElementById('mainLabel');
+const pipWrap = document.getElementById('pipWrap');
+const pipVideo = document.getElementById('pipVideo');
+
+let applyZoomRemote = null; // set by setupZoom on camera pages
+
+function sendHello() {
+  if (!SIDE) { setTimeout(sendHello, 300); return; } // wait for welcome
+  let zoomCaps = null;
+  if (ROLE === 'camera' && localStream) {
+    const caps = localStream.getVideoTracks()[0].getCapabilities?.() || {};
+    if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+      zoomCaps = { min: caps.zoom.min, max: Math.min(caps.zoom.max, 6), step: caps.zoom.step || 0.1 };
+    }
+  }
+  publish({ type: 'hello', role: ROLE, side: SIDE, zoom: zoomCaps });
+}
+
+function onHello(ev) {
+  if (ROLE === 'camera' && ev.role === 'display' && localStream) {
+    sendHello(); // announce back so the display can offer to us
+  } else if (ROLE === 'display' && ev.role === 'camera') {
+    offerTo(ev);
+    if (ev.zoom) setupRemoteZoom(ev);
+  }
+}
+
+// Display-side slider that drives a camera's zoom over the event channel —
+// handy when the phone is mounted overhead and out of reach.
+function setupRemoteZoom(ev) {
+  const wrap = document.getElementById('rzWrap');
+  const ctl = document.getElementById('rzCtl');
+  const val = document.getElementById('rzVal');
+  // Useful zoom lives at the low end: cap at 3x, step finely, nudge by 0.05
+  ctl.min = ev.zoom.min;
+  ctl.max = Math.min(ev.zoom.max, 3);
+  ctl.step = 0.05;
+  wrap.hidden = false;
+  const send = () => {
+    val.textContent = (+ctl.value).toFixed(2) + '×';
+    publish({ type: 'zoom', to: ev.cid, value: parseFloat(ctl.value) });
+  };
+  ctl.oninput = send;
+  const nudge = d => {
+    ctl.value = Math.min(+ctl.max, Math.max(+ctl.min, +ctl.value + d));
+    send();
+  };
+  document.getElementById('rzMinus').onclick = e => { e.preventDefault(); nudge(-0.05); };
+  document.getElementById('rzPlus').onclick = e => { e.preventDefault(); nudge(0.05); };
+  val.textContent = (+ctl.value || +ctl.min || 1).toFixed(2) + '×';
+}
+
+function newPc(peer) {
+  const pc = new RTCPeerConnection(RTC_CFG);
+  pcs.set(peer, pc);
+  pc.onicecandidate = e => {
+    if (e.candidate) publish({ type: 'rtc-ice', to: peer, candidate: e.candidate.toJSON() });
+  };
+  pc.onconnectionstatechange = () => {
+    if (['failed', 'closed'].includes(pc.connectionState)) {
+      pc.close();
+      if (pcs.get(peer) === pc) pcs.delete(peer);
+    }
+  };
+  return pc;
+}
+
+async function offerTo(ev) { // display -> camera
+  // Single-flight: one live negotiation per camera. Duplicate hellos are
+  // harmless; only a dead connection triggers a fresh offer.
+  const existing = pcs.get(ev.cid);
+  if (existing && !['failed', 'closed', 'disconnected'].includes(existing.connectionState)) return;
+  if (existing) { existing.close(); pcs.delete(ev.cid); }
+  try {
+    const pc = newPc(ev.cid);
+    // streams[0] can be absent when the sender attached via replaceTrack
+    pc.ontrack = t => attachRemote(ev.side || '1', t.streams[0] || new MediaStream([t.track]));
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    publish({ type: 'rtc-offer', to: ev.cid, sdp: pc.localDescription.sdp });
+  } catch (e) { console.warn('offerTo failed', e); }
+}
+
+async function onRtcOffer(ev) { // camera answers
+  if (ROLE !== 'camera' || !localStream) return;
+  try {
+    const existing = pcs.get(ev.cid);
+    if (existing) { existing.close(); pcs.delete(ev.cid); }
+    const pc = newPc(ev.cid);
+    // Accept the offer FIRST: it creates the video transceiver slot. Then put
+    // our track into that slot — pre-adding a transceiver instead leaves the
+    // track orphaned on Safari and the call connects with no media.
+    await pc.setRemoteDescription({ type: 'offer', sdp: ev.sdp });
+    drainIce(ev.cid, pc);
+    const track = localStream.getVideoTracks()[0];
+    const tx = pc.getTransceivers().find(t => (t.receiver.track || {}).kind === 'video') || pc.getTransceivers()[0];
+    await tx.sender.replaceTrack(track);
+    tx.direction = 'sendonly';
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    publish({ type: 'rtc-answer', to: ev.cid, sdp: pc.localDescription.sdp });
+    // Transmit ~720p capped: capture stays 4K for QR decoding, but encoding
+    // full-res video is the single biggest battery/thermal cost on the phone.
+    try {
+      const w = track.getSettings().width || 1920;
+      const p = tx.sender.getParameters();
+      if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+      p.encodings[0].maxBitrate = 1_200_000;
+      p.encodings[0].scaleResolutionDownBy = Math.max(1, w / 1280);
+      await tx.sender.setParameters(p);
+    } catch (e) { /* full-res send is an acceptable fallback */ }
+  } catch (e) { console.warn('onRtcOffer failed', e); }
+}
+
+async function onRtcAnswer(ev) {
+  const pc = pcs.get(ev.cid);
+  if (!pc || pc.signalingState !== 'have-local-offer') return;
+  try {
+    await pc.setRemoteDescription({ type: 'answer', sdp: ev.sdp });
+    drainIce(ev.cid, pc);
+  } catch (e) { console.warn('onRtcAnswer failed', e); }
+}
+
+function onRtcIce(ev) {
+  const pc = pcs.get(ev.cid);
+  if (pc && pc.remoteDescription) pc.addIceCandidate(ev.candidate).catch(() => {});
+  else {
+    if (!pendingIce.has(ev.cid)) pendingIce.set(ev.cid, []);
+    pendingIce.get(ev.cid).push(ev.candidate);
+  }
+}
+
+function drainIce(peer, pc) {
+  for (const c of pendingIce.get(peer) || []) pc.addIceCandidate(c).catch(() => {});
+  pendingIce.delete(peer);
+}
+
+function showPairQr(url) {
+  const el = document.getElementById('pipEmpty');
+  if (!el || typeof qrcode !== 'function') return;
+  const qr = qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  el.innerHTML =
+    `<div class="pairqr">${qr.createSvgTag({ scalable: true, margin: 2 })}</div>` +
+    `<div>Scan with your phone camera<br><small>it becomes your playmat camera</small></div>`;
+}
+
+function attachRemote(side, stream) {
+  if (side === SIDE) {
+    pipVideo.srcObject = stream;
+    pipWrap.hidden = false;
+    pipWrap.classList.remove('offline');
+    document.getElementById('pipEmpty').hidden = true;
+    pipVideo.play().catch(() => {});
+  } else {
+    mainVideo.srcObject = stream;
+    mainLabel.textContent = 'Opponent’s playmat';
+    mainVideo.play().catch(() => {});
+  }
+}
+
+// --- View rotation ---------------------------------------------------------
+// Playmats are landscape; portrait phone feeds default to a 90° rotation.
+// The ⟳ buttons cycle a manual override, persisted per view.
+// Preference is stored per orientation (portrait/landscape) so a choice made
+// for one camera doesn't misrotate a differently-oriented feed later.
+function rotKey(which, v) {
+  return 'fab-rot-' + which + '-' + (v.videoHeight > v.videoWidth ? 'p' : 'l');
+}
+function effRot(which, v) {
+  const stored = JSON.parse(localStorage.getItem(rotKey(which, v)) ?? 'null');
+  if (stored != null) return stored;
+  return v.videoHeight > v.videoWidth ? 90 : 0;
+}
+function layoutVideo(which) {
+  const v = which === 'main' ? mainVideo : pipVideo;
+  const c = which === 'main' ? document.getElementById('viewwrap') : pipWrap;
+  if (!v.videoWidth) return;
+  const deg = effRot(which, v);
+  const cw = c.clientWidth, ch = c.clientHeight;
+  const vw = v.videoWidth, vh = v.videoHeight;
+  // Size the box to the video's exact aspect (no letterbox inside it), so the
+  // hit layer's %-positioned targets line up with video pixels 1:1.
+  const s = deg % 180 ? Math.min(cw / vh, ch / vw) : Math.min(cw / vw, ch / vh);
+  const w = vw * s, h = vh * s;
+  // Main view anchors RIGHT so leftover space lands on the left, where the
+  // PiP lives — they never fight for the same corner. (Rotation-aware: place
+  // the visible box's right edge, then back out the pre-rotation offset.)
+  const bboxW = deg % 180 ? h : w;
+  const left = which === 'main' ? cw - bboxW / 2 - w / 2 : (cw - w) / 2;
+  const style = {
+    width: w + 'px', height: h + 'px',
+    left: left + 'px', top: (ch - h) / 2 + 'px',
+    transform: deg ? `rotate(${deg}deg)` : '',
+  };
+  // Video and hit layer live inside one box; rotating the box moves both, so
+  // targets can never drift from the pixels they annotate.
+  if (which === 'main') Object.assign(document.getElementById('mainBox').style, style);
+  else Object.assign(v.style, { position: 'absolute', ...style });
+}
+
+// --- Hover targets over the opponent's video --------------------------------
+// Cards arrive with normalized frame coords; targets are %-positioned inside
+// the hit layer, which shares the video's geometry (rotation included).
+const hitNodes = new Map(); // "side:pid" -> element
+
+// Sender coords are measured in the phone's local frame; WebRTC can deliver
+// that frame transposed (rotation tag lost in transit). When sender dims and
+// received dims disagree in orientation, remap coordinates by a quarter turn.
+// 'cw'/'ccw' is not derivable from dimensions alone — the button flips it.
+let boxRot = localStorage.getItem('fab-boxrot') || 'cw';
+function remapBox([x, y, w, h], mode) {
+  return mode === 'cw'
+    ? [1 - y - h, x, h, w]
+    : [y, 1 - x - w, h, w];
+}
+function displayBox(s) {
+  if (!s.box) return null;
+  const rv = mainVideo;
+  if (s.fw && s.fh && rv.videoWidth &&
+      (s.fw > s.fh) !== (rv.videoWidth > rv.videoHeight)) {
+    document.getElementById('boxFixBtn').hidden = false;
+    return remapBox(s.box, boxRot);
+  }
+  return s.box;
+}
+
+function renderHits(now) {
+  const hitMain = document.getElementById('hitMain');
+  for (const [key, s] of seen) {
+    const sep = key.indexOf(':');
+    const side = key.slice(0, sep), pid = key.slice(sep + 1);
+    // Tighter window than the banner linger: a hover target with stale
+    // coordinates is worse than none, so hide it 2.5s after last sighting.
+    const active = s.confirmed && s.box && side !== SIDE && now - s.lastSeen < 2500;
+    let el = hitNodes.get(key);
+    if (!active) {
+      if (el) { el.remove(); hitNodes.delete(key); }
+      continue;
+    }
+    if (!el) {
+      if (!card(pid)) continue; // identity still resolving; next tick
+      const p = card(pid) || {};
+      el = document.createElement('div');
+      el.className = 'hit new';
+      el.tabIndex = 0;
+      el.setAttribute('aria-label', p.name || 'card');
+      el.innerHTML = `<span class="hitlbl">${p.name || 'unknown'}</span>`;
+      if (p.pitch && PITCH_DOTS[p.pitch]) el.style.setProperty('--hitcol', PITCH_DOTS[p.pitch]);
+      el.addEventListener('mouseenter', () => showPreview(pid, el));
+      el.addEventListener('mouseleave', hidePreview);
+      el.addEventListener('focus', () => showPreview(pid, el));
+      el.addEventListener('blur', hidePreview);
+      el.addEventListener('click', () => window.open(`https://fabbazaar.app/printing/${pid}`, '_blank'));
+      setTimeout(() => el.classList.remove('new'), 2400);
+      hitNodes.set(key, el);
+      hitMain.appendChild(el);
+    }
+    const [x, y, w, h] = displayBox(s);
+    Object.assign(el.style, {
+      left: x * 100 + '%', top: y * 100 + '%',
+      width: w * 100 + '%', height: h * 100 + '%',
+    });
+  }
+}
+function cycleRot(which) {
+  const v = which === 'main' ? mainVideo : pipVideo;
+  if (!v.videoWidth) return;
+  const next = (effRot(which, v) + 90) % 360;
+  localStorage.setItem(rotKey(which, v), JSON.stringify(next));
+  layoutVideo(which);
+}
+
+// Detector ladder: native BarcodeDetector (Chrome macOS/Android) → zxing-wasm
+// (production zxing-cpp decoder: multi-scale, multi-code, strong on small codes).
+let DETECTOR_NAME = 'none';
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error(src + ' failed to load'));
+    document.head.appendChild(s);
+  });
+}
+async function makeDetector() {
+  if ('BarcodeDetector' in window) {
+    const formats = await BarcodeDetector.getSupportedFormats();
+    if (formats.includes('qr_code')) {
+      DETECTOR_NAME = 'native';
+      return new BarcodeDetector({ formats: ['qr_code'] });
+    }
+  }
+  await loadScript('zxing-reader.js');
+  ZXingWASM.prepareZXingModule({
+    overrides: { locateFile: (path, prefix) => path.endsWith('.wasm') ? 'zxing_reader.wasm' : prefix + path },
+  });
+  const cv = document.createElement('canvas');
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  DETECTOR_NAME = 'zxing';
+  return {
+    async detect(src) {
+      const w = src.videoWidth || src.width, h = src.videoHeight || src.height;
+      if (!w || !h) return [];
+      cv.width = w; cv.height = h;
+      cx.drawImage(src, 0, 0);
+      const results = await ZXingWASM.readBarcodes(cx.getImageData(0, 0, w, h), {
+        formats: ['QRCode'],
+        tryHarder: true,
+        maxNumberOfSymbols: 8,
+      });
+      return results.filter(r => r.isValid).map(r => {
+        const p = r.position;
+        const xs = [p.topLeft.x, p.topRight.x, p.bottomRight.x, p.bottomLeft.x];
+        const ys = [p.topLeft.y, p.topRight.y, p.bottomRight.y, p.bottomLeft.y];
+        const x = Math.min(...xs), y = Math.min(...ys);
+        return { rawValue: r.text, boundingBox: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y } };
+      });
+    },
+  };
+}
+
+async function main() {
+  if (ROLE === 'display') {
+    document.querySelector('.frame').style.display = 'none';
+    document.getElementById('viewwrap').hidden = false;
+    pipWrap.hidden = false; // bottom-left slot is always reserved for your camera
+    pipWrap.classList.add('offline'); // compact chip until the camera connects
+    (async () => {
+      try {
+        const who = await fetch('/api/whoami').then(r => r.json());
+        if (!who.signedIn) {
+          location.href = `/auth/login?next=${encodeURIComponent(location.pathname)}`;
+          return;
+        }
+        const join = await fetch(`/api/rooms/${ROOM}/join`, { method: 'POST' }).then(r => r.json());
+        if (!join.success) throw new Error(join.error || 'Could not join this table');
+        SIDE = join.data.side;
+        renderLife();
+        connectStream();
+        const pair = await fetch(`/api/rooms/${ROOM}/pair`).then(r => r.json());
+        if (pair.success) showPairQr(pair.data.camUrl);
+      } catch (err) {
+        msgEl.hidden = false;
+        msgEl.textContent = String((err && err.message) || err);
+      }
+    })();
+    document.getElementById('rotMain').addEventListener('click', () => cycleRot('main'));
+    document.getElementById('rotPip').addEventListener('click', () => cycleRot('pip'));
+    document.getElementById('boxFixBtn').addEventListener('click', () => {
+      boxRot = boxRot === 'cw' ? 'ccw' : 'cw';
+      localStorage.setItem('fab-boxrot', boxRot);
+      renderHits(Date.now());
+    });
+    for (const [which, v] of [['main', mainVideo], ['pip', pipVideo]]) {
+      v.addEventListener('loadedmetadata', () => layoutVideo(which));
+      v.addEventListener('resize', () => layoutVideo(which)); // stream dimension changes
+    }
+    window.addEventListener('resize', () => { layoutVideo('main'); layoutVideo('pip'); });
+    // Scan log starts collapsed on displays — hover the cards on the video instead
+    const aside = document.querySelector('aside');
+    const logBtn = document.getElementById('logBtn');
+    aside.hidden = true;
+    logBtn.hidden = false;
+    logBtn.addEventListener('click', () => {
+      aside.hidden = !aside.hidden;
+      logBtn.textContent = aside.hidden ? 'Show log' : 'Hide log';
+    });
+    // Keyboard life controls: -/+ adjust your life, shift steps by 5
+    const bumpLife = (who, d) => {
+      const seat = who === 'me' ? mySeat() : oppSeat();
+      life[seat] += d;
+      renderLife();
+      publish({ type: 'life', seat, value: life[seat] });
+    };
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === '-') bumpLife('me', -1);
+      else if (e.key === '_') bumpLife('me', -5);
+      else if (e.key === '=') bumpLife('me', 1);
+      else if (e.key === '+') bumpLife('me', 5);
+    });
+    // Press "d" to send a geometry diagnostic to the relay (debugging aid)
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'd') return;
+      const g = id => document.getElementById(id);
+      const rect = el => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(n => +n.toFixed(1)); };
+      publish({
+        type: 'diag',
+        data: {
+          href: location.href,
+          dpr: devicePixelRatio,
+          win: [innerWidth, innerHeight],
+          viewwrap: rect(g('viewwrap')),
+          stage: rect(document.querySelector('.stage')),
+          mainBoxStyle: g('mainBox').getAttribute('style'),
+          mainBoxRect: rect(g('mainBox')),
+          videoRect: rect(g('mainVideo')),
+          videoDims: [g('mainVideo').videoWidth, g('mainVideo').videoHeight],
+          hitMainRect: rect(g('hitMain')),
+          hits: [...document.querySelectorAll('.hit')].map(h => rect(h)),
+          sightings: [...seen.entries()].filter(([, s]) => s.box).map(([k, s]) =>
+            ({ k: k.slice(0, 10), box: s.box.map(n => +n.toFixed(3)), fw: s.fw, fh: s.fh })),
+        },
+      });
+    });
+    setInterval(() => {
+      const now = Date.now();
+      renderBanner(now);
+      renderHits(now);
+      const connected = [...pcs.values()].filter(p => p.connectionState === 'connected').length;
+      statsEl.innerHTML = DEBUG_UI
+        ? `<b>${BUILD}</b> · side <b>${SIDE}</b> · room <b>${ROOM}</b> · cameras <b>${connected}/${pcs.size}</b> · events <b>${rxCount}</b>`
+        : `${connected > 0 ? '<b>●</b> live' : '○ waiting for cameras'}`;
+    }, 300);
+    return;
+  }
+
+  if (!PAIR) {
+    fail('This camera link is missing its pairing token — open the table on your computer and rescan the QR code.');
+    return;
+  }
+
+  let detector;
+  try {
+    detector = await makeDetector();
+  } catch (e) {
+    fail('No QR detector available in this browser: ' + e.message);
+    return;
+  }
+
+  // Keep the phone screen (and camera) awake while scanning
+  const keepAwake = () => navigator.wakeLock?.request('screen').catch(() => {});
+  keepAwake();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) keepAwake();
+  });
+
+  // Ask for 4K: doubling linear resolution doubles pixels-per-QR-module,
+  // which is the whole game for decoding small codes at playmat height.
+  const HIGH_RES = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+  const savedCam = localStorage.getItem('fab-cam');
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: savedCam
+        ? { deviceId: { ideal: savedCam }, ...HIGH_RES }
+        : { facingMode: 'environment', ...HIGH_RES },
+      audio: false,
+    });
+  } catch (e) {
+    fail('Camera access failed: ' + e.message + ' — serve this page from localhost (secure context) and allow the camera.');
+    return;
+  }
+  video.srcObject = stream;
+  localStream = stream;
+  sendHello(); // announce this camera; displays in the room will send offers
+  await new Promise(r => video.onloadedmetadata = r);
+  overlay.width = video.videoWidth;
+  overlay.height = video.videoHeight;
+  const ctx = overlay.getContext('2d');
+
+  // Camera picker: phones expose multiple rear lenses, laptops external cams.
+  // Switching replaces the track live so WebRTC viewers don't reconnect.
+  const camSel = document.getElementById('camSel');
+  async function populateCameras() {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    if (devs.length < 2) return;
+    camSel.innerHTML = devs.map((d, i) =>
+      `<option value="${d.deviceId}">${d.label || 'camera ' + (i + 1)}</option>`).join('');
+    const cur = localStream.getVideoTracks()[0].getSettings().deviceId;
+    if (cur) camSel.value = cur;
+    camSel.hidden = false;
+  }
+  camSel.addEventListener('change', async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: camSel.value }, ...HIGH_RES }, audio: false,
+      });
+      localStorage.setItem('fab-cam', camSel.value);
+      const newTrack = s.getVideoTracks()[0];
+      for (const pc of pcs.values()) {
+        const sender = pc.getSenders().find(x => x.track && x.track.kind === 'video');
+        if (sender) sender.replaceTrack(newTrack);
+      }
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = s;
+      video.srcObject = s;
+      await new Promise(r => video.onloadedmetadata = r);
+      overlay.width = video.videoWidth;
+      overlay.height = video.videoHeight;
+      setupZoom(); // zoom range differs per lens
+    } catch (e) { /* keep the old camera on failure */ }
+  });
+  populateCameras();
+
+  // Capture-side zoom (iPhone/Android expose it): crops on the sensor, so QRs
+  // get genuinely more pixels — the single best fix for a high camera mount.
+  const zoomWrap = document.getElementById('zoomWrap');
+  const zoomCtl = document.getElementById('zoomCtl');
+  function setupZoom() {
+    const track = localStream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    if (!caps.zoom || caps.zoom.max <= caps.zoom.min) { zoomWrap.hidden = true; return; }
+    zoomCtl.min = caps.zoom.min;
+    zoomCtl.max = Math.min(caps.zoom.max, 6);
+    zoomCtl.step = caps.zoom.step || 0.1;
+    const saved = parseFloat(localStorage.getItem('fab-zoom'));
+    const cur = track.getSettings().zoom ?? caps.zoom.min;
+    zoomCtl.value = !isNaN(saved) ? saved : cur;
+    if (!isNaN(saved) && saved !== cur) {
+      track.applyConstraints({ advanced: [{ zoom: saved }] }).catch(() => {});
+    }
+    zoomWrap.hidden = false;
+    zoomCtl.oninput = () => {
+      const z = parseFloat(zoomCtl.value);
+      localStorage.setItem('fab-zoom', String(z));
+      track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {});
+    };
+    applyZoomRemote = z => {
+      zoomCtl.value = Math.min(+zoomCtl.max, Math.max(+zoomCtl.min, z));
+      zoomCtl.oninput();
+    };
+  }
+  setupZoom();
+
+  // Pinch-to-zoom on the preview (two fingers). Cancels any zone drag.
+  const ppts = new Map();
+  let pStartDist = 0, pStartZoom = 1, pLastApply = 0;
+  const pDist = () => {
+    const a = [...ppts.values()];
+    return Math.hypot(a[0][0] - a[1][0], a[0][1] - a[1][1]);
+  };
+  overlay.addEventListener('pointerdown', e => {
+    ppts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ppts.size === 2 && !zoomCtl.disabled && !zoomWrap.hidden) {
+      drag = null; // two fingers = zoom gesture, not a playmat-zone drag
+      pStartDist = pDist();
+      pStartZoom = parseFloat(zoomCtl.value);
+    }
+  });
+  overlay.addEventListener('pointermove', e => {
+    if (!ppts.has(e.pointerId)) return;
+    ppts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ppts.size === 2 && pStartDist > 0 && Date.now() - pLastApply > 100) {
+      const z = Math.min(+zoomCtl.max, Math.max(+zoomCtl.min, pStartZoom * pDist() / pStartDist));
+      zoomCtl.value = z;
+      zoomCtl.oninput();
+      pLastApply = Date.now();
+    }
+  });
+  const pinchEnd = e => { ppts.delete(e.pointerId); if (ppts.size < 2) pStartDist = 0; };
+  overlay.addEventListener('pointerup', pinchEnd);
+  overlay.addEventListener('pointercancel', pinchEnd);
+
+  const ecoBtn = document.getElementById('ecoBtn');
+  const frameEl = document.querySelector('.frame');
+  ecoBtn.hidden = false;
+  ecoBtn.addEventListener('click', () => {
+    const on = frameEl.classList.toggle('eco');
+    ecoBtn.textContent = on ? 'Show preview' : 'Hide preview';
+  });
+
+  // --- Playmat zone (ROI). Stored normalized (0..1) so it survives resolution changes.
+  // Detection crops to this region BEFORE decoding: QRs outside (e.g. your hand) are never read.
+  const zoneBtn = document.getElementById('zoneBtn');
+  let roi = null;
+  try { roi = JSON.parse(localStorage.getItem('fab-playmat-roi')) || null; } catch (e) {}
+  let drag = null; // {x0,y0,x1,y1} in canvas px while drawing
+  const cropCanvas = document.createElement('canvas');
+  const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+
+  function roiPx() {
+    if (!roi) return null;
+    return {
+      x: Math.round(roi.x * overlay.width),
+      y: Math.round(roi.y * overlay.height),
+      w: Math.round(roi.w * overlay.width),
+      h: Math.round(roi.h * overlay.height),
+    };
+  }
+  function canvasPoint(e) {
+    const r = overlay.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) / r.width * overlay.width,
+      y: (e.clientY - r.top) / r.height * overlay.height,
+    };
+  }
+  overlay.addEventListener('pointerdown', e => {
+    const p = canvasPoint(e);
+    drag = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+    overlay.setPointerCapture(e.pointerId);
+  });
+  overlay.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const p = canvasPoint(e);
+    drag.x1 = p.x; drag.y1 = p.y;
+  });
+  overlay.addEventListener('pointerup', () => {
+    if (!drag) return;
+    const x = Math.min(drag.x0, drag.x1), y = Math.min(drag.y0, drag.y1);
+    const w = Math.abs(drag.x1 - drag.x0), h = Math.abs(drag.y1 - drag.y0);
+    if (w > 40 && h > 40) { // ignore stray clicks
+      roi = { x: x / overlay.width, y: y / overlay.height, w: w / overlay.width, h: h / overlay.height };
+      localStorage.setItem('fab-playmat-roi', JSON.stringify(roi));
+    }
+    drag = null;
+  });
+  zoneBtn.addEventListener('click', () => {
+    roi = null;
+    localStorage.removeItem('fab-playmat-roi');
+  });
+
+  // Motion gate: a 48px thumbnail diff decides whether anything on the mat
+  // changed. Static board -> skip the (expensive) decoder entirely; a full
+  // scan still runs every 3s as a safety net. This is the main thermal fix.
+  const motionCv = document.createElement('canvas');
+  motionCv.width = 48; motionCv.height = 27;
+  const motionCx = motionCv.getContext('2d', { willReadFrequently: true });
+  let motionPrev = null, lastFullScan = 0, lastFrameCodes = [], lastBoxes = [];
+
+  function sceneChanged(zone) {
+    try {
+      if (zone) motionCx.drawImage(video, zone.x, zone.y, zone.w, zone.h, 0, 0, 48, 27);
+      else motionCx.drawImage(video, 0, 0, 48, 27);
+    } catch (e) { return true; }
+    const cur = motionCx.getImageData(0, 0, 48, 27).data;
+    if (!motionPrev) { motionPrev = cur; return true; }
+    let sum = 0;
+    for (let i = 0; i < cur.length; i += 16) sum += Math.abs(cur[i + 1] - motionPrev[i + 1]);
+    motionPrev = cur;
+    return sum / (cur.length / 16) > 5; // mean green-channel delta threshold
+  }
+
+  // Physically rotating the phone flips the capture between portrait and
+  // landscape mid-stream. Re-baseline everything measured in frame coords.
+  // Landscape is the canonical mount (matches the mat); nudge if portrait.
+  const orientHint = document.getElementById('orientHint');
+  const updateOrientHint = () => {
+    orientHint.hidden = !(video.videoHeight > video.videoWidth);
+  };
+  updateOrientHint();
+
+  video.addEventListener('resize', () => {
+    updateOrientHint();
+    if (overlay.width === video.videoWidth && overlay.height === video.videoHeight) return;
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    roi = null;
+    localStorage.removeItem('fab-playmat-roi'); // zone is frame-relative; needs a redraw
+    motionPrev = null;
+    lastFrameCodes = [];
+    lastBoxes = [];
+  });
+
+  async function tick() {
+    if (!SIDE) { setTimeout(tick, 300); return; } // seat not assigned yet
+    // Landscape is required: while the capture is portrait, pause detection so
+    // no wrong-orientation coordinates are ever published. The overlay blocks
+    // the preview; the resize listener clears it the moment the phone rotates.
+    if (video.videoHeight > video.videoWidth) {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      statsEl.innerHTML = `<b>${BUILD}</b> · role <b>camera</b> · room <b>${ROOM}</b> · <b>paused — rotate to landscape</b>`;
+      setTimeout(tick, 500);
+      return;
+    }
+    const zone = roiPx();
+    let now = Date.now();
+    let codes = null; // null = decoder skipped this tick (no motion)
+    if (sceneChanged(zone) || now - lastFullScan > 3000) {
+      const t0 = performance.now();
+      codes = [];
+      try {
+        if (zone) {
+          // Upscale small zone crops toward ~1800px wide: bilinear smoothing
+          // gives the decoder subpixel data that helps marginal far-away codes.
+          const up = Math.min(2, Math.max(1, 1800 / zone.w));
+          cropCanvas.width = Math.round(zone.w * up);
+          cropCanvas.height = Math.round(zone.h * up);
+          cropCtx.drawImage(video, zone.x, zone.y, zone.w, zone.h, 0, 0, cropCanvas.width, cropCanvas.height);
+          codes = await detector.detect(cropCanvas);
+          for (const c of codes) { // map boxes back to full-frame coords
+            c.mappedBox = {
+              x: c.boundingBox.x / up + zone.x, y: c.boundingBox.y / up + zone.y,
+              width: c.boundingBox.width / up, height: c.boundingBox.height / up,
+            };
+          }
+        } else {
+          codes = await detector.detect(video);
+        }
+      } catch (e) { /* frame not ready */ }
+      lastLatency = Math.round(performance.now() - t0);
+      lastFullScan = Date.now();
+    }
+    now = Date.now();
+
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    // Dim everything outside the playmat zone; label the zone edge.
+    if (zone) {
+      ctx.fillStyle = 'rgba(0,0,0,.55)';
+      ctx.fillRect(0, 0, overlay.width, zone.y);
+      ctx.fillRect(0, zone.y, zone.x, zone.h);
+      ctx.fillRect(zone.x + zone.w, zone.y, overlay.width - zone.x - zone.w, zone.h);
+      ctx.fillRect(0, zone.y + zone.h, overlay.width, overlay.height - zone.y - zone.h);
+      ctx.strokeStyle = '#4c8fd6';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([12, 8]);
+      ctx.strokeRect(zone.x, zone.y, zone.w, zone.h);
+      ctx.setLineDash([]);
+      ctx.font = '600 18px system-ui';
+      ctx.fillStyle = '#4c8fd6';
+      ctx.fillText('PLAYMAT ZONE — only this area is scanned', zone.x + 8, zone.y + 24);
+    }
+    if (drag) {
+      ctx.strokeStyle = '#4c8fd6';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.strokeRect(Math.min(drag.x0, drag.x1), Math.min(drag.y0, drag.y1),
+                     Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
+      ctx.setLineDash([]);
+    }
+    zoneBtn.hidden = !zone;
+
+    ctx.lineWidth = 4;
+    ctx.font = '600 20px system-ui';
+    if (codes !== null) {
+      lastBoxes = [];
+      lastFrameCodes = [];
+      for (const c of codes) {
+        const pid = pidFromValue(c.rawValue);
+        const known = pid && card(pid);
+        const b = c.mappedBox || c.boundingBox;
+        if (pid) {
+          detections++;
+          lastFrameCodes.push(pid);
+          const key = SIDE + ':' + pid;
+          const s = seen.get(key) || { firstSeen: now, hits: 0, confirmed: false };
+          s.lastSeen = now;
+          s.hits++;
+          // Normalized full-frame coords: displays place hover targets on the video
+          s.box = [b.x / video.videoWidth, b.y / video.videoHeight,
+                   b.width / video.videoWidth, b.height / video.videoHeight];
+          if (!s.confirmed && s.hits >= MIN_HITS) {
+            s.confirmed = true;
+            whenCardReady(pid, () => {
+              addLog(pid, false);
+              if (isHeroCard(pid)) lockHero(pid);
+            });
+          }
+          if (s.confirmed && now - (s.lastPub || 0) > 2000) {
+            publish({ type: 'card', pid, side: SIDE, box: s.box,
+                      fw: video.videoWidth, fh: video.videoHeight });
+            s.lastPub = now;
+          }
+          seen.set(key, s);
+        }
+        const label = known ? card(pid).name : (pid ? 'unknown printing' : c.rawValue.slice(0, 40));
+        lastBoxes.push({ b, label, known });
+      }
+    } else {
+      // Decoder skipped (no motion): whatever we saw last scan is still there.
+      for (const pid of lastFrameCodes) {
+        const s = seen.get(SIDE + ':' + pid);
+        if (!s) continue;
+        s.lastSeen = now;
+        if (s.confirmed && now - (s.lastPub || 0) > 2000) {
+          publish({ type: 'card', pid, side: SIDE, box: s.box,
+                    fw: video.videoWidth, fh: video.videoHeight });
+          s.lastPub = now;
+        }
+      }
+    }
+    for (const { b, label, known } of lastBoxes) {
+      ctx.strokeStyle = known ? '#3fa66a' : '#d4a017';
+      ctx.strokeRect(b.x, b.y, b.width, b.height);
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(0,0,0,.75)';
+      ctx.fillRect(b.x, b.y - 28, tw + 12, 26);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, b.x + 6, b.y - 8);
+    }
+
+    renderBanner(now);
+    statsEl.innerHTML = DEBUG_UI
+      ? `<b>${BUILD}</b> · decoder <b>${DETECTOR_NAME}${codes === null ? ' (idle)' : ''}</b> · <b>${video.videoWidth}×${video.videoHeight}</b> · in frame <b>${lastFrameCodes.length}</b> · decodes <b>${detections}</b> · ${lastLatency}ms`
+      : `<b>●</b> scanning · ${lastFrameCodes.length} in view`;
+    // Idle ticks are cheap (thumbnail diff only); real scans pace by latency.
+    setTimeout(tick, codes === null ? 300 : Math.min(700, Math.max(350, lastLatency * 1.5)));
+  }
+  tick();
+}
+main();
+</script>
+</body>
+</html>

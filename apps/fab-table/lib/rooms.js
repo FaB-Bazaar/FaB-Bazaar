@@ -83,8 +83,8 @@ export function createRooms({
       // Maintain the late-joiner snapshot
       if (event.type === 'hero' && event.side) {
         room.snapshot.heroes[event.side] = event;
-      } else if (event.type === 'life' && event.side) {
-        room.snapshot.life[event.side] = event;
+      } else if (event.type === 'life' && (event.seat || event.side)) {
+        room.snapshot.life[event.seat || event.side] = event;
       } else if (event.type === 'newgame') {
         room.snapshot = { heroes: {}, life: {} };
       }
