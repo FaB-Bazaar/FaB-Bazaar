@@ -525,8 +525,10 @@ function handleBusMessage(m) {
     case 'card':   remoteCard(ev.pid, ev.side || '1', ev.box, ev.fw, ev.fh); break;
     case 'hero': {
       const hs = ev.side || '1';
-      heroBySeat[hs] = ev.pid;      // track both seats' heroes for the life-box thumbnail
-      renderIdentity();
+      if (!heroBySeat[hs]) {        // first hero of the game for this seat wins; ignore later ones
+        heroBySeat[hs] = ev.pid;    // track both seats' heroes for the life-box thumbnail
+        renderIdentity();
+      }
       if (hs === SIDE) lockHero(ev.pid, true); // ...but the hero ZONE is still just mine
       break;
     }
@@ -657,14 +659,28 @@ function lockHero(pid, remote) {
   heroBySeat[mySeat()] = pid;      // my hero thumbnail on the life box
   whenCardReady(pid, renderHero); // slot renders once identity resolves
   renderIdentity();
-  if (!remote) publish({ type: 'hero', pid, side: SIDE });
+  if (!remote) {
+    publish({ type: 'hero', pid, side: SIDE });
+    // A hero's printed life is the game's starting total. Apply it once, at the
+    // moment I scan my hero — NOT on replay/reconnect, where the life snapshot
+    // already carries the true current total (each player owns their own life).
+    whenCardReady(pid, () => applyStartingLifeFromHero(pid));
+  }
+}
+function applyStartingLifeFromHero(pid) {
+  const p = card(pid);
+  if (!p || p.life == null) return;  // no life stat on this card → keep the default
+  if (life[mySeat()] !== 40) return; // already adjusted before the scan → don't clobber
+  life[mySeat()] = p.life;
+  renderLife();
+  publish({ type: 'life', seat: mySeat(), value: p.life }); // sync to opponent + snapshot
 }
 renderHero();
 
 function resetGame(broadcast) {
   heroPid = null;
   heroBySeat[1] = null; heroBySeat[2] = null; // heroes clear; names persist
-  life.me = 40; life.opp = 40;
+  life[1] = 40; life[2] = 40;                 // keyed by seat (life.me/.opp never mapped — stale totals bug)
   renderLife();
   renderIdentity();
   seen.clear();
