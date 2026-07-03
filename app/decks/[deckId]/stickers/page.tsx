@@ -101,18 +101,20 @@ export default function DeckStickersPage() {
         .stickers-controls { max-width: 216mm; margin: 0 auto 12px; display: flex; gap: 12px; align-items: center; }
         .stickers-grid { display: flex; flex-wrap: wrap; }
         .sticker-cell {
-          width: 30mm; padding: 2mm 2mm 1.2mm; box-sizing: content-box;
+          width: 34mm; padding: 2mm 2mm 1.2mm; box-sizing: content-box;
           border: 1px dashed #c8ccd4; margin: -0.5px; text-align: center;
           break-inside: avoid; background: #fff;
         }
-        .sticker-cell .qr { width: 26mm; height: 26mm; margin: 0 auto; }
+        /* 30mm QR (was 26mm): ~15% bigger modules for more reliable webcam
+           scanning, while staying at 5 stickers/row and the same pagination. */
+        .sticker-cell .qr { width: 30mm; height: 30mm; margin: 0 auto; }
         .sticker-cell .qr svg { width: 100%; height: 100%; display: block; }
         .sticker-name {
           display: flex; align-items: center; justify-content: center; gap: 1mm;
           margin-top: 1mm; font-size: 5.4pt; font-weight: 600; line-height: 1.15;
         }
         .sticker-name span {
-          max-width: 28mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          max-width: 32mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .pitch-dot { width: 2.2mm; height: 2.2mm; border-radius: 50%; flex: none; }
         .sticker-num { font-size: 4.6pt; color: #5c6470; margin-top: .4mm; font-family: ui-monospace, monospace; }
