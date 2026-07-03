@@ -1715,6 +1715,7 @@ export default function DeckEditorPage() {
                     }}
                     onAnalyze={() => router.push(`/decks/${deckId}/analyze`)}
                     onPresent={() => router.push(`/decks/${deckId}/present`)}
+                    onStickers={() => router.push(`/decks/${deckId}/stickers`)}
                     onSettings={() => setSettingsOpen(true)}
                     onUpdateOwnedPrintings={canEdit ? handleUpgradePrintings : undefined}
                     onConvertLanguage={canEdit ? handleConvertLanguage : undefined}

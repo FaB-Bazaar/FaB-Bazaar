@@ -12,6 +12,7 @@ describe('DeckToolbarMoreMenu', () => {
     onExport: vi.fn(),
     onAnalyze: vi.fn(),
     onPresent: vi.fn(),
+    onStickers: vi.fn(),
     onSettings: vi.fn(),
     isOwner: true,
   };
@@ -42,6 +43,15 @@ describe('DeckToolbarMoreMenu', () => {
     await user.click(screen.getByRole('button', { name: /more/i }));
     expect(await screen.findByRole('menuitem', { name: /copy list/i })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
+  });
+
+  it('fires onStickers when QR sticker sheet item clicked', async () => {
+    const user = userEvent.setup();
+    const onStickers = vi.fn();
+    render(<DeckToolbarMoreMenu {...baseProps} onStickers={onStickers} />);
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /qr sticker sheet/i }));
+    expect(onStickers).toHaveBeenCalledTimes(1);
   });
 
   it('fires onCopyList when Copy list item clicked', async () => {

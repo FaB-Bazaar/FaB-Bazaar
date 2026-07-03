@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, Download, Eye, Tv, Settings, ArrowLeftRight, Languages } from "lucide-react";
+import { MoreHorizontal, Copy, Download, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DeckToolbarMoreMenuProps {
@@ -17,6 +17,7 @@ interface DeckToolbarMoreMenuProps {
   onExport: () => void;
   onAnalyze: () => void;
   onPresent: () => void;
+  onStickers: () => void;
   onSettings: () => void;
   /** Optional — when provided and the user is an owner, exposes a deliberate way to swap unowned printings to owned alternatives. */
   onUpdateOwnedPrintings?: () => void;
@@ -30,6 +31,7 @@ export default function DeckToolbarMoreMenu({
   onExport,
   onAnalyze,
   onPresent,
+  onStickers,
   onSettings,
   onUpdateOwnedPrintings,
   onConvertLanguage,
@@ -69,6 +71,10 @@ export default function DeckToolbarMoreMenu({
         <DropdownMenuItem onClick={onPresent}>
           <Tv className="h-4 w-4 mr-2" aria-hidden="true" />
           Present
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onStickers}>
+          <QrCode className="h-4 w-4 mr-2" aria-hidden="true" />
+          QR sticker sheet
         </DropdownMenuItem>
         {isOwner && onUpdateOwnedPrintings && (
           <>
