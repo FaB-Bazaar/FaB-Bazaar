@@ -47,7 +47,7 @@ describe('GET /api/users/me', () => {
     mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
     mockFindById.mockResolvedValue({
       success: true,
-      data: { id: 'u1', username: 'dc_someone' },
+      data: { _id: 'u1', username: 'dc_someone' },
     } as any);
 
     const res = await GET(makeRequest());
@@ -58,6 +58,19 @@ describe('GET /api/users/me', () => {
     expect(body.data.username).toBe('dc_someone');
     // dc_ prefix is internal; rendered name must be stripped
     expect(body.data.displayUsername).toBe('someone');
+  });
+
+  it('falls back to discordUsername when username is unset', async () => {
+    mockAuth.mockResolvedValue({ success: true, userId: 'u2' } as any);
+    mockFindById.mockResolvedValue({
+      success: true,
+      data: { _id: 'u2', discordUsername: 'discord_person' },
+    } as any);
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.data.userId).toBe('u2');
+    expect(body.data.displayUsername).toBe('discord_person');
   });
 
   it('returns 404 when the user record no longer exists', async () => {
@@ -71,7 +84,7 @@ describe('GET /api/users/me', () => {
     mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
     mockFindById.mockResolvedValue({
       success: true,
-      data: { id: 'u1', username: 'someone' },
+      data: { _id: 'u1', username: 'someone' },
     } as any);
     const res = await GET(makeRequest());
     expect(res.headers.get('Cache-Control')).toBe('no-store');

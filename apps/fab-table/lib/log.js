@@ -9,6 +9,7 @@ function serializeError(err) {
     message: err.message,
     stack: err.stack,
     ...(err.code ? { code: err.code } : {}),
+    ...(err.context ? { context: err.context } : {}),
     ...(err.cause ? { cause: serializeError(err.cause) } : {}),
   };
 }

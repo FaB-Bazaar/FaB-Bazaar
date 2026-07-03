@@ -21,13 +21,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
+  // UserAuthDTO keys the user by _id; username may be unset for
+  // Discord-provisioned accounts, so fall back before display-stripping.
+  const rawName = result.data.username || result.data.discordUsername || 'player';
   return NextResponse.json(
     {
       success: true,
       data: {
-        userId: result.data.id,
-        username: result.data.username,
-        displayUsername: displayUsername(result.data.username),
+        userId: result.data._id,
+        username: rawName,
+        displayUsername: displayUsername(rawName),
       },
     },
     { headers: { 'Cache-Control': 'no-store' } }

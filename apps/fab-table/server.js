@@ -234,7 +234,7 @@ async function authCallback(req, res, url, requestId) {
   });
   const token = await tokenRes.json().catch(() => null);
   if (!tokenRes.ok || !token?.access_token) {
-    throw new HttpError(502, 'TOKEN_EXCHANGE_FAILED', 'fabbazaar rejected the code exchange', {
+    throw new HttpError(500, 'TOKEN_EXCHANGE_FAILED', 'fabbazaar rejected the code exchange', {
       status: tokenRes.status,
       response: token,
     });
@@ -245,7 +245,7 @@ async function authCallback(req, res, url, requestId) {
   });
   const me = await meRes.json().catch(() => null);
   if (!meRes.ok || !me?.data?.userId) {
-    throw new HttpError(502, 'IDENTITY_LOOKUP_FAILED', 'Could not resolve token to a fabbazaar user', {
+    throw new HttpError(500, 'IDENTITY_LOOKUP_FAILED', 'Could not resolve token to a fabbazaar user', {
       status: meRes.status,
       response: me,
     });
