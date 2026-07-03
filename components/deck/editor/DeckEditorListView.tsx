@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import HighlightFiltersPopover, { type HighlightFilter as HF } from "./HighlightFiltersPopover";
+import WebcamGameDialog from "./WebcamGameDialog";
 import { RarityIcon } from "@/components/shared/RarityIcon";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -2311,6 +2312,11 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             {highlightFiltersBlock}
           </div>
         )}
+
+        {/* Webcam play — desktop only. Links to play.fabbazaar.app + this deck's QR stickers. */}
+        <div className="hidden md:block">
+          <WebcamGameDialog />
+        </div>
 
         {(viewMode === 'tile' || viewMode === 'game') && onAddToBinder && binders && binders.length > 0 && (
           <div className={cn(
