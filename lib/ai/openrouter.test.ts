@@ -21,6 +21,7 @@ const data = (obj: unknown) => `data: ${JSON.stringify(obj)}\n\n`;
 
 const TOOLS: OpenAiTool[] = [
   { type: 'function', function: { name: 'list_binders', description: 'd', parameters: {} } },
+  { type: 'function', function: { name: 'search_printings', description: 'd', parameters: {} } },
 ];
 
 describe('parseSseStream', () => {
@@ -90,6 +91,17 @@ describe('parseSseStream', () => {
 
 describe('createMockLlm', () => {
   const mock = createMockLlm({ sleepMs: 0 });
+
+  it('answers "search for X" with a scripted search_printings call carrying the query', async () => {
+    const deltas = await drain(mock({
+      messages: [{ role: 'user', content: 'search for pummel red' }],
+      tools: TOOLS,
+    }));
+
+    const toolCallDelta = deltas.find((d) => d.kind === 'tool_calls') as any;
+    expect(toolCallDelta.toolCalls[0].function.name).toBe('search_printings');
+    expect(JSON.parse(toolCallDelta.toolCalls[0].function.arguments)).toEqual({ cards: [{ query: 'pummel red' }] });
+  });
 
   it('answers a binder question with a scripted list_binders tool call', async () => {
     const deltas = await drain(mock({

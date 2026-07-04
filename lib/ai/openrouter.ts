@@ -208,7 +208,26 @@ export function createMockLlm(opts: { sleepMs?: number }): Llm {
       return;
     }
 
-    // 2. Binder question and list_binders is available → scripted tool call.
+    // 2. "search …" and search_printings is available → scripted search call
+    //    (lets Bridge A — the /opt deep-link card — demo keyless).
+    const hasSearch = tools.some((t) => t.function.name === 'search_printings');
+    const searchMatch = lastUser?.content.match(/search (?:for )?(.+)/i);
+    if (searchMatch && hasSearch) {
+      const query = searchMatch[1].trim();
+      yield* streamText(`Searching for "${query}". `);
+      yield {
+        kind: 'tool_calls',
+        toolCalls: [{
+          id: 'mock-search-1',
+          type: 'function',
+          function: { name: 'search_printings', arguments: JSON.stringify({ cards: [{ query }] }) },
+        }],
+      };
+      yield { kind: 'finish', reason: 'tool_calls' };
+      return;
+    }
+
+    // 3. Binder question and list_binders is available → scripted tool call.
     const hasListBinders = tools.some((t) => t.function.name === 'list_binders');
     if (lastUser && /binder/i.test(lastUser.content) && hasListBinders) {
       yield* streamText('Let me check your binders. ');
@@ -220,10 +239,10 @@ export function createMockLlm(opts: { sleepMs?: number }): Llm {
       return;
     }
 
-    // 3. Fallback help text.
+    // 4. Fallback help text.
     yield* streamText(
       'Mock mode — no OPENROUTER_API_KEY is configured, so I follow a fixed script. ' +
-        'Try asking about your binders to see a full tool round-trip.',
+        'Try asking about your binders, or "search for pummel red", to see a full tool round-trip.',
     );
     yield { kind: 'usage', usage: { prompt_tokens: 200, completion_tokens: 40 } };
     yield { kind: 'finish', reason: 'stop' };
