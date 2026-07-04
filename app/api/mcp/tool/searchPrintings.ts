@@ -3,6 +3,7 @@ import { printingsService } from '@/lib/services';
 import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import { sortPrintings, normalizeSetCode } from '@/lib/fab-constants/sets';
+import { buildOptSearchUrl } from '@/lib/search/filters-to-opt-url';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
 const shorthandParser = new FABShorthandParser();
@@ -516,8 +517,21 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
 
     const sections = formatSearchSections(output, projectOpts);
 
+    // Hybrid-search Bridge A: for single-descriptor searches, emit an /opt
+    // deep link built from the SAME canonical filters this search used. It
+    // rides structuredContent (UI-only) — zero extra tokens for the model.
+    let optSearchLink: { title: string; url: string } | undefined;
+    if (cards.length === 1 && resolved[0]) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fabbazaar.app';
+      optSearchLink = {
+        title: `Open these ${totalFound} result${totalFound !== 1 ? 's' : ''} in card search`,
+        url: buildOptSearchUrl(resolved[0].filters as Record<string, unknown>, baseUrl),
+      };
+    }
+
     return {
       success: true,
+      optSearchLink,
       message: `Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
       results: output.map(r => {
         const sorted = r.printings.length > 0 ? sortPrintings(r.printings) : [];

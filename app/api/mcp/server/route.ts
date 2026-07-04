@@ -1564,7 +1564,16 @@ The new tool provides the same functionality with better guidance for proper wor
                 // Spec-compliant surface: clients that read structuredContent get the
                 // FULL per-printing list (every set/edition/foiling), not just the
                 // collapsed text representative. See searchPrintings tail note.
-                ...(result.success ? { structuredContent: { results: result.results ?? [] } } : {}),
+                // optSearchLink (title/url) is hybrid-search Bridge A: an /opt deep
+                // link that hydrates these filters as editable chips.
+                ...(result.success
+                  ? {
+                      structuredContent: {
+                        results: result.results ?? [],
+                        ...(result.optSearchLink ?? {}),
+                      },
+                    }
+                  : {}),
                 isError: !result.success,
                 ...result,
               }
