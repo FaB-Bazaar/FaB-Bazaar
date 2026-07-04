@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useDebounce } from 'use-debounce';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Check, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
@@ -20,11 +19,11 @@ import { ChecklistView } from '@/components/search/ChecklistView';
 import { AppShellAttribution } from '@/components/search/AppShellAttribution';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
+import { useOptSearchState } from '@/hooks/search/useOptSearchState';
 import { languageFlag } from '@/lib/utils/printing-language';
-import { buildServerFilters, LANGUAGES, DEFAULT_LANGUAGES } from '@/lib/search/build-server-filters';
-import { paramsToUiState, uiStateToParams } from '@/lib/search/opt-url-state';
+import { LANGUAGES } from '@/lib/search/build-server-filters';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
-import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
+import type { OptUiState } from '@/lib/search/opt-url-state';
 import { trackSearch } from '@/lib/gtag';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
@@ -226,114 +225,35 @@ function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OptSearchPage() {
-  // ── Filter state ──
-  const [query, setQuery] = useState('');
-  // 'name' (default): a bare query matches card names. 'text': it matches rule
-  // text only. Shorthand (t:, text:"…") works in either mode.
-  const [searchMode, setSearchMode] = useState<'name' | 'text'>('name');
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  // Hero ages are multi-select (OR), mutually exclusive with a regular type.
-  const [selectedHeroAges, setSelectedHeroAges] = useState<Array<'adult' | 'young'>>([]);
-  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
-  const [selectedTalents, setSelectedTalents] = useState<string[]>([]);
-  const [selectedTalentless, setSelectedTalentless] = useState(false);
-  const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
-  const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
-  const [selectedFoilings, setSelectedFoilings] = useState<string[]>([]);
-  const [selectedEditions, setSelectedEditions] = useState<string[]>([]);
-  const [selectedSets, setSelectedSets] = useState<string[]>([]);
-  // TCGplayer packs (sub-set groups) available for the currently-selected sets,
-  // plus the user's pack selection. The pack facet only renders when a selected
-  // set actually has packs (e.g. GEM), so it stays invisible for normal sets.
-  const [availablePacks, setAvailablePacks] = useState<{ groupId: number; name: string }[]>([]);
-  const [selectedPacks, setSelectedPacks] = useState<number[]>([]);
-  const [selectedFormat, setSelectedFormat] = useState<PrintingsSearchFilters['format'] | null>(null);
-  const [costMin, setCostMin] = useState('');
-  const [costMax, setCostMax] = useState('');
-  const [powerMin, setPowerMin] = useState('');
-  const [powerMax, setPowerMax] = useState('');
-  const [defenseMin, setDefenseMin] = useState('');
-  const [defenseMax, setDefenseMax] = useState('');
-  const [priceMin, setPriceMin] = useState('');
-  const [priceMax, setPriceMax] = useState('');
-  // Language selection: ['en'] = English default, [] = ALL languages.
-  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
+  // ── Consolidated filter/sort/view state ──
+  // One reducer over OptUiState (lib/search/opt-search-reducer) + URL sync
+  // (hydrate on mount, replaceState write-back) live in useOptSearchState.
+  const {
+    state, dispatch, urlReady, debouncedQuery, filters, hasAnyFilter,
+    clearAll: resetFilters,
+  } = useOptSearchState();
+  const {
+    query, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
+    selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
+    selectedEditions, selectedSets, selectedPacks, selectedFormat,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
+    selectedLanguages, sortBy, sortOrder, viewMode, groupByCard,
+  } = state;
+  const patch = (p: Partial<OptUiState>) => dispatch({ type: 'PATCH', patch: p });
 
-  // ── UI state ──
-  const [sortBy, setSortBy] = useState('name');
-  const [sortOrder, setSortOrder] = useState('asc');
-  const [viewMode, setViewMode] = useState<'images' | 'checklist'>('images');
+  // ── UI-only state (not part of the shareable search state) ──
+  // TCGplayer packs (sub-set groups) available for the currently-selected sets.
+  // The pack facet only renders when a selected set actually has packs (e.g.
+  // GEM), so it stays invisible for normal sets.
+  const [availablePacks, setAvailablePacks] = useState<{ groupId: number; name: string }[]>([]);
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
   // Mobile-only: the filter bottom sheet (desktop uses the inline popover row).
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Grouped is always the default on load (session-only toggle, not persisted) —
-  // so a prior "All printings" choice never becomes the sticky default.
-  const [groupByCard, setGroupByCard] = useState<boolean>(true);
-
-  const [debouncedQuery] = useDebounce(query, 300);
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
 
   useEffect(() => { inputRef.current?.focus(); }, []);
-
-  // ── URL <-> filter-state sync (shareable / bookmarkable searches) ──
-  // Hydrate once on mount from the URL (client-only: avoids SSR hydration
-  // mismatch). `urlReady` gates the write-back so we never serialize default
-  // state over the incoming params before we've read them.
-  const [urlReady, setUrlReady] = useState(false);
-  useEffect(() => {
-    const s = paramsToUiState(new URLSearchParams(window.location.search));
-    if (s.query !== undefined) setQuery(s.query);
-    if (s.searchMode !== undefined) setSearchMode(s.searchMode);
-    if (s.selectedType !== undefined) setSelectedType(s.selectedType);
-    if (s.selectedHeroAges !== undefined) setSelectedHeroAges(s.selectedHeroAges);
-    if (s.selectedClasses !== undefined) setSelectedClasses(s.selectedClasses);
-    if (s.selectedTalents !== undefined) setSelectedTalents(s.selectedTalents);
-    if (s.selectedTalentless !== undefined) setSelectedTalentless(s.selectedTalentless);
-    if (s.selectedPitch !== undefined) setSelectedPitch(s.selectedPitch);
-    if (s.selectedKeywords !== undefined) setSelectedKeywords(s.selectedKeywords);
-    if (s.selectedRarities !== undefined) setSelectedRarities(s.selectedRarities);
-    if (s.selectedFoilings !== undefined) setSelectedFoilings(s.selectedFoilings);
-    if (s.selectedEditions !== undefined) setSelectedEditions(s.selectedEditions);
-    if (s.selectedSets !== undefined) setSelectedSets(s.selectedSets);
-    if (s.selectedPacks !== undefined) setSelectedPacks(s.selectedPacks);
-    if (s.selectedFormat !== undefined) setSelectedFormat(s.selectedFormat as PrintingsSearchFilters['format']);
-    if (s.costMin !== undefined) setCostMin(s.costMin);
-    if (s.costMax !== undefined) setCostMax(s.costMax);
-    if (s.powerMin !== undefined) setPowerMin(s.powerMin);
-    if (s.powerMax !== undefined) setPowerMax(s.powerMax);
-    if (s.defenseMin !== undefined) setDefenseMin(s.defenseMin);
-    if (s.defenseMax !== undefined) setDefenseMax(s.defenseMax);
-    if (s.priceMin !== undefined) setPriceMin(s.priceMin);
-    if (s.priceMax !== undefined) setPriceMax(s.priceMax);
-    if (s.selectedLanguages !== undefined) setSelectedLanguages(s.selectedLanguages);
-    if (s.sortBy !== undefined) setSortBy(s.sortBy);
-    if (s.sortOrder !== undefined) setSortOrder(s.sortOrder);
-    if (s.viewMode !== undefined) setViewMode(s.viewMode);
-    if (s.groupByCard !== undefined) setGroupByCard(s.groupByCard);
-    setUrlReady(true);
-  }, []);
-
-  // Write current state back to the URL (no history spam, back button intact).
-  // Uses the debounced query so typing doesn't rewrite the URL every keystroke.
-  useEffect(() => {
-    if (!urlReady) return;
-    const qs = uiStateToParams({
-      query: debouncedQuery, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
-      selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
-      selectedEditions, selectedSets, selectedPacks, selectedFormat: selectedFormat ?? null,
-      costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-      selectedLanguages, sortBy, sortOrder, viewMode, groupByCard,
-    }).toString();
-    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-    window.history.replaceState(null, '', url);
-  }, [urlReady, debouncedQuery, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
-      selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
-      selectedEditions, selectedSets, selectedPacks, selectedFormat,
-      costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-      selectedLanguages, sortBy, sortOrder, viewMode, groupByCard]);
 
   // Load the packs available for the selected sets (only multi-group sets like
   // GEM return any). Drives the conditional pack facet below. Pruning of
@@ -342,12 +262,12 @@ export default function OptSearchPage() {
   // during the transient pre-fetch window where availablePacks is still empty.
   useEffect(() => {
     // Wait until URL hydration has applied — otherwise this runs once with the
-    // pre-hydration selectedSets=[] and its functional setSelectedPacks would
-    // wipe a pack just restored from the URL (StrictMode double-mount race).
+    // pre-hydration selectedSets=[] and its PRUNE_PACKS dispatch would wipe a
+    // pack just restored from the URL (StrictMode double-mount race).
     if (!urlReady) return;
     if (selectedSets.length === 0) {
       setAvailablePacks([]);
-      setSelectedPacks(prev => (prev.length ? [] : prev));
+      dispatch({ type: 'PRUNE_PACKS', valid: [] });
       return;
     }
     let cancelled = false;
@@ -367,29 +287,12 @@ export default function OptSearchPage() {
         if (!seen.has(p.groupId)) { seen.add(p.groupId); merged.push({ groupId: p.groupId, name: p.name }); }
       }
       setAvailablePacks(merged);
-      // Drop any selected packs not offered by the current sets.
-      const valid = new Set(merged.map(p => p.groupId));
-      setSelectedPacks(prev => {
-        const next = prev.filter(g => valid.has(g));
-        return next.length === prev.length ? prev : next;
-      });
+      // Drop any selected packs not offered by the current sets (identity-
+      // preserving no-op inside the reducer when nothing is pruned).
+      dispatch({ type: 'PRUNE_PACKS', valid: merged.map(p => p.groupId) });
     });
     return () => { cancelled = true; };
-  }, [selectedSets, urlReady]);
-
-  // ── Build structured server filters from UI state (debounced query) ──
-  const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
-    query: debouncedQuery, searchMode,
-    selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch,
-    selectedKeywords, selectedRarities, selectedFoilings, selectedEditions, selectedSets,
-    selectedTcgGroups: selectedPacks,
-    selectedFormat,
-    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
-  }), [debouncedQuery, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents, selectedTalentless, selectedPitch, selectedKeywords,
-       selectedRarities, selectedFoilings, selectedEditions, selectedSets, selectedPacks, selectedFormat,
-       costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax]);
-
-  const hasAnyFilter = Object.keys(filters).length > 0;
+  }, [selectedSets, urlReady, dispatch]);
 
   // ── Server-paginated search (shared with /search) ──
   const { results, total, loading, loadingMore, error, sentinelRef, hasMore } = useCardSearch({
@@ -403,16 +306,8 @@ export default function OptSearchPage() {
   // Server returns card-level rows when grouped, printing-level when not.
   const displayed = results;
 
-  const toggleArr = (arr: string[], set: (v: string[]) => void, val: string) =>
-    set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
-
   const clearAll = () => {
-    setQuery(''); setSearchMode('name'); setSelectedType(null); setSelectedHeroAges([]); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
-    setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
-    setSelectedEditions([]); setSelectedSets([]); setSelectedPacks([]); setSelectedFormat(null);
-    setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
-    setDefenseMin(''); setDefenseMax(''); setPriceMin(''); setPriceMax('');
-    setSelectedLanguages(DEFAULT_LANGUAGES);
+    resetFilters();
     inputRef.current?.focus();
   };
 
@@ -425,66 +320,66 @@ export default function OptSearchPage() {
   const activeChips: { key: string; label: string; onRemove: () => void }[] = [];
   if (selectedPitch !== null) {
     const p = PITCH_CHIPS.find(c => c.value === selectedPitch);
-    activeChips.push({ key: 'pitch', label: `Pitch: ${p?.label ?? selectedPitch}`, onRemove: () => setSelectedPitch(null) });
+    activeChips.push({ key: 'pitch', label: `Pitch: ${p?.label ?? selectedPitch}`, onRemove: () => patch({ selectedPitch: null }) });
   }
   if (selectedType) {
     const t = TYPE_CHIPS.find(c => c.value === selectedType);
-    activeChips.push({ key: 'type', label: t?.label ?? selectedType, onRemove: () => setSelectedType(null) });
+    activeChips.push({ key: 'type', label: t?.label ?? selectedType, onRemove: () => patch({ selectedType: null }) });
   }
   selectedHeroAges.forEach(age => {
     const def = HERO_AGE_CHIPS.find(c => c.value === age);
-    activeChips.push({ key: `hero:${age}`, label: def?.label ?? age, onRemove: () => setSelectedHeroAges(a => a.filter(x => x !== age)) });
+    activeChips.push({ key: `hero:${age}`, label: def?.label ?? age, onRemove: () => dispatch({ type: 'TOGGLE_HERO_AGE', value: age }) });
   });
   selectedClasses.forEach(cls => {
-    activeChips.push({ key: `class:${cls}`, label: cls, onRemove: () => toggleArr(selectedClasses, setSelectedClasses, cls) });
+    activeChips.push({ key: `class:${cls}`, label: cls, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedClasses', value: cls }) });
   });
   selectedTalents.forEach(tal => {
-    activeChips.push({ key: `talent:${tal}`, label: tal, onRemove: () => toggleArr(selectedTalents, setSelectedTalents, tal) });
+    activeChips.push({ key: `talent:${tal}`, label: tal, onRemove: () => dispatch({ type: 'TOGGLE_TALENT', value: tal }) });
   });
   if (selectedTalentless) {
-    activeChips.push({ key: 'talentless', label: 'Talentless', onRemove: () => setSelectedTalentless(false) });
+    activeChips.push({ key: 'talentless', label: 'Talentless', onRemove: () => dispatch({ type: 'TOGGLE_TALENTLESS' }) });
   }
   selectedKeywords.forEach(kw => {
     const def = KEYWORD_CHIPS.find(k => k.value === kw);
-    activeChips.push({ key: `kw:${kw}`, label: def?.label ?? kw, onRemove: () => toggleArr(selectedKeywords, setSelectedKeywords, kw) });
+    activeChips.push({ key: `kw:${kw}`, label: def?.label ?? kw, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw }) });
   });
   selectedRarities.forEach(r => {
     const def = RARITY_OPTIONS.find(o => o.value === r);
-    activeChips.push({ key: `rar:${r}`, label: def?.label ?? r, onRemove: () => toggleArr(selectedRarities, setSelectedRarities, r) });
+    activeChips.push({ key: `rar:${r}`, label: def?.label ?? r, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedRarities', value: r }) });
   });
   selectedFoilings.forEach(f => {
     const def = FOILING_OPTIONS.find(o => o.value === f);
-    activeChips.push({ key: `foil:${f}`, label: def?.label ?? f, onRemove: () => toggleArr(selectedFoilings, setSelectedFoilings, f) });
+    activeChips.push({ key: `foil:${f}`, label: def?.label ?? f, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedFoilings', value: f }) });
   });
   selectedEditions.forEach(e => {
     const def = EDITION_OPTIONS.find(o => o.value === e);
-    activeChips.push({ key: `ed:${e}`, label: def?.label ?? e, onRemove: () => toggleArr(selectedEditions, setSelectedEditions, e) });
+    activeChips.push({ key: `ed:${e}`, label: def?.label ?? e, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedEditions', value: e }) });
   });
   if (selectedFormat) {
     const def = FORMAT_OPTIONS.find(o => o.value === selectedFormat);
-    activeChips.push({ key: 'format', label: `Format: ${def?.label ?? selectedFormat}`, onRemove: () => setSelectedFormat(null) });
+    activeChips.push({ key: 'format', label: `Format: ${def?.label ?? selectedFormat}`, onRemove: () => patch({ selectedFormat: null }) });
   }
   selectedSets.forEach(s => {
-    activeChips.push({ key: `set:${s}`, label: SET_MAP[s.toLowerCase() as keyof typeof SET_MAP] ?? s, onRemove: () => toggleArr(selectedSets, setSelectedSets, s) });
+    activeChips.push({ key: `set:${s}`, label: SET_MAP[s.toLowerCase() as keyof typeof SET_MAP] ?? s, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: s }) });
   });
   selectedPacks.forEach(g => {
     const pack = availablePacks.find(p => p.groupId === g);
-    activeChips.push({ key: `pack:${g}`, label: pack?.name ?? `Pack ${g}`, onRemove: () => setSelectedPacks(prev => prev.filter(x => x !== g)) });
+    activeChips.push({ key: `pack:${g}`, label: pack?.name ?? `Pack ${g}`, onRemove: () => dispatch({ type: 'TOGGLE_PACK', value: g }) });
   });
-  if (costMin || costMax) activeChips.push({ key: 'cost', label: rangeLabel('Cost', costMin, costMax), onRemove: () => { setCostMin(''); setCostMax(''); } });
-  if (powerMin || powerMax) activeChips.push({ key: 'power', label: rangeLabel('Power', powerMin, powerMax), onRemove: () => { setPowerMin(''); setPowerMax(''); } });
-  if (defenseMin || defenseMax) activeChips.push({ key: 'def', label: rangeLabel('Defense', defenseMin, defenseMax), onRemove: () => { setDefenseMin(''); setDefenseMax(''); } });
+  if (costMin || costMax) activeChips.push({ key: 'cost', label: rangeLabel('Cost', costMin, costMax), onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'cost' }) });
+  if (powerMin || powerMax) activeChips.push({ key: 'power', label: rangeLabel('Power', powerMin, powerMax), onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'power' }) });
+  if (defenseMin || defenseMax) activeChips.push({ key: 'def', label: rangeLabel('Defense', defenseMin, defenseMax), onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'defense' }) });
   if (priceMin || priceMax) {
     const priceLabel = priceMin && priceMax
       ? `$${priceMin}–$${priceMax}`
       : priceMin ? `≥ $${priceMin}` : `≤ $${priceMax}`;
-    activeChips.push({ key: 'price', label: priceLabel, onRemove: () => { setPriceMin(''); setPriceMax(''); } });
+    activeChips.push({ key: 'price', label: priceLabel, onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'price' }) });
   }
   if (!isDefaultLang) {
     const label = selectedLanguages.length === 0
       ? 'All languages'
       : 'Lang: ' + selectedLanguages.map(c => c.toUpperCase()).join(', ');
-    activeChips.push({ key: 'lang', label, onRemove: () => setSelectedLanguages(['en']) });
+    activeChips.push({ key: 'lang', label, onRemove: () => patch({ selectedLanguages: ['en'] }) });
   }
 
   const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
@@ -498,7 +393,7 @@ export default function OptSearchPage() {
         <button
           key={mode}
           type="button"
-          onClick={() => { setSearchMode(mode); inputRef.current?.focus(); }}
+          onClick={() => { patch({ searchMode: mode }); inputRef.current?.focus(); }}
           aria-pressed={searchMode === mode}
           title={mode === 'name' ? 'Search card names' : 'Search rule text'}
           className={cn(
@@ -518,7 +413,7 @@ export default function OptSearchPage() {
 
   const groupedToggle = (
     <button
-      onClick={() => setGroupByCard(g => !g)}
+      onClick={() => patch({ groupByCard: !groupByCard })}
       title={groupByCard ? 'Grouping printings by card — click to show every printing' : 'Showing every printing — click to group by card'}
       className={cn(
         'px-2.5 py-1.5 text-sm rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
@@ -535,7 +430,7 @@ export default function OptSearchPage() {
     <>
       <select
         value={sortBy}
-        onChange={e => setSortBy(e.target.value)}
+        onChange={e => patch({ sortBy: e.target.value })}
         aria-label="Sort by"
         className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
@@ -552,7 +447,7 @@ export default function OptSearchPage() {
         <option value="defense">Defense</option>
       </select>
       <button
-        onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')}
+        onClick={() => patch({ sortOrder: sortOrder === 'asc' ? 'desc' : 'asc' })}
         aria-label={`Sort ${sortOrder === 'asc' ? 'ascending' : 'descending'}`}
         title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
         className="flex items-center gap-1 px-2 py-1.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -580,7 +475,7 @@ export default function OptSearchPage() {
                   key={chip.value}
                   type="button"
                   aria-pressed={isActive}
-                  onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
+                  onClick={() => patch({ selectedPitch: selectedPitch === chip.value ? null : chip.value })}
                   className={cn(
                     'flex items-center gap-2 px-3 py-1.5 rounded-md border text-base font-medium transition-all',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
@@ -610,7 +505,7 @@ export default function OptSearchPage() {
                 key={chip.value}
                 label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
                 active={selectedType === chip.value} activeClass={chip.active}
-                onClick={() => { setSelectedHeroAges([]); setSelectedType(t => t === chip.value ? null : chip.value); }}
+                onClick={() => dispatch({ type: 'TOGGLE_TYPE', value: chip.value })}
               />
             ))}
           </div>
@@ -621,10 +516,7 @@ export default function OptSearchPage() {
                 key={chip.value}
                 label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
                 active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
-                onClick={() => {
-                  setSelectedType(null);
-                  setSelectedHeroAges(a => a.includes(chip.value) ? a.filter(x => x !== chip.value) : [...a, chip.value]);
-                }}
+                onClick={() => dispatch({ type: 'TOGGLE_HERO_AGE', value: chip.value })}
               />
             ))}
           </div>
@@ -644,7 +536,7 @@ export default function OptSearchPage() {
                   key={cls}
                   label={cls} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
                   active={selectedClasses.includes(cls)} activeClass="bg-indigo-900/50 border-indigo-600"
-                  onClick={() => toggleArr(selectedClasses, setSelectedClasses, cls)}
+                  onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedClasses', value: cls })}
                 />
               );
             })}
@@ -658,7 +550,7 @@ export default function OptSearchPage() {
         <>
           <p className={SECTION}>Talent</p>
           <div className="mb-2">
-            <Pill active={selectedTalentless} onClick={() => { setSelectedTalents([]); setSelectedTalentless(v => !v); }}>
+            <Pill active={selectedTalentless} onClick={() => dispatch({ type: 'TOGGLE_TALENTLESS' })}>
               Talentless
             </Pill>
           </div>
@@ -670,7 +562,7 @@ export default function OptSearchPage() {
                   key={tal}
                   label={tal} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
                   active={selectedTalents.includes(tal)} activeClass="bg-teal-900/50 border-teal-600"
-                  onClick={() => { setSelectedTalentless(false); toggleArr(selectedTalents, setSelectedTalents, tal); }}
+                  onClick={() => dispatch({ type: 'TOGGLE_TALENT', value: tal })}
                 />
               );
             })}
@@ -685,7 +577,7 @@ export default function OptSearchPage() {
           <p className={SECTION}>Keywords</p>
           <div className="flex flex-wrap gap-1">
             {KEYWORD_CHIPS.map(kw => (
-              <Pill key={kw.value} active={selectedKeywords.includes(kw.value)} onClick={() => toggleArr(selectedKeywords, setSelectedKeywords, kw.value)}>
+              <Pill key={kw.value} active={selectedKeywords.includes(kw.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw.value })}>
                 {kw.label}
               </Pill>
             ))}
@@ -703,7 +595,7 @@ export default function OptSearchPage() {
               <Pill
                 key={fmt.value}
                 active={selectedFormat === fmt.value}
-                onClick={() => setSelectedFormat(f => f === fmt.value ? null : fmt.value)}
+                onClick={() => patch({ selectedFormat: selectedFormat === fmt.value ? null : fmt.value })}
               >
                 {fmt.label}
               </Pill>
@@ -722,7 +614,7 @@ export default function OptSearchPage() {
           <p className={SECTION}>Rarity</p>
           <div className="flex flex-wrap gap-1">
             {RARITY_OPTIONS.map(r => (
-              <Pill key={r.value} active={selectedRarities.includes(r.value)} onClick={() => toggleArr(selectedRarities, setSelectedRarities, r.value)}>
+              <Pill key={r.value} active={selectedRarities.includes(r.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedRarities', value: r.value })}>
                 <RarityIcon rarityCode={r.value} size="sm" />
                 {r.label}
               </Pill>
@@ -737,9 +629,9 @@ export default function OptSearchPage() {
         <>
           <p className={SECTION}>Stats</p>
           <div className="space-y-2">
-            <RangeRow label="Cost"    min={costMin}    setMin={setCostMin}    max={costMax}    setMax={setCostMax} />
-            <RangeRow label="Power"   min={powerMin}   setMin={setPowerMin}   max={powerMax}   setMax={setPowerMax} />
-            <RangeRow label="Defense" min={defenseMin} setMin={setDefenseMin} max={defenseMax} setMax={setDefenseMax} />
+            <RangeRow label="Cost"    min={costMin}    setMin={v => dispatch({ type: 'SET_RANGE', range: 'cost', min: v })}    max={costMax}    setMax={v => dispatch({ type: 'SET_RANGE', range: 'cost', max: v })} />
+            <RangeRow label="Power"   min={powerMin}   setMin={v => dispatch({ type: 'SET_RANGE', range: 'power', min: v })}   max={powerMax}   setMax={v => dispatch({ type: 'SET_RANGE', range: 'power', max: v })} />
+            <RangeRow label="Defense" min={defenseMin} setMin={v => dispatch({ type: 'SET_RANGE', range: 'defense', min: v })} max={defenseMax} setMax={v => dispatch({ type: 'SET_RANGE', range: 'defense', max: v })} />
           </div>
         </>
       ),
@@ -756,10 +648,7 @@ export default function OptSearchPage() {
                 <Pill
                   key={p.label}
                   active={active}
-                  onClick={() => {
-                    if (active) { setPriceMin(''); setPriceMax(''); }
-                    else { setPriceMin(p.min); setPriceMax(p.max); }
-                  }}
+                  onClick={() => dispatch({ type: 'TOGGLE_PRICE_PRESET', min: p.min, max: p.max })}
                 >
                   {p.label}
                 </Pill>
@@ -768,7 +657,7 @@ export default function OptSearchPage() {
           </div>
           <div className="mt-3">
             <p className={SECTION}>Custom range ($)</p>
-            <RangeRow label="Price" min={priceMin} setMin={setPriceMin} max={priceMax} setMax={setPriceMax} />
+            <RangeRow label="Price" min={priceMin} setMin={v => dispatch({ type: 'SET_RANGE', range: 'price', min: v })} max={priceMax} setMax={v => dispatch({ type: 'SET_RANGE', range: 'price', max: v })} />
           </div>
           <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 leading-snug">
             Based on TCGplayer low; English printings only.
@@ -784,7 +673,7 @@ export default function OptSearchPage() {
             <p className={SECTION}>Foiling</p>
             <div className="flex flex-wrap gap-1">
               {FOILING_OPTIONS.map(f => (
-                <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => toggleArr(selectedFoilings, setSelectedFoilings, f.value)}>
+                <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedFoilings', value: f.value })}>
                   <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', f.swatch)} />
                   {f.label}
                 </Pill>
@@ -795,7 +684,7 @@ export default function OptSearchPage() {
             <p className={SECTION}>Edition</p>
             <div className="flex flex-wrap gap-1">
               {EDITION_OPTIONS.map(e => (
-                <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => toggleArr(selectedEditions, setSelectedEditions, e.value)}>
+                <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedEditions', value: e.value })}>
                   {e.label}
                 </Pill>
               ))}
@@ -810,7 +699,7 @@ export default function OptSearchPage() {
                   type="button"
                   title={SET_MAP[setCode as keyof typeof SET_MAP]}
                   aria-pressed={selectedSets.includes(setCode)}
-                  onClick={() => toggleArr(selectedSets, setSelectedSets, setCode)}
+                  onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: setCode })}
                   className={cn(
                     'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                     selectedSets.includes(setCode)
@@ -838,7 +727,7 @@ export default function OptSearchPage() {
                   <Pill
                     key={p.groupId}
                     active={selectedPacks.includes(p.groupId)}
-                    onClick={() => setSelectedPacks(prev => prev.includes(p.groupId) ? prev.filter(x => x !== p.groupId) : [...prev, p.groupId])}
+                    onClick={() => dispatch({ type: 'TOGGLE_PACK', value: p.groupId })}
                   >
                     {p.name}
                   </Pill>
@@ -855,12 +744,12 @@ export default function OptSearchPage() {
         <>
           <p className={SECTION}>Language</p>
           <div className="space-y-2">
-            <Pill active={selectedLanguages.length === 0} onClick={() => setSelectedLanguages([])}>
+            <Pill active={selectedLanguages.length === 0} onClick={() => patch({ selectedLanguages: [] })}>
               All languages
             </Pill>
             <div className="flex flex-wrap gap-1">
               {LANGUAGES.map(l => (
-                <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => setSelectedLanguages(prev => toggleLanguageSelection(prev, l.code))}>
+                <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => patch({ selectedLanguages: toggleLanguageSelection(selectedLanguages, l.code) })}>
                   <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
                 </Pill>
               ))}
@@ -891,7 +780,7 @@ export default function OptSearchPage() {
               <input
                 ref={inputRef}
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={e => patch({ query: e.target.value })}
                 placeholder={searchMode === 'text'
                   ? 'Search rule text — e.g. prevent, deal arcane damage, go again'
                   : 'Search by name or syntax — e.g. blue ninja go again, t:equipment p:<5'}
@@ -900,7 +789,7 @@ export default function OptSearchPage() {
               />
               {query && (
                 <button
-                  onClick={() => { setQuery(''); inputRef.current?.focus(); }}
+                  onClick={() => { patch({ query: '' }); inputRef.current?.focus(); }}
                   aria-label="Clear search text"
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
                 >
@@ -949,7 +838,7 @@ export default function OptSearchPage() {
               {/* View mode — kept inline on every breakpoint (most-used quick toggle). */}
               <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
                 <button
-                  onClick={() => setViewMode('images')}
+                  onClick={() => patch({ viewMode: 'images' })}
                   title="Image grid" aria-label="Image grid view" aria-pressed={viewMode === 'images'}
                   className={cn('px-2.5 py-2 border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                     viewMode === 'images' ? 'border-blue-600 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300')}
@@ -957,7 +846,7 @@ export default function OptSearchPage() {
                   <Images className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setViewMode('checklist')}
+                  onClick={() => patch({ viewMode: 'checklist' })}
                   title="List view" aria-label="List view" aria-pressed={viewMode === 'checklist'}
                   className={cn('px-2.5 py-2 border-l border-gray-300 dark:border-gray-700 border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                     viewMode === 'checklist' ? 'border-b-blue-600 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'border-b-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300')}
@@ -1073,7 +962,7 @@ export default function OptSearchPage() {
               {EXAMPLE_QUERIES.map(q => (
                 <button
                   key={q}
-                  onClick={() => { setQuery(q); inputRef.current?.focus(); }}
+                  onClick={() => { patch({ query: q }); inputRef.current?.focus(); }}
                   className="px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 font-mono hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
                   {q}
