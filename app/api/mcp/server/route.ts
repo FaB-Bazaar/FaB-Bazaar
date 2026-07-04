@@ -339,7 +339,7 @@ export async function POST(req: Request) {
               '  2. Read `fab://constants` before any search or list-creation work. It contains:',
               '     - foiling / edition / set / rarity / keyword codes used by search_printings',
               '     - shorthand query syntax',
-              '     - `heroes_by_format`: adult heroes (Classic Constructed, Living Legend) vs young heroes (Silver Age, Blitz, Commoner), grouped by class, with { name, displayName, shortName }. This is a static roster bucketing only — for current per-format LEGALITY use `fab://heroes-by-format`.',
+              '     - hero nicknames and trade-post parsing rules (BB/WB, Treasures, Marvel fallback)',
               '  3. Read `searchable://card/fields` before calling search_printings.',
               '  4. Read `fab://card-index` once per session before working with decklists (card name → printing ID lookup).',
               '  5. Read `fab://heroes-by-format` before building/validating a hero+format deck pool (e.g. "Oldhim in Silver Age"). DB-derived per-format legality, split adult vs young; note many heroes (e.g. Oldhim) exist as BOTH a young hero and an adult hero legal in different formats.',
