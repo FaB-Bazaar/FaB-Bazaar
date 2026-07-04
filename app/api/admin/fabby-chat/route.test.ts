@@ -10,6 +10,7 @@ vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
   userService: { hasRole: vi.fn() },
   oauthFlowService: { generateAccessToken: vi.fn().mockReturnValue('jwt-token') },
+  llmUsageService: { getTodayRequestCount: vi.fn(), recordTurn: vi.fn() },
 }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn() }));
 vi.mock('@/lib/ai/mcp-bridge', () => ({
@@ -20,7 +21,7 @@ vi.mock('@/lib/ai/mcp-bridge', () => ({
 // Import AFTER mocks (vi.mock is hoisted)
 import { POST } from './route';
 import { auth } from '@/auth';
-import { userService } from '@/lib/services';
+import { userService, llmUsageService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { fetchLiteTools, executeTool } from '@/lib/ai/mcp-bridge';
 
@@ -29,6 +30,8 @@ const mockHasRole = vi.mocked(userService.hasRole);
 const mockRateLimit = vi.mocked(rateLimit);
 const mockFetchLiteTools = vi.mocked(fetchLiteTools);
 const mockExecuteTool = vi.mocked(executeTool);
+const mockGetTodayRequestCount = vi.mocked(llmUsageService.getTodayRequestCount);
+const mockRecordTurn = vi.mocked(llmUsageService.recordTurn);
 
 const LITE_TOOLS = {
   tools: [{ type: 'function' as const, function: { name: 'list_binders', description: 'd', parameters: {} } }],
@@ -61,6 +64,8 @@ beforeEach(() => {
   mockRateLimit.mockResolvedValue({ success: true, remaining: 29 } as any);
   mockFetchLiteTools.mockResolvedValue(LITE_TOOLS as any);
   mockExecuteTool.mockResolvedValue({ ok: true, content: 'Your Binders (9 total)' });
+  mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 0 });
+  mockRecordTurn.mockResolvedValue({ success: true, data: undefined });
 });
 
 describe('POST /api/admin/fabby-chat', () => {
@@ -115,6 +120,42 @@ describe('POST /api/admin/fabby-chat', () => {
     expect(mockExecuteTool).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'list_binders', bearer: 'jwt-token' }),
     );
+  });
+
+  it('429s with a pre-stream JSON error when the daily message budget is exhausted', async () => {
+    mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 10_000 });
+    const res = await POST(request(VALID_BODY));
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+    const body = await res.json();
+    expect(body.error).toMatch(/daily message limit/i);
+  });
+
+  it('fails open when the quota read errors — availability over enforcement', async () => {
+    mockGetTodayRequestCount.mockResolvedValue({ success: false, error: 'db down' });
+    const res = await POST(request(VALID_BODY));
+    expect(res.status).toBe(200);
+    await readSseEvents(res); // drain so this turn's done doesn't bleed into later tests
+  });
+
+  it('records one usage turn from the done event, with the resolved model and its token counts', async () => {
+    const res = await POST(request(VALID_BODY));
+    await readSseEvents(res); // drain the stream so the turn completes
+
+    expect(mockRecordTurn).toHaveBeenCalledTimes(1);
+    // Mock model's binder script: usage arrives on the summary iteration (500/60)
+    expect(mockRecordTurn).toHaveBeenCalledWith({
+      userId: 'user-1',
+      model: 'mock',
+      promptTokens: 500,
+      completionTokens: 60,
+    });
+  });
+
+  it('checks the quota for the requesting user before streaming', async () => {
+    await readSseEvents(await POST(request(VALID_BODY)));
+    expect(mockGetTodayRequestCount).toHaveBeenCalledWith('user-1');
   });
 
   it('injects the system prompt with the username', async () => {

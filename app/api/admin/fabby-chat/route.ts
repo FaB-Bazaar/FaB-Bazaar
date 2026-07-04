@@ -10,11 +10,12 @@
 
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { userService, oauthFlowService } from '@/lib/services';
+import { userService, oauthFlowService, llmUsageService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { runAgentLoop } from '@/lib/ai/agent-loop';
 import { createLlm } from '@/lib/ai/openrouter';
 import { fetchLiteTools, executeTool } from '@/lib/ai/mcp-bridge';
+import { LLM_TIERS, resolveLlmTier, tierAllowsModel } from '@/lib/ai/tiers';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
 export const dynamic = 'force-dynamic';
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
   if (!roleCheck.success || !roleCheck.data) {
     return NextResponse.json({ error: 'Forbidden - Super admin access required' }, { status: 403 });
   }
+  const tier = resolveLlmTier({ isSuperAdmin: true });
 
   // 3. Rate limit
   const limitResult = await rateLimit({
@@ -135,6 +137,25 @@ export async function POST(req: Request) {
   }
   // Keyless deployments run mock regardless of what the client asked for.
   const model = process.env.OPENROUTER_API_KEY ? validated.model : 'mock';
+  if (!tierAllowsModel(tier, model)) {
+    return NextResponse.json({ error: `Model not available on the ${tier} tier` }, { status: 403 });
+  }
+
+  // 4.5. Daily message budget (per-user, resets midnight UTC). Checked after
+  // validation so malformed requests don't cost a DB read; recorded on the
+  // done event below. Fails open on read errors — availability over
+  // enforcement while this surface is superadmin-only.
+  const dailyLimit = LLM_TIERS[tier].dailyMessages;
+  const usedToday = await llmUsageService.getTodayRequestCount(user.id);
+  if (usedToday.success && usedToday.data >= dailyLimit) {
+    return NextResponse.json(
+      { error: `Daily message limit reached (${dailyLimit}/day) — resets at midnight UTC` },
+      { status: 429 },
+    );
+  }
+  if (!usedToday.success) {
+    console.error('[fabby-chat] quota read failed (failing open):', usedToday.error);
+  }
 
   // 5. Mint a stateless JWT for the internal MCP calls. This (not
   // generateBearerToken's opaque tokens) is what the usage wrapper can
@@ -166,6 +187,22 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (event: AgentEvent) => {
+        if (event.type === 'done') {
+          // Meter the turn (fire-and-forget — capture must never affect the
+          // stream). One request per turn; token counts are provider-reported
+          // and already summed across loop iterations (0 when omitted).
+          void llmUsageService
+            .recordTurn({
+              userId: user.id!,
+              model,
+              promptTokens: event.usage?.prompt_tokens ?? 0,
+              completionTokens: event.usage?.completion_tokens ?? 0,
+            })
+            .then((r) => {
+              if (!r.success) console.error('[fabby-chat] usage record failed:', r.error);
+            })
+            .catch((error) => console.error('[fabby-chat] usage record failed:', error));
+        }
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
         } catch {

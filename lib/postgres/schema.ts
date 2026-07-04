@@ -12,6 +12,7 @@ import {
   date,
   boolean,
   integer,
+  bigint,
   real,
   numeric,
   smallint,
@@ -772,6 +773,22 @@ export const mcpUsageDaily = pgTable('mcp_usage_daily', {
 }, (table) => ({
   pk: primaryKey({ columns: [table.usageDate, table.userId, table.client, table.tool] }),
   userIdx: index('idx_mcp_usage_daily_user').on(table.userId, table.usageDate),
+}));
+
+// ============================================================================
+// LLM USAGE (daily aggregates per user × model — see migration 0073)
+// ============================================================================
+
+export const llmUsageDaily = pgTable('llm_usage_daily', {
+  usageDate: date('usage_date', { mode: 'string' }).notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  model: text('model').notNull(),
+  requests: integer('requests').notNull().default(0),
+  promptTokens: bigint('prompt_tokens', { mode: 'number' }).notNull().default(0),
+  completionTokens: bigint('completion_tokens', { mode: 'number' }).notNull().default(0),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.usageDate, table.userId, table.model] }),
+  userIdx: index('idx_llm_usage_daily_user').on(table.userId, table.usageDate),
 }));
 
 // ============================================================================

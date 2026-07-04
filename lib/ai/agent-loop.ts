@@ -53,7 +53,14 @@ export async function runAgentLoop(opts: {
             toolCalls = delta.toolCalls;
             break;
           case 'usage':
-            usage = delta.usage;
+            // Sum across iterations — a tool-loop turn makes several LLM
+            // calls, and `done.usage` must be the whole turn's bill.
+            usage = usage
+              ? {
+                  prompt_tokens: usage.prompt_tokens + delta.usage.prompt_tokens,
+                  completion_tokens: usage.completion_tokens + delta.usage.completion_tokens,
+                }
+              : delta.usage;
             break;
           case 'finish':
             finishReason = delta.reason;

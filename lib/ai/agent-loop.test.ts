@@ -70,6 +70,25 @@ describe('runAgentLoop', () => {
     expect(done.iterations).toBe(1);
   });
 
+  it('accumulates usage across iterations — done carries the turn total, not the last LLM call', async () => {
+    const { llm } = scriptedLlm(
+      [
+        { kind: 'tool_calls', toolCalls: [call('c1', 'list_binders')] },
+        { kind: 'usage', usage: { prompt_tokens: 500, completion_tokens: 60 } },
+        { kind: 'finish', reason: 'tool_calls' },
+      ],
+      [
+        { kind: 'text', text: 'You have 9 binders.' },
+        { kind: 'usage', usage: { prompt_tokens: 700, completion_tokens: 40 } },
+        { kind: 'finish', reason: 'stop' },
+      ],
+    );
+    const events = await collect({ llm });
+
+    const done = events.at(-1) as Extract<AgentEvent, { type: 'done' }>;
+    expect(done.usage).toEqual({ prompt_tokens: 1200, completion_tokens: 100 });
+  });
+
   it('runs a tool round-trip and threads messages back to the LLM', async () => {
     const { llm, calls } = scriptedLlm(
       [

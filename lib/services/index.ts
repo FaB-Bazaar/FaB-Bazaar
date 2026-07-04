@@ -60,6 +60,7 @@ import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/Po
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 import { PostgresMcpUsageService } from './postgres/mcp-usage/PostgresMcpUsageService';
+import { PostgresLlmUsageService } from './postgres/llm-usage/PostgresLlmUsageService';
 import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
 import { PostgresBannedCardsService } from './postgres/banned-cards/PostgresBannedCardsService';
 import { PostgresDailyMoversService } from './postgres/daily-movers/PostgresDailyMoversService';
@@ -571,6 +572,7 @@ export const customTokenCardService = ServiceFactory.customTokenCardService;
 export const gameResultsService = new PostgresGameResultsService();
 export const siteSettingsService = new PostgresSiteSettingsService();
 export const mcpUsageService = new PostgresMcpUsageService();
+export const llmUsageService = new PostgresLlmUsageService();
 export const setsService = new PostgresSetsService();
 export const bannedCardsService = ServiceFactory.bannedCardsService;
 export const dailyMoversService = ServiceFactory.dailyMoversService;
