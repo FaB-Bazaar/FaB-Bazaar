@@ -758,6 +758,23 @@ export const oauthClients = pgTable('oauth_clients', {
 }));
 
 // ============================================================================
+// MCP USAGE (daily aggregates per user × client × tool — see migration 0072)
+// ============================================================================
+
+export const mcpUsageDaily = pgTable('mcp_usage_daily', {
+  usageDate: date('usage_date', { mode: 'string' }).notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  client: text('client').notNull().default('unknown'),
+  tool: text('tool').notNull(),
+  calls: integer('calls').notNull().default(0),
+  requestBytes: integer('request_bytes').notNull().default(0),
+  responseBytes: integer('response_bytes').notNull().default(0),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.usageDate, table.userId, table.client, table.tool] }),
+  userIdx: index('idx_mcp_usage_daily_user').on(table.userId, table.usageDate),
+}));
+
+// ============================================================================
 // OAUTH AUTHORIZATION CODES
 // ============================================================================
 

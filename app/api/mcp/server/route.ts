@@ -9,7 +9,7 @@ import { heroesByFormatResource } from '../resource/heroesByFormat';
 import { cardGridViewerResource } from '../resource/cardGridViewer';
 import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
-import { authTokenService, userService } from '@/lib/services';
+import { authTokenService, userService, mcpUsageService } from '@/lib/services';
 import { filterToolsForToolset, resolveToolset } from './toolsets';
 
 // Import the tools
@@ -167,7 +167,66 @@ function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: st
 }
 
 // Enhanced tools/call handler
+// Thin usage-capture wrapper: measures request/response bytes of successful
+// tools/call and resources/read, attributed per user × client × tool
+// (mcp_usage_daily). Fire-and-forget — a metrics failure never affects the
+// request. Quota enforcement (future paid tier) is policy on top of this data.
 export async function POST(req: Request) {
+  const bodyText = await req.text();
+  const response = await handleMcpPost(
+    new Request(req.url, { method: 'POST', headers: req.headers, body: bodyText })
+  );
+  try {
+    void recordMcpUsage(req, bodyText, response.clone());
+  } catch {
+    // observability must never break the request
+  }
+  return response;
+}
+
+async function recordMcpUsage(req: Request, bodyText: string, responseClone: Response): Promise<void> {
+  try {
+    if (responseClone.status !== 200) return;
+    const body = JSON.parse(bodyText);
+    if (body?.method !== 'tools/call' && body?.method !== 'resources/read') return;
+    const tool = body.method === 'tools/call'
+      ? body?.params?.name
+      : `resource:${body?.params?.uri ?? 'unknown'}`;
+    if (!tool || typeof tool !== 'string') return;
+
+    // Attribution only — cryptographic verification already happened in the
+    // handler (only 200 responses are recorded). Client-credentials tokens
+    // have no user; skip those.
+    const userId = userIdFromBearer(req.headers.get('Authorization'));
+    if (!userId) return;
+
+    const client = (req.headers.get('user-agent') || 'unknown').split(/[\s(]/)[0].slice(0, 60) || 'unknown';
+    const responseText = await responseClone.text();
+    const result = await mcpUsageService.recordCall({
+      userId,
+      client,
+      tool,
+      requestBytes: bodyText.length,
+      responseBytes: responseText.length,
+    });
+    if (!result.success) console.error('[MCP usage] record failed (request unaffected):', result.error);
+  } catch (error) {
+    console.error('[MCP usage] record failed (request unaffected):', error);
+  }
+}
+
+function userIdFromBearer(authHeader: string | null): string | null {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  try {
+    const payload = authHeader.substring(7).split('.')[1];
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return typeof claims?.sub === 'string' ? claims.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleMcpPost(req: Request) {
   const timestamp = new Date().toISOString();
   console.log('[API TRACK] /api/mcp/server called at', timestamp);
 
