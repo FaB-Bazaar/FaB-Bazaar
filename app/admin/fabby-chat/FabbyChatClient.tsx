@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +19,8 @@ import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget,
 } from './quick-actions';
+import { MarkdownMessage } from './MarkdownMessage';
+import { buildCardNameIndex } from './card-linkify';
 
 /** Pitch pip icon (1/2/3) rendered inline after card names. */
 function PitchIcon({ pitch }: { pitch?: number }) {
@@ -97,6 +99,28 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   // Desktop-only card preview rail (hover/focus on a card line shows it)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
+
+  // Every card any search_printings call surfaced this session, keyed by name,
+  // so card names in Fabby's markdown answers can hover-preview in the rail.
+  const cardIndex = useMemo(() => {
+    const cards: Array<{ name?: string; pitch?: number; preview: CardPreview }> = [];
+    for (const it of items) {
+      if (it.kind !== 'tool' || !it.results) continue;
+      for (const row of it.results.rows) {
+        if (typeof row !== 'string' && row.preview) {
+          cards.push({ name: row.preview.name, pitch: row.pitch, preview: row.preview });
+        }
+      }
+    }
+    return buildCardNameIndex(cards);
+  }, [items]);
+  const previewsByPid = useMemo(() => {
+    const m = new Map<string, CardPreview>();
+    for (const entries of cardIndex.values()) {
+      for (const e of entries) if (e.preview.printingId) m.set(e.preview.printingId, e.preview);
+    }
+    return m;
+  }, [cardIndex]);
   // Rail actions: binder picker options + per-card action feedback
   const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string }>>([]);
   const [targetBinderId, setTargetBinderId] = useState<string>('');
@@ -447,8 +471,13 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
             }
             if (item.kind === 'assistant') {
               return (
-                <div key={index} className="self-start max-w-[85%] rounded-lg bg-card border border-border px-3.5 py-2 whitespace-pre-wrap">
-                  {item.text}
+                <div key={index} className="self-start max-w-[85%] rounded-lg bg-card border border-border px-3.5 py-2">
+                  <MarkdownMessage
+                    text={item.text}
+                    index={cardIndex}
+                    previewsByPid={previewsByPid}
+                    onHoverCard={setPreviewCard}
+                  />
                   {item.streaming && <span className="animate-pulse" aria-hidden="true">▍</span>}
                 </div>
               );
