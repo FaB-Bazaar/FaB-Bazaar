@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Check, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown } from 'lucide-react';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { Search, X, Check, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetImageOrFallback } from '@/lib/set-images';
@@ -24,7 +26,7 @@ import { languageFlag } from '@/lib/utils/printing-language';
 import { LANGUAGES } from '@/lib/search/build-server-filters';
 import { optStateToChips } from '@/lib/search/opt-state-describe';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
-import type { OptUiState } from '@/lib/search/opt-url-state';
+import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { trackSearch } from '@/lib/gtag';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
@@ -313,6 +315,22 @@ export default function OptSearchPage() {
   };
 
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
+
+  // ── Bridge B: hand the current search off to the hosted Fabby chat ──
+  // Superadmin-only (mirrors the /admin/fabby-chat gate). The href reuses the
+  // page's own URL params plus from=opt & total=N; the chat page parses them
+  // back into OptUiState and queues a context string for the first message.
+  const { data: session } = useSession();
+  const isSuperAdmin = !!session?.user?.roles?.isSuperAdmin;
+  const askFabbyHref = `/admin/fabby-chat?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
+  const askFabbyLink = isSuperAdmin && hasAnyFilter && (
+    <Link
+      href={askFabbyHref}
+      className="shrink-0 inline-flex items-center gap-1 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
+    >
+      <Sparkles className="w-3.5 h-3.5" aria-hidden /> Ask Fabby
+    </Link>
+  );
 
   // ── Active-filter chip descriptors (pure projection + reducer removeActions) ──
   const activeChips = optStateToChips(state, { availablePacks }).map(c => ({
@@ -806,12 +824,15 @@ export default function OptSearchPage() {
                 {f.body}
               </Popover>
             ))}
-            <button
-              onClick={() => setSyntaxGuideOpen(true)}
-              className="ml-auto shrink-0 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
-            >
-              Syntax guide →
-            </button>
+            <div className="ml-auto flex items-center gap-3">
+              {askFabbyLink}
+              <button
+                onClick={() => setSyntaxGuideOpen(true)}
+                className="shrink-0 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
+              >
+                Syntax guide →
+              </button>
+            </div>
           </div>
 
           {/* Row 3: active-filter chips */}
@@ -963,6 +984,7 @@ export default function OptSearchPage() {
           <DrawerHeader className="flex flex-row items-center justify-between py-3">
             <DrawerTitle>Filters</DrawerTitle>
             <div className="flex items-center gap-3">
+              {askFabbyLink}
               {activeChips.length > 0 && (
                 <button
                   onClick={clearAll}

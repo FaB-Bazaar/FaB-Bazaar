@@ -75,12 +75,20 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function FabbyChatClient({ username, mockMode, models }: {
+export function FabbyChatClient({ username, mockMode, models, initialContext, initialData }: {
   username: string;
   mockMode: boolean;
   models: string[];
+  /** Pre-queued context (e.g. the Bridge B /opt handoff) — rides the
+   *  pendingContext queue with the first free-text message, then clears.
+   *  Also the seam a future embedded chat panel seeds. */
+  initialContext?: string[];
+  /** Visible data card announcing the queued context in the thread. */
+  initialData?: { title: string; lines: CardLine[] };
 }) {
-  const [items, setItems] = useState<UiItem[]>([]);
+  // Initializers (not effects) so StrictMode's double mount can't double-seed.
+  const [items, setItems] = useState<UiItem[]>(() =>
+    initialData ? [{ kind: 'data', title: initialData.title, lines: initialData.lines }] : []);
   const [apiMessages, setApiMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [model, setModel] = useState(models[0]);
@@ -119,7 +127,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
   // Zero-token context queue: quick-action results wait here and ride along
   // with the NEXT free-text message, then clear. Tokens are spent only if an
   // AI question actually follows the button press.
-  const pendingContextRef = useRef<string[]>([]);
+  const pendingContextRef = useRef<string[]>(initialContext ?? []);
 
   // Working state for the in-flight AI turn
   const turnRef = useRef<{

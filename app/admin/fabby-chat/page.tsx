@@ -2,13 +2,17 @@ import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
 import { FabbyChatClient } from './FabbyChatClient';
+import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
+import { describeOptState, optStateToChips } from '@/lib/search/opt-state-describe';
 
 export const dynamic = 'force-dynamic';
 
 // Superadmin-only prototype of the hosted AI tier: server-side agent loop
 // over the lite MCP toolset, streamed to the browser. Gate pattern copied
 // from app/admin/user-access/page.tsx.
-export default async function FabbyChatAdminPage() {
+export default async function FabbyChatAdminPage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await auth();
   const user = session?.user;
 
@@ -19,6 +23,33 @@ export default async function FabbyChatAdminPage() {
   const roleCheck = await userService.hasRole(user.id, 'isSuperAdmin');
   if (!roleCheck.success || !roleCheck.data) {
     redirect('/admin/articles');
+  }
+
+  // Bridge B: /opt hands its current search off via its own URL params plus
+  // from=opt & total=N. The context string rides the pendingContext queue
+  // (same mechanism as quick actions); the data card makes it visible.
+  const sp = await searchParams;
+  let initialContext: string[] | undefined;
+  let initialData: { title: string; lines: string[] } | undefined;
+  if (sp.from === 'opt') {
+    const params = new URLSearchParams(
+      Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === 'string'),
+    );
+    const optState: OptUiState = { ...DEFAULT_OPT_STATE, ...paramsToUiState(params) };
+    const qs = uiStateToParams(optState).toString();
+    const optUrl = qs ? `/opt?${qs}` : '/opt';
+    const total = Number(sp.total);
+    const hasTotal = Number.isFinite(total) && total >= 0;
+    initialContext = [describeOptState(optState, { optUrl, ...(hasTotal ? { total } : {}) })];
+    const q = optState.query.trim();
+    initialData = {
+      title: 'Current /opt search',
+      lines: [
+        ...(q ? [`Query: "${q}"${optState.searchMode === 'text' ? ' (rule text)' : ''}`] : []),
+        ...optStateToChips(optState).map(c => c.label),
+        ...(hasTotal ? [`${total.toLocaleString()} results`] : []),
+      ],
+    };
   }
 
   const mockMode = !process.env.OPENROUTER_API_KEY;
@@ -47,6 +78,8 @@ export default async function FabbyChatAdminPage() {
         username={user.name || 'collector'}
         mockMode={mockMode}
         models={models}
+        initialContext={initialContext}
+        initialData={initialData}
       />
     </div>
   );
