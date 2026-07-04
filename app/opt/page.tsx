@@ -22,6 +22,7 @@ import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { useOptSearchState } from '@/hooks/search/useOptSearchState';
 import { languageFlag } from '@/lib/utils/printing-language';
 import { LANGUAGES } from '@/lib/search/build-server-filters';
+import { optStateToChips } from '@/lib/search/opt-state-describe';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import type { OptUiState } from '@/lib/search/opt-url-state';
 import { trackSearch } from '@/lib/gtag';
@@ -313,74 +314,10 @@ export default function OptSearchPage() {
 
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
-  // ── Active-filter chip descriptors ──
-  const rangeLabel = (label: string, min: string, max: string) =>
-    min && max ? `${label} ${min}–${max}` : min ? `${label} ≥ ${min}` : `${label} ≤ ${max}`;
-
-  const activeChips: { key: string; label: string; onRemove: () => void }[] = [];
-  if (selectedPitch !== null) {
-    const p = PITCH_CHIPS.find(c => c.value === selectedPitch);
-    activeChips.push({ key: 'pitch', label: `Pitch: ${p?.label ?? selectedPitch}`, onRemove: () => patch({ selectedPitch: null }) });
-  }
-  if (selectedType) {
-    const t = TYPE_CHIPS.find(c => c.value === selectedType);
-    activeChips.push({ key: 'type', label: t?.label ?? selectedType, onRemove: () => patch({ selectedType: null }) });
-  }
-  selectedHeroAges.forEach(age => {
-    const def = HERO_AGE_CHIPS.find(c => c.value === age);
-    activeChips.push({ key: `hero:${age}`, label: def?.label ?? age, onRemove: () => dispatch({ type: 'TOGGLE_HERO_AGE', value: age }) });
-  });
-  selectedClasses.forEach(cls => {
-    activeChips.push({ key: `class:${cls}`, label: cls, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedClasses', value: cls }) });
-  });
-  selectedTalents.forEach(tal => {
-    activeChips.push({ key: `talent:${tal}`, label: tal, onRemove: () => dispatch({ type: 'TOGGLE_TALENT', value: tal }) });
-  });
-  if (selectedTalentless) {
-    activeChips.push({ key: 'talentless', label: 'Talentless', onRemove: () => dispatch({ type: 'TOGGLE_TALENTLESS' }) });
-  }
-  selectedKeywords.forEach(kw => {
-    const def = KEYWORD_CHIPS.find(k => k.value === kw);
-    activeChips.push({ key: `kw:${kw}`, label: def?.label ?? kw, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw }) });
-  });
-  selectedRarities.forEach(r => {
-    const def = RARITY_OPTIONS.find(o => o.value === r);
-    activeChips.push({ key: `rar:${r}`, label: def?.label ?? r, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedRarities', value: r }) });
-  });
-  selectedFoilings.forEach(f => {
-    const def = FOILING_OPTIONS.find(o => o.value === f);
-    activeChips.push({ key: `foil:${f}`, label: def?.label ?? f, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedFoilings', value: f }) });
-  });
-  selectedEditions.forEach(e => {
-    const def = EDITION_OPTIONS.find(o => o.value === e);
-    activeChips.push({ key: `ed:${e}`, label: def?.label ?? e, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedEditions', value: e }) });
-  });
-  if (selectedFormat) {
-    const def = FORMAT_OPTIONS.find(o => o.value === selectedFormat);
-    activeChips.push({ key: 'format', label: `Format: ${def?.label ?? selectedFormat}`, onRemove: () => patch({ selectedFormat: null }) });
-  }
-  selectedSets.forEach(s => {
-    activeChips.push({ key: `set:${s}`, label: SET_MAP[s.toLowerCase() as keyof typeof SET_MAP] ?? s, onRemove: () => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: s }) });
-  });
-  selectedPacks.forEach(g => {
-    const pack = availablePacks.find(p => p.groupId === g);
-    activeChips.push({ key: `pack:${g}`, label: pack?.name ?? `Pack ${g}`, onRemove: () => dispatch({ type: 'TOGGLE_PACK', value: g }) });
-  });
-  if (costMin || costMax) activeChips.push({ key: 'cost', label: rangeLabel('Cost', costMin, costMax), onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'cost' }) });
-  if (powerMin || powerMax) activeChips.push({ key: 'power', label: rangeLabel('Power', powerMin, powerMax), onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'power' }) });
-  if (defenseMin || defenseMax) activeChips.push({ key: 'def', label: rangeLabel('Defense', defenseMin, defenseMax), onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'defense' }) });
-  if (priceMin || priceMax) {
-    const priceLabel = priceMin && priceMax
-      ? `$${priceMin}–$${priceMax}`
-      : priceMin ? `≥ $${priceMin}` : `≤ $${priceMax}`;
-    activeChips.push({ key: 'price', label: priceLabel, onRemove: () => dispatch({ type: 'CLEAR_RANGE', range: 'price' }) });
-  }
-  if (!isDefaultLang) {
-    const label = selectedLanguages.length === 0
-      ? 'All languages'
-      : 'Lang: ' + selectedLanguages.map(c => c.toUpperCase()).join(', ');
-    activeChips.push({ key: 'lang', label, onRemove: () => patch({ selectedLanguages: ['en'] }) });
-  }
+  // ── Active-filter chip descriptors (pure projection + reducer removeActions) ──
+  const activeChips = optStateToChips(state, { availablePacks }).map(c => ({
+    key: c.key, label: c.label, onRemove: () => dispatch(c.removeAction),
+  }));
 
   const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
 
