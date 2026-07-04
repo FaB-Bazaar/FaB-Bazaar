@@ -17,8 +17,21 @@ import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults,
-  type CardLine, type CardPreview, type SearchResultsCard,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget,
 } from './quick-actions';
+
+/** Pitch pip icon (1/2/3) rendered inline after card names. */
+function PitchIcon({ pitch }: { pitch?: number }) {
+  if (!pitch || pitch < 1 || pitch > 3) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/icons/pitch-${pitch}.png`}
+      alt={`pitch ${pitch}`}
+      className="inline-block h-3.5 w-auto ml-1 align-baseline"
+    />
+  );
+}
 
 interface StructuredCard {
   title?: string;
@@ -205,7 +218,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
     if (action) void runInstant(action.id, action.run);
   }, [runInstant]);
 
-  const drill = useCallback((target: { kind: 'binder' | 'deck'; id: string; name: string }) => {
+  const drill = useCallback((target: DrillTarget) => {
     void runInstant(`${target.kind}:${target.id}`, () => runDrill(target));
   }, [runInstant]);
 
@@ -391,18 +404,28 @@ export function FabbyChatClient({ username, mockMode, models }: {
                     <span className="font-semibold">{item.title}</span>
                     <span className="text-sm text-gray-600 dark:text-gray-300">· instant, no AI</span>
                   </div>
-                  <ul className="text-sm max-h-44 overflow-y-auto space-y-0.5 list-disc list-inside">
+                  <ul className={`text-sm max-h-72 overflow-y-auto space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
-                      if (typeof line === 'string') return <li key={lineIndex}>{line}</li>;
+                      if (typeof line === 'string') {
+                        // Section headers ("— Maindeck (28) —") vs plain notes
+                        const isHeader = line.startsWith('—');
+                        return (
+                          <li key={lineIndex} className={`break-inside-avoid ${isHeader ? 'font-semibold text-gray-700 dark:text-gray-200 mt-1.5 first:mt-0 list-none' : 'list-disc list-inside'}`}>
+                            {line}
+                          </li>
+                        );
+                      }
                       if (line.drill) {
                         const target = line.drill;
                         return (
-                          <li key={lineIndex}>
+                          <li key={lineIndex} className="break-inside-avoid list-disc list-inside">
                             <button
                               type="button"
                               onClick={() => drill(target)}
                               disabled={busy || runningAction !== null}
-                              title={`Show contents of ${target.name} — instant, no AI`}
+                              title={target.kind === 'deck-compare'
+                                ? 'Compare this deck against your whole collection — instant, no AI'
+                                : `Show contents of ${target.name} — instant, no AI`}
                               className={`underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
                             >
                               {line.text}
@@ -413,7 +436,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
                       if (line.preview) {
                         const preview = line.preview;
                         return (
-                          <li key={lineIndex}>
+                          <li key={lineIndex} className="break-inside-avoid list-disc list-inside">
                             <span
                               tabIndex={0}
                               onMouseEnter={() => setPreviewCard(preview)}
@@ -421,11 +444,12 @@ export function FabbyChatClient({ username, mockMode, models }: {
                               className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                             >
                               {line.text}
+                              <PitchIcon pitch={line.pitch} />
                             </span>
                           </li>
                         );
                       }
-                      return <li key={lineIndex}>{line.text}</li>;
+                      return <li key={lineIndex} className="break-inside-avoid list-disc list-inside">{line.text}<PitchIcon pitch={line.pitch} /></li>;
                     })}
                   </ul>
                 </div>
@@ -472,6 +496,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
                                 className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                               >
                                 {row.text}
+                                <PitchIcon pitch={row.pitch} />
                               </span>
                             </li>
                           );

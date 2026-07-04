@@ -33,10 +33,14 @@ export interface CardPreview {
   tcgplayerUrl?: string;
 }
 
+export type DrillTarget = { kind: 'binder' | 'deck' | 'deck-compare'; id: string; name: string };
+
 export type CardLine = string | {
   text: string;
-  drill?: { kind: 'binder' | 'deck'; id: string; name: string };
+  drill?: DrillTarget;
   preview?: CardPreview;
+  /** Rendered as the pitch pip icon (public/icons/pitch-N.png) after the text. */
+  pitch?: number;
 };
 
 /** Extracts a rail preview from any of the card payload shapes we render. */
@@ -130,6 +134,7 @@ interface DeckCard {
 }
 
 export function summarizeDeckContents(deck: {
+  publicId?: string;
   name: string;
   format?: string;
   heroName?: string;
@@ -139,7 +144,8 @@ export function summarizeDeckContents(deck: {
 }): QuickActionResult {
   const label = (c: DeckCard) => c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card';
   const cardLine = (c: DeckCard): CardLine => ({
-    text: `${c.quantity ?? 1}× ${label(c)}${c.printingDetails?.pitch ? ` (pitch ${c.printingDetails.pitch})` : ''}`,
+    text: `${c.quantity ?? 1}× ${label(c)}`,
+    pitch: c.printingDetails?.pitch,
     preview: toCardPreview(c, label(c)),
   });
   const contextLine = (c: DeckCard) =>
@@ -161,6 +167,12 @@ export function summarizeDeckContents(deck: {
     contextParts.push(`${sectionName}: ${cards.map(contextLine).join(', ')}`);
   }
   if (lines.length === 0) lines.push('This deck is empty.');
+  else if (deck.publicId) {
+    lines.unshift({
+      text: '✓ Check what I own vs. this deck',
+      drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
+    });
+  }
 
   return {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
@@ -212,10 +224,10 @@ export function parseSearchResults(structured: any, maxRows = 20): SearchResults
   if (!first || !Array.isArray(first.printings) || first.printings.length === 0) return null;
 
   const rows: CardLine[] = first.printings.slice(0, maxRows).map((p: any) => {
-    const pitch = PITCH_LABEL[p.pitch as number];
     const price = typeof p.price === 'number' ? ` · $${p.price.toFixed(2)}` : '';
     return {
-      text: `${p.name}${pitch ? ` (${pitch})` : ''} — ${String(p.set ?? '').toUpperCase()} ${p.collector_number ?? ''} · ${p.rarity ?? '?'}${price}`,
+      text: `${p.name} — ${String(p.set ?? '').toUpperCase()} ${p.collector_number ?? ''} · ${p.rarity ?? '?'}${price}`,
+      pitch: typeof p.pitch === 'number' ? p.pitch : undefined,
       preview: {
         imageUrl: getCardImageUrl({ printingId: p.printing_id }),
         name: p.name,
@@ -266,6 +278,32 @@ export const QUICK_ACTIONS: QuickAction[] = [
     },
   },
   {
+    id: 'decks-to-beat',
+    label: 'Decks to beat',
+    run: async () => {
+      // Featured tournament decks — same endpoint the get_decks_to_beat MCP
+      // tool wraps ({success, data: {decks}}). Public data, instant.
+      const response = await fetch('/api/decks/community?featured=true&limit=25', { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load decks to beat');
+      const decks: any[] = body?.data?.decks ?? [];
+      const medal = (placing?: number) => (placing === 1 ? '🥇 ' : placing === 2 ? '🥈 ' : placing === 3 ? '🥉 ' : '');
+      const lines: CardLine[] = decks.length === 0
+        ? ['No featured decks yet.']
+        : decks.map((d) => ({
+            text: `${medal(d.placing)}${d.name}${d.eventName ? ` — ${d.eventName}` : ''}`,
+            drill: { kind: 'deck' as const, id: d.publicId, name: d.name },
+          }));
+      return {
+        title: `Decks to beat (${decks.length})`,
+        lines,
+        context: `Current featured tournament decks ("decks to beat"): ${
+          decks.map((d) => `${d.name}${d.heroName ? ` [${d.heroName}]` : ''}${d.placing ? ` (#${d.placing})` : ''}`).join('; ') || 'none'
+        }`,
+      };
+    },
+  },
+  {
     id: 'decks',
     label: 'My decks',
     run: async () => {
@@ -295,10 +333,68 @@ export async function runBinderDrill(binderId: string, binderName: string): Prom
 export async function runDeckDrill(publicId: string): Promise<QuickActionResult> {
   const result = await decksClient.getDeck(publicId);
   if (!result.success) throw new Error(result.error);
-  return summarizeDeckContents(result.data as any);
+  return summarizeDeckContents({ ...(result.data as any), publicId });
+}
+
+export function summarizeComparison(
+  deckName: string,
+  comparison: {
+    owned?: Array<{ printingId: string; cardName: string; needed: number; owned: number }>;
+    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number }>;
+    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number }>;
+  },
+): QuickActionResult {
+  const owned = comparison.owned ?? [];
+  const partial = comparison.partial ?? [];
+  const missing = comparison.missing ?? [];
+  const missingCost = missing.reduce((sum, m) => sum + (m.tcgMarket ?? 0) * m.needed, 0);
+
+  const lines: CardLine[] = [];
+  if (missing.length > 0) {
+    lines.push(`— Missing (${missing.length} cards${missingCost > 0 ? ` · ~$${missingCost.toFixed(2)}` : ''}) —`);
+    lines.push(...missing.map((m) => ({
+      text: `${m.needed}× ${m.cardName}${m.tcgMarket ? ` · $${m.tcgMarket.toFixed(2)}` : ''}`,
+      preview: {
+        imageUrl: getCardImageUrl({ printingId: m.printingId }),
+        name: m.cardName,
+        printingId: m.printingId,
+        priceMarket: m.tcgMarket,
+      },
+    })));
+  }
+  if (partial.length > 0) {
+    lines.push(`— Partial (${partial.length}) —`);
+    lines.push(...partial.map((p) => ({
+      text: `${p.cardName} — own ${p.owned}/${p.needed}`,
+      preview: { imageUrl: getCardImageUrl({ printingId: p.printingId }), name: p.cardName, printingId: p.printingId },
+    })));
+  }
+  lines.push(missing.length === 0 && partial.length === 0
+    ? `✓ You own everything in this deck (${owned.length} cards)`
+    : `✓ Fully owned: ${owned.length} cards`);
+
+  return {
+    title: `You vs. ${deckName}`,
+    lines,
+    context: `Collection comparison for deck "${deckName}": fully owned ${owned.length}; partial ${
+      partial.map((p) => `${p.cardName} (${p.owned}/${p.needed})`).join(', ') || 'none'
+    }; missing ${missing.map((m) => `${m.needed}x ${m.cardName}`).join(', ') || 'none'}${
+      missingCost > 0 ? `; missing cards cost ~$${missingCost.toFixed(2)} total` : ''
+    }`,
+  };
+}
+
+/** Drill-down: what the user owns vs a deck (instant, via inventory comparison). */
+export async function runDeckCompareDrill(publicId: string, deckName: string): Promise<QuickActionResult> {
+  const result = await decksClient.getInventoryComparison(publicId, { binderMode: 'all' });
+  if (!result.success) throw new Error(result.error);
+  const raw = result.data as any;
+  return summarizeComparison(deckName, raw?.comparison ?? raw ?? {});
 }
 
 /** Dispatch a drill target from a clicked line. */
-export function runDrill(drill: { kind: 'binder' | 'deck'; id: string; name: string }): Promise<QuickActionResult> {
-  return drill.kind === 'binder' ? runBinderDrill(drill.id, drill.name) : runDeckDrill(drill.id);
+export function runDrill(drill: DrillTarget): Promise<QuickActionResult> {
+  if (drill.kind === 'binder') return runBinderDrill(drill.id, drill.name);
+  if (drill.kind === 'deck-compare') return runDeckCompareDrill(drill.id, drill.name);
+  return runDeckDrill(drill.id);
 }
