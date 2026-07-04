@@ -496,11 +496,19 @@ export function FabbyChatClient({ username, mockMode, models }: {
                   title="Purchase on TCGPlayer"
                 >
                   <span>Available for purchase here</span>
+                  {/* Theme-swapped wordmark: black for light mode, white (CDN) for dark */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/tcgplayer-logo-black.png"
+                    alt="TCGPlayer"
+                    className="h-4 w-auto dark:hidden"
+                  />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-                    alt="TCGPlayer"
-                    className="h-4 w-auto"
+                    alt=""
+                    aria-hidden="true"
+                    className="h-4 w-auto hidden dark:block"
                   />
                 </TcgAffiliateLink>
               </div>
