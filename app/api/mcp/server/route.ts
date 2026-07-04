@@ -10,6 +10,7 @@ import { cardGridViewerResource } from '../resource/cardGridViewer';
 import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService } from '@/lib/services';
+import { filterToolsForToolset, resolveToolset } from './toolsets';
 
 // Import the tools
 import { searchPrintingsTool } from '../tool/searchPrintings';
@@ -445,11 +446,7 @@ export async function POST(req: Request) {
           }
         ] : [];
 
-        return NextResponse.json({
-          jsonrpc: "2.0",
-          id: id,
-          result: {
-            tools: [
+        const allTools = [
               // PRIORITY TOOL - Listed first with MAXIMUM emphasis
               {
                 name: 'read_mandatory_constants_first',
@@ -707,7 +704,16 @@ Step 5: get_binder (verify additions)
 
               // BANNED-CARDS REGISTRY TOOLS (only visible to superadmins)
               ...adminTools
-            ]
+        ];
+
+        // ?toolset=lite trims what's ADVERTISED for context-constrained clients
+        // (local models — full catalog is ~22k tokens of schema). Default stays
+        // the full catalog, byte-identical for existing clients. See toolsets.ts.
+        return NextResponse.json({
+          jsonrpc: "2.0",
+          id: id,
+          result: {
+            tools: filterToolsForToolset(allTools, resolveToolset(req.url))
           }
         }, { headers: corsHeaders() });
       }
