@@ -101,5 +101,8 @@ export async function executeTool(opts: {
   if (body?.result?.isError) {
     return { ok: false, content: content || 'Tool reported an error' };
   }
-  return { ok: true, content };
+  // structuredContent (when a tool provides it, e.g. get_deck) is the
+  // token-bypass channel: full data for the UI, while the LLM reads only
+  // the text block above.
+  return { ok: true, content, structured: body?.result?.structuredContent };
 }

@@ -90,6 +90,23 @@ describe('executeTool', () => {
     expect(body.params).toEqual({ name: 'list_binders', arguments: { includeStats: true } });
   });
 
+  it('surfaces structuredContent alongside the text (token-bypass channel)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+      jsonrpc: '2.0',
+      id: 2,
+      result: {
+        content: [{ type: 'text', text: 'Deck: CC Gravy' }],
+        structuredContent: { title: 'CC Gravy', url: '/decks/abc' },
+        isError: false,
+      },
+    }));
+
+    const result = await executeTool({ name: 'list_binders', args: {}, bearer: 't', validNames });
+    expect(result.ok).toBe(true);
+    expect(result.content).toBe('Deck: CC Gravy');
+    expect(result.structured).toEqual({ title: 'CC Gravy', url: '/decks/abc' });
+  });
+
   it('maps result.isError to a failed result', async () => {
     fetchMock.mockResolvedValue(jsonResponse({
       jsonrpc: '2.0',

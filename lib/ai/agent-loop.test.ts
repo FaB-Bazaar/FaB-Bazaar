@@ -225,6 +225,26 @@ describe('runAgentLoop', () => {
     expect(terminals(events)).toHaveLength(1);
   });
 
+  it('forwards structured tool payloads to the event but never into LLM messages', async () => {
+    const { llm, calls } = scriptedLlm(
+      [
+        { kind: 'tool_calls', toolCalls: [call('c1', 'list_binders')] },
+        { kind: 'finish', reason: 'tool_calls' },
+      ],
+      [{ kind: 'finish', reason: 'stop' }],
+    );
+    const structured = { title: 'CC Gravy', url: '/decks/abc', deck: { cards: 60 } };
+    const executeTool = vi.fn().mockResolvedValue({ ok: true, content: 'Deck: CC Gravy (60 cards)', structured });
+    const events = await collect({ llm, executeTool });
+
+    const result = events.find((e) => e.type === 'tool_result') as any;
+    expect(result.structured).toEqual(structured);
+    // The LLM's tool message contains ONLY the text — the token-bypass contract
+    const toolMsg = calls[1].find((m) => m.role === 'tool') as any;
+    expect(toolMsg.content).toBe('Deck: CC Gravy (60 cards)');
+    expect(JSON.stringify(calls[1])).not.toContain('"/decks/abc"');
+  });
+
   it('goes quiet after abort — no events emitted post-abort', async () => {
     const ac = new AbortController();
     const { llm } = scriptedLlm(

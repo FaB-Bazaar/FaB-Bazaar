@@ -53,13 +53,18 @@ export type Llm = (req: {
 export type AgentEvent =
   | { type: 'token'; text: string }
   | { type: 'tool_start'; id: string; name: string; args: unknown }
-  | { type: 'tool_result'; id: string; name: string; ok: boolean; content: string; ms: number }
+  // `structured` is UI-only: MCP structuredContent forwarded to the browser
+  // for rich rendering. It is NEVER placed in the LLM's messages — the model
+  // sees only `content` (the text block). This is the token-bypass channel.
+  | { type: 'tool_result'; id: string; name: string; ok: boolean; content: string; ms: number; structured?: unknown }
   | { type: 'done'; usage?: Usage; iterations: number }
   | { type: 'error'; message: string };
 
 export interface ToolExecutionResult {
   ok: boolean;
   content: string;
+  /** MCP structuredContent, if the tool provided one (UI-only channel). */
+  structured?: unknown;
 }
 
 export type ExecuteTool = (call: {

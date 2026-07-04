@@ -85,6 +85,7 @@ export async function runAgentLoop(opts: {
           const startedAt = performance.now();
           let ok: boolean;
           let content: string;
+          let structured: unknown;
           if (parseError) {
             ok = false;
             content = parseError;
@@ -93,6 +94,7 @@ export async function runAgentLoop(opts: {
               const result = await executeTool({ name: fn.name, args, signal });
               ok = result.ok;
               content = result.content;
+              structured = result.structured;
             } catch (error) {
               ok = false;
               content = error instanceof Error ? error.message : String(error);
@@ -101,7 +103,9 @@ export async function runAgentLoop(opts: {
           if (aborted()) return;
 
           const ms = Math.round(performance.now() - startedAt);
-          onEvent({ type: 'tool_result', id, name: fn.name, ok, content, ms });
+          // structured rides the event to the UI only — the tool message the
+          // LLM sees (below) is text-only. That's the point.
+          onEvent({ type: 'tool_result', id, name: fn.name, ok, content, ms, structured });
           messages.push({
             role: 'tool',
             tool_call_id: id,

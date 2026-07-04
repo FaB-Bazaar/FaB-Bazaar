@@ -8,14 +8,35 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw } from 'lucide-react';
+import {
+  Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
+} from 'lucide-react';
 import { fabbyChatClient } from '@/lib/client';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
+import { QUICK_ACTIONS, buildMessageWithContext } from './quick-actions';
+
+interface StructuredCard {
+  title?: string;
+  subtitle?: string;
+  url?: string;
+}
 
 type UiItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; streaming: boolean }
-  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number };
+  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard }
+  | { kind: 'data'; title: string; lines: string[] };
+
+function toStructuredCard(structured: unknown): StructuredCard | undefined {
+  if (!structured || typeof structured !== 'object') return undefined;
+  const s = structured as Record<string, unknown>;
+  const card: StructuredCard = {
+    title: typeof s.title === 'string' ? s.title : undefined,
+    subtitle: typeof s.subtitle === 'string' ? s.subtitle : undefined,
+    url: typeof s.url === 'string' ? s.url : undefined,
+  };
+  return card.title || card.url ? card : undefined;
+}
 
 export function FabbyChatClient({ username, mockMode, models }: {
   username: string;
@@ -27,11 +48,17 @@ export function FabbyChatClient({ username, mockMode, models }: {
   const [input, setInput] = useState('');
   const [model, setModel] = useState(models[0]);
   const [busy, setBusy] = useState(false);
+  const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Working state for the in-flight turn (kept in refs to avoid re-render races)
+  // Zero-token context queue: quick-action results wait here and ride along
+  // with the NEXT free-text message, then clear. Tokens are spent only if an
+  // AI question actually follows the button press.
+  const pendingContextRef = useRef<string[]>([]);
+
+  // Working state for the in-flight AI turn
   const turnRef = useRef<{
     assistantText: string;
     toolCalls: ToolCall[];
@@ -72,9 +99,10 @@ export function FabbyChatClient({ username, mockMode, models }: {
           id: event.id,
           content: event.ok ? event.content : `Error: ${event.content}`,
         });
+        const card = toStructuredCard(event.structured);
         setItems((prev) => prev.map((item) =>
           item.kind === 'tool' && item.id === event.id
-            ? { ...item, status: event.ok ? 'ok' : 'error', ms: event.ms }
+            ? { ...item, status: event.ok ? 'ok' : 'error', ms: event.ms, card }
             : item,
         ));
         break;
@@ -82,8 +110,6 @@ export function FabbyChatClient({ username, mockMode, models }: {
 
       case 'done':
       case 'error': {
-        // Rebuild the OpenAI-format history for the next turn: assistant
-        // tool_calls messages + tool results + final assistant text.
         const { assistantText, toolCalls, toolResults } = turnRef.current;
         setApiMessages((prev) => {
           const next = [...prev];
@@ -107,6 +133,23 @@ export function FabbyChatClient({ username, mockMode, models }: {
     }
   }, []);
 
+  const runQuickAction = useCallback(async (actionId: string) => {
+    const action = QUICK_ACTIONS.find((a) => a.id === actionId);
+    if (!action || busy || runningAction) return;
+
+    setErrorBanner(null);
+    setRunningAction(actionId);
+    try {
+      const result = await action.run();
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines }]);
+      pendingContextRef.current.push(result.context);
+    } catch (error) {
+      setErrorBanner(error instanceof Error ? error.message : 'Action failed');
+    } finally {
+      setRunningAction(null);
+    }
+  }, [busy, runningAction]);
+
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text || busy) return;
@@ -116,7 +159,12 @@ export function FabbyChatClient({ username, mockMode, models }: {
     setBusy(true);
     turnRef.current = { assistantText: '', toolCalls: [], toolResults: [] };
 
-    const nextMessages: ChatMessage[] = [...apiMessages, { role: 'user', content: text }];
+    // Attach any queued quick-action context to this turn, then clear the
+    // queue. The UI bubble shows only what the user typed.
+    const content = buildMessageWithContext(pendingContextRef.current, text);
+    pendingContextRef.current = [];
+
+    const nextMessages: ChatMessage[] = [...apiMessages, { role: 'user', content }];
     setApiMessages(nextMessages);
     setItems((prev) => [...prev, { kind: 'user', text }]);
 
@@ -143,6 +191,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
     setApiMessages([]);
     setErrorBanner(null);
     setBusy(false);
+    pendingContextRef.current = [];
   }, []);
 
   const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
@@ -178,18 +227,40 @@ export function FabbyChatClient({ username, mockMode, models }: {
           </Button>
         </div>
 
+        {/* Quick actions — deterministic reads, zero AI tokens */}
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Instant actions (no AI)">
+          <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+            <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
+          </span>
+          {QUICK_ACTIONS.map((action) => (
+            <Button
+              key={action.id}
+              variant="secondary"
+              size="sm"
+              disabled={busy || runningAction !== null}
+              onClick={() => runQuickAction(action.id)}
+              className={`gap-1.5 ${focusRing}`}
+              title="Runs directly against your data — no AI involved"
+            >
+              {runningAction === action.id && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              {action.label}
+            </Button>
+          ))}
+        </div>
+
         {/* Thread */}
         <div
           ref={scrollRef}
           role="log"
           aria-live="polite"
           aria-label={`Chat with Fabby as ${username}`}
-          className="h-[28rem] overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-4 flex flex-col gap-3"
+          className="h-[26rem] overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-4 flex flex-col gap-3"
         >
           {items.length === 0 && (
             <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
-              Ask about your collection — try &ldquo;what binders do I have?&rdquo;
-              {mockMode && ' (mock mode follows a fixed script; binder questions show the full tool loop)'}
+              Use the ⚡ instant buttons for your lists, or ask Fabby something that needs thinking —
+              searches, suggestions, adding cards.
+              {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
             </p>
           )}
           {items.map((item, index) => {
@@ -208,9 +279,26 @@ export function FabbyChatClient({ username, mockMode, models }: {
                 </div>
               );
             }
+            if (item.kind === 'data') {
+              return (
+                <div key={index} className="self-start w-full max-w-[85%] rounded-lg border border-border bg-card px-3.5 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Zap className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                    <span className="font-semibold">{item.title}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">· instant, no AI</span>
+                  </div>
+                  <ul className="text-sm max-h-44 overflow-y-auto space-y-0.5 list-disc list-inside">
+                    {item.lines.map((line, lineIndex) => (
+                      <li key={lineIndex}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+            // tool chip (+ optional structured card from the token-bypass channel)
             return (
-              <div key={index} className="self-start">
-                <Badge variant="secondary" className="gap-1.5 font-normal">
+              <div key={index} className="self-start flex flex-col gap-1.5">
+                <Badge variant="secondary" className="gap-1.5 font-normal w-fit">
                   {item.status === 'running' && (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -230,6 +318,22 @@ export function FabbyChatClient({ username, mockMode, models }: {
                     </>
                   )}
                 </Badge>
+                {item.card && (
+                  <div className="rounded-md border border-border bg-card px-3 py-2 text-sm">
+                    {item.card.title && <div className="font-semibold">{item.card.title}</div>}
+                    {item.card.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
+                    {item.card.url && (
+                      <a
+                        href={item.card.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-1 text-blue-700 dark:text-blue-400 underline underline-offset-2 mt-1 ${focusRing}`}
+                      >
+                        Open <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -254,7 +358,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
                 send();
               }
             }}
-            placeholder="Message Fabby… (Enter to send, Shift+Enter for a new line)"
+            placeholder="Ask Fabby… (Enter to send, Shift+Enter for a new line)"
             aria-label="Message Fabby"
             rows={2}
             disabled={busy}
