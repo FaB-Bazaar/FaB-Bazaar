@@ -24,8 +24,15 @@ const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
 
 function modelAllowlist(): string[] {
-  return ['mock', 'google/gemini-3.1-flash-lite', 'anthropic/claude-haiku-4.5', process.env.OPENROUTER_MODEL]
-    .filter((m): m is string => Boolean(m));
+  return [
+    'mock',
+    'openai/gpt-oss-120b:free', // free tier: rate-limited, fine for iteration
+    'openai/gpt-5-nano',        // $0.05/M in — primary cheap pick
+    'openai/gpt-oss-120b',      // $0.03/M in — cheapest strong paid option
+    'google/gemini-2.5-flash-lite', // $0.10/M in
+    'anthropic/claude-haiku-4.5',   // $1/M in — quality anchor for bake-offs
+    process.env.OPENROUTER_MODEL,
+  ].filter((m): m is string => Boolean(m));
 }
 
 function systemPrompt(username: string): string {

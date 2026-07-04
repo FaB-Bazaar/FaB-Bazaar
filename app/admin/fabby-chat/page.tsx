@@ -24,7 +24,14 @@ export default async function FabbyChatAdminPage() {
   const mockMode = !process.env.OPENROUTER_API_KEY;
   const models = mockMode
     ? ['mock']
-    : ['mock', 'google/gemini-3.1-flash-lite', 'anthropic/claude-haiku-4.5'];
+    : [
+        'openai/gpt-5-nano',
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-120b:free',
+        'google/gemini-2.5-flash-lite',
+        'anthropic/claude-haiku-4.5',
+        'mock',
+      ];
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4">
