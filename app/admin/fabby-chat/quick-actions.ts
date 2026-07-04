@@ -80,17 +80,17 @@ export function summarizeWantsCards(
 }
 
 export function summarizeDecks(
-  decks: Array<{ name: string; format?: string; heroDisplayName?: string }>,
+  decks: Array<{ name: string; format?: string; heroDisplayName?: string; heroName?: string }>,
 ): QuickActionResult {
-  const lines: CardLine[] = decks.length === 0
-    ? ['No decks yet.']
-    : decks.map((d) => `${d.name}${d.heroDisplayName ? ` — ${d.heroDisplayName}` : ''}${d.format ? ` (${d.format})` : ''}`);
+  // /api/decks carries lowercase heroName; heroDisplayName only sometimes.
+  const hero = (d: { heroDisplayName?: string; heroName?: string }) => d.heroDisplayName || d.heroName;
+  const describe = (d: { name: string; format?: string; heroDisplayName?: string; heroName?: string }) =>
+    `${d.name}${hero(d) ? ` — ${hero(d)}` : ''}${d.format ? ` (${d.format})` : ''}`;
+  const lines: CardLine[] = decks.length === 0 ? ['No decks yet.'] : decks.map(describe);
   return {
     title: `Your decks (${decks.length})`,
     lines,
-    context: `The user's decks (name — hero, format): ${
-      decks.map((d) => `${d.name}${d.heroDisplayName ? ` — ${d.heroDisplayName}` : ''}${d.format ? ` (${d.format})` : ''}`).join('; ') || 'none'
-    }`,
+    context: `The user's decks (name — hero, format): ${decks.map(describe).join('; ') || 'none'}`,
   };
 }
 
@@ -159,9 +159,12 @@ export const QUICK_ACTIONS: QuickAction[] = [
     id: 'decks',
     label: 'My decks',
     run: async () => {
-      const result = await decksClient.getUserDecksBasic();
+      // NOT getUserDecksBasic — it fetches /api/decks/basic, which 404s
+      // (dead endpoint). GET /api/decks returns { success, decks } (legacy
+      // shape, no `data` key — same handleResponse passthrough as wants).
+      const result = await decksClient.getUserDecks(undefined, { limit: 50 });
       if (!result.success) throw new Error(result.error);
-      const decks = Array.isArray(result.data) ? result.data : (result.data as any)?.decks ?? [];
+      const decks = (result.data as any)?.decks ?? [];
       return summarizeDecks(decks);
     },
   },

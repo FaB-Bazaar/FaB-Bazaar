@@ -53,12 +53,17 @@ describe('summarizeWantsCards', () => {
 });
 
 describe('summarizeDecks', () => {
-  it('formats hero and format when present', () => {
+  it('formats hero and format, falling back to the lowercase heroName from /api/decks', () => {
     const result = summarizeDecks([
       { name: 'CC Gravy', format: 'cc', heroDisplayName: 'Gravy Bones' },
+      { name: 'Teklosaucen', format: 'Classic Constructed', heroName: 'teklovossen, esteemed magnate' },
       { name: 'Untitled' },
     ]);
-    expect(result.lines).toEqual(['CC Gravy — Gravy Bones (cc)', 'Untitled']);
+    expect(result.lines).toEqual([
+      'CC Gravy — Gravy Bones (cc)',
+      'Teklosaucen — teklovossen, esteemed magnate (Classic Constructed)',
+      'Untitled',
+    ]);
   });
 });
 
