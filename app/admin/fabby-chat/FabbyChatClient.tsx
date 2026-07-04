@@ -13,6 +13,7 @@ import {
   Heart, FolderPlus,
 } from 'lucide-react';
 import { fabbyChatClient, wantsClient, bindersClient } from '@/lib/client';
+import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import { QUICK_ACTIONS, buildMessageWithContext, runDrill, type CardLine, type CardPreview } from './quick-actions';
 
@@ -470,21 +471,39 @@ export function FabbyChatClient({ username, mockMode, models }: {
               className="w-full rounded-md"
             />
             <p className="mt-2 font-semibold text-center">{previewCard.name}</p>
-            {previewCard.price !== undefined && (
-              <p className="text-center text-green-700 dark:text-green-500 font-semibold tabular-nums">
-                ${previewCard.price.toFixed(2)}
-                <span className="text-gray-600 dark:text-gray-300 font-normal text-sm"> market</span>
-              </p>
+            {(previewCard.priceLow !== undefined || previewCard.priceMarket !== undefined) && (
+              <div className="mt-1 flex justify-center gap-4 text-sm tabular-nums">
+                {previewCard.priceLow !== undefined && (
+                  <span>
+                    <span className="text-gray-600 dark:text-gray-300">Low </span>
+                    <span className="font-semibold text-green-700 dark:text-green-500">${previewCard.priceLow.toFixed(2)}</span>
+                  </span>
+                )}
+                {previewCard.priceMarket !== undefined && (
+                  <span>
+                    <span className="text-gray-600 dark:text-gray-300">Market </span>
+                    <span className="font-semibold text-green-700 dark:text-green-500">${previewCard.priceMarket.toFixed(2)}</span>
+                  </span>
+                )}
+              </div>
             )}
             {previewCard.tcgplayerUrl && (
-              <a
-                href={previewCard.tcgplayerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`mt-1 flex items-center justify-center gap-1 text-sm text-blue-700 dark:text-blue-400 underline underline-offset-2 ${focusRing} rounded-sm`}
-              >
-                Buy on TCGplayer <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+              <div className="text-sm mt-2 pt-2 border-t border-border">
+                <TcgAffiliateLink
+                  tcgplayerUrl={previewCard.tcgplayerUrl}
+                  feature="fabby-chat"
+                  className={`flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ${focusRing} rounded-sm`}
+                  title="Purchase on TCGPlayer"
+                >
+                  <span>Available for purchase here</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+                    alt="TCGPlayer"
+                    className="h-4 w-auto"
+                  />
+                </TcgAffiliateLink>
+              </div>
             )}
           </div>
 

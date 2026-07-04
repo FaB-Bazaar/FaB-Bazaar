@@ -27,8 +27,9 @@ export interface CardPreview {
   name: string;
   /** Enables the rail's add-to-binder / add-to-wants actions. */
   printingId?: string;
-  /** TCG market price, when the source payload carries it. */
-  price?: number;
+  /** TCG prices, when the source payload carries them. */
+  priceLow?: number;
+  priceMarket?: number;
   tcgplayerUrl?: string;
 }
 
@@ -46,7 +47,8 @@ export function toCardPreview(card: any, name: string): CardPreview {
     imageUrl: getCardImageUrl(card),
     name,
     printingId: card?.printingId || details.printing_id || undefined,
-    price: num(details.tcg_market ?? card?.tcg_market ?? card?.value),
+    priceLow: num(details.tcg_low ?? card?.tcg_low),
+    priceMarket: num(details.tcg_market ?? card?.tcg_market ?? card?.value),
     tcgplayerUrl: details.tcgplayer_url ?? card?.tcgplayer_url ?? undefined,
   };
 }
