@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { fabbyChatClient } from '@/lib/client';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
-import { QUICK_ACTIONS, buildMessageWithContext } from './quick-actions';
+import { QUICK_ACTIONS, buildMessageWithContext, runBinderDrill, type CardLine } from './quick-actions';
 
 interface StructuredCard {
   title?: string;
@@ -25,7 +25,7 @@ type UiItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; streaming: boolean }
   | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard }
-  | { kind: 'data'; title: string; lines: string[] };
+  | { kind: 'data'; title: string; lines: CardLine[] };
 
 function toStructuredCard(structured: unknown): StructuredCard | undefined {
   if (!structured || typeof structured !== 'object') return undefined;
@@ -133,14 +133,12 @@ export function FabbyChatClient({ username, mockMode, models }: {
     }
   }, []);
 
-  const runQuickAction = useCallback(async (actionId: string) => {
-    const action = QUICK_ACTIONS.find((a) => a.id === actionId);
-    if (!action || busy || runningAction) return;
-
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string }>) => {
+    if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
     try {
-      const result = await action.run();
+      const result = await run();
       setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
@@ -149,6 +147,15 @@ export function FabbyChatClient({ username, mockMode, models }: {
       setRunningAction(null);
     }
   }, [busy, runningAction]);
+
+  const runQuickAction = useCallback((actionId: string) => {
+    const action = QUICK_ACTIONS.find((a) => a.id === actionId);
+    if (action) void runInstant(action.id, action.run);
+  }, [runInstant]);
+
+  const drillBinder = useCallback((binderId: string, name: string) => {
+    void runInstant(`binder:${binderId}`, () => runBinderDrill(binderId, name));
+  }, [runInstant]);
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -289,7 +296,19 @@ export function FabbyChatClient({ username, mockMode, models }: {
                   </div>
                   <ul className="text-sm max-h-44 overflow-y-auto space-y-0.5 list-disc list-inside">
                     {item.lines.map((line, lineIndex) => (
-                      <li key={lineIndex}>{line}</li>
+                      <li key={lineIndex}>
+                        {typeof line === 'string' ? line : (
+                          <button
+                            type="button"
+                            onClick={() => drillBinder(line.drill.binderId, line.drill.name)}
+                            disabled={busy || runningAction !== null}
+                            title={`Show contents of ${line.drill.name} — instant, no AI`}
+                            className={`underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
+                          >
+                            {line.text}
+                          </button>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
