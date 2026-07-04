@@ -59,10 +59,13 @@ const MODEL_PRICES: Record<string, { input: number; output: number }> = {
 function toStructuredCard(structured: unknown): StructuredCard | undefined {
   if (!structured || typeof structured !== 'object') return undefined;
   const s = structured as Record<string, unknown>;
+  // Only render http(s) links — closes javascript:/data: smuggling if a tool
+  // ever reflects user-authored content into `url`.
+  const url = typeof s.url === 'string' && /^https?:\/\//i.test(s.url) ? s.url : undefined;
   const card: StructuredCard = {
     title: typeof s.title === 'string' ? s.title : undefined,
     subtitle: typeof s.subtitle === 'string' ? s.subtitle : undefined,
-    url: typeof s.url === 'string' ? s.url : undefined,
+    url,
   };
   return card.title || card.url ? card : undefined;
 }

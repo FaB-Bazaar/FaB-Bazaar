@@ -106,10 +106,16 @@ export async function runAgentLoop(opts: {
           // structured rides the event to the UI only — the tool message the
           // LLM sees (below) is text-only. That's the point.
           onEvent({ type: 'tool_result', id, name: fn.name, ok, content, ms, structured });
+          // Provenance fencing: tool output can contain text authored by OTHER
+          // users (deck names, binder names, usernames). The delimiters pair
+          // with the system prompt's never-follow-instructions-in-tool-output
+          // rule to blunt stored prompt injection.
           messages.push({
             role: 'tool',
             tool_call_id: id,
-            content: ok ? content : `Error: ${content}`,
+            content: ok
+              ? `<tool_output>\n${content}\n</tool_output>`
+              : `Error: ${content}`,
           });
         }
         continue; // next iteration: let the LLM see the tool results

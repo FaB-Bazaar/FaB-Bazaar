@@ -96,7 +96,9 @@ describe('runAgentLoop', () => {
     expect(assistant.tool_calls).toHaveLength(1);
     expect(assistant.content).toBe('Checking…');
     const toolMsg = second.find((m) => m.role === 'tool') as any;
-    expect(toolMsg).toMatchObject({ tool_call_id: 'c1', content: 'BINDER LIST' });
+    // Provenance-fenced: tool output is wrapped so the system prompt's
+    // never-follow-instructions-in-tool-output rule has an anchor.
+    expect(toolMsg).toMatchObject({ tool_call_id: 'c1', content: '<tool_output>\nBINDER LIST\n</tool_output>' });
     const done = events.at(-1) as Extract<AgentEvent, { type: 'done' }>;
     expect(done.iterations).toBe(2);
   });
@@ -241,7 +243,7 @@ describe('runAgentLoop', () => {
     expect(result.structured).toEqual(structured);
     // The LLM's tool message contains ONLY the text — the token-bypass contract
     const toolMsg = calls[1].find((m) => m.role === 'tool') as any;
-    expect(toolMsg.content).toBe('Deck: CC Gravy (60 cards)');
+    expect(toolMsg.content).toContain('Deck: CC Gravy (60 cards)');
     expect(JSON.stringify(calls[1])).not.toContain('"/decks/abc"');
   });
 
