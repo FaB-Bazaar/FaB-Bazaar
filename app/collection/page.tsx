@@ -116,18 +116,6 @@ export interface BinderWithStats {
   }>
 }
 
-// Rarity accent colors (matches RarityIcon palette)
-const RARITY_ACCENT: Record<string, string> = {
-  v: '#6E4D8C', V: '#6E4D8C',
-  f: '#DC9C52', F: '#DC9C52',
-  l: '#DC9C52', L: '#DC9C52',
-  m: '#A6120E', M: '#A6120E',
-  p: '#51A345', P: '#51A345',
-  s: '#6E4D8C', S: '#6E4D8C',
-  r: '#1888BF', R: '#1888BF',
-  c: '#949494', C: '#949494',
-}
-
 const getShowcaseImageUrl = (printingId: string) =>
   `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`
 
@@ -204,7 +192,6 @@ function BinderViewCard({ binder, onDelete, onTogglePin, onAddTags, onRemoveTag 
       : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(v)
 
   const topCard = binder.showcaseCards?.[0]
-  const accent = topCard ? RARITY_ACCENT[topCard.rarity] ?? '#475569' : '#334155'
   const isEmpty = totalQty === 0
   const showImage = !!topCard && !imageFailed
 
@@ -214,10 +201,7 @@ function BinderViewCard({ binder, onDelete, onTogglePin, onAddTags, onRemoveTag 
     .slice(0, 5)
 
   return (
-    <Card
-      className="group relative overflow-hidden hover:border-primary/60 hover:shadow-lg transition-all h-full"
-      style={{ borderLeft: `3px solid ${accent}` }}
-    >
+    <Card className="group relative overflow-hidden hover:border-primary/60 hover:shadow-lg transition-all h-full">
       {/* Banner — hero card art (first showcase card) */}
       <Link href={`/binder/${binder._id}`} className="block relative h-24 overflow-hidden bg-gradient-to-br from-muted to-muted/40 dark:from-muted/40 dark:to-muted/10">
         {showImage ? (
