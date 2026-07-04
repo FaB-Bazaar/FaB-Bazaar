@@ -214,7 +214,7 @@
   .preview .d .price { margin-top: 8px; color: var(--sub); font-size: .72rem; }
   .preview .d .hint { margin-top: 6px; color: var(--accent); font-size: .68rem; }
   .banner {
-    height: 150px; flex: none; border-top: 2px solid var(--accent);
+    height: 210px; flex: none; border-top: 2px solid var(--accent);
     background: var(--panel); display: flex; align-items: stretch;
   }
   .banner .zone { padding: 8px 14px; min-width: 0; display: flex; flex-direction: column; }
@@ -230,13 +230,18 @@
     overflow-x: auto; min-height: 0;
   }
   .banner .placeholder { color: var(--sub); font-size: .75rem; max-width: 300px; }
-  .zhero { flex: none; width: 120px; }
+  .zhero { flex: none; width: 260px; }
   .heroslot { flex: 1; display: flex; align-items: center; justify-content: center; }
   .heroslot .placeholder { font-size: .68rem; text-align: center; }
-  .heroslot .card { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .heroslot .card img { height: 88px; border-radius: 4px; box-shadow: 0 1px 6px rgba(0,0,0,.5); }
+  .heroslot .card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  /* Full hero card — landscape, so it fills the widened zone; scales to fit the
+     banner height and zone width, whichever binds, without overflowing. */
+  .heroslot .card img {
+    max-height: 150px; max-width: 100%; height: auto; width: auto;
+    border-radius: 5px; box-shadow: 0 1px 6px rgba(0,0,0,.5);
+  }
   .heroslot .card .nm {
-    font-size: .6rem; text-align: center; line-height: 1.1; max-width: 100px;
+    font-size: .66rem; text-align: center; line-height: 1.1; max-width: 240px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* Banner order: hero, my cards, opponent, life on the far right */
