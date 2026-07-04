@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { fabbyChatClient } from '@/lib/client';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
-import { QUICK_ACTIONS, buildMessageWithContext, runBinderDrill, type CardLine } from './quick-actions';
+import { QUICK_ACTIONS, buildMessageWithContext, runDrill, type CardLine } from './quick-actions';
 
 interface StructuredCard {
   title?: string;
@@ -155,8 +155,8 @@ export function FabbyChatClient({ username, mockMode, models }: {
     if (action) void runInstant(action.id, action.run);
   }, [runInstant]);
 
-  const drillBinder = useCallback((binderId: string, name: string) => {
-    void runInstant(`binder:${binderId}`, () => runBinderDrill(binderId, name));
+  const drill = useCallback((target: { kind: 'binder' | 'deck'; id: string; name: string }) => {
+    void runInstant(`${target.kind}:${target.id}`, () => runDrill(target));
   }, [runInstant]);
 
   const send = useCallback(async () => {
@@ -301,14 +301,14 @@ export function FabbyChatClient({ username, mockMode, models }: {
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') return <li key={lineIndex}>{line}</li>;
                       if (line.drill) {
-                        const drill = line.drill;
+                        const target = line.drill;
                         return (
                           <li key={lineIndex}>
                             <button
                               type="button"
-                              onClick={() => drillBinder(drill.binderId, drill.name)}
+                              onClick={() => drill(target)}
                               disabled={busy || runningAction !== null}
-                              title={`Show contents of ${drill.name} — instant, no AI`}
+                              title={`Show contents of ${target.name} — instant, no AI`}
                               className={`underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
                             >
                               {line.text}

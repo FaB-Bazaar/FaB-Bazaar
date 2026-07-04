@@ -10,6 +10,7 @@ import {
   summarizeWantsCards,
   summarizeDecks,
   summarizeBinderCards,
+  summarizeDeckContents,
   buildMessageWithContext,
 } from './quick-actions';
 
@@ -20,8 +21,8 @@ describe('summarizeBinders', () => {
       { _id: 'b2', name: 'No Slug Binder', slug: null },
     ]);
     expect(result.title).toBe('Your binders (2)');
-    expect(result.lines[0]).toEqual({ text: 'Pirate (pirate)', drill: { binderId: 'b1', name: 'Pirate' } });
-    expect(result.lines[1]).toEqual({ text: 'No Slug Binder', drill: { binderId: 'b2', name: 'No Slug Binder' } });
+    expect(result.lines[0]).toEqual({ text: 'Pirate (pirate)', drill: { kind: 'binder', id: 'b1', name: 'Pirate' } });
+    expect(result.lines[1]).toEqual({ text: 'No Slug Binder', drill: { kind: 'binder', id: 'b2', name: 'No Slug Binder' } });
     expect(result.context).toContain('Pirate [pirate]');
   });
 
@@ -53,17 +54,47 @@ describe('summarizeWantsCards', () => {
 });
 
 describe('summarizeDecks', () => {
-  it('formats hero and format, falling back to the lowercase heroName from /api/decks', () => {
+  it('makes decks drillable by publicId, falling back to lowercase heroName', () => {
     const result = summarizeDecks([
-      { name: 'CC Gravy', format: 'cc', heroDisplayName: 'Gravy Bones' },
+      { publicId: 'pub1', name: 'CC Gravy', format: 'cc', heroDisplayName: 'Gravy Bones' },
       { name: 'Teklosaucen', format: 'Classic Constructed', heroName: 'teklovossen, esteemed magnate' },
-      { name: 'Untitled' },
     ]);
-    expect(result.lines).toEqual([
-      'CC Gravy — Gravy Bones (cc)',
-      'Teklosaucen — teklovossen, esteemed magnate (Classic Constructed)',
-      'Untitled',
-    ]);
+    expect(result.lines[0]).toEqual({
+      text: 'CC Gravy — Gravy Bones (cc)',
+      drill: { kind: 'deck', id: 'pub1', name: 'CC Gravy' },
+    });
+    // no publicId → plain line, no drill
+    expect(result.lines[1]).toBe('Teklosaucen — teklovossen, esteemed magnate (Classic Constructed)');
+  });
+});
+
+describe('summarizeDeckContents', () => {
+  it('sections hero/equipment/maindeck with totals, previews, and compact context', () => {
+    const card = (name: string, quantity: number, pitch?: number) => ({
+      quantity,
+      printingDetails: { display_name: name, pitch, image_url: `https://img/${name}` },
+    });
+    const result = summarizeDeckContents({
+      name: 'Teklosaucen',
+      format: 'Classic Constructed',
+      heroName: 'teklovossen, esteemed magnate',
+      hero: [card('Teklovossen', 1)],
+      equipment: [card('Teklo Leveler', 1)],
+      maindeck: [card('Overcrowded', 3, 3)],
+    });
+
+    expect(result.title).toBe('Deck: Teklosaucen (Classic Constructed)');
+    expect(result.lines[0]).toBe('— Hero (1) —');
+    expect(result.lines[1]).toMatchObject({ text: '1× Teklovossen', preview: { name: 'Teklovossen' } });
+    expect(result.lines[2]).toBe('— Equipment (1) —');
+    expect(result.lines[4]).toBe('— Maindeck (3) —');
+    expect(result.lines[5]).toMatchObject({ text: '3× Overcrowded (pitch 3)' });
+    expect(result.context).toContain('deck "Teklosaucen"');
+    expect(result.context).toContain('Maindeck: 3x Overcrowded (p3)');
+  });
+
+  it('handles an empty deck', () => {
+    expect(summarizeDeckContents({ name: 'Empty' }).lines).toEqual(['This deck is empty.']);
   });
 });
 

@@ -18,12 +18,13 @@ import { bindersClient, wantsClient, decksClient } from '@/lib/client';
 import { getCardImageUrl } from '@/lib/utils';
 
 /**
- * A display line. Binder lines carry a drill target (one-click contents);
- * card lines carry a preview (hover shows the card image in the desktop rail).
+ * A display line. Binder/deck lines carry a drill target (one-click
+ * contents); card lines carry a preview (hover shows the card image in the
+ * desktop rail).
  */
 export type CardLine = string | {
   text: string;
-  drill?: { binderId: string; name: string };
+  drill?: { kind: 'binder' | 'deck'; id: string; name: string };
   preview?: { imageUrl: string; name: string };
 };
 
@@ -51,7 +52,7 @@ export function summarizeBinders(
     ? ['No binders yet.']
     : binders.map((b) => ({
         text: b.slug ? `${b.name} (${b.slug})` : b.name,
-        drill: { binderId: b._id, name: b.name },
+        drill: { kind: 'binder' as const, id: b._id, name: b.name },
       }));
   return {
     title: `Your binders (${binders.length})`,
@@ -80,17 +81,66 @@ export function summarizeWantsCards(
 }
 
 export function summarizeDecks(
-  decks: Array<{ name: string; format?: string; heroDisplayName?: string; heroName?: string }>,
+  decks: Array<{ publicId?: string; name: string; format?: string; heroDisplayName?: string; heroName?: string }>,
 ): QuickActionResult {
   // /api/decks carries lowercase heroName; heroDisplayName only sometimes.
   const hero = (d: { heroDisplayName?: string; heroName?: string }) => d.heroDisplayName || d.heroName;
   const describe = (d: { name: string; format?: string; heroDisplayName?: string; heroName?: string }) =>
     `${d.name}${hero(d) ? ` — ${hero(d)}` : ''}${d.format ? ` (${d.format})` : ''}`;
-  const lines: CardLine[] = decks.length === 0 ? ['No decks yet.'] : decks.map(describe);
+  const lines: CardLine[] = decks.length === 0
+    ? ['No decks yet.']
+    : decks.map((d) => d.publicId
+        ? { text: describe(d), drill: { kind: 'deck' as const, id: d.publicId, name: d.name } }
+        : describe(d));
   return {
     title: `Your decks (${decks.length})`,
     lines,
     context: `The user's decks (name — hero, format): ${decks.map(describe).join('; ') || 'none'}`,
+  };
+}
+
+interface DeckCard {
+  quantity?: number;
+  printingDetails?: { display_name?: string; name?: string; pitch?: number; image_url?: string };
+}
+
+export function summarizeDeckContents(deck: {
+  name: string;
+  format?: string;
+  heroName?: string;
+  hero?: DeckCard[];
+  equipment?: DeckCard[];
+  maindeck?: DeckCard[];
+}): QuickActionResult {
+  const label = (c: DeckCard) => c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card';
+  const cardLine = (c: DeckCard): CardLine => ({
+    text: `${c.quantity ?? 1}× ${label(c)}${c.printingDetails?.pitch ? ` (pitch ${c.printingDetails.pitch})` : ''}`,
+    preview: { imageUrl: getCardImageUrl(c.printingDetails ?? c), name: label(c) },
+  });
+  const contextLine = (c: DeckCard) =>
+    `${c.quantity ?? 1}x ${label(c)}${c.printingDetails?.pitch ? ` (p${c.printingDetails.pitch})` : ''}`;
+
+  const sections: Array<[string, DeckCard[]]> = [
+    ['Hero', deck.hero ?? []],
+    ['Equipment', deck.equipment ?? []],
+    ['Maindeck', deck.maindeck ?? []],
+  ];
+
+  const lines: CardLine[] = [];
+  const contextParts: string[] = [];
+  for (const [sectionName, cards] of sections) {
+    if (cards.length === 0) continue;
+    const total = cards.reduce((sum, c) => sum + (c.quantity ?? 1), 0);
+    lines.push(`— ${sectionName} (${total}) —`);
+    lines.push(...cards.map(cardLine));
+    contextParts.push(`${sectionName}: ${cards.map(contextLine).join(', ')}`);
+  }
+  if (lines.length === 0) lines.push('This deck is empty.');
+
+  return {
+    title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
+    lines,
+    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${contextParts.join('. ') || 'Empty deck.'}`,
   };
 }
 
@@ -179,4 +229,16 @@ export async function runBinderDrill(binderId: string, binderName: string): Prom
   const cards = raw?.cards ?? [];
   const totalQuantity = raw?.pagination?.totalQuantity;
   return summarizeBinderCards(binderName, cards, totalQuantity);
+}
+
+/** Drill-down: full deck contents (from a click on the decks card). */
+export async function runDeckDrill(publicId: string): Promise<QuickActionResult> {
+  const result = await decksClient.getDeck(publicId);
+  if (!result.success) throw new Error(result.error);
+  return summarizeDeckContents(result.data as any);
+}
+
+/** Dispatch a drill target from a clicked line. */
+export function runDrill(drill: { kind: 'binder' | 'deck'; id: string; name: string }): Promise<QuickActionResult> {
+  return drill.kind === 'binder' ? runBinderDrill(drill.id, drill.name) : runDeckDrill(drill.id);
 }
