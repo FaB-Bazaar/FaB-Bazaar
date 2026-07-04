@@ -209,14 +209,31 @@ export function FabbyChatClient({ username, mockMode, models }: {
     void runInstant(`${target.kind}:${target.id}`, () => runDrill(target));
   }, [runInstant]);
 
+  const performTurn = useCallback(async (messagesToSend: ChatMessage[], modelToUse: string) => {
+    setErrorBanner(null);
+    setBusy(true);
+    turnRef.current = { assistantText: '', toolCalls: [], toolResults: [] };
+
+    const abortController = new AbortController();
+    abortRef.current = abortController;
+
+    const result = await fabbyChatClient.streamChat({
+      messages: messagesToSend,
+      model: modelToUse,
+      signal: abortController.signal,
+      onEvent: handleEvent,
+    });
+
+    if (!result.success) setErrorBanner(result.error);
+    setBusy(false);
+    abortRef.current = null;
+  }, [handleEvent]);
+
   const send = useCallback(async () => {
     const text = input.trim();
     if (!text || busy) return;
 
-    setErrorBanner(null);
     setInput('');
-    setBusy(true);
-    turnRef.current = { assistantText: '', toolCalls: [], toolResults: [] };
 
     // Attach any queued quick-action context to this turn, then clear the
     // queue. The UI bubble shows only what the user typed.
@@ -227,20 +244,22 @@ export function FabbyChatClient({ username, mockMode, models }: {
     setApiMessages(nextMessages);
     setItems((prev) => [...prev, { kind: 'user', text }]);
 
-    const abortController = new AbortController();
-    abortRef.current = abortController;
+    await performTurn(nextMessages, model);
+  }, [input, busy, apiMessages, model, performTurn]);
 
-    const result = await fabbyChatClient.streamChat({
-      messages: nextMessages,
-      model,
-      signal: abortController.signal,
-      onEvent: handleEvent,
-    });
-
-    if (!result.success) setErrorBanner(result.error);
-    setBusy(false);
-    abortRef.current = null;
-  }, [input, busy, apiMessages, model, handleEvent]);
+  // Re-run the last user turn (optionally on a different model): trims any
+  // partial assistant/tool messages from the failed attempt so the payload
+  // ends with the user message again (the route requires it).
+  const retryLastTurn = useCallback(async (modelOverride?: string) => {
+    if (busy) return;
+    const lastUserIndex = apiMessages.map((m) => m.role).lastIndexOf('user');
+    if (lastUserIndex === -1) return;
+    const trimmed = apiMessages.slice(0, lastUserIndex + 1);
+    setApiMessages(trimmed);
+    const useModel = modelOverride ?? model;
+    if (modelOverride) setModel(modelOverride);
+    await performTurn(trimmed, useModel);
+  }, [busy, apiMessages, model, performTurn]);
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
@@ -488,11 +507,33 @@ export function FabbyChatClient({ username, mockMode, models }: {
           </div>
         )}
 
-        {/* Error banner */}
+        {/* Error banner with one-click recovery */}
         {errorBanner && (
           <div className="flex items-start gap-2 rounded-md border border-red-500/50 bg-red-500/10 px-3 py-2 text-red-700 dark:text-red-400" role="alert">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
-            <span className="text-sm">{errorBanner}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm break-words">
+                {errorBanner.length > 220 ? `${errorBanner.slice(0, 220)}…` : errorBanner}
+              </span>
+              {!busy && apiMessages.some((m) => m.role === 'user') && (
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => retryLastTurn()} className={focusRing}>
+                    Retry
+                  </Button>
+                  {model.endsWith(':free') && /429|rate.?limit/i.test(errorBanner) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => retryLastTurn(model.replace(':free', ''))}
+                      className={focusRing}
+                      title="The free tier is rate-limited upstream — the paid variant costs ~$0.03/M tokens"
+                    >
+                      Switch to {model.replace(':free', '')} & retry
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
