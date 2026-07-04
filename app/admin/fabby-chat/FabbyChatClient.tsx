@@ -10,10 +10,11 @@ import {
 } from '@/components/ui/select';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
+  Heart, FolderPlus,
 } from 'lucide-react';
-import { fabbyChatClient } from '@/lib/client';
+import { fabbyChatClient, wantsClient, bindersClient } from '@/lib/client';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
-import { QUICK_ACTIONS, buildMessageWithContext, runDrill, type CardLine } from './quick-actions';
+import { QUICK_ACTIONS, buildMessageWithContext, runDrill, type CardLine, type CardPreview } from './quick-actions';
 
 interface StructuredCard {
   title?: string;
@@ -51,9 +52,29 @@ export function FabbyChatClient({ username, mockMode, models }: {
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   // Desktop-only card preview rail (hover/focus on a card line shows it)
-  const [previewCard, setPreviewCard] = useState<{ imageUrl: string; name: string } | null>(null);
+  const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
+  // Rail actions: binder picker options + per-card action feedback
+  const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string }>>([]);
+  const [targetBinderId, setTargetBinderId] = useState<string>('');
+  const [railStatus, setRailStatus] = useState<{ wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' }>({});
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // One instant call to populate the add-to-binder picker
+    bindersClient.getUserBinders().then((result) => {
+      if (result.success) {
+        const binders = (result.data as any)?.binders ?? [];
+        setBinderOptions(binders);
+        if (binders.length > 0) setTargetBinderId(binders[0]._id);
+      }
+    });
+  }, []);
+
+  // New hovered card → fresh action states
+  useEffect(() => {
+    setRailStatus({});
+  }, [previewCard?.printingId]);
 
   // Zero-token context queue: quick-action results wait here and ride along
   // with the NEXT free-text message, then clear. Tokens are spent only if an
@@ -203,12 +224,30 @@ export function FabbyChatClient({ username, mockMode, models }: {
     pendingContextRef.current = [];
   }, []);
 
+  const addPreviewToWants = useCallback(async () => {
+    if (!previewCard?.printingId) return;
+    setRailStatus((s) => ({ ...s, wants: 'busy' }));
+    const result = await wantsClient.addWantsItem(previewCard.printingId, 1);
+    setRailStatus((s) => ({ ...s, wants: result.success ? 'done' : 'error' }));
+    if (!result.success) setErrorBanner(result.error);
+  }, [previewCard]);
+
+  const addPreviewToBinder = useCallback(async () => {
+    if (!previewCard?.printingId || !targetBinderId) return;
+    setRailStatus((s) => ({ ...s, binder: 'busy' }));
+    const result = await bindersClient.addCardsToBinder(targetBinderId, [
+      { printingId: previewCard.printingId, quantity: 1 } as any,
+    ]);
+    setRailStatus((s) => ({ ...s, binder: result.success ? 'done' : 'error' }));
+    if (!result.success) setErrorBanner(result.error);
+  }, [previewCard, targetBinderId]);
+
   const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
   return (
-    <div className="flex gap-4 items-start">
-    <Card className="flex-1 min-w-0">
-      <CardContent className="p-4 flex flex-col gap-4">
+    <div className="flex gap-4 items-stretch h-[calc(100vh-14rem)] min-h-[28rem]">
+    <Card className="flex-1 min-w-0 flex flex-col">
+      <CardContent className="p-4 flex flex-col gap-3 flex-1 min-h-0">
         {/* Header row: model picker + mode badge + reset */}
         <div className="flex flex-wrap items-center gap-3">
           <Select value={model} onValueChange={setModel} disabled={busy}>
@@ -264,7 +303,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
           role="log"
           aria-live="polite"
           aria-label={`Chat with Fabby as ${username}`}
-          className="h-[26rem] overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-4 flex flex-col gap-3"
+          className="flex-1 min-h-0 overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-4 flex flex-col gap-3"
         >
           {items.length === 0 && (
             <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
@@ -419,18 +458,85 @@ export function FabbyChatClient({ username, mockMode, models }: {
       </CardContent>
     </Card>
 
-    {/* Desktop card preview rail — mirrors the deck editor's hover preview */}
-    <div className="hidden lg:block w-64 shrink-0 sticky top-4">
+    {/* Desktop card preview + action rail */}
+    <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto">
       {previewCard ? (
-        <div className="rounded-lg border border-border bg-card p-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewCard.imageUrl}
-            alt={previewCard.name}
-            className="w-full rounded-md"
-          />
-          <p className="mt-2 font-semibold text-center">{previewCard.name}</p>
-        </div>
+        <>
+          <div className="rounded-lg border border-border bg-card p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewCard.imageUrl}
+              alt={previewCard.name}
+              className="w-full rounded-md"
+            />
+            <p className="mt-2 font-semibold text-center">{previewCard.name}</p>
+            {previewCard.price !== undefined && (
+              <p className="text-center text-green-700 dark:text-green-500 font-semibold tabular-nums">
+                ${previewCard.price.toFixed(2)}
+                <span className="text-gray-600 dark:text-gray-300 font-normal text-sm"> market</span>
+              </p>
+            )}
+            {previewCard.tcgplayerUrl && (
+              <a
+                href={previewCard.tcgplayerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`mt-1 flex items-center justify-center gap-1 text-sm text-blue-700 dark:text-blue-400 underline underline-offset-2 ${focusRing} rounded-sm`}
+              >
+                Buy on TCGplayer <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            )}
+          </div>
+
+          {previewCard.printingId && (
+            <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addPreviewToWants}
+                disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
+                className={`justify-start gap-2 ${focusRing}`}
+              >
+                {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  : railStatus.wants === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                  : railStatus.wants === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+                  : <Heart className="h-4 w-4" aria-hidden="true" />}
+                {railStatus.wants === 'done' ? 'Added to wants' : 'Add to wants'}
+              </Button>
+
+              {binderOptions.length > 0 && (
+                <>
+                  <Select value={targetBinderId} onValueChange={setTargetBinderId}>
+                    <SelectTrigger className={`text-sm ${focusRing}`} aria-label="Target binder">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {binderOptions.map((b) => (
+                        <SelectItem key={b._id} value={b._id} className="text-sm">{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addPreviewToBinder}
+                    disabled={!targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
+                    className={`justify-start gap-2 ${focusRing}`}
+                  >
+                    {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      : railStatus.binder === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                      : railStatus.binder === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+                      : <FolderPlus className="h-4 w-4" aria-hidden="true" />}
+                    {railStatus.binder === 'done' ? 'Added to binder' : 'Add to binder'}
+                  </Button>
+                </>
+              )}
+              <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                <Zap className="h-3 w-3" aria-hidden="true" /> Instant — no AI
+              </p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-gray-600 dark:text-gray-300">
           Hover a card in a list to preview it here

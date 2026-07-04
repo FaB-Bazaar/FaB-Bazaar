@@ -27,11 +27,13 @@ export default async function FabbyChatAdminPage() {
     : ['mock', 'google/gemini-3.1-flash-lite', 'anthropic/claude-haiku-4.5'];
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-2">Fabby Chat (prototype)</h1>
-      <p className="text-muted-foreground mb-6">
-        Hosted agent loop over the lite MCP toolset — superadmin preview of the future hosted tier.
-      </p>
+    <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4">
+      <div className="flex flex-wrap items-baseline gap-x-3 mb-3">
+        <h1 className="text-2xl font-bold">Fabby Chat (prototype)</h1>
+        <p className="text-muted-foreground text-sm">
+          Hosted agent loop over the lite MCP toolset — superadmin preview.
+        </p>
+      </div>
       <FabbyChatClient
         username={user.name || 'collector'}
         mockMode={mockMode}

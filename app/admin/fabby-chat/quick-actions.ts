@@ -22,11 +22,34 @@ import { getCardImageUrl } from '@/lib/utils';
  * contents); card lines carry a preview (hover shows the card image in the
  * desktop rail).
  */
+export interface CardPreview {
+  imageUrl: string;
+  name: string;
+  /** Enables the rail's add-to-binder / add-to-wants actions. */
+  printingId?: string;
+  /** TCG market price, when the source payload carries it. */
+  price?: number;
+  tcgplayerUrl?: string;
+}
+
 export type CardLine = string | {
   text: string;
   drill?: { kind: 'binder' | 'deck'; id: string; name: string };
-  preview?: { imageUrl: string; name: string };
+  preview?: CardPreview;
 };
+
+/** Extracts a rail preview from any of the card payload shapes we render. */
+export function toCardPreview(card: any, name: string): CardPreview {
+  const details = card?.printingDetails ?? {};
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) || undefined : undefined);
+  return {
+    imageUrl: getCardImageUrl(card),
+    name,
+    printingId: card?.printingId || details.printing_id || undefined,
+    price: num(details.tcg_market ?? card?.tcg_market ?? card?.value),
+    tcgplayerUrl: details.tcgplayer_url ?? card?.tcgplayer_url ?? undefined,
+  };
+}
 
 export interface QuickActionResult {
   title: string;
@@ -69,7 +92,7 @@ export function summarizeWantsCards(
     ? ['Your wants list is empty.']
     : cards.map((c) => ({
         text: `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`,
-        preview: { imageUrl: getCardImageUrl(c), name: label(c) },
+        preview: toCardPreview(c, label(c)),
       }));
   return {
     title: `Your wants (${cards.length})`,
@@ -115,7 +138,7 @@ export function summarizeDeckContents(deck: {
   const label = (c: DeckCard) => c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card';
   const cardLine = (c: DeckCard): CardLine => ({
     text: `${c.quantity ?? 1}× ${label(c)}${c.printingDetails?.pitch ? ` (pitch ${c.printingDetails.pitch})` : ''}`,
-    preview: { imageUrl: getCardImageUrl(c.printingDetails ?? c), name: label(c) },
+    preview: toCardPreview(c, label(c)),
   });
   const contextLine = (c: DeckCard) =>
     `${c.quantity ?? 1}x ${label(c)}${c.printingDetails?.pitch ? ` (p${c.printingDetails.pitch})` : ''}`;
@@ -154,7 +177,7 @@ export function summarizeBinderCards(
     ? ['This binder is empty.']
     : cards.map((c) => ({
         text: `${c.quantity ?? 1}× ${label(c)}${c.forTrade ? ' · for trade' : ''}`,
-        preview: { imageUrl: getCardImageUrl(c), name: label(c) },
+        preview: toCardPreview(c, label(c)),
       }));
   if (totalQuantity !== undefined && cards.length > 0) {
     lines.push(`Total: ${totalQuantity} cards`);
