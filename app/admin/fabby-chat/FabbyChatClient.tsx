@@ -15,7 +15,10 @@ import {
 import { fabbyChatClient, wantsClient, bindersClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
-import { QUICK_ACTIONS, buildMessageWithContext, runDrill, type CardLine, type CardPreview } from './quick-actions';
+import {
+  QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults,
+  type CardLine, type CardPreview, type SearchResultsCard,
+} from './quick-actions';
 
 interface StructuredCard {
   title?: string;
@@ -26,7 +29,7 @@ interface StructuredCard {
 type UiItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; streaming: boolean }
-  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard }
+  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard; results?: SearchResultsCard }
   | { kind: 'data'; title: string; lines: CardLine[] };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
@@ -139,9 +142,10 @@ export function FabbyChatClient({ username, mockMode, models }: {
           content: event.ok ? event.content : `Error: ${event.content}`,
         });
         const card = toStructuredCard(event.structured);
+        const results = parseSearchResults(event.structured) ?? undefined;
         setItems((prev) => prev.map((item) =>
           item.kind === 'tool' && item.id === event.id
-            ? { ...item, status: event.ok ? 'ok' : 'error', ms: event.ms, card }
+            ? { ...item, status: event.ok ? 'ok' : 'error', ms: event.ms, card, results }
             : item,
         ));
         break;
@@ -431,18 +435,41 @@ export function FabbyChatClient({ username, mockMode, models }: {
                     </>
                   )}
                 </Badge>
-                {item.card && (
-                  <div className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-                    {item.card.title && <div className="font-semibold">{item.card.title}</div>}
-                    {item.card.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
-                    {item.card.url && (
+                {(item.card || item.results) && (
+                  <div className="rounded-md border border-border bg-card px-3 py-2 text-sm w-full max-w-xl">
+                    {item.card?.title && <div className="font-semibold">{item.card.title}</div>}
+                    {item.card?.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
+                    {item.results && (
+                      <ul className="mt-1.5 max-h-52 overflow-y-auto space-y-0.5">
+                        {item.results.rows.map((row, rowIndex) => {
+                          if (typeof row === 'string' || !row.preview) return <li key={rowIndex}>{typeof row === 'string' ? row : row.text}</li>;
+                          const preview = row.preview;
+                          return (
+                            <li key={rowIndex}>
+                              <span
+                                tabIndex={0}
+                                onMouseEnter={() => setPreviewCard(preview)}
+                                onFocus={() => setPreviewCard(preview)}
+                                className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+                              >
+                                {row.text}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                    {item.card?.url && (
                       <a
                         href={item.card.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`inline-flex items-center gap-1 text-blue-700 dark:text-blue-400 underline underline-offset-2 mt-1 ${focusRing}`}
+                        className={`inline-flex items-center gap-1 text-blue-700 dark:text-blue-400 underline underline-offset-2 mt-1.5 ${focusRing}`}
                       >
-                        Open <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        {item.results && item.results.total > item.results.shown
+                          ? `+${item.results.total - item.results.shown} more — open in card search`
+                          : 'Open in card search'}
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                       </a>
                     )}
                   </div>

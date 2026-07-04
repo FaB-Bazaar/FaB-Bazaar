@@ -193,6 +193,41 @@ export function summarizeBinderCards(
   };
 }
 
+export interface SearchResultsCard {
+  rows: CardLine[];
+  total: number;
+  shown: number;
+}
+
+const PITCH_LABEL: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+
+/**
+ * Parses search_printings structuredContent (the token-bypass channel) into
+ * compact inline result rows: the full projected printing list already
+ * arrives in the browser with every AI search — this just renders it.
+ * Rows feed the rail (hover preview + add-to-binder/wants via printing_id).
+ */
+export function parseSearchResults(structured: any, maxRows = 20): SearchResultsCard | null {
+  const first = structured?.results?.[0];
+  if (!first || !Array.isArray(first.printings) || first.printings.length === 0) return null;
+
+  const rows: CardLine[] = first.printings.slice(0, maxRows).map((p: any) => {
+    const pitch = PITCH_LABEL[p.pitch as number];
+    const price = typeof p.price === 'number' ? ` · $${p.price.toFixed(2)}` : '';
+    return {
+      text: `${p.name}${pitch ? ` (${pitch})` : ''} — ${String(p.set ?? '').toUpperCase()} ${p.collector_number ?? ''} · ${p.rarity ?? '?'}${price}`,
+      preview: {
+        imageUrl: getCardImageUrl({ printingId: p.printing_id }),
+        name: p.name,
+        printingId: p.printing_id,
+        priceLow: typeof p.price === 'number' ? p.price : undefined,
+      },
+    };
+  });
+
+  return { rows, total: first.total ?? first.printings.length, shown: rows.length };
+}
+
 /** Wraps queued quick-action context into the next user turn's content. */
 export function buildMessageWithContext(pendingContext: string[], userText: string): string {
   if (pendingContext.length === 0) return userText;

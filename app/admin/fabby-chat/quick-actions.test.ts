@@ -12,6 +12,7 @@ import {
   summarizeBinderCards,
   summarizeDeckContents,
   buildMessageWithContext,
+  parseSearchResults,
 } from './quick-actions';
 
 describe('summarizeBinders', () => {
@@ -117,6 +118,45 @@ describe('summarizeBinderCards', () => {
 
   it('handles an empty binder', () => {
     expect(summarizeBinderCards('Empty', [], 0).lines).toEqual(['This binder is empty.']);
+  });
+});
+
+describe('parseSearchResults', () => {
+  const printing = (name: string, price?: number) => ({
+    printing_id: `id-${name}`,
+    name,
+    collector_number: 'WTR167',
+    set: 'wtr',
+    rarity: 'r',
+    pitch: 1,
+    price,
+  });
+
+  it('renders compact rows with rail previews from structured search results', () => {
+    const parsed = parseSearchResults({
+      results: [{ total: 4, printings: [printing('Snatch', 0.73), printing('Snag')] }],
+    });
+    expect(parsed?.total).toBe(4);
+    expect(parsed?.shown).toBe(2);
+    const first = parsed?.rows[0] as any;
+    expect(first.text).toBe('Snatch (red) — WTR WTR167 · r · $0.73');
+    expect(first.preview).toMatchObject({ name: 'Snatch', printingId: 'id-Snatch', priceLow: 0.73 });
+    // no price → no price segment, no crash
+    expect((parsed?.rows[1] as any).text).toContain('Snag (red) — WTR');
+  });
+
+  it('caps rows at maxRows and reports the real total', () => {
+    const parsed = parseSearchResults({
+      results: [{ total: 500, printings: Array.from({ length: 30 }, (_, i) => printing(`Card${i}`)) }],
+    }, 20);
+    expect(parsed?.shown).toBe(20);
+    expect(parsed?.total).toBe(500);
+  });
+
+  it('returns null for non-search or empty structured payloads', () => {
+    expect(parseSearchResults({ title: 'x', url: 'y' })).toBeNull();
+    expect(parseSearchResults({ results: [{ total: 0, printings: [] }] })).toBeNull();
+    expect(parseSearchResults(undefined)).toBeNull();
   });
 });
 

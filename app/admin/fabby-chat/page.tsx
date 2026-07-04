@@ -22,14 +22,16 @@ export default async function FabbyChatAdminPage() {
   }
 
   const mockMode = !process.env.OPENROUTER_API_KEY;
+  // Ordered cheapest → most expensive ($/M input); default = cheapest (free
+  // tier — rate-limited but $0). 'mock' last as the offline dev script.
   const models = mockMode
     ? ['mock']
     : [
-        'openai/gpt-5-nano',
-        'openai/gpt-oss-120b',
-        'openai/gpt-oss-120b:free',
-        'google/gemini-2.5-flash-lite',
-        'anthropic/claude-haiku-4.5',
+        'openai/gpt-oss-120b:free',       // $0 (rate-limited free tier)
+        'openai/gpt-oss-120b',            // $0.03/M in
+        'openai/gpt-5-nano',              // $0.05/M in
+        'google/gemini-2.5-flash-lite',   // $0.10/M in
+        'anthropic/claude-haiku-4.5',     // $1/M in
         'mock',
       ];
 
