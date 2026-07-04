@@ -196,6 +196,20 @@ describe('parseSearchResults', () => {
     expect(parseSearchResults({ results: [{ total: 0, printings: [] }] })).toBeNull();
     expect(parseSearchResults(undefined)).toBeNull();
   });
+
+  it('surfaces printing_count as printingCount on a grouped representative row', () => {
+    const parsed = parseSearchResults({
+      results: [{ total: 1, printings: [{ ...printing('Maximum Velocity', 0.37), printing_count: 4 }] }],
+    });
+    expect((parsed?.rows[0] as any).printingCount).toBe(4);
+  });
+
+  it('omits printingCount when the card has a single printing', () => {
+    const parsed = parseSearchResults({
+      results: [{ total: 1, printings: [{ ...printing('Solo Card', 1), printing_count: 1 }] }],
+    });
+    expect((parsed?.rows[0] as any).printingCount).toBeUndefined();
+  });
 });
 
 describe('buildMessageWithContext', () => {

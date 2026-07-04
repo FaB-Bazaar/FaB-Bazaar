@@ -201,7 +201,7 @@ export const fabConstantsResource = {
     data_model: {
       card: "Abstract game object. One row per pitch variant — red/yellow/blue Enlightened Strike are 3 separate cards with different stats and different card_unique_ids.",
       printing: "A specific physical copy: one set + edition + foiling combination. Many printings per card. Identified by printingId.",
-      why_it_matters: "search_printings returns printings (not cards). add_cards_to_deck requires a printingId. Searching 'Enlightened Strike' returns multiple results because pitch variants × editions × foilings all have distinct printingIds.",
+      why_it_matters: "search_printings groups by card by default: ONE representative printing per card (+ printing_count), so 'what cards…' / discovery queries return distinct cards, not every printing. add_cards_to_deck requires a printingId — the representative's printing_id works, but the user's actual copy may differ (pin it with sets[]/foilings[]/editions[]). Pass options.groupByCard:false to get every printing (all pitch variants × editions × foilings, each with its own printingId).",
       double_faced_cards: "Each face is its own printing, linked via other_face_printing_id."
     },
 

@@ -58,6 +58,27 @@ type SectionInput = {
 const MAX_SECTION_GROUPS = 10;
 const MAX_TAIL_PRINTINGS = 8;
 
+/**
+ * Collapse a flat printing list to ONE representative per card (keyed by
+ * card_unique_id), carrying a `printing_count` so callers know how many were
+ * folded in. Used for the bulk/simple path when card-level grouping is on —
+ * the complex path gets the same shape straight from the service's DISTINCT ON
+ * grouped query. Different pitches are different cards (different
+ * card_unique_ids), so they are NOT collapsed together.
+ */
+export function groupPrintingsByCard(printings: any[]): any[] {
+  const groupsMap = new Map<string, any[]>();
+  for (const p of printings) {
+    const key = p.card_unique_id ?? p.name ?? p.printing_id;
+    if (!groupsMap.has(key)) groupsMap.set(key, []);
+    groupsMap.get(key)!.push(p);
+  }
+  return [...groupsMap.values()].map(group => ({
+    ...sortPrintings(group)[0],
+    printing_count: group.length,
+  }));
+}
+
 export function formatSearchSections(output: SectionInput[], projectOpts: ProjectOptions = {}): string[] {
   return output.map(r => {
     const label = r.query;
@@ -86,7 +107,16 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
       const sorted = sortPrintings(group);
       const best = sorted[0];
       const others = sorted.slice(1);
-      if (others.length === 0) return formatPrinting(best, projectOpts);
+      if (others.length === 0) {
+        // Grouped mode: the representative already stands in for its whole card
+        // and carries a printing_count. We never received the other printings,
+        // so report the count without an enumerated SET·edition·foiling tail.
+        const extra = (best.printing_count ?? 1) - 1;
+        if (extra > 0) {
+          return `${formatPrinting(best, projectOpts)}\n    +${extra} more printing${extra !== 1 ? 's' : ''} of this card`;
+        }
+        return formatPrinting(best, projectOpts);
+      }
       // Enumerate the hidden printings as SET·edition·foiling·price so the client
       // can SEE the other versions (and their sets) without a second query — the
       // representative is just the earliest-released set, NOT necessarily the
@@ -139,6 +169,8 @@ function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   };
   if (p.is_extended_art) out.ea = true;
   if (Array.isArray(p.art_variations) && p.art_variations.length > 0) out.art = p.art_variations;
+  // Card-level grouping: how many printings this representative stands in for.
+  if (typeof p.printing_count === 'number' && p.printing_count > 1) out.printing_count = p.printing_count;
   if (opts.includeImage && p.image_url) out.image_url = p.image_url;
   if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) out.artists = p.artists;
   if (opts.includeText && p.text) out.text = p.text;
@@ -332,7 +364,7 @@ This is the tool for queries like: "find Command and Conquer red", "look up Pumm
 
 Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText to opt into extra fields.
 
-⚠️ DISAMBIGUATING PRINTINGS: the text view collapses to ONE representative printing per card (the earliest-released set), then a "+N more printings of this card:" line enumerates the others as SET·edition·foiling·price. The representative is NOT necessarily the user's copy — do NOT assume it's WTR/the oldest set. To pin a specific printing, pass sets[] / foilings[] / editions[] (e.g. foilings:["r"] for Rainbow Foil, sets:["1hp"] for the History Pack reprint). The full per-printing list is also returned in structuredContent for clients that read it.
+⚠️ CARDS vs PRINTINGS (default = grouped): by default this returns ONE representative printing per card, plus a printing_count of how many printings were folded in — so a broad search gives you distinct CARDS, not every set × edition × foiling × language × price. This is what you want for "what cards…" / discovery / list-building queries. The representative is NOT necessarily the user's copy — do NOT assume it's WTR/the oldest set. When you need every individual printing (harvesting a specific printing_id, comparing prices/versions of one card), either pin it with sets[] / foilings[] / editions[] (e.g. foilings:["r"] for Rainbow Foil, sets:["1hp"] for the History Pack reprint), or pass options.groupByCard:false to get the full per-printing list.
 
 Always pass ALL cards you need in one call — never loop.
 
@@ -414,6 +446,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
         properties: {
           limit:     { type: 'number', default: 12, minimum: 1, maximum: 100 },
           page:      { type: 'number', default: 1, minimum: 1 },
+          groupByCard: { type: 'boolean', default: true, description: 'Default TRUE: return ONE representative printing per card (+ printing_count), so a broad search yields distinct cards — not every set/edition/foiling/language/price of each. Set FALSE only when you need every individual printing: harvesting a specific printing_id, or comparing versions/prices of one card.' },
           sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'color', 'foiling', 'edition', 'relevance'] },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] },
           includeImage:   { type: 'boolean', description: 'Include image_url per printing. Default false.' },
@@ -437,6 +470,12 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
     if (!cards?.length) {
       return { success: false, message: 'cards array is required. Use: { cards: [{ query: "pummel red" }] }' };
     }
+
+    // Card-level grouping: default ON (mirrors /opt). One representative
+    // printing per card (+ printing_count), so a broad search returns cards,
+    // not every set × edition × foiling × price. Opt out for the full
+    // per-printing list (harvesting a specific printing_id, comparing versions).
+    const groupByCard = options.groupByCard !== false;
 
     // Resolve each card to filters + simple/complex classification
     const resolved = cards.map(resolveCardFilters);
@@ -481,6 +520,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           page: options.page || 1,
           sortBy: options.sortBy,
           sortOrder: options.sortOrder,
+          groupByCard,
         })
       ),
     ]);
@@ -494,7 +534,10 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
         return;
       }
       const entry = bulkResult.data[bulkIdx];
-      const printings = entry?.printings ?? [];
+      const rawPrintings = entry?.printings ?? [];
+      // The complex path is grouped by the service (DISTINCT ON); the bulk path
+      // returns every printing, so collapse it here to match when grouping is on.
+      const printings = groupByCard ? groupPrintingsByCard(rawPrintings) : rawPrintings;
       output.push({
         index: originalIdx,
         query: cards[originalIdx].query || resolved[originalIdx].simpleName!,
@@ -532,6 +575,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
             limit: options.limit || 12,
             sortBy: options.sortBy,
             sortOrder: options.sortOrder,
+            groupByCard,
           });
         })
       );

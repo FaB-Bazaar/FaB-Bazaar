@@ -623,6 +623,11 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                                 {row.text}
                                 <PitchIcon pitch={row.pitch} />
                               </span>
+                              {row.printingCount && row.printingCount > 1 && (
+                                <span className="ml-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                  +{row.printingCount - 1} {row.printingCount - 1 === 1 ? 'printing' : 'printings'}
+                                </span>
+                              )}
                             </li>
                           );
                         })}

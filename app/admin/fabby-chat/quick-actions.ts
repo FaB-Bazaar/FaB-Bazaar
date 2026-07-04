@@ -41,6 +41,9 @@ export type CardLine = string | {
   preview?: CardPreview;
   /** Rendered as the pitch pip icon (public/icons/pitch-N.png) after the text. */
   pitch?: number;
+  /** Card-level grouping: total printings this row's representative stands in
+   *  for (only set when >1). Rendered as a "+N printings" affordance. */
+  printingCount?: number;
 };
 
 /** Extracts a rail preview from any of the card payload shapes we render. */
@@ -228,6 +231,7 @@ export function parseSearchResults(structured: any, maxRows = 20): SearchResults
     return {
       text: `${p.name} — ${String(p.set ?? '').toUpperCase()} ${p.collector_number ?? ''} · ${p.rarity ?? '?'}${price}`,
       pitch: typeof p.pitch === 'number' ? p.pitch : undefined,
+      ...(typeof p.printing_count === 'number' && p.printing_count > 1 ? { printingCount: p.printing_count } : {}),
       preview: {
         imageUrl: getCardImageUrl({ printingId: p.printing_id }),
         name: p.name,

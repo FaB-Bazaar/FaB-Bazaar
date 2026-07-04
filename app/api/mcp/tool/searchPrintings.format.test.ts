@@ -117,6 +117,33 @@ describe('formatSearchSections', () => {
     );
     expect(sections[0]).toMatch(/No non-foil printing exists/);
   });
+
+  it('shows a non-enumerated "+N more printings" tail for a grouped representative (printing_count)', () => {
+    // Grouped mode: the service returns ONE representative per card, carrying a
+    // printing_count. The formatter can't enumerate the hidden sets (it never
+    // received them), so it reports the count without a SET·edition·foiling list.
+    const rep = printing({ name: 'Maximum Velocity', card_unique_id: 'cuid_mv', printing_count: 4 });
+
+    const text = formatSearchSections(
+      [{ index: 0, query: 'maximum velocity', total: 1, printings: [rep] }],
+      {}
+    )[0];
+
+    expect(text).toContain('Maximum Velocity');
+    expect(text).toMatch(/\+3 more printings of this card/);
+    // No enumerated tail — we don't have the other printings' set codes here.
+    expect(text).not.toMatch(/ARC·|EVO·|AIO·/);
+  });
+
+  it('shows no printings tail for a grouped representative with printing_count 1', () => {
+    const rep = printing({ name: 'Solo Card', card_unique_id: 'cuid_solo', printing_count: 1 });
+    const text = formatSearchSections(
+      [{ index: 0, query: 'solo card', total: 1, printings: [rep] }],
+      {}
+    )[0];
+    expect(text).toContain('Solo Card');
+    expect(text).not.toMatch(/more printing/);
+  });
 });
 
 describe('searchPrintingsTool.handler — heroLegal × format guardrail', () => {
@@ -198,5 +225,114 @@ describe('searchPrintingsTool.handler — heroLegal × format guardrail', () => 
     const callArgs = (printingsService.searchPrintings as any).mock.calls[0][0];
     expect(callArgs.heroClasses).toEqual(['wizard']);
     expect(callArgs.heroEssences ?? []).toEqual([]);
+  });
+});
+
+describe('searchPrintingsTool.handler — card-level grouping', () => {
+  const printing = (overrides: Partial<any>) => ({
+    printing_id: 'pid_' + Math.random().toString(36).slice(2, 10),
+    card_unique_id: 'cuid_default',
+    collector_number: 'ARC008',
+    name: 'Maximum Velocity',
+    set: 'arc',
+    edition: 'n',
+    foiling: 's',
+    rarity: 's',
+    pitch: 1,
+    color: 'red',
+    types: ['mechanologist', 'action', 'attack'],
+    tcg_low: 0.37,
+    ...overrides,
+  });
+
+  it('defaults to groupByCard:true on the complex service query', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+
+    await searchPrintingsTool.handler({
+      cards: [{ filters: { classes: ['mechanologist'], format: 'cc' } }],
+    });
+
+    const opts = (printingsService.searchPrintings as any).mock.calls[0][1];
+    expect(opts.groupByCard).toBe(true);
+  });
+
+  it('passes groupByCard:false to the service when the caller opts out', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.searchPrintings as any).mockClear();
+
+    await searchPrintingsTool.handler({
+      cards: [{ filters: { classes: ['mechanologist'], format: 'cc' } }],
+      options: { groupByCard: false },
+    });
+
+    const opts = (printingsService.searchPrintings as any).mock.calls[0][1];
+    expect(opts.groupByCard).toBe(false);
+  });
+
+  it('collapses the bulk/simple path to one representative per card by default', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.bulkResolveByName as any).mockResolvedValueOnce({
+      success: true,
+      data: [{
+        name: 'Maximum Velocity',
+        printings: [
+          printing({ card_unique_id: 'cuid_mv', set: 'arc', printing_id: 'a', tcg_low: 0.37 }),
+          printing({ card_unique_id: 'cuid_mv', set: 'evo', printing_id: 'b', tcg_low: 0.74 }),
+          printing({ card_unique_id: 'cuid_mv', set: 'aio', printing_id: 'c', tcg_low: 0.23 }),
+          printing({ card_unique_id: 'cuid_mv', set: 'aio', printing_id: 'd', tcg_low: 0.23 }),
+        ],
+      }],
+    });
+
+    const result: any = await searchPrintingsTool.handler({ cards: [{ query: 'Maximum Velocity' }] });
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0].printings).toHaveLength(1);
+    expect(result.results[0].printings[0].printing_count).toBe(4);
+    expect(result.results[0].total).toBe(1);
+  });
+
+  it('keeps distinct cards separate when one name spans multiple pitches (does not over-collapse)', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.bulkResolveByName as any).mockResolvedValueOnce({
+      success: true,
+      data: [{
+        name: 'Enlightened Strike',
+        printings: [
+          printing({ name: 'Enlightened Strike', card_unique_id: 'es_red', pitch: 1, printing_id: 'r1' }),
+          printing({ name: 'Enlightened Strike', card_unique_id: 'es_red', pitch: 1, printing_id: 'r2' }),
+          printing({ name: 'Enlightened Strike', card_unique_id: 'es_yellow', pitch: 2, printing_id: 'y1' }),
+          printing({ name: 'Enlightened Strike', card_unique_id: 'es_blue', pitch: 3, printing_id: 'b1' }),
+        ],
+      }],
+    });
+
+    const result: any = await searchPrintingsTool.handler({ cards: [{ query: 'Enlightened Strike' }] });
+
+    expect(result.results[0].printings).toHaveLength(3);
+    expect(result.results[0].total).toBe(3);
+  });
+
+  it('returns every printing on the bulk/simple path when the caller opts out of grouping', async () => {
+    const { printingsService } = await import('@/lib/services');
+    (printingsService.bulkResolveByName as any).mockResolvedValueOnce({
+      success: true,
+      data: [{
+        name: 'Maximum Velocity',
+        printings: [
+          printing({ card_unique_id: 'cuid_mv', set: 'arc', printing_id: 'a' }),
+          printing({ card_unique_id: 'cuid_mv', set: 'evo', printing_id: 'b' }),
+          printing({ card_unique_id: 'cuid_mv', set: 'aio', printing_id: 'c' }),
+        ],
+      }],
+    });
+
+    const result: any = await searchPrintingsTool.handler({
+      cards: [{ query: 'Maximum Velocity' }],
+      options: { groupByCard: false },
+    });
+
+    expect(result.results[0].printings).toHaveLength(3);
   });
 });
