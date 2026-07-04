@@ -264,43 +264,43 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
 
 // Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.
 // Keys must match HERO_INFO / YOUNG_HERO_INFO keys (lowercase). Omit heroes with 0 points.
-export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-04-14';
-export const LIVING_LEGEND_POINTS_SOURCE_LABEL = 'Pro Tour and Calling: Yokohama';
+export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-06-29';
+export const LIVING_LEGEND_POINTS_SOURCE_LABEL = '2026 National Championships';
 
 export const LIVING_LEGEND_POINTS: Record<string, number> = {
   // Active Classic Constructed heroes (LL points < 1000)
-  'prism, awakener of sol': 951,
+  'victor goldmane, high and mighty': 951,
+  'kassai of the golden sand': 892,
+  'dash i/o': 875,
   'fai, rising rebellion': 856,
-  'dash i/o': 830,
-  'victor goldmane, high and mighty': 899,
-  'cindra, dracai of retribution': 820,
+  'cindra, dracai of retribution': 845,
   'bravo, showstopper': 776,
-  'kassai of the golden sand': 764,
   'katsu, the wanderer': 746,
   'dorinthea ironsong': 743,
+  'oscilio, constella intelligence': 666,
   'arakni, marionette': 644,
-  'oscilio, constella intelligence': 536,
+  'gravy bones, shipwrecked looter': 494,
   'ser boltyn, breaker of dawn': 417,
-  'gravy bones, shipwrecked looter': 409,
   'uzuri, switchblade': 405,
   'rhinar, reckless rampage': 362,
-  'vynnset, iron maiden': 259,
+  'vynnset, iron maiden': 266,
   'arakni, huntsman': 244,
-  'jarl vetreiði': 203,
+  'jarl vetreiði': 223,
   'levia, shadowborn abomination': 200,
   'arakni, 5l!p3d 7hru 7h3 cr4x': 193,
   'fang, dracai of blades': 153,
-  'ira, scarlet revenger': 126,
+  'ira, scarlet revenger': 131,
   'riptide, lurker of the deep': 98,
   "maxx 'the hype' nitro": 85,
+  'teklovossen, esteemed magnate': 49,
   'pleiades, superstar': 45,
-  'teklovossen, esteemed magnate': 41,
   'kayo, underhanded cheat': 29,
   'valda, seismic impact': 28,
+  'puffin, hightail': 28,
   'marlynn, treasure hunter': 21,
-  'puffin, hightail': 18,
-  'betsy, skin in the game': 7,
+  'zyggy starlight': 8,
   'olympia, prized fighter': 7,
+  'betsy, skin in the game': 7,
   'tuffnut, bumbling hulkster': 5,
   'lyath goldmane, vile savant': 3,
 
@@ -322,6 +322,7 @@ export const LIVING_LEGEND_POINTS: Record<string, number> = {
   'kayo, armed and dangerous': 1014,
   'dash, inventor extraordinaire': 1013,
   'iyslander, stormbind': 1012,
+  'prism, awakener of sol': 1010,
   'nuu, alluring desire': 1004,
   'zen, tamer of purpose': 1000,
 };

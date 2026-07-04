@@ -217,8 +217,8 @@ describe('LIVING_LEGEND_POINTS', () => {
   });
 
   it('includes at least one active-CC hero (< threshold)', () => {
-    const prism = LIVING_LEGEND_POINTS['prism, awakener of sol'];
-    expect(prism).toBeLessThan(LIVING_LEGEND_THRESHOLD);
+    const victor = LIVING_LEGEND_POINTS['victor goldmane, high and mighty'];
+    expect(victor).toBeLessThan(LIVING_LEGEND_THRESHOLD);
   });
 });
 
@@ -398,7 +398,7 @@ describe('getAllClasses', () => {
 describe('getLivingLegendPoints / isLivingLegendGraduated', () => {
   it('returns points for known heroes (any casing)', () => {
     expect(getLivingLegendPoints('Bravo, Star of the Show')).toBeGreaterThanOrEqual(1000);
-    expect(getLivingLegendPoints('prism, awakener of sol')).toBeLessThan(1000);
+    expect(getLivingLegendPoints('victor goldmane, high and mighty')).toBeLessThan(1000);
   });
 
   it('returns null for heroes with no LL points', () => {
@@ -407,7 +407,7 @@ describe('getLivingLegendPoints / isLivingLegendGraduated', () => {
 
   it('isLivingLegendGraduated true for ≥ threshold, false otherwise', () => {
     expect(isLivingLegendGraduated('bravo, star of the show')).toBe(true);
-    expect(isLivingLegendGraduated('prism, awakener of sol')).toBe(false);
+    expect(isLivingLegendGraduated('victor goldmane, high and mighty')).toBe(false);
     expect(isLivingLegendGraduated('not-a-real-hero-xyz')).toBe(false);
   });
 });
