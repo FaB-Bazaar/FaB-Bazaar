@@ -277,6 +277,52 @@ function resolveCardFilters(card: { query?: string; filters?: any }): {
   };
 }
 
+/**
+ * Human summary of ONE search descriptor (the user-facing input, before
+ * heroLegal rewriting) — used as the /opt deep-link card subtitle so users
+ * know what a result set IS before clicking ("legal for Oscilio" with no
+ * other constraints reads very differently from "Photon Splicing, exact").
+ */
+export function describeSearchDescriptor(card: { query?: string; filters?: Record<string, any> }): string {
+  if (card.query) return `"${card.query}"`;
+  const f = card.filters ?? {};
+  const parts: string[] = [];
+  if (f.name) parts.push(`"${f.name}"${f.exact === false ? ' (fuzzy)' : ''}`);
+  if (f.text) parts.push(`text contains "${f.text}"`);
+  if (f.heroLegal) parts.push(`legal for ${f.heroLegal}`);
+  if (Array.isArray(f.classes) && f.classes.length) parts.push(f.classes.join('/'));
+  if (Array.isArray(f.talents) && f.talents.length) parts.push(f.talents.join('/'));
+  if (Array.isArray(f.types) && f.types.length) parts.push(f.types.join('/'));
+  if (Array.isArray(f.sets) && f.sets.length) parts.push(`sets ${f.sets.join(',')}`);
+  if (Array.isArray(f.rarities) && f.rarities.length) parts.push(`rarity ${f.rarities.join(',')}`);
+  if (Array.isArray(f.keywords) && f.keywords.length) parts.push(`keyword ${f.keywords.join(',')}`);
+  const pitchNames: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+  if (typeof f.pitch === 'number' && pitchNames[f.pitch]) parts.push(pitchNames[f.pitch]);
+  if (typeof f.color === 'string') parts.push(f.color);
+  if (f.format) parts.push(String(f.format));
+  if (typeof f.priceMin === 'number' && typeof f.priceMax === 'number') parts.push(`$${f.priceMin}–$${f.priceMax}`);
+  else if (typeof f.priceMax === 'number') parts.push(`under $${f.priceMax}`);
+  else if (typeof f.priceMin === 'number') parts.push(`over $${f.priceMin}`);
+  return parts.length ? parts.join(' · ') : 'no filters — the entire card pool';
+}
+
+/**
+ * Detects keys placed at the descriptor level that belong inside `filters`
+ * (a common LLM mistake: {cards:[{filters:{...}, priceMax: 100}]} silently
+ * loses the price cap). Returns a corrective warning, or null.
+ */
+export function warnOnMisplacedDescriptorKeys(cards: Array<Record<string, any>>): string | null {
+  const allowed = new Set(['query', 'filters', 'options']);
+  const misplaced = new Set<string>();
+  for (const card of cards) {
+    for (const key of Object.keys(card ?? {})) {
+      if (!allowed.has(key)) misplaced.add(key);
+    }
+  }
+  if (misplaced.size === 0) return null;
+  return `⚠️ Ignored unknown card-level key${misplaced.size > 1 ? 's' : ''}: ${[...misplaced].join(', ')}. Filter fields must go INSIDE filters, e.g. { cards: [{ filters: { name: "...", ${[...misplaced][0]}: ... } }] }.`;
+}
+
 export const searchPrintingsTool = {
   name: 'search_printings',
   description: `🔍 PRIMARY CARD SEARCH TOOL — find cards, look up printings, discover card versions, harvest IDs.
@@ -520,19 +566,24 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
     // Hybrid-search Bridge A: for single-descriptor searches, emit an /opt
     // deep link built from the SAME canonical filters this search used. It
     // rides structuredContent (UI-only) — zero extra tokens for the model.
-    let optSearchLink: { title: string; url: string } | undefined;
+    let optSearchLink: { title: string; subtitle: string; url: string } | undefined;
     if (cards.length === 1 && resolved[0]) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fabbazaar.app';
       optSearchLink = {
         title: `Open these ${totalFound} result${totalFound !== 1 ? 's' : ''} in card search`,
+        subtitle: describeSearchDescriptor(cards[0]),
         url: buildOptSearchUrl(resolved[0].filters as Record<string, unknown>, baseUrl),
       };
     }
 
+    // Misplaced-key feedback (e.g. priceMax outside filters): tell the model
+    // so it self-corrects instead of silently searching unconstrained.
+    const misplacedWarning = warnOnMisplacedDescriptorKeys(cards);
+
     return {
       success: true,
       optSearchLink,
-      message: `Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
+      message: `${misplacedWarning ? misplacedWarning + '\n\n' : ''}Found ${totalFound} result${totalFound !== 1 ? 's' : ''} across ${cards.length} card${cards.length !== 1 ? 's' : ''} (${dbPath}, ${duration}ms)\n\n${sections.join('\n\n')}`,
       results: output.map(r => {
         const sorted = r.printings.length > 0 ? sortPrintings(r.printings) : [];
         const cardPriceField = cards[r.index]?.filters?.priceField as PriceField | undefined;

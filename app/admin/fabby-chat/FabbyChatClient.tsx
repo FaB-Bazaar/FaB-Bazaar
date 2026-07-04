@@ -29,6 +29,17 @@ type UiItem =
   | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard }
   | { kind: 'data'; title: string; lines: CardLine[] };
 
+// $/M-token prices for the session cost readout (mirrors the route allowlist;
+// unknown models show token counts only).
+const MODEL_PRICES: Record<string, { input: number; output: number }> = {
+  'openai/gpt-5-nano': { input: 0.05, output: 0.4 },
+  'openai/gpt-oss-120b': { input: 0.03, output: 0.15 },
+  'openai/gpt-oss-120b:free': { input: 0, output: 0 },
+  'google/gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
+  'anthropic/claude-haiku-4.5': { input: 1, output: 5 },
+  mock: { input: 0, output: 0 },
+};
+
 function toStructuredCard(structured: unknown): StructuredCard | undefined {
   if (!structured || typeof structured !== 'object') return undefined;
   const s = structured as Record<string, unknown>;
@@ -58,6 +69,10 @@ export function FabbyChatClient({ username, mockMode, models }: {
   const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string }>>([]);
   const [targetBinderId, setTargetBinderId] = useState<string>('');
   const [railStatus, setRailStatus] = useState<{ wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' }>({});
+  // Cumulative session usage (accumulated from done events)
+  const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
+  const modelRef = useRef(models[0]);
+  useEffect(() => { modelRef.current = model; });
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +149,15 @@ export function FabbyChatClient({ username, mockMode, models }: {
 
       case 'done':
       case 'error': {
+        if (event.type === 'done' && event.usage) {
+          const usage = event.usage;
+          const price = MODEL_PRICES[modelRef.current];
+          setSessionUsage((prev) => ({
+            input: prev.input + usage.prompt_tokens,
+            output: prev.output + usage.completion_tokens,
+            cost: prev.cost + (price ? (usage.prompt_tokens * price.input + usage.completion_tokens * price.output) / 1e6 : 0),
+          }));
+        }
         const { assistantText, toolCalls, toolResults } = turnRef.current;
         setApiMessages((prev) => {
           const next = [...prev];
@@ -223,6 +247,7 @@ export function FabbyChatClient({ username, mockMode, models }: {
     setErrorBanner(null);
     setBusy(false);
     pendingContextRef.current = [];
+    setSessionUsage({ input: 0, output: 0, cost: 0 });
   }, []);
 
   const addPreviewToWants = useCallback(async () => {
@@ -265,6 +290,12 @@ export function FabbyChatClient({ username, mockMode, models }: {
             <Badge variant="outline" className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               Mock mode — no API key configured
+            </Badge>
+          )}
+          {sessionUsage.input > 0 && (
+            <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
+              {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
+              {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
             </Badge>
           )}
           <Button
@@ -420,6 +451,15 @@ export function FabbyChatClient({ username, mockMode, models }: {
             );
           })}
         </div>
+
+        {/* Thinking indicator — covers the silence between tool results and
+            the model's next tokens (streaming text has its own cursor) */}
+        {busy && !(items.at(-1)?.kind === 'assistant' && (items.at(-1) as any).streaming) && (
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 px-1" aria-live="polite">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            Waiting for {model}…
+          </div>
+        )}
 
         {/* Error banner */}
         {errorBanner && (
