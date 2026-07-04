@@ -456,20 +456,30 @@ export class PostgresOAuthFlowService implements IOAuthFlowService {
    */
   async registerClient(input: RegisterClientInput): AsyncResult<RegisterClientResultDTO> {
     try {
-      // Validate redirect URIs (HTTPS or localhost only)
+      // Validate redirect URIs: HTTPS anywhere, or plain http only on loopback.
+      // Loopback must include the IP literals (127.0.0.1 / [::1]) — RFC 8252 §7.3
+      // native apps (LM Studio et al.) register those rather than "localhost".
+      // Hostname is compared exactly (parsed URL), so "localhost.evil.com" fails.
       for (const uri of input.redirect_uris) {
+        let url: URL;
         try {
-          const url = new URL(uri);
-          if (!/^https:\/\//.test(uri) && !/^http:\/\/localhost/.test(uri)) {
-            return {
-              success: false,
-              error: `Redirect URI must use HTTPS or localhost: ${uri}`,
-            };
-          }
+          url = new URL(uri);
         } catch (error) {
           return {
             success: false,
             error: `Invalid redirect URI format: ${uri}`,
+          };
+        }
+        const isLoopback =
+          url.hostname === 'localhost' ||
+          url.hostname === '127.0.0.1' ||
+          url.hostname === '[::1]' ||
+          url.hostname === '::1';
+        const allowed = url.protocol === 'https:' || (url.protocol === 'http:' && isLoopback);
+        if (!allowed) {
+          return {
+            success: false,
+            error: `Redirect URI must use HTTPS or a loopback address (localhost, 127.0.0.1): ${uri}`,
           };
         }
       }
