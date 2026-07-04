@@ -79,7 +79,9 @@ export class PostgresOAuthService implements IOAuthService {
   /**
    * Create new OAuth client for user
    *
-   * NOTE: Automatically includes Claude's callback URL in redirect_uris
+   * NOTE: Automatically includes the callback URLs of known MCP chat clients
+   * (Claude, Mistral Le Chat) in redirect_uris, so pasted credentials work in
+   * any of them. /oauth/authorize exact-matches redirect_uri against this list.
    */
   async createClient(
     userId: string,
@@ -106,7 +108,10 @@ export class PostgresOAuthService implements IOAuthService {
         clientName,
         userId, // Link to specific user
         username: user.username, // For easier identification
-        redirectUris: ['https://claude.ai/api/mcp/auth_callback'], // Include Claude's callback URL by default
+        redirectUris: [
+          'https://claude.ai/api/mcp/auth_callback',
+          'https://callback.mistral.ai/v1/integrations_auth/oauth2_callback', // Mistral Le Chat
+        ],
         grantTypes: ['client_credentials', 'authorization_code', 'refresh_token'],
         responseTypes: ['token', 'code'],
         tokenEndpointAuthMethod: 'client_secret_basic' as const,
