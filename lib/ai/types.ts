@@ -52,6 +52,10 @@ export type Llm = (req: {
  */
 export type AgentEvent =
   | { type: 'token'; text: string }
+  // A destructive tool call is paused awaiting the user's decision. Non-
+  // terminal: followed by tool_start+tool_result (confirmed) or a failed
+  // tool_result alone (denied).
+  | { type: 'confirmation_request'; id: string; name: string; args: unknown }
   | { type: 'tool_start'; id: string; name: string; args: unknown }
   // `structured` is UI-only: MCP structuredContent forwarded to the browser
   // for rich rendering. It is NEVER placed in the LLM's messages — the model
@@ -72,3 +76,22 @@ export type ExecuteTool = (call: {
   args: unknown;
   signal?: AbortSignal;
 }) => Promise<ToolExecutionResult>;
+
+export type ConfirmationDecision = 'confirm' | 'deny';
+
+/**
+ * Human-in-the-loop gate for destructive tools. `required` picks which tool
+ * calls pause; `wait` resolves with the user's decision (how it gets that
+ * decision — pending-promise registry, second HTTP request — is the caller's
+ * business, which keeps the loop pure). `wait` should observe `signal` so an
+ * aborted run stops waiting promptly.
+ */
+export interface ConfirmationGate {
+  required: (name: string) => boolean;
+  wait: (call: {
+    id: string;
+    name: string;
+    args: unknown;
+    signal?: AbortSignal;
+  }) => Promise<ConfirmationDecision>;
+}

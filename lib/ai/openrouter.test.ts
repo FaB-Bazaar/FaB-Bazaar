@@ -103,6 +103,22 @@ describe('createMockLlm', () => {
     expect(JSON.parse(toolCallDelta.toolCalls[0].function.arguments)).toEqual({ cards: [{ query: 'pummel red' }] });
   });
 
+  it('answers a remove request with a scripted remove_from_wants call (drives the confirmation flow keylessly)', async () => {
+    const toolsWithRemove: OpenAiTool[] = [
+      ...TOOLS,
+      { type: 'function', function: { name: 'remove_from_wants', description: 'd', parameters: {} } },
+    ];
+    const deltas = await drain(mock({
+      messages: [{ role: 'user', content: 'remove pummel from my wants' }],
+      tools: toolsWithRemove,
+    }));
+
+    const toolCallDelta = deltas.find((d) => d.kind === 'tool_calls') as any;
+    expect(toolCallDelta.toolCalls[0].function.name).toBe('remove_from_wants');
+    expect(() => JSON.parse(toolCallDelta.toolCalls[0].function.arguments)).not.toThrow();
+    expect(deltas.at(-1)).toEqual({ kind: 'finish', reason: 'tool_calls' });
+  });
+
   it('answers a binder question with a scripted list_binders tool call', async () => {
     const deltas = await drain(mock({
       messages: [{ role: 'user', content: 'show my binders please' }],

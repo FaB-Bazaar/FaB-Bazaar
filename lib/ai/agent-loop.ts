@@ -9,6 +9,7 @@
 import type {
   AgentEvent,
   ChatMessage,
+  ConfirmationGate,
   ExecuteTool,
   Llm,
   OpenAiTool,
@@ -23,11 +24,12 @@ export async function runAgentLoop(opts: {
   tools: OpenAiTool[];
   llm: Llm;
   executeTool: ExecuteTool;
+  confirmation?: ConfirmationGate;
   maxIterations?: number;
   signal?: AbortSignal;
   onEvent: (event: AgentEvent) => void;
 }): Promise<void> {
-  const { tools, llm, executeTool, signal, onEvent } = opts;
+  const { tools, llm, executeTool, confirmation, signal, onEvent } = opts;
   const maxIterations = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   const messages: ChatMessage[] = [...opts.messages];
   let usage: Usage | undefined;
@@ -84,6 +86,32 @@ export async function runAgentLoop(opts: {
               args = JSON.parse(fn.arguments);
             } catch {
               parseError = `Invalid JSON arguments for ${fn.name}: ${fn.arguments.slice(0, 200)}`;
+            }
+          }
+
+          // Human-in-the-loop gate: a destructive call pauses here until the
+          // user decides. Malformed args skip the gate — they were never going
+          // to execute, so there is nothing to confirm.
+          if (!parseError && confirmation?.required(fn.name)) {
+            onEvent({ type: 'confirmation_request', id, name: fn.name, args });
+            let denialReason: string | null = null;
+            try {
+              const decision = await confirmation.wait({ id, name: fn.name, args, signal });
+              if (decision === 'deny') {
+                denialReason = `The user declined to run ${fn.name}. Do not retry it — acknowledge the refusal and ask how they'd like to proceed.`;
+              }
+            } catch (error) {
+              denialReason = `Confirmation for ${fn.name} failed (${
+                error instanceof Error ? error.message : String(error)
+              }) — the call was not executed.`;
+            }
+            if (aborted()) return;
+            if (denialReason) {
+              // No tool_start: nothing started. The failed tool_result closes
+              // the call for the UI, and the Error message lets the LLM adapt.
+              onEvent({ type: 'tool_result', id, name: fn.name, ok: false, content: denialReason, ms: 0 });
+              messages.push({ role: 'tool', tool_call_id: id, content: `Error: ${denialReason}` });
+              continue;
             }
           }
 

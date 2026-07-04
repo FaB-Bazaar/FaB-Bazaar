@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { AgentEvent, ChatMessage, Llm, LlmDelta, OpenAiTool, ToolCall } from './types';
+import type { AgentEvent, ChatMessage, ConfirmationGate, Llm, LlmDelta, OpenAiTool, ToolCall } from './types';
 import { runAgentLoop } from './agent-loop';
 
 const TOOLS: OpenAiTool[] = [
@@ -35,6 +35,7 @@ async function collect(opts: {
   executeTool?: (c: { name: string; args: unknown }) => Promise<{ ok: boolean; content: string }>;
   maxIterations?: number;
   signal?: AbortSignal;
+  confirmation?: ConfirmationGate;
 }): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];
   await runAgentLoop({
@@ -44,6 +45,7 @@ async function collect(opts: {
     executeTool: opts.executeTool ?? (async () => ({ ok: true, content: 'ok' })),
     maxIterations: opts.maxIterations,
     signal: opts.signal,
+    confirmation: opts.confirmation,
     onEvent: (e) => events.push(e),
   });
   return events;
@@ -264,6 +266,125 @@ describe('runAgentLoop', () => {
     const toolMsg = calls[1].find((m) => m.role === 'tool') as any;
     expect(toolMsg.content).toContain('Deck: CC Gravy (60 cards)');
     expect(JSON.stringify(calls[1])).not.toContain('"/decks/abc"');
+  });
+
+  describe('destructive-tool confirmation', () => {
+    /** One remove_from_wants tool round, then a closing text turn. */
+    const removeTurns = (): LlmDelta[][] => [
+      [
+        { kind: 'tool_calls', toolCalls: [call('c1', 'remove_from_wants', '{"printing_id":"p1","quantity":1}')] },
+        { kind: 'finish', reason: 'tool_calls' },
+      ],
+      [{ kind: 'text', text: 'done' }, { kind: 'finish', reason: 'stop' }],
+    ];
+
+    const gate = (wait: ConfirmationGate['wait']): ConfirmationGate => ({
+      required: (name) => name === 'remove_from_wants',
+      wait,
+    });
+
+    it('emits confirmation_request before executing and runs the tool after confirm', async () => {
+      const { llm } = scriptedLlm(...removeTurns());
+      const executeTool = vi.fn().mockResolvedValue({ ok: true, content: 'removed' });
+      const wait = vi.fn().mockResolvedValue('confirm');
+      const events = await collect({ llm, executeTool, confirmation: gate(wait) });
+
+      expect(events.map((e) => e.type)).toEqual([
+        'confirmation_request', 'tool_start', 'tool_result', 'token', 'done',
+      ]);
+      expect(events[0]).toEqual({
+        type: 'confirmation_request',
+        id: 'c1',
+        name: 'remove_from_wants',
+        args: { printing_id: 'p1', quantity: 1 },
+      });
+      // The gate saw the parsed call and executed only after it resolved
+      expect(wait).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'c1', name: 'remove_from_wants', args: { printing_id: 'p1', quantity: 1 },
+      }));
+      expect(executeTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('deny: never executes, surfaces a declined tool_result, and the LLM sees an Error tool message', async () => {
+      const { llm, calls } = scriptedLlm(...removeTurns());
+      const executeTool = vi.fn();
+      const events = await collect({
+        llm, executeTool, confirmation: gate(async () => 'deny'),
+      });
+
+      expect(executeTool).not.toHaveBeenCalled();
+      expect(events.map((e) => e.type)).toEqual([
+        'confirmation_request', 'tool_result', 'token', 'done',
+      ]);
+      const result = events[1] as Extract<AgentEvent, { type: 'tool_result' }>;
+      expect(result).toMatchObject({ id: 'c1', name: 'remove_from_wants', ok: false });
+      expect(result.content).toMatch(/declined/i);
+      // The model gets an Error-prefixed tool message so it can adapt
+      const toolMsg = calls[1].find((m) => m.role === 'tool') as any;
+      expect(toolMsg.content).toMatch(/^Error: /);
+      expect(toolMsg.content).toMatch(/declined/i);
+      expect(terminals(events)).toEqual([{ type: 'done', usage: undefined, iterations: 2 }]);
+    });
+
+    it('does not gate tools the predicate rejects', async () => {
+      const { llm } = scriptedLlm(
+        [
+          { kind: 'tool_calls', toolCalls: [call('c1', 'list_binders')] },
+          { kind: 'finish', reason: 'tool_calls' },
+        ],
+        [{ kind: 'finish', reason: 'stop' }],
+      );
+      const wait = vi.fn();
+      const events = await collect({ llm, confirmation: gate(wait) });
+
+      expect(wait).not.toHaveBeenCalled();
+      expect(events.map((e) => e.type)).toEqual(['tool_start', 'tool_result', 'done']);
+    });
+
+    it('goes silent when aborted while waiting for a decision', async () => {
+      const ac = new AbortController();
+      const { llm } = scriptedLlm(...removeTurns());
+      const executeTool = vi.fn();
+      const wait = vi.fn(async () => {
+        ac.abort();
+        return 'deny' as const;
+      });
+      const events = await collect({ llm, executeTool, confirmation: gate(wait), signal: ac.signal });
+
+      expect(executeTool).not.toHaveBeenCalled();
+      expect(events.map((e) => e.type)).toEqual(['confirmation_request']);
+    });
+
+    it('treats a thrown wait as a declined call, not a crash', async () => {
+      const { llm } = scriptedLlm(...removeTurns());
+      const executeTool = vi.fn();
+      const events = await collect({
+        llm, executeTool, confirmation: gate(async () => { throw new Error('registry down'); }),
+      });
+
+      expect(executeTool).not.toHaveBeenCalled();
+      const result = events.find((e) => e.type === 'tool_result') as any;
+      expect(result.ok).toBe(false);
+      expect(result.content).toContain('registry down');
+      expect(terminals(events)).toHaveLength(1);
+      expect(terminals(events)[0].type).toBe('done');
+    });
+
+    it('skips confirmation for invalid JSON args — nothing to confirm, nothing executes', async () => {
+      const { llm } = scriptedLlm(
+        [
+          { kind: 'tool_calls', toolCalls: [call('c1', 'remove_from_wants', '{oops')] },
+          { kind: 'finish', reason: 'tool_calls' },
+        ],
+        [{ kind: 'finish', reason: 'stop' }],
+      );
+      const wait = vi.fn();
+      const events = await collect({ llm, confirmation: gate(wait) });
+
+      expect(wait).not.toHaveBeenCalled();
+      expect(events.map((e) => e.type)).toEqual(['tool_start', 'tool_result', 'done']);
+      expect((events[1] as any).ok).toBe(false);
+    });
   });
 
   it('goes quiet after abort — no events emitted post-abort', async () => {

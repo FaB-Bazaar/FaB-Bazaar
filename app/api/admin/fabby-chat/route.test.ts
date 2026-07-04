@@ -24,6 +24,7 @@ import { auth } from '@/auth';
 import { userService, llmUsageService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { fetchLiteTools, executeTool } from '@/lib/ai/mcp-bridge';
+import { resolveConfirmation } from '@/lib/ai/confirmations';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
 const mockHasRole = vi.mocked(userService.hasRole);
@@ -55,6 +56,43 @@ async function readSseEvents(response: Response): Promise<any[]> {
     .filter((f) => f.startsWith('data: '))
     .map((f) => JSON.parse(f.slice(6)));
 }
+
+/**
+ * Incremental SSE reader for mid-stream assertions (the confirmation pause).
+ * `readUntil` pulls frames until the predicate matches or the stream ends.
+ */
+function sseReader(response: Response) {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const events: any[] = [];
+
+  async function readUntil(predicate: (e: any) => boolean): Promise<void> {
+    while (!events.some(predicate)) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      buffer += decoder.decode(value, { stream: true });
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        if (frame.startsWith('data: ')) events.push(JSON.parse(frame.slice(6)));
+      }
+    }
+  }
+
+  return { events, readUntil };
+}
+
+const REMOVE_TOOLS = {
+  tools: [
+    { type: 'function' as const, function: { name: 'list_binders', description: 'd', parameters: {} } },
+    { type: 'function' as const, function: { name: 'remove_from_wants', description: 'd', parameters: {} } },
+  ],
+  validNames: new Set(['list_binders', 'remove_from_wants']),
+};
+
+const REMOVE_BODY = { model: 'mock', messages: [{ role: 'user', content: 'remove pummel from my wants' }] };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -156,6 +194,49 @@ describe('POST /api/admin/fabby-chat', () => {
   it('checks the quota for the requesting user before streaming', async () => {
     await readSseEvents(await POST(request(VALID_BODY)));
     expect(mockGetTodayRequestCount).toHaveBeenCalledWith('user-1');
+  });
+
+  it('pauses a destructive tool call until the user confirms, then executes it', async () => {
+    mockFetchLiteTools.mockResolvedValue(REMOVE_TOOLS as any);
+    mockExecuteTool.mockResolvedValue({ ok: true, content: 'Removed 1x from wants' });
+
+    const res = await POST(request(REMOVE_BODY));
+    expect(res.status).toBe(200);
+    const { events, readUntil } = sseReader(res);
+
+    await readUntil((e) => e.type === 'confirmation_request');
+    const confirmation = events.find((e) => e.type === 'confirmation_request');
+    expect(confirmation).toMatchObject({ name: 'remove_from_wants' });
+    // Paused: nothing has executed yet
+    expect(mockExecuteTool).not.toHaveBeenCalled();
+    expect(events.some((e) => e.type === 'tool_start')).toBe(false);
+
+    // The registry entry is keyed to the session user (user-1)
+    expect(resolveConfirmation('user-1', confirmation.id, 'confirm')).toBe(true);
+
+    await readUntil((e) => e.type === 'done');
+    const types = events.map((e) => e.type);
+    expect(mockExecuteTool).toHaveBeenCalledWith(expect.objectContaining({ name: 'remove_from_wants' }));
+    expect(types).toContain('tool_start');
+    expect(types.at(-1)).toBe('done');
+  });
+
+  it('deny leaves the tool unexecuted and the stream still terminates with done', async () => {
+    mockFetchLiteTools.mockResolvedValue(REMOVE_TOOLS as any);
+
+    const res = await POST(request(REMOVE_BODY));
+    const { events, readUntil } = sseReader(res);
+
+    await readUntil((e) => e.type === 'confirmation_request');
+    const confirmation = events.find((e) => e.type === 'confirmation_request');
+    expect(resolveConfirmation('user-1', confirmation.id, 'deny')).toBe(true);
+
+    await readUntil((e) => e.type === 'done');
+    expect(mockExecuteTool).not.toHaveBeenCalled();
+    const result = events.find((e) => e.type === 'tool_result');
+    expect(result).toMatchObject({ ok: false });
+    expect(result.content).toMatch(/declined/i);
+    expect(events.filter((e) => e.type === 'done' || e.type === 'error')).toHaveLength(1);
   });
 
   it('injects the system prompt with the username', async () => {

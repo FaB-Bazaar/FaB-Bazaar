@@ -43,6 +43,11 @@ type UiItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; streaming: boolean }
   | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard; results?: SearchResultsCard }
+  // Destructive tool call paused server-side awaiting Confirm/Deny.
+  // pending → confirmed (tool_start arrives) or denied (failed tool_result
+  // arrives without a tool_start). `submitting` disables the buttons while the
+  // decision POST is in flight.
+  | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
   | { kind: 'data'; title: string; lines: CardLine[] };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
@@ -143,13 +148,32 @@ export function FabbyChatClient({ username, mockMode, models }: {
         });
         break;
 
-      case 'tool_start':
+      case 'confirmation_request':
+        // The loop pushes this call into the assistant message whether it is
+        // later confirmed or denied — mirror it now so the reconstructed
+        // apiMessages stay consistent (tool_start dedupes below).
         turnRef.current.toolCalls.push({
           id: event.id,
           type: 'function',
           function: { name: event.name, arguments: JSON.stringify(event.args ?? {}) },
         });
-        setItems((prev) => [...prev, { kind: 'tool', id: event.id, name: event.name, status: 'running' }]);
+        setItems((prev) => [...prev, { kind: 'confirm', id: event.id, name: event.name, args: event.args, status: 'pending' }]);
+        break;
+
+      case 'tool_start':
+        if (!turnRef.current.toolCalls.some((c) => c.id === event.id)) {
+          turnRef.current.toolCalls.push({
+            id: event.id,
+            type: 'function',
+            function: { name: event.name, arguments: JSON.stringify(event.args ?? {}) },
+          });
+        }
+        setItems((prev) => [
+          ...prev.map((item) =>
+            item.kind === 'confirm' && item.id === event.id ? { ...item, status: 'confirmed' as const } : item,
+          ),
+          { kind: 'tool', id: event.id, name: event.name, status: 'running' },
+        ]);
         break;
 
       case 'tool_result': {
@@ -159,11 +183,17 @@ export function FabbyChatClient({ username, mockMode, models }: {
         });
         const card = toStructuredCard(event.structured);
         const results = parseSearchResults(event.structured) ?? undefined;
-        setItems((prev) => prev.map((item) =>
-          item.kind === 'tool' && item.id === event.id
-            ? { ...item, status: event.ok ? 'ok' : 'error', ms: event.ms, card, results }
-            : item,
-        ));
+        setItems((prev) => prev.map((item) => {
+          if (item.kind === 'tool' && item.id === event.id) {
+            return { ...item, status: event.ok ? ('ok' as const) : ('error' as const), ms: event.ms, card, results };
+          }
+          // A result landing on a still-pending confirm card is the deny path
+          // (denied calls never get a tool_start).
+          if (item.kind === 'confirm' && item.id === event.id && item.status === 'pending') {
+            return { ...item, status: 'denied' as const };
+          }
+          return item;
+        }));
         break;
       }
 
@@ -278,6 +308,22 @@ export function FabbyChatClient({ username, mockMode, models }: {
   }, [busy, apiMessages, model, performTurn]);
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
+
+  // Confirm/Deny for a paused destructive tool call. The POST releases the
+  // server-side agent loop; the outcome (tool_start or a declined tool_result)
+  // arrives over the still-open stream, which is what flips the card's status.
+  const decideConfirmation = useCallback(async (id: string, decision: 'confirm' | 'deny') => {
+    setItems((prev) => prev.map((item) =>
+      item.kind === 'confirm' && item.id === id ? { ...item, submitting: true } : item,
+    ));
+    const result = await fabbyChatClient.resolveConfirmation({ id, decision });
+    if (!result.success) {
+      setErrorBanner(result.error);
+      setItems((prev) => prev.map((item) =>
+        item.kind === 'confirm' && item.id === id ? { ...item, submitting: false } : item,
+      ));
+    }
+  }, []);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -458,6 +504,74 @@ export function FabbyChatClient({ username, mockMode, models }: {
                 </div>
               );
             }
+            if (item.kind === 'confirm') {
+              const argEntries = item.args && typeof item.args === 'object'
+                ? Object.entries(item.args as Record<string, unknown>)
+                : [];
+              return (
+                <div
+                  key={index}
+                  className="self-start w-full max-w-[85%] rounded-lg border border-amber-500/60 bg-amber-500/10 px-3.5 py-2.5"
+                  role="group"
+                  aria-label={`Confirmation required: ${item.name}`}
+                >
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                    Fabby wants to run {item.name}
+                  </div>
+                  {argEntries.length > 0 && (
+                    <dl className="mt-1 text-sm text-gray-700 dark:text-gray-200">
+                      {argEntries.map(([key, value]) => (
+                        <div key={key} className="flex gap-1.5">
+                          <dt className="text-gray-600 dark:text-gray-300">{key}:</dt>
+                          <dd className="font-mono break-all">{typeof value === 'string' ? value : JSON.stringify(value)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {item.status === 'pending' ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={item.submitting}
+                        onClick={() => decideConfirmation(item.id, 'confirm')}
+                        className={`gap-1.5 ${focusRing}`}
+                      >
+                        {item.submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+                        Confirm
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={item.submitting}
+                        onClick={() => decideConfirmation(item.id, 'deny')}
+                        className={focusRing}
+                      >
+                        Deny
+                      </Button>
+                      <span className="text-xs text-gray-600 dark:text-gray-300">
+                        This changes your collection — nothing runs until you decide.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-sm">
+                      {item.status === 'confirmed' ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                          Confirmed
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+                          Denied — nothing was removed
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            }
             // tool chip (+ optional structured card from the token-bypass channel)
             return (
               <div key={index} className="self-start flex flex-col gap-1.5">
@@ -528,7 +642,9 @@ export function FabbyChatClient({ username, mockMode, models }: {
 
         {/* Thinking indicator — covers the silence between tool results and
             the model's next tokens (streaming text has its own cursor) */}
-        {busy && !(items.at(-1)?.kind === 'assistant' && (items.at(-1) as any).streaming) && (
+        {busy
+          && !(items.at(-1)?.kind === 'assistant' && (items.at(-1) as any).streaming)
+          && !(items.at(-1)?.kind === 'confirm' && (items.at(-1) as any).status === 'pending') && (
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 px-1" aria-live="polite">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             Waiting for {model}…

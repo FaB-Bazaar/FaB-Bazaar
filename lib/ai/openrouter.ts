@@ -193,8 +193,10 @@ export function createMockLlm(opts: { sleepMs?: number }): Llm {
 
   return async function* ({ messages, tools }) {
     const last = messages.at(-1);
+    // Note: not Extract<ChatMessage, { role: 'user' }> — that resolves to
+    // never because the union member's role is 'system' | 'user'.
     const lastUser = [...messages].reverse().find((m) => m.role === 'user') as
-      | Extract<ChatMessage, { role: 'user' }>
+      | { role: 'system' | 'user'; content: string }
       | undefined;
 
     // 1. Just got a tool result back → summarize it.
@@ -227,7 +229,25 @@ export function createMockLlm(opts: { sleepMs?: number }): Llm {
       return;
     }
 
-    // 3. Binder question and list_binders is available → scripted tool call.
+    // 3. "remove …" → scripted remove_from_wants call. Checked before the
+    //    binder rule ("remove X from my binder" contains "binder") so remove
+    //    requests always demo the destructive-confirmation pause.
+    const hasRemoveWants = tools.some((t) => t.function.name === 'remove_from_wants');
+    if (lastUser && /\bremove\b/i.test(lastUser.content) && hasRemoveWants) {
+      yield* streamText('I can remove that from your wants. ');
+      yield {
+        kind: 'tool_calls',
+        toolCalls: [{
+          id: 'mock-remove-1',
+          type: 'function',
+          function: { name: 'remove_from_wants', arguments: JSON.stringify({ printing_id: 'mock-printing-1', quantity: 1 }) },
+        }],
+      };
+      yield { kind: 'finish', reason: 'tool_calls' };
+      return;
+    }
+
+    // 4. Binder question and list_binders is available → scripted tool call.
     const hasListBinders = tools.some((t) => t.function.name === 'list_binders');
     if (lastUser && /binder/i.test(lastUser.content) && hasListBinders) {
       yield* streamText('Let me check your binders. ');
@@ -239,7 +259,7 @@ export function createMockLlm(opts: { sleepMs?: number }): Llm {
       return;
     }
 
-    // 4. Fallback help text.
+    // 5. Fallback help text.
     yield* streamText(
       'Mock mode — no OPENROUTER_API_KEY is configured, so I follow a fixed script. ' +
         'Try asking about your binders, or "search for pummel red", to see a full tool round-trip.',
