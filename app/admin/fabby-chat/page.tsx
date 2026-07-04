@@ -27,7 +27,7 @@ export default async function FabbyChatAdminPage() {
     : ['mock', 'google/gemini-3.1-flash-lite', 'anthropic/claude-haiku-4.5'];
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8">
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
       <h1 className="text-3xl font-bold mb-2">Fabby Chat (prototype)</h1>
       <p className="text-muted-foreground mb-6">
         Hosted agent loop over the lite MCP toolset — superadmin preview of the future hosted tier.

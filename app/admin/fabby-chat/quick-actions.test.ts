@@ -33,13 +33,17 @@ describe('summarizeBinders', () => {
 });
 
 describe('summarizeWantsCards', () => {
-  it('formats the legacy wants cards shape defensively', () => {
+  it('formats the legacy wants cards shape defensively, with hover previews', () => {
     const result = summarizeWantsCards([
       { display_name: 'Vigorous Smashup (Red)', quantity: 2, priority: 'high' },
       { name: 'Pummel' }, // missing quantity/priority must not crash
     ]);
-    expect(result.lines[0]).toBe('2× Vigorous Smashup (Red) (high)');
-    expect(result.lines[1]).toBe('1× Pummel');
+    expect(result.lines[0]).toMatchObject({
+      text: '2× Vigorous Smashup (Red) (high)',
+      preview: { name: 'Vigorous Smashup (Red)' },
+    });
+    expect((result.lines[0] as any).preview.imageUrl).toBeTruthy();
+    expect(result.lines[1]).toMatchObject({ text: '1× Pummel' });
     expect(result.title).toBe('Your wants (2)');
   });
 
@@ -59,14 +63,17 @@ describe('summarizeDecks', () => {
 });
 
 describe('summarizeBinderCards', () => {
-  it('formats contents with for-trade markers and a total line', () => {
+  it('formats contents with for-trade markers, previews, and a total line', () => {
     const result = summarizeBinderCards('Pirate', [
       { display_name: 'Gravy Bones, Shipwrecked Looter', quantity: 1 },
       { name: 'Salt the Wound', quantity: 3, forTrade: true },
     ], 56);
     expect(result.title).toBe('Binder: Pirate');
-    expect(result.lines[0]).toBe('1× Gravy Bones, Shipwrecked Looter');
-    expect(result.lines[1]).toBe('3× Salt the Wound · for trade');
+    expect(result.lines[0]).toMatchObject({
+      text: '1× Gravy Bones, Shipwrecked Looter',
+      preview: { name: 'Gravy Bones, Shipwrecked Looter' },
+    });
+    expect(result.lines[1]).toMatchObject({ text: '3× Salt the Wound · for trade' });
     expect(result.lines[2]).toBe('Total: 56 cards');
     expect(result.context).toContain('"Pirate"');
     expect(result.context).toContain('[for trade]');

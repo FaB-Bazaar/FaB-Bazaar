@@ -50,6 +50,8 @@ export function FabbyChatClient({ username, mockMode, models }: {
   const [busy, setBusy] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  // Desktop-only card preview rail (hover/focus on a card line shows it)
+  const [previewCard, setPreviewCard] = useState<{ imageUrl: string; name: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -204,7 +206,8 @@ export function FabbyChatClient({ username, mockMode, models }: {
   const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
   return (
-    <Card>
+    <div className="flex gap-4 items-start">
+    <Card className="flex-1 min-w-0">
       <CardContent className="p-4 flex flex-col gap-4">
         {/* Header row: model picker + mode badge + reset */}
         <div className="flex flex-wrap items-center gap-3">
@@ -295,21 +298,41 @@ export function FabbyChatClient({ username, mockMode, models }: {
                     <span className="text-sm text-gray-600 dark:text-gray-300">· instant, no AI</span>
                   </div>
                   <ul className="text-sm max-h-44 overflow-y-auto space-y-0.5 list-disc list-inside">
-                    {item.lines.map((line, lineIndex) => (
-                      <li key={lineIndex}>
-                        {typeof line === 'string' ? line : (
-                          <button
-                            type="button"
-                            onClick={() => drillBinder(line.drill.binderId, line.drill.name)}
-                            disabled={busy || runningAction !== null}
-                            title={`Show contents of ${line.drill.name} — instant, no AI`}
-                            className={`underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
-                          >
-                            {line.text}
-                          </button>
-                        )}
-                      </li>
-                    ))}
+                    {item.lines.map((line, lineIndex) => {
+                      if (typeof line === 'string') return <li key={lineIndex}>{line}</li>;
+                      if (line.drill) {
+                        const drill = line.drill;
+                        return (
+                          <li key={lineIndex}>
+                            <button
+                              type="button"
+                              onClick={() => drillBinder(drill.binderId, drill.name)}
+                              disabled={busy || runningAction !== null}
+                              title={`Show contents of ${drill.name} — instant, no AI`}
+                              className={`underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
+                            >
+                              {line.text}
+                            </button>
+                          </li>
+                        );
+                      }
+                      if (line.preview) {
+                        const preview = line.preview;
+                        return (
+                          <li key={lineIndex}>
+                            <span
+                              tabIndex={0}
+                              onMouseEnter={() => setPreviewCard(preview)}
+                              onFocus={() => setPreviewCard(preview)}
+                              className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+                            >
+                              {line.text}
+                            </span>
+                          </li>
+                        );
+                      }
+                      return <li key={lineIndex}>{line.text}</li>;
+                    })}
                   </ul>
                 </div>
               );
@@ -395,5 +418,25 @@ export function FabbyChatClient({ username, mockMode, models }: {
         </div>
       </CardContent>
     </Card>
+
+    {/* Desktop card preview rail — mirrors the deck editor's hover preview */}
+    <div className="hidden lg:block w-64 shrink-0 sticky top-4">
+      {previewCard ? (
+        <div className="rounded-lg border border-border bg-card p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewCard.imageUrl}
+            alt={previewCard.name}
+            className="w-full rounded-md"
+          />
+          <p className="mt-2 font-semibold text-center">{previewCard.name}</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-gray-600 dark:text-gray-300">
+          Hover a card in a list to preview it here
+        </div>
+      )}
+    </div>
+    </div>
   );
 }

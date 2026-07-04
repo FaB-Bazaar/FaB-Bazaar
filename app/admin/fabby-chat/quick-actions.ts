@@ -15,9 +15,17 @@
 // returns the old WantsList format).
 
 import { bindersClient, wantsClient, decksClient } from '@/lib/client';
+import { getCardImageUrl } from '@/lib/utils';
 
-/** A display line; binder lines carry a drill target for one-click contents. */
-export type CardLine = string | { text: string; drill: { binderId: string; name: string } };
+/**
+ * A display line. Binder lines carry a drill target (one-click contents);
+ * card lines carry a preview (hover shows the card image in the desktop rail).
+ */
+export type CardLine = string | {
+  text: string;
+  drill?: { binderId: string; name: string };
+  preview?: { imageUrl: string; name: string };
+};
 
 export interface QuickActionResult {
   title: string;
@@ -58,7 +66,10 @@ export function summarizeWantsCards(
   const label = (c: { display_name?: string; name?: string }) => c.display_name || c.name || 'Unknown card';
   const lines: CardLine[] = cards.length === 0
     ? ['Your wants list is empty.']
-    : cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`);
+    : cards.map((c) => ({
+        text: `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`,
+        preview: { imageUrl: getCardImageUrl(c), name: label(c) },
+      }));
   return {
     title: `Your wants (${cards.length})`,
     lines,
@@ -91,7 +102,10 @@ export function summarizeBinderCards(
   const label = (c: { display_name?: string; name?: string }) => c.display_name || c.name || 'Unknown card';
   const lines: CardLine[] = cards.length === 0
     ? ['This binder is empty.']
-    : cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.forTrade ? ' · for trade' : ''}`);
+    : cards.map((c) => ({
+        text: `${c.quantity ?? 1}× ${label(c)}${c.forTrade ? ' · for trade' : ''}`,
+        preview: { imageUrl: getCardImageUrl(c), name: label(c) },
+      }));
   if (totalQuantity !== undefined && cards.length > 0) {
     lines.push(`Total: ${totalQuantity} cards`);
   }
