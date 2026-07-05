@@ -77,6 +77,56 @@ function wantMeta(c: {
   return `${num ? ` · ${num}` : ''}${foil ? ` · ${foil}` : ''}${price ? ` · $${price.toFixed(2)}` : ''}`;
 }
 
+/** A structured card row — renders as a UI table row and a Discord shorthand line. */
+export interface CardRow {
+  qty: number;
+  name: string;
+  pitch?: number;
+  collector?: string;
+  foiling?: string;   // code: s/r/c/g
+  price?: number;
+  extendedArt?: boolean;
+  marvel?: boolean;   // rarity 'v'
+  forTrade?: boolean;
+  priority?: string;
+  preview: CardPreview;
+}
+
+const FOIL_TAG: Record<string, string> = { r: 'RF', c: 'CF', g: 'GF' }; // s (non-foil) intentionally omitted
+
+/** Discord/trade-post shorthand for one card: "3x EA RF Marvel Card Name". */
+export function toShorthand(r: CardRow): string {
+  const parts: string[] = [];
+  if (r.qty > 1) parts.push(`${r.qty}x`);
+  if (r.extendedArt) parts.push('EA');
+  const foil = FOIL_TAG[r.foiling ?? ''];
+  if (foil) parts.push(foil);
+  if (r.marvel) parts.push('Marvel');
+  parts.push(r.name);
+  return parts.join(' ');
+}
+
+/** Build a CardRow from a wants/binder card payload (tolerant of flat + nested shapes). */
+function toCardRow(c: any): CardRow {
+  const d = c.printingDetails ?? {};
+  const name = c.display_name || d.display_name || c.name || 'Unknown card';
+  const rawPrice = d.tcg_low ?? d.tcg_market ?? c.tcg_low ?? c.tcg_market ?? c.value;
+  const price = typeof rawPrice === 'number' ? rawPrice : typeof rawPrice === 'string' ? parseFloat(rawPrice) || undefined : undefined;
+  return {
+    qty: c.quantity ?? 1,
+    name,
+    pitch: cardPitch(c),
+    collector: (c.collector_number ?? d.collector_number ?? '').toUpperCase() || undefined,
+    foiling: c.foiling ?? d.foiling ?? undefined,
+    price,
+    extendedArt: !!(c.is_extended_art ?? d.is_extended_art),
+    marvel: (c.rarity ?? d.rarity) === 'v',
+    forTrade: c.forTrade ?? undefined,
+    priority: c.priority ?? undefined,
+    preview: toCardPreview(c, name),
+  };
+}
+
 /** Extracts a rail preview from any of the card payload shapes we render. */
 export function toCardPreview(card: any, name: string): CardPreview {
   const details = card?.printingDetails ?? {};
@@ -100,6 +150,10 @@ export interface QuickActionResult {
   cards?: DeckViewCard[];
   /** Overlay subtitle clarifying what the card grid represents (e.g. "missing"). */
   cardsSubtitle?: string;
+  /** Structured rows → a scannable UI table + Discord copy (wants / binder). */
+  tableRows?: CardRow[];
+  /** Copy header line (e.g. "Wants:" / binder name) for the Discord copy. */
+  copyHeader?: string;
 }
 
 export interface QuickAction {
@@ -129,7 +183,7 @@ export function summarizeBinders(
 }
 
 export function summarizeWantsCards(
-  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; foiling?: string; pitch?: number; collector_number?: string; value?: string | number; printingDetails?: { display_name?: string; foiling?: string; pitch?: number; collector_number?: string; tcg_low?: number; tcg_market?: number } }>,
+  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; foiling?: string; pitch?: number; collector_number?: string; rarity?: string; is_extended_art?: boolean; value?: string | number; printingDetails?: { display_name?: string; foiling?: string; pitch?: number; collector_number?: string; tcg_low?: number; tcg_market?: number } }>,
 ): QuickActionResult {
   // /api/wants exposes display_name only inside printingDetails; the top-level
   // `name` is the lowercase internal name — so read the proper name first.
@@ -148,6 +202,7 @@ export function summarizeWantsCards(
     context: `The user's wants list (qty× name, priority): ${
       cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`).join('; ') || 'empty'
     }`,
+    ...(cards.length ? { tableRows: cards.map(toCardRow), copyHeader: 'Wants:' } : {}),
   };
 }
 
@@ -252,7 +307,7 @@ export function summarizeDeckContents(deck: {
 
 export function summarizeBinderCards(
   binderName: string,
-  cards: Array<{ display_name?: string; name?: string; quantity?: number; forTrade?: boolean; set?: string; foiling?: string; pitch?: number; printingDetails?: { set?: string; foiling?: string; pitch?: number } }>,
+  cards: Array<{ display_name?: string; name?: string; quantity?: number; forTrade?: boolean; set?: string; foiling?: string; pitch?: number; collector_number?: string; rarity?: string; is_extended_art?: boolean; printingDetails?: { set?: string; foiling?: string; pitch?: number } }>,
   totalQuantity?: number,
 ): QuickActionResult {
   const label = (c: { display_name?: string; name?: string }) => c.display_name || c.name || 'Unknown card';
@@ -272,6 +327,7 @@ export function summarizeBinderCards(
     context: `Contents of the user's binder "${binderName}" (qty× name): ${
       cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.forTrade ? ' [for trade]' : ''}`).join('; ') || 'empty'
     }`,
+    ...(cards.length ? { tableRows: cards.map(toCardRow), copyHeader: `${binderName}:` } : {}),
   };
 }
 

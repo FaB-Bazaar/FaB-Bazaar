@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
         set: item.set,
         rarity: item.rarity,
         foiling: item.foiling,
+        is_extended_art: item.is_extended_art,
         color: item.color,
         printingId: item.printingId,
         quantity: item.quantity,

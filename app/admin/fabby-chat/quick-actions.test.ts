@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import {
   summarizeBinders,
   summarizeWantsCards,
+  toShorthand,
   summarizeDecks,
   summarizeBinderCards,
   summarizeDeckContents,
@@ -34,6 +35,17 @@ describe('summarizeBinders', () => {
     const result = summarizeBinders([]);
     expect(result.lines).toEqual(['No binders yet.']);
     expect(result.context).toContain('none');
+  });
+});
+
+describe('toShorthand (Discord copy format)', () => {
+  const row = (o: Partial<any>) => ({ qty: 1, name: 'X', preview: {} as any, ...o });
+  it('formats qty (omit when 1), EA, foil, Marvel, then name', () => {
+    expect(toShorthand(row({ qty: 3, extendedArt: true, foiling: 'r', name: 'Sigil of Brilliance' }))).toBe('3x EA RF Sigil of Brilliance');
+    expect(toShorthand(row({ qty: 3, foiling: 'r', name: 'Null // Shock' }))).toBe('3x RF Null // Shock');
+    expect(toShorthand(row({ qty: 1, foiling: 'c', name: 'Savage Claw' }))).toBe('CF Savage Claw');
+    expect(toShorthand(row({ qty: 1, marvel: true, name: 'Oscilio, Constella Intelligence' }))).toBe('Marvel Oscilio, Constella Intelligence');
+    expect(toShorthand(row({ qty: 2, name: 'Plain Card' }))).toBe('2x Plain Card'); // non-foil omitted
   });
 });
 
@@ -67,6 +79,17 @@ describe('summarizeWantsCards', () => {
     expect(line.text).toContain('$0.25');  // price
     expect(line.text).toContain('(high)');
     expect(line.pitch).toBe(3);
+  });
+
+  it('emits table rows + a copy header for the UI table / Discord copy', () => {
+    const result = summarizeWantsCards([
+      { display_name: 'Sigil of Brilliance', quantity: 3, foiling: 'r', is_extended_art: true, rarity: 'm',
+        printingDetails: { collector_number: 'ROS022', tcg_low: 25.97, pitch: 2 } } as any,
+    ]);
+    expect(result.copyHeader).toMatch(/wants/i);
+    const r = result.tableRows?.[0] as any;
+    expect(r).toMatchObject({ qty: 3, name: 'Sigil of Brilliance', foiling: 'r', extendedArt: true, collector: 'ROS022', pitch: 2 });
+    expect(toShorthand(r)).toBe('3x EA RF Sigil of Brilliance');
   });
 
   it('prefers display_name from printingDetails over the lowercase top-level name', () => {
@@ -229,6 +252,16 @@ describe('summarizeBinderCards', () => {
     expect(line.text).toContain('RF');    // rainbow foil
     expect(line.text).toContain('for trade');
     expect(line.pitch).toBe(1);           // drives the pitch gem
+  });
+
+  it('emits table rows + a copy header (with binder name)', () => {
+    const result = summarizeBinderCards('Pirate', [
+      { display_name: 'Teklo Pounder', quantity: 1, foiling: 'c', set: 'arc', collector_number: 'ARC110', pitch: 0, forTrade: true } as any,
+    ], 1);
+    expect(result.copyHeader).toMatch(/Pirate/);
+    const r = result.tableRows?.[0] as any;
+    expect(r).toMatchObject({ qty: 1, name: 'Teklo Pounder', foiling: 'c', collector: 'ARC110', forTrade: true });
+    expect(toShorthand(r)).toBe('CF Teklo Pounder');
   });
 });
 

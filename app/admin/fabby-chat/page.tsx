@@ -76,6 +76,7 @@ export default async function FabbyChatAdminPage({ searchParams }: {
       </div>
       <FabbyChatClient
         username={user.name || 'collector'}
+        userId={user.id}
         mockMode={mockMode}
         models={models}
         initialContext={initialContext}

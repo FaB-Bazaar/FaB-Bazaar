@@ -10,15 +10,15 @@ import {
 } from '@/components/ui/select';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus,
+  Heart, FolderPlus, Copy, Check,
 } from 'lucide-react';
 import { fabbyChatClient, wantsClient, bindersClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
-  fetchToBeatHeroes, runArchetypeConsensus,
-  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero,
+  fetchToBeatHeroes, runArchetypeConsensus, toShorthand,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type CardRow,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildCardNameIndex } from './card-linkify';
@@ -68,6 +68,8 @@ function PitchGem({ pitch }: { pitch?: number }) {
   );
 }
 
+const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
+
 interface StructuredCard {
   title?: string;
   subtitle?: string;
@@ -83,7 +85,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -110,8 +112,9 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function FabbyChatClient({ username, mockMode, models, initialContext, initialData }: {
+export function FabbyChatClient({ username, userId, mockMode, models, initialContext, initialData }: {
   username: string;
+  userId: string;
   mockMode: boolean;
   models: string[];
   /** Pre-queued context (e.g. the Bridge B /opt handoff) — rides the
@@ -304,20 +307,41 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
     try {
       const result = await run();
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle }]);
+      // The shareable page URL for a wants list / a specific binder drill.
+      const base = process.env.NEXT_PUBLIC_APP_URL || 'https://fabbazaar.app';
+      const sourceUrl = actionId === 'wants'
+        ? `${base}/wants/${userId}`
+        : actionId.startsWith('binder:')
+          ? `${base}/binder/${actionId.slice('binder:'.length)}`
+          : undefined;
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
     } finally {
       setRunningAction(null);
     }
-  }, [busy, runningAction]);
+  }, [busy, runningAction, userId]);
+
+  // Copy a wants/binder card list as Discord-friendly shorthand + link.
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const copyList = useCallback((idx: number, header: string | undefined, rows: CardRow[], url?: string) => {
+    const text = [
+      header,
+      ...rows.map(toShorthand),
+      ...(url ? ['', url] : []),
+    ].filter((l) => l !== undefined).join('\n');
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx((c) => (c === idx ? null : c)), 1500);
+    });
+  }, []);
 
   const runQuickAction = useCallback((actionId: string) => {
     const action = QUICK_ACTIONS.find((a) => a.id === actionId);
@@ -608,22 +632,80 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
-                    {item.cards && item.cards.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
-                        className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
-                        title="View these cards as a grid"
-                      >
-                        <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                        View as cards
-                      </button>
-                    )}
+                    <div className="ml-auto shrink-0 flex items-center gap-1.5">
+                      {item.tableRows && item.tableRows.length > 0 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => copyList(index, item.copyHeader, item.tableRows!, item.sourceUrl)}
+                            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted ${focusRing}`}
+                            title="Copy as text (for Discord / trade posts)"
+                          >
+                            {copiedIdx === index
+                              ? <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" />Copied</>
+                              : <><Copy className="h-3.5 w-3.5" aria-hidden="true" />Copy</>}
+                          </button>
+                          {item.sourceUrl && (
+                            <a
+                              href={item.sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
+                              title="Open on FaB Bazaar"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                              Open
+                            </a>
+                          )}
+                        </>
+                      )}
+                      {item.cards && item.cards.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
+                          className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
+                          title="View these cards as a grid"
+                        >
+                          <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                          View as cards
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {/* Lines wrap (min-w-0/break-words) so nothing is clipped — the
-                      full text stays visible and available for the AI context, and
-                      the 2-column layout never overlaps; overflow-auto scrolls only
-                      if an unbreakable token exceeds the width. */}
+                  {item.tableRows && item.tableRows.length > 0 && (
+                    <div className="max-h-72 overflow-auto">
+                      <table className="w-full text-sm border-separate border-spacing-x-2 border-spacing-y-0.5">
+                        <tbody>
+                          {item.tableRows.map((r, i) => (
+                            <tr key={i}>
+                              <td className="align-middle w-5"><PitchGem pitch={r.pitch} /></td>
+                              <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.qty}×</td>
+                              <td className="align-middle">
+                                <span
+                                  tabIndex={0}
+                                  onMouseEnter={() => setPreviewCard(r.preview)}
+                                  onFocus={() => setPreviewCard(r.preview)}
+                                  className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+                                >
+                                  {r.name}
+                                </span>
+                                {r.extendedArt && <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">EA</span>}
+                                {r.marvel && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Marvel</span>}
+                              </td>
+                              <td className="align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
+                              <td className="align-middle text-xs text-gray-500 dark:text-gray-400">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
+                              <td className="align-middle text-right text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
+                              <td className="align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.forTrade ? 'trade' : r.priority ? r.priority : ''}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {/* Non-table results render as wrapping lines (min-w-0/break-words)
+                      so nothing is clipped and all text stays available for the AI
+                      context; overflow-auto scrolls only if a token exceeds width. */}
+                  {!(item.tableRows && item.tableRows.length > 0) && (
                   <ul className={`text-sm max-h-72 overflow-auto space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') {
@@ -687,6 +769,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                       );
                     })}
                   </ul>
+                  )}
                 </div>
               );
             }
