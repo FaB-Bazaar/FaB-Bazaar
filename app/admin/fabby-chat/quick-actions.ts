@@ -16,6 +16,7 @@
 
 import { bindersClient, wantsClient, decksClient } from '@/lib/client';
 import { getCardImageUrl } from '@/lib/utils';
+import { deckColorBreakdown } from '@/lib/deck/analytics';
 
 /**
  * A display line. Binder/deck lines carry a drill target (one-click
@@ -169,18 +170,29 @@ export function summarizeDeckContents(deck: {
     lines.push(...cards.map(cardLine));
     contextParts.push(`${sectionName}: ${cards.map(contextLine).join(', ')}`);
   }
+  // Instant, no-AI color breakdown of the maindeck — answers "how many blue
+  // cards" the moment you open a deck, computed from pitch (not the LLM).
+  let colorSummary = '';
+  const colors = deckColorBreakdown(deck.maindeck ?? []);
+  if (colors.red + colors.yellow + colors.blue > 0) {
+    colorSummary = `🎨 Maindeck colors: ${colors.red} red · ${colors.yellow} yellow · ${colors.blue} blue`;
+  }
+
   if (lines.length === 0) lines.push('This deck is empty.');
-  else if (deck.publicId) {
-    lines.unshift({
-      text: '✓ Check what I own vs. this deck',
-      drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
-    });
+  else {
+    if (deck.publicId) {
+      lines.unshift({
+        text: '✓ Check what I own vs. this deck',
+        drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
+      });
+    }
+    if (colorSummary) lines.unshift(colorSummary);
   }
 
   return {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
     lines,
-    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${contextParts.join('. ') || 'Empty deck.'}`,
+    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
   };
 }
 
@@ -242,6 +254,65 @@ export function parseSearchResults(structured: any, maxRows = 20): SearchResults
   });
 
   return { rows, total: first.total ?? first.printings.length, shown: rows.length };
+}
+
+/** Shape returned by GET /api/decks/archetype (deterministic, no AI). */
+export interface ArchetypeConsensusData {
+  heroName: string;
+  format?: string | null;
+  months: number;
+  consensus: {
+    deckCount: number;
+    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
+    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
+    colorCurve: { red: number; yellow: number; blue: number };
+  };
+  decks: Array<{ publicId: string; name: string; placing?: number | null; eventName?: string | null }>;
+}
+
+/**
+ * Render the cross-deck archetype consensus as instant, no-AI result lines:
+ * the color curve, the core (unanimous) cards, and the flex cards with their
+ * adoption ratio — the deterministic version of "compare these decks".
+ */
+export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): QuickActionResult {
+  const { consensus: c, heroName, months } = data;
+  const title = `${heroName} — consensus of ${c.deckCount} deck${c.deckCount !== 1 ? 's' : ''} (last ${months} mo)`;
+
+  if (c.deckCount === 0) {
+    return {
+      title,
+      lines: [`No featured "Decks to Beat" found for ${heroName} in the last ${months} months.`],
+      context: `No featured decks for ${heroName} in the last ${months} months.`,
+    };
+  }
+
+  const cardLine = (card: { name: string; pitch?: number; decks: number; typicalQty: number }, showRatio: boolean): CardLine => ({
+    text: `${card.typicalQty}× ${card.name}${showRatio ? ` — ${card.decks}/${c.deckCount} decks` : ''}`,
+    pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
+  });
+
+  const lines: CardLine[] = [
+    `🎨 Avg colors: ${c.colorCurve.red} red · ${c.colorCurve.yellow} yellow · ${c.colorCurve.blue} blue`,
+  ];
+  if (c.core.length) {
+    lines.push(`— Core (${c.core.length}) · in all ${c.deckCount} decks —`);
+    lines.push(...c.core.map((card) => cardLine(card, false)));
+  }
+  if (c.flex.length) {
+    lines.push(`— Flex (${c.flex.length}) · varies by build —`);
+    lines.push(...c.flex.map((card) => cardLine(card, true)));
+  }
+
+  const flexSummary = c.flex.slice(0, 8).map((f) => `${f.name} ${f.decks}/${c.deckCount}`).join(', ');
+  return {
+    title,
+    lines,
+    context: `Deterministic consensus across ${c.deckCount} featured ${heroName} decks (last ${months} mo). `
+      + `Core (all decks): ${c.core.map((x) => `${x.typicalQty}× ${x.name}`).join(', ')}. `
+      + `Flex (varies): ${flexSummary}. `
+      + `Avg color curve: ${c.colorCurve.red}R/${c.colorCurve.yellow}Y/${c.colorCurve.blue}B.`,
+  };
 }
 
 /** One card lifted from any structured tool payload, ready to index by name. */
@@ -469,4 +540,40 @@ export function runDrill(drill: DrillTarget): Promise<QuickActionResult> {
   if (drill.kind === 'binder') return runBinderDrill(drill.id, drill.name);
   if (drill.kind === 'deck-compare') return runDeckCompareDrill(drill.id, drill.name);
   return runDeckDrill(drill.id);
+}
+
+export interface ToBeatHero {
+  heroName: string;      // exact stored value — matches the archetype query
+  displayName: string;   // friendly label for the dropdown
+  formats: string[];
+}
+
+/** Distinct heroes among current featured "Decks to Beat" — populates the archetype picker. */
+export async function fetchToBeatHeroes(): Promise<ToBeatHero[]> {
+  const response = await fetch('/api/decks/community?featured=true&limit=50', { credentials: 'include' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load decks to beat');
+  const decks: any[] = body?.data?.decks ?? [];
+  const map = new Map<string, { heroName: string; displayName: string; formats: Set<string> }>();
+  for (const d of decks) {
+    const heroName = d.heroName;
+    if (!heroName) continue;
+    const key = heroName.toLowerCase();
+    const e = map.get(key) ?? { heroName, displayName: d.heroDisplayName || heroName, formats: new Set<string>() };
+    if (d.format) e.formats.add(d.format);
+    map.set(key, e);
+  }
+  return [...map.values()]
+    .map((e) => ({ heroName: e.heroName, displayName: e.displayName, formats: [...e.formats] }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+/** Fetch + format the deterministic archetype consensus for the picker. */
+export async function runArchetypeConsensus(heroName: string, months: number, format?: string): Promise<QuickActionResult> {
+  const params = new URLSearchParams({ heroName, months: String(months) });
+  if (format) params.set('format', format);
+  const response = await fetch(`/api/decks/archetype?${params}`, { credentials: 'include' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to compute consensus');
+  return summarizeArchetypeConsensus(body.data);
 }

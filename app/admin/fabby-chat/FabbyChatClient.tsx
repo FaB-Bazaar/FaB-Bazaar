@@ -17,7 +17,8 @@ import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
-  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard,
+  fetchToBeatHeroes, runArchetypeConsensus,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildCardNameIndex } from './card-linkify';
@@ -99,6 +100,13 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   // Desktop-only card preview rail (hover/focus on a card line shows it)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
+
+  // Archetype comparison picker (instant, no-AI cross-deck consensus).
+  const [archetypeOpen, setArchetypeOpen] = useState(false);
+  const [heroes, setHeroes] = useState<ToBeatHero[]>([]);
+  const [heroesLoading, setHeroesLoading] = useState(false);
+  const [selectedHero, setSelectedHero] = useState('');
+  const [archetypeMonths, setArchetypeMonths] = useState(3);
 
   // Every card any search_printings call surfaced this session, keyed by name,
   // so card names in Fabby's markdown answers can hover-preview in the rail.
@@ -285,6 +293,28 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
     void runInstant(`${target.kind}:${target.id}`, () => runDrill(target));
   }, [runInstant]);
 
+  const toggleArchetype = useCallback(async () => {
+    const opening = !archetypeOpen;
+    setArchetypeOpen(opening);
+    if (opening && heroes.length === 0 && !heroesLoading) {
+      setHeroesLoading(true);
+      try {
+        const list = await fetchToBeatHeroes();
+        setHeroes(list);
+        if (list.length > 0) setSelectedHero((h) => h || list[0].heroName);
+      } catch (error) {
+        setErrorBanner(error instanceof Error ? error.message : 'Failed to load heroes');
+      } finally {
+        setHeroesLoading(false);
+      }
+    }
+  }, [archetypeOpen, heroes.length, heroesLoading]);
+
+  const runArchetype = useCallback(() => {
+    if (!selectedHero) return;
+    void runInstant('archetype', () => runArchetypeConsensus(selectedHero, archetypeMonths));
+  }, [selectedHero, archetypeMonths, runInstant]);
+
   const performTurn = useCallback(async (messagesToSend: ChatMessage[], modelToUse: string) => {
     setErrorBanner(null);
     setBusy(true);
@@ -442,7 +472,63 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
               {action.label}
             </Button>
           ))}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || runningAction !== null}
+            onClick={toggleArchetype}
+            aria-expanded={archetypeOpen}
+            className={`gap-1.5 ${focusRing}`}
+            title="Compare all Decks to Beat of a hero — deterministic, no AI"
+          >
+            Compare archetype
+          </Button>
         </div>
+
+        {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
+        {archetypeOpen && (
+          <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+              Hero (Decks to Beat)
+              <select
+                value={selectedHero}
+                onChange={(e) => setSelectedHero(e.target.value)}
+                disabled={heroesLoading}
+                className={`min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+              >
+                {heroesLoading && <option>Loading heroes…</option>}
+                {!heroesLoading && heroes.length === 0 && <option value="">No featured decks found</option>}
+                {heroes.map((h) => (
+                  <option key={h.heroName} value={h.heroName}>
+                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+              Window
+              <select
+                value={archetypeMonths}
+                onChange={(e) => setArchetypeMonths(Number(e.target.value))}
+                className={`rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+              >
+                <option value={1}>Last 1 month</option>
+                <option value={3}>Last 3 months</option>
+                <option value={6}>Last 6 months</option>
+                <option value={12}>Last 12 months</option>
+              </select>
+            </label>
+            <Button
+              size="sm"
+              disabled={!selectedHero || busy || runningAction !== null}
+              onClick={runArchetype}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'archetype' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Compare
+            </Button>
+          </div>
+        )}
 
         {/* Thread */}
         <div

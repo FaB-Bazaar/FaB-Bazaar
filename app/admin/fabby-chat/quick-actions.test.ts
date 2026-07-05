@@ -15,6 +15,7 @@ import {
   buildMessageWithContext,
   parseSearchResults,
   harvestCardsFromStructured,
+  summarizeArchetypeConsensus,
 } from './quick-actions';
 
 describe('summarizeBinders', () => {
@@ -88,13 +89,24 @@ describe('summarizeDeckContents', () => {
     });
 
     expect(result.title).toBe('Deck: Teklosaucen (Classic Constructed)');
-    expect(result.lines[0]).toBe('— Hero (1) —');
-    expect(result.lines[1]).toMatchObject({ text: '1× Teklovossen', preview: { name: 'Teklovossen' } });
-    expect(result.lines[2]).toBe('— Equipment (1) —');
-    expect(result.lines[4]).toBe('— Maindeck (3) —');
-    expect(result.lines[5]).toMatchObject({ text: '3× Overcrowded', pitch: 3 });
+    expect(result.lines).toContain('— Hero (1) —');
+    expect(result.lines).toContainEqual(expect.objectContaining({ text: '1× Teklovossen', preview: expect.objectContaining({ name: 'Teklovossen' }) }));
+    expect(result.lines).toContain('— Equipment (1) —');
+    expect(result.lines).toContain('— Maindeck (3) —');
+    expect(result.lines).toContainEqual(expect.objectContaining({ text: '3× Overcrowded', pitch: 3 }));
     expect(result.context).toContain('deck "Teklosaucen"');
     expect(result.context).toContain('Maindeck: 3x Overcrowded (p3)');
+  });
+
+  it('leads with a maindeck color breakdown (the instant "how many blue cards" answer)', () => {
+    const result = summarizeDeckContents({
+      name: 'Victor',
+      maindeck: [card('Cranial Crush', 3, 3), card('Pummel', 3, 1), card('Remembrance', 3, 2)],
+    });
+    // First line summarizes the color curve, weighted by quantity.
+    expect(result.lines[0]).toBe('🎨 Maindeck colors: 3 red · 3 yellow · 3 blue');
+    // …and it's queued into the AI context too.
+    expect(result.context).toContain('3 red');
   });
 
   it('prepends a collection-compare drill when the deck has a publicId', () => {
@@ -103,9 +115,9 @@ describe('summarizeDeckContents', () => {
       name: 'Teklosaucen',
       maindeck: [card('Overcrowded', 3, 3)],
     });
-    expect(result.lines[0]).toMatchObject({
+    expect(result.lines).toContainEqual(expect.objectContaining({
       drill: { kind: 'deck-compare', id: 'pub1', name: 'Teklosaucen' },
-    });
+    }));
   });
 
   it('handles an empty deck', () => {
@@ -269,6 +281,51 @@ describe('harvestCardsFromStructured', () => {
   it('returns [] for undefined / cardless payloads', () => {
     expect(harvestCardsFromStructured(undefined)).toEqual([]);
     expect(harvestCardsFromStructured({ title: 'x', url: 'y' })).toEqual([]);
+  });
+});
+
+describe('summarizeArchetypeConsensus', () => {
+  const data = {
+    heroName: 'victor goldmane, high and mighty',
+    format: 'cc',
+    months: 3,
+    consensus: {
+      deckCount: 10,
+      core: [
+        { name: 'Cranial Crush', pitch: 3, decks: 10, typicalQty: 3 },
+        { name: 'Aurum Aegis', decks: 10, typicalQty: 1 },
+      ],
+      flex: [
+        { name: 'Disable', pitch: 3, decks: 9, typicalQty: 3 },
+        { name: 'Pummel', pitch: 1, decks: 8, typicalQty: 3 },
+      ],
+      colorCurve: { red: 30, yellow: 12, blue: 30 },
+    },
+    decks: [],
+  };
+
+  it('titles with hero, deck count and window', () => {
+    const r = summarizeArchetypeConsensus(data);
+    expect(r.title).toMatch(/victor goldmane/i);
+    expect(r.title).toMatch(/10 decks/);
+    expect(r.title).toMatch(/3 mo/);
+  });
+
+  it('leads with the average color curve', () => {
+    const r = summarizeArchetypeConsensus(data);
+    expect(r.lines[0]).toBe('🎨 Avg colors: 30 red · 12 yellow · 30 blue');
+  });
+
+  it('renders core cards with quantity and pitch, and flex cards with adoption ratio', () => {
+    const r = summarizeArchetypeConsensus(data);
+    expect(r.lines).toContainEqual(expect.objectContaining({ text: '3× Cranial Crush', pitch: 3 }));
+    // flex shows how many of the N decks run it — the real outlier signal
+    expect(r.lines).toContainEqual(expect.objectContaining({ text: '3× Disable — 9/10 decks', pitch: 3 }));
+  });
+
+  it('handles an empty result set', () => {
+    const r = summarizeArchetypeConsensus({ ...data, consensus: { deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } } });
+    expect(r.lines.join(' ')).toMatch(/no featured/i);
   });
 });
 

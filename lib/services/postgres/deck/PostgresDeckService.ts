@@ -38,9 +38,11 @@ import type {
   UpgradePrintingAlternativeDTO,
   ApplyPrintingUpgradesResultDTO,
   DeckLanguageConversionPlanDTO,
+  ArchetypeConsensusResult,
 } from '../../contracts/IDeckService';
 import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 import { pickLanguageVariant } from '@/lib/deck/language-variant';
+import { computeArchetypeConsensus, type ConsensusDeck } from '@/lib/deck/analytics';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import {
   validateCardForHero,
@@ -1117,6 +1119,9 @@ export class PostgresDeckService implements IDeckService {
         const end = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
         conditions.push(sql`${decks.eventDate} >= ${start} AND ${decks.eventDate} < ${end}`);
       }
+      // Rolling window (inclusive from, exclusive to) — for "last N months".
+      if (filters?.dateFrom) conditions.push(sql`${decks.eventDate} >= ${filters.dateFrom}`);
+      if (filters?.dateTo) conditions.push(sql`${decks.eventDate} < ${filters.dateTo}`);
       if (filters?.eventName) {
         conditions.push(eq(decks.eventName, filters.eventName));
       }
@@ -1251,6 +1256,76 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to list public decks',
+      };
+    }
+  }
+
+  async getArchetypeConsensus(
+    params: { heroName: string; format?: DeckFormat; dateFrom?: string; dateTo?: string; maxDecks?: number }
+  ): AsyncResult<ArchetypeConsensusResult> {
+    try {
+      if (!params.heroName?.trim()) {
+        return { success: false, error: 'heroName is required.' };
+      }
+      const maxDecks = Math.min(params.maxDecks ?? 25, 50);
+
+      // 1. The deck set: featured (Decks-to-Beat) builds of this hero in the window.
+      const list = await this.listPublicDecks(
+        {
+          heroName: params.heroName,
+          format: params.format,
+          featured: true,
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+        },
+        { limit: maxDecks },
+      );
+      if (!list.success) return { success: false, error: list.error };
+
+      const summaries = list.data.decks;
+      if (summaries.length === 0) {
+        return {
+          success: true,
+          data: { consensus: { deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } }, decks: [] },
+        };
+      }
+
+      // 2. Fetch each deck's contents (maindeck + equipment) and aggregate.
+      const detailed = await Promise.all(
+        summaries.map((s) => this.findByPublicId(s.publicId)),
+      );
+
+      const consensusDecks: ConsensusDeck[] = [];
+      const includedDecks: ArchetypeConsensusResult['decks'] = [];
+      summaries.forEach((s, i) => {
+        const res = detailed[i];
+        if (!res.success || !res.data) return;
+        const d: any = res.data;
+        const cards = [...(d.maindeck ?? []), ...(d.equipment ?? [])].map((c: any) => ({
+          name: c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown',
+          pitch: c.printingDetails?.pitch,
+          quantity: c.quantity ?? 1,
+          cardUniqueId: c.printingDetails?.card_unique_id,
+        }));
+        consensusDecks.push({ name: s.name, cards });
+        includedDecks.push({
+          publicId: s.publicId,
+          name: s.name,
+          placing: s.placing ?? null,
+          eventName: s.eventName ?? null,
+          eventDate: s.eventDate ?? null,
+        });
+      });
+
+      return {
+        success: true,
+        data: { consensus: computeArchetypeConsensus(consensusDecks), decks: includedDecks },
+      };
+    } catch (error) {
+      console.error('[PostgresDeckService.getArchetypeConsensus] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to compute archetype consensus',
       };
     }
   }

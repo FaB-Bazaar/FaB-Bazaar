@@ -321,8 +321,25 @@ export interface PublicDeckFilters {
   /** Filter by event_date month (1–12) and year (e.g. 2026) — only matches decks with an explicit event_date set */
   month?: number;
   year?: number;
+  /** Rolling event_date window (ISO YYYY-MM-DD), inclusive of dateFrom, exclusive of dateTo. For "last N months". */
+  dateFrom?: string;
+  dateTo?: string;
   /** Filter by event name (exact match) */
   eventName?: string;
+}
+
+/**
+ * Deterministic cross-deck archetype consensus (no AI): what a set of decks
+ * (e.g. every Decks-to-Beat build of one hero in a window) agree on.
+ */
+export interface ArchetypeConsensusResult {
+  consensus: {
+    deckCount: number;
+    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
+    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
+    colorCurve: { red: number; yellow: number; blue: number };
+  };
+  decks: Array<{ publicId: string; name: string; placing?: number | null; eventName?: string | null; eventDate?: string | null }>;
 }
 
 /**
@@ -688,6 +705,14 @@ export interface IDeckService {
     filters?: PublicDeckFilters,
     pagination?: PaginationOptions
   ): AsyncResult<{ decks: PublicDeckSummaryDTO[]; total: number }>;
+
+  /**
+   * Deterministic archetype consensus across featured (Decks-to-Beat) decks of
+   * one hero in a time window — core vs flex cards, color curve. No AI.
+   */
+  getArchetypeConsensus(
+    params: { heroName: string; format?: DeckFormat; dateFrom?: string; dateTo?: string; maxDecks?: number }
+  ): AsyncResult<ArchetypeConsensusResult>;
 
   /**
    * Toggle the featured status of a deck (for "Decks to Beat" section)
