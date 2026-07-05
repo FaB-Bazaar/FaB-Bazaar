@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
 
     const eventName = url.searchParams.get('eventName');
 
+    // Rolling event_date window (ISO YYYY-MM-DD); malformed values are dropped.
+    const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+    const dateFrom = url.searchParams.get('dateFrom');
+    const dateTo = url.searchParams.get('dateTo');
+
     const filters = {
       ...(format && { format }),
       ...(heroName && { heroName }),
@@ -30,6 +35,8 @@ export async function GET(request: NextRequest) {
         year: parseInt(yearParam, 10),
       }),
       ...(eventName && { eventName }),
+      ...(dateFrom && ISO_DATE.test(dateFrom) && { dateFrom }),
+      ...(dateTo && ISO_DATE.test(dateTo) && { dateTo }),
     };
 
     const result = await deckService.listPublicDecks(filters, {

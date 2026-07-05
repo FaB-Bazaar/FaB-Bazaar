@@ -546,32 +546,6 @@ export const QUICK_ACTIONS: QuickAction[] = [
     },
   },
   {
-    id: 'decks-to-beat',
-    label: 'Decks to beat',
-    run: async () => {
-      // Featured tournament decks — same endpoint the get_decks_to_beat MCP
-      // tool wraps ({success, data: {decks}}). Public data, instant.
-      const response = await fetch('/api/decks/community?featured=true&limit=25', { credentials: 'include' });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load decks to beat');
-      const decks: any[] = body?.data?.decks ?? [];
-      const medal = (placing?: number) => (placing === 1 ? '🥇 ' : placing === 2 ? '🥈 ' : placing === 3 ? '🥉 ' : '');
-      const lines: CardLine[] = decks.length === 0
-        ? ['No featured decks yet.']
-        : decks.map((d) => ({
-            text: `${medal(d.placing)}${d.name}${d.eventName ? ` — ${d.eventName}` : ''}`,
-            drill: { kind: 'deck' as const, id: d.publicId, name: d.name },
-          }));
-      return {
-        title: `Decks to beat (${decks.length})`,
-        lines,
-        context: `Current featured tournament decks ("decks to beat"): ${
-          decks.map((d) => `${d.name}${d.heroName ? ` [${d.heroName}]` : ''}${d.placing ? ` (#${d.placing})` : ''}`).join('; ') || 'none'
-        }`,
-      };
-    },
-  },
-  {
     id: 'decks',
     label: 'My decks',
     run: async () => {
@@ -688,6 +662,125 @@ export function runDrill(drill: DrillTarget): Promise<QuickActionResult> {
   if (drill.kind === 'binder') return runBinderDrill(drill.id, drill.name);
   if (drill.kind === 'deck-compare') return runDeckCompareDrill(drill.id, drill.name);
   return runDeckDrill(drill.id);
+}
+
+// ---------------------------------------------------------------------------
+// Decks to beat picker — scoped by hero (rolling window) or by event, because
+// the unscoped featured list is too long to be useful as one card.
+// ---------------------------------------------------------------------------
+
+/** Rolling window for the by-hero scope (and the event picker's reach). */
+export const TO_BEAT_MONTHS = 3;
+
+export interface ToBeatDeckLite {
+  publicId: string;
+  name: string;
+  placing?: number | null;
+  eventName?: string | null;
+  heroName?: string | null;
+}
+
+/** Format a scoped decks-to-beat list (by hero or by event) as a data card. */
+export function summarizeToBeatDecks(scope: string, decks: ToBeatDeckLite[]): QuickActionResult {
+  const medal = (placing?: number | null) => (placing === 1 ? '🥇 ' : placing === 2 ? '🥈 ' : placing === 3 ? '🥉 ' : '');
+  const lines: CardLine[] = decks.length === 0
+    ? [`No decks to beat found for ${scope}.`]
+    : decks.map((d) => ({
+        text: `${medal(d.placing)}${d.name}${d.eventName ? ` — ${d.eventName}` : ''}`,
+        drill: { kind: 'deck' as const, id: d.publicId, name: d.name },
+      }));
+  return {
+    title: `Decks to beat — ${scope} (${decks.length})`,
+    lines,
+    context: `Featured tournament decks ("decks to beat"), ${scope}: ${
+      decks.map((d) => `${d.name}${d.heroName ? ` [${d.heroName}]` : ''}${d.placing ? ` (#${d.placing})` : ''}`).join('; ') || 'none'
+    }`,
+  };
+}
+
+/** One row of GET /api/decks/events (distinct featured events in a month). */
+export interface EventSummary {
+  eventName: string;
+  eventDate: string;   // ISO YYYY-MM-DD
+  format: string;
+  count: number;
+}
+
+export interface ToBeatEvent {
+  eventName: string;
+  eventDate: string;
+  formats: string[];
+  count: number;
+}
+
+/**
+ * Merge per-month event summary batches into picker options: dedupe by
+ * event+date (the API returns one row per format), collect formats, sum
+ * deck counts, newest event first.
+ */
+export function mergeEventSummaries(batches: EventSummary[][]): ToBeatEvent[] {
+  const map = new Map<string, ToBeatEvent>();
+  for (const batch of batches) {
+    for (const e of batch) {
+      const key = `${e.eventName}|${e.eventDate}`;
+      const existing = map.get(key);
+      if (existing) {
+        if (!existing.formats.includes(e.format)) existing.formats.push(e.format);
+        existing.count += e.count;
+      } else {
+        map.set(key, { eventName: e.eventName, eventDate: e.eventDate, formats: [e.format], count: e.count });
+      }
+    }
+  }
+  return [...map.values()].sort((a, b) => b.eventDate.localeCompare(a.eventDate));
+}
+
+/** Current month first, walking backwards (for the per-month events API). */
+export function recentYearMonths(count: number, now = new Date()): Array<{ year: number; month: number }> {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
+}
+
+/** ISO YYYY-MM-DD exactly n months back — the dateFrom of a rolling window. */
+export function isoDateMonthsAgo(months: number, now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Distinct featured events over the last TO_BEAT_MONTHS — populates the event picker. */
+export async function fetchToBeatEvents(): Promise<ToBeatEvent[]> {
+  const batches = await Promise.all(
+    recentYearMonths(TO_BEAT_MONTHS).map(async ({ year, month }) => {
+      const response = await fetch(`/api/decks/events?year=${year}&month=${month}`, { credentials: 'include' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load events');
+      return (body.data ?? []) as EventSummary[];
+    }),
+  );
+  return mergeEventSummaries(batches);
+}
+
+async function fetchFeaturedDecks(params: Record<string, string>): Promise<ToBeatDeckLite[]> {
+  const qs = new URLSearchParams({ featured: 'true', limit: '50', ...params });
+  const response = await fetch(`/api/decks/community?${qs}`, { credentials: 'include' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load decks to beat');
+  return body?.data?.decks ?? [];
+}
+
+/** Decks to beat for one hero over the rolling window. */
+export async function runToBeatByHero(heroName: string, displayName: string): Promise<QuickActionResult> {
+  const decks = await fetchFeaturedDecks({ heroName, dateFrom: isoDateMonthsAgo(TO_BEAT_MONTHS) });
+  return summarizeToBeatDecks(`${displayName} · last ${TO_BEAT_MONTHS} mo`, decks);
+}
+
+/** Decks to beat from one event. */
+export async function runToBeatByEvent(eventName: string): Promise<QuickActionResult> {
+  const decks = await fetchFeaturedDecks({ eventName });
+  return summarizeToBeatDecks(eventName, decks);
 }
 
 export interface ToBeatHero {

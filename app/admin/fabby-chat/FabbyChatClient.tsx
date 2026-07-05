@@ -20,7 +20,8 @@ import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand,
-  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type CardRow,
+  fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildCardNameIndex } from './card-linkify';
@@ -284,6 +285,15 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
   const [selectedHero, setSelectedHero] = useState('');
   const [archetypeMonths, setArchetypeMonths] = useState(3);
 
+  // Decks-to-beat picker — the unscoped list is too long, so scope by hero
+  // (rolling window) or by event before fetching.
+  const [toBeatOpen, setToBeatOpen] = useState(false);
+  const [toBeatMode, setToBeatMode] = useState<'hero' | 'event'>('hero');
+  const [toBeatHero, setToBeatHero] = useState('');
+  const [toBeatEvents, setToBeatEvents] = useState<ToBeatEvent[]>([]);
+  const [toBeatEventsLoading, setToBeatEventsLoading] = useState(false);
+  const [toBeatEvent, setToBeatEvent] = useState('');
+
   // Every card any search_printings call surfaced this session, keyed by name,
   // so card names in Fabby's markdown answers can hover-preview in the rail.
   const cardIndex = useMemo(() => {
@@ -490,27 +500,74 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
     void runInstant(`${target.kind}:${target.id}`, () => runDrill(target));
   }, [runInstant]);
 
-  const toggleArchetype = useCallback(async () => {
+  // Shared hero list (Decks-to-Beat heroes) — used by both the archetype
+  // picker and the decks-to-beat by-hero picker; loaded once on demand.
+  const ensureHeroes = useCallback(async () => {
+    if (heroes.length > 0 || heroesLoading) return;
+    setHeroesLoading(true);
+    try {
+      const list = await fetchToBeatHeroes();
+      setHeroes(list);
+      if (list.length > 0) {
+        setSelectedHero((h) => h || list[0].heroName);
+        setToBeatHero((h) => h || list[0].heroName);
+      }
+    } catch (error) {
+      setErrorBanner(error instanceof Error ? error.message : 'Failed to load heroes');
+    } finally {
+      setHeroesLoading(false);
+    }
+  }, [heroes.length, heroesLoading]);
+
+  const toggleArchetype = useCallback(() => {
     const opening = !archetypeOpen;
     setArchetypeOpen(opening);
-    if (opening && heroes.length === 0 && !heroesLoading) {
-      setHeroesLoading(true);
-      try {
-        const list = await fetchToBeatHeroes();
-        setHeroes(list);
-        if (list.length > 0) setSelectedHero((h) => h || list[0].heroName);
-      } catch (error) {
-        setErrorBanner(error instanceof Error ? error.message : 'Failed to load heroes');
-      } finally {
-        setHeroesLoading(false);
-      }
-    }
-  }, [archetypeOpen, heroes.length, heroesLoading]);
+    if (opening) void ensureHeroes();
+  }, [archetypeOpen, ensureHeroes]);
 
   const runArchetype = useCallback(() => {
     if (!selectedHero) return;
     void runInstant('archetype', () => runArchetypeConsensus(selectedHero, archetypeMonths));
   }, [selectedHero, archetypeMonths, runInstant]);
+
+  const ensureToBeatEvents = useCallback(async () => {
+    if (toBeatEvents.length > 0 || toBeatEventsLoading) return;
+    setToBeatEventsLoading(true);
+    try {
+      const list = await fetchToBeatEvents();
+      setToBeatEvents(list);
+      if (list.length > 0) setToBeatEvent((e) => e || list[0].eventName);
+    } catch (error) {
+      setErrorBanner(error instanceof Error ? error.message : 'Failed to load events');
+    } finally {
+      setToBeatEventsLoading(false);
+    }
+  }, [toBeatEvents.length, toBeatEventsLoading]);
+
+  const toggleToBeat = useCallback(() => {
+    const opening = !toBeatOpen;
+    setToBeatOpen(opening);
+    if (opening) {
+      void ensureHeroes();
+      if (toBeatMode === 'event') void ensureToBeatEvents();
+    }
+  }, [toBeatOpen, toBeatMode, ensureHeroes, ensureToBeatEvents]);
+
+  const setToBeatModeAndLoad = useCallback((mode: 'hero' | 'event') => {
+    setToBeatMode(mode);
+    if (mode === 'event') void ensureToBeatEvents();
+  }, [ensureToBeatEvents]);
+
+  const runToBeat = useCallback(() => {
+    if (toBeatMode === 'hero') {
+      if (!toBeatHero) return;
+      const hero = heroes.find((h) => h.heroName === toBeatHero);
+      void runInstant('to-beat', () => runToBeatByHero(toBeatHero, hero?.displayName ?? toBeatHero));
+    } else {
+      if (!toBeatEvent) return;
+      void runInstant('to-beat', () => runToBeatByEvent(toBeatEvent));
+    }
+  }, [toBeatMode, toBeatHero, toBeatEvent, heroes, runInstant]);
 
   const performTurn = useCallback(async (messagesToSend: ChatMessage[], modelToUse: string) => {
     setErrorBanner(null);
@@ -682,6 +739,17 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
             variant="secondary"
             size="sm"
             disabled={busy || runningAction !== null}
+            onClick={toggleToBeat}
+            aria-expanded={toBeatOpen}
+            className={`shrink-0 gap-1.5 ${focusRing}`}
+            title="Featured tournament decks, scoped by hero or event — no AI"
+          >
+            Decks to beat
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || runningAction !== null}
             onClick={toggleArchetype}
             aria-expanded={archetypeOpen}
             className={`shrink-0 gap-1.5 ${focusRing}`}
@@ -690,6 +758,78 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
             Compare archetype
           </Button>
         </div>
+
+        {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
+        {toBeatOpen && (
+          <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3">
+            <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+              Browse by
+              <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Browse decks to beat by">
+                {(['hero', 'event'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setToBeatModeAndLoad(mode)}
+                    aria-pressed={toBeatMode === mode}
+                    className={`px-3 py-1.5 text-sm ${focusRing} ${
+                      toBeatMode === mode
+                        ? 'bg-primary font-semibold text-primary-foreground'
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    {toBeatMode === mode ? '✓ ' : ''}{mode === 'hero' ? 'Hero' : 'Event'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {toBeatMode === 'hero' ? (
+              <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
+                Hero (last {TO_BEAT_MONTHS} months)
+                <select
+                  value={toBeatHero}
+                  onChange={(e) => setToBeatHero(e.target.value)}
+                  disabled={heroesLoading}
+                  className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+                >
+                  {heroesLoading && <option>Loading heroes…</option>}
+                  {!heroesLoading && heroes.length === 0 && <option value="">No featured decks found</option>}
+                  {heroes.map((h) => (
+                    <option key={h.heroName} value={h.heroName}>
+                      {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
+                Event (last {TO_BEAT_MONTHS} months)
+                <select
+                  value={toBeatEvent}
+                  onChange={(e) => setToBeatEvent(e.target.value)}
+                  disabled={toBeatEventsLoading}
+                  className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+                >
+                  {toBeatEventsLoading && <option>Loading events…</option>}
+                  {!toBeatEventsLoading && toBeatEvents.length === 0 && <option value="">No events found</option>}
+                  {toBeatEvents.map((e) => (
+                    <option key={`${e.eventName}|${e.eventDate}`} value={e.eventName}>
+                      {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Button
+              size="sm"
+              disabled={(toBeatMode === 'hero' ? !toBeatHero : !toBeatEvent) || busy || runningAction !== null}
+              onClick={runToBeat}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'to-beat' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Show decks
+            </Button>
+          </div>
+        )}
 
         {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
         {archetypeOpen && (

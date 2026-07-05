@@ -17,6 +17,10 @@ import {
   parseSearchResults,
   harvestCardsFromStructured,
   summarizeArchetypeConsensus,
+  summarizeToBeatDecks,
+  mergeEventSummaries,
+  recentYearMonths,
+  isoDateMonthsAgo,
 } from './quick-actions';
 
 describe('summarizeBinders', () => {
@@ -452,5 +456,75 @@ describe('buildMessageWithContext', () => {
     expect(message).toContain('[Context');
     expect(message).toContain('Pirate [pirate]');
     expect(message.endsWith('which of these is worth the most?')).toBe(true);
+  });
+});
+
+describe('summarizeToBeatDecks (hero / event scoped)', () => {
+  const decks = [
+    { publicId: 'p1', name: 'Winner Deck', placing: 1, eventName: 'Calling: Bologna', heroName: 'dorinthea' },
+    { publicId: 'p2', name: 'Second Deck', placing: 2, eventName: 'Calling: Bologna', heroName: 'dorinthea' },
+    { publicId: 'p3', name: 'Other Deck' },
+  ];
+
+  it('titles with the scope and deck count', () => {
+    const result = summarizeToBeatDecks('Dorinthea · last 3 mo', decks);
+    expect(result.title).toBe('Decks to beat — Dorinthea · last 3 mo (3)');
+  });
+
+  it('renders medal + event text with a deck drill target per line', () => {
+    const result = summarizeToBeatDecks('x', decks);
+    const first = result.lines[0] as { text: string; drill?: unknown };
+    expect(first.text).toBe('🥇 Winner Deck — Calling: Bologna');
+    expect(first.drill).toEqual({ kind: 'deck', id: 'p1', name: 'Winner Deck' });
+    const third = result.lines[2] as { text: string };
+    expect(third.text).toBe('Other Deck');
+  });
+
+  it('context carries the scope plus hero and placing per deck', () => {
+    const result = summarizeToBeatDecks('Dorinthea · last 3 mo', decks);
+    expect(result.context).toContain('Dorinthea · last 3 mo');
+    expect(result.context).toContain('Winner Deck [dorinthea] (#1)');
+  });
+
+  it('empty result → friendly message, no drills', () => {
+    const result = summarizeToBeatDecks('Dorinthea · last 3 mo', []);
+    expect(result.lines).toEqual(['No decks to beat found for Dorinthea · last 3 mo.']);
+    expect(result.context).toContain('none');
+  });
+});
+
+describe('mergeEventSummaries (event picker options)', () => {
+  it('merges monthly batches, dedupes by event+date, collects formats, sorts newest first', () => {
+    const merged = mergeEventSummaries([
+      [
+        { eventName: 'Calling: Bologna', eventDate: '2026-06-14', format: 'cc', count: 8 },
+        { eventName: 'Calling: Bologna', eventDate: '2026-06-14', format: 'blitz', count: 4 },
+      ],
+      [
+        { eventName: 'Nationals: Japan', eventDate: '2026-05-02', format: 'cc', count: 8 },
+      ],
+    ]);
+    expect(merged).toEqual([
+      { eventName: 'Calling: Bologna', eventDate: '2026-06-14', formats: ['cc', 'blitz'], count: 12 },
+      { eventName: 'Nationals: Japan', eventDate: '2026-05-02', formats: ['cc'], count: 8 },
+    ]);
+  });
+
+  it('empty batches → empty list', () => {
+    expect(mergeEventSummaries([[], []])).toEqual([]);
+  });
+});
+
+describe('recentYearMonths / isoDateMonthsAgo (rolling window helpers)', () => {
+  it('lists current month first, walking backwards across a year boundary', () => {
+    expect(recentYearMonths(3, new Date(2026, 0, 15))).toEqual([
+      { year: 2026, month: 1 },
+      { year: 2025, month: 12 },
+      { year: 2025, month: 11 },
+    ]);
+  });
+
+  it('isoDateMonthsAgo formats YYYY-MM-DD n months back', () => {
+    expect(isoDateMonthsAgo(3, new Date(2026, 6, 5))).toBe('2026-04-05');
   });
 });
