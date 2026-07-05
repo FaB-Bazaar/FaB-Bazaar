@@ -290,6 +290,36 @@ describe('PostgresDeckService.addPrintings — legality validation', () => {
     expect(item.error!).toMatch(/banned/i);
   });
 
+  it('accepts a banned card when bypassBanned option is true (historical decklist preservation)', async () => {
+    const result = await service.addPrintings(
+      testCCDeckPublicId,
+      testUserId,
+      [{ printingId: bannedInCCPrintingId, quantity: 1, category: 'maindeck' }],
+      { bypassBanned: true },
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(true);
+    expect(result.data.summary.added).toBe(1);
+  });
+
+  it('still rejects a banned card when bypassBanned is false or omitted', async () => {
+    const result = await service.addPrintings(
+      testCCDeckPublicId,
+      testUserId,
+      [{ printingId: bannedInCCPrintingId, quantity: 1, category: 'maindeck' }],
+      { bypassBanned: false },
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const item = result.data.results[0];
+    expect(item.success).toBe(false);
+    expect(item.error!).toMatch(/banned/i);
+  });
+
   it('mixed batch: legal card succeeds, illegal card fails — both reported in results[]', async () => {
     const result = await service.addPrintings(testDeckPublicId, testUserId, [
       { printingId: aetherQuickeningPrintingId, quantity: 2, category: 'maindeck' },

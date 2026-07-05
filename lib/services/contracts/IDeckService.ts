@@ -222,6 +222,17 @@ export interface AddPrintingDTO {
 }
 
 /**
+ * Options for addPrinting/addPrintings
+ */
+export interface AddPrintingsOptions {
+  /**
+   * Skip the banlist check for this call. Superadmin-only — lets a historical
+   * decklist keep cards that were legal when played but are banned now.
+   */
+  bypassBanned?: boolean;
+}
+
+/**
  * Result of adding a printing
  */
 export interface AddPrintingResultDTO {
@@ -779,12 +790,15 @@ export interface IDeckService {
    * @param publicId - The deck's public ID
    * @param userId - The user (for ownership check)
    * @param printing - Printing to add
+   * @param options - bypassBanned: true skips the banlist check (superadmin-only,
+   *   for preserving historical decklists whose cards weren't banned at the time)
    * @returns Result with card name, category, and any moved cards
    */
   addPrinting(
     publicId: string,
     userId: string,
-    printing: AddPrintingDTO
+    printing: AddPrintingDTO,
+    options?: AddPrintingsOptions
   ): AsyncResult<AddPrintingResultDTO>;
 
   /**
@@ -793,12 +807,15 @@ export interface IDeckService {
    * @param publicId - The deck's public ID
    * @param userId - The user (for ownership check)
    * @param printings - Printings to add
+   * @param options - bypassBanned: true skips the banlist check (superadmin-only,
+   *   for preserving historical decklists whose cards weren't banned at the time)
    * @returns Bulk import result with summary
    */
   addPrintings(
     publicId: string,
     userId: string,
-    printings: AddPrintingDTO[]
+    printings: AddPrintingDTO[],
+    options?: AddPrintingsOptions
   ): AsyncResult<BulkImportResultDTO>;
 
   /**

@@ -1,7 +1,7 @@
 // app/api/decks/[deckId]/printings/add/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { deckService } from '@/lib/services';
+import { deckService, userService } from '@/lib/services';
 import type { DeckCategory } from '@/lib/services/contracts/IDeckService';
 
 // POST /api/decks/[deckId]/printings/add
@@ -77,6 +77,11 @@ export async function POST(
       }, { status: 400 });
     }
 
+    // Superadmins can bypass the banlist check to preserve a historical
+    // decklist whose cards weren't banned at the time they were played.
+    const adminCheck = await userService.hasRole(authResult.userId!, 'isSuperAdmin');
+    const isSuperAdmin = !!(adminCheck.success && adminCheck.data);
+
     // Process each printing using the service layer
     const results: Array<{
       printingId: string;
@@ -109,7 +114,8 @@ export async function POST(
           category: (item.category || 'maindeck') as DeckCategory,
           condition: item.condition || 'NM',
           notes: item.notes || '',
-        }
+        },
+        { bypassBanned: isSuperAdmin }
       );
 
       if (result.success) {

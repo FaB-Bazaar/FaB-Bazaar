@@ -23,6 +23,7 @@ import type {
   UpdateDeckDTO,
   AddPrintingDTO,
   AddPrintingResultDTO,
+  AddPrintingsOptions,
   UpdatePrintingDTO,
   BatchUpdatePrintingsResultDTO,
   UpdatePrintingResultDTO,
@@ -1475,9 +1476,10 @@ export class PostgresDeckService implements IDeckService {
   async addPrinting(
     publicId: string,
     userId: string,
-    printing: AddPrintingDTO
+    printing: AddPrintingDTO,
+    options?: AddPrintingsOptions
   ): AsyncResult<AddPrintingResultDTO> {
-    const bulk = await this.addPrintings(publicId, userId, [printing]);
+    const bulk = await this.addPrintings(publicId, userId, [printing], options);
     if (!bulk.success) return { success: false, error: bulk.error };
     const item = bulk.data.results[0];
     if (!item) return { success: false, error: 'No result returned from addPrintings' };
@@ -1487,7 +1489,8 @@ export class PostgresDeckService implements IDeckService {
   async addPrintings(
     publicId: string,
     userId: string,
-    printingsToAdd: AddPrintingDTO[]  // Renamed to avoid shadowing schema import
+    printingsToAdd: AddPrintingDTO[],  // Renamed to avoid shadowing schema import
+    options?: AddPrintingsOptions
   ): AsyncResult<BulkImportResultDTO> {
     try {
       // Get deck
@@ -1655,8 +1658,11 @@ export class PostgresDeckService implements IDeckService {
             continue;
           }
 
-          // Banlist registry.
-          const banCheck = validateNotBanned(printingData.cardUniqueId, bannedSet);
+          // Banlist registry — superadmins can bypass this to preserve a
+          // historical decklist whose cards weren't banned at the time.
+          const banCheck = options?.bypassBanned
+            ? { ok: true as const }
+            : validateNotBanned(printingData.cardUniqueId, bannedSet);
           if (!banCheck.ok) {
             results.push({
               printingId: item.printingId,
