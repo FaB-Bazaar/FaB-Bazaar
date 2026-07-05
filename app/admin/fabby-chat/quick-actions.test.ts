@@ -119,6 +119,16 @@ describe('summarizeDeckContents', () => {
     expect(result.context).toContain('3 red');
   });
 
+  it('exposes a cards[] array across sections for the deck-view overlay', () => {
+    const result = summarizeDeckContents({
+      name: 'Victor',
+      equipment: [{ ...card('Aurum Aegis', 1), printingId: 'pid_aa' }],
+      maindeck: [{ ...card('Cranial Crush', 3, 3), printingId: 'pid_cc' }],
+    } as any);
+    expect(result.cards?.find((c) => c.name === 'Cranial Crush')).toMatchObject({ printingId: 'pid_cc', quantity: 3, pitch: 3 });
+    expect(result.cards?.find((c) => c.name === 'Aurum Aegis')).toMatchObject({ printingId: 'pid_aa', quantity: 1 });
+  });
+
   it('prepends a collection-compare drill when the deck has a publicId', () => {
     const result = summarizeDeckContents({
       publicId: 'pub1',
@@ -338,6 +348,15 @@ describe('summarizeArchetypeConsensus', () => {
     const cc = r.lines.find((l) => typeof l !== 'string' && l.text === '3× Cranial Crush') as any;
     expect(cc.preview).toMatchObject({ name: 'Cranial Crush', printingId: 'pid_cc' });
     expect(cc.preview.imageUrl).toBeTruthy();
+  });
+
+  it('exposes a cards[] array (printingId, qty, pitch, image) for the deck-view overlay', () => {
+    const r = summarizeArchetypeConsensus(data);
+    const cc = r.cards?.find((c) => c.name === 'Cranial Crush');
+    expect(cc).toMatchObject({ printingId: 'pid_cc', quantity: 3, pitch: 3 });
+    expect(cc?.imageUrl).toBeTruthy();
+    // core + flex both included
+    expect(r.cards?.some((c) => c.name === 'Disable')).toBe(true);
   });
 
   it('handles an empty result set', () => {

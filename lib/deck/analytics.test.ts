@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   deckColorBreakdown,
   computeArchetypeConsensus,
+  groupDeckViewByPitch,
   type ConsensusDeck,
+  type DeckViewCard,
 } from './analytics';
 
 describe('deckColorBreakdown', () => {
@@ -70,5 +72,28 @@ describe('computeArchetypeConsensus', () => {
   it('returns empty report for no decks', () => {
     const r = computeArchetypeConsensus([]);
     expect(r).toEqual({ deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } });
+  });
+});
+
+describe('groupDeckViewByPitch', () => {
+  const cards: DeckViewCard[] = [
+    { name: 'Heist', pitch: 1, quantity: 3 },
+    { name: 'Cranial Crush', pitch: 3, quantity: 3 },
+    { name: 'Remembrance', pitch: 2, quantity: 3 },
+    { name: 'Aurum Aegis', quantity: 1 }, // no pitch → colorless (equipment)
+    { name: 'Boulder Drop', pitch: 1, quantity: 3 },
+  ];
+
+  it('groups into red/yellow/blue/colorless sections in that order', () => {
+    const sections = groupDeckViewByPitch(cards);
+    expect(sections.map((s) => s.key)).toEqual(['red', 'yellow', 'blue', 'colorless']);
+  });
+
+  it('sorts cards within a section by name and omits empty sections', () => {
+    const sections = groupDeckViewByPitch(cards);
+    const red = sections.find((s) => s.key === 'red')!;
+    expect(red.cards.map((c) => c.name)).toEqual(['Boulder Drop', 'Heist']);
+    // only yellow card present; a pitch with no cards would be omitted
+    expect(groupDeckViewByPitch([{ name: 'X', pitch: 2, quantity: 1 }]).map((s) => s.key)).toEqual(['yellow']);
   });
 });

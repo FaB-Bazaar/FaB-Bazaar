@@ -60,6 +60,40 @@ export interface ArchetypeConsensus {
   colorCurve: { red: number; yellow: number; blue: number };
 }
 
+// ── Deck-view grouping (for the card-grid overlay) ─────────────────────────
+
+export interface DeckViewCard {
+  printingId?: string;
+  name: string;
+  quantity: number;
+  pitch?: number;
+  imageUrl?: string;
+}
+
+export interface DeckViewSection {
+  key: 'red' | 'yellow' | 'blue' | 'colorless';
+  title: string;
+  cards: DeckViewCard[];
+}
+
+const PITCH_SECTIONS: Array<{ key: DeckViewSection['key']; title: string; pitch?: number }> = [
+  { key: 'red', title: 'Red', pitch: 1 },
+  { key: 'yellow', title: 'Yellow', pitch: 2 },
+  { key: 'blue', title: 'Blue', pitch: 3 },
+  { key: 'colorless', title: 'Equipment & Colorless' },
+];
+
+/** Group cards into Red/Yellow/Blue/Colorless sections (in that order) for the deck-view overlay. */
+export function groupDeckViewByPitch(cards: DeckViewCard[]): DeckViewSection[] {
+  return PITCH_SECTIONS.map(({ key, title, pitch }) => ({
+    key,
+    title,
+    cards: (cards ?? [])
+      .filter((c) => (pitch === undefined ? !c.pitch || c.pitch < 1 || c.pitch > 3 : c.pitch === pitch))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  })).filter((s) => s.cards.length > 0);
+}
+
 function mode(nums: number[]): number {
   const counts = new Map<number, number>();
   let best = nums[0] ?? 0;

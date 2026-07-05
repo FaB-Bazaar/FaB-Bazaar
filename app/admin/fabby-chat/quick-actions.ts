@@ -16,7 +16,7 @@
 
 import { bindersClient, wantsClient, decksClient } from '@/lib/client';
 import { getCardImageUrl } from '@/lib/utils';
-import { deckColorBreakdown } from '@/lib/deck/analytics';
+import { deckColorBreakdown, type DeckViewCard } from '@/lib/deck/analytics';
 
 /**
  * A display line. Binder/deck lines carry a drill target (one-click
@@ -66,6 +66,8 @@ export interface QuickActionResult {
   lines: CardLine[];
   /** Compact representation queued as context for the next AI turn. */
   context: string;
+  /** Cards for the "View as cards" grid overlay (deck drills + consensus). */
+  cards?: DeckViewCard[];
 }
 
 export interface QuickAction {
@@ -137,7 +139,20 @@ export function summarizeDecks(
 
 interface DeckCard {
   quantity?: number;
-  printingDetails?: { display_name?: string; name?: string; pitch?: number; image_url?: string };
+  printingId?: string;
+  printingDetails?: { display_name?: string; name?: string; pitch?: number; image_url?: string; printing_id?: string };
+}
+
+/** Map a deck card (drill shape) to the overlay's DeckViewCard. */
+function toDeckViewCard(c: DeckCard): DeckViewCard {
+  const name = c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card';
+  return {
+    printingId: c.printingId || c.printingDetails?.printing_id,
+    name,
+    quantity: c.quantity ?? 1,
+    pitch: c.printingDetails?.pitch,
+    imageUrl: getCardImageUrl(c),
+  };
 }
 
 export function summarizeDeckContents(deck: {
@@ -192,10 +207,13 @@ export function summarizeDeckContents(deck: {
     if (colorSummary) lines.unshift(colorSummary);
   }
 
+  const viewCards = [...(deck.hero ?? []), ...(deck.equipment ?? []), ...(deck.maindeck ?? [])].map(toDeckViewCard);
+
   return {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
     lines,
     context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
+    ...(viewCards.length ? { cards: viewCards } : {}),
   };
 }
 
@@ -312,6 +330,13 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
   }
 
   const flexSummary = c.flex.slice(0, 8).map((f) => `${f.name} ${f.decks}/${c.deckCount}`).join(', ');
+  const viewCards: DeckViewCard[] = [...c.core, ...c.flex].map((card) => ({
+    printingId: card.printingId,
+    name: card.name,
+    quantity: card.typicalQty,
+    pitch: card.pitch,
+    imageUrl: card.printingId ? getCardImageUrl({ printingId: card.printingId }) : undefined,
+  }));
   return {
     title,
     lines,
@@ -319,6 +344,7 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
       + `Core (all decks): ${c.core.map((x) => `${x.typicalQty}× ${x.name}`).join(', ')}. `
       + `Flex (varies): ${flexSummary}. `
       + `Avg color curve: ${c.colorCurve.red}R/${c.colorCurve.yellow}Y/${c.colorCurve.blue}B.`,
+    ...(viewCards.length ? { cards: viewCards } : {}),
   };
 }
 

@@ -22,6 +22,9 @@ import {
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildCardNameIndex } from './card-linkify';
+import { DeckCardsOverlay } from './DeckCardsOverlay';
+import type { DeckViewCard } from '@/lib/deck/analytics';
+import { LayoutGrid } from 'lucide-react';
 
 /** Pitch pip icon (1/2/3) rendered inline after card names. */
 function PitchIcon({ pitch }: { pitch?: number }) {
@@ -80,7 +83,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[] };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[] };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -129,6 +132,9 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   // Desktop-only card preview rail (hover/focus on a card line shows it)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
+
+  // "View as cards" grid overlay for a deck / consensus data card.
+  const [deckView, setDeckView] = useState<{ title: string; cards: DeckViewCard[] } | null>(null);
 
   // Archetype comparison picker (instant, no-AI cross-deck consensus).
   const [archetypeOpen, setArchetypeOpen] = useState(false);
@@ -298,13 +304,13 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[] }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
     try {
       const result = await run();
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -599,11 +605,22 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
               return (
                 <div key={index} className="self-start w-full max-w-[85%] rounded-lg border border-border bg-card px-3.5 py-2.5">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Zap className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                    <span className="font-semibold">{item.title}</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">· instant, no AI</span>
+                    <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                    <span className="font-semibold min-w-0 truncate">{item.title}</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
+                    {item.cards && item.cards.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDeckView({ title: item.title, cards: item.cards! })}
+                        className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
+                        title="View these cards as a grid"
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                        View as cards
+                      </button>
+                    )}
                   </div>
-                  <ul className={`text-sm max-h-72 overflow-y-auto space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
+                  <ul className={`text-sm max-h-72 overflow-y-auto overflow-x-hidden space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') {
                         // Section headers ("— Maindeck (28) —") vs plain notes.
@@ -617,9 +634,9 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                         }
                         // Non-header note (e.g. color summary): indent to align with card names.
                         return (
-                          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+                          <li key={lineIndex} className="break-inside-avoid list-none flex items-baseline gap-1.5">
                             <span className="w-5 shrink-0" aria-hidden="true" />
-                            <span>{line}</span>
+                            <span className="min-w-0 break-words">{line}</span>
                           </li>
                         );
                       }
@@ -635,7 +652,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                               title={target.kind === 'deck-compare'
                                 ? 'Compare this deck against your whole collection — instant, no AI'
                                 : `Show contents of ${target.name} — instant, no AI`}
-                              className={`text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
+                              className={`min-w-0 break-words text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
                             >
                               {line.text}
                             </button>
@@ -651,7 +668,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                               tabIndex={0}
                               onMouseEnter={() => setPreviewCard(preview)}
                               onFocus={() => setPreviewCard(preview)}
-                              className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+                              className={`min-w-0 break-words cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                             >
                               {line.text}
                             </span>
@@ -661,7 +678,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                       return (
                         <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
                           <PitchGem pitch={line.pitch} />
-                          <span>{line.text}</span>
+                          <span className="min-w-0 break-words">{line.text}</span>
                         </li>
                       );
                     })}
@@ -992,6 +1009,9 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
         </div>
       )}
     </div>
+    {deckView && (
+      <DeckCardsOverlay title={deckView.title} cards={deckView.cards} onClose={() => setDeckView(null)} />
+    )}
     </div>
   );
 }
