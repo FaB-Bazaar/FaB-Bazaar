@@ -993,7 +993,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                       so nothing is clipped and all text stays available for the AI
                       context; overflow-auto scrolls only if a token exceeds width. */}
                   {!(item.tableRows && item.tableRows.length > 0) && (
-                  <ul className={`text-sm max-h-96 overflow-y-auto overflow-x-hidden space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
+                  <ul className={`text-sm space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') {
                         // Section headers ("— Maindeck (28) —") vs plain notes.
