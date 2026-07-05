@@ -52,7 +52,7 @@
     --background: 222.2 84% 4.9%; /* Your original near-black, now used for components */
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 222 40% 12%; /* Elevated above the page (--background 4.9%) so cards read as raised surfaces in dark mode */
     --card-foreground: 210 40% 98%;
 
     --popover: 222.2 84% 4.9%;
@@ -73,7 +73,7 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
+    --border: 217 18% 30%; /* Lightened so card/container edges are perceivable (WCAG 1.4.11) */
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
   }
