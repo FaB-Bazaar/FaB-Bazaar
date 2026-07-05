@@ -10,7 +10,7 @@ import { CookieSettingsButton } from '@/components/cookie/cookie-settings-button
 // belong there: rendering it adds body height past the viewport, which lets the
 // results pane's scroll chain into the window and drop the user into the footer
 // mid-search. Suppress it on those routes so the page stays exactly one screen.
-const APP_SHELL_ROUTES = ['/opt', '/search'];
+const APP_SHELL_ROUTES = ['/opt', '/search', '/admin/fabby-chat'];
 
 export function SiteFooter() {
   const pathname = usePathname();

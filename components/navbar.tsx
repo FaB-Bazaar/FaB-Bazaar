@@ -697,6 +697,7 @@ export default function Navbar() {
   /* Admin dropdown — desktop only, shown only to users with an admin role.
      Lists the admin pages the current user is allowed to open. */
   const adminIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+    "/admin/fabby-chat": Bot,
     "/admin/articles": FileText,
     "/admin/card-facets": Tags,
     "/admin/curation": ListChecks,
