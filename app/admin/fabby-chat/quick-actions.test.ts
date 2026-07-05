@@ -56,13 +56,15 @@ describe('summarizeWantsCards', () => {
     expect(summarizeWantsCards([]).lines).toEqual(['Your wants list is empty.']);
   });
 
-  it('shows set, foiling and a pitch gem per want', () => {
+  it('shows collector number, foiling, price and a pitch gem per want', () => {
     const result = summarizeWantsCards([
-      { display_name: 'Sink Below', quantity: 1, priority: 'high', set: 'cru', foiling: 's', pitch: 3 } as any,
+      { display_name: 'Sink Below', quantity: 1, priority: 'high', foiling: 's', pitch: 3,
+        printingDetails: { collector_number: 'CRU050', tcg_low: 0.25 } } as any,
     ]);
     const line = result.lines[0] as any;
-    expect(line.text).toContain('CRU'); // set
-    expect(line.text).toContain('NF');  // non-foil
+    expect(line.text).toContain('CRU050'); // collector number (not just set)
+    expect(line.text).toContain('NF');     // non-foil
+    expect(line.text).toContain('$0.25');  // price
     expect(line.text).toContain('(high)');
     expect(line.pitch).toBe(3);
   });

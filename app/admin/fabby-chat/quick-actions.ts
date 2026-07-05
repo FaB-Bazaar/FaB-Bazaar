@@ -62,6 +62,21 @@ function cardPitch(c: { pitch?: number; printingDetails?: { pitch?: number } }):
   return typeof p === 'number' && p > 0 ? p : undefined;
 }
 
+/**
+ * Wants tail: " · PEN123 · FOIL · $price" — collector number (identifies the
+ * exact printing better than the bare set), foiling, and the low price.
+ */
+function wantMeta(c: {
+  foiling?: string; collector_number?: string; value?: string | number;
+  printingDetails?: { foiling?: string; collector_number?: string; tcg_low?: number; tcg_market?: number };
+}): string {
+  const num = (c.collector_number ?? c.printingDetails?.collector_number ?? '').toUpperCase();
+  const foil = FOILING_SHORT[(c.foiling ?? c.printingDetails?.foiling ?? '') as string];
+  const raw = c.printingDetails?.tcg_low ?? c.printingDetails?.tcg_market ?? c.value;
+  const price = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseFloat(raw) || undefined : undefined;
+  return `${num ? ` · ${num}` : ''}${foil ? ` · ${foil}` : ''}${price ? ` · $${price.toFixed(2)}` : ''}`;
+}
+
 /** Extracts a rail preview from any of the card payload shapes we render. */
 export function toCardPreview(card: any, name: string): CardPreview {
   const details = card?.printingDetails ?? {};
@@ -114,7 +129,7 @@ export function summarizeBinders(
 }
 
 export function summarizeWantsCards(
-  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; set?: string; foiling?: string; pitch?: number; printingDetails?: { display_name?: string; set?: string; foiling?: string; pitch?: number } }>,
+  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; foiling?: string; pitch?: number; collector_number?: string; value?: string | number; printingDetails?: { display_name?: string; foiling?: string; pitch?: number; collector_number?: string; tcg_low?: number; tcg_market?: number } }>,
 ): QuickActionResult {
   // /api/wants exposes display_name only inside printingDetails; the top-level
   // `name` is the lowercase internal name — so read the proper name first.
@@ -123,7 +138,7 @@ export function summarizeWantsCards(
   const lines: CardLine[] = cards.length === 0
     ? ['Your wants list is empty.']
     : cards.map((c) => ({
-        text: `${c.quantity ?? 1}× ${label(c)}${cardMeta(c)}${c.priority ? ` (${c.priority})` : ''}`,
+        text: `${c.quantity ?? 1}× ${label(c)}${wantMeta(c)}${c.priority ? ` (${c.priority})` : ''}`,
         pitch: cardPitch(c),
         preview: toCardPreview(c, label(c)),
       }));
