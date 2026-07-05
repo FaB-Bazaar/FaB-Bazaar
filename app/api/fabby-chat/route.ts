@@ -16,7 +16,7 @@ import { runAgentLoop } from '@/lib/ai/agent-loop';
 import { createLlm } from '@/lib/ai/openrouter';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
-import { LLM_TIERS, resolveLlmTier, tierAllowsModel } from '@/lib/ai/tiers';
+import { LLM_TIERS, resolveLlmTier, tierAllowsModel, resolveChatModel } from '@/lib/ai/tiers';
 import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
@@ -39,6 +39,9 @@ const DECK_WRITE_TOOLS: ReadonlySet<string> = new Set([
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
+// Default (cheapest) model — what non-superadmins always run. Kept in sync with
+// modelAllowlist()'s first paid entry.
+const DEFAULT_PAID_MODEL = 'openai/gpt-oss-120b';
 
 function modelAllowlist(): string[] {
   return [
@@ -158,8 +161,15 @@ export async function POST(req: Request) {
   if (!validated.ok) {
     return NextResponse.json({ error: validated.error }, { status: 400 });
   }
-  // Keyless deployments run mock regardless of what the client asked for.
-  const model = process.env.OPENROUTER_API_KEY ? validated.model : 'mock';
+  // Superadmins pick their model; everyone else is pinned to the default
+  // (the UI hides the picker — this is the server-side enforcement). Keyless
+  // deployments run mock regardless of what the client asked for.
+  const model = resolveChatModel({
+    hasApiKey: !!process.env.OPENROUTER_API_KEY,
+    isSuperAdmin: access.data!.isSuperAdmin,
+    requested: validated.model,
+    defaultModel: DEFAULT_PAID_MODEL,
+  });
   if (!tierAllowsModel(tier, model)) {
     return NextResponse.json({ error: `Model not available on the ${tier} tier` }, { status: 403 });
   }

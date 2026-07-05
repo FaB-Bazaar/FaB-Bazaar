@@ -239,11 +239,14 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function FabbyChatClient({ username, userId, mockMode, models, initialContext, initialData }: {
+export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdmin, initialContext, initialData }: {
   username: string;
   userId: string;
   mockMode: boolean;
   models: string[];
+  /** Only superadmins get the model picker; everyone else runs the default
+   *  (cheapest) model, which the server also pins regardless of what's sent. */
+  isSuperAdmin: boolean;
   /** Pre-queued context (e.g. the Bridge B /opt handoff) — rides the
    *  pendingContext queue with the first free-text message, then clears.
    *  Also the seam a future embedded chat panel seeds. */
@@ -673,16 +676,20 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
         {/* Header row: model picker + reset on one line; badges wrap below */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <Select value={model} onValueChange={setModel} disabled={busy}>
-              <SelectTrigger className={`flex-1 min-w-0 sm:w-64 sm:flex-none text-base ${focusRing}`} aria-label="Model">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((m) => (
-                  <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Model picker is superadmin-only (bake-offs). Everyone else runs
+                the default model — hidden here and pinned server-side. */}
+            {isSuperAdmin && (
+              <Select value={model} onValueChange={setModel} disabled={busy}>
+                <SelectTrigger className={`flex-1 min-w-0 sm:w-64 sm:flex-none text-base ${focusRing}`} aria-label="Model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((m) => (
+                    <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button
               variant="outline"
               size="sm"

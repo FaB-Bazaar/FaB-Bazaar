@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { LLM_TIERS, resolveLlmTier, tierAllowsModel } from './tiers';
+import { LLM_TIERS, resolveLlmTier, tierAllowsModel, resolveChatModel } from './tiers';
 
 describe('resolveLlmTier', () => {
   it('puts superadmins on the paid tier', () => {
@@ -42,5 +42,24 @@ describe('tierAllowsModel', () => {
     expect(tierAllowsModel('paid', 'mock')).toBe(true);
     expect(tierAllowsModel('paid', 'openai/gpt-5-nano')).toBe(true);
     expect(tierAllowsModel('paid', 'anthropic/claude-haiku-4.5')).toBe(true);
+  });
+});
+
+describe('resolveChatModel', () => {
+  const DEFAULT = 'openai/gpt-oss-120b';
+
+  it('lets a superadmin run whatever they requested', () => {
+    expect(resolveChatModel({ hasApiKey: true, isSuperAdmin: true, requested: 'anthropic/claude-haiku-4.5', defaultModel: DEFAULT }))
+      .toBe('anthropic/claude-haiku-4.5');
+  });
+
+  it('pins a non-superadmin to the default model, ignoring their request', () => {
+    expect(resolveChatModel({ hasApiKey: true, isSuperAdmin: false, requested: 'anthropic/claude-haiku-4.5', defaultModel: DEFAULT }))
+      .toBe(DEFAULT);
+  });
+
+  it('runs mock for keyless deployments regardless of role or request', () => {
+    expect(resolveChatModel({ hasApiKey: false, isSuperAdmin: true, requested: 'anthropic/claude-haiku-4.5', defaultModel: DEFAULT })).toBe('mock');
+    expect(resolveChatModel({ hasApiKey: false, isSuperAdmin: false, requested: DEFAULT, defaultModel: DEFAULT })).toBe('mock');
   });
 });

@@ -308,19 +308,6 @@ export default function Navbar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
-            {canUseFabbyChat(user) && (
-              <>
-                <DropdownMenuItem asChild>
-                  <Link href="/fabby-chat" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
-                    <div className="flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400">
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Fabby Chat
-                    </div>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-              </>
-            )}
             <DropdownMenuItem asChild>
               <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                 <div className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -893,6 +880,17 @@ export default function Navbar() {
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayUsername(user.username)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                     </div>
+                    {canUseFabbyChat(user) && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link href="/fabby-chat" className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
+                            <Sparkles className="h-4 w-4 mr-2 text-violet-500 dark:text-violet-400" />
+                            <span className="font-semibold text-violet-600 dark:text-violet-400">Fabby Chat</span>
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
+                      </>
+                    )}
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                         <User className="h-4 w-4 mr-2" />
@@ -1136,6 +1134,14 @@ export default function Navbar() {
               {/* User Profile Section */}
               {user && (
                 <div className="border-t dark:border-gray-700 py-2">
+                  {canUseFabbyChat(user) && (
+                    <Link href="/fabby-chat" onClick={() => setIsMenuOpen(false)}>
+                      <div className="flex items-center px-3 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <Sparkles className="h-5 w-5 mr-3" />
+                        Fabby Chat
+                      </div>
+                    </Link>
+                  )}
                   <Link href="/profile" onClick={() => setIsMenuOpen(false)}>
                     <div className="flex items-center px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                       <User className="h-5 w-5 mr-3" />

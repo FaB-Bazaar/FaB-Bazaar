@@ -61,6 +61,7 @@ export default async function FabbyChatAdminPage({ searchParams }: {
     };
   }
 
+  const isSuperAdmin = !!access.data?.isSuperAdmin;
   const mockMode = !process.env.OPENROUTER_API_KEY;
   // Ordered cheapest → most expensive ($/M input); default (models[0]) is the
   // cheapest paid model. The free tier is intentionally omitted — it's
@@ -81,7 +82,7 @@ export default async function FabbyChatAdminPage({ searchParams }: {
         <h1 className="text-lg sm:text-2xl font-bold">Fabby Chat (prototype)</h1>
         {/* Prototype note is desktop-only — on mobile every row costs chat height */}
         <p className="hidden sm:block text-muted-foreground text-sm">
-          Hosted agent loop over the lite MCP toolset — superadmin preview.
+          Hosted agent loop over the lite MCP toolset.
         </p>
       </div>
       <FabbyChatClient
@@ -89,6 +90,7 @@ export default async function FabbyChatAdminPage({ searchParams }: {
         userId={user.id}
         mockMode={mockMode}
         models={models}
+        isSuperAdmin={isSuperAdmin}
         initialContext={initialContext}
         initialData={initialData}
       />

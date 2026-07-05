@@ -35,3 +35,19 @@ export function tierAllowsModel(tier: LlmTier, model: string): boolean {
   if (tier === 'paid') return true;
   return model === 'mock' || model.endsWith(':free');
 }
+
+/**
+ * Which model a chat turn actually runs. Only superadmins choose (model bake-
+ * offs); everyone else is pinned to the default (cheapest) model regardless of
+ * what the client requested — the UI hides the picker, this is the enforcement.
+ * Keyless deployments always run 'mock'.
+ */
+export function resolveChatModel(opts: {
+  hasApiKey: boolean;
+  isSuperAdmin: boolean;
+  requested: string;
+  defaultModel: string;
+}): string {
+  if (!opts.hasApiKey) return 'mock';
+  return opts.isSuperAdmin ? opts.requested : opts.defaultModel;
+}
