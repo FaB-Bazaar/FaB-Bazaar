@@ -27,7 +27,10 @@ export const getDecksToBeatTool = {
   Always include the View Deck link using https://fabbazaar.app/decks/{publicId}.
 
   💡 WORKFLOW:
-  Use get_decks_to_beat to research the meta before building or updating a deck.`,
+  Use get_decks_to_beat to research the meta before building or updating a deck.
+  To open a full decklist, call get_deck with that row's publicId (each result
+  includes a publicId). Do NOT pass the decorated deck name to get_deck — these
+  names are not in list_decks, so pass the publicId.`,
 
   parameters: {
     type: 'object',

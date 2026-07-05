@@ -44,16 +44,31 @@ function formatCardLine(card: any): string {
   return `| ${qty} | ${name} | ${color} | ${typeStr || '—'} | ${foiling} | ${editionDisplay} | ${cardId} |`;
 }
 
+// Deck-name matching is forgiving: models paste names with flag emoji, en/em
+// dashes, and extra whitespace that never match the stored name byte-for-byte.
+// Normalize both sides before comparing (and before the community ILIKE search).
+export function normalizeDeckName(s: string): string {
+  return String(s ?? '')
+    // strip flag/regional-indicator + emoji + variation selectors + ZWJ
+    .replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}]/gu, '')
+    // unify every dash variant to a plain hyphen
+    .replace(/[‐-―−]/g, '-')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export const getDeckTool = {
   name: 'get_deck',
   description: `🃏 VIEW DECK CONTENTS: Get the full decklist for any deck you can read
 
   Retrieves all cards in a deck organised by category (Hero, Equipment, Maindeck, etc.)
-  Look up by deck name — no need to know internal IDs.
+  Look up by publicId (most reliable) or by exact deck name.
 
   Works for:
-    • Your own decks (personal list)
-    • Decks to Beat / featured community decks (read-only — write tools still owner-gated)
+    • Your own decks (personal list) — by name or publicId
+    • Decks to Beat / featured community decks (read-only) — pass the publicId
+      from get_decks_to_beat (their names are NOT in list_decks)
 
   This tool works independently - no setup required.
 
@@ -79,18 +94,26 @@ export const getDeckTool = {
   Then show: "Total: X cards across Y unique entries."
 
   📋 **CALL FORMAT:**
+  { "publicId": "abc123" }   ← preferred
   { "deckName": "Katsu Aggro" }
 
   💡 WORKFLOW:
-  Step 1: list_decks (find deck names)
-  Step 2: get_deck with the exact deck name from list_decks`,
+  • Your own deck: get_deck with the exact deckName from list_decks.
+  • A Decks to Beat / featured deck (e.g. a National/Calling result): call
+    get_decks_to_beat first, then get_deck with that deck's publicId. Do NOT
+    invent or decorate the name — list_decks never returns these names, and
+    search_printings is for CARDS, not decks.`,
 
   parameters: {
     type: 'object',
     properties: {
+      publicId: {
+        type: 'string',
+        description: 'The deck\'s publicId (from get_decks_to_beat or a deck URL). Most reliable — skips name matching. Use this for Decks to Beat / featured decks.'
+      },
       deckName: {
         type: 'string',
-        description: 'The name of the deck to retrieve (case-insensitive match)'
+        description: 'The name of the deck to retrieve (case-insensitive; tolerant of flag emoji / dashes). Ignored when publicId is given.'
       },
       showDetails: {
         type: 'boolean',
@@ -99,7 +122,7 @@ export const getDeckTool = {
           'When true (default) the text response contains a full markdown decklist grouped by category. Set to false ONLY when the user just wants to browse the deck visually and you want to save context tokens. The interactive widget renders either way.'
       }
     },
-    required: ['deckName']
+    required: []
   },
 
   _meta: {
@@ -115,61 +138,76 @@ export const getDeckTool = {
         return { success: false, error: 'Authentication failed: No token was found.' };
       }
 
-      const { deckName } = params;
-      if (!deckName) {
-        return { success: false, error: 'deckName is required.' };
-      }
-
-      // Step 1: list decks to find the publicId matching this name
-      const listResponse = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
-      });
-
-      if (!listResponse.ok) {
-        return { success: false, error: `Failed to fetch deck list (HTTP ${listResponse.status}).` };
-      }
-
-      const listResult = await listResponse.json();
-      if (!listResult.success) {
-        return { success: false, error: listResult.error || 'Could not load deck list.' };
-      }
-
-      let match = (listResult.decks || []).find(
-        (d: any) => d.name?.toLowerCase() === deckName.toLowerCase()
-      );
-
-      // Fallback: Decks to Beat (system decks) aren't in the personal list, but
-      // non-owners can still read them. Search the public featured pool by name.
-      if (!match) {
-        const search = new URLSearchParams({
-          featured: 'true',
-          limit: '10',
-          search: deckName,
-        });
-        const communityResponse = await mcpFetch(
-          `${API_BASE_URL}/api/decks/community?${search}`,
-          { method: 'GET', headers: { 'Content-Type': 'application/json' } }
-        );
-        if (communityResponse.ok) {
-          const communityResult = await communityResponse.json();
-          const communityDecks = communityResult?.data?.decks ?? [];
-          match = communityDecks.find(
-            (d: any) => d.name?.toLowerCase() === deckName.toLowerCase()
-          );
-        }
-      }
-
-      if (!match) {
-        const available = (listResult.decks || []).map((d: any) => d.name).join(', ');
+      const { deckName, publicId } = params;
+      if (!deckName && !publicId) {
         return {
           success: false,
-          error: `No deck named "${deckName}" found. Available decks: ${available}`
+          error: 'Provide deckName or publicId. For a Decks to Beat / featured deck, call get_decks_to_beat and pass its publicId here.',
         };
       }
 
+      // Resolve to a publicId. When one is supplied directly (the deterministic
+      // get_decks_to_beat → get_deck chain) we skip the name lookup entirely.
+      let targetPublicId: string | undefined = publicId;
+
+      if (!targetPublicId) {
+        // Step 1: list decks to find the publicId matching this name
+        const listResponse = await mcpFetch(`${API_BASE_URL}/api/decks?limit=100`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
+        });
+
+        if (!listResponse.ok) {
+          return { success: false, error: `Failed to fetch deck list (HTTP ${listResponse.status}).` };
+        }
+
+        const listResult = await listResponse.json();
+        if (!listResult.success) {
+          return { success: false, error: listResult.error || 'Could not load deck list.' };
+        }
+
+        const wanted = normalizeDeckName(deckName);
+        let match = (listResult.decks || []).find(
+          (d: any) => normalizeDeckName(d.name) === wanted
+        );
+
+        // Fallback: Decks to Beat (system decks) aren't in the personal list, but
+        // non-owners can still read them. Search the public featured pool by name.
+        let communityDecks: any[] = [];
+        if (!match) {
+          const search = new URLSearchParams({
+            featured: 'true',
+            limit: '10',
+            search: wanted,
+          });
+          const communityResponse = await mcpFetch(
+            `${API_BASE_URL}/api/decks/community?${search}`,
+            { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+          );
+          if (communityResponse.ok) {
+            const communityResult = await communityResponse.json();
+            communityDecks = communityResult?.data?.decks ?? [];
+            match = communityDecks.find(
+              (d: any) => normalizeDeckName(d.name) === wanted
+            );
+          }
+        }
+
+        if (!match) {
+          const available = [
+            ...(listResult.decks || []).map((d: any) => d.name),
+            ...communityDecks.map((d: any) => d.name),
+          ].filter(Boolean).join(', ') || 'none';
+          return {
+            success: false,
+            error: `No deck named "${deckName}" found. Available decks: ${available}. For a Decks to Beat deck, use get_decks_to_beat and pass its publicId.`
+          };
+        }
+        targetPublicId = match.publicId;
+      }
+
       // Step 2: fetch deck detail by publicId
-      const deckResponse = await mcpFetch(`${API_BASE_URL}/api/decks/${match.publicId}`, {
+      const deckResponse = await mcpFetch(`${API_BASE_URL}/api/decks/${targetPublicId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
       });
