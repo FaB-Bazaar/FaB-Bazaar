@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Hybrid authentication - tries session first, then discordId, then OAuth
-    const authResult = await authenticateRequest(req, body);
+    const authResult = await authenticateRequest(req, body, { allowOAuth: true });
 
     if (!authResult.success || !authResult.userId) {
       return NextResponse.json(

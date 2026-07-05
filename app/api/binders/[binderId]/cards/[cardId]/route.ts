@@ -48,7 +48,7 @@ export async function PUT(
     const { binderId, cardId } = await params;
     const body = await request.json();
 
-    const authResult = await authenticateRequest(request, body);
+    const authResult = await authenticateRequest(request, body, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
     }
@@ -100,7 +100,7 @@ export async function DELETE(
   try {
     const { binderId, cardId } = await params;
 
-    const authResult = await authenticateRequest(request, {});
+    const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
     if (!authResult.success) {
       return NextResponse.json({ success: false, error: authResult.error }, { status: 401 });
     }
