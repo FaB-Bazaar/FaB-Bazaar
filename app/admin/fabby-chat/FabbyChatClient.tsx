@@ -16,8 +16,8 @@ import { fabbyChatClient, wantsClient, bindersClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
-  QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults,
-  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget,
+  QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildCardNameIndex } from './card-linkify';
@@ -44,7 +44,7 @@ interface StructuredCard {
 type UiItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; streaming: boolean }
-  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard; results?: SearchResultsCard }
+  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard; results?: SearchResultsCard; cards?: HarvestedCard[] }
   // Destructive tool call paused server-side awaiting Confirm/Deny.
   // pending → confirmed (tool_start arrives) or denied (failed tool_result
   // arrives without a tool_start). `submitting` disables the buttons while the
@@ -103,14 +103,9 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
   // Every card any search_printings call surfaced this session, keyed by name,
   // so card names in Fabby's markdown answers can hover-preview in the rail.
   const cardIndex = useMemo(() => {
-    const cards: Array<{ name?: string; pitch?: number; preview: CardPreview }> = [];
+    const cards: HarvestedCard[] = [];
     for (const it of items) {
-      if (it.kind !== 'tool' || !it.results) continue;
-      for (const row of it.results.rows) {
-        if (typeof row !== 'string' && row.preview) {
-          cards.push({ name: row.preview.name, pitch: row.pitch, preview: row.preview });
-        }
-      }
+      if (it.kind === 'tool' && it.cards) cards.push(...it.cards);
     }
     return buildCardNameIndex(cards);
   }, [items]);
@@ -215,9 +210,12 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
         });
         const card = toStructuredCard(event.structured);
         const results = parseSearchResults(event.structured) ?? undefined;
+        // Every card any tool surfaced feeds the name→rail index for markdown
+        // linkification — decks and binders too, not just searches.
+        const cards = harvestCardsFromStructured(event.structured);
         setItems((prev) => prev.map((item) => {
           if (item.kind === 'tool' && item.id === event.id) {
-            return { ...item, status: event.ok ? ('ok' as const) : ('error' as const), ms: event.ms, card, results };
+            return { ...item, status: event.ok ? ('ok' as const) : ('error' as const), ms: event.ms, card, results, cards };
           }
           // A result landing on a still-pending confirm card is the deny path
           // (denied calls never get a tool_start).

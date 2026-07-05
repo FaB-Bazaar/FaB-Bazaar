@@ -244,6 +244,74 @@ export function parseSearchResults(structured: any, maxRows = 20): SearchResults
   return { rows, total: first.total ?? first.printings.length, shown: rows.length };
 }
 
+/** One card lifted from any structured tool payload, ready to index by name. */
+export interface HarvestedCard {
+  name: string;
+  pitch?: number;
+  preview: CardPreview;
+}
+
+// Field extractors tolerant of every shape a card arrives in: get_deck flattens
+// to top-level {printingId,name,pitch}; get_binder uses {printingId,name}; the
+// wants route uses snake {printing_id, display_name}; search projects
+// {printing_id, name, pitch}; the client-drill shape nests under printingDetails.
+function harvestOne(raw: any, out: HarvestedCard[]): void {
+  if (!raw || typeof raw !== 'object') return;
+  const d = raw.printingDetails ?? {};
+  const name = raw.name ?? raw.display_name ?? d.display_name ?? d.name;
+  if (!name || typeof name !== 'string') return;
+  const printingId = raw.printingId ?? raw.printing_id ?? d.printing_id ?? undefined;
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) || undefined : undefined);
+  const rawPitch = raw.pitch ?? d.pitch;
+  const pitch = typeof rawPitch === 'number' && rawPitch > 0 ? rawPitch : undefined;
+  out.push({
+    name,
+    pitch,
+    preview: {
+      imageUrl: getCardImageUrl(raw.image_url || d.image_url ? raw : { printingId }),
+      name,
+      printingId,
+      priceLow: num(raw.tcg_low ?? d.tcg_low ?? raw.price),
+      priceMarket: num(raw.tcg_market ?? d.tcg_market),
+    },
+  });
+}
+
+/**
+ * Universal card harvester: pulls {name, pitch, printingId, preview} out of any
+ * card-bearing tool payload (search_printings, get_deck, get_binder, get_wants)
+ * so card names Fabby mentions in its answer can hover-preview in the rail —
+ * not just the ones from a search. Unknown/cardless payloads yield [].
+ */
+export function harvestCardsFromStructured(structured: any): HarvestedCard[] {
+  const out: HarvestedCard[] = [];
+  if (!structured || typeof structured !== 'object') return out;
+
+  // search_printings — harvest EVERY card group, not just results[0].
+  if (Array.isArray(structured.results)) {
+    for (const group of structured.results) {
+      for (const p of group?.printings ?? []) harvestOne(p, out);
+    }
+  }
+  // get_binder / get_wants — flat cards[].
+  if (Array.isArray(structured.cards)) {
+    for (const c of structured.cards) harvestOne(c, out);
+  }
+  // get_deck — hero, weapon, equipment slots, and deck categories.
+  const deck = structured.deck;
+  if (deck && typeof deck === 'object') {
+    harvestOne(deck.heroCard, out);
+    harvestOne(deck.weapon, out);
+    for (const section of [deck.equipment, deck.categories]) {
+      if (!section || typeof section !== 'object') continue;
+      for (const slot of Object.values(section)) {
+        if (Array.isArray(slot)) for (const c of slot) harvestOne(c, out);
+      }
+    }
+  }
+  return out;
+}
+
 /** Wraps queued quick-action context into the next user turn's content. */
 export function buildMessageWithContext(pendingContext: string[], userText: string): string {
   if (pendingContext.length === 0) return userText;

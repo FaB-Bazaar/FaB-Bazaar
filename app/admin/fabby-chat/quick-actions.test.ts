@@ -14,6 +14,7 @@ import {
   summarizeComparison,
   buildMessageWithContext,
   parseSearchResults,
+  harvestCardsFromStructured,
 } from './quick-actions';
 
 describe('summarizeBinders', () => {
@@ -209,6 +210,65 @@ describe('parseSearchResults', () => {
       results: [{ total: 1, printings: [{ ...printing('Solo Card', 1), printing_count: 1 }] }],
     });
     expect((parsed?.rows[0] as any).printingCount).toBeUndefined();
+  });
+});
+
+describe('harvestCardsFromStructured', () => {
+  const byName = (cards: ReturnType<typeof harvestCardsFromStructured>, name: string) =>
+    cards.find((c) => c.name === name);
+
+  it('harvests search_printings results across every card group (not just the first)', () => {
+    const cards = harvestCardsFromStructured({
+      results: [
+        { printings: [{ printing_id: 'p1', name: 'Pummel', pitch: 1 }] },
+        { printings: [{ printing_id: 'p2', name: 'Sink Below', pitch: 3 }] },
+      ],
+    });
+    expect(byName(cards, 'Pummel')?.preview.printingId).toBe('p1');
+    expect(byName(cards, 'Sink Below')?.pitch).toBe(3);
+  });
+
+  it('harvests get_deck cards from hero, equipment and category sections', () => {
+    const cards = harvestCardsFromStructured({
+      deck: {
+        heroCard: { printingId: 'h1', name: 'Victor Goldmane, High and Mighty', pitch: 0 },
+        weapon: { printingId: 'w1', name: 'Titan Hammer', pitch: 0 },
+        equipment: { head: [{ printingId: 'e1', name: 'Crown of Dominion', pitch: 0 }], other: [] },
+        categories: {
+          maindeck: [{ printingId: 'm1', name: 'Disable', pitch: 3 }, { printingId: 'm2', name: 'Pummel', pitch: 1 }],
+          inventory: [], benched: [], tokens: [],
+        },
+      },
+    });
+    expect(byName(cards, 'Disable')?.preview.printingId).toBe('m1');
+    expect(byName(cards, 'Disable')?.pitch).toBe(3);
+    expect(byName(cards, 'Crown of Dominion')?.preview.printingId).toBe('e1');
+    expect(byName(cards, 'Victor Goldmane, High and Mighty')).toBeTruthy();
+  });
+
+  it('harvests get_binder cards[] (printingId + name, no pitch)', () => {
+    const cards = harvestCardsFromStructured({
+      cards: [{ printingId: 'b1', name: 'Command and Conquer' }],
+    });
+    expect(byName(cards, 'Command and Conquer')?.preview.printingId).toBe('b1');
+  });
+
+  it('harvests get_wants cards[] with snake-case printing_id and display_name only', () => {
+    const cards = harvestCardsFromStructured({
+      cards: [{ printing_id: 'wt1', display_name: 'Enlightened Strike' }],
+    });
+    expect(byName(cards, 'Enlightened Strike')?.preview.printingId).toBe('wt1');
+  });
+
+  it('gives every harvested card a non-empty preview image and name', () => {
+    const cards = harvestCardsFromStructured({ cards: [{ printingId: 'x1', name: 'Snatch' }] });
+    expect(cards[0].preview.imageUrl.length).toBeGreaterThan(0);
+    expect(cards[0].preview.name).toBe('Snatch');
+  });
+
+  it('returns [] for undefined / cardless payloads', () => {
+    expect(harvestCardsFromStructured(undefined)).toEqual([]);
+    expect(harvestCardsFromStructured({ title: 'x', url: 'y' })).toEqual([]);
   });
 });
 
