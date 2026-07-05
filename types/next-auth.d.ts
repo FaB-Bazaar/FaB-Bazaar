@@ -17,6 +17,7 @@ interface UserRoles {
   isShop?: boolean
   isTcgSeller?: boolean
   metafySupporterTier?: 'free' | 'paid'
+  fabbyChatAccess?: boolean
 }
 
 declare module "next-auth/jwt" {

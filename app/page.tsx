@@ -6,12 +6,14 @@ import { articleService } from '@/lib/services';
 import HomePageClient from '@/components/home/HomePageClient';
 
 export default async function HomePage() {
-  // Paid Metafy supporters land on Fabby Chat — it's their home. Superadmins
-  // keep the normal marketing home (they have the whole admin surface to reach).
-  // Read straight off the session token; the chat page re-gates server-side.
+  // Fabby Chat supporters (paid Metafy tier or a manual grant) land on the chat
+  // — it's their home. Superadmins keep the normal marketing home (they have the
+  // whole admin surface to reach). Read straight off the session token; the chat
+  // page re-gates server-side.
   const session = await auth();
   const roles = session?.user?.roles;
-  if (roles?.metafySupporterTier === 'paid' && !roles.isSuperAdmin) {
+  const isSupporter = roles?.metafySupporterTier === 'paid' || !!roles?.fabbyChatAccess;
+  if (isSupporter && !roles?.isSuperAdmin) {
     redirect('/fabby-chat');
   }
 

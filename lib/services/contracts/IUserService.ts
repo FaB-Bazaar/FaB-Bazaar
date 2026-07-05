@@ -35,6 +35,8 @@ export interface UserDTO {
   isTcgSeller?: boolean;
   /** Hosted-chat supporter tier ('free' | 'paid'). Gates Fabby Chat. */
   metafySupporterTier?: string;
+  /** Manual Fabby Chat grant, superadmin-toggled on /admin/user-access. */
+  fabbyChatAccess?: boolean;
 }
 
 /**
@@ -46,6 +48,8 @@ export interface UserDTO {
 export interface FabbyChatAccessDTO {
   isSuperAdmin: boolean;
   metafySupporterTier: 'free' | 'paid';
+  /** Manual superadmin grant (non-Metafy comp path). */
+  fabbyChatAccess: boolean;
 }
 
 /**

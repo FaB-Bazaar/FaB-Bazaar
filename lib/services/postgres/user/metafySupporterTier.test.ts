@@ -51,11 +51,17 @@ describe('PostgresUserService — Metafy supporter tier', () => {
     expect(res.success).toBe(false);
   });
 
-  it('getFabbyChatAccess returns the persisted tier + admin flag', async () => {
+  it('getFabbyChatAccess returns the persisted tier + admin + manual-grant flags', async () => {
     await service.setMetafySupporterTier(userId, 'paid');
     const res = await service.getFabbyChatAccess(userId);
     expect(res.success).toBe(true);
-    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'paid' });
+    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'paid', fabbyChatAccess: false });
+  });
+
+  it('getFabbyChatAccess reflects a manual fabby_chat_access grant', async () => {
+    await service.updateUserField(userId, 'fabbyChatAccess', true);
+    const res = await service.getFabbyChatAccess(userId);
+    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'free', fabbyChatAccess: true });
   });
 
   it('getFabbyChatAccess returns null for an unknown user', async () => {

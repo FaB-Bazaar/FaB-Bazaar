@@ -29,6 +29,7 @@ type UserType = {
   isMetafySupporter?: boolean;
   isShop?: boolean;
   isTcgSeller?: boolean;
+  fabbyChatAccess?: boolean;
 };
 
 interface RoleSwitchProps {
@@ -160,7 +161,7 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
 
   const getActiveRolesCount = (user: UserType) => {
     const roleCount = Object.values(user.roles || {}).filter(Boolean).length;
-    const flagCount = [user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore]
+    const flagCount = [user.fabbyChatAccess, user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore]
       .filter(Boolean).length;
     return roleCount + flagCount;
   };
@@ -478,12 +479,20 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
 
                 {/* User Flags */}
                 <div>
-                  <SectionHeader 
-                    icon={Store} 
+                  <SectionHeader
+                    icon={Store}
                     title="User Types"
-                    count={[user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore].filter(Boolean).length}
+                    count={[user.fabbyChatAccess, user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore].filter(Boolean).length}
                   />
                   <div className="space-y-3">
+                    <RoleSwitch
+                      id={`${user._id}-fabbyChatAccess`}
+                      label="Fabby Chat Access"
+                      description="Manually grant hosted Fabby Chat (no Metafy required)"
+                      checked={!!user.fabbyChatAccess}
+                      disabled={!!saving}
+                      onCheckedChange={(v) => handleFlagChange(user._id, 'fabbyChatAccess', v)}
+                    />
                     <RoleSwitch
                       id={`${user._id}-isMetafySupporter`}
                       label="Metafy Supporter"

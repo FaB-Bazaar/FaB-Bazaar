@@ -16,6 +16,10 @@ describe('canUseFabbyChat', () => {
     expect(canUseFabbyChat({ isSuperAdmin: true, metafySupporterTier: 'free' })).toBe(true);
   });
 
+  it('grants access via a manual fabbyChatAccess grant (no Metafy required)', () => {
+    expect(canUseFabbyChat({ isSuperAdmin: false, metafySupporterTier: 'free', fabbyChatAccess: true })).toBe(true);
+  });
+
   it('denies free-tier non-admins', () => {
     expect(canUseFabbyChat({ isSuperAdmin: false, metafySupporterTier: 'free' })).toBe(false);
   });

@@ -138,6 +138,9 @@ export const users = pgTable('users', {
   // Hosted-chat supporter tier: 'free' | 'paid'. Synced from Metafy community
   // membership (paid tier) or set manually by a superadmin. Gates Fabby Chat.
   metafySupporterTier: text('metafy_supporter_tier').default('free').notNull(),
+  // Manual Fabby Chat grant (superadmin-toggled on /admin/user-access) for users
+  // who can't get Metafy status. OR'd into canUseFabbyChat; sync never touches it.
+  fabbyChatAccess: boolean('fabby_chat_access').default(false).notNull(),
   isCurator: boolean('is_curator').default(false).notNull(),
   isShop: boolean('is_shop').default(false).notNull(),
   isTcgSeller: boolean('is_tcg_seller').default(false).notNull(),

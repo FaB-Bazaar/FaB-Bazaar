@@ -458,6 +458,7 @@ export class PostgresUserService implements IUserService {
         .select({
           isSuperAdmin: users.isSuperAdmin,
           metafySupporterTier: users.metafySupporterTier,
+          fabbyChatAccess: users.fabbyChatAccess,
         })
         .from(users)
         .where(eq(users.id, userId));
@@ -471,6 +472,7 @@ export class PostgresUserService implements IUserService {
         data: {
           isSuperAdmin: user.isSuperAdmin || false,
           metafySupporterTier: user.metafySupporterTier === 'paid' ? 'paid' : 'free',
+          fabbyChatAccess: user.fabbyChatAccess || false,
         },
       };
     } catch (error) {
@@ -1103,6 +1105,7 @@ export class PostgresUserService implements IUserService {
       isShop: user.isShop || false,
       isTcgSeller: user.isTcgSeller || false,
       metafySupporterTier: user.metafySupporterTier || 'free',
+      fabbyChatAccess: user.fabbyChatAccess || false,
     };
   }
 }

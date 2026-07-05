@@ -22,8 +22,13 @@ export const LLM_TIERS: Record<LlmTier, LlmTierLimits> = {
 export function resolveLlmTier(opts: {
   isSuperAdmin: boolean;
   metafySupporterTier?: SupporterTier | null;
+  fabbyChatAccess?: boolean | null;
 }): LlmTier {
-  return opts.isSuperAdmin || opts.metafySupporterTier === 'paid' ? 'paid' : 'free';
+  // Anyone who can use the chat gets the paid LLM tier — including manual grants,
+  // else a comped user would 403 on the paid-only default model.
+  return opts.isSuperAdmin || opts.metafySupporterTier === 'paid' || !!opts.fabbyChatAccess
+    ? 'paid'
+    : 'free';
 }
 
 /**
