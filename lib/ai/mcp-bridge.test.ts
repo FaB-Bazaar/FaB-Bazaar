@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchLiteTools, executeTool } from './mcp-bridge';
+import { fetchLiteTools, fetchToolsByName, executeTool } from './mcp-bridge';
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -60,6 +60,53 @@ describe('fetchLiteTools', () => {
   it('throws on a non-200 response', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: 'nope' }, 401));
     await expect(fetchLiteTools('bad')).rejects.toThrow(/401/);
+  });
+});
+
+describe('fetchToolsByName', () => {
+  it('fetches the FULL catalog (not lite) and keeps only the requested tools', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        tools: [
+          { name: 'add_cards_to_deck', description: 'Add cards', inputSchema: { type: 'object', properties: { deckId: { type: 'string' } } } },
+          { name: 'get_deck', description: 'Get', inputSchema: { type: 'object' } },
+          { name: 'search_printings', description: 'Search', inputSchema: { type: 'object' } },
+        ],
+      },
+    }));
+
+    const { tools, validNames } = await fetchToolsByName(
+      'jwt-token',
+      new Set(['add_cards_to_deck', 'remove_cards_from_deck']),
+    );
+
+    const [url, init] = fetchMock.mock.calls[0];
+    // Deck-write tools aren't in the lite advertisement — must hit the full list.
+    expect(String(url)).toContain('/api/mcp/server');
+    expect(String(url)).not.toContain('toolset=lite');
+    expect(init.headers['Authorization']).toBe('Bearer jwt-token');
+    expect(init.headers['User-Agent']).toBe('fabbazaar-hosted (chat)');
+
+    // Only requested-AND-present tools survive (get_deck/search filtered out;
+    // remove_cards_from_deck requested but absent → not in validNames).
+    expect(tools).toEqual([
+      {
+        type: 'function',
+        function: {
+          name: 'add_cards_to_deck',
+          description: 'Add cards',
+          parameters: { type: 'object', properties: { deckId: { type: 'string' } } },
+        },
+      },
+    ]);
+    expect(validNames).toEqual(new Set(['add_cards_to_deck']));
+  });
+
+  it('throws on a non-200 response', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: 'nope' }, 500));
+    await expect(fetchToolsByName('bad', new Set(['update_deck']))).rejects.toThrow(/500/);
   });
 });
 

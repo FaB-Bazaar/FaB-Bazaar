@@ -16,8 +16,12 @@ import type { OpenAiTool, ToolExecutionResult } from './types';
 
 const USER_AGENT = 'fabbazaar-hosted (chat)';
 
-function mcpUrl(): string {
-  return `${getMcpApiBaseUrl()}/api/mcp/server?toolset=lite`;
+function baseUrl(): string {
+  return `${getMcpApiBaseUrl()}/api/mcp/server`;
+}
+
+function liteUrl(): string {
+  return `${baseUrl()}?toolset=lite`;
 }
 
 function headers(bearer: string): Record<string, string> {
@@ -28,11 +32,17 @@ function headers(bearer: string): Record<string, string> {
   };
 }
 
-export async function fetchLiteTools(bearer: string): Promise<{
-  tools: OpenAiTool[];
-  validNames: Set<string>;
-}> {
-  const response = await mcpFetch(mcpUrl(), {
+type McpTool = { name: string; description: string; inputSchema: unknown };
+
+function toOpenAiTools(mcpTools: McpTool[]): OpenAiTool[] {
+  return mcpTools.map((tool) => ({
+    type: 'function',
+    function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
+  }));
+}
+
+async function listTools(url: string, bearer: string): Promise<McpTool[]> {
+  const response = await mcpFetch(url, {
     method: 'POST',
     headers: headers(bearer),
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
@@ -43,15 +53,29 @@ export async function fetchLiteTools(bearer: string): Promise<{
   }
 
   const body = await response.json();
-  const mcpTools: Array<{ name: string; description: string; inputSchema: unknown }> =
-    body?.result?.tools ?? [];
+  return body?.result?.tools ?? [];
+}
 
-  const tools: OpenAiTool[] = mcpTools.map((tool) => ({
-    type: 'function',
-    function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
-  }));
+export async function fetchLiteTools(bearer: string): Promise<{
+  tools: OpenAiTool[];
+  validNames: Set<string>;
+}> {
+  const mcpTools = await listTools(liteUrl(), bearer);
+  return { tools: toOpenAiTools(mcpTools), validNames: new Set(mcpTools.map((t) => t.name)) };
+}
 
-  return { tools, validNames: new Set(mcpTools.map((t) => t.name)) };
+/**
+ * Advertise a hand-picked subset of the FULL catalog, by name. Used to add a
+ * few write tools (e.g. deck editing) to the hosted chat WITHOUT expanding the
+ * shared lite advertisement that LM Studio / other local hosts also consume.
+ * validNames is the intersection of requested and actually-present tools.
+ */
+export async function fetchToolsByName(bearer: string, names: ReadonlySet<string>): Promise<{
+  tools: OpenAiTool[];
+  validNames: Set<string>;
+}> {
+  const mcpTools = (await listTools(baseUrl(), bearer)).filter((t) => names.has(t.name));
+  return { tools: toOpenAiTools(mcpTools), validNames: new Set(mcpTools.map((t) => t.name)) };
 }
 
 export async function executeTool(opts: {
@@ -70,7 +94,7 @@ export async function executeTool(opts: {
     };
   }
 
-  const response = await mcpFetch(mcpUrl(), {
+  const response = await mcpFetch(liteUrl(), {
     method: 'POST',
     signal,
     headers: headers(bearer),

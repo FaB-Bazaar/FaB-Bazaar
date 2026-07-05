@@ -95,7 +95,6 @@ type UiItem =
 const MODEL_PRICES: Record<string, { input: number; output: number }> = {
   'openai/gpt-5-nano': { input: 0.05, output: 0.4 },
   'openai/gpt-oss-120b': { input: 0.03, output: 0.15 },
-  'openai/gpt-oss-120b:free': { input: 0, output: 0 },
   'google/gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
   'anthropic/claude-haiku-4.5': { input: 1, output: 5 },
   mock: { input: 0, output: 0 },
@@ -960,14 +959,14 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                     </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
-                    <div className="max-h-72 overflow-auto">
+                    <div className="max-h-96 overflow-y-auto overflow-x-hidden">
                       <table className="w-full text-sm border-separate border-spacing-x-2 border-spacing-y-0.5">
                         <tbody>
                           {item.tableRows.map((r, i) => (
                             <tr key={i}>
                               <td className="align-middle w-5"><PitchGem pitch={r.pitch} /></td>
                               <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.qty}×</td>
-                              <td className="align-middle">
+                              <td className="align-middle break-words">
                                 <span
                                   tabIndex={0}
                                   onMouseEnter={() => showPreview(r.preview)}
@@ -994,7 +993,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                       so nothing is clipped and all text stays available for the AI
                       context; overflow-auto scrolls only if a token exceeds width. */}
                   {!(item.tableRows && item.tableRows.length > 0) && (
-                  <ul className={`text-sm max-h-72 overflow-auto space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
+                  <ul className={`text-sm max-h-96 overflow-y-auto overflow-x-hidden space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') {
                         // Section headers ("— Maindeck (28) —") vs plain notes.
@@ -1228,17 +1227,6 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                   <Button variant="outline" size="sm" onClick={() => retryLastTurn()} className={focusRing}>
                     Retry
                   </Button>
-                  {model.endsWith(':free') && /429|rate.?limit/i.test(errorBanner) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => retryLastTurn(model.replace(':free', ''))}
-                      className={focusRing}
-                      title="The free tier is rate-limited upstream — the paid variant costs ~$0.03/M tokens"
-                    >
-                      Switch to {model.replace(':free', '')} & retry
-                    </Button>
-                  )}
                 </div>
               )}
             </div>

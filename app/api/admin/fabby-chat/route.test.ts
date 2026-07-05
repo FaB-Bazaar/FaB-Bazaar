@@ -15,6 +15,7 @@ vi.mock('@/lib/services', () => ({
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn() }));
 vi.mock('@/lib/ai/mcp-bridge', () => ({
   fetchLiteTools: vi.fn(),
+  fetchToolsByName: vi.fn(),
   executeTool: vi.fn(),
 }));
 
@@ -23,13 +24,14 @@ import { POST } from './route';
 import { auth } from '@/auth';
 import { userService, llmUsageService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
-import { fetchLiteTools, executeTool } from '@/lib/ai/mcp-bridge';
+import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { resolveConfirmation } from '@/lib/ai/confirmations';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
 const mockHasRole = vi.mocked(userService.hasRole);
 const mockRateLimit = vi.mocked(rateLimit);
 const mockFetchLiteTools = vi.mocked(fetchLiteTools);
+const mockFetchToolsByName = vi.mocked(fetchToolsByName);
 const mockExecuteTool = vi.mocked(executeTool);
 const mockGetTodayRequestCount = vi.mocked(llmUsageService.getTodayRequestCount);
 const mockRecordTurn = vi.mocked(llmUsageService.recordTurn);
@@ -101,6 +103,7 @@ beforeEach(() => {
   mockHasRole.mockResolvedValue({ success: true, data: true } as any);
   mockRateLimit.mockResolvedValue({ success: true, remaining: 29 } as any);
   mockFetchLiteTools.mockResolvedValue(LITE_TOOLS as any);
+  mockFetchToolsByName.mockResolvedValue({ tools: [], validNames: new Set() } as any);
   mockExecuteTool.mockResolvedValue({ ok: true, content: 'Your Binders (9 total)' });
   mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 0 });
   mockRecordTurn.mockResolvedValue({ success: true, data: undefined });
@@ -137,6 +140,15 @@ describe('POST /api/admin/fabby-chat', () => {
     mockFetchLiteTools.mockRejectedValue(new Error('MCP tools/list failed (HTTP 500)'));
     const res = await POST(request(VALID_BODY));
     expect(res.status).toBe(502);
+  });
+
+  it('augments the lite set with the deck-editing write tools', async () => {
+    const res = await POST(request(VALID_BODY));
+    await readSseEvents(res); // drain the stream
+
+    expect(mockFetchToolsByName).toHaveBeenCalledTimes(1);
+    const requested = mockFetchToolsByName.mock.calls[0][1];
+    expect(requested).toEqual(new Set(['add_cards_to_deck', 'remove_cards_from_deck', 'update_deck']));
   });
 
   it('streams SSE for a valid mock conversation: tool round-trip then done', async () => {
