@@ -83,7 +83,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[] };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -134,7 +134,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
 
   // "View as cards" grid overlay for a deck / consensus data card.
-  const [deckView, setDeckView] = useState<{ title: string; cards: DeckViewCard[] } | null>(null);
+  const [deckView, setDeckView] = useState<{ title: string; subtitle?: string; cards: DeckViewCard[] } | null>(null);
 
   // Archetype comparison picker (instant, no-AI cross-deck consensus).
   const [archetypeOpen, setArchetypeOpen] = useState(false);
@@ -304,13 +304,13 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[] }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
     try {
       const result = await run();
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -611,7 +611,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                     {item.cards && item.cards.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setDeckView({ title: item.title, cards: item.cards! })}
+                        onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
                         className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
                         title="View these cards as a grid"
                       >
@@ -1014,7 +1014,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
       )}
     </div>
     {deckView && (
-      <DeckCardsOverlay title={deckView.title} cards={deckView.cards} onClose={() => setDeckView(null)} />
+      <DeckCardsOverlay title={deckView.title} subtitle={deckView.subtitle} cards={deckView.cards} onClose={() => setDeckView(null)} />
     )}
     </div>
   );

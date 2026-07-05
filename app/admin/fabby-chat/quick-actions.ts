@@ -68,6 +68,8 @@ export interface QuickActionResult {
   context: string;
   /** Cards for the "View as cards" grid overlay (deck drills + consensus). */
   cards?: DeckViewCard[];
+  /** Overlay subtitle clarifying what the card grid represents (e.g. "missing"). */
+  cardsSubtitle?: string;
 }
 
 export interface QuickAction {
@@ -213,7 +215,7 @@ export function summarizeDeckContents(deck: {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
     lines,
     context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
-    ...(viewCards.length ? { cards: viewCards } : {}),
+    ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
   };
 }
 
@@ -344,7 +346,9 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
       + `Core (all decks): ${c.core.map((x) => `${x.typicalQty}× ${x.name}`).join(', ')}. `
       + `Flex (varies): ${flexSummary}. `
       + `Avg color curve: ${c.colorCurve.red}R/${c.colorCurve.yellow}Y/${c.colorCurve.blue}B.`,
-    ...(viewCards.length ? { cards: viewCards } : {}),
+    ...(viewCards.length
+      ? { cards: viewCards, cardsSubtitle: `Every card across these ${c.deckCount} decks — ${c.core.length} core + ${c.flex.length} flex` }
+      : {}),
   };
 }
 
@@ -566,7 +570,9 @@ export function summarizeComparison(
     }; missing ${missing.map((m) => `${m.needed}x ${m.cardName}`).join(', ') || 'none'}${
       missingCost > 0 ? `; missing cards cost ~$${missingCost.toFixed(2)} total` : ''
     }`,
-    ...(viewCards.length ? { cards: viewCards } : {}),
+    ...(viewCards.length
+      ? { cards: viewCards, cardsSubtitle: `Cards you're missing — not yet in your collection (${viewCards.length})` }
+      : {}),
   };
 }
 

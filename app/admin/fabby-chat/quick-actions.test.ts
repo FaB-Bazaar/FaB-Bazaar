@@ -181,6 +181,8 @@ describe('summarizeComparison', () => {
     expect(gone).toMatchObject({ printingId: 'c', quantity: 2, pitch: 3 });
     const half = result.cards?.find((c) => c.name === 'Half Card');
     expect(half).toMatchObject({ printingId: 'b', quantity: 2, pitch: 2 }); // shortage 3-1=2
+    // overlay is clearly labelled as the missing cards, not a full deck
+    expect(result.cardsSubtitle).toMatch(/missing/i);
   });
 });
 

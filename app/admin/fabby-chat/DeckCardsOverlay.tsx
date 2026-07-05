@@ -18,10 +18,12 @@ const SECTION_ACCENT: Record<string, string> = {
  */
 export function DeckCardsOverlay({
   title,
+  subtitle,
   cards,
   onClose,
 }: {
   title: string;
+  subtitle?: string;
   cards: DeckViewCard[];
   onClose: () => void;
 }) {
@@ -57,7 +59,10 @@ export function DeckCardsOverlay({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="font-semibold truncate">{title}</h2>
+          <div className="min-w-0">
+            <h2 className="font-semibold truncate">{title}</h2>
+            {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
+          </div>
           <button
             type="button"
             aria-label="Close"
