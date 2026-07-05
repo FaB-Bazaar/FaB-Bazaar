@@ -67,10 +67,11 @@ export default async function FabbyChatAdminPage({ searchParams }: {
       ];
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 mb-3">
-        <h1 className="text-2xl font-bold">Fabby Chat (prototype)</h1>
-        <p className="text-muted-foreground text-sm">
+    <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-8 py-2 sm:py-4">
+      <div className="flex flex-wrap items-baseline gap-x-3 mb-2 sm:mb-3">
+        <h1 className="text-lg sm:text-2xl font-bold">Fabby Chat (prototype)</h1>
+        {/* Prototype note is desktop-only — on mobile every row costs chat height */}
+        <p className="hidden sm:block text-muted-foreground text-sm">
           Hosted agent loop over the lite MCP toolset — superadmin preview.
         </p>
       </div>

@@ -38,6 +38,7 @@ export function MarkdownMessage({ text, index, previewsByPid, onHoverCard }: Mar
                 tabIndex={0}
                 onMouseEnter={() => onHoverCard(preview)}
                 onFocus={() => onHoverCard(preview)}
+                onClick={() => onHoverCard(preview)}
                 className="cursor-default underline decoration-dotted underline-offset-2 hover:text-blue-700 dark:hover:text-blue-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm"
               >
                 {children}

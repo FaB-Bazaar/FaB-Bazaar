@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check,
@@ -98,6 +100,131 @@ const MODEL_PRICES: Record<string, { input: number; output: number }> = {
   mock: { input: 0, output: 0 },
 };
 
+const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+
+type RailStatus = { wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' };
+
+/**
+ * Card preview panel — image, prices, TCGplayer link, add-to-wants/binder.
+ * Rendered in the desktop side rail (lg+) and inside the mobile bottom
+ * drawer (tap a card name on touch), so both surfaces stay in sync.
+ */
+function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStatus, onAddToWants, onAddToBinder, binderOptions, targetBinderId, onTargetBinderChange }: {
+  card: CardPreview;
+  imageClassName?: string;
+  railStatus: RailStatus;
+  onAddToWants: () => void;
+  onAddToBinder: () => void;
+  binderOptions: Array<{ _id: string; name: string }>;
+  targetBinderId: string;
+  onTargetBinderChange: (id: string) => void;
+}) {
+  return (
+    <>
+      <div className="rounded-lg border border-border bg-card p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={card.imageUrl}
+          alt={card.name}
+          className={imageClassName}
+        />
+        <p className="mt-2 font-semibold text-center">{card.name}</p>
+        {(card.priceLow !== undefined || card.priceMarket !== undefined) && (
+          <div className="mt-1 flex justify-center gap-4 text-sm tabular-nums">
+            {card.priceLow !== undefined && (
+              <span>
+                <span className="text-gray-600 dark:text-gray-300">Low </span>
+                <span className="font-semibold text-green-700 dark:text-green-500">${card.priceLow.toFixed(2)}</span>
+              </span>
+            )}
+            {card.priceMarket !== undefined && (
+              <span>
+                <span className="text-gray-600 dark:text-gray-300">Market </span>
+                <span className="font-semibold text-green-700 dark:text-green-500">${card.priceMarket.toFixed(2)}</span>
+              </span>
+            )}
+          </div>
+        )}
+        {card.tcgplayerUrl && (
+          <div className="text-sm mt-2 pt-2 border-t border-border">
+            <TcgAffiliateLink
+              tcgplayerUrl={card.tcgplayerUrl}
+              feature="fabby-chat"
+              className={`flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ${focusRing} rounded-sm`}
+              title="Purchase on TCGPlayer"
+            >
+              <span>Available for purchase here</span>
+              {/* Theme-swapped wordmark: black for light mode, white (CDN) for dark */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/tcgplayer-logo-black.png"
+                alt="TCGPlayer"
+                className="h-4 w-auto dark:hidden"
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+                alt=""
+                aria-hidden="true"
+                className="h-4 w-auto hidden dark:block"
+              />
+            </TcgAffiliateLink>
+          </div>
+        )}
+      </div>
+
+      {card.printingId && (
+        <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAddToWants}
+            disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
+            className={`justify-start gap-2 ${focusRing}`}
+          >
+            {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              : railStatus.wants === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+              : railStatus.wants === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+              : <Heart className="h-4 w-4" aria-hidden="true" />}
+            {railStatus.wants === 'done' ? 'Added to wants' : 'Add to wants'}
+          </Button>
+
+          {binderOptions.length > 0 && (
+            <>
+              <Select value={targetBinderId} onValueChange={onTargetBinderChange}>
+                <SelectTrigger className={`text-sm ${focusRing}`} aria-label="Target binder">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {binderOptions.map((b) => (
+                    <SelectItem key={b._id} value={b._id} className="text-sm">{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onAddToBinder}
+                disabled={!targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
+                className={`justify-start gap-2 ${focusRing}`}
+              >
+                {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  : railStatus.binder === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                  : railStatus.binder === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+                  : <FolderPlus className="h-4 w-4" aria-hidden="true" />}
+                {railStatus.binder === 'done' ? 'Added to binder' : 'Add to binder'}
+              </Button>
+            </>
+          )}
+          <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1">
+            <Zap className="h-3 w-3" aria-hidden="true" /> Instant — no AI
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
 function toStructuredCard(structured: unknown): StructuredCard | undefined {
   if (!structured || typeof structured !== 'object') return undefined;
   const s = structured as Record<string, unknown>;
@@ -133,8 +260,19 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
   const [busy, setBusy] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
-  // Desktop-only card preview rail (hover/focus on a card line shows it)
+  // Card preview: desktop side rail (hover/focus) or mobile bottom drawer (tap)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  // Hover-capable devices preview in the rail; touch devices open the drawer
+  // on tap (mouseenter/focus both fire on tap, so every card line works).
+  const showPreview = useCallback((preview: CardPreview) => {
+    setPreviewCard(preview);
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) {
+      setMobilePreviewOpen(true);
+    }
+  }, []);
 
   // "View as cards" grid overlay for a deck / consensus data card.
   const [deckView, setDeckView] = useState<{ title: string; subtitle?: string; cards: DeckViewCard[] } | null>(null);
@@ -472,49 +610,58 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
     if (!result.success) setErrorBanner(result.error);
   }, [previewCard, targetBinderId]);
 
-  const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
-
   return (
-    <div className="flex gap-4 items-stretch h-[calc(100vh-14rem)] min-h-[28rem]">
+    <div className="flex gap-4 items-stretch h-[calc(100dvh-11.75rem)] min-h-[24rem] sm:h-[calc(100vh-14rem)] sm:min-h-[28rem]">
     <Card className="flex-1 min-w-0 flex flex-col">
-      <CardContent className="p-4 flex flex-col gap-3 flex-1 min-h-0">
-        {/* Header row: model picker + mode badge + reset */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={model} onValueChange={setModel} disabled={busy}>
-            <SelectTrigger className={`w-64 text-base ${focusRing}`} aria-label="Model">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {models.map((m) => (
-                <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {mockMode && (
-            <Badge variant="outline" className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-              Mock mode — no API key configured
-            </Badge>
+      <CardContent className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
+        {/* Header row: model picker + reset on one line; badges wrap below */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Select value={model} onValueChange={setModel} disabled={busy}>
+              <SelectTrigger className={`flex-1 min-w-0 sm:w-64 sm:flex-none text-base ${focusRing}`} aria-label="Model">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((m) => (
+                  <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={reset}
+              className={`ml-auto shrink-0 gap-1.5 ${focusRing}`}
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
+            </Button>
+          </div>
+          {(mockMode || sessionUsage.input > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {mockMode && (
+                <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Mock mode — no API key configured
+                </Badge>
+              )}
+              {sessionUsage.input > 0 && (
+                <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
+                  {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
+                  {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
+                </Badge>
+              )}
+            </div>
           )}
-          {sessionUsage.input > 0 && (
-            <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
-              {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
-              {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
-            </Badge>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={reset}
-            className={`ml-auto gap-1.5 ${focusRing}`}
-          >
-            <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
-          </Button>
         </div>
 
-        {/* Quick actions — deterministic reads, zero AI tokens */}
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Instant actions (no AI)">
-          <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+        {/* Quick actions — deterministic reads, zero AI tokens. One scrollable
+            strip on mobile (chips don't wrap); wraps normally at sm+. */}
+        <div
+          className="flex items-center gap-2 overflow-x-auto -mx-3 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-x-visible"
+          role="group"
+          aria-label="Instant actions (no AI)"
+        >
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
             <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
           </span>
           {QUICK_ACTIONS.map((action) => (
@@ -524,7 +671,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
               size="sm"
               disabled={busy || runningAction !== null}
               onClick={() => runQuickAction(action.id)}
-              className={`gap-1.5 ${focusRing}`}
+              className={`shrink-0 gap-1.5 ${focusRing}`}
               title="Runs directly against your data — no AI involved"
             >
               {runningAction === action.id && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
@@ -537,7 +684,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
             disabled={busy || runningAction !== null}
             onClick={toggleArchetype}
             aria-expanded={archetypeOpen}
-            className={`gap-1.5 ${focusRing}`}
+            className={`shrink-0 gap-1.5 ${focusRing}`}
             title="Compare all Decks to Beat of a hero — deterministic, no AI"
           >
             Compare archetype
@@ -547,13 +694,13 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
         {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
         {archetypeOpen && (
           <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3">
-            <label className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+            <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
               Hero (Decks to Beat)
               <select
                 value={selectedHero}
                 onChange={(e) => setSelectedHero(e.target.value)}
                 disabled={heroesLoading}
-                className={`min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+                className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
               >
                 {heroesLoading && <option>Loading heroes…</option>}
                 {!heroesLoading && heroes.length === 0 && <option value="">No featured decks found</option>}
@@ -595,7 +742,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
           role="log"
           aria-live="polite"
           aria-label={`Chat with Fabby as ${username}`}
-          className="flex-1 min-h-0 overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-4 flex flex-col gap-3"
+          className="flex-1 min-h-0 overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3 sm:p-4 flex flex-col gap-3"
         >
           {items.length === 0 && (
             <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
@@ -619,7 +766,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                     text={item.text}
                     index={cardIndex}
                     previewsByPid={previewsByPid}
-                    onHoverCard={setPreviewCard}
+                    onHoverCard={showPreview}
                   />
                   {item.streaming && <span className="animate-pulse" aria-hidden="true">▍</span>}
                 </div>
@@ -627,11 +774,11 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
             }
             if (item.kind === 'data') {
               return (
-                <div key={index} className="self-start w-full max-w-[85%] rounded-lg border border-border bg-card px-3.5 py-2.5">
+                <div key={index} className="self-start w-full max-w-full sm:max-w-[85%] rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span className="font-semibold min-w-0 truncate">{item.title}</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
+                    <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
                     <div className="ml-auto shrink-0 flex items-center gap-1.5">
                       {item.tableRows && item.tableRows.length > 0 && (
                         <>
@@ -683,8 +830,9 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                               <td className="align-middle">
                                 <span
                                   tabIndex={0}
-                                  onMouseEnter={() => setPreviewCard(r.preview)}
-                                  onFocus={() => setPreviewCard(r.preview)}
+                                  onMouseEnter={() => showPreview(r.preview)}
+                                  onFocus={() => showPreview(r.preview)}
+                                  onClick={() => showPreview(r.preview)}
                                   className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                                 >
                                   {r.name}
@@ -692,8 +840,8 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                                 {r.extendedArt && <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">EA</span>}
                                 {r.marvel && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Marvel</span>}
                               </td>
-                              <td className="align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
-                              <td className="align-middle text-xs text-gray-500 dark:text-gray-400">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
+                              <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
+                              <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
                               <td className="align-middle text-right text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
                               <td className="align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.forTrade ? 'trade' : r.priority ? r.priority : ''}</td>
                             </tr>
@@ -752,8 +900,9 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                             <PitchGem pitch={line.pitch} />
                             <span
                               tabIndex={0}
-                              onMouseEnter={() => setPreviewCard(preview)}
-                              onFocus={() => setPreviewCard(preview)}
+                              onMouseEnter={() => showPreview(preview)}
+                              onFocus={() => showPreview(preview)}
+                              onClick={() => showPreview(preview)}
                               className={`min-w-0 break-words cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                             >
                               {line.text}
@@ -877,8 +1026,9 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                             <li key={rowIndex}>
                               <span
                                 tabIndex={0}
-                                onMouseEnter={() => setPreviewCard(preview)}
-                                onFocus={() => setPreviewCard(preview)}
+                                onMouseEnter={() => showPreview(preview)}
+                                onFocus={() => showPreview(preview)}
+                                onClick={() => showPreview(preview)}
                                 className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                               >
                                 {row.text}
@@ -966,19 +1116,21 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                 send();
               }
             }}
-            placeholder="Ask Fabby… (Enter to send, Shift+Enter for a new line)"
+            placeholder={isMobile ? 'Ask Fabby…' : 'Ask Fabby… (Enter to send, Shift+Enter for a new line)'}
             aria-label="Message Fabby"
             rows={2}
             disabled={busy}
             className={`text-base resize-none ${focusRing}`}
           />
           {busy ? (
-            <Button variant="outline" onClick={stop} className={`gap-1.5 ${focusRing}`}>
-              <Square className="h-4 w-4" aria-hidden="true" /> Stop
+            <Button variant="outline" onClick={stop} aria-label="Stop" className={`gap-1.5 ${focusRing}`}>
+              <Square className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Stop</span>
             </Button>
           ) : (
-            <Button onClick={send} disabled={!input.trim()} className={`gap-1.5 ${focusRing}`}>
-              <Send className="h-4 w-4" aria-hidden="true" /> Send
+            <Button onClick={send} disabled={!input.trim()} aria-label="Send" className={`gap-1.5 ${focusRing}`}>
+              <Send className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Send</span>
             </Button>
           )}
         </div>
@@ -988,114 +1140,42 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
     {/* Desktop card preview + action rail */}
     <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto">
       {previewCard ? (
-        <>
-          <div className="rounded-lg border border-border bg-card p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewCard.imageUrl}
-              alt={previewCard.name}
-              className="w-full rounded-md"
-            />
-            <p className="mt-2 font-semibold text-center">{previewCard.name}</p>
-            {(previewCard.priceLow !== undefined || previewCard.priceMarket !== undefined) && (
-              <div className="mt-1 flex justify-center gap-4 text-sm tabular-nums">
-                {previewCard.priceLow !== undefined && (
-                  <span>
-                    <span className="text-gray-600 dark:text-gray-300">Low </span>
-                    <span className="font-semibold text-green-700 dark:text-green-500">${previewCard.priceLow.toFixed(2)}</span>
-                  </span>
-                )}
-                {previewCard.priceMarket !== undefined && (
-                  <span>
-                    <span className="text-gray-600 dark:text-gray-300">Market </span>
-                    <span className="font-semibold text-green-700 dark:text-green-500">${previewCard.priceMarket.toFixed(2)}</span>
-                  </span>
-                )}
-              </div>
-            )}
-            {previewCard.tcgplayerUrl && (
-              <div className="text-sm mt-2 pt-2 border-t border-border">
-                <TcgAffiliateLink
-                  tcgplayerUrl={previewCard.tcgplayerUrl}
-                  feature="fabby-chat"
-                  className={`flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ${focusRing} rounded-sm`}
-                  title="Purchase on TCGPlayer"
-                >
-                  <span>Available for purchase here</span>
-                  {/* Theme-swapped wordmark: black for light mode, white (CDN) for dark */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/tcgplayer-logo-black.png"
-                    alt="TCGPlayer"
-                    className="h-4 w-auto dark:hidden"
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
-                    alt=""
-                    aria-hidden="true"
-                    className="h-4 w-auto hidden dark:block"
-                  />
-                </TcgAffiliateLink>
-              </div>
-            )}
-          </div>
-
-          {previewCard.printingId && (
-            <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addPreviewToWants}
-                disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
-                className={`justify-start gap-2 ${focusRing}`}
-              >
-                {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  : railStatus.wants === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
-                  : railStatus.wants === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
-                  : <Heart className="h-4 w-4" aria-hidden="true" />}
-                {railStatus.wants === 'done' ? 'Added to wants' : 'Add to wants'}
-              </Button>
-
-              {binderOptions.length > 0 && (
-                <>
-                  <Select value={targetBinderId} onValueChange={setTargetBinderId}>
-                    <SelectTrigger className={`text-sm ${focusRing}`} aria-label="Target binder">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {binderOptions.map((b) => (
-                        <SelectItem key={b._id} value={b._id} className="text-sm">{b.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addPreviewToBinder}
-                    disabled={!targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
-                    className={`justify-start gap-2 ${focusRing}`}
-                  >
-                    {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                      : railStatus.binder === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
-                      : railStatus.binder === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
-                      : <FolderPlus className="h-4 w-4" aria-hidden="true" />}
-                    {railStatus.binder === 'done' ? 'Added to binder' : 'Add to binder'}
-                  </Button>
-                </>
-              )}
-              <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1">
-                <Zap className="h-3 w-3" aria-hidden="true" /> Instant — no AI
-              </p>
-            </div>
-          )}
-        </>
+        <CardPreviewPanel
+          card={previewCard}
+          railStatus={railStatus}
+          onAddToWants={addPreviewToWants}
+          onAddToBinder={addPreviewToBinder}
+          binderOptions={binderOptions}
+          targetBinderId={targetBinderId}
+          onTargetBinderChange={setTargetBinderId}
+        />
       ) : (
         <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-gray-600 dark:text-gray-300">
           Hover a card in a list to preview it here
         </div>
       )}
     </div>
+
+    {/* Mobile card preview — bottom sheet, opened by tapping a card name */}
+    <Drawer open={mobilePreviewOpen && !!previewCard} onOpenChange={setMobilePreviewOpen}>
+      <DrawerContent className="max-h-[92dvh]">
+        <DrawerTitle className="sr-only">{previewCard?.name ?? 'Card preview'}</DrawerTitle>
+        {previewCard && (
+          <div className="overflow-y-auto px-4 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)] flex flex-col gap-3">
+            <CardPreviewPanel
+              card={previewCard}
+              imageClassName="max-h-[45dvh] w-auto mx-auto rounded-md"
+              railStatus={railStatus}
+              onAddToWants={addPreviewToWants}
+              onAddToBinder={addPreviewToBinder}
+              binderOptions={binderOptions}
+              targetBinderId={targetBinderId}
+              onTargetBinderChange={setTargetBinderId}
+            />
+          </div>
+        )}
+      </DrawerContent>
+    </Drawer>
     {deckView && (
       <DeckCardsOverlay title={deckView.title} subtitle={deckView.subtitle} cards={deckView.cards} onClose={() => setDeckView(null)} />
     )}
