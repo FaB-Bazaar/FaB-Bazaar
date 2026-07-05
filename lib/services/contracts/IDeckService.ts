@@ -393,6 +393,7 @@ export interface InventoryComparisonDTO {
   owned: Array<{
     printingId: string;
     cardName: string;
+    pitch?: number;
     needed: number;
     owned: number;
     conditions: string[];
@@ -401,12 +402,14 @@ export interface InventoryComparisonDTO {
   missing: Array<{
     printingId: string;
     cardName: string;
+    pitch?: number;
     needed: number;
     tcgMarket?: number;
   }>;
   partial: Array<{
     printingId: string;
     cardName: string;
+    pitch?: number;
     needed: number;
     owned: number;
     shortage: number;

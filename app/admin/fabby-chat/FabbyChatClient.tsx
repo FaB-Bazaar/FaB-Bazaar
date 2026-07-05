@@ -620,7 +620,10 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                       </button>
                     )}
                   </div>
-                  <ul className={`text-sm max-h-72 overflow-y-auto overflow-x-hidden space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
+                  {/* overflow-auto (not x-hidden): the full text stays reachable via
+                      horizontal scroll — a fallback to the "View as cards" overlay,
+                      and it keeps every line available for the AI context. */}
+                  <ul className={`text-sm max-h-72 overflow-auto space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') {
                         // Section headers ("— Maindeck (28) —") vs plain notes.
@@ -636,7 +639,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                         return (
                           <li key={lineIndex} className="break-inside-avoid list-none flex items-baseline gap-1.5">
                             <span className="w-5 shrink-0" aria-hidden="true" />
-                            <span className="min-w-0 break-words">{line}</span>
+                            <span className="whitespace-nowrap">{line}</span>
                           </li>
                         );
                       }
@@ -652,7 +655,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                               title={target.kind === 'deck-compare'
                                 ? 'Compare this deck against your whole collection — instant, no AI'
                                 : `Show contents of ${target.name} — instant, no AI`}
-                              className={`min-w-0 break-words text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
+                              className={`whitespace-nowrap text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
                             >
                               {line.text}
                             </button>
@@ -668,7 +671,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                               tabIndex={0}
                               onMouseEnter={() => setPreviewCard(preview)}
                               onFocus={() => setPreviewCard(preview)}
-                              className={`min-w-0 break-words cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+                              className={`whitespace-nowrap cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                             >
                               {line.text}
                             </span>
@@ -678,7 +681,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                       return (
                         <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
                           <PitchGem pitch={line.pitch} />
-                          <span className="min-w-0 break-words">{line.text}</span>
+                          <span className="whitespace-nowrap">{line.text}</span>
                         </li>
                       );
                     })}

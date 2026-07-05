@@ -167,6 +167,21 @@ describe('summarizeComparison', () => {
     const result = summarizeComparison('Deck', { owned: [{ printingId: 'a', cardName: 'X', needed: 1, owned: 1 }] });
     expect(result.lines[0]).toContain('You own everything');
   });
+
+  it('carries pitch on missing/partial lines and a cards[] of what you still need', () => {
+    const result = summarizeComparison('Victor', {
+      partial: [{ printingId: 'b', cardName: 'Half Card', needed: 3, owned: 1, pitch: 2 }],
+      missing: [{ printingId: 'c', cardName: 'Gone Card', needed: 2, tcgMarket: 5, pitch: 3 }],
+    });
+    // pitch flows onto the rendered lines (for the gem)
+    expect(result.lines).toContainEqual(expect.objectContaining({ text: expect.stringContaining('Gone Card'), pitch: 3 }));
+    expect(result.lines).toContainEqual(expect.objectContaining({ text: expect.stringContaining('Half Card'), pitch: 2 }));
+    // overlay cards = missing (needed) + partial (shortage), with pitch + printingId
+    const gone = result.cards?.find((c) => c.name === 'Gone Card');
+    expect(gone).toMatchObject({ printingId: 'c', quantity: 2, pitch: 3 });
+    const half = result.cards?.find((c) => c.name === 'Half Card');
+    expect(half).toMatchObject({ printingId: 'b', quantity: 2, pitch: 2 }); // shortage 3-1=2
+  });
 });
 
 describe('summarizeBinderCards', () => {

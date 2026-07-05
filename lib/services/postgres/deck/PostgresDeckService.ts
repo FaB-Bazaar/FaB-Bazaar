@@ -2018,6 +2018,7 @@ export class PostgresDeckService implements IDeckService {
           quantity: deckCards.quantity,
           cardName: sql<string>`COALESCE(${cards.displayName}, ${cards.name}, ${deckCards.printingId})`,
           tcgMarket: printings.tcgMarket,
+          pitch: cards.pitch,
         })
         .from(deckCards)
         .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
@@ -2043,7 +2044,7 @@ export class PostgresDeckService implements IDeckService {
       }
 
       // Aggregate deck cards by printingId (sum quantities across categories)
-      const deckPrintingMap = new Map<string, { cardName: string; needed: number; tcgMarket: number | null }>();
+      const deckPrintingMap = new Map<string, { cardName: string; needed: number; tcgMarket: number | null; pitch: number | null }>();
       for (const row of deckCardRows) {
         const existing = deckPrintingMap.get(row.printingId);
         if (existing) {
@@ -2053,6 +2054,7 @@ export class PostgresDeckService implements IDeckService {
             cardName: row.cardName,
             needed: row.quantity,
             tcgMarket: row.tcgMarket,
+            pitch: row.pitch,
           });
         }
       }
@@ -2127,7 +2129,7 @@ export class PostgresDeckService implements IDeckService {
       let totalOwned = 0;
       let estimatedMissingValue = 0;
 
-      for (const [printingId, { cardName, needed, tcgMarket }] of deckPrintingMap.entries()) {
+      for (const [printingId, { cardName, needed, tcgMarket, pitch }] of deckPrintingMap.entries()) {
         totalNeeded += needed;
         const inv = inventoryMap.get(printingId);
         const rawOwned = inv?.owned ?? 0;
@@ -2137,6 +2139,7 @@ export class PostgresDeckService implements IDeckService {
         const baseItem = {
           printingId,
           cardName,
+          pitch: pitch ?? undefined,
           needed,
           owned: effectiveOwned,
           // Extra fields expected by the collection tab UI

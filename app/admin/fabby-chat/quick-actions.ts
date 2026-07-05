@@ -515,9 +515,9 @@ export async function runDeckDrill(publicId: string): Promise<QuickActionResult>
 export function summarizeComparison(
   deckName: string,
   comparison: {
-    owned?: Array<{ printingId: string; cardName: string; needed: number; owned: number }>;
-    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number }>;
-    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number }>;
+    owned?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number }>;
+    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number }>;
+    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number; pitch?: number }>;
   },
 ): QuickActionResult {
   const owned = comparison.owned ?? [];
@@ -530,6 +530,7 @@ export function summarizeComparison(
     lines.push(`— Missing (${missing.length} cards${missingCost > 0 ? ` · ~$${missingCost.toFixed(2)}` : ''}) —`);
     lines.push(...missing.map((m) => ({
       text: `${m.needed}× ${m.cardName}${m.tcgMarket ? ` · $${m.tcgMarket.toFixed(2)}` : ''}`,
+      pitch: m.pitch,
       preview: {
         imageUrl: getCardImageUrl({ printingId: m.printingId }),
         name: m.cardName,
@@ -542,9 +543,17 @@ export function summarizeComparison(
     lines.push(`— Partial (${partial.length}) —`);
     lines.push(...partial.map((p) => ({
       text: `${p.cardName} — own ${p.owned}/${p.needed}`,
+      pitch: p.pitch,
       preview: { imageUrl: getCardImageUrl({ printingId: p.printingId }), name: p.cardName, printingId: p.printingId },
     })));
   }
+
+  // "View as cards" overlay = the cards you still need (missing in full +
+  // the shortage of partial), so you can eyeball what's left to acquire.
+  const viewCards: DeckViewCard[] = [
+    ...missing.map((m) => ({ printingId: m.printingId, name: m.cardName, quantity: m.needed, pitch: m.pitch, imageUrl: getCardImageUrl({ printingId: m.printingId }) })),
+    ...partial.map((p) => ({ printingId: p.printingId, name: p.cardName, quantity: Math.max(1, p.needed - p.owned), pitch: p.pitch, imageUrl: getCardImageUrl({ printingId: p.printingId }) })),
+  ];
   lines.push(missing.length === 0 && partial.length === 0
     ? `✓ You own everything in this deck (${owned.length} cards)`
     : `✓ Fully owned: ${owned.length} cards`);
@@ -557,6 +566,7 @@ export function summarizeComparison(
     }; missing ${missing.map((m) => `${m.needed}x ${m.cardName}`).join(', ') || 'none'}${
       missingCost > 0 ? `; missing cards cost ~$${missingCost.toFixed(2)} total` : ''
     }`,
+    ...(viewCards.length ? { cards: viewCards } : {}),
   };
 }
 
