@@ -36,6 +36,35 @@ function PitchIcon({ pitch }: { pitch?: number }) {
   );
 }
 
+const PITCH_GEM: Record<number, { bg: string; label: string }> = {
+  1: { bg: 'bg-red-600', label: 'red' },
+  2: { bg: 'bg-amber-400', label: 'yellow' },
+  3: { bg: 'bg-blue-600', label: 'blue' },
+};
+
+/**
+ * Leading pitch marker for a card line — a solid dot in the pitch color
+ * (red/yellow/blue), so the left column reads as a scannable color stripe.
+ * Non-pitched cards (equipment, hero) get a smaller neutral dot; title/aria
+ * carry the pitch for non-visual users.
+ */
+function PitchGem({ pitch }: { pitch?: number }) {
+  const gem = pitch && PITCH_GEM[pitch];
+  return (
+    <span className="w-5 shrink-0 inline-flex justify-center" aria-hidden={gem ? undefined : true}>
+      {gem ? (
+        <span
+          title={`Pitch ${pitch} (${gem.label})`}
+          aria-label={`pitch ${pitch}, ${gem.label}`}
+          className={`inline-block h-3.5 w-3.5 rounded-full ring-1 ring-black/10 dark:ring-white/20 ${gem.bg}`}
+        />
+      ) : (
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+      )}
+    </span>
+  );
+}
+
 interface StructuredCard {
   title?: string;
   subtitle?: string;
@@ -577,18 +606,28 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                   <ul className={`text-sm max-h-72 overflow-y-auto space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
                       if (typeof line === 'string') {
-                        // Section headers ("— Maindeck (28) —") vs plain notes
+                        // Section headers ("— Maindeck (28) —") vs plain notes.
                         const isHeader = line.startsWith('—');
+                        if (isHeader) {
+                          return (
+                            <li key={lineIndex} className="break-inside-avoid font-semibold text-gray-700 dark:text-gray-200 mt-1.5 first:mt-0 list-none">
+                              {line}
+                            </li>
+                          );
+                        }
+                        // Non-header note (e.g. color summary): indent to align with card names.
                         return (
-                          <li key={lineIndex} className={`break-inside-avoid ${isHeader ? 'font-semibold text-gray-700 dark:text-gray-200 mt-1.5 first:mt-0 list-none' : 'list-disc list-inside'}`}>
-                            {line}
+                          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+                            <span className="w-5 shrink-0" aria-hidden="true" />
+                            <span>{line}</span>
                           </li>
                         );
                       }
                       if (line.drill) {
                         const target = line.drill;
                         return (
-                          <li key={lineIndex} className="break-inside-avoid list-disc list-inside">
+                          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+                            <PitchGem pitch={line.pitch} />
                             <button
                               type="button"
                               onClick={() => drill(target)}
@@ -596,7 +635,7 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                               title={target.kind === 'deck-compare'
                                 ? 'Compare this deck against your whole collection — instant, no AI'
                                 : `Show contents of ${target.name} — instant, no AI`}
-                              className={`underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
+                              className={`text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
                             >
                               {line.text}
                             </button>
@@ -606,7 +645,8 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                       if (line.preview) {
                         const preview = line.preview;
                         return (
-                          <li key={lineIndex} className="break-inside-avoid list-disc list-inside">
+                          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+                            <PitchGem pitch={line.pitch} />
                             <span
                               tabIndex={0}
                               onMouseEnter={() => setPreviewCard(preview)}
@@ -614,12 +654,16 @@ export function FabbyChatClient({ username, mockMode, models, initialContext, in
                               className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
                             >
                               {line.text}
-                              <PitchIcon pitch={line.pitch} />
                             </span>
                           </li>
                         );
                       }
-                      return <li key={lineIndex} className="break-inside-avoid list-disc list-inside">{line.text}<PitchIcon pitch={line.pitch} /></li>;
+                      return (
+                        <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+                          <PitchGem pitch={line.pitch} />
+                          <span>{line.text}</span>
+                        </li>
+                      );
                     })}
                   </ul>
                 </div>
