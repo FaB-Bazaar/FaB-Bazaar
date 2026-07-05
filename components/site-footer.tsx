@@ -10,11 +10,30 @@ import { CookieSettingsButton } from '@/components/cookie/cookie-settings-button
 // belong there: rendering it adds body height past the viewport, which lets the
 // results pane's scroll chain into the window and drop the user into the footer
 // mid-search. Suppress it on those routes so the page stays exactly one screen.
-const APP_SHELL_ROUTES = ['/opt', '/search', '/admin/fabby-chat'];
+const APP_SHELL_ROUTES = ['/opt', '/search'];
+
+// App-like pages that still fit one screen but must carry the required LSS
+// attribution: render an absolutely minimal, single-line legal footer instead
+// of the full marketing footer.
+const MINIMAL_FOOTER_ROUTES = ['/admin/fabby-chat'];
+
+// Required Third-Party-App attribution (LSS IP terms).
+const LSS_DISCLAIMER =
+  'is in no way affiliated with Legend Story Studios. Legend Story Studios®, Flesh and Blood™, and set names are trademarks of Legend Story Studios. Flesh and Blood characters, cards, logos, and art are property of Legend Story Studios.';
 
 export function SiteFooter() {
   const pathname = usePathname();
   if (APP_SHELL_ROUTES.includes(pathname)) return null;
+
+  if (MINIMAL_FOOTER_ROUTES.includes(pathname)) {
+    return (
+      <footer className="border-t border-slate-200 dark:border-slate-800 px-4 py-2">
+        <p className="mx-auto max-w-5xl text-center text-[11px] leading-snug text-slate-400 dark:text-slate-500">
+          &copy; {new Date().getFullYear()} FaB Bazaar {LSS_DISCLAIMER}
+        </p>
+      </footer>
+    );
+  }
 
   return (
     <footer className="bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
