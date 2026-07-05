@@ -7,12 +7,19 @@ import { describe, it, expect } from 'vitest';
 import { LLM_TIERS, resolveLlmTier, tierAllowsModel } from './tiers';
 
 describe('resolveLlmTier', () => {
-  it('puts superadmins on the paid tier (hosted chat is superadmin-only today)', () => {
+  it('puts superadmins on the paid tier', () => {
     expect(resolveLlmTier({ isSuperAdmin: true })).toBe('paid');
+    expect(resolveLlmTier({ isSuperAdmin: true, metafySupporterTier: 'free' })).toBe('paid');
+  });
+
+  it('puts paid Metafy supporters on the paid tier', () => {
+    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'paid' })).toBe('paid');
   });
 
   it('defaults everyone else to free', () => {
     expect(resolveLlmTier({ isSuperAdmin: false })).toBe('free');
+    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'free' })).toBe('free');
+    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: null })).toBe('free');
   });
 });
 

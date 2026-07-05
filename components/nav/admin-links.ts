@@ -21,7 +21,9 @@ export interface AdminLink {
 }
 
 export const ADMIN_LINKS: readonly AdminLink[] = [
-  { href: '/admin/fabby-chat', label: 'Fabby Chat', roles: ['superAdmin'] },
+  // Fabby Chat is NOT here — it moved to /fabby-chat and is gated by
+  // canUseFabbyChat (superadmins + paid supporters), surfaced in the user
+  // dropdown rather than the admin menu.
   { href: '/admin/articles', label: 'Articles', roles: ['superAdmin', 'contentCreator'] },
   { href: '/admin/card-facets', label: 'Card Facets', roles: ['superAdmin', 'curator'] },
   { href: '/admin/curation', label: 'Curation', roles: ['superAdmin', 'curator'] },

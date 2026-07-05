@@ -51,7 +51,7 @@ describe('resolveConfirmation', () => {
     const result = await resolveConfirmation({ id: 'c1', decision: 'confirm' });
 
     expect(result.success).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith('/api/admin/fabby-chat/confirm', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/fabby-chat/confirm', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
     }));

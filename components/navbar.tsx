@@ -40,9 +40,11 @@ import {
   Ban,
   Swords,
   UserCog,
+  Sparkles,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { accessibleAdminLinks } from "@/components/nav/admin-links"
+import { canUseFabbyChat } from "@/lib/ai/fabby-chat-access"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -306,6 +308,19 @@ export default function Navbar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
+            {canUseFabbyChat(user) && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link href="/fabby-chat" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
+                    <div className="flex items-center text-sm font-semibold text-violet-600 dark:text-violet-400">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Fabby Chat
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
+              </>
+            )}
             <DropdownMenuItem asChild>
               <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
                 <div className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -697,7 +712,6 @@ export default function Navbar() {
   /* Admin dropdown — desktop only, shown only to users with an admin role.
      Lists the admin pages the current user is allowed to open. */
   const adminIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-    "/admin/fabby-chat": Bot,
     "/admin/articles": FileText,
     "/admin/card-facets": Tags,
     "/admin/curation": ListChecks,

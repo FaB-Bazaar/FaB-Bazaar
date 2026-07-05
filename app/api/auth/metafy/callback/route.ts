@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateSession } from '@/lib/auth/multi-auth';
 import { userService } from '@/lib/services';
+import { fabSupporterTier } from '@/lib/metafy/supporter-tier';
 
 const METAFY_TOKEN_URL = 'https://metafy.gg/irk/oauth/token';
 const METAFY_ME_URL = 'https://metafy.gg/irk/api/v1/me';
@@ -139,6 +140,15 @@ export async function GET(request: NextRequest) {
           tiers: c.tiers?.map((t) => ({ id: t.id, name: t.name })) ?? null,
         }))
       );
+
+      // Derive and persist the hosted-chat supporter tier from the same payload.
+      // fabSupporterTier fail-safes to 'free' for any missing/unconfigured data,
+      // so this can only grant 'paid' on a real FaB-community paid membership.
+      const tier = fabSupporterTier(communities);
+      const tierResult = await userService.setMetafySupporterTier(authResult.userId, tier);
+      if (!tierResult.success) {
+        console.error('[MetafyCallback] Failed to persist supporter tier:', tierResult.error);
+      }
     } else {
       console.warn('[MetafyCallback] Could not fetch Metafy memberships:', membershipsResponse.status);
     }

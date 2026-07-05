@@ -80,7 +80,7 @@ function StatusRow({ label, ok }: { label: string; ok: boolean }) {
 export default function ConnectedAccountsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
+  const { data: session, update: updateSession } = useSession()
   const { user } = useAuth()
 
   const [isFetching, setIsFetching] = useState(true)
@@ -125,6 +125,10 @@ export default function ConnectedAccountsPage() {
       fetch("/api/auth/me").then(r => r.json()).then(data => {
         if (data.success) setUserProfile(data.user)
       })
+      // Refresh the JWT so a newly-derived supporter tier (Fabby Chat access,
+      // navbar link, paid landing) takes effect without a re-login. The jwt
+      // callback refetches roles from the DB on update.
+      void updateSession()
     } else if (metafyParam === "error") {
       const reason = searchParams.get("reason") || "unknown"
       const messages: Record<string, string> = {
@@ -138,7 +142,7 @@ export default function ConnectedAccountsPage() {
     }
 
     router.replace("/profile/connected-accounts", { scroll: false })
-  }, [searchParams, router])
+  }, [searchParams, router, updateSession])
 
   const handleMetafyUnlink = async () => {
     setIsUnlinking(true)

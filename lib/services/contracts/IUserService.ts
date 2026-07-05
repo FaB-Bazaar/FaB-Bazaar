@@ -33,6 +33,19 @@ export interface UserDTO {
   isMetafySupporter?: boolean;
   isShop?: boolean;
   isTcgSeller?: boolean;
+  /** Hosted-chat supporter tier ('free' | 'paid'). Gates Fabby Chat. */
+  metafySupporterTier?: string;
+}
+
+/**
+ * Minimal flags needed to gate Fabby Chat access (see
+ * lib/ai/fabby-chat-access.canUseFabbyChat). Fetched fresh from the DB by the
+ * server gates so a revoked supporter loses access without waiting for their
+ * session token to refresh.
+ */
+export interface FabbyChatAccessDTO {
+  isSuperAdmin: boolean;
+  metafySupporterTier: 'free' | 'paid';
 }
 
 /**
@@ -282,6 +295,12 @@ export interface IUserService {
    * @returns Result containing user roles
    */
   getRoles(userId: string): AsyncResult<UserRolesDTO | null>;
+
+  /**
+   * Fetch the flags that gate Fabby Chat access (superadmin + supporter tier)
+   * in a single query. Returns null if the user does not exist.
+   */
+  getFabbyChatAccess(userId: string): AsyncResult<FabbyChatAccessDTO | null>;
 
   // ====================================
   // Update methods (for OAuth/auth flows)
@@ -582,6 +601,23 @@ export interface IUserService {
    * Get the Metafy communities a user belongs to
    */
   getMetafyCommunities(userId: string): AsyncResult<MetafyCommunityDTO[]>;
+
+  /**
+   * Set the hosted-chat supporter tier ('free' | 'paid'). Derived from Metafy
+   * community membership on link, or a manual superadmin override. Gates Fabby
+   * Chat (see lib/ai/fabby-chat-access).
+   */
+  setMetafySupporterTier(userId: string, tier: 'free' | 'paid'): AsyncResult<void>;
+
+  /**
+   * Context for the lazy supporter-tier refresh (see lib/metafy/sync-tier):
+   * whether the user has a linked Metafy account and when their memberships
+   * were last synced (the newest metafy_communities.synced_at, null if none).
+   * Returns null if the user does not exist.
+   */
+  getSupporterSyncContext(
+    userId: string,
+  ): AsyncResult<{ linked: boolean; syncedAt: Date | null } | null>;
 
   /**
    * Update a specific user field (admin operation)

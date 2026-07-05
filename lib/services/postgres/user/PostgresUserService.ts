@@ -5,7 +5,7 @@
  * Clean, normalized queries with no denormalization
  */
 
-import { eq, and, or, sql, inArray } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { users, binders, wantsItems, metafyCommunities } from '@/lib/postgres/schema';
 import { encryptMetafyTokens } from '@/lib/metafy/tokens';
@@ -19,6 +19,7 @@ import type {
   UpdateUserDTO,
   UserProfileDTO,
   UserRolesDTO,
+  FabbyChatAccessDTO,
   UserProfileStatsDTO,
   UpdateProfileDTO,
   MetafyCommunityDTO,
@@ -451,6 +452,36 @@ export class PostgresUserService implements IUserService {
     }
   }
 
+  async getFabbyChatAccess(userId: string): AsyncResult<FabbyChatAccessDTO | null> {
+    try {
+      const [user] = await db
+        .select({
+          isSuperAdmin: users.isSuperAdmin,
+          metafySupporterTier: users.metafySupporterTier,
+        })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user) {
+        return { success: true, data: null };
+      }
+
+      return {
+        success: true,
+        data: {
+          isSuperAdmin: user.isSuperAdmin || false,
+          metafySupporterTier: user.metafySupporterTier === 'paid' ? 'paid' : 'free',
+        },
+      };
+    } catch (error) {
+      console.error('[PostgresUserService] getFabbyChatAccess error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get Fabby Chat access',
+      };
+    }
+  }
+
   /**
    * Search users (alias for searchByUsername for compatibility)
    */
@@ -854,6 +885,8 @@ export class PostgresUserService implements IUserService {
           metafyRefreshToken: null,
           metafyRefreshTokenIv: null,
           metafyTokenExpiry: null,
+          // Losing the Metafy link revokes any supporter-derived access.
+          metafySupporterTier: 'free',
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId))
@@ -950,6 +983,62 @@ export class PostgresUserService implements IUserService {
     }
   }
 
+  async getSupporterSyncContext(
+    userId: string,
+  ): AsyncResult<{ linked: boolean; syncedAt: Date | null } | null> {
+    try {
+      const [user] = await db
+        .select({ metafyId: users.metafyId })
+        .from(users)
+        .where(eq(users.id, userId));
+
+      if (!user) {
+        return { success: true, data: null };
+      }
+
+      // Newest sync time via orderBy/limit (not max()) so Drizzle's date-mode
+      // mapping returns a real Date, not a raw timestamp string.
+      const [community] = await db
+        .select({ syncedAt: metafyCommunities.syncedAt })
+        .from(metafyCommunities)
+        .where(eq(metafyCommunities.userId, userId))
+        .orderBy(desc(metafyCommunities.syncedAt))
+        .limit(1);
+
+      return {
+        success: true,
+        data: { linked: !!user.metafyId, syncedAt: community?.syncedAt ?? null },
+      };
+    } catch (error) {
+      console.error('[PostgresUserService] getSupporterSyncContext error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get supporter sync context',
+      };
+    }
+  }
+
+  async setMetafySupporterTier(userId: string, tier: 'free' | 'paid'): AsyncResult<void> {
+    try {
+      const result = await db
+        .update(users)
+        .set({ metafySupporterTier: tier, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning({ id: users.id });
+
+      if (result.length === 0) {
+        return { success: false, error: 'User not found' };
+      }
+      return { success: true, data: undefined };
+    } catch (error) {
+      console.error('[PostgresUserService] setMetafySupporterTier error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to set Metafy supporter tier',
+      };
+    }
+  }
+
   /**
    * Get the Metafy communities a user belongs to
    */
@@ -1013,6 +1102,7 @@ export class PostgresUserService implements IUserService {
       isMetafySupporter: user.isMetafySupporter || false,
       isShop: user.isShop || false,
       isTcgSeller: user.isTcgSeller || false,
+      metafySupporterTier: user.metafySupporterTier || 'free',
     };
   }
 }

@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
+import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
 import { resolveConfirmation } from '@/lib/ai/confirmations';
 import type { ConfirmationDecision } from '@/lib/ai/types';
 
@@ -21,9 +22,9 @@ export async function POST(req: Request) {
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const roleCheck = await userService.hasRole(user.id, 'isSuperAdmin');
-  if (!roleCheck.success || !roleCheck.data) {
-    return NextResponse.json({ error: 'Forbidden - Super admin access required' }, { status: 403 });
+  const access = await userService.getFabbyChatAccess(user.id);
+  if (!access.success || !canUseFabbyChat(access.data)) {
+    return NextResponse.json({ error: 'Forbidden - Fabby Chat access required' }, { status: 403 });
   }
 
   let body: { id?: unknown; decision?: unknown };

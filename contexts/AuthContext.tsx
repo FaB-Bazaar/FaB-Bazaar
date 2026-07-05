@@ -15,6 +15,7 @@ interface User {
   isCurator?: boolean
   isSuperAdmin?: boolean
   isContentCreator?: boolean
+  metafySupporterTier?: 'free' | 'paid'
 }
 
 interface AuthContextType {
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isCurator: session.user.roles?.isCurator || false,
         isSuperAdmin: session.user.roles?.isSuperAdmin || false,
         isContentCreator: session.user.roles?.isContentCreator || false,
+        metafySupporterTier: session.user.roles?.metafySupporterTier === 'paid' ? 'paid' : 'free',
       })
     } else {
       setUser(null)

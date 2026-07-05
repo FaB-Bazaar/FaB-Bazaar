@@ -135,6 +135,9 @@ export const users = pgTable('users', {
   storeId: text('store_id'),
   isLocalGamingStore: boolean('is_local_gaming_store').default(false).notNull(),
   isMetafySupporter: boolean('is_metafy_supporter').default(false).notNull(),
+  // Hosted-chat supporter tier: 'free' | 'paid'. Synced from Metafy community
+  // membership (paid tier) or set manually by a superadmin. Gates Fabby Chat.
+  metafySupporterTier: text('metafy_supporter_tier').default('free').notNull(),
   isCurator: boolean('is_curator').default(false).notNull(),
   isShop: boolean('is_shop').default(false).notNull(),
   isTcgSeller: boolean('is_tcg_seller').default(false).notNull(),

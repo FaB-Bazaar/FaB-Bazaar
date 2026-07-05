@@ -1,15 +1,22 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
+import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
+import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { FabbyChatClient } from './FabbyChatClient';
 import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { describeOptState, optStateToChips } from '@/lib/search/opt-state-describe';
 
 export const dynamic = 'force-dynamic';
 
-// Superadmin-only prototype of the hosted AI tier: server-side agent loop
-// over the lite MCP toolset, streamed to the browser. Gate pattern copied
-// from app/admin/user-access/page.tsx.
+// Hosted AI tier: server-side agent loop over the lite MCP toolset, streamed to
+// the browser. Access = superadmins + paid Metafy supporters, gated through the
+// single source of truth (canUseFabbyChat), read fresh from the DB.
+//
+// On open we lazily re-verify the supporter's Metafy membership (throttled by a
+// TTL): a lapsed/cancelled subscriber is downgraded here and then bounced to the
+// home page by the gate below — so access reflects their CURRENT subscription,
+// not just what it was at link time.
 export default async function FabbyChatAdminPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
@@ -20,9 +27,11 @@ export default async function FabbyChatAdminPage({ searchParams }: {
     redirect('/');
   }
 
-  const roleCheck = await userService.hasRole(user.id, 'isSuperAdmin');
-  if (!roleCheck.success || !roleCheck.data) {
-    redirect('/admin/articles');
+  await syncSupporterTierIfStale(user.id);
+
+  const access = await userService.getFabbyChatAccess(user.id);
+  if (!access.success || !canUseFabbyChat(access.data)) {
+    redirect('/');
   }
 
   // Bridge B: /opt hands its current search off via its own URL params plus

@@ -1,10 +1,11 @@
 // Hosted-chat tier policy: who gets how many chat turns per day, on which
 // models. This is the free/paid boundary design for the hosted AI tier —
 // enforcement lives in the fabby-chat route; usage facts live in
-// llm_usage_daily (migration 0073). Access is still gated behind the
-// superadmin check, so today resolveLlmTier only ever returns 'paid'; when
-// non-admin access opens, wire the free/paid split to the user's
-// subscription here.
+// llm_usage_daily (migration 0073). Access itself is gated by canUseFabbyChat
+// (lib/ai/fabby-chat-access): superadmins + paid Metafy supporters. This maps
+// whoever passed that gate to an LLM tier — both currently resolve to 'paid'.
+
+import type { SupporterTier } from '@/lib/metafy/supporter-tier';
 
 export type LlmTier = 'free' | 'paid';
 
@@ -18,8 +19,11 @@ export const LLM_TIERS: Record<LlmTier, LlmTierLimits> = {
   paid: { dailyMessages: 200 },
 };
 
-export function resolveLlmTier(opts: { isSuperAdmin: boolean }): LlmTier {
-  return opts.isSuperAdmin ? 'paid' : 'free';
+export function resolveLlmTier(opts: {
+  isSuperAdmin: boolean;
+  metafySupporterTier?: SupporterTier | null;
+}): LlmTier {
+  return opts.isSuperAdmin || opts.metafySupporterTier === 'paid' ? 'paid' : 'free';
 }
 
 /**

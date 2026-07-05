@@ -15,7 +15,7 @@ const APP_SHELL_ROUTES = ['/opt', '/search'];
 // App-like pages that still fit one screen but must carry the required LSS
 // attribution: render an absolutely minimal, single-line legal footer instead
 // of the full marketing footer.
-const MINIMAL_FOOTER_ROUTES = ['/admin/fabby-chat'];
+const MINIMAL_FOOTER_ROUTES = ['/fabby-chat'];
 
 // Required Third-Party-App attribution (LSS IP terms).
 const LSS_DISCLAIMER =

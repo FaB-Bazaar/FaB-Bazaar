@@ -1,5 +1,5 @@
-// Client service for the hosted Fabby chat (superadmin prototype).
-// Streams AgentEvents from POST /api/admin/fabby-chat via fetch + reader
+// Client service for the hosted Fabby chat (superadmins + paid supporters).
+// Streams AgentEvents from POST /api/fabby-chat via fetch + reader
 // (EventSource can't POST, so we parse SSE data-frames ourselves).
 
 import type { AgentEvent, ChatMessage, ConfirmationDecision } from '@/lib/ai/types';
@@ -40,7 +40,7 @@ export async function streamChat(opts: {
   onEvent: (event: AgentEvent) => void;
 }): Promise<ApiResponse<void>> {
   try {
-    const response = await fetch('/api/admin/fabby-chat', {
+    const response = await fetch('/api/fabby-chat', {
       method: 'POST',
       credentials: 'include',
       signal: opts.signal,
@@ -87,7 +87,7 @@ export async function resolveConfirmation(opts: {
   decision: ConfirmationDecision;
 }): Promise<ApiResponse<{ resolved: boolean }>> {
   try {
-    const response = await fetch('/api/admin/fabby-chat/confirm', {
+    const response = await fetch('/api/fabby-chat/confirm', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

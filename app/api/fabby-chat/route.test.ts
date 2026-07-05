@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
-  userService: { hasRole: vi.fn() },
+  userService: { getFabbyChatAccess: vi.fn() },
   oauthFlowService: { generateAccessToken: vi.fn().mockReturnValue('jwt-token') },
   llmUsageService: { getTodayRequestCount: vi.fn(), recordTurn: vi.fn() },
 }));
@@ -28,7 +28,7 @@ import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-brid
 import { resolveConfirmation } from '@/lib/ai/confirmations';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
-const mockHasRole = vi.mocked(userService.hasRole);
+const mockGetAccess = vi.mocked(userService.getFabbyChatAccess);
 const mockRateLimit = vi.mocked(rateLimit);
 const mockFetchLiteTools = vi.mocked(fetchLiteTools);
 const mockFetchToolsByName = vi.mocked(fetchToolsByName);
@@ -42,7 +42,7 @@ const LITE_TOOLS = {
 };
 
 function request(body: unknown): Request {
-  return new Request('http://localhost:3000/api/admin/fabby-chat', {
+  return new Request('http://localhost:3000/api/fabby-chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -100,7 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.OPENROUTER_API_KEY; // force mock mode
   mockAuth.mockResolvedValue({ user: { id: 'user-1', name: 'mistercakes' } });
-  mockHasRole.mockResolvedValue({ success: true, data: true } as any);
+  mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: true, metafySupporterTier: 'free' } } as any);
   mockRateLimit.mockResolvedValue({ success: true, remaining: 29 } as any);
   mockFetchLiteTools.mockResolvedValue(LITE_TOOLS as any);
   mockFetchToolsByName.mockResolvedValue({ tools: [], validNames: new Set() } as any);
@@ -109,17 +109,24 @@ beforeEach(() => {
   mockRecordTurn.mockResolvedValue({ success: true, data: undefined });
 });
 
-describe('POST /api/admin/fabby-chat', () => {
+describe('POST /api/fabby-chat', () => {
   it('401s without a session', async () => {
     mockAuth.mockResolvedValue(null);
     const res = await POST(request(VALID_BODY));
     expect(res.status).toBe(401);
   });
 
-  it('403s for non-superadmins', async () => {
-    mockHasRole.mockResolvedValue({ success: true, data: false } as any);
+  it('403s for free-tier non-admins (no Fabby Chat access)', async () => {
+    mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: false, metafySupporterTier: 'free' } } as any);
     const res = await POST(request(VALID_BODY));
     expect(res.status).toBe(403);
+  });
+
+  it('allows paid Metafy supporters who are not admins', async () => {
+    mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: false, metafySupporterTier: 'paid' } } as any);
+    const res = await POST(request(VALID_BODY));
+    expect(res.status).toBe(200);
+    await readSseEvents(res); // drain so this turn's done doesn't bleed into later tests
   });
 
   it('429s with rate-limit headers when the limit is hit', async () => {

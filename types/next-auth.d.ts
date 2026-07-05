@@ -16,6 +16,7 @@ interface UserRoles {
   isCurator?: boolean
   isShop?: boolean
   isTcgSeller?: boolean
+  metafySupporterTier?: 'free' | 'paid'
 }
 
 declare module "next-auth/jwt" {

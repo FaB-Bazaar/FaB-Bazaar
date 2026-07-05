@@ -27,6 +27,7 @@ import { LANGUAGES } from '@/lib/search/build-server-filters';
 import { optStateToChips } from '@/lib/search/opt-state-describe';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
+import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
 import { trackSearch } from '@/lib/gtag';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
@@ -317,13 +318,17 @@ export default function OptSearchPage() {
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
   // ── Bridge B: hand the current search off to the hosted Fabby chat ──
-  // Superadmin-only (mirrors the /admin/fabby-chat gate). The href reuses the
-  // page's own URL params plus from=opt & total=N; the chat page parses them
-  // back into OptUiState and queues a context string for the first message.
+  // Same access rule as the chat itself (canUseFabbyChat: superadmins + paid
+  // supporters). The href reuses the page's own URL params plus from=opt &
+  // total=N; the chat page parses them back into OptUiState and queues a
+  // context string for the first message.
   const { data: session } = useSession();
-  const isSuperAdmin = !!session?.user?.roles?.isSuperAdmin;
-  const askFabbyHref = `/admin/fabby-chat?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
-  const askFabbyLink = isSuperAdmin && hasAnyFilter && (
+  const canAskFabby = canUseFabbyChat({
+    isSuperAdmin: session?.user?.roles?.isSuperAdmin,
+    metafySupporterTier: session?.user?.roles?.metafySupporterTier,
+  });
+  const askFabbyHref = `/fabby-chat?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
+  const askFabbyLink = canAskFabby && hasAnyFilter && (
     <Link
       href={askFabbyHref}
       className="shrink-0 inline-flex items-center gap-1 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"

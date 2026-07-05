@@ -37,9 +37,8 @@ describe('accessibleAdminLinks', () => {
     expect(hrefs({ isCurator: true })).not.toContain('/admin/banned-cards')
   })
 
-  it('exposes Fabby Chat to superadmins only', () => {
-    expect(hrefs({ isSuperAdmin: true })).toContain('/admin/fabby-chat')
-    expect(hrefs({ isCurator: true })).not.toContain('/admin/fabby-chat')
-    expect(hrefs({ isContentCreator: true })).not.toContain('/admin/fabby-chat')
+  it('does not list Fabby Chat — it moved to /fabby-chat, gated by canUseFabbyChat', () => {
+    expect(ADMIN_LINKS.some((l) => l.href.includes('fabby-chat'))).toBe(false)
+    expect(hrefs({ isSuperAdmin: true })).not.toContain('/fabby-chat')
   })
 })

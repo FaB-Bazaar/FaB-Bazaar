@@ -17,6 +17,7 @@ import { createLlm } from '@/lib/ai/openrouter';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
 import { LLM_TIERS, resolveLlmTier, tierAllowsModel } from '@/lib/ai/tiers';
+import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
 export const dynamic = 'force-dynamic';
@@ -108,17 +109,18 @@ function validateBody(raw: unknown): { ok: true; messages: ChatMessage[]; model:
 }
 
 export async function POST(req: Request) {
-  // 1–2. Session + superadmin (pattern: app/api/admin/refresh-featured-cards)
+  // 1–2. Session + Fabby Chat access (superadmins + paid Metafy supporters).
+  // Fetched fresh from the DB so a revoked supporter can't ride a stale token.
   const session = await auth();
   const user = session?.user;
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const roleCheck = await userService.hasRole(user.id, 'isSuperAdmin');
-  if (!roleCheck.success || !roleCheck.data) {
-    return NextResponse.json({ error: 'Forbidden - Super admin access required' }, { status: 403 });
+  const access = await userService.getFabbyChatAccess(user.id);
+  if (!access.success || !canUseFabbyChat(access.data)) {
+    return NextResponse.json({ error: 'Forbidden - Fabby Chat access required' }, { status: 403 });
   }
-  const tier = resolveLlmTier({ isSuperAdmin: true });
+  const tier = resolveLlmTier(access.data!);
 
   // 3. Rate limit
   const limitResult = await rateLimit({
