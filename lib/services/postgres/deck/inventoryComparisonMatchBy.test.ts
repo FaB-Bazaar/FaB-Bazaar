@@ -25,20 +25,23 @@ let deckId: string;
 let deckPublicId: string;
 
 beforeAll(async () => {
-  // A card (card_unique_id) that has at least two distinct printings.
+  // A card (card_unique_id) with 2+ printings, whose representative printing
+  // has a low price AND a TCGplayer URL (so we can assert those flow through).
   const grp = await db
     .select({ cuid: printings.cardUniqueId })
     .from(printings)
+    .where(sql`${printings.tcgLow} is not null and ${printings.tcgplayerUrl} is not null`)
     .groupBy(printings.cardUniqueId)
     .having(sql`count(*) >= 2`)
     .limit(1);
-  if (grp.length === 0) throw new Error('Need a card with 2+ printings in DB');
+  if (grp.length === 0) throw new Error('Need a card with 2+ priced printings in DB');
   const ps = await db
-    .select({ printingId: printings.printingId })
+    .select({ printingId: printings.printingId, tcgLow: printings.tcgLow, tcgplayerUrl: printings.tcgplayerUrl })
     .from(printings)
     .where(eq(printings.cardUniqueId, grp[0].cuid!))
+    .orderBy(sql`${printings.tcgLow} is null, ${printings.tcgplayerUrl} is null`)
     .limit(2);
-  printingA = ps[0].printingId;
+  printingA = ps[0].printingId; // priced representative
   printingB = ps[1].printingId;
 });
 
@@ -68,8 +71,12 @@ describe('getInventoryComparison matchBy', () => {
     const res = await service.getInventoryComparison(deckPublicId, testUserId);
     expect(res.success).toBe(true);
     if (!res.success) return;
-    expect(res.data.missing.some((m) => m.printingId === printingA)).toBe(true);
+    const miss = res.data.missing.find((m) => m.printingId === printingA);
+    expect(miss).toBeTruthy();
     expect(res.data.owned.length).toBe(0);
+    // Missing entries carry low price + TCGplayer URL for the rail's buy link.
+    expect(typeof miss!.tcgLow).toBe('number');
+    expect(typeof miss!.tcgplayerUrl).toBe('string');
   });
 
   it("'card' mode: owning any printing of the card satisfies the slot (card is owned)", async () => {

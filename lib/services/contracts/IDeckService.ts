@@ -398,13 +398,18 @@ export interface InventoryComparisonDTO {
     owned: number;
     conditions: string[];
     binderNames: string[];
+    tcgLow?: number;
+    tcgMarket?: number;
+    tcgplayerUrl?: string;
   }>;
   missing: Array<{
     printingId: string;
     cardName: string;
     pitch?: number;
     needed: number;
+    tcgLow?: number;
     tcgMarket?: number;
+    tcgplayerUrl?: string;
   }>;
   partial: Array<{
     printingId: string;
@@ -413,6 +418,9 @@ export interface InventoryComparisonDTO {
     needed: number;
     owned: number;
     shortage: number;
+    tcgLow?: number;
+    tcgMarket?: number;
+    tcgplayerUrl?: string;
   }>;
   summary: {
     totalNeeded: number;

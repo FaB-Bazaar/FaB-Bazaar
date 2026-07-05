@@ -520,26 +520,28 @@ export function summarizeComparison(
   deckName: string,
   comparison: {
     owned?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number }>;
-    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number }>;
-    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number; pitch?: number }>;
+    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number; tcgLow?: number; tcgMarket?: number; tcgplayerUrl?: string }>;
+    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number; pitch?: number; tcgLow?: number; tcgplayerUrl?: string }>;
   },
 ): QuickActionResult {
   const owned = comparison.owned ?? [];
   const partial = comparison.partial ?? [];
   const missing = comparison.missing ?? [];
-  const missingCost = missing.reduce((sum, m) => sum + (m.tcgMarket ?? 0) * m.needed, 0);
+  const missingCost = missing.reduce((sum, m) => sum + ((m.tcgLow ?? m.tcgMarket) ?? 0) * m.needed, 0);
 
   const lines: CardLine[] = [];
   if (missing.length > 0) {
     lines.push(`— Missing (${missing.length} cards${missingCost > 0 ? ` · ~$${missingCost.toFixed(2)}` : ''}) —`);
     lines.push(...missing.map((m) => ({
-      text: `${m.needed}× ${m.cardName}${m.tcgMarket ? ` · $${m.tcgMarket.toFixed(2)}` : ''}`,
+      text: `${m.needed}× ${m.cardName}${m.tcgLow ?? m.tcgMarket ? ` · $${(m.tcgLow ?? m.tcgMarket)!.toFixed(2)}` : ''}`,
       pitch: m.pitch,
       preview: {
         imageUrl: getCardImageUrl({ printingId: m.printingId }),
         name: m.cardName,
         printingId: m.printingId,
+        priceLow: m.tcgLow,
         priceMarket: m.tcgMarket,
+        tcgplayerUrl: m.tcgplayerUrl,
       },
     })));
   }
@@ -548,7 +550,14 @@ export function summarizeComparison(
     lines.push(...partial.map((p) => ({
       text: `${p.cardName} — own ${p.owned}/${p.needed}`,
       pitch: p.pitch,
-      preview: { imageUrl: getCardImageUrl({ printingId: p.printingId }), name: p.cardName, printingId: p.printingId },
+      preview: {
+        imageUrl: getCardImageUrl({ printingId: p.printingId }),
+        name: p.cardName,
+        printingId: p.printingId,
+        priceLow: p.tcgLow,
+        priceMarket: p.tcgMarket,
+        tcgplayerUrl: p.tcgplayerUrl,
+      },
     })));
   }
 

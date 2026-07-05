@@ -2023,6 +2023,8 @@ export class PostgresDeckService implements IDeckService {
           quantity: deckCards.quantity,
           cardName: sql<string>`COALESCE(${cards.displayName}, ${cards.name}, ${deckCards.printingId})`,
           tcgMarket: printings.tcgMarket,
+          tcgLow: printings.tcgLow,
+          tcgplayerUrl: printings.tcgplayerUrl,
           pitch: cards.pitch,
         })
         .from(deckCards)
@@ -2055,7 +2057,7 @@ export class PostgresDeckService implements IDeckService {
       const deckKeyOf = (row: { printingId: string; cardUniqueId: string | null }) =>
         matchByCard ? (row.cardUniqueId ?? row.printingId) : row.printingId;
 
-      const deckMatchMap = new Map<string, { printingId: string; cardName: string; needed: number; tcgMarket: number | null; pitch: number | null }>();
+      const deckMatchMap = new Map<string, { printingId: string; cardName: string; needed: number; tcgMarket: number | null; tcgLow: number | null; tcgplayerUrl: string | null; pitch: number | null }>();
       for (const row of deckCardRows) {
         const key = deckKeyOf(row);
         const existing = deckMatchMap.get(key);
@@ -2067,6 +2069,8 @@ export class PostgresDeckService implements IDeckService {
             cardName: row.cardName,
             needed: row.quantity,
             tcgMarket: row.tcgMarket,
+            tcgLow: row.tcgLow,
+            tcgplayerUrl: row.tcgplayerUrl,
             pitch: row.pitch,
           });
         }
@@ -2153,7 +2157,7 @@ export class PostgresDeckService implements IDeckService {
       let totalOwned = 0;
       let estimatedMissingValue = 0;
 
-      for (const [matchKey, { printingId, cardName, needed, tcgMarket, pitch }] of deckMatchMap.entries()) {
+      for (const [matchKey, { printingId, cardName, needed, tcgMarket, tcgLow, tcgplayerUrl, pitch }] of deckMatchMap.entries()) {
         totalNeeded += needed;
         const inv = inventoryMap.get(matchKey);
         const rawOwned = inv?.owned ?? 0;
@@ -2164,6 +2168,9 @@ export class PostgresDeckService implements IDeckService {
           printingId,
           cardName,
           pitch: pitch ?? undefined,
+          tcgLow: tcgLow ?? undefined,
+          tcgMarket: tcgMarket ?? undefined,
+          tcgplayerUrl: tcgplayerUrl ?? undefined,
           needed,
           owned: effectiveOwned,
           // Extra fields expected by the collection tab UI
