@@ -355,12 +355,13 @@ export async function swapPrinting(
  */
 export async function getInventoryComparison(
   publicId: string,
-  options?: { binderMode?: 'all' | 'specific'; binderId?: string }
+  options?: { binderMode?: 'all' | 'specific'; binderId?: string; matchBy?: 'printing' | 'card' }
 ): Promise<ApiResponse<InventoryComparisonDTO>> {
   try {
     const params = buildQueryParams({
       binderMode: options?.binderMode || 'all',
       binderId: options?.binderId,
+      ...(options?.matchBy ? { matchBy: options.matchBy } : {}),
     });
 
     const response = await fetch(

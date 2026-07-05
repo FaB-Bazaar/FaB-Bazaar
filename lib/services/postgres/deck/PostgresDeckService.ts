@@ -1995,8 +1995,12 @@ export class PostgresDeckService implements IDeckService {
   async getInventoryComparison(
     publicId: string,
     userId: string,
-    options?: { binderMode?: 'all' | 'specific'; binderId?: string }
+    options?: { binderMode?: 'all' | 'specific'; binderId?: string; matchBy?: 'printing' | 'card' }
   ): AsyncResult<InventoryComparisonDTO> {
+    // 'printing' (default): a deck slot is satisfied only by the exact printing.
+    // 'card': any printing of the same card (card_unique_id, i.e. same pitch)
+    // counts — the right semantic for "what cards do I need to build this deck".
+    const matchByCard = options?.matchBy === 'card';
     try {
       // Find deck by internal id OR publicId (page passes deck._id which is internal id)
       const deckRow = await db
@@ -2015,6 +2019,7 @@ export class PostgresDeckService implements IDeckService {
       const deckCardRows = await db
         .select({
           printingId: deckCards.printingId,
+          cardUniqueId: cards.cardUniqueId,
           quantity: deckCards.quantity,
           cardName: sql<string>`COALESCE(${cards.displayName}, ${cards.name}, ${deckCards.printingId})`,
           tcgMarket: printings.tcgMarket,
@@ -2044,13 +2049,21 @@ export class PostgresDeckService implements IDeckService {
       }
 
       // Aggregate deck cards by printingId (sum quantities across categories)
-      const deckPrintingMap = new Map<string, { cardName: string; needed: number; tcgMarket: number | null; pitch: number | null }>();
+      // Key deck requirements by the match key (card_unique_id in card mode,
+      // else printingId); keep a representative printingId (the deck's listed
+      // printing) for the DTO's image/name.
+      const deckKeyOf = (row: { printingId: string; cardUniqueId: string | null }) =>
+        matchByCard ? (row.cardUniqueId ?? row.printingId) : row.printingId;
+
+      const deckMatchMap = new Map<string, { printingId: string; cardName: string; needed: number; tcgMarket: number | null; pitch: number | null }>();
       for (const row of deckCardRows) {
-        const existing = deckPrintingMap.get(row.printingId);
+        const key = deckKeyOf(row);
+        const existing = deckMatchMap.get(key);
         if (existing) {
           existing.needed += row.quantity;
         } else {
-          deckPrintingMap.set(row.printingId, {
+          deckMatchMap.set(key, {
+            printingId: row.printingId,
             cardName: row.cardName,
             needed: row.quantity,
             tcgMarket: row.tcgMarket,
@@ -2059,14 +2072,19 @@ export class PostgresDeckService implements IDeckService {
         }
       }
 
-      const printingIds = Array.from(deckPrintingMap.keys());
+      const printingIds = Array.from(new Set(deckCardRows.map((r) => r.printingId)));
+      const cardUniqueIds = Array.from(new Set(deckCardRows.map((r) => r.cardUniqueId).filter((x): x is string => !!x)));
 
       // Build inventory query — JOIN with binders to ensure binder belongs to user
       // Note: PostgreSQL schema has no archived field; filtering by binders.userId = userId
       // covers all active binders (equivalent to "not archived")
       const invConditions = [
         eq(inventoryItems.userId, userId),
-        inArray(inventoryItems.printingId, printingIds),
+        // Card mode: pull every printing of the deck's cards (matched by
+        // card_unique_id). Printing mode: only the deck's exact printings.
+        matchByCard
+          ? (cardUniqueIds.length > 0 ? inArray(cards.cardUniqueId, cardUniqueIds) : sql`false`)
+          : inArray(inventoryItems.printingId, printingIds),
         ...(options?.binderMode === 'specific' && options.binderId
           ? [eq(inventoryItems.binderId, options.binderId)]
           : []),
@@ -2075,6 +2093,7 @@ export class PostgresDeckService implements IDeckService {
       const inventoryRows = await db
         .select({
           printingId: inventoryItems.printingId,
+          cardUniqueId: cards.cardUniqueId,
           quantity: inventoryItems.quantity,
           forTrade: inventoryItems.forTrade,
           binderId: binders.id,
@@ -2089,6 +2108,8 @@ export class PostgresDeckService implements IDeckService {
             eq(binders.userId, userId)
           )
         )
+        .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+        .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
         .where(and(...invConditions));
 
       // Aggregate inventory by printingId
@@ -2099,8 +2120,11 @@ export class PostgresDeckService implements IDeckService {
         binderSlugs: string[];
         binderIds: string[];
       }>();
+      const invKeyOf = (row: { printingId: string; cardUniqueId: string | null }) =>
+        matchByCard ? (row.cardUniqueId ?? row.printingId) : row.printingId;
       for (const row of inventoryRows) {
-        const existing = inventoryMap.get(row.printingId);
+        const invKey = invKeyOf(row);
+        const existing = inventoryMap.get(invKey);
         if (existing) {
           existing.owned += row.quantity;
           if (row.forTrade) existing.forTrade = true;
@@ -2110,7 +2134,7 @@ export class PostgresDeckService implements IDeckService {
             existing.binderIds.push(row.binderId);
           }
         } else {
-          inventoryMap.set(row.printingId, {
+          inventoryMap.set(invKey, {
             owned: row.quantity,
             forTrade: row.forTrade ?? false,
             binderNames: [row.binderName],
@@ -2129,9 +2153,9 @@ export class PostgresDeckService implements IDeckService {
       let totalOwned = 0;
       let estimatedMissingValue = 0;
 
-      for (const [printingId, { cardName, needed, tcgMarket, pitch }] of deckPrintingMap.entries()) {
+      for (const [matchKey, { printingId, cardName, needed, tcgMarket, pitch }] of deckMatchMap.entries()) {
         totalNeeded += needed;
-        const inv = inventoryMap.get(printingId);
+        const inv = inventoryMap.get(matchKey);
         const rawOwned = inv?.owned ?? 0;
         const effectiveOwned = Math.min(rawOwned, needed);
         totalOwned += effectiveOwned;

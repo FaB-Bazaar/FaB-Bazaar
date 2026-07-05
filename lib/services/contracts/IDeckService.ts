@@ -925,7 +925,7 @@ export interface IDeckService {
   getInventoryComparison(
     publicId: string,
     userId: string,
-    options?: { binderMode?: 'all' | 'specific'; binderId?: string }
+    options?: { binderMode?: 'all' | 'specific'; binderId?: string; matchBy?: 'printing' | 'card' }
   ): AsyncResult<InventoryComparisonDTO>;
 
   /**

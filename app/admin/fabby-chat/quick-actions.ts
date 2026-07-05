@@ -578,7 +578,9 @@ export function summarizeComparison(
 
 /** Drill-down: what the user owns vs a deck (instant, via inventory comparison). */
 export async function runDeckCompareDrill(publicId: string, deckName: string): Promise<QuickActionResult> {
-  const result = await decksClient.getInventoryComparison(publicId, { binderMode: 'all' });
+  // matchBy 'card': any printing of a card you own counts — the deckbuilding
+  // question is "do I have the cards", not "the exact printing the deck lists".
+  const result = await decksClient.getInventoryComparison(publicId, { binderMode: 'all', matchBy: 'card' });
   if (!result.success) throw new Error(result.error);
   const raw = result.data as any;
   return summarizeComparison(deckName, raw?.comparison ?? raw ?? {});

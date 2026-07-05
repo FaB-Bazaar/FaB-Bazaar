@@ -12,6 +12,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const binderMode = searchParams.get('binderMode') || 'all';
     const binderId = searchParams.get('binderId');
+    const matchBy = searchParams.get('matchBy') === 'card' ? 'card' : undefined;
 
     // Authentication
     const authResult = await authenticateRequest(request, {});
@@ -28,7 +29,8 @@ export async function GET(
       authResult.userId!,
       {
         binderMode: binderMode as 'all' | 'specific',
-        binderId: binderId || undefined
+        binderId: binderId || undefined,
+        ...(matchBy ? { matchBy } : {})
       }
     );
 
@@ -41,7 +43,7 @@ export async function GET(
     }
 
     // Get deck info - use findBySlugOrId to handle both publicId and ObjectId formats
-    const deckResult = await deckService.findBySlugOrId(resolvedParams.deckId, authResult.userId);
+    const deckResult = await deckService.findBySlugOrId(resolvedParams.deckId, authResult.userId!);
 
     return NextResponse.json({
       success: true,
