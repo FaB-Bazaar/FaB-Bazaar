@@ -23,6 +23,7 @@ import SelectedCardsSidebar from "@/components/binder/SelectedCardsSidebar";
 import BinderSettings from "@/components/binder/binder-settings";
 import BinderStats from "@/components/binder/BinderStats";
 import { BinderSearchAndFilters } from "@/components/binder/BinderSearchAndFilters";
+import { BinderEmptyState } from "@/components/binder/BinderEmptyState";
 import { BinderFilterSidebar } from "@/components/binder/BinderFilterSidebar";
 import { LoadingScreen } from "@/components/binder/LoadingScreen";
 import { ErrorScreen } from "@/components/binder/ErrorScreen";
@@ -98,6 +99,9 @@ export default function BinderPage() {
   
   // Dialog and sidebar state
   const [isCardSearchOpen, setIsCardSearchOpen] = useState(false);
+  // Prefill for the card-search dialog — set when opening it from the
+  // "no results" shortcut so it carries over what the user was searching for.
+  const [cardSearchInitialQuery, setCardSearchInitialQuery] = useState("");
   const [editingCard, setEditingCard] = useState<any>(null);
   const [printingSwapCard, setPrintingSwapCard] = useState<any>(null);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
@@ -370,7 +374,7 @@ export default function BinderPage() {
         if (e.key === '3') { setChordMode('set'); setSetBuffer(''); startTimeout(); return; }
         if (e.key === '4') { setChordMode('class'); setSetBuffer(''); startTimeout(); return; }
         if (e.key === '0') { setChordMode('clear'); startTimeout(); return; }
-        if (e.key === '9') { if (editable) setIsCardSearchOpen(true); resetChord(); return; }
+        if (e.key === '9') { if (editable) { setCardSearchInitialQuery(""); setIsCardSearchOpen(true); } resetChord(); return; }
         const letter = e.key.toUpperCase();
         if (/^[A-Z]$/.test(letter)) {
           setActiveTab('cards');
@@ -863,13 +867,14 @@ const SuperSlamDisclosure = () => {
     return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-[60px] sm:pb-0">
       {/* DIALOGS */}
-      <CardSearchDialog 
-        open={isCardSearchOpen} 
-        onOpenChange={setIsCardSearchOpen} 
-        onSelectCard={(data, shouldContinue) => { 
-          handleAddCardToBinder(data, shouldContinue); 
-        }} 
-        destination="binder" 
+      <CardSearchDialog
+        open={isCardSearchOpen}
+        onOpenChange={setIsCardSearchOpen}
+        onSelectCard={(data, shouldContinue) => {
+          handleAddCardToBinder(data, shouldContinue);
+        }}
+        destination="binder"
+        initialQuery={cardSearchInitialQuery}
       />
       {editingCard && <EditCardDialog card={editingCard} open={!!editingCard} onOpenChange={(open) => !open && setEditingCard(null)} onSave={handleEditCard} />}
       <DeleteSelectedDialog open={deleteSelectedDialogOpen} onOpenChange={setDeleteSelectedDialogOpen} selectedCards={selectedCards} binderId={binderId} onDeleteComplete={handleDeleteComplete} />
@@ -914,6 +919,7 @@ const SuperSlamDisclosure = () => {
             editable={editable}
             selectedCards={selectedCards}
             onAddCard={() => {
+              setCardSearchInitialQuery("");
               setIsCardSearchOpen(true);
             }}
             onOpenSidebar={() => setSidebarOpen(true)}
@@ -1106,12 +1112,15 @@ const SuperSlamDisclosure = () => {
 
                   {(loading || !cardsLoaded) && !cards.length ? <LoadingScreen message="Applying filters..." />
                   : cards.length === 0 ? (
-                    <div className="text-center py-12 bg-card rounded-lg border">
-                      <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium">No Cards Found</h3>
-                      <p className="text-muted-foreground mb-4">Try adjusting your search or filters.</p>
-                      <Button onClick={clearAllFilters} variant="outline">Clear Filters</Button>
-                    </div>
+                    <BinderEmptyState
+                      searchQuery={searchQuery}
+                      editable={!!editable}
+                      onClearFilters={clearAllFilters}
+                      onAddCard={(query) => {
+                        setCardSearchInitialQuery(query);
+                        setIsCardSearchOpen(true);
+                      }}
+                    />
                   ) : (
                     <>
                       <div
@@ -1476,7 +1485,7 @@ const SuperSlamDisclosure = () => {
                 {editable && (
                   <button type="button"
                     className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    onClick={() => { setIsCardSearchOpen(true); setChordMode(null); }}>
+                    onClick={() => { setCardSearchInitialQuery(""); setIsCardSearchOpen(true); setChordMode(null); }}>
                     <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">9</kbd>
                     <span className="text-sm text-gray-300">Add Card</span>
                   </button>

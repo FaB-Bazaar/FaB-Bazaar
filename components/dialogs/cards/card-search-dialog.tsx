@@ -41,6 +41,8 @@ interface CardSearchDialogProps {
   onOpenChange: (open: boolean) => void
   onSelectCard: (card: any, printing?: any, quantity?: number, shouldContinue?: boolean) => void
   destination?: "binder" | "wants" | "event-wants"
+  /** Seed the search box with this query each time the dialog opens (e.g. from a binder "no results" shortcut). */
+  initialQuery?: string
 }
 
 // --- MODIFICATION START ---
@@ -49,7 +51,7 @@ const fabShorthandParser = new FABShorthandParser();
 // --- MODIFICATION END ---
 
 
-export default function CardSearchDialog({ open, onOpenChange, onSelectCard, destination }: CardSearchDialogProps) {
+export default function CardSearchDialog({ open, onOpenChange, onSelectCard, destination, initialQuery }: CardSearchDialogProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const [cards, setCards] = useState<any[]>([])
@@ -87,6 +89,18 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     const handler = setTimeout(() => setDebouncedQuery(searchQuery), 500)
     return () => clearTimeout(handler)
   }, [searchQuery])
+
+  // Seed the search box from `initialQuery` when the dialog transitions from
+  // closed to open, so a caller (e.g. the binder "no results" shortcut) can
+  // prefill what the user already typed. Only fires on the open transition so
+  // it never clobbers what the user types while the dialog is open.
+  const prevOpenRef = useRef(false)
+  useEffect(() => {
+    if (open && !prevOpenRef.current && initialQuery) {
+      setSearchQuery(initialQuery)
+    }
+    prevOpenRef.current = open
+  }, [open, initialQuery])
 
   useEffect(() => {
     if (!open) {
