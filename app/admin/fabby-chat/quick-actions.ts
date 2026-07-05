@@ -47,6 +47,21 @@ export type CardLine = string | {
   printingCount?: number;
 };
 
+const FOILING_SHORT: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
+
+/** " · SET · FOIL" tail for binder / wants lines (edition intentionally omitted). */
+function cardMeta(c: { set?: string; foiling?: string; printingDetails?: { set?: string; foiling?: string } }): string {
+  const set = (c.set ?? c.printingDetails?.set ?? '').toUpperCase();
+  const foil = FOILING_SHORT[(c.foiling ?? c.printingDetails?.foiling ?? '') as string];
+  return `${set ? ` · ${set}` : ''}${foil ? ` · ${foil}` : ''}`;
+}
+
+/** Pitch (1/2/3) from either the flat field or nested printingDetails. */
+function cardPitch(c: { pitch?: number; printingDetails?: { pitch?: number } }): number | undefined {
+  const p = c.pitch ?? c.printingDetails?.pitch;
+  return typeof p === 'number' && p > 0 ? p : undefined;
+}
+
 /** Extracts a rail preview from any of the card payload shapes we render. */
 export function toCardPreview(card: any, name: string): CardPreview {
   const details = card?.printingDetails ?? {};
@@ -99,7 +114,7 @@ export function summarizeBinders(
 }
 
 export function summarizeWantsCards(
-  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; printingDetails?: { display_name?: string } }>,
+  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; set?: string; foiling?: string; pitch?: number; printingDetails?: { display_name?: string; set?: string; foiling?: string; pitch?: number } }>,
 ): QuickActionResult {
   // /api/wants exposes display_name only inside printingDetails; the top-level
   // `name` is the lowercase internal name — so read the proper name first.
@@ -108,7 +123,8 @@ export function summarizeWantsCards(
   const lines: CardLine[] = cards.length === 0
     ? ['Your wants list is empty.']
     : cards.map((c) => ({
-        text: `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`,
+        text: `${c.quantity ?? 1}× ${label(c)}${cardMeta(c)}${c.priority ? ` (${c.priority})` : ''}`,
+        pitch: cardPitch(c),
         preview: toCardPreview(c, label(c)),
       }));
   return {
@@ -221,14 +237,15 @@ export function summarizeDeckContents(deck: {
 
 export function summarizeBinderCards(
   binderName: string,
-  cards: Array<{ display_name?: string; name?: string; quantity?: number; forTrade?: boolean }>,
+  cards: Array<{ display_name?: string; name?: string; quantity?: number; forTrade?: boolean; set?: string; foiling?: string; pitch?: number; printingDetails?: { set?: string; foiling?: string; pitch?: number } }>,
   totalQuantity?: number,
 ): QuickActionResult {
   const label = (c: { display_name?: string; name?: string }) => c.display_name || c.name || 'Unknown card';
   const lines: CardLine[] = cards.length === 0
     ? ['This binder is empty.']
     : cards.map((c) => ({
-        text: `${c.quantity ?? 1}× ${label(c)}${c.forTrade ? ' · for trade' : ''}`,
+        text: `${c.quantity ?? 1}× ${label(c)}${cardMeta(c)}${c.forTrade ? ' · for trade' : ''}`,
+        pitch: cardPitch(c),
         preview: toCardPreview(c, label(c)),
       }));
   if (totalQuantity !== undefined && cards.length > 0) {

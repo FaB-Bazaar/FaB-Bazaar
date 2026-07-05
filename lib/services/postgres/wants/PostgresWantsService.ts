@@ -638,6 +638,7 @@ export class PostgresWantsService implements IWantsService {
       cardUniqueId: cards.cardUniqueId,
       name: cards.name,
       displayName: cards.displayName,
+      pitch: cards.pitch,
       color: cards.color,
       typeText: cards.typeText,
       typeTextDisplay: cards.typeTextDisplay,
@@ -667,6 +668,7 @@ export class PostgresWantsService implements IWantsService {
       // Denormalized printing fields
       display_name: row.displayName,
       name: row.name,
+      pitch: row.pitch ?? undefined,
       set: row.set,
       edition: row.edition,
       foiling: row.foiling,

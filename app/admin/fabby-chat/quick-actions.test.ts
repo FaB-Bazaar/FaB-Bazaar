@@ -56,6 +56,17 @@ describe('summarizeWantsCards', () => {
     expect(summarizeWantsCards([]).lines).toEqual(['Your wants list is empty.']);
   });
 
+  it('shows set, foiling and a pitch gem per want', () => {
+    const result = summarizeWantsCards([
+      { display_name: 'Sink Below', quantity: 1, priority: 'high', set: 'cru', foiling: 's', pitch: 3 } as any,
+    ]);
+    const line = result.lines[0] as any;
+    expect(line.text).toContain('CRU'); // set
+    expect(line.text).toContain('NF');  // non-foil
+    expect(line.text).toContain('(high)');
+    expect(line.pitch).toBe(3);
+  });
+
   it('prefers display_name from printingDetails over the lowercase top-level name', () => {
     // The /api/wants route puts display_name only inside printingDetails; the
     // top-level `name` is the lowercase internal name.
@@ -205,6 +216,17 @@ describe('summarizeBinderCards', () => {
 
   it('handles an empty binder', () => {
     expect(summarizeBinderCards('Empty', [], 0).lines).toEqual(['This binder is empty.']);
+  });
+
+  it('shows set, foiling and a pitch gem per card', () => {
+    const result = summarizeBinderCards('Pirate', [
+      { display_name: 'Command and Conquer', quantity: 2, set: 'wtr', foiling: 'r', pitch: 1, forTrade: true } as any,
+    ], 2);
+    const line = result.lines[0] as any;
+    expect(line.text).toContain('WTR');   // set, uppercased
+    expect(line.text).toContain('RF');    // rainbow foil
+    expect(line.text).toContain('for trade');
+    expect(line.pitch).toBe(1);           // drives the pitch gem
   });
 });
 

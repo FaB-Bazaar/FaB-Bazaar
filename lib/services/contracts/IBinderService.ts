@@ -276,6 +276,7 @@ export interface InventoryCardDTO {
   card_unique_id: string;
   name: string;
   display_name: string;
+  pitch?: number;
   collector_number: string;
   set: string;
   edition: string;

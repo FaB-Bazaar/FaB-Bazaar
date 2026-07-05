@@ -45,6 +45,7 @@ export interface WantsItemDTO {
   // Denormalized printing fields
   display_name: string;
   name: string;
+  pitch?: number;
   set: string;
   edition: string;
   foiling: string;
