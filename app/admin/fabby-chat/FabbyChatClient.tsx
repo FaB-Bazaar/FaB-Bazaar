@@ -102,6 +102,14 @@ const MODEL_PRICES: Record<string, { input: number; output: number }> = {
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
+// Dark mode has no surface elevation of its own (--card === --background), so
+// cards render flat against the page. These give the chat an explicit dark
+// elevation hierarchy — raised panel, recessed thread, raised cards on top —
+// on-palette slate values, so containers and their edges are actually
+// perceivable (WCAG 1.4.11). Light mode is untouched.
+const RAISED_CARD = 'dark:bg-slate-800 dark:border-slate-700'; // cards/bubbles that sit on the thread
+const RAISED_PANEL = 'dark:bg-slate-800/60 dark:border-slate-700'; // inline pickers
+
 type RailStatus = { wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' };
 
 /**
@@ -121,7 +129,7 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
 }) {
   return (
     <>
-      <div className="rounded-lg border border-border bg-card p-3">
+      <div className={`rounded-lg border border-border bg-card ${RAISED_CARD} p-3`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={card.imageUrl}
@@ -174,7 +182,7 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
       </div>
 
       {card.printingId && (
-        <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
+        <div className={`rounded-lg border border-border bg-card ${RAISED_CARD} p-3 flex flex-col gap-2`}>
           <Button
             variant="outline"
             size="sm"
@@ -668,7 +676,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
 
   return (
     <div className="flex gap-4 items-stretch h-[calc(100dvh-11.75rem)] min-h-[24rem] sm:h-[calc(100vh-14rem)] sm:min-h-[28rem]">
-    <Card className="flex-1 min-w-0 flex flex-col">
+    <Card className="flex-1 min-w-0 flex flex-col dark:bg-slate-900 dark:border-slate-700">
       <CardContent className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
         {/* Header row: model picker + reset on one line; badges wrap below */}
         <div className="flex flex-col gap-2">
@@ -760,7 +768,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
 
         {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
         {toBeatOpen && (
-          <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3">
+          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 ${RAISED_PANEL} p-3`}>
             <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
               Browse by
               <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Browse decks to beat by">
@@ -832,7 +840,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
 
         {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
         {archetypeOpen && (
-          <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3">
+          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 ${RAISED_PANEL} p-3`}>
             <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
               Hero (Decks to Beat)
               <select
@@ -881,7 +889,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
           role="log"
           aria-live="polite"
           aria-label={`Chat with Fabby as ${username}`}
-          className="flex-1 min-h-0 overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-muted/10 p-3 sm:p-4 flex flex-col gap-3"
+          className="flex-1 min-h-0 overflow-y-auto rounded-md border border-border dark:border-slate-700 bg-muted/30 dark:bg-slate-950/60 p-3 sm:p-4 flex flex-col gap-3"
         >
           {items.length === 0 && (
             <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
@@ -900,7 +908,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
             }
             if (item.kind === 'assistant') {
               return (
-                <div key={index} className="self-start max-w-[85%] rounded-lg bg-card border border-border px-3.5 py-2">
+                <div key={index} className={`self-start max-w-[85%] rounded-lg bg-card border border-border ${RAISED_CARD} px-3.5 py-2`}>
                   <MarkdownMessage
                     text={item.text}
                     index={cardIndex}
@@ -913,7 +921,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
             }
             if (item.kind === 'data') {
               return (
-                <div key={index} className="self-start w-full max-w-full sm:max-w-[85%] rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5">
+                <div key={index} className={`self-start w-full max-w-full sm:max-w-[85%] rounded-lg border border-border bg-card ${RAISED_CARD} px-3 py-2.5 sm:px-3.5`}>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span className="font-semibold min-w-0 truncate">{item.title}</span>
@@ -1153,7 +1161,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
                   )}
                 </Badge>
                 {(item.card || item.results) && (
-                  <div className="rounded-md border border-border bg-card px-3 py-2 text-sm w-full max-w-xl">
+                  <div className={`rounded-md border border-border bg-card ${RAISED_CARD} px-3 py-2 text-sm w-full max-w-xl`}>
                     {item.card?.title && <div className="font-semibold">{item.card.title}</div>}
                     {item.card?.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
                     {item.results && (
@@ -1278,7 +1286,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, initialCon
           onTargetBinderChange={setTargetBinderId}
         />
       ) : (
-        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-gray-600 dark:text-gray-300">
+        <div className="rounded-lg border border-dashed border-border dark:border-slate-700 p-6 text-center text-sm text-gray-600 dark:text-gray-300">
           Hover a card in a list to preview it here
         </div>
       )}
