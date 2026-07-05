@@ -71,8 +71,12 @@ export const createDeckTool = {
   - "public"    — visible in community decks
 
   🏆 DECKS TO BEAT (superadmin only):
-  - isSystemDeck: true — creates a public "Decks to Beat" reference deck in one
-    call (forces public visibility, then flags it). Non-superadmins get a 403.
+  - isSystemDeck and featured are TWO INDEPENDENT flags — pass BOTH as true to
+    actually publish a Decks to Beat entry. isSystemDeck alone only hides the
+    deck from your personal views (navbar, decks page, Discord, Talishar sync);
+    it does NOT make the deck show up on the Decks to Beat page. featured alone
+    (without isSystemDeck) still surfaces it but leaves it in your personal
+    deck list too. Both force public visibility. Non-superadmins get a 403.
 
   💡 WORKFLOW:
   Step 1: create_deck — name + format + heroName (all three at once)
@@ -111,7 +115,11 @@ export const createDeckTool = {
       },
       isSystemDeck: {
         type: 'boolean',
-        description: 'Superadmin only. When true, creates a public "Decks to Beat" reference deck (forces public visibility and flags it as a system deck). Non-superadmins receive a 403.',
+        description: 'Superadmin only. Hides the deck from your personal views (navbar, decks page, Discord, Talishar sync) and forces public visibility. Independent of `featured` — set featured: true too if this should actually appear on the Decks to Beat page. Non-superadmins receive a 403.',
+      },
+      featured: {
+        type: 'boolean',
+        description: 'Superadmin only. Surfaces the deck on the "Decks to Beat" page (forces public visibility). Independent of isSystemDeck. Pass both isSystemDeck: true and featured: true together for a normal Decks to Beat entry. Non-superadmins receive a 403.',
       },
     },
     required: ['name', 'format', 'heroName'],
@@ -126,7 +134,7 @@ export const createDeckTool = {
         return { success: false, error: 'Authentication failed: No token found.' };
       }
 
-      const { name, format, visibility, description, heroPrintingId: explicitId, heroName, isSystemDeck } = params;
+      const { name, format, visibility, description, heroPrintingId: explicitId, heroName, isSystemDeck, featured } = params;
 
       if (!name?.trim()) {
         return { success: false, error: 'name is required and cannot be empty.' };
@@ -210,8 +218,8 @@ export const createDeckTool = {
       }
 
       // "Decks to Beat" must be public — default to public when flagging a
-      // system deck unless an explicit visibility was provided.
-      const effectiveVisibility = visibility || (isSystemDeck ? 'public' : 'unlisted');
+      // system deck or featuring it, unless an explicit visibility was provided.
+      const effectiveVisibility = visibility || (isSystemDeck || featured ? 'public' : 'unlisted');
 
       const body: Record<string, string> = {
         name: name.trim(),
@@ -239,35 +247,44 @@ export const createDeckTool = {
       const deck = data.data;
       const heroLabel = heroName?.trim() || (heroPrintingId ? `printing ${heroPrintingId}` : 'no hero');
 
-      // Flag as a "Decks to Beat" system deck. This is gated to superadmins by
+      // Flag isSystemDeck and/or featured. Both are gated to superadmins by
       // the /featured endpoint, so a non-superadmin caller gets a 403 here.
-      if (isSystemDeck) {
+      // They're independent flags — isSystemDeck alone won't surface the deck
+      // on the Decks to Beat page; featured is what does that.
+      if (isSystemDeck || featured !== undefined) {
+        const featBody: Record<string, boolean> = {};
+        if (isSystemDeck !== undefined) featBody.isSystemDeck = isSystemDeck;
+        if (featured !== undefined) featBody.featured = featured;
+
         const featRes = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/featured`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${tokenToUse}`,
           },
-          body: JSON.stringify({ isSystemDeck: true }),
+          body: JSON.stringify(featBody),
         });
         const featData = await featRes.json().catch(() => ({}));
         if (!featRes.ok || !featData.success) {
           return {
             success: false,
-            error: `Deck "${deck.name}" was created (${deck.visibility}) but could not be flagged as a Deck to Beat: ${featData.error || `HTTP ${featRes.status}`}. Flag it via the UI, or retry with a superadmin token.`,
+            error: `Deck "${deck.name}" was created (${deck.visibility}) but could not be flagged: ${featData.error || `HTTP ${featRes.status}`}. Flag it via the UI, or retry with a superadmin token.`,
             publicId: deck.publicId,
           };
         }
       }
 
+      const flagLabel = [isSystemDeck && 'system deck', featured && 'Decks to Beat'].filter(Boolean).join(' + ');
+
       return {
         success: true,
-        message: `Deck "${deck.name}" created (${deck.format}, ${deck.visibility}${isSystemDeck ? ', Deck to Beat' : ''}). Hero: ${heroLabel}. Use add_cards_to_deck to populate it.`,
+        message: `Deck "${deck.name}" created (${deck.format}, ${deck.visibility}${flagLabel ? `, ${flagLabel}` : ''}). Hero: ${heroLabel}. Use add_cards_to_deck to populate it.`,
         publicId: deck.publicId,
         name: deck.name,
         format: deck.format,
         visibility: deck.visibility,
         isSystemDeck: isSystemDeck === true,
+        featured: featured === true,
       };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unexpected error' };

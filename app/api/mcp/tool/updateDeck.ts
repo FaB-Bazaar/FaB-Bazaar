@@ -15,7 +15,7 @@ export const updateDeckTool = {
   📖 EXAMPLES:
   Rename:      deckName: "Old Name", updates: { name: "New Name" }
   Make public: deckName: "My Deck", updates: { isPublic: true }
-  Deck to Beat: deckName: "My Deck", updates: { isPublic: true, isSystemDeck: true }  (superadmin only)
+  Deck to Beat: deckName: "My Deck", updates: { isPublic: true, isSystemDeck: true, featured: true }  (superadmin only — isSystemDeck and featured are independent; both are required to actually appear on the Decks to Beat page)
   Add desc:    deckName: "My Deck", updates: { description: "Tournament deck for Spring 2026" }
   Set event:   deckName: "My Deck", updates: { eventName: "Pro Tour Indianapolis", eventDate: "2026-03-15", placing: 1 }`,
 
@@ -44,7 +44,11 @@ export const updateDeckTool = {
           },
           isSystemDeck: {
             type: 'boolean',
-            description: 'Superadmin only. Flag (true) or unflag (false) this deck as a "Decks to Beat" reference deck. Routed through the superadmin-only endpoint; non-superadmins receive a 403. Pair with isPublic: true since Decks to Beat are public.'
+            description: 'Superadmin only. Flag (true) or unflag (false) — hides the deck from your personal views (navbar, decks page, Discord, Talishar sync). Independent of `featured`: this alone does NOT make the deck appear on the Decks to Beat page. Routed through the superadmin-only /featured endpoint; non-superadmins receive a 403. Pair with isPublic: true since Decks to Beat are public.'
+          },
+          featured: {
+            type: 'boolean',
+            description: 'Superadmin only. Flag (true) or unflag (false) — surfaces the deck on the "Decks to Beat" page. Independent of isSystemDeck; set both true for a normal Decks to Beat entry. Routed through the superadmin-only /featured endpoint; non-superadmins receive a 403. Pair with isPublic: true since Decks to Beat are public.'
           },
           description: {
             type: 'string',
@@ -99,10 +103,12 @@ export const updateDeckTool = {
         return { success: false, error: `No deck named "${deckName}" found. Available: ${available}` };
       }
 
-      // isSystemDeck ("Decks to Beat") is superadmin-gated and lives on a
-      // separate endpoint — the generic update route ignores it. Split it out
-      // so the rest of the metadata goes to the standard PATCH.
-      const { isSystemDeck, ...metadataUpdates } = updates;
+      // isSystemDeck and featured are superadmin-gated and live on a separate
+      // endpoint — the generic update route ignores them. They're independent
+      // flags (isSystemDeck alone won't surface a deck on Decks to Beat; that's
+      // what featured does). Split both out so the rest of the metadata goes
+      // to the standard PATCH.
+      const { isSystemDeck, featured, ...metadataUpdates } = updates;
 
       // Update deck metadata (skip if isSystemDeck was the only field provided)
       if (Object.keys(metadataUpdates).length > 0) {
@@ -118,12 +124,16 @@ export const updateDeckTool = {
         }
       }
 
-      // Toggle the Deck-to-Beat flag via the superadmin-only endpoint.
-      if (isSystemDeck !== undefined) {
+      // Toggle isSystemDeck and/or featured via the superadmin-only endpoint.
+      if (isSystemDeck !== undefined || featured !== undefined) {
+        const featBody: Record<string, boolean> = {};
+        if (isSystemDeck !== undefined) featBody.isSystemDeck = isSystemDeck;
+        if (featured !== undefined) featBody.featured = featured;
+
         const featRes = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/featured`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` },
-          body: JSON.stringify({ isSystemDeck })
+          body: JSON.stringify(featBody)
         });
         const featData = await featRes.json().catch(() => ({}));
         if (!featRes.ok || !featData.success) {

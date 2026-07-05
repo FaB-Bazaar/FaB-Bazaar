@@ -84,6 +84,50 @@ describe('createDeckTool.handler — isSystemDeck (Decks to Beat)', () => {
     expect(String(mockFetch.mock.calls[0][0])).toMatch(/\/api\/decks$/);
   });
 
+  it('sends featured alongside isSystemDeck when both are provided (true Decks to Beat visibility)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'DTB', format: 'Classic Constructed', visibility: 'public' } })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { isSystemDeck: true, featured: true } }));
+
+    const result = await createDeckTool.handler(
+      { name: 'DTB', format: 'Classic Constructed', heroPrintingId: 'heroPrint1', isSystemDeck: true, featured: true },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+    const [featUrl, featOpts] = mockFetch.mock.calls[1];
+    expect(String(featUrl)).toMatch(/\/api\/decks\/abc123\/featured$/);
+    expect(JSON.parse(featOpts!.body as string)).toEqual({ isSystemDeck: true, featured: true });
+  });
+
+  it('supports setting featured without isSystemDeck, and forces public visibility for it', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'Feat Only', format: 'Classic Constructed', visibility: 'public' } })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { featured: true } }));
+
+    const result = await createDeckTool.handler(
+      { name: 'Feat Only', format: 'Classic Constructed', heroPrintingId: 'heroPrint1', featured: true },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    const [createUrl, createOpts] = mockFetch.mock.calls[0];
+    expect(String(createUrl)).toMatch(/\/api\/decks$/);
+    expect(JSON.parse(createOpts!.body as string).visibility).toBe('public');
+
+    const [featUrl, featOpts] = mockFetch.mock.calls[1];
+    expect(String(featUrl)).toMatch(/\/api\/decks\/abc123\/featured$/);
+    expect(JSON.parse(featOpts!.body as string)).toEqual({ featured: true });
+  });
+
   it('surfaces a clear error (with publicId) when the /featured flag step is forbidden', async () => {
     mockFetch
       .mockResolvedValueOnce(

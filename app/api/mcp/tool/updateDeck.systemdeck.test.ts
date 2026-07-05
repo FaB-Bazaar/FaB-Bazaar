@@ -78,6 +78,42 @@ describe('updateDeckTool.handler — isSystemDeck + visibility', () => {
     expect(urls[1]).toMatch(/\/api\/decks\/pub1\/featured$/);
   });
 
+  it('sends both isSystemDeck and featured to /featured when both are provided (true Decks to Beat visibility)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(listResponse()) // GET /api/decks
+      .mockResolvedValueOnce(jsonResponse({ success: true, deck: {} })) // PATCH /api/decks/pub1 (visibility)
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { isSystemDeck: true, featured: true } })); // PATCH /featured
+
+    const result = await updateDeckTool.handler(
+      { deckName: 'Zyggy CC', updates: { isPublic: true, isSystemDeck: true, featured: true } },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+    const [featUrl, featOpts] = mockFetch.mock.calls[2];
+    expect(String(featUrl)).toMatch(/\/api\/decks\/pub1\/featured$/);
+    expect(JSON.parse(featOpts!.body as string)).toEqual({ isSystemDeck: true, featured: true });
+  });
+
+  it('supports setting featured alone (without isSystemDeck)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(listResponse()) // GET /api/decks
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { featured: true } })); // PATCH /featured
+
+    const result = await updateDeckTool.handler(
+      { deckName: 'Zyggy CC', updates: { featured: true } },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const [featUrl, featOpts] = mockFetch.mock.calls[1];
+    expect(String(featUrl)).toMatch(/\/api\/decks\/pub1\/featured$/);
+    expect(JSON.parse(featOpts!.body as string)).toEqual({ featured: true });
+  });
+
   it('does not call /featured for a plain metadata update', async () => {
     mockFetch
       .mockResolvedValueOnce(listResponse())
