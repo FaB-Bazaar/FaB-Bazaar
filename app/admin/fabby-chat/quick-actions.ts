@@ -95,9 +95,12 @@ export function summarizeBinders(
 }
 
 export function summarizeWantsCards(
-  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string }>,
+  cards: Array<{ display_name?: string; name?: string; quantity?: number; priority?: string; printingDetails?: { display_name?: string } }>,
 ): QuickActionResult {
-  const label = (c: { display_name?: string; name?: string }) => c.display_name || c.name || 'Unknown card';
+  // /api/wants exposes display_name only inside printingDetails; the top-level
+  // `name` is the lowercase internal name — so read the proper name first.
+  const label = (c: { display_name?: string; name?: string; printingDetails?: { display_name?: string } }) =>
+    c.display_name || c.printingDetails?.display_name || c.name || 'Unknown card';
   const lines: CardLine[] = cards.length === 0
     ? ['Your wants list is empty.']
     : cards.map((c) => ({
@@ -263,8 +266,8 @@ export interface ArchetypeConsensusData {
   months: number;
   consensus: {
     deckCount: number;
-    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
-    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
+    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
+    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
     colorCurve: { red: number; yellow: number; blue: number };
   };
   decks: Array<{ publicId: string; name: string; placing?: number | null; eventName?: string | null }>;
@@ -287,9 +290,13 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     };
   }
 
-  const cardLine = (card: { name: string; pitch?: number; decks: number; typicalQty: number }, showRatio: boolean): CardLine => ({
+  const cardLine = (card: { name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }, showRatio: boolean): CardLine => ({
     text: `${card.typicalQty}× ${card.name}${showRatio ? ` — ${card.decks}/${c.deckCount} decks` : ''}`,
     pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
+    // Rail hover preview from the representative printing (like the wants/deck lists).
+    ...(card.printingId
+      ? { preview: { imageUrl: getCardImageUrl({ printingId: card.printingId }), name: card.name, printingId: card.printingId } }
+      : {}),
   });
 
   const lines: CardLine[] = [

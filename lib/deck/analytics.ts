@@ -41,11 +41,13 @@ export interface ConsensusCard {
   decks: number;
   /** Most common copy-count across the decks that run it. */
   typicalQty: number;
+  /** A representative printing, so the card can preview in the rail. */
+  printingId?: string;
 }
 
 export interface ConsensusDeck {
   name: string;
-  cards: Array<{ name: string; pitch?: number; quantity?: number; cardUniqueId?: string }>;
+  cards: Array<{ name: string; pitch?: number; quantity?: number; cardUniqueId?: string; printingId?: string }>;
 }
 
 export interface ArchetypeConsensus {
@@ -84,22 +86,23 @@ export function computeArchetypeConsensus(decks: ConsensusDeck[]): ArchetypeCons
     return { deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } };
   }
 
-  // key → { name, pitch, quantities: one entry per deck that runs it }
-  const agg = new Map<string, { name: string; pitch?: number; quantities: number[] }>();
+  // key → { name, pitch, representative printingId, quantities: one per deck }
+  const agg = new Map<string, { name: string; pitch?: number; printingId?: string; quantities: number[] }>();
   const curve = { red: 0, yellow: 0, blue: 0 };
 
   for (const deck of decks) {
     // Collapse duplicate rows within a deck (same card listed twice) into one qty.
-    const perDeck = new Map<string, { name: string; pitch?: number; qty: number }>();
+    const perDeck = new Map<string, { name: string; pitch?: number; printingId?: string; qty: number }>();
     for (const c of deck.cards ?? []) {
       const key = c.cardUniqueId || `${c.name.toLowerCase()}|${c.pitch ?? 0}`;
       const qty = c.quantity ?? 1;
       const cur = perDeck.get(key);
       if (cur) cur.qty += qty;
-      else perDeck.set(key, { name: c.name, pitch: c.pitch, qty });
+      else perDeck.set(key, { name: c.name, pitch: c.pitch, printingId: c.printingId, qty });
     }
-    for (const [key, { name, pitch, qty }] of perDeck) {
-      const e = agg.get(key) ?? { name, pitch, quantities: [] };
+    for (const [key, { name, pitch, printingId, qty }] of perDeck) {
+      const e = agg.get(key) ?? { name, pitch, printingId, quantities: [] };
+      if (!e.printingId && printingId) e.printingId = printingId;
       e.quantities.push(qty);
       agg.set(key, e);
       if (pitch === 1) curve.red += qty;
@@ -110,8 +113,8 @@ export function computeArchetypeConsensus(decks: ConsensusDeck[]): ArchetypeCons
 
   const core: ConsensusCard[] = [];
   const flex: ConsensusCard[] = [];
-  for (const { name, pitch, quantities } of agg.values()) {
-    const card: ConsensusCard = { name, pitch, decks: quantities.length, typicalQty: mode(quantities) };
+  for (const { name, pitch, printingId, quantities } of agg.values()) {
+    const card: ConsensusCard = { name, pitch, printingId, decks: quantities.length, typicalQty: mode(quantities) };
     (quantities.length === deckCount ? core : flex).push(card);
   }
 

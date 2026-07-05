@@ -335,8 +335,8 @@ export interface PublicDeckFilters {
 export interface ArchetypeConsensusResult {
   consensus: {
     deckCount: number;
-    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
-    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number }>;
+    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
+    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
     colorCurve: { red: number; yellow: number; blue: number };
   };
   decks: Array<{ publicId: string; name: string; placing?: number | null; eventName?: string | null; eventDate?: string | null }>;

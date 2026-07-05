@@ -24,14 +24,20 @@ describe('deckColorBreakdown', () => {
 });
 
 describe('computeArchetypeConsensus', () => {
-  const card = (name: string, pitch: number, quantity: number, cardUniqueId?: string) =>
-    ({ name, pitch, quantity, cardUniqueId });
+  const card = (name: string, pitch: number, quantity: number, cardUniqueId?: string, printingId?: string) =>
+    ({ name, pitch, quantity, cardUniqueId, printingId: printingId ?? `pid_${name}` });
 
   const decks: ConsensusDeck[] = [
     { name: 'Deck A', cards: [card('Disable', 3, 3, 'u_dis'), card('Pummel', 1, 3, 'u_pum'), card('Overcrowded', 3, 1, 'u_ovr')] },
     { name: 'Deck B', cards: [card('Disable', 3, 3, 'u_dis'), card('Pummel', 1, 3, 'u_pum'), card('Headbutt', 1, 3, 'u_hb')] },
     { name: 'Deck C', cards: [card('Disable', 3, 3, 'u_dis'), card('Pummel', 1, 2, 'u_pum')] },
   ];
+
+  it('carries a representative printingId per consensus card (for rail preview)', () => {
+    const r = computeArchetypeConsensus(decks);
+    expect(r.core.find((x) => x.name === 'Disable')?.printingId).toBe('pid_Disable');
+    expect(r.flex.find((x) => x.name === 'Headbutt')?.printingId).toBe('pid_Headbutt');
+  });
 
   it('marks cards present in every deck as core, with adoption and typical quantity', () => {
     const r = computeArchetypeConsensus(decks);

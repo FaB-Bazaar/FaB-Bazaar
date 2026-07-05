@@ -1306,6 +1306,7 @@ export class PostgresDeckService implements IDeckService {
           pitch: c.printingDetails?.pitch,
           quantity: c.quantity ?? 1,
           cardUniqueId: c.printingDetails?.card_unique_id,
+          printingId: c.printingId,
         }));
         consensusDecks.push({ name: s.name, cards });
         includedDecks.push({

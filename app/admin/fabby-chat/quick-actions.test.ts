@@ -55,6 +55,16 @@ describe('summarizeWantsCards', () => {
   it('handles the empty state', () => {
     expect(summarizeWantsCards([]).lines).toEqual(['Your wants list is empty.']);
   });
+
+  it('prefers display_name from printingDetails over the lowercase top-level name', () => {
+    // The /api/wants route puts display_name only inside printingDetails; the
+    // top-level `name` is the lowercase internal name.
+    const result = summarizeWantsCards([
+      { name: 'command and conquer', quantity: 1, printingDetails: { display_name: 'Command and Conquer' } } as any,
+    ]);
+    expect((result.lines[0] as any).text).toBe('1× Command and Conquer');
+    expect(result.context).toContain('Command and Conquer');
+  });
 });
 
 describe('summarizeDecks', () => {
@@ -292,12 +302,12 @@ describe('summarizeArchetypeConsensus', () => {
     consensus: {
       deckCount: 10,
       core: [
-        { name: 'Cranial Crush', pitch: 3, decks: 10, typicalQty: 3 },
-        { name: 'Aurum Aegis', decks: 10, typicalQty: 1 },
+        { name: 'Cranial Crush', pitch: 3, decks: 10, typicalQty: 3, printingId: 'pid_cc' },
+        { name: 'Aurum Aegis', decks: 10, typicalQty: 1, printingId: 'pid_aa' },
       ],
       flex: [
-        { name: 'Disable', pitch: 3, decks: 9, typicalQty: 3 },
-        { name: 'Pummel', pitch: 1, decks: 8, typicalQty: 3 },
+        { name: 'Disable', pitch: 3, decks: 9, typicalQty: 3, printingId: 'pid_dis' },
+        { name: 'Pummel', pitch: 1, decks: 8, typicalQty: 3, printingId: 'pid_pum' },
       ],
       colorCurve: { red: 30, yellow: 12, blue: 30 },
     },
@@ -321,6 +331,13 @@ describe('summarizeArchetypeConsensus', () => {
     expect(r.lines).toContainEqual(expect.objectContaining({ text: '3× Cranial Crush', pitch: 3 }));
     // flex shows how many of the N decks run it — the real outlier signal
     expect(r.lines).toContainEqual(expect.objectContaining({ text: '3× Disable — 9/10 decks', pitch: 3 }));
+  });
+
+  it('gives consensus cards a rail preview via their representative printingId', () => {
+    const r = summarizeArchetypeConsensus(data);
+    const cc = r.lines.find((l) => typeof l !== 'string' && l.text === '3× Cranial Crush') as any;
+    expect(cc.preview).toMatchObject({ name: 'Cranial Crush', printingId: 'pid_cc' });
+    expect(cc.preview.imageUrl).toBeTruthy();
   });
 
   it('handles an empty result set', () => {
