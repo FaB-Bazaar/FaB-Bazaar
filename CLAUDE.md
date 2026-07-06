@@ -52,6 +52,8 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - **History Pack set codes are `1hp`/`2hp`, not `hp1`/`hp2`** — "WB"/"Welcome Back" reprints. The legacy/community `hp1`/`hp2` spelling returns 0 results; `normalizeSetCode` (`lib/fab-constants/sets.ts`) aliases it for the shorthand parser + MCP structured filters. Don't hand-list set codes — the MCP constants resource generates them from `CARD_FILTER_SETS`.
 - **Search rate limiting is two-tier** — a per-IP circuit breaker (1000/min, `middleware.ts`) + a global all-callers cap on `/api/printings/search` (5000/min, `SEARCH_GLOBAL_RATE_LIMIT_PER_MIN`) that bounds aggregate Postgres-pool load. Both are in-memory, which is genuinely global only because the app runs a single `nextjs` container — scaling to N containers makes each limit per-instance (×N); wire `lib/rate-limit.ts` to Redis first.
 - **Trade-interest pings** (binder + wants copy actions) — both post via `DISCORD_WEBHOOK_TRADE_INTEREST` with a 15-min in-memory dedupe (per-container, same caveat as rate limiting). `lib/discord/links.ts` hardcodes the channel the webhook posts to — update it if the webhook ever moves channels.
+- **MCP-proxied write endpoints must pass `allowOAuth`** — MCP tools (`add_to_wants`, `remove_cards_from_deck`, `get_results`, …) call internal `/api/*` routes with the caller's bearer. Fabby Chat mints an OAuth 2.1 **JWT**; Claude Desktop uses an `mcp_` token (a *different*, non-`allowOAuth` validation path). So a route that omits `authenticateRequest(req, body, { allowOAuth: true })` 401s Fabby Chat + OAuth clients while still working in Claude. Any route an MCP tool hits needs the flag (hit on `/api/wants/add`, `/api/wants/remove`, `/api/binders/[id]/cards/[cardId]`).
+- **Fabby Chat access** (`/fabby-chat`, hosted AI) — one gate: `canUseFabbyChat` (`lib/ai/fabby-chat-access.ts`) = superadmin OR `users.metafy_supporter_tier='paid'` OR a manual `users.fabby_chat_access` grant (toggle on `/admin/user-access`). The Metafy community + paid-tier IDs live in env (`METAFY_FAB_COMMUNITY_ID` / `METAFY_FAB_PAID_TIER_IDS`), NOT the Metafy dashboard UI — source them from the cached `metafy_communities.tiers` JSON. Tier is set at Metafy link time and lazily re-verified on chat open (`METAFY_TIER_TTL_MS`, default 1h; `lib/metafy/sync-tier.ts`).
 
 ## API Route Pattern
 
@@ -96,6 +98,8 @@ npx vitest run <path>                 # single file
 ```
 
 Requires `POSTGRES_URL` in `.env.local` for service integration tests (reads via `vitest.setup.ts` → `loadEnvConfig`).
+
+**Tests run only if their path matches a `vitest.config.ts` project `include` glob** (`components/**`, `app/admin/**`, `app/api/**`, `lib/**`, `app/fabby-chat/**`, …). Tests under a new top-level `app/` dir are silently skipped until you add its glob (hit when the chat moved `app/admin/fabby-chat` → `app/fabby-chat`).
 
 ### Two-layer pattern
 
