@@ -16,9 +16,9 @@ describe('resolveLlmTier', () => {
     expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'paid' })).toBe('paid');
   });
 
-  it('puts manually-granted (fabbyChatAccess) users on the paid tier', () => {
+  it('puts manually-granted (volzarAccess) users on the paid tier', () => {
     // Else a comped, non-Metafy user 403s on the paid-only default model.
-    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'free', fabbyChatAccess: true })).toBe('paid');
+    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'free', volzarAccess: true })).toBe('paid');
   });
 
   it('defaults everyone else to free', () => {

@@ -1,4 +1,4 @@
-// Quick actions for the Fabby chat: deterministic reads that need zero AI
+// Quick actions for the Volzar chat: deterministic reads that need zero AI
 // tokens. "Buttons for the known, chat for the unknown" — listing binders /
 // wants / decks (and drilling into a binder) are direct client-service calls
 // rendered as data cards, not LLM tool round-trips (~25k tokens saved each).
@@ -470,8 +470,6 @@ export interface SearchResultsCard {
   shown: number;
 }
 
-const PITCH_LABEL: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
-
 /**
  * Parses search_printings structuredContent (the token-bypass channel) into
  * compact inline result rows: the full projected printing list already
@@ -609,7 +607,7 @@ function harvestOne(raw: any, out: HarvestedCard[]): void {
 /**
  * Universal card harvester: pulls {name, pitch, printingId, preview} out of any
  * card-bearing tool payload (search_printings, get_deck, get_binder, get_wants)
- * so card names Fabby mentions in its answer can hover-preview in the rail —
+ * so card names Volzar mentions in its answer can hover-preview in the rail —
  * not just the ones from a search. Unknown/cardless payloads yield [].
  */
 export function harvestCardsFromStructured(structured: any): HarvestedCard[] {
@@ -685,7 +683,11 @@ export const QUICK_ACTIONS: QuickAction[] = [
       // NOT getUserDecksBasic — it fetches /api/decks/basic, which 404s
       // (dead endpoint). GET /api/decks returns { success, decks } (legacy
       // shape, no `data` key — same handleResponse passthrough as wants).
-      const result = await decksClient.getUserDecks(undefined, { limit: 50 });
+      // Request ALL decks: summarizeDecks partitions out featured/system decks
+      // client-side, so any server-side page cap would fill with a curator's
+      // reference decks and silently hide personal ones (same bug as the
+      // /decks page, fixed in 1fccbc6).
+      const result = await decksClient.getUserDecks(undefined, { limit: 100000 });
       if (!result.success) throw new Error(result.error);
       const decks = (result.data as any)?.decks ?? [];
       return summarizeDecks(decks);

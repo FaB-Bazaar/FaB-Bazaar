@@ -2,7 +2,7 @@
  * Unit tests for GET /api/decks/community
  *
  * Uses a mocked deckService — tests HTTP concerns: the dateFrom/dateTo
- * rolling-window params (used by the fabby-chat decks-to-beat picker)
+ * rolling-window params (used by the volzar decks-to-beat picker)
  * pass through to listPublicDecks only when well-formed.
  */
 

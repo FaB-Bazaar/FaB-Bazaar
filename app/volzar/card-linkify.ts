@@ -1,6 +1,6 @@
-// Card-name linkification for Fabby's markdown answers.
+// Card-name linkification for Volzar's markdown answers.
 //
-// Every card Fabby discusses came from a search_printings result this session,
+// Every card Volzar discusses came from a search_printings result this session,
 // and those results are already in the browser (name + representative
 // printing_id + image). We build a name→card index from them and wrap any
 // occurrence of a known card name in the rendered answer with a hover span
@@ -44,13 +44,9 @@ export function buildCardNameIndex(
 /**
  * Choose which printing of a (possibly multi-pitch) card name to preview.
  * A name like "Zero to Sixty" has red/yellow/blue variants; for a hover
- * preview we default to the lowest pitch (red), or honor a nearby color hint.
+ * preview we default to the lowest pitch (red).
  */
-export function pickPreview(entries: IndexedCard[], colorHint?: number): CardPreview {
-  if (colorHint != null) {
-    const hit = entries.find((e) => e.pitch === colorHint);
-    if (hit) return hit.preview;
-  }
+export function pickPreview(entries: IndexedCard[]): CardPreview {
   return [...entries].sort((a, b) => (a.pitch ?? 99) - (b.pitch ?? 99))[0].preview;
 }
 

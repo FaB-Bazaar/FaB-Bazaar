@@ -50,9 +50,6 @@ describe('pickPreview', () => {
   it('defaults to the lowest pitch (red) representative', () => {
     expect(pickPreview(entries).printingId).toBe('z-red');
   });
-  it('honors a color/pitch hint when provided', () => {
-    expect(pickPreview(entries, 2).printingId).toBe('z-yellow');
-  });
 });
 
 describe('splitTextByCardNames', () => {

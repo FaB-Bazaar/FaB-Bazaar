@@ -27,7 +27,7 @@ import { LANGUAGES } from '@/lib/search/build-server-filters';
 import { optStateToChips } from '@/lib/search/opt-state-describe';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
-import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
+import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { trackSearch } from '@/lib/gtag';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
@@ -317,23 +317,23 @@ export default function OptSearchPage() {
 
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
-  // ── Bridge B: hand the current search off to the hosted Fabby chat ──
-  // Same access rule as the chat itself (canUseFabbyChat: superadmins + paid
+  // ── Bridge B: hand the current search off to the hosted Volzar chat ──
+  // Same access rule as the chat itself (canUseVolzar: superadmins + paid
   // supporters). The href reuses the page's own URL params plus from=opt &
   // total=N; the chat page parses them back into OptUiState and queues a
   // context string for the first message.
   const { data: session } = useSession();
-  const canAskFabby = canUseFabbyChat({
+  const canAskVolzar = canUseVolzar({
     isSuperAdmin: session?.user?.roles?.isSuperAdmin,
     metafySupporterTier: session?.user?.roles?.metafySupporterTier,
   });
-  const askFabbyHref = `/fabby-chat?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
-  const askFabbyLink = canAskFabby && hasAnyFilter && (
+  const askVolzarHref = `/volzar?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
+  const askVolzarLink = canAskVolzar && hasAnyFilter && (
     <Link
-      href={askFabbyHref}
+      href={askVolzarHref}
       className="shrink-0 inline-flex items-center gap-1 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
     >
-      <Sparkles className="w-3.5 h-3.5" aria-hidden /> Ask Fabby
+      <Sparkles className="w-3.5 h-3.5" aria-hidden /> Ask Volzar
     </Link>
   );
 
@@ -830,7 +830,7 @@ export default function OptSearchPage() {
               </Popover>
             ))}
             <div className="ml-auto flex items-center gap-3">
-              {askFabbyLink}
+              {askVolzarLink}
               <button
                 onClick={() => setSyntaxGuideOpen(true)}
                 className="shrink-0 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
@@ -989,7 +989,7 @@ export default function OptSearchPage() {
           <DrawerHeader className="flex flex-row items-center justify-between py-3">
             <DrawerTitle>Filters</DrawerTitle>
             <div className="flex items-center gap-3">
-              {askFabbyLink}
+              {askVolzarLink}
               {activeChips.length > 0 && (
                 <button
                   onClick={clearAll}

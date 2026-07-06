@@ -15,7 +15,7 @@ export default defineConfig({
         name: 'jsdom',
         test: {
           environment: 'jsdom',
-          include: ['components/**/*.test.{ts,tsx}', 'app/admin/**/*.test.{ts,tsx}', 'app/fabby-chat/**/*.test.{ts,tsx}'],
+          include: ['components/**/*.test.{ts,tsx}', 'app/admin/**/*.test.{ts,tsx}', 'app/volzar/**/*.test.{ts,tsx}'],
           // --- ADD THIS LINE ---
           // Explicitly declare the setup file for this project
           setupFiles: ['./vitest.setup.ts'], 

@@ -1,15 +1,15 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
-import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
+import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 
 export const dynamic = 'force-dynamic';
 
 // Post-login landing. The OAuth sign-in flow redirects here (not straight to
 // /discord) so we can make the destination access-aware server-side:
-//   - Fabby Chat users (superadmin / paid Metafy supporter / manual grant) →
-//     /fabby-chat, their real home.
+//   - Volzar users (superadmin / paid Metafy supporter / manual grant) →
+//     /volzar, their real home.
 //   - everyone else → /discord (the prior default).
 //
 // The access decision needs a DB read, which is why this lives in a server
@@ -26,9 +26,9 @@ export default async function PostLoginPage() {
 
   await syncSupporterTierIfStale(user.id);
 
-  const access = await userService.getFabbyChatAccess(user.id);
-  if (access.success && canUseFabbyChat(access.data)) {
-    redirect('/fabby-chat');
+  const access = await userService.getVolzarAccess(user.id);
+  if (access.success && canUseVolzar(access.data)) {
+    redirect('/volzar');
   }
 
   redirect('/discord');

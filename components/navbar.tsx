@@ -44,7 +44,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { accessibleAdminLinks } from "@/components/nav/admin-links"
-import { canUseFabbyChat } from "@/lib/ai/fabby-chat-access"
+import { canUseVolzar } from "@/lib/ai/volzar-access"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -880,12 +880,12 @@ export default function Navbar() {
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{displayUsername(user.username)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                     </div>
-                    {canUseFabbyChat(user) && (
+                    {canUseVolzar(user) && (
                       <>
                         <DropdownMenuItem asChild>
-                          <Link href="/fabby-chat" className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
+                          <Link href="/volzar" className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
                             <Sparkles className="h-4 w-4 mr-2 text-violet-500 dark:text-violet-400" />
-                            <span className="font-semibold text-violet-600 dark:text-violet-400">Fabby Chat</span>
+                            <span className="font-semibold text-violet-600 dark:text-violet-400">Volzar</span>
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
@@ -1134,11 +1134,11 @@ export default function Navbar() {
               {/* User Profile Section */}
               {user && (
                 <div className="border-t dark:border-gray-700 py-2">
-                  {canUseFabbyChat(user) && (
-                    <Link href="/fabby-chat" onClick={() => setIsMenuOpen(false)}>
+                  {canUseVolzar(user) && (
+                    <Link href="/volzar" onClick={() => setIsMenuOpen(false)}>
                       <div className="flex items-center px-3 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700">
                         <Sparkles className="h-5 w-5 mr-3" />
-                        Fabby Chat
+                        Volzar
                       </div>
                     </Link>
                   )}

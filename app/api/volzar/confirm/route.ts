@@ -1,4 +1,4 @@
-// Resolves a destructive-tool confirmation for the hosted Fabby chat.
+// Resolves a destructive-tool confirmation for the hosted Volzar chat.
 //
 // The chat stream pauses on remove_* tool calls and emits a
 // confirmation_request event; the UI posts the user's decision here, which
@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
-import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
+import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { resolveConfirmation } from '@/lib/ai/confirmations';
 import type { ConfirmationDecision } from '@/lib/ai/types';
 
@@ -22,9 +22,9 @@ export async function POST(req: Request) {
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const access = await userService.getFabbyChatAccess(user.id);
-  if (!access.success || !canUseFabbyChat(access.data)) {
-    return NextResponse.json({ error: 'Forbidden - Fabby Chat access required' }, { status: 403 });
+  const access = await userService.getVolzarAccess(user.id);
+  if (!access.success || !canUseVolzar(access.data)) {
+    return NextResponse.json({ error: 'Forbidden - Volzar access required' }, { status: 403 });
   }
 
   let body: { id?: unknown; decision?: unknown };

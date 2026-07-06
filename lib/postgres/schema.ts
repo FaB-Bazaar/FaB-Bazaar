@@ -136,11 +136,11 @@ export const users = pgTable('users', {
   isLocalGamingStore: boolean('is_local_gaming_store').default(false).notNull(),
   isMetafySupporter: boolean('is_metafy_supporter').default(false).notNull(),
   // Hosted-chat supporter tier: 'free' | 'paid'. Synced from Metafy community
-  // membership (paid tier) or set manually by a superadmin. Gates Fabby Chat.
+  // membership (paid tier) or set manually by a superadmin. Gates Volzar.
   metafySupporterTier: text('metafy_supporter_tier').default('free').notNull(),
-  // Manual Fabby Chat grant (superadmin-toggled on /admin/user-access) for users
-  // who can't get Metafy status. OR'd into canUseFabbyChat; sync never touches it.
-  fabbyChatAccess: boolean('fabby_chat_access').default(false).notNull(),
+  // Manual Volzar grant (superadmin-toggled on /admin/user-access) for users
+  // who can't get Metafy status. OR'd into canUseVolzar; sync never touches it.
+  volzarAccess: boolean('volzar_access').default(false).notNull(),
   isCurator: boolean('is_curator').default(false).notNull(),
   isShop: boolean('is_shop').default(false).notNull(),
   isTcgSeller: boolean('is_tcg_seller').default(false).notNull(),

@@ -101,7 +101,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 isShop: user.isShop,
                 isTcgSeller: user.isTcgSeller,
                 metafySupporterTier: user.metafySupporterTier,
-                fabbyChatAccess: user.fabbyChatAccess,
+                volzarAccess: user.volzarAccess,
               };
 
               console.log('[JWT Callback] Roles being set in token:', JSON.stringify(rolesForToken, null, 2));
@@ -131,7 +131,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 isShop: user.isShop,
                 isTcgSeller: user.isTcgSeller,
                 metafySupporterTier: user.metafySupporterTier,
-                fabbyChatAccess: user.fabbyChatAccess,
+                volzarAccess: user.volzarAccess,
               };
               token.roles = rolesForToken;
               token.username = user.username;

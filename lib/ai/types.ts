@@ -1,4 +1,4 @@
-// Shared types for the hosted Fabby chat agent loop.
+// Shared types for the hosted Volzar chat agent loop.
 //
 // lib/ai is layered: openrouter.ts (LLM transport) and mcp-bridge.ts (tool
 // execution against our own MCP endpoint) both depend only on this file;

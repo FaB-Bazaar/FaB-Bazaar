@@ -1,9 +1,9 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
-import { canUseFabbyChat } from '@/lib/ai/fabby-chat-access';
+import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
-import { FabbyChatClient } from './FabbyChatClient';
+import { VolzarChat } from './VolzarChat';
 import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { describeOptState, optStateToChips } from '@/lib/search/opt-state-describe';
 
@@ -11,13 +11,13 @@ export const dynamic = 'force-dynamic';
 
 // Hosted AI tier: server-side agent loop over the lite MCP toolset, streamed to
 // the browser. Access = superadmins + paid Metafy supporters, gated through the
-// single source of truth (canUseFabbyChat), read fresh from the DB.
+// single source of truth (canUseVolzar), read fresh from the DB.
 //
 // On open we lazily re-verify the supporter's Metafy membership (throttled by a
 // TTL): a lapsed/cancelled subscriber is downgraded here and then bounced to the
 // home page by the gate below — so access reflects their CURRENT subscription,
 // not just what it was at link time.
-export default async function FabbyChatAdminPage({ searchParams }: {
+export default async function VolzarPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await auth();
@@ -29,8 +29,8 @@ export default async function FabbyChatAdminPage({ searchParams }: {
 
   await syncSupporterTierIfStale(user.id);
 
-  const access = await userService.getFabbyChatAccess(user.id);
-  if (!access.success || !canUseFabbyChat(access.data)) {
+  const access = await userService.getVolzarAccess(user.id);
+  if (!access.success || !canUseVolzar(access.data)) {
     redirect('/');
   }
 
@@ -82,7 +82,7 @@ export default async function FabbyChatAdminPage({ searchParams }: {
     // Height reserves navbar (4rem) + minimal legal footer (~2rem) on desktop,
     // plus the mobile bottom tab bar (~3.5rem) on small screens.
     <div className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-6.75rem)] sm:px-4">
-      <FabbyChatClient
+      <VolzarChat
         username={user.name || 'collector'}
         userId={user.id}
         mockMode={mockMode}

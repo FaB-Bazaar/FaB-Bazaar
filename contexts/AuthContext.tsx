@@ -16,7 +16,7 @@ interface User {
   isSuperAdmin?: boolean
   isContentCreator?: boolean
   metafySupporterTier?: 'free' | 'paid'
-  fabbyChatAccess?: boolean
+  volzarAccess?: boolean
 }
 
 interface AuthContextType {
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isSuperAdmin: session.user.roles?.isSuperAdmin || false,
         isContentCreator: session.user.roles?.isContentCreator || false,
         metafySupporterTier: session.user.roles?.metafySupporterTier === 'paid' ? 'paid' : 'free',
-        fabbyChatAccess: !!session.user.roles?.fabbyChatAccess,
+        volzarAccess: !!session.user.roles?.volzarAccess,
       })
     } else {
       setUser(null)

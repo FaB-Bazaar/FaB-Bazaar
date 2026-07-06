@@ -16,13 +16,13 @@ interface MarkdownMessageProps {
 }
 
 /**
- * Renders Fabby's answer as GitHub-flavored markdown (tables, bold, lists) and
+ * Renders Volzar's answer as GitHub-flavored markdown (tables, bold, lists) and
  * turns any known card name into a hover target that previews the card in the
  * rail — the same interaction the structured result rows already offer.
  */
 export function MarkdownMessage({ text, index, previewsByPid, onHoverCard }: MarkdownMessageProps) {
   return (
-    <div className="fabby-markdown text-sm leading-relaxed break-words">
+    <div className="volzar-markdown text-sm leading-relaxed break-words">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[() => rehypeLinkifyCards(index)]}

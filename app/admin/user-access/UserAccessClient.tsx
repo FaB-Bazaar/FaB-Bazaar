@@ -29,7 +29,7 @@ type UserType = {
   isMetafySupporter?: boolean;
   isShop?: boolean;
   isTcgSeller?: boolean;
-  fabbyChatAccess?: boolean;
+  volzarAccess?: boolean;
 };
 
 interface RoleSwitchProps {
@@ -161,7 +161,7 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
 
   const getActiveRolesCount = (user: UserType) => {
     const roleCount = Object.values(user.roles || {}).filter(Boolean).length;
-    const flagCount = [user.fabbyChatAccess, user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore]
+    const flagCount = [user.volzarAccess, user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore]
       .filter(Boolean).length;
     return roleCount + flagCount;
   };
@@ -482,16 +482,16 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
                   <SectionHeader
                     icon={Store}
                     title="User Types"
-                    count={[user.fabbyChatAccess, user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore].filter(Boolean).length}
+                    count={[user.volzarAccess, user.isMetafySupporter, user.isShop, user.isTcgSeller, user.isLocalGamingStore].filter(Boolean).length}
                   />
                   <div className="space-y-3">
                     <RoleSwitch
-                      id={`${user._id}-fabbyChatAccess`}
-                      label="Fabby Chat Access"
-                      description="Manually grant hosted Fabby Chat (no Metafy required)"
-                      checked={!!user.fabbyChatAccess}
+                      id={`${user._id}-volzarAccess`}
+                      label="Volzar Access"
+                      description="Manually grant hosted Volzar (no Metafy required)"
+                      checked={!!user.volzarAccess}
                       disabled={!!saving}
-                      onCheckedChange={(v) => handleFlagChange(user._id, 'fabbyChatAccess', v)}
+                      onCheckedChange={(v) => handleFlagChange(user._id, 'volzarAccess', v)}
                     />
                     <RoleSwitch
                       id={`${user._id}-isMetafySupporter`}

@@ -125,7 +125,7 @@ export default function ConnectedAccountsPage() {
       fetch("/api/auth/me").then(r => r.json()).then(data => {
         if (data.success) setUserProfile(data.user)
       })
-      // Refresh the JWT so a newly-derived supporter tier (Fabby Chat access,
+      // Refresh the JWT so a newly-derived supporter tier (Volzar access,
       // navbar link, paid landing) takes effect without a re-login. The jwt
       // callback refetches roles from the DB on update.
       void updateSession()

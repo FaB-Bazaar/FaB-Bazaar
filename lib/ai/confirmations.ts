@@ -16,9 +16,9 @@ const DEFAULT_TIMEOUT_MS = 5 * 60_000; // user walked away → deny, free the st
 // bundle (and again on dev HMR) — the confirm POST would then look into an
 // empty copy and 404. One process must mean one registry.
 const globalStore = globalThis as unknown as {
-  __fabbyPendingConfirmations?: Map<string, (decision: ConfirmationDecision) => void>;
+  __volzarPendingConfirmations?: Map<string, (decision: ConfirmationDecision) => void>;
 };
-const pending = (globalStore.__fabbyPendingConfirmations ??= new Map());
+const pending = (globalStore.__volzarPendingConfirmations ??= new Map());
 
 // Keyed by authenticated user + tool call id: a resolve can never touch
 // another user's pending call, and call ids only need to be unique per user.

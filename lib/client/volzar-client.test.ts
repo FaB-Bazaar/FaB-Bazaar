@@ -1,11 +1,11 @@
 /**
- * Unit tests for the fabby-chat client's pure SSE frame parser — the piece
+ * Unit tests for the volzar client's pure SSE frame parser — the piece
  * that must survive frames split across arbitrary network chunk boundaries —
  * and the confirm/deny resolver for destructive tool calls.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { parseSseFrames, resolveConfirmation } from './fabby-chat-client';
+import { parseSseFrames, resolveConfirmation } from './volzar-client';
 
 describe('parseSseFrames', () => {
   it('parses complete frames and returns leftover buffer', () => {
@@ -51,7 +51,7 @@ describe('resolveConfirmation', () => {
     const result = await resolveConfirmation({ id: 'c1', decision: 'confirm' });
 
     expect(result.success).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith('/api/fabby-chat/confirm', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/volzar/confirm', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
     }));

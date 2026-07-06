@@ -1,4 +1,4 @@
-// LLM transport for the hosted Fabby chat: OpenRouter (OpenAI-compatible)
+// LLM transport for the hosted Volzar chat: OpenRouter (OpenAI-compatible)
 // over plain fetch — no SDK dependency. Exposes:
 //   createLlm({model})  — picks the real transport or the keyless mock
 //   parseSseStream      — pure SSE→LlmDelta parser (fixture-tested)
@@ -33,7 +33,7 @@ function createOpenRouterLlm(opts: { model: string; apiKey: string }): Llm {
         'Content-Type': 'application/json',
         // OpenRouter attribution etiquette — shows in their dashboard.
         'HTTP-Referer': 'https://fabbazaar.app',
-        'X-Title': 'FaB Bazaar - Fabby',
+        'X-Title': 'FaB Bazaar - Volzar',
       },
       body: JSON.stringify({
         model: opts.model,

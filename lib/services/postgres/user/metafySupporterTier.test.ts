@@ -1,7 +1,7 @@
 /**
  * Integration tests: supporter-tier persistence + the access read used by the
- * Fabby Chat gates. setMetafySupporterTier writes users.metafy_supporter_tier;
- * getFabbyChatAccess reads it back with isSuperAdmin; unlinkMetafyAccount
+ * Volzar gates. setMetafySupporterTier writes users.metafy_supporter_tier;
+ * getVolzarAccess reads it back with isSuperAdmin; unlinkMetafyAccount
  * revokes the tier to 'free'.
  *
  * Runs against local Postgres. Requires POSTGRES_URL in .env.local.
@@ -51,21 +51,21 @@ describe('PostgresUserService — Metafy supporter tier', () => {
     expect(res.success).toBe(false);
   });
 
-  it('getFabbyChatAccess returns the persisted tier + admin + manual-grant flags', async () => {
+  it('getVolzarAccess returns the persisted tier + admin + manual-grant flags', async () => {
     await service.setMetafySupporterTier(userId, 'paid');
-    const res = await service.getFabbyChatAccess(userId);
+    const res = await service.getVolzarAccess(userId);
     expect(res.success).toBe(true);
-    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'paid', fabbyChatAccess: false });
+    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'paid', volzarAccess: false });
   });
 
-  it('getFabbyChatAccess reflects a manual fabby_chat_access grant', async () => {
-    await service.updateUserField(userId, 'fabbyChatAccess', true);
-    const res = await service.getFabbyChatAccess(userId);
-    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'free', fabbyChatAccess: true });
+  it('getVolzarAccess reflects a manual volzar_access grant', async () => {
+    await service.updateUserField(userId, 'volzarAccess', true);
+    const res = await service.getVolzarAccess(userId);
+    expect(res.success && res.data).toEqual({ isSuperAdmin: false, metafySupporterTier: 'free', volzarAccess: true });
   });
 
-  it('getFabbyChatAccess returns null for an unknown user', async () => {
-    const res = await service.getFabbyChatAccess(crypto.randomUUID());
+  it('getVolzarAccess returns null for an unknown user', async () => {
+    const res = await service.getVolzarAccess(crypto.randomUUID());
     expect(res.success && res.data).toBeNull();
   });
 

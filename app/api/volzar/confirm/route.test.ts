@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
-  userService: { getFabbyChatAccess: vi.fn() },
+  userService: { getVolzarAccess: vi.fn() },
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
@@ -17,10 +17,10 @@ import { userService } from '@/lib/services';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
-const mockGetAccess = vi.mocked(userService.getFabbyChatAccess);
+const mockGetAccess = vi.mocked(userService.getVolzarAccess);
 
 function request(body: unknown): Request {
-  return new Request('http://localhost:3000/api/fabby-chat/confirm', {
+  return new Request('http://localhost:3000/api/volzar/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -33,13 +33,13 @@ beforeEach(() => {
   mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: true, metafySupporterTier: 'free' } } as any);
 });
 
-describe('POST /api/fabby-chat/confirm', () => {
+describe('POST /api/volzar/confirm', () => {
   it('401s without a session', async () => {
     mockAuth.mockResolvedValue(null);
     expect((await POST(request({ id: 'c1', decision: 'confirm' }))).status).toBe(401);
   });
 
-  it('403s for users without Fabby Chat access (free non-admin)', async () => {
+  it('403s for users without Volzar access (free non-admin)', async () => {
     mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: false, metafySupporterTier: 'free' } } as any);
     expect((await POST(request({ id: 'c1', decision: 'confirm' }))).status).toBe(403);
   });

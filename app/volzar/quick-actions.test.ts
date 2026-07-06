@@ -1,6 +1,6 @@
 /**
  * Unit tests for the quick-action formatters — the zero-token deterministic
- * path in the Fabby chat, the binder drill-down lines, and the lazy context
+ * path in the Volzar chat, the binder drill-down lines, and the lazy context
  * hand-off to the next AI turn.
  */
 

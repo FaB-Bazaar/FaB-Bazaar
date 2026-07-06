@@ -14,7 +14,7 @@ import {
   Heart, FolderPlus, Copy, Check, Repeat,
 } from 'lucide-react';
 import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialog';
-import { fabbyChatClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
+import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
@@ -24,6 +24,7 @@ import {
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
+import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
 import type { DeckViewCard } from '@/lib/deck/analytics';
@@ -151,7 +152,7 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
           <div className="text-sm mt-2 pt-2 border-t border-border">
             <TcgAffiliateLink
               tcgplayerUrl={card.tcgplayerUrl}
-              feature="fabby-chat"
+              feature="volzar"
               className={`flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ${focusRing} rounded-sm`}
               title="Purchase on TCGPlayer"
             >
@@ -256,7 +257,7 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdmin, initialContext, initialData }: {
+export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, initialContext, initialData }: {
   username: string;
   userId: string;
   mockMode: boolean;
@@ -323,7 +324,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   const [toBeatEvent, setToBeatEvent] = useState('');
 
   // Every card any search_printings call surfaced this session, keyed by name,
-  // so card names in Fabby's markdown answers can hover-preview in the rail.
+  // so card names in Volzar's markdown answers can hover-preview in the rail.
   const cardIndex = useMemo(() => {
     const cards: HarvestedCard[] = [];
     for (const it of items) {
@@ -384,12 +385,15 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   // AI question actually follows the button press.
   const pendingContextRef = useRef<string[]>(initialContext ?? []);
 
-  // Working state for the in-flight AI turn
+  // Working state for the in-flight AI turn. `committed` flips once the turn
+  // has been folded into apiMessages (done/error event, or the abort
+  // finalizer in performTurn) so it can never be committed twice.
   const turnRef = useRef<{
     assistantText: string;
     toolCalls: ToolCall[];
     toolResults: Array<{ id: string; content: string }>;
-  }>({ assistantText: '', toolCalls: [], toolResults: [] });
+    committed: boolean;
+  }>({ assistantText: '', toolCalls: [], toolResults: [], committed: true });
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -474,20 +478,9 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
             cost: prev.cost + (price ? (usage.prompt_tokens * price.input + usage.completion_tokens * price.output) / 1e6 : 0),
           }));
         }
-        const { assistantText, toolCalls, toolResults } = turnRef.current;
-        setApiMessages((prev) => {
-          const next = [...prev];
-          if (toolCalls.length > 0) {
-            next.push({ role: 'assistant', content: null, tool_calls: toolCalls });
-            for (const result of toolResults) {
-              next.push({ role: 'tool', tool_call_id: result.id, content: result.content });
-            }
-          }
-          if (assistantText) {
-            next.push({ role: 'assistant', content: assistantText });
-          }
-          return next;
-        });
+        const turn = turnRef.current;
+        turn.committed = true;
+        setApiMessages((prev) => [...prev, ...buildTurnMessages(turn)]);
         setItems((prev) => prev.map((item) =>
           item.kind === 'assistant' && item.streaming ? { ...item, streaming: false } : item,
         ));
@@ -614,17 +607,33 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   const performTurn = useCallback(async (messagesToSend: ChatMessage[], modelToUse: string) => {
     setErrorBanner(null);
     setBusy(true);
-    turnRef.current = { assistantText: '', toolCalls: [], toolResults: [] };
+    turnRef.current = { assistantText: '', toolCalls: [], toolResults: [], committed: false };
 
     const abortController = new AbortController();
     abortRef.current = abortController;
 
-    const result = await fabbyChatClient.streamChat({
+    const result = await volzarClient.streamChat({
       messages: messagesToSend,
       model: modelToUse,
       signal: abortController.signal,
       onEvent: handleEvent,
     });
+
+    // Stop / dropped connection: no done or error event arrives, so fold the
+    // partial turn into history here (buildTurnMessages drops dangling tool
+    // calls) — otherwise the model never sees the reply the user is reading.
+    // Also settle the UI: stop the streaming cursor, and mark confirmations
+    // the abort orphaned as denied (the server loop is gone; nothing ran).
+    const turn = turnRef.current;
+    if (!turn.committed) {
+      turn.committed = true;
+      setApiMessages((prev) => [...prev, ...buildTurnMessages(turn)]);
+      setItems((prev) => prev.map((item) => {
+        if (item.kind === 'assistant' && item.streaming) return { ...item, streaming: false };
+        if (item.kind === 'confirm' && item.status === 'pending') return { ...item, status: 'denied' as const };
+        return item;
+      }));
+    }
 
     if (!result.success) setErrorBanner(result.error);
     setBusy(false);
@@ -672,7 +681,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     setItems((prev) => prev.map((item) =>
       item.kind === 'confirm' && item.id === id ? { ...item, submitting: true } : item,
     ));
-    const result = await fabbyChatClient.resolveConfirmation({ id, decision });
+    const result = await volzarClient.resolveConfirmation({ id, decision });
     if (!result.success) {
       setErrorBanner(result.error);
       setItems((prev) => prev.map((item) =>
@@ -724,6 +733,10 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   }, [wantsAddStatus]);
 
   const reset = useCallback(() => {
+    // Mark the in-flight turn committed BEFORE aborting: New chat discards it,
+    // and the abort finalizer in performTurn must not resurrect it into the
+    // freshly cleared history.
+    turnRef.current.committed = true;
     abortRef.current?.abort();
     setItems([]);
     setApiMessages([]);
@@ -790,7 +803,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
         {/* Header row: title + model picker + reset on one line; badges wrap below */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-lg mr-1 shrink-0">Fabby Chat</span>
+            <span className="font-bold text-lg mr-1 shrink-0">Volzar</span>
             {/* Model picker is superadmin-only (bake-offs). Everyone else runs
                 the default model — hidden here and pinned server-side. */}
             {isSuperAdmin && (
@@ -1002,12 +1015,12 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
           ref={scrollRef}
           role="log"
           aria-live="polite"
-          aria-label={`Chat with Fabby as ${username}`}
+          aria-label={`Chat with Volzar as ${username}`}
           className="flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-3"
         >
           {items.length === 0 && (
             <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
-              Use the ⚡ instant buttons for your lists, or ask Fabby something that needs thinking —
+              Use the ⚡ instant buttons for your lists, or ask Volzar something that needs thinking —
               searches, suggestions, adding cards.
               {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
             </p>
@@ -1274,7 +1287,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
                 >
                   <div className="flex items-center gap-1.5 font-semibold">
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                    Fabby wants to run {item.name}
+                    Volzar wants to run {item.name}
                   </div>
                   {argEntries.length > 0 && (
                     <dl className="mt-1 text-sm text-gray-700 dark:text-gray-200">
@@ -1466,13 +1479,13 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (shouldSendOnEnter(e)) {
                 e.preventDefault();
                 send();
               }
             }}
-            placeholder={isMobile ? 'Ask Fabby…' : 'Ask Fabby… (Enter to send, Shift+Enter for a new line)'}
-            aria-label="Message Fabby"
+            placeholder={isMobile ? 'Ask Volzar…' : 'Ask Volzar… (Enter to send, Shift+Enter for a new line)'}
+            aria-label="Message Volzar"
             rows={2}
             disabled={busy}
             className={`text-base resize-none ${focusRing}`}

@@ -3,9 +3,11 @@ const nextConfig = {
   // Required for Docker standalone production image
   output: 'standalone',
 
-  // Disable any automatic redirects at the Next.js level
   async redirects() {
-    return []
+    return [
+      // Product rename: Fabby Chat → Volzar (keeps old bookmarks working)
+      { source: '/fabby-chat', destination: '/volzar', permanent: false },
+    ]
   },
 
   // Ensure trailing slashes are handled consistently

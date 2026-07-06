@@ -33,23 +33,23 @@ export interface UserDTO {
   isMetafySupporter?: boolean;
   isShop?: boolean;
   isTcgSeller?: boolean;
-  /** Hosted-chat supporter tier ('free' | 'paid'). Gates Fabby Chat. */
+  /** Hosted-chat supporter tier ('free' | 'paid'). Gates Volzar. */
   metafySupporterTier?: string;
-  /** Manual Fabby Chat grant, superadmin-toggled on /admin/user-access. */
-  fabbyChatAccess?: boolean;
+  /** Manual Volzar grant, superadmin-toggled on /admin/user-access. */
+  volzarAccess?: boolean;
 }
 
 /**
- * Minimal flags needed to gate Fabby Chat access (see
- * lib/ai/fabby-chat-access.canUseFabbyChat). Fetched fresh from the DB by the
+ * Minimal flags needed to gate Volzar access (see
+ * lib/ai/volzar-access.canUseVolzar). Fetched fresh from the DB by the
  * server gates so a revoked supporter loses access without waiting for their
  * session token to refresh.
  */
-export interface FabbyChatAccessDTO {
+export interface VolzarAccessDTO {
   isSuperAdmin: boolean;
   metafySupporterTier: 'free' | 'paid';
   /** Manual superadmin grant (non-Metafy comp path). */
-  fabbyChatAccess: boolean;
+  volzarAccess: boolean;
 }
 
 /**
@@ -128,6 +128,8 @@ export interface UserAuthDTO {
   username?: string;
   discordUsername?: string;
   discordId?: string;
+  /** Manual Volzar grant — carried into the JWT roles on token refresh. */
+  volzarAccess?: boolean;
 }
 
 /**
@@ -301,10 +303,10 @@ export interface IUserService {
   getRoles(userId: string): AsyncResult<UserRolesDTO | null>;
 
   /**
-   * Fetch the flags that gate Fabby Chat access (superadmin + supporter tier)
+   * Fetch the flags that gate Volzar access (superadmin + supporter tier)
    * in a single query. Returns null if the user does not exist.
    */
-  getFabbyChatAccess(userId: string): AsyncResult<FabbyChatAccessDTO | null>;
+  getVolzarAccess(userId: string): AsyncResult<VolzarAccessDTO | null>;
 
   // ====================================
   // Update methods (for OAuth/auth flows)
@@ -608,8 +610,8 @@ export interface IUserService {
 
   /**
    * Set the hosted-chat supporter tier ('free' | 'paid'). Derived from Metafy
-   * community membership on link, or a manual superadmin override. Gates Fabby
-   * Chat (see lib/ai/fabby-chat-access).
+   * community membership on link, or a manual superadmin override. Gates Volzar
+   * Chat (see lib/ai/volzar-access).
    */
   setMetafySupporterTier(userId: string, tier: 'free' | 'paid'): AsyncResult<void>;
 

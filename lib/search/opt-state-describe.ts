@@ -5,7 +5,7 @@
  *    Each chip carries a reducer action (not a closure) that removes it, so
  *    the list is unit-testable and usable outside the page component.
  *  - describeOptState: a compact one-line context string in the same register
- *    as the fabby-chat quick-action `context` strings — used by Bridge B to
+ *    as the volzar quick-action `context` strings — used by Bridge B to
  *    carry the user's current search into the hosted chat.
  *
  * Pack names come from a fetched list the server doesn't have; callers pass

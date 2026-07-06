@@ -1,6 +1,6 @@
 // Lazy, on-page-load refresh of a user's hosted-chat supporter tier.
 //
-// The /fabby-chat server gate calls this before checking access: if the user's
+// The /volzar server gate calls this before checking access: if the user's
 // cached Metafy membership is older than the TTL, we re-fetch memberships from
 // Metafy (server-side, with their stored token), re-derive the tier, and
 // persist it. A downgraded/cancelled supporter thus loses access the next time

@@ -20,7 +20,7 @@ import type {
   UpdateUserDTO,
   UserProfileDTO,
   UserRolesDTO,
-  FabbyChatAccessDTO,
+  VolzarAccessDTO,
   UserProfileStatsDTO,
   UpdateProfileDTO,
   MetafyCommunityDTO,
@@ -469,13 +469,13 @@ export class PostgresUserService implements IUserService {
     }
   }
 
-  async getFabbyChatAccess(userId: string): AsyncResult<FabbyChatAccessDTO | null> {
+  async getVolzarAccess(userId: string): AsyncResult<VolzarAccessDTO | null> {
     try {
       const [user] = await db
         .select({
           isSuperAdmin: users.isSuperAdmin,
           metafySupporterTier: users.metafySupporterTier,
-          fabbyChatAccess: users.fabbyChatAccess,
+          volzarAccess: users.volzarAccess,
         })
         .from(users)
         .where(eq(users.id, userId));
@@ -489,14 +489,14 @@ export class PostgresUserService implements IUserService {
         data: {
           isSuperAdmin: user.isSuperAdmin || false,
           metafySupporterTier: user.metafySupporterTier === 'paid' ? 'paid' : 'free',
-          fabbyChatAccess: user.fabbyChatAccess || false,
+          volzarAccess: user.volzarAccess || false,
         },
       };
     } catch (error) {
-      console.error('[PostgresUserService] getFabbyChatAccess error:', error);
+      console.error('[PostgresUserService] getVolzarAccess error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to get Fabby Chat access',
+        error: error instanceof Error ? error.message : 'Failed to get Volzar access',
       };
     }
   }
@@ -1122,7 +1122,7 @@ export class PostgresUserService implements IUserService {
       isShop: user.isShop || false,
       isTcgSeller: user.isTcgSeller || false,
       metafySupporterTier: user.metafySupporterTier || 'free',
-      fabbyChatAccess: user.fabbyChatAccess || false,
+      volzarAccess: user.volzarAccess || false,
     };
   }
 }
