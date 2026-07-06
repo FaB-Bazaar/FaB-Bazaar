@@ -368,7 +368,13 @@ export default function DecksPage() {
   const handleToggleTalishar = async (deckId: string, value: boolean) => {
     if (value) {
       const deck = decks.find(d => d.publicId === deckId);
-      const heroName = deck?.hero?.[0]?.printingDetails?.display_name
+      // The /decks list is served by listUserDecksBasic, which exposes the hero as
+      // flat heroDisplayName/heroName strings (no hero[] array). Fall back to the
+      // hero[] printing details for decks created in-session (createDeck returns a
+      // full DeckDTO). Reading only hero[] made this always fail on a reloaded list.
+      const heroName = deck?.heroDisplayName
+        ?? deck?.heroName
+        ?? deck?.hero?.[0]?.printingDetails?.display_name
         ?? deck?.hero?.[0]?.printingDetails?.name;
       const heroMapped = heroName ? !!TALISHAR_HERO_IDS[heroName.toLowerCase()] : false;
       if (!heroMapped) {

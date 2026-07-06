@@ -69,6 +69,25 @@ describe('importFabraryDeck', () => {
     expect(dto.heroPrintingId).toBe('hero_cc');
   });
 
+  it("stores the resolved hero printing's canonical name (not the raw FaBrary spelling) so Talishar resolves it", async () => {
+    // FaBrary exports the hero line with off-canonical casing. The resolved
+    // printing carries the canonical display name, which is what TALISHAR_HERO_IDS
+    // is keyed on — the deck must store that, not the raw parsed string.
+    const deps = makeDeps({
+      searchPrintings: vi.fn().mockResolvedValue({
+        success: true,
+        data: [printing({ printing_id: 'hero_cc', types: ['hero'], cc_legal: true, name: 'Puffin, Hightail' })],
+      }),
+    });
+    const list = LIST.replace('Hero: Puffin, Hightail', 'Hero: puffin, HIGHTAIL');
+    const result = await importFabraryDeck({ userId: 'u1', text: list }, deps);
+
+    expect(result.success).toBe(true);
+    const dto = (deps.createDeck as any).mock.calls[0][1];
+    expect(dto.heroName).toBe('Puffin, Hightail');
+    if (result.success) expect(result.data.hero.name).toBe('Puffin, Hightail');
+  });
+
   it('resolves every card and bulk-adds them under the new deck', async () => {
     const deps = makeDeps();
     await importFabraryDeck({ userId: 'u1', text: LIST }, deps);

@@ -115,13 +115,22 @@ export async function importFabraryDeck(
   if (eligibleHeroes.length === 0) {
     return { success: false, error: `Hero "${parsed.heroName}" has no legal printing in ${parsed.format}.` };
   }
-  const heroPrintingId = sortPrintings(eligibleHeroes)[0].printing_id;
+  const heroPrinting = sortPrintings(eligibleHeroes)[0];
+  const heroPrintingId = heroPrinting.printing_id;
+  // Store the resolved printing's canonical card name (display_name) as the deck's
+  // heroName — NOT the raw parsed "Hero:" line. TALISHAR_HERO_IDS is keyed on the
+  // canonical name, and both the Talishar export route and the /decks Talishar
+  // toggle resolve the hero off heroName. Persisting FaBrary's spelling (casing,
+  // punctuation, accents, leetspeak heroes) would leave the hero unresolved on
+  // Talishar even though the deck clearly has one. Fall back to the parsed name if
+  // a printing somehow lacks a name.
+  const heroName: string = heroPrinting.name || parsed.heroName;
 
   // ── Create the deck (hero added atomically) ──────────────────────────────
   const created = await deps.createDeck(userId, {
     name: parsed.name,
     format: parsed.format,
-    heroName: parsed.heroName,
+    heroName,
     heroPrintingId,
     visibility: 'private',
   });
@@ -177,7 +186,7 @@ export async function importFabraryDeck(
       publicId,
       deckName: parsed.name,
       format: parsed.format,
-      hero: { name: parsed.heroName, printingId: heroPrintingId },
+      hero: { name: heroName, printingId: heroPrintingId },
       summary: {
         cardsRequested: parsed.cards.length,
         cardsResolved: toAdd.length,
