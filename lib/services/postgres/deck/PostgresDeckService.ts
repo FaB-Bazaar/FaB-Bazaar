@@ -568,12 +568,19 @@ export class PostgresDeckService implements IDeckService {
           addedAt: new Date(),
         });
 
-        // Backfill hero_name from the card if not provided at creation time
-        if (!data.heroName && printing[0].cards?.name) {
+        // Always store the hero's canonical card name (full adult name for an
+        // adult hero, full young name for a young hero) as hero_name — overriding
+        // any short/lowercase label a caller passed (MCP create_deck enum, FaBrary
+        // "Hero:" line). The resolved hero printing is the source of truth for
+        // which hero the deck runs; TALISHAR export/toggle and display all read
+        // hero_name, so it must match the card.
+        const canonicalHeroName = printing[0].cards?.displayName || printing[0].cards?.name;
+        if (canonicalHeroName) {
           await db
             .update(decks)
-            .set({ heroName: printing[0].cards.name })
+            .set({ heroName: canonicalHeroName })
             .where(eq(decks.id, deckId));
+          newDeck[0].heroName = canonicalHeroName;
         }
       }
 
@@ -665,6 +672,24 @@ export class PostgresDeckService implements IDeckService {
             notes: card.notes,
             addedAt: new Date(),
           });
+        }
+
+        // Canonicalize hero_name from the copied hero card (same invariant as the
+        // direct-create path) instead of inheriting the source deck's string.
+        const heroSource = sourceCards.find((c) => c.category === 'hero');
+        if (heroSource) {
+          const heroPid = convertedPrintingId.get(heroSource.printingId) ?? heroSource.printingId;
+          const [hp] = await db
+            .select({ displayName: cards.displayName, name: cards.name })
+            .from(printings)
+            .leftJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+            .where(eq(printings.printingId, heroPid))
+            .limit(1);
+          const canonical = hp?.displayName || hp?.name;
+          if (canonical) {
+            await db.update(decks).set({ heroName: canonical }).where(eq(decks.id, deckId));
+            newDeck[0].heroName = canonical;
+          }
         }
 
         // Copy metadata (matchups live here; sideboard references are Talishar

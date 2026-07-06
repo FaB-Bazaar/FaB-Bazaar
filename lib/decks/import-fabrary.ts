@@ -115,27 +115,23 @@ export async function importFabraryDeck(
   if (eligibleHeroes.length === 0) {
     return { success: false, error: `Hero "${parsed.heroName}" has no legal printing in ${parsed.format}.` };
   }
-  const heroPrinting = sortPrintings(eligibleHeroes)[0];
-  const heroPrintingId = heroPrinting.printing_id;
-  // Store the resolved printing's canonical card name (display_name) as the deck's
-  // heroName — NOT the raw parsed "Hero:" line. TALISHAR_HERO_IDS is keyed on the
-  // canonical name, and both the Talishar export route and the /decks Talishar
-  // toggle resolve the hero off heroName. Persisting FaBrary's spelling (casing,
-  // punctuation, accents, leetspeak heroes) would leave the hero unresolved on
-  // Talishar even though the deck clearly has one. Fall back to the parsed name if
-  // a printing somehow lacks a name.
-  const heroName: string = heroPrinting.name || parsed.heroName;
+  const heroPrintingId = sortPrintings(eligibleHeroes)[0].printing_id;
 
   // ── Create the deck (hero added atomically) ──────────────────────────────
+  // createDeck canonicalizes hero_name from the resolved hero printing (full
+  // adult/young card name), so the parsed "Hero:" line is only the initial label.
   const created = await deps.createDeck(userId, {
     name: parsed.name,
     format: parsed.format,
-    heroName,
+    heroName: parsed.heroName,
     heroPrintingId,
     visibility: 'private',
   });
   if (!created.success) return { success: false, error: created.error };
   const publicId: string = created.data.publicId;
+  // Prefer the canonical hero_name the service stored; fall back to the parsed
+  // name for fakes/older createDeck impls that don't echo it back.
+  const heroName: string = created.data.heroName || parsed.heroName;
 
   // ── Resolve every card line to a printing ────────────────────────────────
   const resolveInput = parsed.cards.map(c => ({ name: c.name, pitch: colorToPitch(c.color) }));

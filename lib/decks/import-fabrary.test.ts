@@ -69,22 +69,19 @@ describe('importFabraryDeck', () => {
     expect(dto.heroPrintingId).toBe('hero_cc');
   });
 
-  it("stores the resolved hero printing's canonical name (not the raw FaBrary spelling) so Talishar resolves it", async () => {
-    // FaBrary exports the hero line with off-canonical casing. The resolved
-    // printing carries the canonical display name, which is what TALISHAR_HERO_IDS
-    // is keyed on — the deck must store that, not the raw parsed string.
+  it('surfaces the canonical hero_name the service echoes back in the result', async () => {
+    // createDeck (service) canonicalizes hero_name from the resolved printing and
+    // echoes it in its DTO; the orchestrator reports that, not the parsed line.
     const deps = makeDeps({
-      searchPrintings: vi.fn().mockResolvedValue({
+      createDeck: vi.fn().mockResolvedValue({
         success: true,
-        data: [printing({ printing_id: 'hero_cc', types: ['hero'], cc_legal: true, name: 'Puffin, Hightail' })],
+        data: { publicId: 'deck-123', name: 'Test Deck', format: 'Classic Constructed', heroName: 'Puffin, Hightail' },
       }),
     });
     const list = LIST.replace('Hero: Puffin, Hightail', 'Hero: puffin, HIGHTAIL');
     const result = await importFabraryDeck({ userId: 'u1', text: list }, deps);
 
     expect(result.success).toBe(true);
-    const dto = (deps.createDeck as any).mock.calls[0][1];
-    expect(dto.heroName).toBe('Puffin, Hightail');
     if (result.success) expect(result.data.hero.name).toBe('Puffin, Hightail');
   });
 
