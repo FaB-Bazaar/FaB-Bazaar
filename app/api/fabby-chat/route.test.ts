@@ -155,7 +155,7 @@ describe('POST /api/fabby-chat', () => {
 
     expect(mockFetchToolsByName).toHaveBeenCalledTimes(1);
     const requested = mockFetchToolsByName.mock.calls[0][1];
-    expect(requested).toEqual(new Set(['add_cards_to_deck', 'remove_cards_from_deck', 'update_deck']));
+    expect(requested).toEqual(new Set(['create_deck', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck']));
   });
 
   it('streams SSE for a valid mock conversation: tool round-trip then done', async () => {

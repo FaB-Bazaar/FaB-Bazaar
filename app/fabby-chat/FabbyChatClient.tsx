@@ -14,7 +14,7 @@ import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check,
 } from 'lucide-react';
-import { fabbyChatClient, wantsClient, bindersClient } from '@/lib/client';
+import { fabbyChatClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
@@ -88,7 +88,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string; deckPublicId?: string };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -263,6 +263,8 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   const [busy, setBusy] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  // Public id of the deck currently being copied via "Add to my decks".
+  const [addingDeckId, setAddingDeckId] = useState<string | null>(null);
   // Card preview: desktop side rail (hover/focus) or mobile bottom drawer (tap)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
@@ -457,7 +459,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; publicId?: string }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
@@ -470,7 +472,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -640,6 +642,36 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
       ));
     }
   }, []);
+
+  // "Add to my decks" — deterministic, session-authed copy of a deck (e.g. a
+  // Deck to Beat) into the user's account. No AI: one call to the copy endpoint,
+  // which duplicates the full decklist server-side. On success we append a card
+  // linking to the new deck; leaving the name blank lets the server title it
+  // "Copy of <deck>".
+  const addDeckToMine = useCallback(async (publicId: string) => {
+    if (addingDeckId) return;
+    setAddingDeckId(publicId);
+    setErrorBanner(null);
+    try {
+      const result = await decksClient.copyDeck(publicId, '');
+      if (result.success) {
+        const newId = (result.data as { publicId?: string } | undefined)?.publicId;
+        const name = (result.data as { name?: string } | undefined)?.name ?? 'the deck';
+        setItems((prev) => [...prev, {
+          kind: 'data',
+          title: '✓ Added to your decks',
+          lines: [`"${name}" is now in your decks.`],
+          ...(newId ? { sourceUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://fabbazaar.app'}/decks/${newId}` } : {}),
+        }]);
+      } else {
+        setErrorBanner(result.error || 'Could not add the deck to your account.');
+      }
+    } catch (error) {
+      setErrorBanner(error instanceof Error ? error.message : 'Could not add the deck to your account.');
+    } finally {
+      setAddingDeckId(null);
+    }
+  }, [addingDeckId]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -961,6 +993,20 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
                         >
                           <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
                           View as cards
+                        </button>
+                      )}
+                      {item.deckPublicId && (
+                        <button
+                          type="button"
+                          onClick={() => addDeckToMine(item.deckPublicId!)}
+                          disabled={addingDeckId === item.deckPublicId}
+                          className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                          title="Copy this deck into your account"
+                        >
+                          {addingDeckId === item.deckPublicId
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                            : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
+                          Add to my decks
                         </button>
                       )}
                     </div>

@@ -154,6 +154,9 @@ export interface QuickActionResult {
   tableRows?: CardRow[];
   /** Copy header line (e.g. "Wants:" / binder name) for the Discord copy. */
   copyHeader?: string;
+  /** Public id of the deck this card represents — enables the deterministic
+   *  "Add to my decks" button (a session-auth copy, no AI). Deck drills only. */
+  publicId?: string;
 }
 
 export interface QuickAction {
@@ -302,6 +305,7 @@ export function summarizeDeckContents(deck: {
     lines,
     context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
+    ...(deck.publicId ? { publicId: deck.publicId } : {}),
   };
 }
 

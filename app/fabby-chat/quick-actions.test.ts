@@ -169,7 +169,7 @@ describe('summarizeDeckContents', () => {
     expect(result.cards?.find((c) => c.name === 'Aurum Aegis')).toMatchObject({ printingId: 'pid_aa', quantity: 1 });
   });
 
-  it('prepends a collection-compare drill when the deck has a publicId', () => {
+  it('prepends a collection-compare drill and exposes publicId when the deck has one', () => {
     const result = summarizeDeckContents({
       publicId: 'pub1',
       name: 'Teklosaucen',
@@ -178,6 +178,13 @@ describe('summarizeDeckContents', () => {
     expect(result.lines).toContainEqual(expect.objectContaining({
       drill: { kind: 'deck-compare', id: 'pub1', name: 'Teklosaucen' },
     }));
+    // publicId rides the result so the UI can render "Add to my decks".
+    expect(result.publicId).toBe('pub1');
+  });
+
+  it('omits publicId for a deck without one (no Add-to-my-decks button)', () => {
+    const result = summarizeDeckContents({ name: 'Local', maindeck: [card('Overcrowded', 3, 3)] });
+    expect(result.publicId).toBeUndefined();
   });
 
   it('handles an empty deck', () => {
