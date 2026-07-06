@@ -16,6 +16,7 @@ import {
   buildMessageWithContext,
   parseSearchResults,
   harvestCardsFromStructured,
+  summarizeGameResults,
   summarizeArchetypeConsensus,
   summarizeToBeatDecks,
   mergeEventSummaries,
@@ -533,5 +534,36 @@ describe('recentYearMonths / isoDateMonthsAgo (rolling window helpers)', () => {
 
   it('isoDateMonthsAgo formats YYYY-MM-DD n months back', () => {
     expect(isoDateMonthsAgo(3, new Date(2026, 6, 5))).toBe('2026-04-05');
+  });
+});
+
+describe('summarizeGameResults', () => {
+  const raw = [
+    { id: 'r1', deckPublicId: 'pub1', deckName: 'Dash', format: '1', playerHero: 'dash_io', opponentHero: 'kassai_of_the_golden_sand', result: 'loss' as const, playedAt: '2026-07-01T12:00:00Z' },
+    { id: 'r2', deckPublicId: 'pub1', deckName: 'Dash', playerHero: 'dash_io', opponentHero: 'fai_rising_rebellion', result: 'win' as const, playedAt: '2026-06-30T09:00:00Z' },
+  ];
+
+  it('builds a table row per game with title-cased heroes, YYYY-MM-DD date, and result', () => {
+    const res = summarizeGameResults(raw);
+    expect(res.title).toBe('Game results');
+    expect(res.resultRows).toHaveLength(2);
+    expect(res.resultRows![0]).toMatchObject({
+      deckName: 'Dash', playerHero: 'Dash Io', opponentHero: 'Kassai Of The Golden Sand',
+      result: 'loss', date: '2026-07-01', resultId: 'r1',
+    });
+    expect(res.resultRows![1]).toMatchObject({ opponentHero: 'Fai Rising Rebellion', result: 'win', date: '2026-06-30' });
+  });
+
+  it('queues context with deckName + resultId per game so the model can call get_results', () => {
+    const res = summarizeGameResults(raw);
+    expect(res.context).toContain('resultId r1');
+    expect(res.context).toContain('deckName "Dash"');
+    expect(res.context).toMatch(/get_results/);
+  });
+
+  it('handles no games without a table', () => {
+    const res = summarizeGameResults([]);
+    expect(res.resultRows).toBeUndefined();
+    expect(res.lines).toEqual(['No recorded games yet.']);
   });
 });

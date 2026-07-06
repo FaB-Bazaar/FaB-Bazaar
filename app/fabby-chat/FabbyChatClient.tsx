@@ -21,7 +21,7 @@ import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
-  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildCardNameIndex } from './card-linkify';
@@ -88,7 +88,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string; deckPublicId?: string };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[] };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -473,7 +473,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; publicId?: string }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[] }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
@@ -486,7 +486,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -1124,6 +1124,36 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
                       );
                     })}
                   </ul>
+                  )}
+                  {item.resultRows && item.resultRows.length > 0 && (
+                    <div className="mt-1 max-h-96 overflow-y-auto overflow-x-auto">
+                      <table className="w-full text-sm border-separate border-spacing-x-2 border-spacing-y-0.5">
+                        <thead>
+                          <tr className="text-left text-xs text-gray-600 dark:text-gray-400">
+                            <th className="font-medium text-right">#</th>
+                            <th className="font-medium">Deck</th>
+                            <th className="font-medium">Opponent</th>
+                            <th className="font-medium whitespace-nowrap">Date</th>
+                            <th className="font-medium">Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {item.resultRows.map((r, i) => (
+                            <tr key={i}>
+                              <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400">{i + 1}</td>
+                              <td className="align-middle break-words">{r.deckName}<span className="ml-1 text-xs text-gray-500 dark:text-gray-400">({r.playerHero})</span></td>
+                              <td className="align-middle break-words">{r.opponentHero}</td>
+                              <td className="align-middle tabular-nums whitespace-nowrap text-gray-600 dark:text-gray-400">{r.date}</td>
+                              <td className="align-middle">
+                                <span className={`font-semibold ${r.result === 'win' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                                  {r.result === 'win' ? 'WIN' : 'LOSS'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               );

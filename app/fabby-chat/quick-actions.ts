@@ -157,6 +157,22 @@ export interface QuickActionResult {
   /** Public id of the deck this card represents — enables the deterministic
    *  "Add to my decks" button (a session-auth copy, no AI). Deck drills only. */
   publicId?: string;
+  /** Cross-deck game results → a table (Game results action). */
+  resultRows?: GameResultRow[];
+}
+
+/** One recorded game for the Game-results table. resultId + deckName let the
+ *  model analyze it via get_results. */
+export interface GameResultRow {
+  deckName: string;
+  deckPublicId?: string;
+  resultId: string;
+  playerHero: string;
+  opponentHero: string;
+  result: 'win' | 'loss';
+  /** YYYY-MM-DD. */
+  date: string;
+  format?: string;
 }
 
 export interface QuickAction {
@@ -306,6 +322,60 @@ export function summarizeDeckContents(deck: {
     context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),
+  };
+}
+
+/** Slug hero (dash_io / kassai_of_the_golden_sand) → "Dash Io" / "Kassai Of The Golden Sand". */
+function heroLabel(slug?: string | null): string {
+  if (!slug) return 'Unknown';
+  return slug.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+/**
+ * Cross-deck game-results table (the "Game results" action). Each row carries
+ * the deckName + resultId so the model can analyze a game via get_results. The
+ * queued context lists the same games compactly so "analyze game 2" resolves.
+ */
+export function summarizeGameResults(
+  results: Array<{
+    id: string;
+    deckPublicId?: string;
+    deckName?: string;
+    format?: string | null;
+    playerHero?: string | null;
+    opponentHero?: string | null;
+    result?: 'win' | 'loss';
+    playedAt?: string | Date | null;
+  }>,
+): QuickActionResult {
+  const dateLabel = (d?: string | Date | null) =>
+    d ? String(typeof d === 'string' ? d : d.toISOString()).slice(0, 10) : '';
+  const rows: GameResultRow[] = results.map((r) => ({
+    deckName: r.deckName ?? 'Unknown deck',
+    deckPublicId: r.deckPublicId,
+    resultId: r.id,
+    playerHero: heroLabel(r.playerHero),
+    opponentHero: heroLabel(r.opponentHero),
+    result: r.result === 'win' ? 'win' : 'loss',
+    date: dateLabel(r.playedAt),
+    ...(r.format ? { format: r.format } : {}),
+  }));
+
+  const lines: CardLine[] = rows.length === 0
+    ? ['No recorded games yet.']
+    : [`${rows.length} recent game${rows.length === 1 ? '' : 's'} (newest first). Ask me to analyze one.`];
+
+  const context = rows.length === 0
+    ? 'The user has no recorded game results.'
+    : `The user's recent games (newest first): ${rows
+        .map((r, i) => `${i + 1}. "${r.deckName}" (${r.playerHero}) vs ${r.opponentHero} — ${r.result.toUpperCase()}${r.date ? ` on ${r.date}` : ''} [deckName "${r.deckName}", resultId ${r.resultId}]`)
+        .join('; ')}. To analyze a game, call get_results with its deckName and resultId.`;
+
+  return {
+    title: 'Game results',
+    lines,
+    context,
+    ...(rows.length ? { resultRows: rows } : {}),
   };
 }
 
@@ -560,6 +630,17 @@ export const QUICK_ACTIONS: QuickAction[] = [
       if (!result.success) throw new Error(result.error);
       const decks = (result.data as any)?.decks ?? [];
       return summarizeDecks(decks);
+    },
+  },
+  {
+    id: 'results',
+    label: 'Game results',
+    run: async () => {
+      // Cross-deck, owner-scoped recent games (newest first). allowOAuth route.
+      const response = await fetch('/api/results/recent?limit=50', { credentials: 'include' });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Could not load game results');
+      return summarizeGameResults(data.data ?? []);
     },
   },
 ];

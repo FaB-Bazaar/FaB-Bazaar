@@ -149,13 +149,13 @@ describe('POST /api/fabby-chat', () => {
     expect(res.status).toBe(502);
   });
 
-  it('augments the lite set with the deck-editing write tools', async () => {
+  it('augments the lite set with the deck + game-results tools', async () => {
     const res = await POST(request(VALID_BODY));
     await readSseEvents(res); // drain the stream
 
     expect(mockFetchToolsByName).toHaveBeenCalledTimes(1);
     const requested = mockFetchToolsByName.mock.calls[0][1];
-    expect(requested).toEqual(new Set(['create_deck', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck']));
+    expect(requested).toEqual(new Set(['create_deck', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck', 'list_results', 'get_results']));
   });
 
   it('streams SSE for a valid mock conversation: tool round-trip then done', async () => {

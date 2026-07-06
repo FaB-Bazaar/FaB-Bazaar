@@ -29,14 +29,17 @@ const RATE_LIMIT = { limit: 30, windowMs: 3_600_000 }; // 30 chat requests/hour/
 // belongs here.
 const CONFIRM_REQUIRED_TOOLS = new Set(['remove_from_binder', 'remove_from_wants', 'remove_cards_from_deck']);
 
-// Deck-editing write tools. Not part of the shared lite advertisement (that
-// stays lean for LM Studio / local hosts), so the hosted chat pulls them in
-// by name on top of the lite set. See lib/ai/mcp-bridge.fetchToolsByName.
-const DECK_WRITE_TOOLS: ReadonlySet<string> = new Set([
+// Deck + game-results tools the hosted chat pulls in by name on top of the lite
+// set (the shared lite advertisement stays lean for LM Studio / local hosts).
+// Mix of writes (create/edit decks) and reads (game-result analysis). See
+// lib/ai/mcp-bridge.fetchToolsByName.
+const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
   'create_deck',
   'add_cards_to_deck',
   'remove_cards_from_deck',
   'update_deck',
+  'list_results',
+  'get_results',
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
@@ -73,6 +76,13 @@ function systemPrompt(username: string): string {
     `deck (e.g. a "Deck to Beat") is a one-click "Add to my decks" button on the deck`,
     `card in this UI — tell the user to use that button rather than rebuilding the`,
     `list card by card.`,
+    ``,
+    `Recorded games: the user can pull up their games with the "Game results" button`,
+    `(a table of deck / hero / opponent / date / win-loss, each with a resultId).`,
+    `list_results finds a deck's games; get_results(deckName, resultId) returns a`,
+    `readable game with a coaching lens — use it when the user asks you to analyze a`,
+    `match. The resultId comes from list_results or the Game-results table, never`,
+    `from a deck URL.`,
     ``,
     `Before your FIRST search_printings call in a conversation, call`,
     `read_mandatory_constants_first({"uri":"fab://constants"}) to load the set /`,
@@ -211,7 +221,7 @@ export async function POST(req: Request) {
   try {
     const [lite, deckWrite] = await Promise.all([
       fetchLiteTools(bearer),
-      fetchToolsByName(bearer, DECK_WRITE_TOOLS),
+      fetchToolsByName(bearer, HOSTED_EXTRA_TOOLS),
     ]);
     tools = [...lite.tools, ...deckWrite.tools];
     validNames = new Set([...lite.validNames, ...deckWrite.validNames]);
