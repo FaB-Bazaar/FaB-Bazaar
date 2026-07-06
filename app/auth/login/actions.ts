@@ -5,5 +5,7 @@
 import { signIn } from "@/auth"
 
 export async function loginWithDiscord() {
-  await signIn("discord", { redirectTo: "/discord" })
+  // Land on the access-aware post-login route, which forwards Fabby Chat
+  // users to /fabby-chat and everyone else to /discord.
+  await signIn("discord", { redirectTo: "/auth/post-login" })
 }
