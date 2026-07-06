@@ -82,9 +82,14 @@ export async function GET(request: NextRequest) {
   }
 
   const decks = decksResult.data.decks.map((deck) => {
-    const heroNameRaw = deck.heroName
-      ?? deck.hero?.[0]?.printingDetails?.display_name
-      ?? deck.hero?.[0]?.printingDetails?.name;
+    // Resolve the hero from the deck's actual hero CARD first — its canonical
+    // display_name is what TALISHAR_HERO_IDS is keyed on. The free-text heroName
+    // column can hold a short/lowercase label (MCP enum, FaBrary "Hero:" line)
+    // that fails to resolve, or a young-hero nickname that collides with the
+    // adult printing. Fall back to heroName only when the deck has no hero card.
+    const heroNameRaw = deck.hero?.[0]?.printingDetails?.display_name
+      ?? deck.hero?.[0]?.printingDetails?.name
+      ?? deck.heroName;
     return {
       id: deck.publicId,
       deckId: deck.publicId,
