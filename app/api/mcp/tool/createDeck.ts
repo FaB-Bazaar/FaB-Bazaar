@@ -76,7 +76,10 @@ export const createDeckTool = {
     deck from your personal views (navbar, decks page, Discord, Talishar sync);
     it does NOT make the deck show up on the Decks to Beat page. featured alone
     (without isSystemDeck) still surfaces it but leaves it in your personal
-    deck list too. Both force public visibility. Non-superadmins get a 403.
+    deck list too. Non-superadmins get a 403.
+  - Neither flag changes visibility. A Deck to Beat only appears on that page
+    when it is PUBLIC, so pass isPublic: true too — a full entry is
+    isSystemDeck: true + featured: true + isPublic: true.
 
   💡 WORKFLOW:
   Step 1: create_deck — name + format + heroName (all three at once)
@@ -103,7 +106,11 @@ export const createDeckTool = {
         type: 'string',
         enum: [...VALID_VISIBILITIES],
         default: 'unlisted',
-        description: 'Who can see the deck. "private" = only you, "unlisted" = link-only, "public" = community listing. Defaults to "unlisted".',
+        description: 'Who can see the deck. "private" = only you, "unlisted" = link-only, "public" = community listing. Defaults to "unlisted". Takes precedence over isPublic when both are given.',
+      },
+      isPublic: {
+        type: 'boolean',
+        description: 'Convenience shorthand for visibility: true => "public". Ignored when an explicit `visibility` is provided. Use this to publicly list a Decks to Beat entry (isSystemDeck + featured do NOT force public on their own).',
       },
       description: {
         type: 'string',
@@ -115,11 +122,11 @@ export const createDeckTool = {
       },
       isSystemDeck: {
         type: 'boolean',
-        description: 'Superadmin only. Hides the deck from your personal views (navbar, decks page, Discord, Talishar sync) and forces public visibility. Independent of `featured` — set featured: true too if this should actually appear on the Decks to Beat page. Non-superadmins receive a 403.',
+        description: 'Superadmin only. Hides the deck from your personal views (navbar, decks page, Discord, Talishar sync). Does NOT change visibility — pass isPublic: true if it should be publicly listed. Independent of `featured` — set featured: true too if this should actually appear on the Decks to Beat page. Non-superadmins receive a 403.',
       },
       featured: {
         type: 'boolean',
-        description: 'Superadmin only. Surfaces the deck on the "Decks to Beat" page (forces public visibility). Independent of isSystemDeck. Pass both isSystemDeck: true and featured: true together for a normal Decks to Beat entry. Non-superadmins receive a 403.',
+        description: 'Superadmin only. Surfaces the deck on the "Decks to Beat" page. Does NOT change visibility — a Deck to Beat only appears there when public, so pass isPublic: true as well. Independent of isSystemDeck. Pass isSystemDeck: true + featured: true + isPublic: true together for a normal Decks to Beat entry. Non-superadmins receive a 403.',
       },
     },
     required: ['name', 'format', 'heroName'],
@@ -134,7 +141,7 @@ export const createDeckTool = {
         return { success: false, error: 'Authentication failed: No token found.' };
       }
 
-      const { name, format, visibility, description, heroPrintingId: explicitId, heroName, isSystemDeck, featured } = params;
+      const { name, format, visibility, isPublic, description, heroPrintingId: explicitId, heroName, isSystemDeck, featured } = params;
 
       if (!name?.trim()) {
         return { success: false, error: 'name is required and cannot be empty.' };
@@ -217,9 +224,13 @@ export const createDeckTool = {
         }
       }
 
-      // "Decks to Beat" must be public — default to public when flagging a
-      // system deck or featuring it, unless an explicit visibility was provided.
-      const effectiveVisibility = visibility || (isSystemDeck || featured ? 'public' : 'unlisted');
+      // Visibility is orthogonal to the superadmin flags. Base default is always
+      // `unlisted`; a caller opts into a public listing with `isPublic: true` (or
+      // an explicit `visibility`). The flags (isSystemDeck / featured) do NOT
+      // force public — a featured "Deck to Beat" only shows on that page when
+      // it's also public, so the create-decks-to-beat flow passes isPublic: true.
+      // Precedence: explicit visibility > isPublic > default unlisted.
+      const effectiveVisibility = visibility || (isPublic ? 'public' : 'unlisted');
 
       const body: Record<string, string> = {
         name: name.trim(),

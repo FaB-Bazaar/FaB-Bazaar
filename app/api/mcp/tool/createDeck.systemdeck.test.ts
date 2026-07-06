@@ -1,10 +1,15 @@
 /**
- * Unit tests for create_deck's "Decks to Beat" (isSystemDeck) one-shot support.
+ * Unit tests for create_deck's "Decks to Beat" (isSystemDeck / featured) support
+ * and the explicit `isPublic` visibility opt-in.
  *
- * A superadmin creating a Deck to Beat should be able to do it in a single MCP
- * call: the deck is created public, then flagged as a system deck via the
- * superadmin-only /featured endpoint. Previously isSystemDeck wasn't exposed at
- * all, forcing a manual UI step per deck.
+ * A superadmin creating a Deck to Beat can do it in a single MCP call: the deck
+ * is created, then flagged via the superadmin-only /featured endpoint.
+ *
+ * Visibility is orthogonal to the flags: the base default is always `unlisted`.
+ * The flags (isSystemDeck / featured) do NOT force public visibility — a caller
+ * that wants a publicly-listed Deck to Beat passes `isPublic: true` (or an
+ * explicit `visibility`). Precedence: explicit `visibility` > `isPublic` >
+ * default `unlisted`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -32,16 +37,16 @@ function jsonResponse(body: any, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as unknown as Response;
 }
 
-describe('createDeckTool.handler — isSystemDeck (Decks to Beat)', () => {
+describe('createDeckTool.handler — isSystemDeck / featured (Decks to Beat)', () => {
   beforeEach(() => {
     mockFetch.mockReset();
   });
 
-  it('creates the deck public and flags it as a system deck via /featured', async () => {
+  it('does NOT force public: isSystemDeck alone creates an unlisted deck and flags it', async () => {
     mockFetch
       // POST /api/decks
       .mockResolvedValueOnce(
-        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'DTB', format: 'Classic Constructed', visibility: 'public' } })
+        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'DTB', format: 'Classic Constructed', visibility: 'unlisted' } })
       )
       // PATCH /api/decks/abc123/featured
       .mockResolvedValueOnce(jsonResponse({ success: true, data: { isSystemDeck: true } }));
@@ -55,20 +60,77 @@ describe('createDeckTool.handler — isSystemDeck (Decks to Beat)', () => {
     expect(result.success).toBe(true);
     expect(mockFetch).toHaveBeenCalledTimes(2);
 
-    // First call: POST creates the deck with public visibility (system decks must be public)
+    // POST creates the deck with the DEFAULT unlisted visibility (flags don't force public)
     const [createUrl, createOpts] = mockFetch.mock.calls[0];
     expect(String(createUrl)).toMatch(/\/api\/decks$/);
     expect(createOpts?.method).toBe('POST');
-    expect(JSON.parse(createOpts!.body as string).visibility).toBe('public');
+    expect(JSON.parse(createOpts!.body as string).visibility).toBe('unlisted');
 
-    // Second call: PATCH /featured with isSystemDeck: true
+    // PATCH /featured with isSystemDeck: true
     const [featUrl, featOpts] = mockFetch.mock.calls[1];
     expect(String(featUrl)).toMatch(/\/api\/decks\/abc123\/featured$/);
     expect(featOpts?.method).toBe('PATCH');
     expect(JSON.parse(featOpts!.body as string)).toEqual({ isSystemDeck: true });
   });
 
-  it('does not call /featured when isSystemDeck is not set (normal deck)', async () => {
+  it('isPublic: true creates the deck public, then flags it (normal Decks to Beat entry)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'DTB', format: 'Classic Constructed', visibility: 'public' } })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { isSystemDeck: true, featured: true } }));
+
+    const result = await createDeckTool.handler(
+      { name: 'DTB', format: 'Classic Constructed', heroPrintingId: 'heroPrint1', isSystemDeck: true, featured: true, isPublic: true },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+
+    const [createUrl, createOpts] = mockFetch.mock.calls[0];
+    expect(String(createUrl)).toMatch(/\/api\/decks$/);
+    expect(JSON.parse(createOpts!.body as string).visibility).toBe('public');
+
+    const [featUrl, featOpts] = mockFetch.mock.calls[1];
+    expect(String(featUrl)).toMatch(/\/api\/decks\/abc123\/featured$/);
+    expect(JSON.parse(featOpts!.body as string)).toEqual({ isSystemDeck: true, featured: true });
+  });
+
+  it('isPublic: true works without any superadmin flag (no /featured call)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ success: true, data: { publicId: 'abc123', name: 'Pub', format: 'Blitz', visibility: 'public' } })
+    );
+
+    const result = await createDeckTool.handler(
+      { name: 'Pub', format: 'Blitz', heroPrintingId: 'heroPrint1', isPublic: true },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [, createOpts] = mockFetch.mock.calls[0];
+    expect(JSON.parse(createOpts!.body as string).visibility).toBe('public');
+  });
+
+  it('explicit visibility wins over isPublic', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ success: true, data: { publicId: 'abc123', name: 'Hidden', format: 'Blitz', visibility: 'unlisted' } })
+    );
+
+    const result = await createDeckTool.handler(
+      { name: 'Hidden', format: 'Blitz', heroPrintingId: 'heroPrint1', isPublic: true, visibility: 'unlisted' },
+      undefined,
+      'fake-token',
+    );
+
+    expect(result.success).toBe(true);
+    const [, createOpts] = mockFetch.mock.calls[0];
+    expect(JSON.parse(createOpts!.body as string).visibility).toBe('unlisted');
+  });
+
+  it('does not call /featured when no flags are set (normal deck) and defaults to unlisted', async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse({ success: true, data: { publicId: 'abc123', name: 'Normal', format: 'Blitz', visibility: 'unlisted' } })
     );
@@ -82,31 +144,13 @@ describe('createDeckTool.handler — isSystemDeck (Decks to Beat)', () => {
     expect(result.success).toBe(true);
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(String(mockFetch.mock.calls[0][0])).toMatch(/\/api\/decks$/);
+    expect(JSON.parse(mockFetch.mock.calls[0][1]!.body as string).visibility).toBe('unlisted');
   });
 
-  it('sends featured alongside isSystemDeck when both are provided (true Decks to Beat visibility)', async () => {
+  it('supports featured without isSystemDeck (flag applied, visibility still defaults unlisted)', async () => {
     mockFetch
       .mockResolvedValueOnce(
-        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'DTB', format: 'Classic Constructed', visibility: 'public' } })
-      )
-      .mockResolvedValueOnce(jsonResponse({ success: true, data: { isSystemDeck: true, featured: true } }));
-
-    const result = await createDeckTool.handler(
-      { name: 'DTB', format: 'Classic Constructed', heroPrintingId: 'heroPrint1', isSystemDeck: true, featured: true },
-      undefined,
-      'fake-token',
-    );
-
-    expect(result.success).toBe(true);
-    const [featUrl, featOpts] = mockFetch.mock.calls[1];
-    expect(String(featUrl)).toMatch(/\/api\/decks\/abc123\/featured$/);
-    expect(JSON.parse(featOpts!.body as string)).toEqual({ isSystemDeck: true, featured: true });
-  });
-
-  it('supports setting featured without isSystemDeck, and forces public visibility for it', async () => {
-    mockFetch
-      .mockResolvedValueOnce(
-        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'Feat Only', format: 'Classic Constructed', visibility: 'public' } })
+        jsonResponse({ success: true, data: { publicId: 'abc123', name: 'Feat Only', format: 'Classic Constructed', visibility: 'unlisted' } })
       )
       .mockResolvedValueOnce(jsonResponse({ success: true, data: { featured: true } }));
 
@@ -119,9 +163,8 @@ describe('createDeckTool.handler — isSystemDeck (Decks to Beat)', () => {
     expect(result.success).toBe(true);
     expect(mockFetch).toHaveBeenCalledTimes(2);
 
-    const [createUrl, createOpts] = mockFetch.mock.calls[0];
-    expect(String(createUrl)).toMatch(/\/api\/decks$/);
-    expect(JSON.parse(createOpts!.body as string).visibility).toBe('public');
+    const [, createOpts] = mockFetch.mock.calls[0];
+    expect(JSON.parse(createOpts!.body as string).visibility).toBe('unlisted');
 
     const [featUrl, featOpts] = mockFetch.mock.calls[1];
     expect(String(featUrl)).toMatch(/\/api\/decks\/abc123\/featured$/);
@@ -139,7 +182,7 @@ describe('createDeckTool.handler — isSystemDeck (Decks to Beat)', () => {
       );
 
     const result = await createDeckTool.handler(
-      { name: 'DTB', format: 'Classic Constructed', heroPrintingId: 'heroPrint1', isSystemDeck: true },
+      { name: 'DTB', format: 'Classic Constructed', heroPrintingId: 'heroPrint1', isSystemDeck: true, isPublic: true },
       undefined,
       'fake-token',
     );
