@@ -9,7 +9,8 @@ import { eq, and, or, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { users, binders, wantsItems, metafyCommunities } from '@/lib/postgres/schema';
 import { encryptMetafyTokens } from '@/lib/metafy/tokens';
-import { decryptAddress } from '@/lib/encryption';
+import { decryptAddress, encryptAddress } from '@/lib/encryption';
+import crypto from 'crypto';
 import type {
   IUserService,
   AsyncResult,
@@ -119,8 +120,12 @@ export class PostgresUserService implements IUserService {
    */
   async findByEmail(email: string): AsyncResult<UserDTO | null> {
     try {
+      // Email is stored encrypted (random IV → non-deterministic ciphertext), so
+      // match on the deterministic sha256 emailHash. Fall back to the raw column
+      // for any legacy row written before emails were encrypted.
+      const emailHash = crypto.createHash('sha256').update(email.toLowerCase()).digest('hex');
       const user = await db.query.users.findFirst({
-        where: eq(users.email, email),
+        where: or(eq(users.emailHash, emailHash), eq(users.email, email)),
       });
 
       if (!user) {
@@ -146,10 +151,22 @@ export class PostgresUserService implements IUserService {
     try {
       const userId = uuidv4();
 
+      // Emails are AES-encrypted at rest with a sha256 emailHash for lookups.
+      // The login-update/link paths already encrypt; creation must too, or a new
+      // signup persists a plaintext email with no emailHash (and stays that way
+      // until the user's next login). See findByEmail / findByEmailHash.
+      const emailFields: { email?: string; emailIV?: string; emailHash?: string } = {};
+      if (data.email) {
+        const { encrypted, iv } = encryptAddress(data.email);
+        emailFields.email = encrypted;
+        emailFields.emailIV = iv;
+        emailFields.emailHash = crypto.createHash('sha256').update(data.email.toLowerCase()).digest('hex');
+      }
+
       const [newUser] = await db.insert(users).values({
         id: userId,
         username: data.username,
-        email: data.email,
+        ...emailFields,
         passwordHash: data.passwordHash,
         discordId: data.discordId,
         discordUsername: data.discordUsername,
