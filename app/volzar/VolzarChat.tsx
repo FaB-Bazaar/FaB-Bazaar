@@ -803,6 +803,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         {/* Header row: title + model picker + reset on one line; badges wrap below */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
+            {/* Volzar, the Lightning Rod card art (cropped) — the page's mark.
+                Same crop as app/volzar/icon.png (the tab favicon). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/volzar-icon.png"
+              alt=""
+              aria-hidden="true"
+              className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border"
+            />
             <span className="font-bold text-lg mr-1 shrink-0">Volzar</span>
             {/* Model picker is superadmin-only (bake-offs). Everyone else runs
                 the default model — hidden here and pinned server-side. */}
