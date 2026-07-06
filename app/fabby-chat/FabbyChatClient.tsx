@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,14 +11,15 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check,
+  Heart, FolderPlus, Copy, Check, Repeat,
 } from 'lucide-react';
+import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialog';
 import { fabbyChatClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
   QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
-  fetchToBeatHeroes, runArchetypeConsensus, toShorthand,
+  fetchToBeatHeroes, runArchetypeConsensus, toShorthand, printingToSwapOption,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow,
 } from './quick-actions';
@@ -109,12 +109,14 @@ type RailStatus = { wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' 
  * Rendered in the desktop side rail (lg+) and inside the mobile bottom
  * drawer (tap a card name on touch), so both surfaces stay in sync.
  */
-function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStatus, onAddToWants, onAddToBinder, binderOptions, targetBinderId, onTargetBinderChange }: {
+function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStatus, onAddToWants, onAddToBinder, onSwapPrinting, swapBusy, binderOptions, targetBinderId, onTargetBinderChange }: {
   card: CardPreview;
   imageClassName?: string;
   railStatus: RailStatus;
   onAddToWants: () => void;
   onAddToBinder: () => void;
+  onSwapPrinting?: () => void;
+  swapBusy?: boolean;
   binderOptions: Array<{ _id: string; name: string }>;
   targetBinderId: string;
   onTargetBinderChange: (id: string) => void;
@@ -170,6 +172,21 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
               />
             </TcgAffiliateLink>
           </div>
+        )}
+        {card.printingId && onSwapPrinting && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onSwapPrinting}
+            disabled={swapBusy}
+            className={`mt-2 w-full justify-center gap-2 ${focusRing}`}
+            title="Choose a different set / foiling / art for this card"
+          >
+            {swapBusy
+              ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              : <Repeat className="h-4 w-4" aria-hidden="true" />}
+            Swap printing
+          </Button>
         )}
       </div>
 
@@ -268,6 +285,11 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   // Card preview: desktop side rail (hover/focus) or mobile bottom drawer (tap)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  // "Swap printing" reuses the deck page's ViewPrintingsDialog, which fetches by
+  // card_unique_id — resolve it from the previewed printing before opening.
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapBusy, setSwapBusy] = useState(false);
+  const [swapCardUniqueId, setSwapCardUniqueId] = useState('');
   const isMobile = useIsMobile();
 
   // Hover-capable devices preview in the rail; touch devices open the drawer
@@ -705,6 +727,37 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     if (!result.success) setErrorBanner(result.error);
   }, [previewCard]);
 
+  // Resolve the previewed printing's card_unique_id, then open the deck-page
+  // printing picker (ViewPrintingsDialog) scoped to that card.
+  const openSwap = useCallback(async () => {
+    if (!previewCard?.printingId || swapBusy) return;
+    setSwapBusy(true);
+    setErrorBanner(null);
+    try {
+      const res = await fetch(`/api/search/core?printingId=${encodeURIComponent(previewCard.printingId)}&limit=1`);
+      const data = await res.json();
+      const cuid = data?.data?.printings?.[0]?.card_unique_id;
+      if (cuid) {
+        setSwapCardUniqueId(cuid);
+        setSwapOpen(true);
+      } else {
+        setErrorBanner('Could not load other printings for this card.');
+      }
+    } catch {
+      setErrorBanner('Could not load other printings for this card.');
+    } finally {
+      setSwapBusy(false);
+    }
+  }, [previewCard, swapBusy]);
+
+  // Picked a different printing → swap the rail preview (image, prices, TCG
+  // link, and the printingId the add-to-wants/binder actions use).
+  const onSwapPicked = useCallback((p: any) => {
+    const name = p?.display_name || p?.name || previewCard?.name || 'card';
+    setPreviewCard(printingToSwapOption(p, name).preview);
+    setRailStatus({});
+  }, [previewCard]);
+
   const addPreviewToBinder = useCallback(async () => {
     if (!previewCard?.printingId || !targetBinderId) return;
     setRailStatus((s) => ({ ...s, binder: 'busy' }));
@@ -716,12 +769,13 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   }, [previewCard, targetBinderId]);
 
   return (
-    <div className="flex gap-4 items-stretch h-[calc(100dvh-11.75rem)] min-h-[24rem] sm:h-[calc(100vh-14rem)] sm:min-h-[28rem]">
-    <Card className="flex-1 min-w-0 flex flex-col">
-      <CardContent className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
-        {/* Header row: model picker + reset on one line; badges wrap below */}
+    <div className="flex gap-4 items-stretch h-full min-h-0">
+    <div className="flex-1 min-w-0 flex flex-col min-h-0">
+      <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
+        {/* Header row: title + model picker + reset on one line; badges wrap below */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
+            <span className="font-bold text-lg mr-1 shrink-0">Fabby Chat</span>
             {/* Model picker is superadmin-only (bake-offs). Everyone else runs
                 the default model — hidden here and pinned server-side. */}
             {isSuperAdmin && (
@@ -934,7 +988,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
           role="log"
           aria-live="polite"
           aria-label={`Chat with Fabby as ${username}`}
-          className="flex-1 min-h-0 overflow-y-auto rounded-md border border-border bg-muted/30 dark:bg-background p-3 sm:p-4 flex flex-col gap-3"
+          className="flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-3"
         >
           {items.length === 0 && (
             <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
@@ -966,7 +1020,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
             }
             if (item.kind === 'data') {
               return (
-                <div key={index} className={`self-start w-full max-w-full sm:max-w-[85%] rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
+                <div key={index} className={`self-start w-full max-w-full rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span className="font-semibold min-w-0 truncate">{item.title}</span>
@@ -1375,19 +1429,24 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
             className={`text-base resize-none ${focusRing}`}
           />
           {busy ? (
-            <Button variant="outline" onClick={stop} aria-label="Stop" className={`gap-1.5 ${focusRing}`}>
+            <Button variant="outline" onClick={stop} aria-label="Stop" className={`h-11 rounded-full px-5 gap-2 shadow-sm ${focusRing}`}>
               <Square className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Stop</span>
             </Button>
           ) : (
-            <Button onClick={send} disabled={!input.trim()} aria-label="Send" className={`gap-1.5 ${focusRing}`}>
+            <Button
+              onClick={send}
+              disabled={!input.trim()}
+              aria-label="Send"
+              className={`h-11 rounded-full px-6 gap-2 font-medium shadow-sm transition-transform hover:-translate-y-px active:translate-y-0 disabled:shadow-none ${focusRing}`}
+            >
               <Send className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Send</span>
             </Button>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
 
     {/* Desktop card preview + action rail */}
     <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto">
@@ -1397,6 +1456,8 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
           railStatus={railStatus}
           onAddToWants={addPreviewToWants}
           onAddToBinder={addPreviewToBinder}
+          onSwapPrinting={openSwap}
+          swapBusy={swapBusy}
           binderOptions={binderOptions}
           targetBinderId={targetBinderId}
           onTargetBinderChange={setTargetBinderId}
@@ -1420,6 +1481,8 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
               railStatus={railStatus}
               onAddToWants={addPreviewToWants}
               onAddToBinder={addPreviewToBinder}
+              onSwapPrinting={openSwap}
+              swapBusy={swapBusy}
               binderOptions={binderOptions}
               targetBinderId={targetBinderId}
               onTargetBinderChange={setTargetBinderId}
@@ -1430,6 +1493,16 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     </Drawer>
     {deckView && (
       <DeckCardsOverlay title={deckView.title} subtitle={deckView.subtitle} cards={deckView.cards} onClose={() => setDeckView(null)} />
+    )}
+    {previewCard?.printingId && swapCardUniqueId && (
+      <ViewPrintingsDialog
+        open={swapOpen}
+        onOpenChange={setSwapOpen}
+        cardName={previewCard.name}
+        cardUniqueId={swapCardUniqueId}
+        currentPrintingId={previewCard.printingId}
+        onSelectPrinting={onSwapPicked}
+      />
     )}
     </div>
   );

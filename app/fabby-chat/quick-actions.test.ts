@@ -22,7 +22,57 @@ import {
   mergeEventSummaries,
   recentYearMonths,
   isoDateMonthsAgo,
+  printingToSwapOption,
 } from './quick-actions';
+
+describe('printingToSwapOption', () => {
+  const dto = {
+    printing_id: 'PID_ALPHA_123456789ab',
+    card_unique_id: 'CUID_00000000000000000',
+    set: 'WTR',
+    foiling: 'R',
+    rarity: 'M',
+    edition: 'F',
+    collector_number: 'WTR009',
+    is_extended_art: true,
+    tcg_low: 0.71,
+    tcg_market: 0.92,
+    tcgplayer_url: 'https://www.tcgplayer.com/product/123',
+    image_url: 'https://imagedelivery.net/x/PID_ALPHA_123456789ab/public',
+  };
+
+  it('maps a search/core printing row to an option + full rail preview', () => {
+    const opt = printingToSwapOption(dto, 'Sand Sketched Plan');
+    expect(opt.printingId).toBe('PID_ALPHA_123456789ab');
+    expect(opt.set).toBe('WTR');
+    expect(opt.foiling).toBe('R');
+    expect(opt.collector).toBe('WTR009');
+    expect(opt.isExtendedArt).toBe(true);
+    expect(opt.priceLow).toBe(0.71);
+    expect(opt.priceMarket).toBe(0.92);
+    // The nested preview is what feeds the rail (image, prices, TCG link, add actions)
+    expect(opt.preview).toMatchObject({
+      name: 'Sand Sketched Plan',
+      printingId: 'PID_ALPHA_123456789ab',
+      priceLow: 0.71,
+      priceMarket: 0.92,
+      tcgplayerUrl: 'https://www.tcgplayer.com/product/123',
+    });
+    expect(opt.preview.imageUrl).toContain('PID_ALPHA_123456789ab');
+  });
+
+  it('coerces string prices and tolerates missing optional fields', () => {
+    const opt = printingToSwapOption(
+      { printing_id: 'PID_BETA_9876543210zyx', set: 'ARC', tcg_low: '2.50', tcg_market: null },
+      'Eye of Ophidia',
+    );
+    expect(opt.priceLow).toBe(2.5);
+    expect(opt.priceMarket).toBeUndefined();
+    expect(opt.isExtendedArt).toBe(false);
+    expect(opt.preview.tcgplayerUrl).toBeUndefined();
+    expect(opt.preview.imageUrl).toContain('PID_BETA_9876543210zyx');
+  });
+});
 
 describe('summarizeBinders', () => {
   it('produces drillable lines carrying binder id and name', () => {

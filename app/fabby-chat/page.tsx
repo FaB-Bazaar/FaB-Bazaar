@@ -77,14 +77,11 @@ export default async function FabbyChatAdminPage({ searchParams }: {
       ];
 
   return (
-    <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-8 py-2 sm:py-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 mb-2 sm:mb-3">
-        <h1 className="text-lg sm:text-2xl font-bold">Fabby Chat</h1>
-        {/* Tagline is desktop-only — on mobile every row costs chat height */}
-        <p className="hidden sm:block text-muted-foreground text-sm">
-          Your Flesh and Blood Companion
-        </p>
-      </div>
+    // Full-bleed app shell: the chat owns the viewport below the navbar (like a
+    // dedicated chat app) instead of floating as a card in a centered gutter.
+    // Height reserves navbar (4rem) + minimal legal footer (~2rem) on desktop,
+    // plus the mobile bottom tab bar (~3.5rem) on small screens.
+    <div className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-6.75rem)] sm:px-4">
       <FabbyChatClient
         username={user.name || 'collector'}
         userId={user.id}

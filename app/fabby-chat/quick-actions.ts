@@ -141,6 +141,55 @@ export function toCardPreview(card: any, name: string): CardPreview {
   };
 }
 
+/** A selectable printing in the rail's "swap printing" picker. */
+export interface SwapPrintingOption {
+  printingId: string;
+  set: string;
+  foiling?: string;
+  rarity?: string;
+  edition?: string;
+  collector?: string;
+  isExtendedArt: boolean;
+  priceLow?: number;
+  priceMarket?: number;
+  imageUrl: string;
+  /** The full rail preview this option swaps to (image, prices, TCG link, add actions). */
+  preview: CardPreview;
+}
+
+/**
+ * Map a `/api/search/core` printing row (snake_case DTO) to a swap option and
+ * its full rail preview — so choosing a different printing refreshes the image,
+ * prices, TCGplayer link, and the printingId the add-to-wants/binder actions use.
+ */
+export function printingToSwapOption(p: any, name: string): SwapPrintingOption {
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) || undefined : undefined);
+  const printingId = p?.printing_id;
+  const priceLow = num(p?.tcg_low);
+  const priceMarket = num(p?.tcg_market);
+  const imageUrl = getCardImageUrl({ image_url: p?.image_url, printingId });
+  return {
+    printingId,
+    set: p?.set ?? '',
+    foiling: p?.foiling ?? undefined,
+    rarity: p?.rarity ?? undefined,
+    edition: p?.edition ?? undefined,
+    collector: p?.collector_number ?? undefined,
+    isExtendedArt: !!p?.is_extended_art,
+    priceLow,
+    priceMarket,
+    imageUrl,
+    preview: {
+      imageUrl,
+      name,
+      printingId,
+      priceLow,
+      priceMarket,
+      tcgplayerUrl: p?.tcgplayer_url ?? undefined,
+    },
+  };
+}
+
 export interface QuickActionResult {
   title: string;
   lines: CardLine[];
