@@ -1,8 +1,8 @@
-// Hosted Fabby chat — superadmin prototype of the future hosted AI tier.
+// Hosted Fabby chat — the hosted AI tier (superadmins + paid supporters).
 //
-// POST: gates (session → superadmin → rate limit → body validation), then runs
-// the agent loop (lib/ai) and streams AgentEvents as SSE data-frames. The loop
-// executes tools through our own MCP endpoint (lib/ai/mcp-bridge), so every
+// POST: gates (session → Fabby Chat access → rate limit → body validation), then
+// runs the agent loop (lib/ai) and streams AgentEvents as SSE data-frames. The
+// loop executes tools through our own MCP endpoint (lib/ai/mcp-bridge), so every
 // tool call is usage-captured in mcp_usage_daily with client='fabbazaar-hosted'.
 //
 // Pre-stream failures return plain JSON with real status codes; the SSE stream

@@ -314,6 +314,20 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     }
     return m;
   }, [cardIndex]);
+  // printing_id → card name, so confirmation cards can show "1× Avast Ye!"
+  // instead of a meaningless nanoid. Aggregates every card this session has
+  // surfaced: search / get_deck tool results (via previewsByPid) plus deck-drill
+  // data cards (Decks to Beat). Falls back to the id when a name isn't known.
+  const cardNameByPid = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [pid, preview] of previewsByPid) if (preview.name) m.set(pid, preview.name);
+    for (const it of items) {
+      if (it.kind === 'data' && it.cards) {
+        for (const c of it.cards) if (c.printingId && c.name) m.set(c.printingId, c.name);
+      }
+    }
+    return m;
+  }, [previewsByPid, items]);
   // Rail actions: binder picker options + per-card action feedback
   const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string }>>([]);
   const [targetBinderId, setTargetBinderId] = useState<string>('');
@@ -1131,12 +1145,39 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
                   </div>
                   {argEntries.length > 0 && (
                     <dl className="mt-1 text-sm text-gray-700 dark:text-gray-200">
-                      {argEntries.map(([key, value]) => (
-                        <div key={key} className="flex gap-1.5">
-                          <dt className="text-gray-600 dark:text-gray-300">{key}:</dt>
-                          <dd className="font-mono break-all">{typeof value === 'string' ? value : JSON.stringify(value)}</dd>
-                        </div>
-                      ))}
+                      {argEntries.map(([key, value]) => {
+                        // Resolve printing ids to card names so the user confirms
+                        // "1× Avast Ye!", not a nanoid. Two arg shapes: an array of
+                        // { printingId, quantity, category } (deck ops) or a bare
+                        // string[] of printing ids (wants/binder removes).
+                        const nameFor = (pid: unknown) =>
+                          (typeof pid === 'string' && cardNameByPid.get(pid)) || (typeof pid === 'string' ? pid : 'card');
+                        const rows = key === 'printings' && Array.isArray(value)
+                          ? value.map((p: any) => `${p?.quantity ?? 1}× ${nameFor(p?.printingId)}${p?.category ? ` · ${p.category}` : ''}`)
+                          : key === 'printingIds' && Array.isArray(value)
+                            ? value.map((pid: unknown) => nameFor(pid))
+                            : key === 'printingId'
+                              ? [nameFor(value)]
+                              : null;
+                        if (rows) {
+                          return (
+                            <div key={key} className="flex flex-col gap-0.5">
+                              <dt className="text-gray-600 dark:text-gray-300">cards:</dt>
+                              <dd>
+                                <ul className="ml-1 list-disc list-inside marker:text-amber-600 dark:marker:text-amber-400">
+                                  {rows.map((r, i) => <li key={i} className="break-words">{r}</li>)}
+                                </ul>
+                              </dd>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={key} className="flex gap-1.5">
+                            <dt className="text-gray-600 dark:text-gray-300">{key}:</dt>
+                            <dd className="break-words">{typeof value === 'string' ? value : JSON.stringify(value)}</dd>
+                          </div>
+                        );
+                      })}
                     </dl>
                   )}
                   {item.status === 'pending' ? (
