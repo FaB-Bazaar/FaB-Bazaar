@@ -171,6 +171,21 @@ describe('summarizeDecks', () => {
     // no publicId → plain line, no drill
     expect(result.lines[1]).toBe('Teklosaucen — teklovossen, esteemed magnate (Classic Constructed)');
   });
+
+  it('excludes system + featured (Decks to Beat) decks — "My decks" is personal only', () => {
+    const result = summarizeDecks([
+      { publicId: 'mine', name: 'My CC deck', format: 'cc', heroName: 'gravy bones' },
+      { publicId: 'sys1', name: 'SYS: Fai', format: 'cc', heroName: 'fai', isSystemDeck: true },
+      { publicId: 'feat1', name: 'DTB: Oldhim', format: 'cc', heroName: 'oldhim', featured: true },
+      // a deck can be both — still excluded
+      { publicId: 'both', name: 'DTB+SYS', format: 'cc', heroName: 'kano', featured: true, isSystemDeck: true },
+    ]);
+    expect(result.title).toBe('Your decks (1)');
+    expect(result.lines).toHaveLength(1);
+    expect(result.lines[0]).toMatchObject({ drill: { id: 'mine', name: 'My CC deck' } });
+    expect(result.context).not.toContain('DTB');
+    expect(result.context).not.toContain('SYS');
+  });
 });
 
 describe('summarizeDeckContents', () => {

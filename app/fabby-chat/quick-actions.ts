@@ -16,6 +16,7 @@
 
 import { bindersClient, wantsClient, decksClient } from '@/lib/client';
 import { getCardImageUrl } from '@/lib/utils';
+import { matchesDeckFilter } from '@/lib/deck/deck-filter';
 import { deckColorBreakdown, type DeckViewCard } from '@/lib/deck/analytics';
 
 /**
@@ -275,8 +276,14 @@ export function summarizeWantsCards(
 }
 
 export function summarizeDecks(
-  decks: Array<{ publicId?: string; name: string; format?: string; heroDisplayName?: string; heroName?: string }>,
+  allDecks: Array<{ publicId?: string; name: string; format?: string; heroDisplayName?: string; heroName?: string; isSystemDeck?: boolean; featured?: boolean }>,
 ): QuickActionResult {
+  // "My decks" is the personal view. For a curator/superadmin, GET /api/decks
+  // includes their reference decks — both `featured` (Decks to Beat) and
+  // `isSystemDeck` (System Deck) — which have their own retrieval. Reuse the
+  // /decks page's "personal" bucket (not featured, not system) so both surfaces
+  // agree. Both flags ride the DeckSummaryDTO.
+  const decks = allDecks.filter((d) => matchesDeckFilter(d, 'all'));
   // /api/decks carries lowercase heroName; heroDisplayName only sometimes.
   const hero = (d: { heroDisplayName?: string; heroName?: string }) => d.heroDisplayName || d.heroName;
   const describe = (d: { name: string; format?: string; heroDisplayName?: string; heroName?: string }) =>

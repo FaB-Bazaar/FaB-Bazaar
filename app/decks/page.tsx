@@ -28,6 +28,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
+import { matchesDeckFilter, type DeckFilterType } from "@/lib/deck/deck-filter";
 import { trackDeckCreate } from "@/lib/gtag";
 import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings, TALISHAR_HERO_IDS } from "@/lib/fab-constants";
 
@@ -491,10 +492,7 @@ export default function DecksPage() {
       const matchesVisibility = filterVisibility === "all" ||
         (deck.visibility || 'unlisted') === filterVisibility;
 
-      const matchesType =
-        (filterType === "all" && !deck.isSystemDeck) ||
-        (filterType === "featured" && deck.featured && !deck.isSystemDeck) ||
-        (filterType === "system" && deck.isSystemDeck);
+      const matchesType = matchesDeckFilter(deck, filterType as DeckFilterType);
 
       return matchesSearch && matchesFormat && matchesVisibility && matchesType;
     })
@@ -513,7 +511,7 @@ export default function DecksPage() {
     });
 
   // Get available formats
-  const personalDecks = decks.filter(deck => !deck.isSystemDeck);
+  const personalDecks = decks.filter(deck => matchesDeckFilter(deck, 'all'));
   const availableFormats = Array.from(new Set(personalDecks.map(deck => deck.format)));
 
   // Calculate stats using new structure (personal decks only — excludes system/Decks to Beat)
@@ -772,8 +770,8 @@ export default function DecksPage() {
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0"
                 >
                   <option value="all">My Decks</option>
-                  <option value="featured">⭐ Featured Only</option>
-                  <option value="system">🛡 System</option>
+                  <option value="featured">⭐ Featured</option>
+                  <option value="system">🛡 System only</option>
                 </select>
               )}
 
