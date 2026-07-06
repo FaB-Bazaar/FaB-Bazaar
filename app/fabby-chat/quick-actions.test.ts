@@ -297,6 +297,24 @@ describe('summarizeComparison', () => {
     // overlay is clearly labelled as the missing cards, not a full deck
     expect(result.cardsSubtitle).toMatch(/missing/i);
   });
+
+  it('exposes a wantsAdd payload (missing needed + partial shortfall, all medium priority)', () => {
+    const result = summarizeComparison('Victor', {
+      owned: [{ printingId: 'a', cardName: 'Owned', needed: 1, owned: 1 }],
+      partial: [{ printingId: 'b', cardName: 'Half Card', needed: 3, owned: 1, pitch: 2 }],
+      missing: [{ printingId: 'c', cardName: 'Gone Card', needed: 2, tcgMarket: 5, pitch: 3 }],
+    });
+    // The curated deck printings, ready for wantsClient.bulkAddWants — no per-card search.
+    expect(result.wantsAdd).toEqual([
+      { printingId: 'c', quantity: 2, priority: 'medium' }, // missing → full needed
+      { printingId: 'b', quantity: 2, priority: 'medium' }, // partial → shortfall (3-1)
+    ]);
+  });
+
+  it('omits wantsAdd when nothing is needed (fully owned deck)', () => {
+    const result = summarizeComparison('Deck', { owned: [{ printingId: 'a', cardName: 'X', needed: 1, owned: 1 }] });
+    expect(result.wantsAdd).toBeUndefined();
+  });
 });
 
 describe('summarizeBinderCards', () => {

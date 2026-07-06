@@ -209,6 +209,9 @@ export interface QuickActionResult {
   publicId?: string;
   /** Cross-deck game results → a table (Game results action). */
   resultRows?: GameResultRow[];
+  /** Curated deck printings the user still needs (missing + partial shortfall),
+   *  ready for a one-click, no-AI `wantsClient.bulkAddWants`. Comparison card only. */
+  wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>;
 }
 
 /** One recorded game for the Game-results table. resultId + deckName let the
@@ -770,6 +773,14 @@ export function summarizeComparison(
     ...missing.map((m) => ({ printingId: m.printingId, name: m.cardName, quantity: m.needed, pitch: m.pitch, imageUrl: getCardImageUrl({ printingId: m.printingId }) })),
     ...partial.map((p) => ({ printingId: p.printingId, name: p.cardName, quantity: Math.max(1, p.needed - p.owned), pitch: p.pitch, imageUrl: getCardImageUrl({ printingId: p.printingId }) })),
   ];
+
+  // One-click wants payload: the same cards the overlay shows you still need,
+  // using each deck's CURATED printing (the printing can be swapped later). All
+  // medium priority. Empty → no button rendered.
+  const wantsAdd: NonNullable<QuickActionResult['wantsAdd']> = [
+    ...missing.map((m) => ({ printingId: m.printingId, quantity: m.needed, priority: 'medium' as const })),
+    ...partial.map((p) => ({ printingId: p.printingId, quantity: Math.max(1, p.needed - p.owned), priority: 'medium' as const })),
+  ];
   lines.push(missing.length === 0 && partial.length === 0
     ? `✓ You own everything in this deck (${owned.length} cards)`
     : `✓ Fully owned: ${owned.length} cards`);
@@ -785,6 +796,7 @@ export function summarizeComparison(
     ...(viewCards.length
       ? { cards: viewCards, cardsSubtitle: `Cards you're missing — not yet in your collection (${viewCards.length})` }
       : {}),
+    ...(wantsAdd.length ? { wantsAdd } : {}),
   };
 }
 

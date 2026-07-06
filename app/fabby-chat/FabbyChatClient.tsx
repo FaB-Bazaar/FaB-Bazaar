@@ -88,7 +88,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[] };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -282,6 +282,8 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   // Public id of the deck currently being copied via "Add to my decks".
   const [addingDeckId, setAddingDeckId] = useState<string | null>(null);
+  // Per-comparison-card "Add missing to wants" feedback, keyed by item index.
+  const [wantsAddStatus, setWantsAddStatus] = useState<Record<number, 'busy' | 'done' | 'error'>>({});
   // Card preview: desktop side rail (hover/focus) or mobile bottom drawer (tap)
   const [previewCard, setPreviewCard] = useState<CardPreview | null>(null);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
@@ -495,7 +497,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[] }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
@@ -508,7 +510,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -709,6 +711,18 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     }
   }, [addingDeckId]);
 
+  // "Add missing to wants" — deterministic, no AI. Bulk-adds the deck's curated
+  // printings for every card the comparison says you still need (missing +
+  // partial shortfall). The printing can be swapped later from the rail.
+  const addMissingToWants = useCallback(async (index: number, cards: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>) => {
+    if (!cards.length || wantsAddStatus[index] === 'busy' || wantsAddStatus[index] === 'done') return;
+    setWantsAddStatus((s) => ({ ...s, [index]: 'busy' }));
+    setErrorBanner(null);
+    const result = await wantsClient.bulkAddWants(cards);
+    setWantsAddStatus((s) => ({ ...s, [index]: result.success ? 'done' : 'error' }));
+    if (!result.success) setErrorBanner(result.error);
+  }, [wantsAddStatus]);
+
   const reset = useCallback(() => {
     abortRef.current?.abort();
     setItems([]);
@@ -717,6 +731,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
     setBusy(false);
     pendingContextRef.current = [];
     setSessionUsage({ input: 0, output: 0, cost: 0 });
+    setWantsAddStatus({});
   }, []);
 
   const addPreviewToWants = useCallback(async () => {
@@ -1019,6 +1034,83 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
               );
             }
             if (item.kind === 'data') {
+              // The instant, no-AI action cluster. Rendered at BOTH the top and
+              // bottom of the card so a tall result (long comparison / deck)
+              // never scrolls its buttons out of reach after the auto-scroll.
+              const cardActions = (
+                <>
+                  {item.tableRows && item.tableRows.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => copyList(index, item.copyHeader, item.tableRows!, item.sourceUrl)}
+                        className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted ${focusRing}`}
+                        title="Copy as text (for Discord / trade posts)"
+                      >
+                        {copiedIdx === index
+                          ? <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" />Copied</>
+                          : <><Copy className="h-3.5 w-3.5" aria-hidden="true" />Copy</>}
+                      </button>
+                      {item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
+                          title="Open on FaB Bazaar"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          Open
+                        </a>
+                      )}
+                    </>
+                  )}
+                  {item.cards && item.cards.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
+                      title="View these cards as a grid"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                      View as cards
+                    </button>
+                  )}
+                  {item.wantsAdd && item.wantsAdd.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => addMissingToWants(index, item.wantsAdd!)}
+                      disabled={wantsAddStatus[index] === 'busy' || wantsAddStatus[index] === 'done'}
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-rose-700 dark:text-rose-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                      title="Add every card you still need to your wants list — instant, no AI"
+                    >
+                      {wantsAddStatus[index] === 'busy' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        : wantsAddStatus[index] === 'done' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-500" aria-hidden="true" />
+                        : wantsAddStatus[index] === 'error' ? <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-500" aria-hidden="true" />
+                        : <Heart className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {wantsAddStatus[index] === 'done' ? 'Added to wants' : `Add missing to wants (${item.wantsAdd.length})`}
+                    </button>
+                  )}
+                  {item.deckPublicId && (
+                    <button
+                      type="button"
+                      onClick={() => addDeckToMine(item.deckPublicId!)}
+                      disabled={addingDeckId === item.deckPublicId}
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                      title="Copy this deck into your account"
+                    >
+                      {addingDeckId === item.deckPublicId
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
+                      Add to my decks
+                    </button>
+                  )}
+                </>
+              );
+              const hasActions = (item.tableRows?.length ?? 0) > 0
+                || (item.cards?.length ?? 0) > 0
+                || (item.wantsAdd?.length ?? 0) > 0
+                || !!item.deckPublicId;
               return (
                 <div key={index} className={`self-start w-full max-w-full rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
                   <div className="flex items-center gap-1.5 mb-1.5">
@@ -1026,57 +1118,7 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
                     <span className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
                     <div className="ml-auto shrink-0 flex items-center gap-1.5">
-                      {item.tableRows && item.tableRows.length > 0 && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => copyList(index, item.copyHeader, item.tableRows!, item.sourceUrl)}
-                            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted ${focusRing}`}
-                            title="Copy as text (for Discord / trade posts)"
-                          >
-                            {copiedIdx === index
-                              ? <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" />Copied</>
-                              : <><Copy className="h-3.5 w-3.5" aria-hidden="true" />Copy</>}
-                          </button>
-                          {item.sourceUrl && (
-                            <a
-                              href={item.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
-                              title="Open on FaB Bazaar"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                              Open
-                            </a>
-                          )}
-                        </>
-                      )}
-                      {item.cards && item.cards.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
-                          className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
-                          title="View these cards as a grid"
-                        >
-                          <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                          View as cards
-                        </button>
-                      )}
-                      {item.deckPublicId && (
-                        <button
-                          type="button"
-                          onClick={() => addDeckToMine(item.deckPublicId!)}
-                          disabled={addingDeckId === item.deckPublicId}
-                          className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                          title="Copy this deck into your account"
-                        >
-                          {addingDeckId === item.deckPublicId
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                            : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
-                          Add to my decks
-                        </button>
-                      )}
+                      {cardActions}
                     </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
@@ -1207,6 +1249,13 @@ export function FabbyChatClient({ username, userId, mockMode, models, isSuperAdm
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                  {/* Same actions repeated at the bottom — a tall card lands
+                      scrolled to its end, so the header buttons are off-screen. */}
+                  {hasActions && (
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2">
+                      {cardActions}
                     </div>
                   )}
                 </div>
