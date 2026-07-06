@@ -144,7 +144,11 @@ export default function DecksPage() {
       setLoading(true);
       setError(null);
 
-      const result = await decksClient.getUserDecks();
+      // This is the full deck manager — it must load ALL of the user's decks.
+      // getUserDecks() defaults to limit:20; the current /api/decks route ignores
+      // it, but an older/paginating deploy would silently cap the list (older
+      // decks vanish from the grid). Request a high limit so it can never truncate.
+      const result = await decksClient.getUserDecks(undefined, { limit: 100000 });
 
       if (result.success) {
         setDecks(result.data.decks || []);
