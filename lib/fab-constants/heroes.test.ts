@@ -160,6 +160,16 @@ describe('TALISHAR_HERO_IDS', () => {
     expect(TALISHAR_HERO_IDS['oscilio, scion of the third age']).toBe('OMN095');
   });
 
+  it('includes newer heroes synced from Talishar-FE (canonical set codes, not HER reprints)', () => {
+    expect(TALISHAR_HERO_IDS['blaze, firemind']).toBe('HER117');
+    expect(TALISHAR_HERO_IDS['dorinthea, quicksilver prodigy']).toBe('DVR001');
+    expect(TALISHAR_HERO_IDS['professor teklovossen']).toBe('TCC001');
+    expect(TALISHAR_HERO_IDS['brevant, civic protector']).toBe('TCC027');
+    expect(TALISHAR_HERO_IDS['melody, sing-along']).toBe('TCC049');
+    expect(TALISHAR_HERO_IDS['shiyana, diamond gemini']).toBe('CRU097');
+    expect(TALISHAR_HERO_IDS['chane']).toBe('MON154');
+  });
+
   it('includes Baalghor, Omen of the End (young — IAR159)', () => {
     expect(TALISHAR_HERO_IDS['baalghor, omen of the end']).toBe('IAR159');
   });

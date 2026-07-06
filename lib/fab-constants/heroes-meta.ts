@@ -260,6 +260,24 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
   'rhinar':                              'WTR002',
   'tuffnut':                             'SUP002',
   'zyggy':                               'OMN002',
+
+  // Newer heroes — synced from Talishar-FE filter constants (2026-07). Values are
+  // Talishar's canonical hero code (original set printing), which can differ from
+  // our DB's earliest collector_number (e.g. Heralds "HER" reprints). Keys are the
+  // lowercase card display_name as stored in our cards table.
+  'blaze, firemind':                     'HER117',
+  'brevant, civic protector':            'TCC027',
+  'chane':                               'MON154',
+  'dorinthea, quicksilver prodigy':      'DVR001',
+  'emperor, dracai of aesir':            'DYN001',
+  'enigma, new moon':                    'MST238',
+  'genis wotchuneed':                    'EVR085',
+  'hala':                                'MPW004',
+  'melody, sing-along':                  'TCC049',
+  'prism, advent of thrones':            'DTD002',
+  'professor teklovossen':               'TCC001',
+  'shiyana, diamond gemini':             'CRU097',
+  'yoji, royal protector':               'DYN025',
 };
 
 // Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.
