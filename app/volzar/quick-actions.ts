@@ -457,6 +457,93 @@ export function buildAnalyzeGameMessage(row: GameResultRow): { display: string; 
   };
 }
 
+/** One list of a hero's curated kit, as GET /api/curated-lists?heroName= returns it. */
+export interface HeroKitList {
+  name: string;
+  format?: string | null;
+  cards?: Array<{
+    displayName?: string;
+    printingId: string;
+    pitch?: number;
+    typeTextDisplay?: string;
+    text?: string;
+    imageUrl?: string;
+    tcgLow?: number;
+    tcgMarket?: number;
+    tcgplayerUrl?: string;
+  }>;
+}
+
+const KIT_TEXT_MAX = 180;
+
+/**
+ * Deterministic hero kit card ("Hero kit" instant action): the hero's
+ * published curated lists for one format, rendered as sectioned card lines —
+ * and queued as context carrying each card's TYPE and RULES TEXT, so a
+ * follow-up like "what should I build around?" is answered from context by
+ * any model, with zero tool-call planning required.
+ */
+export function summarizeHeroKit(displayName: string, format: string, lists: HeroKitList[]): QuickActionResult {
+  const matching = lists.filter(
+    (l) => (l.format ?? '').toLowerCase() === format.toLowerCase() && (l.cards?.length ?? 0) > 0,
+  );
+  const title = `Kit: ${displayName} (${format})`;
+  if (matching.length === 0) {
+    return {
+      title,
+      lines: [`No published kit lists for ${displayName} in ${format}.`],
+      context: `No published curated kit for ${displayName} in ${format}.`,
+    };
+  }
+
+  const preview = (c: NonNullable<HeroKitList['cards']>[number], name: string): CardPreview => ({
+    imageUrl: c.imageUrl || getCardImageUrl({ printingId: c.printingId }),
+    name,
+    printingId: c.printingId,
+    priceLow: c.tcgLow,
+    priceMarket: c.tcgMarket,
+    tcgplayerUrl: c.tcgplayerUrl,
+  });
+
+  const lines: CardLine[] = [];
+  const contextParts: string[] = [];
+  const viewCards: DeckViewCard[] = [];
+  for (const list of matching) {
+    const cards = list.cards!;
+    lines.push(`— ${list.name} (${cards.length}) —`);
+    const ctxCards: string[] = [];
+    for (const c of cards) {
+      const name = c.displayName || 'Unknown card';
+      lines.push({
+        text: `${name}${c.typeTextDisplay ? ` — ${c.typeTextDisplay}` : ''}`,
+        pitch: typeof c.pitch === 'number' && c.pitch > 0 ? c.pitch : undefined,
+        preview: preview(c, name),
+      });
+      viewCards.push({
+        printingId: c.printingId,
+        name,
+        quantity: 1,
+        pitch: c.pitch,
+        imageUrl: c.imageUrl || getCardImageUrl({ printingId: c.printingId }),
+      });
+      const text = (c.text ?? '').replace(/\s+/g, ' ').trim();
+      ctxCards.push(
+        `${name} [${c.typeTextDisplay ?? 'card'}${c.pitch ? `, pitch ${c.pitch}` : ''}]`
+        + (text ? `: "${text.length > KIT_TEXT_MAX ? `${text.slice(0, KIT_TEXT_MAX)}…` : text}"` : ''),
+      );
+    }
+    contextParts.push(`${list.name}: ${ctxCards.join('; ')}`);
+  }
+
+  return {
+    title,
+    lines,
+    context: `Curated kit pool for ${displayName} (${format}) — the curator's real, legal cards to build a deck from, with each card's type and rules text. ${contextParts.join('. ')}`,
+    cards: viewCards,
+    cardsSubtitle: `Curated kit pool — ${viewCards.length} cards`,
+  };
+}
+
 export function summarizeBinderCards(
   binderName: string,
   cards: Array<{ display_name?: string; name?: string; quantity?: number; forTrade?: boolean; set?: string; foiling?: string; pitch?: number; collector_number?: string; rarity?: string; is_extended_art?: boolean; printingDetails?: { set?: string; foiling?: string; pitch?: number } }>,
@@ -981,6 +1068,36 @@ export async function fetchToBeatHeroes(): Promise<ToBeatHero[]> {
   return [...map.values()]
     .map((e) => ({ heroName: e.heroName, displayName: e.displayName, formats: [...e.formats] }))
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+export interface KitHero {
+  heroName: string;      // stored value, e.g. "pleiades, superstar"
+  displayName: string;   // friendly label for the dropdown
+  kitCount: number;
+}
+
+/** Heroes with published kits in a format — populates the Hero-kit picker. */
+export async function fetchKitHeroes(format: string): Promise<KitHero[]> {
+  const response = await fetch(`/api/curated-lists/heroes?format=${encodeURIComponent(format)}`, { credentials: 'include' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load kit heroes');
+  const { toHeroDisplayName, getHeroInfo } = await import('@/lib/fab-constants/heroes');
+  return (body.data ?? [])
+    .filter((h: any) => h.heroName)
+    .map((h: any) => ({
+      heroName: h.heroName,
+      displayName: toHeroDisplayName(h.heroName, getHeroInfo(h.heroName)?.shortName),
+      kitCount: h.kitCount ?? 0,
+    }))
+    .sort((a: KitHero, b: KitHero) => a.displayName.localeCompare(b.displayName));
+}
+
+/** Fetch + format one hero's curated kit pool (deterministic, no AI). */
+export async function runHeroKit(heroName: string, displayName: string, format: string): Promise<QuickActionResult> {
+  const response = await fetch(`/api/curated-lists?heroName=${encodeURIComponent(heroName)}`, { credentials: 'include' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load the hero kit');
+  return summarizeHeroKit(displayName, format, body.data ?? []);
 }
 
 /** Fetch + format the deterministic archetype consensus for the picker. */

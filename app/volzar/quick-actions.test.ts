@@ -18,6 +18,7 @@ import {
   harvestCardsFromStructured,
   summarizeGameResults,
   buildAnalyzeGameMessage,
+  summarizeHeroKit,
   summarizeArchetypeConsensus,
   summarizeToBeatDecks,
   mergeEventSummaries,
@@ -683,5 +684,67 @@ describe('buildAnalyzeGameMessage', () => {
     const { content } = buildAnalyzeGameMessage(row);
     expect(content).toMatch(/loss/i);
     expect(content).toContain('Kassai Of The Golden Sand');
+  });
+});
+
+describe('summarizeHeroKit', () => {
+  const lists = [
+    {
+      name: 'Attack Actions', format: 'Classic Constructed',
+      cards: [
+        {
+          displayName: 'Standing Ovation', printingId: 'p-so', pitch: 3,
+          typeTextDisplay: 'Revered Guardian Action - Attack',
+          text: 'If 3 or more auras of suspense have left the arena this turn, you get an extra turn.',
+          imageUrl: 'https://img/p-so.webp', tcgLow: 1.87,
+        },
+      ],
+    },
+    {
+      name: 'Equipment', format: 'Classic Constructed',
+      cards: [
+        {
+          displayName: 'Arcanite Skullcap', printingId: 'p-ask',
+          typeTextDisplay: 'Generic Equipment - Head',
+          text: 'Arcane Barrier 3. If you have less life than an opponent, this gains +1 defense.',
+          imageUrl: 'https://img/p-ask.webp',
+        },
+      ],
+    },
+    { name: 'Blitz Stuff', format: 'Blitz', cards: [{ displayName: 'Wrong Format Card', printingId: 'p-n' }] },
+  ];
+
+  it('sections per format-matching list, card lines carrying pitch + preview', () => {
+    const res = summarizeHeroKit('Pleiades, Superstar', 'Classic Constructed', lists as any);
+    expect(res.title).toContain('Pleiades, Superstar');
+    const texts = res.lines.map((l) => (typeof l === 'string' ? l : l.text)).join('\n');
+    expect(texts).toContain('Attack Actions');
+    expect(texts).toContain('Standing Ovation');
+    expect(texts).not.toContain('Wrong Format Card');
+    const soLine = res.lines.find((l) => typeof l !== 'string' && l.text.includes('Standing Ovation')) as any;
+    expect(soLine.pitch).toBe(3);
+    expect(soLine.preview.printingId).toBe('p-so');
+  });
+
+  it('queues context with type + rules text per card so cheap models recommend without tool calls', () => {
+    const res = summarizeHeroKit('Pleiades, Superstar', 'Classic Constructed', lists as any);
+    expect(res.context).toContain('Standing Ovation');
+    expect(res.context).toContain('Revered Guardian Action - Attack');
+    expect(res.context).toContain('auras of suspense');
+    expect(res.context).toContain('Arcane Barrier 3');
+    expect(res.context).not.toContain('Wrong Format Card');
+    expect(res.context).toMatch(/curated kit/i);
+  });
+
+  it('offers the card-grid overlay for every kit card', () => {
+    const res = summarizeHeroKit('Pleiades, Superstar', 'Classic Constructed', lists as any);
+    expect(res.cards).toHaveLength(2);
+    expect(res.cards![0].printingId).toBe('p-so');
+  });
+
+  it('handles a hero with no kits published in the format', () => {
+    const res = summarizeHeroKit('Pleiades, Superstar', 'Living Legend', lists as any);
+    expect(res.lines).toEqual(['No published kit lists for Pleiades, Superstar in Living Legend.']);
+    expect(res.cards).toBeUndefined();
   });
 });

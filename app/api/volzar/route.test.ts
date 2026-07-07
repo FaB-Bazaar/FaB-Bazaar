@@ -307,6 +307,12 @@ describe('assembleMessages', () => {
     expect(system.content).toContain('heroLegal');
   });
 
+  it('system prompt prefers a kit already in the conversation context over re-fetching', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    expect(system.content).toMatch(/context already contains .*(kit|curated)/i);
+    expect(system.content).toMatch(/recommend directly from/i);
+  });
+
   it('system prompt gives deck-building a tool-call budget so the 8-iteration loop cap is never hit', () => {
     const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
     expect(system.content).toMatch(/8 tool calls/i);

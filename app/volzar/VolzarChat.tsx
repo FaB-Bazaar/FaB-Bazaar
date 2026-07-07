@@ -21,7 +21,8 @@ import {
   QUICK_ACTIONS, buildMessageWithContext, buildAnalyzeGameMessage, runDrill, parseSearchResults, harvestCardsFromStructured,
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand, printingToSwapOption,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
-  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow,
+  fetchKitHeroes, runHeroKit,
+  type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
@@ -314,6 +315,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const [selectedHero, setSelectedHero] = useState('');
   const [archetypeMonths, setArchetypeMonths] = useState(3);
 
+  // Hero-kit picker — deterministic curated kit pool (types + rules text),
+  // seeded as context so deck-building follow-ups need zero tool calls.
+  const [kitOpen, setKitOpen] = useState(false);
+  const [kitFormat, setKitFormat] = useState('Classic Constructed');
+  const [kitHeroes, setKitHeroes] = useState<KitHero[]>([]);
+  const [kitHeroesLoading, setKitHeroesLoading] = useState(false);
+  const [kitHero, setKitHero] = useState('');
+
   // Decks-to-beat picker — the unscoped list is too long, so scope by hero
   // (rolling window) or by event before fetching.
   const [toBeatOpen, setToBeatOpen] = useState(false);
@@ -603,6 +612,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
       void runInstant('to-beat', () => runToBeatByEvent(toBeatEvent));
     }
   }, [toBeatMode, toBeatHero, toBeatEvent, heroes, runInstant]);
+
+  // Hero-kit picker plumbing: heroes load per format, on open and on change.
+  const loadKitHeroes = useCallback(async (format: string) => {
+    setKitHeroesLoading(true);
+    try {
+      const list = await fetchKitHeroes(format);
+      setKitHeroes(list);
+      setKitHero((h) => (list.some((x) => x.heroName === h) ? h : (list[0]?.heroName ?? '')));
+    } catch (error) {
+      setErrorBanner(error instanceof Error ? error.message : 'Failed to load kit heroes');
+    } finally {
+      setKitHeroesLoading(false);
+    }
+  }, []);
+
+  const toggleKit = useCallback(() => {
+    const opening = !kitOpen;
+    setKitOpen(opening);
+    if (opening && kitHeroes.length === 0) void loadKitHeroes(kitFormat);
+  }, [kitOpen, kitHeroes.length, kitFormat, loadKitHeroes]);
+
+  const setKitFormatAndLoad = useCallback((format: string) => {
+    setKitFormat(format);
+    void loadKitHeroes(format);
+  }, [loadKitHeroes]);
+
+  const runKit = useCallback(() => {
+    if (!kitHero) return;
+    const hero = kitHeroes.find((h) => h.heroName === kitHero);
+    void runInstant('hero-kit', () => runHeroKit(kitHero, hero?.displayName ?? kitHero, kitFormat));
+  }, [kitHero, kitHeroes, kitFormat, runInstant]);
 
   const performTurn = useCallback(async (messagesToSend: ChatMessage[], modelToUse: string) => {
     setErrorBanner(null);
@@ -912,6 +952,17 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           >
             Compare archetype
           </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || runningAction !== null}
+            onClick={toggleKit}
+            aria-expanded={kitOpen}
+            className={`shrink-0 gap-1.5 ${focusRing}`}
+            title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
+          >
+            Hero kit
+          </Button>
         </div>
 
         {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
@@ -1027,6 +1078,52 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             >
               {runningAction === 'archetype' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
               Compare
+            </Button>
+          </div>
+        )}
+
+        {/* Hero-kit picker — the curated pool for one hero + format */}
+        {kitOpen && (
+          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
+            <label className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+              Format
+              <select
+                value={kitFormat}
+                onChange={(e) => setKitFormatAndLoad(e.target.value)}
+                className={`rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+              >
+                <option>Classic Constructed</option>
+                <option>Silver Age</option>
+                <option>Blitz</option>
+                <option>Living Legend</option>
+                <option>Commoner</option>
+              </select>
+            </label>
+            <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
+              Hero
+              <select
+                value={kitHero}
+                onChange={(e) => setKitHero(e.target.value)}
+                disabled={kitHeroesLoading}
+                className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
+              >
+                {kitHeroesLoading && <option>Loading heroes…</option>}
+                {!kitHeroesLoading && kitHeroes.length === 0 && <option value="">No kits in this format</option>}
+                {kitHeroes.map((h) => (
+                  <option key={h.heroName} value={h.heroName}>
+                    {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              size="sm"
+              disabled={!kitHero || busy || runningAction !== null}
+              onClick={runKit}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'hero-kit' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Show kit
             </Button>
           </div>
         )}
