@@ -41,6 +41,10 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
   'update_deck',
   'list_results',
   'get_results',
+  // Curated kit pools (public reads) — ground deck-building recommendations
+  // in the curator's real picks instead of hallucinated card names.
+  'list_curated_lists',
+  'get_curated_list',
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);

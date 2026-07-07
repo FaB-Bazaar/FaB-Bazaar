@@ -150,13 +150,18 @@ describe('POST /api/volzar', () => {
     expect(res.status).toBe(502);
   });
 
-  it('augments the lite set with the deck + game-results tools', async () => {
+  it('augments the lite set with the deck, game-results, and curated-kit tools', async () => {
     const res = await POST(request(VALID_BODY));
     await readSseEvents(res); // drain the stream
 
     expect(mockFetchToolsByName).toHaveBeenCalledTimes(1);
     const requested = mockFetchToolsByName.mock.calls[0][1];
-    expect(requested).toEqual(new Set(['create_deck', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck', 'list_results', 'get_results']));
+    expect(requested).toEqual(new Set([
+      'create_deck', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck',
+      'list_results', 'get_results',
+      // Kit pools ground deck-building recommendations (anti-hallucination)
+      'list_curated_lists', 'get_curated_list',
+    ]));
   });
 
   it('streams SSE for a valid mock conversation: tool round-trip then done', async () => {
@@ -293,6 +298,20 @@ describe('assembleMessages', () => {
     expect(out[0].content).toContain('<tool_output>');
     expect(out.filter((m) => m.role === 'system')).toHaveLength(1);
     expect(out.at(-1)).toEqual({ role: 'user', content: 'hi' });
+  });
+
+  it('system prompt grounds deck-building in the curated kit pools', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    expect(system.content).toContain('list_curated_lists');
+    expect(system.content).toContain('get_curated_list');
+    expect(system.content).toContain('heroLegal');
+  });
+
+  it('system prompt requires batch-verifying every recommended card before answering', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    expect(system.content).toMatch(/every card you recommend/i);
+    expect(system.content).toMatch(/one\s+batched search_printings/i);
+    expect(system.content).toMatch(/drop it/i);
   });
 
   it('strips system messages anywhere in the history, not just the head', () => {
