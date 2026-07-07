@@ -40,7 +40,6 @@ import {
   Ban,
   Swords,
   UserCog,
-  Sparkles,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { accessibleAdminLinks } from "@/components/nav/admin-links"
@@ -884,7 +883,14 @@ export default function Navbar() {
                       <>
                         <DropdownMenuItem asChild>
                           <Link href="/volzar" className="text-gray-700 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400">
-                            <Sparkles className="h-4 w-4 mr-2 text-violet-500 dark:text-violet-400" />
+                            {/* Volzar, the Lightning Rod card art — same mark as the /volzar page header */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src="/volzar-icon.png"
+                              alt=""
+                              aria-hidden="true"
+                              className="h-5 w-5 mr-2 rounded-full object-cover ring-1 ring-violet-400/50"
+                            />
                             <span className="font-semibold text-violet-600 dark:text-violet-400">Volzar</span>
                           </Link>
                         </DropdownMenuItem>
@@ -1137,7 +1143,14 @@ export default function Navbar() {
                   {canUseVolzar(user) && (
                     <Link href="/volzar" onClick={() => setIsMenuOpen(false)}>
                       <div className="flex items-center px-3 py-2.5 text-sm font-semibold text-violet-600 dark:text-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <Sparkles className="h-5 w-5 mr-3" />
+                        {/* Volzar, the Lightning Rod card art — same mark as the /volzar page header */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/volzar-icon.png"
+                          alt=""
+                          aria-hidden="true"
+                          className="h-6 w-6 mr-3 rounded-full object-cover ring-1 ring-violet-400/50"
+                        />
                         Volzar
                       </div>
                     </Link>
