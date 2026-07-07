@@ -85,12 +85,44 @@ export interface CardRow {
   pitch?: number;
   collector?: string;
   foiling?: string;   // code: s/r/c/g
+  type?: string;      // type_text_display, e.g. "Generic Instant"
+  text?: string;      // card rules text (functional text)
+  image?: string;     // thumbnail image url
   price?: number;
   extendedArt?: boolean;
   marvel?: boolean;   // rarity 'v'
   forTrade?: boolean;
   priority?: string;
   preview: CardPreview;
+}
+
+/**
+ * The `cards.text` column stores LSS "functional text" — fully lowercased, with
+ * {p}/{h}/{r}/{d}/{i} token markup, meant for rules parsing, not display. This
+ * makes it read like a real card: sentence-case, and re-capitalize the card's
+ * own name where it self-references (the common case). Token markup is left
+ * intact for the UI to swap to glyphs. Other proper nouns (heroes, other cards)
+ * can't be recovered from lowercase — a cased source would be needed for those.
+ */
+export function prettifyCardText(text?: string | null, cardName?: string): string | undefined {
+  if (!text) return undefined;
+  // Capitalize the first letter of the string and the first letter after a
+  // sentence terminator (. ! ? :) or an opening double-quote.
+  let s = text.replace(/(^|[.!?:]\s+|"\s*)([a-z])/g, (_m, pre: string, ch: string) => pre + ch.toUpperCase());
+  // Re-capitalize the card's own name (full display_name + its pre-comma
+  // segment, e.g. "Teklovossen, Esteemed Magnate" also matches "teklovossen").
+  if (cardName) {
+    const names = new Set<string>();
+    const full = cardName.trim();
+    if (full) names.add(full);
+    const preComma = full.split(',')[0].trim();
+    if (preComma) names.add(preComma);
+    for (const n of names) {
+      const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      s = s.replace(new RegExp(`\\b${esc}\\b`, 'gi'), n);
+    }
+  }
+  return s;
 }
 
 const FOIL_TAG: Record<string, string> = { r: 'RF', c: 'CF', g: 'GF' }; // s (non-foil) intentionally omitted
@@ -119,6 +151,9 @@ function toCardRow(c: any): CardRow {
     pitch: cardPitch(c),
     collector: (c.collector_number ?? d.collector_number ?? '').toUpperCase() || undefined,
     foiling: c.foiling ?? d.foiling ?? undefined,
+    type: c.type_text_display ?? d.type_text_display ?? undefined,
+    text: prettifyCardText(c.card_text ?? d.card_text ?? c.text ?? d.text, name),
+    image: c.image_url ?? d.image_url ?? c.image ?? d.image ?? undefined,
     price,
     extendedArt: !!(c.is_extended_art ?? d.is_extended_art),
     marvel: (c.rarity ?? d.rarity) === 'v',
@@ -202,6 +237,9 @@ export interface QuickActionResult {
   cardsSubtitle?: string;
   /** Structured rows → a scannable UI table + Discord copy (wants / binder). */
   tableRows?: CardRow[];
+  /** Section-grouped rows → the same striped card table, split into subheaded
+   *  groups (deck drills: Hero / Equipment / Maindeck). */
+  tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   /** Copy header line (e.g. "Wants:" / binder name) for the Discord copy. */
   copyHeader?: string;
   /** Public id of the deck this card represents — enables the deterministic
@@ -375,11 +413,23 @@ export function summarizeDeckContents(deck: {
 
   const viewCards = [...(deck.hero ?? []), ...(deck.equipment ?? []), ...(deck.maindeck ?? [])].map(toDeckViewCard);
 
+  // Section-grouped rows for the striped card table (same renderer as binder /
+  // wants). Mirrors the `lines` sections; the UI shows this table and filters
+  // the now-redundant card/header lines, keeping only the color + compare rows.
+  const tableSections = sections
+    .filter(([, cards]) => cards.length > 0)
+    .map(([sectionName, cards]) => ({
+      title: sectionName,
+      count: cards.reduce((sum, c) => sum + (c.quantity ?? 1), 0),
+      rows: cards.map(toCardRow),
+    }));
+
   return {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
     lines,
     context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
+    ...(tableSections.length ? { tableSections } : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),
   };
 }

@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  prettifyCardText,
   summarizeBinders,
   summarizeWantsCards,
   toShorthand,
@@ -190,6 +191,30 @@ describe('summarizeDecks', () => {
   });
 });
 
+describe('prettifyCardText', () => {
+  it('sentence-cases the first word and after terminators', () => {
+    expect(prettifyCardText('when this hits a hero, destroy an item. instant - discard this: draw a card.'))
+      .toBe('When this hits a hero, destroy an item. Instant - discard this: Draw a card.');
+  });
+
+  it("capitalizes the card's own name mid-sentence (full + pre-comma segment)", () => {
+    expect(prettifyCardText('if beast within is put into a graveyard, banish the top card.', 'Beast Within'))
+      .toBe('If Beast Within is put into a graveyard, banish the top card.');
+    expect(prettifyCardText('as an additional cost to play teklovossen, discard.', 'Teklovossen, Esteemed Magnate'))
+      .toBe('As an additional cost to play Teklovossen, discard.');
+  });
+
+  it('leaves {p}/{h}/{r} token markup untouched', () => {
+    expect(prettifyCardText('if it has 6 or more {p}, lose 1{h}.'))
+      .toBe('If it has 6 or more {p}, lose 1{h}.');
+  });
+
+  it('returns undefined for empty/missing text', () => {
+    expect(prettifyCardText(undefined)).toBeUndefined();
+    expect(prettifyCardText('')).toBeUndefined();
+  });
+});
+
 describe('summarizeDeckContents', () => {
   const card = (name: string, quantity: number, pitch?: number) => ({
     quantity,
@@ -253,6 +278,26 @@ describe('summarizeDeckContents', () => {
   it('omits publicId for a deck without one (no Add-to-my-decks button)', () => {
     const result = summarizeDeckContents({ name: 'Local', maindeck: [card('Overcrowded', 3, 3)] });
     expect(result.publicId).toBeUndefined();
+  });
+
+  it('emits section-grouped table rows (Hero/Equipment/Maindeck) for the striped table', () => {
+    const result = summarizeDeckContents({
+      name: 'Teklosaucen',
+      hero: [card('Teklovossen', 1)],
+      equipment: [card('Teklo Leveler', 1)],
+      maindeck: [card('Overcrowded', 3, 3), card('Pummel', 3, 1)],
+    });
+    expect(result.tableSections?.map((s) => [s.title, s.count])).toEqual([
+      ['Hero', 1],
+      ['Equipment', 1],
+      ['Maindeck', 6],
+    ]);
+    const maindeck = result.tableSections?.find((s) => s.title === 'Maindeck');
+    expect(maindeck?.rows).toContainEqual(expect.objectContaining({ name: 'Overcrowded', qty: 3, pitch: 3 }));
+  });
+
+  it('omits tableSections for an empty deck', () => {
+    expect(summarizeDeckContents({ name: 'Empty' }).tableSections).toBeUndefined();
   });
 
   it('handles an empty deck', () => {
@@ -359,6 +404,27 @@ describe('summarizeBinderCards', () => {
     const r = result.tableRows?.[0] as any;
     expect(r).toMatchObject({ qty: 1, name: 'Teklo Pounder', foiling: 'c', collector: 'ARC110', forTrade: true });
     expect(toShorthand(r)).toBe('CF Teklo Pounder');
+  });
+
+  it('surfaces card type on table rows (from type_text_display, flat or nested)', () => {
+    const flat = summarizeBinderCards('Generics', [
+      { display_name: 'Remembrance', quantity: 1, type_text_display: 'Generic Instant' } as any,
+    ], 1);
+    expect((flat.tableRows?.[0] as any).type).toBe('Generic Instant');
+
+    const nested = summarizeBinderCards('Generics', [
+      { display_name: 'Command and Conquer', quantity: 1, printingDetails: { type_text_display: 'Generic Instant' } } as any,
+    ], 1);
+    expect((nested.tableRows?.[0] as any).type).toBe('Generic Instant');
+  });
+
+  it('surfaces card rules text and thumbnail image on table rows', () => {
+    const result = summarizeBinderCards('Generics', [
+      { display_name: 'Remembrance', quantity: 1, card_text: 'Shuffle up to 3 action cards from your graveyard into your deck.', image_url: 'https://img/remembrance.png' } as any,
+    ], 1);
+    const r = result.tableRows?.[0] as any;
+    expect(r.text).toContain('Shuffle up to 3 action cards');
+    expect(r.image).toBe('https://img/remembrance.png');
   });
 });
 

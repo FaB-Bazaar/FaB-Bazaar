@@ -75,6 +75,28 @@ function PitchGem({ pitch }: { pitch?: number }) {
 
 const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
 
+// FaB rules-text tokens ({p} power, {h} life, {r} resource, {d} defense,
+// {i} intellect) → inline glyphs. Unknown tokens fall through as plain text.
+const RULE_TOKEN_ICON: Record<string, { src: string; alt: string }> = {
+  p: { src: '/fab/symbols/power.png', alt: 'power' },
+  d: { src: '/fab/symbols/block.png', alt: 'defense' },
+  r: { src: '/fab/symbols/resource.png', alt: 'resource' },
+  h: { src: '/fab/symbols/health.png', alt: 'life' },
+  i: { src: '/fab/symbols/intelligence.png', alt: 'intellect' },
+};
+
+/** Render rules text, swapping {x} token markup for its FaB glyph. */
+function renderRulesText(text: string) {
+  return text.split(/(\{[a-z]\})/gi).map((part, i) => {
+    const m = /^\{([a-z])\}$/i.exec(part);
+    const icon = m && RULE_TOKEN_ICON[m[1].toLowerCase()];
+    return icon
+      // eslint-disable-next-line @next/next/no-img-element
+      ? <img key={i} src={icon.src} alt={icon.alt} title={icon.alt} className="inline-block h-3 w-3 mx-px align-[-0.125em]" />
+      : <span key={i}>{part}</span>;
+  });
+}
+
 interface StructuredCard {
   title?: string;
   subtitle?: string;
@@ -90,7 +112,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -103,6 +125,37 @@ const MODEL_PRICES: Record<string, { input: number; output: number }> = {
 };
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+
+/**
+ * A labelled dropdown for the instant-action pickers (decks-to-beat, archetype,
+ * hero kit). Wraps the app's styled Select (chevron, keyboard nav, themed menu)
+ * so the pickers stop rendering raw native <select> boxes. Loading / empty
+ * states surface as the trigger placeholder (Radix rejects empty-value items).
+ */
+function PickerSelect({
+  label, wrapperClassName = '', triggerClassName = '', value, onValueChange, disabled, placeholder, children,
+}: {
+  label: React.ReactNode;
+  wrapperClassName?: string;
+  triggerClassName?: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 ${wrapperClassName}`}>
+      {label}
+      <Select value={value || undefined} onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger className={`h-9 text-sm ${focusRing} ${triggerClassName}`}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>{children}</SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 type RailStatus = { wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' };
 
@@ -499,7 +552,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
@@ -512,7 +565,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -989,41 +1042,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
               </div>
             </div>
             {toBeatMode === 'hero' ? (
-              <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
-                Hero (last {TO_BEAT_MONTHS} months)
-                <select
-                  value={toBeatHero}
-                  onChange={(e) => setToBeatHero(e.target.value)}
-                  disabled={heroesLoading}
-                  className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
-                >
-                  {heroesLoading && <option>Loading heroes…</option>}
-                  {!heroesLoading && heroes.length === 0 && <option value="">No featured decks found</option>}
-                  {heroes.map((h) => (
-                    <option key={h.heroName} value={h.heroName}>
-                      {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <PickerSelect
+                label={`Hero (last ${TO_BEAT_MONTHS} months)`}
+                wrapperClassName="w-full sm:w-auto"
+                triggerClassName="w-full sm:min-w-[16rem]"
+                value={toBeatHero}
+                onValueChange={setToBeatHero}
+                disabled={heroesLoading}
+                placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
+              >
+                {heroes.map((h) => (
+                  <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                  </SelectItem>
+                ))}
+              </PickerSelect>
             ) : (
-              <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
-                Event (last {TO_BEAT_MONTHS} months)
-                <select
-                  value={toBeatEvent}
-                  onChange={(e) => setToBeatEvent(e.target.value)}
-                  disabled={toBeatEventsLoading}
-                  className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
-                >
-                  {toBeatEventsLoading && <option>Loading events…</option>}
-                  {!toBeatEventsLoading && toBeatEvents.length === 0 && <option value="">No events found</option>}
-                  {toBeatEvents.map((e) => (
-                    <option key={`${e.eventName}|${e.eventDate}`} value={e.eventName}>
-                      {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <PickerSelect
+                label={`Event (last ${TO_BEAT_MONTHS} months)`}
+                wrapperClassName="w-full sm:w-auto"
+                triggerClassName="w-full sm:min-w-[16rem]"
+                value={toBeatEvent}
+                onValueChange={setToBeatEvent}
+                disabled={toBeatEventsLoading}
+                placeholder={toBeatEventsLoading ? 'Loading events…' : toBeatEvents.length === 0 ? 'No events found' : 'Select an event'}
+              >
+                {toBeatEvents.map((e) => (
+                  <SelectItem key={`${e.eventName}|${e.eventDate}`} value={e.eventName} className="text-sm">
+                    {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
+                  </SelectItem>
+                ))}
+              </PickerSelect>
             )}
             <Button
               size="sm"
@@ -1040,36 +1089,32 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
         {archetypeOpen && (
           <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
-              Hero (Decks to Beat)
-              <select
-                value={selectedHero}
-                onChange={(e) => setSelectedHero(e.target.value)}
-                disabled={heroesLoading}
-                className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
-              >
-                {heroesLoading && <option>Loading heroes…</option>}
-                {!heroesLoading && heroes.length === 0 && <option value="">No featured decks found</option>}
-                {heroes.map((h) => (
-                  <option key={h.heroName} value={h.heroName}>
-                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
-              Window
-              <select
-                value={archetypeMonths}
-                onChange={(e) => setArchetypeMonths(Number(e.target.value))}
-                className={`rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
-              >
-                <option value={1}>Last 1 month</option>
-                <option value={3}>Last 3 months</option>
-                <option value={6}>Last 6 months</option>
-                <option value={12}>Last 12 months</option>
-              </select>
-            </label>
+            <PickerSelect
+              label="Hero (Decks to Beat)"
+              wrapperClassName="w-full sm:w-auto"
+              triggerClassName="w-full sm:min-w-[16rem]"
+              value={selectedHero}
+              onValueChange={setSelectedHero}
+              disabled={heroesLoading}
+              placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
+            >
+              {heroes.map((h) => (
+                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                  {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                </SelectItem>
+              ))}
+            </PickerSelect>
+            <PickerSelect
+              label="Window"
+              triggerClassName="w-40"
+              value={String(archetypeMonths)}
+              onValueChange={(v) => setArchetypeMonths(Number(v))}
+            >
+              <SelectItem value="1" className="text-sm">Last 1 month</SelectItem>
+              <SelectItem value="3" className="text-sm">Last 3 months</SelectItem>
+              <SelectItem value="6" className="text-sm">Last 6 months</SelectItem>
+              <SelectItem value="12" className="text-sm">Last 12 months</SelectItem>
+            </PickerSelect>
             <Button
               size="sm"
               disabled={!selectedHero || busy || runningAction !== null}
@@ -1085,37 +1130,33 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         {/* Hero-kit picker — the curated pool for one hero + format */}
         {kitOpen && (
           <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <label className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
-              Format
-              <select
-                value={kitFormat}
-                onChange={(e) => setKitFormatAndLoad(e.target.value)}
-                className={`rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
-              >
-                <option>Classic Constructed</option>
-                <option>Silver Age</option>
-                <option>Blitz</option>
-                <option>Living Legend</option>
-                <option>Commoner</option>
-              </select>
-            </label>
-            <label className="flex w-full flex-col gap-1 text-xs text-gray-600 dark:text-gray-300 sm:w-auto">
-              Hero
-              <select
-                value={kitHero}
-                onChange={(e) => setKitHero(e.target.value)}
-                disabled={kitHeroesLoading}
-                className={`w-full sm:min-w-[16rem] rounded-md border border-border bg-background px-2 py-1.5 text-sm ${focusRing}`}
-              >
-                {kitHeroesLoading && <option>Loading heroes…</option>}
-                {!kitHeroesLoading && kitHeroes.length === 0 && <option value="">No kits in this format</option>}
-                {kitHeroes.map((h) => (
-                  <option key={h.heroName} value={h.heroName}>
-                    {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <PickerSelect
+              label="Format"
+              triggerClassName="w-52"
+              value={kitFormat}
+              onValueChange={setKitFormatAndLoad}
+            >
+              <SelectItem value="Classic Constructed" className="text-sm">Classic Constructed</SelectItem>
+              <SelectItem value="Silver Age" className="text-sm">Silver Age</SelectItem>
+              <SelectItem value="Blitz" className="text-sm">Blitz</SelectItem>
+              <SelectItem value="Living Legend" className="text-sm">Living Legend</SelectItem>
+              <SelectItem value="Commoner" className="text-sm">Commoner</SelectItem>
+            </PickerSelect>
+            <PickerSelect
+              label="Hero"
+              wrapperClassName="w-full sm:w-auto"
+              triggerClassName="w-full sm:min-w-[16rem]"
+              value={kitHero}
+              onValueChange={setKitHero}
+              disabled={kitHeroesLoading}
+              placeholder={kitHeroesLoading ? 'Loading heroes…' : kitHeroes.length === 0 ? 'No kits in this format' : 'Select a hero'}
+            >
+              {kitHeroes.map((h) => (
+                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                  {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
+                </SelectItem>
+              ))}
+            </PickerSelect>
             <Button
               size="sm"
               disabled={!kitHero || busy || runningAction !== null}
@@ -1165,6 +1206,65 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
               );
             }
             if (item.kind === 'data') {
+              // Shared card-table header + row renderer, reused by the flat table
+              // (binder / wants) and the section-grouped table (deck drills).
+              // Zebra is passed explicitly (not CSS :nth-child) so interleaved
+              // section subheaders don't flip the stripe parity.
+              const cardTableHead = (
+                <thead>
+                  <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
+                    <th className="w-6" aria-label="Pitch" />
+                    <th className="w-9" aria-label="Card image" />
+                    <th className="text-right whitespace-nowrap">Qty</th>
+                    <th className="w-full md:w-auto">Card</th>
+                    <th className="hidden md:table-cell md:w-full">Type</th>
+                    <th className="hidden sm:table-cell whitespace-nowrap">No.</th>
+                    <th className="hidden sm:table-cell whitespace-nowrap">Foil</th>
+                    <th className="text-right whitespace-nowrap">Price</th>
+                    <th className="whitespace-nowrap" aria-label="Trade status" />
+                  </tr>
+                </thead>
+              );
+              const renderCardRow = (r: CardRow, key: string, striped: boolean) => (
+                <tr
+                  key={key}
+                  onMouseEnter={() => showPreview(r.preview)}
+                  className={`border-b border-border/40 last:border-0 hover:bg-primary/[0.06] transition-colors ${striped ? 'bg-muted/30' : ''}`}
+                >
+                  <td className="align-middle w-6"><PitchGem pitch={r.pitch} /></td>
+                  <td className="align-middle w-9">
+                    {r.image ? (
+                      <img
+                        src={r.image}
+                        alt=""
+                        loading="lazy"
+                        className="h-11 w-8 shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
+                      />
+                    ) : null}
+                  </td>
+                  <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.qty}×</td>
+                  <td className="align-middle whitespace-nowrap font-medium w-full md:w-auto">
+                    <span
+                      tabIndex={0}
+                      onFocus={() => showPreview(r.preview)}
+                      onClick={() => showPreview(r.preview)}
+                      className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+                    >
+                      {r.name}
+                    </span>
+                    {r.extendedArt && <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">EA</span>}
+                    {r.marvel && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Marvel</span>}
+                  </td>
+                  <td className="hidden md:table-cell md:w-full align-middle py-1">
+                    {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
+                    {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
+                  </td>
+                  <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
+                  <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
+                  <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
+                  <td className="align-middle text-right whitespace-nowrap">{r.forTrade ? <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">trade</span> : r.priority ? <span className="text-xs text-gray-500 dark:text-gray-400">{r.priority}</span> : null}</td>
+                </tr>
+              );
               // The instant, no-AI action cluster. Rendered at BOTH the top and
               // bottom of the card so a tall result (long comparison / deck)
               // never scrolls its buttons out of reach after the auto-scroll.
@@ -1253,32 +1353,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                     </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
-                    <div className="max-h-96 overflow-y-auto overflow-x-hidden">
-                      <table className="w-full text-sm border-separate border-spacing-x-2 border-spacing-y-0.5">
+                    <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-border">
+                      <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
+                        {cardTableHead}
                         <tbody>
-                          {item.tableRows.map((r, i) => (
-                            <tr key={i}>
-                              <td className="align-middle w-5"><PitchGem pitch={r.pitch} /></td>
-                              <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.qty}×</td>
-                              <td className="align-middle break-words">
-                                <span
-                                  tabIndex={0}
-                                  onMouseEnter={() => showPreview(r.preview)}
-                                  onFocus={() => showPreview(r.preview)}
-                                  onClick={() => showPreview(r.preview)}
-                                  className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
-                                >
-                                  {r.name}
-                                </span>
-                                {r.extendedArt && <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">EA</span>}
-                                {r.marvel && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Marvel</span>}
-                              </td>
-                              <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
-                              <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
-                              <td className="align-middle text-right text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
-                              <td className="align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.forTrade ? 'trade' : r.priority ? r.priority : ''}</td>
-                            </tr>
-                          ))}
+                          {item.tableRows.map((r, i) => renderCardRow(r, String(i), i % 2 === 1))}
                         </tbody>
                       </table>
                     </div>
@@ -1289,6 +1368,16 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   {!(item.tableRows && item.tableRows.length > 0) && (
                   <ul className={`text-sm space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
                     {item.lines.map((line, lineIndex) => {
+                      // When a section table renders the cards (deck drills), drop
+                      // the now-redundant card rows + section-header strings here,
+                      // keeping only notes (color summary) + drill buttons (compare).
+                      if (item.tableSections && item.tableSections.length > 0) {
+                        if (typeof line === 'string') {
+                          if (line.startsWith('—')) return null;
+                        } else if (line.preview) {
+                          return null;
+                        }
+                      }
                       if (typeof line === 'string') {
                         // Section headers ("— Maindeck (28) —") vs plain notes.
                         const isHeader = line.startsWith('—');
@@ -1351,6 +1440,26 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       );
                     })}
                   </ul>
+                  )}
+                  {item.tableSections && item.tableSections.length > 0 && (
+                    <div className="mt-1 max-h-[32rem] overflow-y-auto overflow-x-hidden rounded-md border border-border">
+                      <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
+                        {cardTableHead}
+                        <tbody>
+                          {(() => {
+                            let n = 0;
+                            return item.tableSections!.flatMap((sec, si) => [
+                              <tr key={`h-${si}`} className="bg-muted/70">
+                                <td colSpan={9} className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 border-y border-border">
+                                  {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
+                                </td>
+                              </tr>,
+                              ...sec.rows.map((r, ri) => renderCardRow(r, `${si}-${ri}`, n++ % 2 === 1)),
+                            ]);
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
                     <div className="mt-1 max-h-96 overflow-y-auto overflow-x-auto">

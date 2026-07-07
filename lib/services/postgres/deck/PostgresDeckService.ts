@@ -87,6 +87,7 @@ export class PostgresDeckService implements IDeckService {
         defense: cards.defense,
         power: cards.power,
         text: cards.text,
+        typeTextDisplay: cards.typeTextDisplay,
         // printing fields
         set: printings.set,
         edition: printings.edition,
@@ -188,6 +189,7 @@ export class PostgresDeckService implements IDeckService {
               defense: dc.defense ?? undefined,
               power: dc.power ?? undefined,
               text: dc.text || undefined,
+              type_text_display: dc.typeTextDisplay || undefined,
             },
           };
 
@@ -933,6 +935,7 @@ export class PostgresDeckService implements IDeckService {
             defense: cards.defense,
             power: cards.power,
             text: cards.text,
+            typeTextDisplay: cards.typeTextDisplay,
             set: printings.set,
             edition: printings.edition,
             foiling: printings.foiling,

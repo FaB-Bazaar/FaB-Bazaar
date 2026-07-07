@@ -54,6 +54,7 @@ export interface WantsItemDTO {
   color?: string;
   type_text?: string;
   type_text_display?: string;
+  card_text?: string;
   is_extended_art?: boolean;
   image_url?: string;
   tcgplayer_url?: string;

@@ -642,6 +642,7 @@ export class PostgresWantsService implements IWantsService {
       color: cards.color,
       typeText: cards.typeText,
       typeTextDisplay: cards.typeTextDisplay,
+      text: cards.text,
       // User fields via JOIN
       discordUsername: users.discordUsername,
       discordId: users.discordId,
@@ -677,6 +678,7 @@ export class PostgresWantsService implements IWantsService {
       color: row.color || undefined,
       type_text: row.typeText || undefined,
       type_text_display: row.typeTextDisplay || undefined,
+      card_text: row.text || undefined,
       is_extended_art: row.isExtendedArt || false,
       image_url: row.imageUrl || undefined,
       tcgplayer_url: row.tcgplayerUrl || undefined,

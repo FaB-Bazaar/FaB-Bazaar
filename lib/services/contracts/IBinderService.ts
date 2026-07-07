@@ -291,6 +291,7 @@ export interface InventoryCardDTO {
   foil_inset_round: string | null;
   type_text: string;
   type_text_display: string;
+  card_text: string;
   image_url: string;
   tcg_market?: number;
   tcg_low?: number;

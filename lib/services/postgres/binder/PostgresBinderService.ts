@@ -1774,6 +1774,7 @@ export class PostgresBinderService implements IBinderService {
       color: cards.color,
       typeText: cards.typeText,
       typeTextDisplay: cards.typeTextDisplay,
+      text: cards.text,
     };
   }
 
@@ -1821,6 +1822,7 @@ export class PostgresBinderService implements IBinderService {
       foil_inset_round: row.foilInsetRound ?? null,
       type_text: row.typeText || '',
       type_text_display: row.typeTextDisplay || '',
+      card_text: row.text || '',
       image_url: row.imageUrl || '',
       tcg_market: row.tcgMarket ?? undefined,
       tcg_low: row.tcgLow ?? undefined,
