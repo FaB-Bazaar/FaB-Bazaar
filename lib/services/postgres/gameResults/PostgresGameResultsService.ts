@@ -283,6 +283,9 @@ export class PostgresGameResultsService {
            FROM game_results gr
            JOIN decks d ON d.id = gr.deck_id
           WHERE d.user_id = $1
+            -- mirror listUserDecks' personal scope: get_results resolves the
+            -- deck by name through it, so system-deck games are unanalyzable
+            AND d.is_system_deck = false
           ORDER BY gr.played_at DESC
           LIMIT $2`,
         [userId, limit]
