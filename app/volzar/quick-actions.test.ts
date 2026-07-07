@@ -17,6 +17,7 @@ import {
   parseSearchResults,
   harvestCardsFromStructured,
   summarizeGameResults,
+  buildAnalyzeGameMessage,
   summarizeArchetypeConsensus,
   summarizeToBeatDecks,
   mergeEventSummaries,
@@ -648,5 +649,39 @@ describe('summarizeGameResults', () => {
     const res = summarizeGameResults([]);
     expect(res.resultRows).toBeUndefined();
     expect(res.lines).toEqual(['No recorded games yet.']);
+  });
+
+  it('hint line points at the per-row Analyze click, not at typing a request', () => {
+    const res = summarizeGameResults(raw);
+    expect(res.lines[0]).toMatch(/click .*analyze/i);
+  });
+});
+
+describe('buildAnalyzeGameMessage', () => {
+  const row = {
+    deckName: 'Dash', deckPublicId: 'pub1', resultId: 'res-abc123',
+    playerHero: 'Dash Io', opponentHero: 'Kassai Of The Golden Sand',
+    result: 'loss' as const, date: '2026-07-01', format: '1',
+  };
+
+  it('bakes deckName + resultId into the API content so the model fetches exactly this game', () => {
+    const { content } = buildAnalyzeGameMessage(row);
+    expect(content).toContain('get_results');
+    expect(content).toContain('deckName "Dash"');
+    expect(content).toContain('resultId "res-abc123"');
+  });
+
+  it('display text is a short human line — matchup + date, no raw resultId', () => {
+    const { display } = buildAnalyzeGameMessage(row);
+    expect(display).toContain('Dash');
+    expect(display).toContain('Kassai Of The Golden Sand');
+    expect(display).toContain('2026-07-01');
+    expect(display).not.toContain('res-abc123');
+  });
+
+  it('content describes the matchup and outcome so the analysis has framing', () => {
+    const { content } = buildAnalyzeGameMessage(row);
+    expect(content).toMatch(/loss/i);
+    expect(content).toContain('Kassai Of The Golden Sand');
   });
 });

@@ -422,7 +422,7 @@ export function summarizeGameResults(
 
   const lines: CardLine[] = rows.length === 0
     ? ['No recorded games yet.']
-    : [`${rows.length} recent game${rows.length === 1 ? '' : 's'} (newest first). Ask me to analyze one.`];
+    : [`${rows.length} recent game${rows.length === 1 ? '' : 's'} (newest first). Click Analyze on a game for a breakdown.`];
 
   const context = rows.length === 0
     ? 'The user has no recorded game results.'
@@ -435,6 +435,25 @@ export function summarizeGameResults(
     lines,
     context,
     ...(rows.length ? { resultRows: rows } : {}),
+  };
+}
+
+/**
+ * One-click game analysis: build the chat turn the Analyze button sends on the
+ * user's behalf. `display` is the short human line shown as the user's bubble;
+ * `content` is what actually goes to the model — with deckName + resultId
+ * baked in so get_results fetches exactly this game (no "game 2" ambiguity).
+ */
+export function buildAnalyzeGameMessage(row: GameResultRow): { display: string; content: string } {
+  const matchup = `"${row.deckName}" (${row.playerHero}) vs ${row.opponentHero}`;
+  const when = row.date ? ` on ${row.date}` : '';
+  return {
+    display: `Analyze my game: ${matchup}${when}`,
+    content: [
+      `Analyze one of my recorded games: ${matchup}${when} — a ${row.result.toUpperCase()}${row.format ? ` (format ${row.format})` : ''}.`,
+      `Call get_results with deckName "${row.deckName}" and resultId "${row.resultId}" to fetch it,`,
+      `then give me a coaching breakdown: the key turning points, any misplays or better lines, and one thing to practice.`,
+    ].join(' '),
   };
 }
 

@@ -18,7 +18,7 @@ import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/cli
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
-  QUICK_ACTIONS, buildMessageWithContext, runDrill, parseSearchResults, harvestCardsFromStructured,
+  QUICK_ACTIONS, buildMessageWithContext, buildAnalyzeGameMessage, runDrill, parseSearchResults, harvestCardsFromStructured,
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand, printingToSwapOption,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow,
@@ -640,23 +640,35 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     abortRef.current = null;
   }, [handleEvent]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
-    if (!text || busy) return;
-
-    setInput('');
-
-    // Attach any queued quick-action context to this turn, then clear the
-    // queue. The UI bubble shows only what the user typed.
-    const content = buildMessageWithContext(pendingContextRef.current, text);
+  // Send one user turn. `display` is what the user's chat bubble shows;
+  // `rawContent` is what the model receives (plus any queued quick-action
+  // context, which is attached here and then cleared). They differ for
+  // programmatic turns like the Game-results Analyze button, where the
+  // content carries deckName/resultId the bubble doesn't need to show.
+  const sendTurn = useCallback(async (display: string, rawContent: string) => {
+    if (busy) return;
+    const content = buildMessageWithContext(pendingContextRef.current, rawContent);
     pendingContextRef.current = [];
 
     const nextMessages: ChatMessage[] = [...apiMessages, { role: 'user', content }];
     setApiMessages(nextMessages);
-    setItems((prev) => [...prev, { kind: 'user', text }]);
+    setItems((prev) => [...prev, { kind: 'user', text: display }]);
 
     await performTurn(nextMessages, model);
-  }, [input, busy, apiMessages, model, performTurn]);
+  }, [busy, apiMessages, model, performTurn]);
+
+  const send = useCallback(async () => {
+    const text = input.trim();
+    if (!text || busy) return;
+    setInput('');
+    await sendTurn(text, text);
+  }, [input, busy, sendTurn]);
+
+  // One-click game analysis from a Game-results row (uses AI: one chat turn).
+  const analyzeGame = useCallback((row: GameResultRow) => {
+    const { display, content } = buildAnalyzeGameMessage(row);
+    void sendTurn(display, content);
+  }, [sendTurn]);
 
   // Re-run the last user turn (optionally on a different model): trims any
   // partial assistant/tool messages from the failed attempt so the payload
@@ -1253,6 +1265,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                             <th className="font-medium">Opponent</th>
                             <th className="font-medium whitespace-nowrap">Date</th>
                             <th className="font-medium">Result</th>
+                            <th><span className="sr-only">Analyze</span></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1266,6 +1279,19 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                                 <span className={`font-semibold ${r.result === 'win' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                                   {r.result === 'win' ? 'WIN' : 'LOSS'}
                                 </span>
+                              </td>
+                              <td className="align-middle whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => analyzeGame(r)}
+                                  disabled={busy || runningAction !== null}
+                                  title={`Volzar analyzes this game — uses AI (1 message)`}
+                                  className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-sm text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
+                                  Analyze
+                                </button>
                               </td>
                             </tr>
                           ))}
