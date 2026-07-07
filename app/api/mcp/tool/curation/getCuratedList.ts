@@ -162,6 +162,9 @@ function mapCuratedCard(c: any): any {
     rarity: c.rarity,
     foiling: c.foiling,
     edition: c.edition,
+    type_text: c.typeTextDisplay ?? c.type_text,
+    pitch: c.pitch,
+    text: c.text,
     tcg_low: c.tcgLow ?? c.tcg_low,
     tcg_market: c.tcgMarket ?? c.tcg_market,
     image_url: c.imageUrl ?? c.image_url,
@@ -169,16 +172,26 @@ function mapCuratedCard(c: any): any {
   };
 }
 
+const PITCH_LABELS: Record<number, string> = { 1: 'R', 2: 'Y', 3: 'B' };
+const MAX_TABLE_TEXT = 220;
+
 function buildCuratedTable(cards: any[]): string {
-  const header = '| # | Name | Set | Rarity | Price |\n' +
-                 '|--:|------|:---:|:------:|------:|';
+  // Type / Pitch / Text make the pool self-describing for AI clients: a model
+  // recommending from this list can quote the REAL rules text instead of
+  // describing effects from memory.
+  const header = '| # | Name | Type | Pitch | Set | Rarity | Price | Text |\n' +
+                 '|--:|------|------|:-----:|:---:|:------:|------:|------|';
   const rows = cards.map((c, i) => {
     const name = cPipe(String(c.name ?? ''));
+    const type = cPipe(String(c.type_text ?? ''));
+    const pitch = typeof c.pitch === 'number' ? (PITCH_LABELS[c.pitch] ?? '') : '';
     const set = c.set ? String(c.set).toUpperCase() : '';
     const rarity = c.rarity ? (RARITY_LABELS[String(c.rarity).toLowerCase()] ?? c.rarity) : '';
     const priceRaw = c.tcg_market ?? c.tcg_low;
     const price = priceRaw == null ? '—' : `$${Number(priceRaw).toFixed(2)}`;
-    return `| ${i + 1} | ${name} | ${set} | ${rarity} | ${price} |`;
+    const rawText = String(c.text ?? '').replace(/\s+/g, ' ').trim();
+    const text = cPipe(rawText.length > MAX_TABLE_TEXT ? `${rawText.slice(0, MAX_TABLE_TEXT)}…` : rawText);
+    return `| ${i + 1} | ${name} | ${type} | ${pitch} | ${set} | ${rarity} | ${price} | ${text} |`;
   });
   return [header, ...rows].join('\n');
 }

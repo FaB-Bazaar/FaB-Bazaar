@@ -137,3 +137,43 @@ describe('PostgresCuratedListService.getAllPublished', () => {
     }
   });
 });
+
+describe('getListById — card text for deck-recommendation grounding', () => {
+  it('each card carries the rules text and pitch so the AI can quote real effects', async () => {
+    // Pick a printing whose card HAS rules text (many tokens/vanilla cards do not)
+    const [row] = await db
+      .select({ printingId: printings.printingId, text: cards.text, pitch: cards.pitch })
+      .from(printings)
+      .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+      .where(eq(cards.pitch, 1))
+      .limit(1);
+    if (!row?.text) throw new Error('Need a card with text seeded');
+
+    const textListId = crypto.randomUUID();
+    await db.insert(curatedLists).values({
+      id: textListId,
+      name: `Text List ${textListId}`,
+      format: 'Classic Constructed',
+      heroName: 'katsu-the-wanderer',
+      isPublished: true,
+      createdBy: testUserId,
+    });
+    await db.insert(curatedListCards).values({
+      id: crypto.randomUUID(),
+      listId: textListId,
+      printingId: row.printingId,
+      sortOrder: 0,
+    });
+
+    try {
+      const res = await service.getListById(textListId);
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      const card = res.data.cards![0];
+      expect(card.text).toBe(row.text);
+      expect(card.pitch).toBe(row.pitch);
+    } finally {
+      await db.delete(curatedLists).where(eq(curatedLists.id, textListId));
+    }
+  });
+});

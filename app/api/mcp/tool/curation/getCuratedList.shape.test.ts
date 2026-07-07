@@ -19,6 +19,8 @@ describe('shapeCuratedListForMcp', () => {
             setCode: 'ele', collectorNumber: '146',
             rarity: 'm', foiling: 'r', edition: 'f',
             tcgLow: 10, tcgMarket: 12.5,
+            typeTextDisplay: 'Ice Wizard Action', pitch: 2,
+            text: 'If Channel Lake Frigid is in your banished zone, you may play it this turn.',
             imageUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/p-channel/public',
           },
           {
@@ -38,8 +40,10 @@ describe('shapeCuratedListForMcp', () => {
     expect(text).toContain("List 'Prism Staples'");
     expect(text).toContain('Hero: Prism · CC · Published');
     expect(text).toContain('Must-have cards for Prism.');
-    expect(text).toMatch(/\| # \| Name \| Set \| Rarity \| Price \|/);
+    expect(text).toMatch(/\| # \| Name \| Type \| Pitch \| Set \| Rarity \| Price \| Text \|/);
     expect(text).toContain('Channel Lake Frigid');
+    expect(text).toContain('Ice Wizard Action');      // type column
+    expect(text).toContain('banished zone');          // rules text column
     expect(text).toContain('Majestic');
     expect(text).toContain('Legendary');
     expect(text).toContain('$12.50'); // tcg_market wins

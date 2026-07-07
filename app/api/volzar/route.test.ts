@@ -307,6 +307,17 @@ describe('assembleMessages', () => {
     expect(system.content).toContain('heroLegal');
   });
 
+  it('system prompt gives deck-building a tool-call budget so the 8-iteration loop cap is never hit', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    expect(system.content).toMatch(/8 tool calls/i);
+    expect(system.content).toMatch(/2.3 (of the )?most relevant/i);
+  });
+
+  it('system prompt forbids describing card effects from memory', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    expect(system.content).toMatch(/never describe a card'?s effect from memory/i);
+  });
+
   it('system prompt requires batch-verifying every recommended card before answering', () => {
     const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
     expect(system.content).toMatch(/every card you recommend/i);

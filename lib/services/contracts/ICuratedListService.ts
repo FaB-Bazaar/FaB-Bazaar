@@ -19,6 +19,10 @@ export interface CuratedListCardDTO {
   types?: string[];
   keywords?: string[];
   typeTextDisplay?: string;
+  /** 1=red, 2=yellow, 3=blue. */
+  pitch?: number;
+  /** Rules text — lets AI clients quote real effects when recommending. */
+  text?: string;
   tcgLow?: number;
   tcgMarket?: number;
   tcgMid?: number;
