@@ -1094,7 +1094,11 @@ export async function fetchKitHeroes(format: string): Promise<KitHero[]> {
 
 /** Fetch + format one hero's curated kit pool (deterministic, no AI). */
 export async function runHeroKit(heroName: string, displayName: string, format: string): Promise<QuickActionResult> {
-  const response = await fetch(`/api/curated-lists?heroName=${encodeURIComponent(heroName)}`, { credentials: 'include' });
+  // view=public: the authenticated GET routes superadmins → getAllLists() and
+  // curators → getListsForCurator(), both card-LESS admin listings — the kit
+  // rendered empty for exactly those roles. Public view = published lists WITH
+  // cards, for every caller.
+  const response = await fetch(`/api/curated-lists?heroName=${encodeURIComponent(heroName)}&view=public`, { credentials: 'include' });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load the hero kit');
   return summarizeHeroKit(displayName, format, body.data ?? []);

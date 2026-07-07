@@ -12,13 +12,33 @@ vi.mock('@/lib/client', () => ({
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
-import { QUICK_ACTIONS } from './quick-actions';
+import { QUICK_ACTIONS, runHeroKit } from './quick-actions';
 import { decksClient } from '@/lib/client';
 
 const mockGetUserDecks = vi.mocked(decksClient.getUserDecks);
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe('runHeroKit', () => {
+  it('requests the PUBLIC view — the authenticated superadmin/curator branches return lists without cards', async () => {
+    // GET /api/curated-lists routes superadmins to getAllLists() and curators
+    // to getListsForCurator(), both card-less admin listings — so the kit card
+    // rendered empty for exactly those roles. view=public forces the
+    // published-lists-with-cards branch for every caller.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: [] }),
+    } as any);
+
+    await runHeroKit('dorinthea ironsong', 'Dorinthea Ironsong', 'Classic Constructed');
+
+    const url = String(fetchSpy.mock.calls[0][0]);
+    expect(url).toContain('view=public');
+    expect(url).toContain('heroName=dorinthea%20ironsong');
+    fetchSpy.mockRestore();
+  });
 });
 
 describe('decks quick action', () => {
