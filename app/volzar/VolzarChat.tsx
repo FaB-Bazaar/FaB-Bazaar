@@ -232,7 +232,9 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
     </tr>
   );
   return (
-    <div className={`${maxHeightClass} overflow-y-auto overflow-x-hidden rounded-md border border-border ${className}`}>
+    // Thin themed scrollbar: the table scrolls inside the chat scroll, and a
+    // full-width OS bar here read as "tables within tables" on Windows.
+    <div className={`${maxHeightClass} overflow-y-auto overflow-x-hidden rounded-md border border-border [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent ${className}`}>
       <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
         <thead>
           <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
@@ -2132,7 +2134,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     </div>
 
     {/* Desktop card preview + action rail */}
-    <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto">
+    {/* Scrollbar hidden (still wheel/touch-scrollable): on short windows the
+        rail's own bar stacked beside the chat + window bars — the "4
+        scrollbars" report. Same pattern as the quick-action strip. */}
+    <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {previewCard ? (
         <CardPreviewPanel
           card={previewCard}

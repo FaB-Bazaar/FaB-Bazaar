@@ -79,9 +79,13 @@ export default async function VolzarPage({ searchParams }: {
   return (
     // Full-bleed app shell: the chat owns the viewport below the navbar (like a
     // dedicated chat app) instead of floating as a card in a centered gutter.
-    // Height reserves navbar (4rem) + minimal legal footer (~2rem) on desktop,
-    // plus the mobile bottom tab bar (~3.5rem) on small screens.
-    <div className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-6.75rem)] sm:px-4">
+    // Height reserves navbar (4rem + 1px border = 65px) + the legal footer,
+    // which wraps to TWO lines inside its max-w-5xl (≈47px) — so desktop chrome
+    // is ~112.3px. Reserving less (the old 6.75rem) left the page 4px taller
+    // than the viewport → a permanent window scrollbar on OSes with
+    // non-overlay scrollbars ("4 scrollbars" report). Mobile keeps the larger
+    // reservation for the bottom tab bar (~3.5rem).
+    <div className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
       <VolzarChat
         username={user.name || 'collector'}
         userId={user.id}
