@@ -8,13 +8,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen,
 } from 'lucide-react';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialog';
 import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
@@ -27,7 +28,7 @@ import {
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
-  shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty,
+  shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   type RowMutation,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -741,7 +742,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     return m;
   }, [previewsByPid, items]);
   // Rail actions: binder picker options + per-card action feedback
-  const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string }>>([]);
+  const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string; slug?: string }>>([]);
   const [targetBinderId, setTargetBinderId] = useState<string>('');
   const [railStatus, setRailStatus] = useState<{ wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' }>({});
   // Card-search add flow (split buttons on My binders / My wants). Adds made
@@ -760,6 +761,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const dataUidRef = useRef(0);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
+  // "New binder…" inline creation row (opened from the tri-button dropdown)
+  const [newBinderOpen, setNewBinderOpen] = useState(false);
+  const [newBinderName, setNewBinderName] = useState('');
+  const [creatingBinder, setCreatingBinder] = useState(false);
   // Cumulative session usage (accumulated from done events)
   const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
   const modelRef = useRef(models[0]);
@@ -1335,6 +1340,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, []);
 
+  // "New binder…": create → select as the add target → queue a context line so
+  // the next chat message teaches Volzar the binder exists ("put my Kano cards
+  // in <name>" then routes through add_to_binder with zero lookups).
+  const createNewBinder = useCallback(async () => {
+    if (creatingBinder || !newBinderName.trim()) return;
+    setCreatingBinder(true);
+    try {
+      const res = await createBinderTarget(
+        newBinderName,
+        binderOptions.map((b) => b.slug).filter((s): s is string => !!s),
+      );
+      if (!res.ok) {
+        setErrorBanner(res.error);
+        return;
+      }
+      setBinderOptions((prev) => [...prev, res.binder]);
+      setTargetBinderId(res.binder._id);
+      setNewBinderOpen(false);
+      setNewBinderName('');
+      pendingContextRef.current.push(res.context);
+      setItems((prev) => [...prev, {
+        kind: 'data',
+        uid: `d${++dataUidRef.current}`,
+        title: `Created binder “${res.binder.name}”`,
+        lines: ['Empty for now — use the + button to search cards in, or just tell Volzar what belongs in it.'],
+      }]);
+    } finally {
+      setCreatingBinder(false);
+    }
+  }, [creatingBinder, newBinderName, binderOptions]);
+
   // Split-button add flow. The dialog closes itself synchronously after a
   // single "Add to X" (onSelectCard → onOpenChange(false) in the same tick),
   // so the added-card label is recorded optimistically BEFORE the request
@@ -1509,6 +1545,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                             {b._id === targetBinderId ? '✓ ' : ''}{b.name}
                           </DropdownMenuItem>
                         ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => { setNewBinderOpen(true); setToBeatOpen(false); setArchetypeOpen(false); setKitOpen(false); }}
+                          className="text-base text-blue-700 dark:text-blue-400"
+                        >
+                          <Plus className="h-4 w-4" aria-hidden="true" /> New binder…
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button
@@ -1573,6 +1616,35 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             Hero kit
           </Button>
         </div>
+
+        {/* "New binder…" inline creation row (from the tri-button dropdown).
+            Creating selects it as the add target and queues AI context so chat
+            adds ("put X in <name>") resolve immediately. */}
+        {newBinderOpen && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 dark:bg-muted p-3">
+            <Input
+              value={newBinderName}
+              onChange={(e) => setNewBinderName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void createNewBinder(); if (e.key === 'Escape') setNewBinderOpen(false); }}
+              placeholder="New binder name…"
+              aria-label="New binder name"
+              className={`w-64 text-base ${focusRing}`}
+              autoFocus
+            />
+            <Button
+              size="sm"
+              onClick={() => void createNewBinder()}
+              disabled={creatingBinder || !newBinderName.trim()}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {creatingBinder && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Create binder
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setNewBinderOpen(false)} className={focusRing}>
+              Cancel
+            </Button>
+          </div>
+        )}
 
         {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
         {toBeatOpen && (

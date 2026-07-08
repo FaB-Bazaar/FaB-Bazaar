@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/client', () => ({
-  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn(), updateBinderCard: vi.fn(), deleteBinderCard: vi.fn() },
+  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn(), updateBinderCard: vi.fn(), deleteBinderCard: vi.fn(), createBinder: vi.fn() },
   wantsClient: { getUserWants: vi.fn(), addWantsItem: vi.fn(), removeWantsItem: vi.fn() },
   decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn(), addPrintings: vi.fn(), removePrinting: vi.fn() },
 }));
@@ -15,7 +15,7 @@ vi.mock('@/lib/client', () => ({
 import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
-  adjustRowQuantity,
+  adjustRowQuantity, createBinderTarget,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
@@ -23,6 +23,7 @@ const mockGetUserDecks = vi.mocked(decksClient.getUserDecks);
 const mockAddCardsToBinder = vi.mocked(bindersClient.addCardsToBinder);
 const mockUpdateBinderCard = vi.mocked(bindersClient.updateBinderCard);
 const mockDeleteBinderCard = vi.mocked(bindersClient.deleteBinderCard);
+const mockCreateBinder = vi.mocked(bindersClient.createBinder);
 const mockAddWantsItem = vi.mocked(wantsClient.addWantsItem);
 const mockRemoveWantsItem = vi.mocked(wantsClient.removeWantsItem);
 const mockAddPrintings = vi.mocked(decksClient.addPrintings);
@@ -281,5 +282,46 @@ describe('adjustRowQuantity', () => {
     mockUpdateBinderCard.mockResolvedValue({ success: false, error: 'locked' } as any);
     const result = await adjustRowQuantity({ kind: 'binder', binderId: 'b1' }, row(), 1);
     expect(result).toEqual({ ok: false, error: 'locked' });
+  });
+});
+
+describe('createBinderTarget', () => {
+  it('creates the binder (trimmed name + derived unique slug — the API requires both)', async () => {
+    mockCreateBinder.mockResolvedValue({ success: true, data: { _id: 'nb1', name: 'Trade Fodder' } } as any);
+
+    const result = await createBinderTarget('  Trade Fodder  ', ['wizard']);
+
+    expect(mockCreateBinder).toHaveBeenCalledWith({ name: 'Trade Fodder', slug: 'trade-fodder' });
+    expect(result).toMatchObject({ ok: true, binder: { _id: 'nb1', name: 'Trade Fodder' } });
+    expect((result as any).context).toContain('"Trade Fodder"');
+    expect((result as any).context).toContain('add_to_binder');
+  });
+
+  it('tolerates the {binder: {...}} wire shape and an `id` field', async () => {
+    mockCreateBinder.mockResolvedValue({ success: true, data: { binder: { id: 'nb2', name: 'X' } } } as any);
+
+    const result = await createBinderTarget('X', []);
+
+    expect(result).toMatchObject({ ok: true, binder: { _id: 'nb2', name: 'X' } });
+  });
+
+  it('suffixes the slug when the base is already taken', async () => {
+    mockCreateBinder.mockResolvedValue({ success: true, data: { _id: 'nb3', name: 'Wizard' } } as any);
+
+    await createBinderTarget('Wizard', ['wizard', 'pirate']);
+
+    expect(mockCreateBinder).toHaveBeenCalledWith({ name: 'Wizard', slug: 'wizard-2' });
+  });
+
+  it('rejects an empty name without calling the API', async () => {
+    const result = await createBinderTarget('   ', []);
+    expect(result.ok).toBe(false);
+    expect(mockCreateBinder).not.toHaveBeenCalled();
+  });
+
+  it('surfaces the client error on failure', async () => {
+    mockCreateBinder.mockResolvedValue({ success: false, error: 'name taken' } as any);
+    const result = await createBinderTarget('Dupe', []);
+    expect(result).toEqual({ ok: false, error: 'name taken' });
   });
 });

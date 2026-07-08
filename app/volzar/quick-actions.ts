@@ -15,7 +15,7 @@
 // returns the old WantsList format).
 
 import { bindersClient, wantsClient, decksClient } from '@/lib/client';
-import { getCardImageUrl } from '@/lib/utils';
+import { getCardImageUrl, generateUniqueBinderSlug } from '@/lib/utils';
 import { matchesDeckFilter } from '@/lib/deck/deck-filter';
 import { deckColorBreakdown, type DeckViewCard } from '@/lib/deck/analytics';
 
@@ -996,6 +996,35 @@ export async function adjustRowQuantity(
     : await decksClient.removePrinting(mutation.publicId, printingId, category, 1);
   if (!result.success) return { ok: false, error: result.error };
   return { ok: true, newQty };
+}
+
+/**
+ * Create a binder from the tri-button dropdown and make it the add target.
+ * The returned context line rides the pending-context queue so the NEXT chat
+ * message teaches Volzar the binder exists — "put 3 Command and Conquer in
+ * <name>" then resolves via the add_to_binder tool without any lookup.
+ */
+export async function createBinderTarget(name: string, existingSlugs: string[]): Promise<
+  | { ok: true; binder: { _id: string; name: string }; context: string }
+  | { ok: false; error: string }
+> {
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, error: 'Binder name is required.' };
+  // POST /api/binders requires name AND slug; derive it like the collection page.
+  const slug = generateUniqueBinderSlug(trimmed, existingSlugs);
+  const result = await bindersClient.createBinder({ name: trimmed, slug } as any);
+  if (!result.success) return { ok: false, error: result.error };
+  // Tolerate both wire shapes ({...binder} or {binder: {...}}) and id vs _id.
+  const raw = result.data as any;
+  const binder = raw?.binder ?? raw;
+  const id = binder?._id ?? binder?.id;
+  if (!id) return { ok: false, error: 'Binder created but no id returned — reload and try again.' };
+  const binderName = binder?.name ?? trimmed;
+  return {
+    ok: true,
+    binder: { _id: String(id), name: binderName },
+    context: `The user just created a new EMPTY binder named "${binderName}". When they ask to add cards to it (by this name), use the add_to_binder tool targeting binder "${binderName}".`,
+  };
 }
 
 // ---------------------------------------------------------------------------
