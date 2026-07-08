@@ -775,8 +775,9 @@ describe('summarizeHeroKit', () => {
         {
           displayName: 'Standing Ovation', printingId: 'p-so', pitch: 3,
           typeTextDisplay: 'Revered Guardian Action - Attack',
-          text: 'If 3 or more auras of suspense have left the arena this turn, you get an extra turn.',
+          text: 'if 3 or more auras of suspense have left the arena this turn, you get an extra turn.',
           imageUrl: 'https://img/p-so.webp', tcgLow: 1.87,
+          collectorNumber: 'MST100', foiling: 's',
         },
       ],
     },
@@ -814,6 +815,28 @@ describe('summarizeHeroKit', () => {
     expect(res.context).toContain('Arcane Barrier 3');
     expect(res.context).not.toContain('Wrong Format Card');
     expect(res.context).toMatch(/curated kit/i);
+  });
+
+  it('emits section-grouped table rows like deck/binder cards (consistent UI)', () => {
+    const res = summarizeHeroKit('Pleiades, Superstar', 'Classic Constructed', lists as any);
+    expect(res.tableSections?.map((s) => [s.title, s.count])).toEqual([
+      ['Attack Actions', 1],
+      ['Equipment', 1],
+    ]);
+    const so = res.tableSections![0].rows[0];
+    expect(so).toMatchObject({
+      qty: 1,
+      name: 'Standing Ovation',
+      pitch: 3,
+      collector: 'MST100',
+      foiling: 's',
+      type: 'Revered Guardian Action - Attack',
+      image: 'https://img/p-so.webp',
+      price: 1.87,
+    });
+    // Rules text rides the row (sentence-cased for display, like deck drills).
+    expect(so.text).toMatch(/^If 3 or more auras of suspense/);
+    expect(so.preview.printingId).toBe('p-so');
   });
 
   it('offers the card-grid overlay for every kit card', () => {

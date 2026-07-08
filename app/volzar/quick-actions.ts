@@ -522,6 +522,8 @@ export interface HeroKitList {
     typeTextDisplay?: string;
     text?: string;
     imageUrl?: string;
+    collectorNumber?: string;
+    foiling?: string;
     tcgLow?: number;
     tcgMarket?: number;
     tcgplayerUrl?: string;
@@ -562,15 +564,32 @@ export function summarizeHeroKit(displayName: string, format: string, lists: Her
   const lines: CardLine[] = [];
   const contextParts: string[] = [];
   const viewCards: DeckViewCard[] = [];
+  // Section-grouped striped table — the same renderer deck drills and binders
+  // use, so the kit reads consistently (thumbnail, type, rules text, price).
+  const tableSections: Array<{ title: string; count: number; rows: CardRow[] }> = [];
   for (const list of matching) {
     const cards = list.cards!;
     lines.push(`— ${list.name} (${cards.length}) —`);
     const ctxCards: string[] = [];
+    const rows: CardRow[] = [];
     for (const c of cards) {
       const name = c.displayName || 'Unknown card';
+      const pitch = typeof c.pitch === 'number' && c.pitch > 0 ? c.pitch : undefined;
       lines.push({
         text: `${name}${c.typeTextDisplay ? ` — ${c.typeTextDisplay}` : ''}`,
-        pitch: typeof c.pitch === 'number' && c.pitch > 0 ? c.pitch : undefined,
+        pitch,
+        preview: preview(c, name),
+      });
+      rows.push({
+        qty: 1,
+        name,
+        pitch,
+        collector: c.collectorNumber?.toUpperCase() || undefined,
+        foiling: c.foiling || undefined,
+        type: c.typeTextDisplay || undefined,
+        text: prettifyCardText(c.text, name),
+        image: c.imageUrl || getCardImageUrl({ printingId: c.printingId }),
+        price: c.tcgLow ?? c.tcgMarket,
         preview: preview(c, name),
       });
       viewCards.push({
@@ -586,6 +605,7 @@ export function summarizeHeroKit(displayName: string, format: string, lists: Her
         + (text ? `: "${text.length > KIT_TEXT_MAX ? `${text.slice(0, KIT_TEXT_MAX)}…` : text}"` : ''),
       );
     }
+    tableSections.push({ title: list.name, count: cards.length, rows });
     contextParts.push(`${list.name}: ${ctxCards.join('; ')}`);
   }
 
@@ -595,6 +615,7 @@ export function summarizeHeroKit(displayName: string, format: string, lists: Her
     context: `Curated kit pool for ${displayName} (${format}) — the curator's real, legal cards to build a deck from, with each card's type and rules text. ${contextParts.join('. ')}`,
     cards: viewCards,
     cardsSubtitle: `Curated kit pool — ${viewCards.length} cards`,
+    tableSections,
   };
 }
 
