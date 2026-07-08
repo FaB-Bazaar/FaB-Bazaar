@@ -4,6 +4,7 @@ import { FABShorthandParser } from '@/lib/fab-shorthand-parser';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
 import { sortPrintings, normalizeSetCode } from '@/lib/fab-constants/sets';
 import { buildOptSearchUrl } from '@/lib/search/filters-to-opt-url';
+import { normalizeResponseLanguage, localizeSearchOutput } from './localizeResults';
 import type { PrintingsSearchFilters, PrintingsSearchOptions } from '@/lib/services/contracts/IPrintingsService';
 
 const shorthandParser = new FABShorthandParser();
@@ -26,17 +27,26 @@ const COLOR_TO_PITCH: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
 type PriceField = 'tcg_low' | 'tcg_mid' | 'tcg_high' | 'tcg_market';
 const VALID_PRICE_FIELDS = new Set<string>(['tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market']);
 function resolvePriceField(f?: string): PriceField { return f && VALID_PRICE_FIELDS.has(f) ? f as PriceField : 'tcg_low'; }
-type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean; priceField?: PriceField };
+type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean; priceField?: PriceField; language?: string };
 
 function formatPrinting(p: any, opts: ProjectOptions = {}): string {
+  // Localized results (options.language) lead with the translated name; the
+  // English name stays alongside as the canonical trading/Talishar identifier.
+  const enName = p.display_name || p.name || 'Unknown';
+  const title = p.name_local && p.name_local !== enName ? `${p.name_local} · ${enName}` : enName;
   const lines = [
-    `• ${p.display_name || p.name || 'Unknown'} (${p.collector_number || 'N/A'})`,
+    `• ${title} (${p.collector_number || 'N/A'})`,
     `    Printing ID: ${p.printing_id}`,
     `    Card Unique ID: ${p.card_unique_id}`,
     `    Set: ${(p.set || '?').toUpperCase()} | ${EDITION_DISPLAY[p.edition] || p.edition || '?'} | ${FOILING_DISPLAY[p.foiling] || p.foiling || '?'}`,
     `    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${(() => { const v = p[resolvePriceField(opts.priceField)]; return v ? `$${v.toFixed(2)}` : 'N/A'; })()}`,
     `    Types: ${Array.isArray(p.types) && p.types.length > 0 ? p.types.join(', ') : '—'}`,
   ];
+  if (p.language && p.language !== 'en') {
+    lines.push(`    Language: ${String(p.language).toUpperCase()}`);
+  } else if (p.name_local && opts.language) {
+    lines.push(`    Language: EN (no ${opts.language.toUpperCase()} printing exists — English printing shown)`);
+  }
   if (opts.includeImage && p.image_url) lines.push(`    Image: ${p.image_url}`);
   if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) {
     lines.push(`    Artists: ${p.artists.join(', ')}`);
@@ -169,6 +179,10 @@ function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   };
   if (p.is_extended_art) out.ea = true;
   if (Array.isArray(p.art_variations) && p.art_variations.length > 0) out.art = p.art_variations;
+  // Localization (options.language): non-English printing language + the
+  // translated card name. English rows carry neither (en is the default).
+  if (p.language && p.language !== 'en') out.language = p.language;
+  if (p.name_local) out.name_local = p.name_local;
   // Card-level grouping: how many printings this representative stands in for.
   if (typeof p.printing_count === 'number' && p.printing_count > 1) out.printing_count = p.printing_count;
   if (opts.includeImage && p.image_url) out.image_url = p.image_url;
@@ -449,6 +463,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           groupByCard: { type: 'boolean', default: true, description: 'Default TRUE: return ONE representative printing per card (+ printing_count), so a broad search yields distinct cards — not every set/edition/foiling/language/price of each. Set FALSE only when you need every individual printing: harvesting a specific printing_id, or comparing versions/prices of one card.' },
           sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'color', 'foiling', 'edition', 'relevance'] },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] },
+          language:  { type: 'string', enum: ['en', 'fr', 'de', 'it', 'es', 'ja'], description: 'Localize results for a non-English conversation: each result swaps to that language\'s printing WHEN ONE EXISTS (image, set, collector number, translated rules text) and carries name_local (the translated card name). Cards without a printing in the language keep their English printing (marked "no XX printing exists"). Card-name QUERIES must still use ENGLISH names — translated names are not searchable. Default en = no localization.' },
           includeImage:   { type: 'boolean', description: 'Include image_url per printing. Default false.' },
           includeArtists: { type: 'boolean', description: 'Include artists[] per printing. Default false.' },
           includeText:    { type: 'boolean', description: 'Include card text per printing. Default false.' },
@@ -589,6 +604,33 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       });
     }
 
+    // ── Language localization (options.language) ─────────────────────────────
+    // Swap each result to that language's printing when one exists (joined by
+    // card_unique_id, closest foiling/edition/set) and attach the translated
+    // card name. Cards without a printing in the language keep their English
+    // printing — guaranteed fallback, never an empty result.
+    const responseLanguage = normalizeResponseLanguage(options.language);
+    if (responseLanguage) {
+      const cardIds = [...new Set(
+        output.flatMap(r => r.printings.map((p: any) => p.card_unique_id)).filter(Boolean),
+      )] as string[];
+      if (cardIds.length > 0) {
+        const [variantsRes, translationsRes] = await Promise.all([
+          printingsService.searchPrintings(
+            { cardUniqueIds: cardIds, languages: [responseLanguage] },
+            { limit: 500, groupByCard: false },
+          ),
+          printingsService.getCardTranslations(cardIds, responseLanguage),
+        ]);
+        localizeSearchOutput(
+          output,
+          variantsRes.success ? (variantsRes.data?.printings ?? []) : [],
+          translationsRes.success ? translationsRes.data : [],
+          responseLanguage,
+        );
+      }
+    }
+
     const duration = Date.now() - startTime;
     const totalFound = output.reduce((sum, r) => sum + r.total, 0);
     const dbPath = simpleIndices.length > 0 && complexIndices.length === 0
@@ -603,6 +645,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       includeArtists: !!options.includeArtists,
       includeText: !!options.includeText,
       priceField: firstPriceField,
+      language: responseLanguage ?? undefined,
     };
 
     const sections = formatSearchSections(output, projectOpts);

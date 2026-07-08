@@ -19,6 +19,7 @@ import type {
   PriceStatistics,
   EssenceStatistics,
   CardSummaryDTO,
+  CardTranslationDTO,
   HeroPoolFilters,
   HeroLegalityFlag,
   HeroLegalityRow,
@@ -696,6 +697,43 @@ export class PostgresPrintingsService implements IPrintingsService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to resolve card summaries',
+      };
+    }
+  }
+
+  /**
+   * Bulk card_translations lookup for one language. Cards without a
+   * translation row are omitted (callers COALESCE to English). Empty input
+   * short-circuits without a DB round trip.
+   */
+  async getCardTranslations(
+    cardUniqueIds: string[],
+    language: string
+  ): AsyncResult<CardTranslationDTO[]> {
+    try {
+      if (cardUniqueIds.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const rows = await db
+        .select({
+          cardUniqueId: cardTranslations.cardUniqueId,
+          language: cardTranslations.language,
+          name: cardTranslations.name,
+          displayName: cardTranslations.displayName,
+          text: cardTranslations.text,
+        })
+        .from(cardTranslations)
+        .where(and(
+          inArray(cardTranslations.cardUniqueId, cardUniqueIds),
+          eq(cardTranslations.language, language.toLowerCase()),
+        ));
+
+      return { success: true, data: rows };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch card translations',
       };
     }
   }

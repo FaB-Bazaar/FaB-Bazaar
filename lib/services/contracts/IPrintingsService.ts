@@ -545,6 +545,18 @@ export interface CardSummaryDTO {
   printingsCount: number;
 }
 
+/** One card_translations row — translated rendered strings for one card+language. */
+export interface CardTranslationDTO {
+  cardUniqueId: string;
+  language: string;
+  /** Translated lowercase name (matches cards.name casing convention). */
+  name: string;
+  /** Translated display name — what a user in that language calls the card. */
+  displayName: string;
+  /** Translated rules text; null when the source had none. */
+  text: string | null;
+}
+
 export interface HeroPoolFilters {
   heroClasses?: string[];
   heroTalents?: string[];
@@ -700,6 +712,18 @@ export interface IPrintingsService {
    * Unknown ids are silently skipped; an empty input returns an empty array.
    */
   getCardSummariesByUniqueIds(cardUniqueIds: string[]): AsyncResult<CardSummaryDTO[]>;
+
+  /**
+   * Bulk lookup of translated card names/text (card_translations) for a set
+   * of card_unique_ids in ONE language. Cards with no translation row in that
+   * language are omitted — callers fall back to the English fields. The
+   * language code is normalized to lowercase; an empty id list returns an
+   * empty array without querying.
+   */
+  getCardTranslations(
+    cardUniqueIds: string[],
+    language: string
+  ): AsyncResult<CardTranslationDTO[]>;
 
   /**
    * Get multiple printings by their printing_id values
