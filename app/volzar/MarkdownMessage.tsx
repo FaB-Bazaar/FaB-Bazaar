@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { CardPreview } from './quick-actions';
 import { rehypeLinkifyCards, type CardNameIndex } from './card-linkify';
+import { rehypeRuleGlyphs, RULE_TOKEN_ICON } from './rule-glyphs';
 
 interface MarkdownMessageProps {
   text: string;
@@ -25,8 +26,18 @@ export function MarkdownMessage({ text, index, previewsByPid, onHoverCard }: Mar
     <div className="volzar-markdown text-sm leading-relaxed break-words">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[() => rehypeLinkifyCards(index)]}
+        rehypePlugins={[() => rehypeLinkifyCards(index), rehypeRuleGlyphs]}
         components={{
+          // FaB rules token ({p}/{d}/{r}/{h}/{i}) → inline glyph image, same
+          // treatment the card tables give quoted rules text.
+          ruleicon: ({ node }: any) => {
+            const icon = RULE_TOKEN_ICON[String(node?.properties?.dataToken ?? '')];
+            if (!icon) return null;
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={icon.src} alt={icon.alt} title={icon.alt} className="inline-block h-3 w-3 mx-px align-[-0.125em]" />
+            );
+          },
           // Card-name hover target injected by rehypeLinkifyCards. `cardref` is
           // a custom tag our rehype plugin emits, hence the Components cast.
           cardref: ({ node, children }: any) => {

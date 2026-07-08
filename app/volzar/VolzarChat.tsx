@@ -28,6 +28,7 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
+import { RULE_TOKEN_ICON } from './rule-glyphs';
 import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, buildSwapLookup, type SwapEntry, type SwapCardInfo } from './deck-matchups';
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
@@ -264,14 +265,8 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
 }
 
 // FaB rules-text tokens ({p} power, {h} life, {r} resource, {d} defense,
-// {i} intellect) → inline glyphs. Unknown tokens fall through as plain text.
-const RULE_TOKEN_ICON: Record<string, { src: string; alt: string }> = {
-  p: { src: '/fab/symbols/power.png', alt: 'power' },
-  d: { src: '/fab/symbols/block.png', alt: 'defense' },
-  r: { src: '/fab/symbols/resource.png', alt: 'resource' },
-  h: { src: '/fab/symbols/health.png', alt: 'life' },
-  i: { src: '/fab/symbols/intelligence.png', alt: 'intellect' },
-};
+// {i} intellect) → inline glyphs (RULE_TOKEN_ICON shared with the markdown
+// renderer). Unknown tokens fall through as plain text.
 
 /** Render rules text, swapping {x} token markup for its FaB glyph. */
 function renderRulesText(text: string) {
