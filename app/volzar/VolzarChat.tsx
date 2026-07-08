@@ -11,7 +11,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ChevronDown, Plus,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ChevronDown, Plus, X, PanelRightOpen,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
@@ -614,6 +614,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // one context entry when it closes.
   const [addDialog, setAddDialog] = useState<{ destination: 'binder' | 'wants' | 'deck'; binderId?: string; binderName?: string; deckPublicId?: string; deckName?: string } | null>(null);
   const addedCardsRef = useRef<string[]>([]);
+  // Workspace panel (prototype): heavy structured results (deck/binder/wants
+  // tables) open here — one at a time, full height, own scroll — instead of
+  // scrolling inside the transcript ("tables within tables"). The transcript
+  // keeps a compact chip per result that reopens the panel. Desktop (lg+) only;
+  // below lg the tables still render inline as before.
+  const [workspace, setWorkspace] = useState<Extract<UiItem, { kind: 'data' }> | null>(null);
   // Cumulative session usage (accumulated from done events)
   const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
   const modelRef = useRef(models[0]);
@@ -765,7 +771,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, resultRows: result.resultRows, wantsAdd: result.wantsAdd };
+      setItems((prev) => [...prev, dataItem]);
+      // Table-bearing results take over the workspace panel on desktop
+      if ((dataItem.tableSections?.length ?? 0) > 0 || (dataItem.tableRows?.length ?? 0) > 0) {
+        setWorkspace(dataItem);
+      }
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -1110,6 +1121,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     setWantsAddStatus({});
     setAddDialog(null);
     addedCardsRef.current = [];
+    setWorkspace(null);
   }, []);
 
   const addPreviewToWants = useCallback(async () => {
@@ -1688,14 +1700,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                 <div key={index} className={`self-start w-full max-w-full rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                    <span className="font-semibold min-w-0 truncate">{item.title}</span>
+                    <span data-testid="data-card-title" className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
                     <div className="ml-auto shrink-0 flex items-center gap-1.5">
                       {cardActions}
                     </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
-                    <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader} />
+                    <div className="lg:hidden">
+                      <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader} />
+                    </div>
+                  )}
+                  {/* Desktop: the table lives in the workspace panel; the chip
+                      keeps a one-line summary that reopens it. */}
+                  {((item.tableRows?.length ?? 0) > 0 || (item.tableSections?.length ?? 0) > 0) && (
+                    <div className="mt-0.5 hidden lg:flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                      <span className="min-w-0 truncate">
+                        {item.tableSections?.length
+                          ? item.tableSections.map((s) => `${s.title} ${s.count}`).join(' · ')
+                          : `${item.tableRows!.length} cards`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setWorkspace(item)}
+                        disabled={workspace === item}
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                        title="Show this list in the workspace panel"
+                      >
+                        <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                        {workspace === item ? 'In workspace' : 'Open in workspace'}
+                      </button>
+                    </div>
                   )}
                   {/* Non-table results render as wrapping lines (min-w-0/break-words)
                       so nothing is clipped and all text stays available for the AI
@@ -1777,7 +1812,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   </ul>
                   )}
                   {item.tableSections && item.tableSections.length > 0 && (
-                    <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1" />
+                    <div className="lg:hidden">
+                      <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1" />
+                    </div>
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
                     <div className="mt-1 max-h-96 overflow-y-auto overflow-x-auto">
@@ -1910,9 +1947,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                     );
                   })()}
                   {/* Same actions repeated at the bottom — a tall card lands
-                      scrolled to its end, so the header buttons are off-screen. */}
+                      scrolled to its end, so the header buttons are off-screen.
+                      On lg the tables live in the workspace and the chip is
+                      short, so the repeat would sit right under the header. */}
                   {hasActions && (
-                    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2">
+                    <div className={`mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2 ${((item.tableRows?.length ?? 0) > 0 || (item.tableSections?.length ?? 0) > 0) ? 'lg:hidden' : ''}`}>
                       {cardActions}
                     </div>
                   )}
@@ -2133,10 +2172,81 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
       </div>
     </div>
 
-    {/* Desktop card preview + action rail */}
-    {/* Scrollbar hidden (still wheel/touch-scrollable): on short windows the
-        rail's own bar stacked beside the chat + window bars — the "4
-        scrollbars" report. Same pattern as the quick-action strip. */}
+    {/* Desktop right column: the workspace panel when a table-bearing result
+        is open (full height, own scroll — tables never scroll inside the
+        transcript), otherwise the card preview rail. */}
+    {workspace ? (
+      <aside
+        className="hidden lg:flex flex-col w-[28rem] xl:w-[34rem] shrink-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
+        aria-label="Workspace"
+      >
+        <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
+          <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <span className="font-semibold min-w-0 truncate">{workspace.title}</span>
+          <button
+            type="button"
+            onClick={() => setWorkspace(null)}
+            aria-label="Close workspace"
+            className={`ml-auto shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
+          {workspace.tableSections && workspace.tableSections.length > 0 ? (
+            <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" />
+          ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
+            <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" />
+          ) : null}
+        </div>
+        {/* Hovered-card preview docks at the panel foot (the rail is hidden
+            while the workspace is open) */}
+        {previewCard && (
+          <div className="flex items-center gap-2.5 border-t border-border px-3 py-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewCard.imageUrl} alt={previewCard.name} className="h-16 w-auto rounded max-w-none" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{previewCard.name}</p>
+              {(previewCard.priceLow != null || previewCard.priceMarket != null) && (
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {previewCard.priceLow != null && <>Low <span className="text-green-700 dark:text-green-400 font-semibold">${previewCard.priceLow.toFixed(2)}</span></>}
+                  {previewCard.priceLow != null && previewCard.priceMarket != null && ' · '}
+                  {previewCard.priceMarket != null && <>Market ${previewCard.priceMarket.toFixed(2)}</>}
+                </p>
+              )}
+            </div>
+            {previewCard.printingId && (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={addPreviewToWants}
+                  disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
+                  aria-label="Add to wants"
+                  title="Add to wants"
+                  className={`rounded-md border border-border p-1.5 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                >
+                  {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    : railStatus.wants === 'done' ? <Check className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                    : <Heart className="h-4 w-4 text-rose-700 dark:text-rose-400" aria-hidden="true" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={addPreviewToBinder}
+                  disabled={!targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
+                  aria-label="Add to binder"
+                  title={`Add to binder${binderOptions.find((b) => b._id === targetBinderId)?.name ? ` — ${binderOptions.find((b) => b._id === targetBinderId)!.name}` : ''}`}
+                  className={`rounded-md border border-border p-1.5 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                >
+                  {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    : railStatus.binder === 'done' ? <Check className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                    : <FolderPlus className="h-4 w-4 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </aside>
+    ) : (
     <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {previewCard ? (
         <CardPreviewPanel
@@ -2156,6 +2266,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         </div>
       )}
     </div>
+    )}
 
     {/* Mobile card preview — bottom sheet, opened by tapping a card name */}
     <Drawer open={mobilePreviewOpen && !!previewCard} onOpenChange={setMobilePreviewOpen}>
