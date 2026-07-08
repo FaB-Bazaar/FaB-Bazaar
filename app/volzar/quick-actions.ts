@@ -1178,20 +1178,32 @@ export interface ToBeatHero {
   formats: string[];
 }
 
-/** Distinct heroes among current featured "Decks to Beat" — populates the archetype picker. */
+/**
+ * Distinct heroes among current featured "Decks to Beat" — populates the
+ * archetype + decks-to-beat pickers. The community route clamps limit to
+ * 50/page while the featured pool is 100+ decks, so PAGINATE until the
+ * reported total is covered — a single page silently drops the heroes whose
+ * decks sort later (they exist on the site but never reach the dropdown).
+ */
 export async function fetchToBeatHeroes(): Promise<ToBeatHero[]> {
-  const response = await fetch('/api/decks/community?featured=true&limit=50', { credentials: 'include' });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load decks to beat');
-  const decks: any[] = body?.data?.decks ?? [];
+  const PAGE_LIMIT = 50;
+  const MAX_PAGES = 10; // safety backstop (500 featured decks)
   const map = new Map<string, { heroName: string; displayName: string; formats: Set<string> }>();
-  for (const d of decks) {
-    const heroName = d.heroName;
-    if (!heroName) continue;
-    const key = heroName.toLowerCase();
-    const e = map.get(key) ?? { heroName, displayName: d.heroDisplayName || heroName, formats: new Set<string>() };
-    if (d.format) e.formats.add(d.format);
-    map.set(key, e);
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const response = await fetch(`/api/decks/community?featured=true&limit=${PAGE_LIMIT}&page=${page}`, { credentials: 'include' });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body?.success) throw new Error(body?.error || 'Failed to load decks to beat');
+    const decks: any[] = body?.data?.decks ?? [];
+    for (const d of decks) {
+      const heroName = d.heroName;
+      if (!heroName) continue;
+      const key = heroName.toLowerCase();
+      const e = map.get(key) ?? { heroName, displayName: d.heroDisplayName || heroName, formats: new Set<string>() };
+      if (d.format) e.formats.add(d.format);
+      map.set(key, e);
+    }
+    const total = Number(body?.data?.total ?? decks.length);
+    if (decks.length === 0 || page * PAGE_LIMIT >= total) break;
   }
   return [...map.values()]
     .map((e) => ({ heroName: e.heroName, displayName: e.displayName, formats: [...e.formats] }))

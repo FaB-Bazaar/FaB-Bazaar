@@ -62,9 +62,29 @@ export const getDecksToBeatTool = {
     const API_BASE_URL = getMcpApiBaseUrl();
 
     try {
+      // No explicit month/year → resolve the LATEST month that actually has
+      // featured decks (the current calendar month is often still empty),
+      // falling back to the current month if the resolver is unavailable.
+      let month = params.month;
+      let year = params.year;
+      if (month == null && year == null) {
+        try {
+          const latestParams = new URLSearchParams();
+          if (params.format) latestParams.set('format', params.format);
+          const latestRes = await mcpFetch(
+            `${API_BASE_URL}/api/decks/featured-latest-month${latestParams.size ? `?${latestParams}` : ''}`,
+            { method: 'GET' },
+          );
+          const latestBody = latestRes.ok ? await latestRes.json() : null;
+          if (latestBody?.success && latestBody.data?.year && latestBody.data?.month) {
+            year = latestBody.data.year;
+            month = latestBody.data.month;
+          }
+        } catch { /* fall through to current month */ }
+      }
       const now = new Date();
-      const month = params.month ?? (now.getMonth() + 1);
-      const year = params.year ?? now.getFullYear();
+      month = month ?? (now.getMonth() + 1);
+      year = year ?? now.getFullYear();
 
       const queryParams = new URLSearchParams({
         featured: 'true',

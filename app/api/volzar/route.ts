@@ -45,6 +45,9 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
   // in the curator's real picks instead of hallucinated card names.
   'list_curated_lists',
   'get_curated_list',
+  // Featured tournament decks ("what are the decks to beat for X?") — public
+  // read; without it the model can't answer meta questions in free text.
+  'get_decks_to_beat',
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);

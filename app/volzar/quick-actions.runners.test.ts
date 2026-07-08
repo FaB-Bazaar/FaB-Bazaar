@@ -12,7 +12,7 @@ vi.mock('@/lib/client', () => ({
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
-import { QUICK_ACTIONS, runHeroKit } from './quick-actions';
+import { QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes } from './quick-actions';
 import { decksClient } from '@/lib/client';
 
 const mockGetUserDecks = vi.mocked(decksClient.getUserDecks);
@@ -37,6 +37,30 @@ describe('runHeroKit', () => {
     const url = String(fetchSpy.mock.calls[0][0]);
     expect(url).toContain('view=public');
     expect(url).toContain('heroName=dorinthea%20ironsong');
+    fetchSpy.mockRestore();
+  });
+});
+
+describe('fetchToBeatHeroes', () => {
+  it('paginates past the route cap (50/page) so every featured hero reaches the dropdown', async () => {
+    // /api/decks/community clamps limit to 50; with 116+ featured decks a
+    // single request derives the hero list from under half the decks — heroes
+    // whose decks sort later never appear in the picker.
+    const deck = (heroName: string) => ({ heroName, heroDisplayName: heroName, format: 'Classic Constructed' });
+    const pages: Record<string, any> = {
+      '1': { decks: Array.from({ length: 50 }, (_, i) => deck(`hero_page1_${i}`)), total: 60 },
+      '2': { decks: Array.from({ length: 10 }, (_, i) => deck(`hero_page2_${i}`)), total: 60 },
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: any) => ({
+      ok: true,
+      json: async () => ({ success: true, data: pages[new URL(String(url), 'http://x').searchParams.get('page') ?? '1'] }),
+    }) as any);
+
+    const heroes = await fetchToBeatHeroes();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(heroes).toHaveLength(60);
+    expect(heroes.some((h) => h.heroName === 'hero_page2_3')).toBe(true);
     fetchSpy.mockRestore();
   });
 });

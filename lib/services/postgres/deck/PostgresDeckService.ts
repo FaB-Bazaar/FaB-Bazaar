@@ -1130,7 +1130,10 @@ export class PostgresDeckService implements IDeckService {
       let conditions: any[] = [eq(decks.visibility, 'public')];
 
       if (filters?.format) conditions.push(eq(decks.format, filters.format));
-      if (filters?.heroName) conditions.push(sql`lower(${decks.heroName}) = lower(${filters.heroName})`);
+      // Substring, not equality: hero names are stored as full display strings
+      // ("arakni, marionette") but chat/API callers ask by the short name
+      // ("arakni"). Exact stored names (the page dropdown) still match.
+      if (filters?.heroName) conditions.push(sql`${decks.heroName} ILIKE ${`%${filters.heroName}%`}`);
       if (filters?.search) {
         conditions.push(sql`${decks.name} ILIKE ${`%${filters.search}%`}`);
       }
