@@ -453,18 +453,30 @@ describe('parseSearchResults', () => {
     price,
   });
 
-  it('renders compact rows with rail previews from structured search results', () => {
+  it('renders card-table rows with rail previews from structured search results', () => {
     const parsed = parseSearchResults({
-      results: [{ total: 4, printings: [printing('Snatch', 0.73), printing('Snag')] }],
+      results: [{ total: 4, printings: [
+        { ...printing('Snatch', 0.73), types: ['generic', 'action', 'attack'], foiling: 's' },
+        printing('Snag'),
+      ] }],
     });
     expect(parsed?.total).toBe(4);
     expect(parsed?.shown).toBe(2);
-    const first = parsed?.rows[0] as any;
-    expect(first.text).toBe('Snatch — WTR WTR167 · r · $0.73');
-    expect(first.pitch).toBe(1);
+    const first = parsed?.tableRows[0] as any;
+    // Same CardRow shape the binder/deck tables render — consistent UI.
+    expect(first).toMatchObject({
+      name: 'Snatch',
+      pitch: 1,
+      collector: 'WTR167',
+      foiling: 's',
+      type: 'Generic Action Attack',
+      price: 0.73,
+    });
+    expect(typeof first.image).toBe('string');
+    expect(first.qty).toBeUndefined(); // search hits carry no owned quantity
     expect(first.preview).toMatchObject({ name: 'Snatch', printingId: 'id-Snatch', priceLow: 0.73 });
-    // no price → no price segment, no crash
-    expect((parsed?.rows[1] as any).text).toContain('Snag — WTR');
+    // no price → undefined, no crash
+    expect((parsed?.tableRows[1] as any).price).toBeUndefined();
   });
 
   it('caps rows at maxRows and reports the real total', () => {
@@ -485,14 +497,14 @@ describe('parseSearchResults', () => {
     const parsed = parseSearchResults({
       results: [{ total: 1, printings: [{ ...printing('Maximum Velocity', 0.37), printing_count: 4 }] }],
     });
-    expect((parsed?.rows[0] as any).printingCount).toBe(4);
+    expect((parsed?.tableRows[0] as any).printingCount).toBe(4);
   });
 
   it('omits printingCount when the card has a single printing', () => {
     const parsed = parseSearchResults({
       results: [{ total: 1, printings: [{ ...printing('Solo Card', 1), printing_count: 1 }] }],
     });
-    expect((parsed?.rows[0] as any).printingCount).toBeUndefined();
+    expect((parsed?.tableRows[0] as any).printingCount).toBeUndefined();
   });
 });
 

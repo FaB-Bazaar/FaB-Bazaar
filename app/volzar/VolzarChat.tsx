@@ -33,19 +33,6 @@ import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
 
-/** Pitch pip icon (1/2/3) rendered inline after card names. */
-function PitchIcon({ pitch }: { pitch?: number }) {
-  if (!pitch || pitch < 1 || pitch > 3) return null;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={`/icons/pitch-${pitch}.png`}
-      alt={`pitch ${pitch}`}
-      className="inline-block h-3.5 w-auto ml-1 align-baseline"
-    />
-  );
-}
-
 const PITCH_GEM: Record<number, { bg: string; label: string }> = {
   1: { bg: 'bg-red-600', label: 'red' },
   2: { bg: 'bg-amber-400', label: 'yellow' },
@@ -149,6 +136,103 @@ function SwapColumn({ kind, entries, lookup, onHover }: {
 }
 
 const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
+
+/**
+ * The shared striped card table — binder / wants (flat rows), deck drills and
+ * hero kits (sections), and AI search results all render through this one
+ * component so every card list in the chat looks the same: pitch gem,
+ * thumbnail, qty, name, type + rules text, collector number, foil, price.
+ * Zebra is computed explicitly (not CSS :nth-child) so interleaved section
+ * subheaders don't flip the stripe parity.
+ */
+function CardTable({ rows, sections, onPreview, maxHeightClass = 'max-h-96', className = '' }: {
+  rows?: CardRow[];
+  sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
+  onPreview: (preview: CardPreview) => void;
+  maxHeightClass?: string;
+  className?: string;
+}) {
+  const renderRow = (r: CardRow, key: string, striped: boolean) => (
+    <tr
+      key={key}
+      onMouseEnter={() => onPreview(r.preview)}
+      className={`border-b border-border/40 last:border-0 hover:bg-primary/[0.06] transition-colors ${striped ? 'bg-muted/30' : ''}`}
+    >
+      <td className="align-middle w-6"><PitchGem pitch={r.pitch} /></td>
+      <td className="align-middle w-9">
+        {r.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={r.image}
+            alt=""
+            loading="lazy"
+            className="h-11 w-8 shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
+          />
+        ) : null}
+      </td>
+      <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.qty === 'number' ? `${r.qty}×` : ''}</td>
+      <td className="align-middle whitespace-nowrap font-medium w-full md:w-auto">
+        <span
+          tabIndex={0}
+          onFocus={() => onPreview(r.preview)}
+          onClick={() => onPreview(r.preview)}
+          className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+        >
+          {r.name}
+        </span>
+        {r.extendedArt && <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">EA</span>}
+        {r.marvel && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Marvel</span>}
+        {typeof r.printingCount === 'number' && r.printingCount > 1 && (
+          <span className="ml-1.5 text-xs font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            +{r.printingCount - 1} {r.printingCount - 1 === 1 ? 'printing' : 'printings'}
+          </span>
+        )}
+      </td>
+      <td className="hidden md:table-cell md:w-full align-middle py-1">
+        {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
+        {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
+      </td>
+      <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
+      <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
+      <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
+      <td className="align-middle text-right whitespace-nowrap">{r.forTrade ? <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">trade</span> : r.priority ? <span className="text-xs text-gray-500 dark:text-gray-400">{r.priority}</span> : null}</td>
+    </tr>
+  );
+  return (
+    <div className={`${maxHeightClass} overflow-y-auto overflow-x-hidden rounded-md border border-border ${className}`}>
+      <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
+        <thead>
+          <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
+            <th className="w-6" aria-label="Pitch" />
+            <th className="w-9" aria-label="Card image" />
+            <th className="text-right whitespace-nowrap">Qty</th>
+            <th className="w-full md:w-auto">Card</th>
+            <th className="hidden md:table-cell md:w-full">Type</th>
+            <th className="hidden sm:table-cell whitespace-nowrap">No.</th>
+            <th className="hidden sm:table-cell whitespace-nowrap">Foil</th>
+            <th className="text-right whitespace-nowrap">Price</th>
+            <th className="whitespace-nowrap" aria-label="Trade status" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows
+            ? rows.map((r, i) => renderRow(r, String(i), i % 2 === 1))
+            : (() => {
+                let n = 0;
+                return (sections ?? []).flatMap((sec, si) => [
+                  <tr key={`h-${si}`} className="bg-muted/70">
+                    <td colSpan={9} className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 border-y border-border">
+                      {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
+                    </td>
+                  </tr>,
+                  ...sec.rows.map((r, ri) => renderRow(r, `${si}-${ri}`, n++ % 2 === 1)),
+                ]);
+              })()}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 // FaB rules-text tokens ({p} power, {h} life, {r} resource, {d} defense,
 // {i} intellect) → inline glyphs. Unknown tokens fall through as plain text.
@@ -691,14 +775,21 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, [heroes.length, heroesLoading]);
 
+  // Pickers are mutually exclusive (opening one closes the rest) and close
+  // when their action runs — stacked open panels eat the whole thread height.
   const toggleArchetype = useCallback(() => {
     const opening = !archetypeOpen;
     setArchetypeOpen(opening);
-    if (opening) void ensureHeroes();
+    if (opening) {
+      setToBeatOpen(false);
+      setKitOpen(false);
+      void ensureHeroes();
+    }
   }, [archetypeOpen, ensureHeroes]);
 
   const runArchetype = useCallback(() => {
     if (!selectedHero) return;
+    setArchetypeOpen(false);
     void runInstant('archetype', () => runArchetypeConsensus(selectedHero, archetypeMonths));
   }, [selectedHero, archetypeMonths, runInstant]);
 
@@ -720,6 +811,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     const opening = !toBeatOpen;
     setToBeatOpen(opening);
     if (opening) {
+      setArchetypeOpen(false);
+      setKitOpen(false);
       void ensureHeroes();
       if (toBeatMode === 'event') void ensureToBeatEvents();
     }
@@ -734,9 +827,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     if (toBeatMode === 'hero') {
       if (!toBeatHero) return;
       const hero = heroes.find((h) => h.heroName === toBeatHero);
+      setToBeatOpen(false);
       void runInstant('to-beat', () => runToBeatByHero(toBeatHero, hero?.displayName ?? toBeatHero));
     } else {
       if (!toBeatEvent) return;
+      setToBeatOpen(false);
       void runInstant('to-beat', () => runToBeatByEvent(toBeatEvent));
     }
   }, [toBeatMode, toBeatHero, toBeatEvent, heroes, runInstant]);
@@ -758,7 +853,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const toggleKit = useCallback(() => {
     const opening = !kitOpen;
     setKitOpen(opening);
-    if (opening && kitHeroes.length === 0) void loadKitHeroes(kitFormat);
+    if (opening) {
+      setToBeatOpen(false);
+      setArchetypeOpen(false);
+      if (kitHeroes.length === 0) void loadKitHeroes(kitFormat);
+    }
   }, [kitOpen, kitHeroes.length, kitFormat, loadKitHeroes]);
 
   const setKitFormatAndLoad = useCallback((format: string) => {
@@ -769,6 +868,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const runKit = useCallback(() => {
     if (!kitHero) return;
     const hero = kitHeroes.find((h) => h.heroName === kitHero);
+    setKitOpen(false);
     void runInstant('hero-kit', () => runHeroKit(kitHero, hero?.displayName ?? kitHero, kitFormat));
   }, [kitHero, kitHeroes, kitFormat, runInstant]);
 
@@ -1322,65 +1422,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
               );
             }
             if (item.kind === 'data') {
-              // Shared card-table header + row renderer, reused by the flat table
-              // (binder / wants) and the section-grouped table (deck drills).
-              // Zebra is passed explicitly (not CSS :nth-child) so interleaved
-              // section subheaders don't flip the stripe parity.
-              const cardTableHead = (
-                <thead>
-                  <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
-                    <th className="w-6" aria-label="Pitch" />
-                    <th className="w-9" aria-label="Card image" />
-                    <th className="text-right whitespace-nowrap">Qty</th>
-                    <th className="w-full md:w-auto">Card</th>
-                    <th className="hidden md:table-cell md:w-full">Type</th>
-                    <th className="hidden sm:table-cell whitespace-nowrap">No.</th>
-                    <th className="hidden sm:table-cell whitespace-nowrap">Foil</th>
-                    <th className="text-right whitespace-nowrap">Price</th>
-                    <th className="whitespace-nowrap" aria-label="Trade status" />
-                  </tr>
-                </thead>
-              );
-              const renderCardRow = (r: CardRow, key: string, striped: boolean) => (
-                <tr
-                  key={key}
-                  onMouseEnter={() => showPreview(r.preview)}
-                  className={`border-b border-border/40 last:border-0 hover:bg-primary/[0.06] transition-colors ${striped ? 'bg-muted/30' : ''}`}
-                >
-                  <td className="align-middle w-6"><PitchGem pitch={r.pitch} /></td>
-                  <td className="align-middle w-9">
-                    {r.image ? (
-                      <img
-                        src={r.image}
-                        alt=""
-                        loading="lazy"
-                        className="h-11 w-8 shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
-                      />
-                    ) : null}
-                  </td>
-                  <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.qty}×</td>
-                  <td className="align-middle whitespace-nowrap font-medium w-full md:w-auto">
-                    <span
-                      tabIndex={0}
-                      onFocus={() => showPreview(r.preview)}
-                      onClick={() => showPreview(r.preview)}
-                      className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
-                    >
-                      {r.name}
-                    </span>
-                    {r.extendedArt && <span className="ml-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">EA</span>}
-                    {r.marvel && <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">Marvel</span>}
-                  </td>
-                  <td className="hidden md:table-cell md:w-full align-middle py-1">
-                    {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
-                    {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
-                  </td>
-                  <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
-                  <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
-                  <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
-                  <td className="align-middle text-right whitespace-nowrap">{r.forTrade ? <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">trade</span> : r.priority ? <span className="text-xs text-gray-500 dark:text-gray-400">{r.priority}</span> : null}</td>
-                </tr>
-              );
               // The instant, no-AI action cluster. Rendered at BOTH the top and
               // bottom of the card so a tall result (long comparison / deck)
               // never scrolls its buttons out of reach after the auto-scroll.
@@ -1483,14 +1524,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                     </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
-                    <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-border">
-                      <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
-                        {cardTableHead}
-                        <tbody>
-                          {item.tableRows.map((r, i) => renderCardRow(r, String(i), i % 2 === 1))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <CardTable rows={item.tableRows} onPreview={showPreview} />
                   )}
                   {/* Non-table results render as wrapping lines (min-w-0/break-words)
                       so nothing is clipped and all text stays available for the AI
@@ -1572,24 +1606,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   </ul>
                   )}
                   {item.tableSections && item.tableSections.length > 0 && (
-                    <div className="mt-1 max-h-[32rem] overflow-y-auto overflow-x-hidden rounded-md border border-border">
-                      <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
-                        {cardTableHead}
-                        <tbody>
-                          {(() => {
-                            let n = 0;
-                            return item.tableSections!.flatMap((sec, si) => [
-                              <tr key={`h-${si}`} className="bg-muted/70">
-                                <td colSpan={9} className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 border-y border-border">
-                                  {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
-                                </td>
-                              </tr>,
-                              ...sec.rows.map((r, ri) => renderCardRow(r, `${si}-${ri}`, n++ % 2 === 1)),
-                            ]);
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
+                    <CardTable sections={item.tableSections} onPreview={showPreview} maxHeightClass="max-h-[32rem]" className="mt-1" />
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
                     <div className="mt-1 max-h-96 overflow-y-auto overflow-x-auto">
@@ -1850,35 +1867,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   )}
                 </Badge>
                 {(item.card || item.results) && (
-                  <div className={`rounded-md border border-border bg-card px-3 py-2 text-sm w-full max-w-xl`}>
+                  <div className={`rounded-md border border-border bg-card px-3 py-2 text-sm w-full ${item.results ? '' : 'max-w-xl'}`}>
                     {item.card?.title && <div className="font-semibold">{item.card.title}</div>}
                     {item.card?.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
-                    {item.results && (
-                      <ul className="mt-1.5 max-h-52 overflow-y-auto space-y-0.5">
-                        {item.results.rows.map((row, rowIndex) => {
-                          if (typeof row === 'string' || !row.preview) return <li key={rowIndex}>{typeof row === 'string' ? row : row.text}</li>;
-                          const preview = row.preview;
-                          return (
-                            <li key={rowIndex}>
-                              <span
-                                tabIndex={0}
-                                onMouseEnter={() => showPreview(preview)}
-                                onFocus={() => showPreview(preview)}
-                                onClick={() => showPreview(preview)}
-                                className={`cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
-                              >
-                                {row.text}
-                                <PitchIcon pitch={row.pitch} />
-                              </span>
-                              {row.printingCount && row.printingCount > 1 && (
-                                <span className="ml-1.5 text-xs text-gray-500 dark:text-gray-400">
-                                  +{row.printingCount - 1} {row.printingCount - 1 === 1 ? 'printing' : 'printings'}
-                                </span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
+                    {item.results && item.results.tableRows.length > 0 && (
+                      // Same striped card table as binder/deck/kit cards —
+                      // search results are cards too, keep them consistent.
+                      <CardTable rows={item.results.tableRows} onPreview={showPreview} maxHeightClass="max-h-80" className="mt-1.5" />
                     )}
                     {item.card?.url && (
                       <a

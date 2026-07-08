@@ -80,7 +80,8 @@ function wantMeta(c: {
 
 /** A structured card row — renders as a UI table row and a Discord shorthand line. */
 export interface CardRow {
-  qty: number;
+  /** Owned/needed quantity. Absent for search hits (no quantity to show). */
+  qty?: number;
   name: string;
   pitch?: number;
   collector?: string;
@@ -93,6 +94,8 @@ export interface CardRow {
   marvel?: boolean;   // rarity 'v'
   forTrade?: boolean;
   priority?: string;
+  /** Grouped search: how many printings this representative row stands in for. */
+  printingCount?: number;
   preview: CardPreview;
 }
 
@@ -130,7 +133,7 @@ const FOIL_TAG: Record<string, string> = { r: 'RF', c: 'CF', g: 'GF' }; // s (no
 /** Discord/trade-post shorthand for one card: "3x EA RF Marvel Card Name". */
 export function toShorthand(r: CardRow): string {
   const parts: string[] = [];
-  if (r.qty > 1) parts.push(`${r.qty}x`);
+  if ((r.qty ?? 1) > 1) parts.push(`${r.qty}x`);
   if (r.extendedArt) parts.push('EA');
   const foil = FOIL_TAG[r.foiling ?? ''];
   if (foil) parts.push(foil);
@@ -646,37 +649,50 @@ export function summarizeBinderCards(
 }
 
 export interface SearchResultsCard {
-  rows: CardLine[];
+  tableRows: CardRow[];
   total: number;
   shown: number;
 }
 
+/** 'generic' / ['generic','action'] → "Generic Action" — a readable type line. */
+function typesLabel(types: unknown): string | undefined {
+  if (!Array.isArray(types) || types.length === 0) return undefined;
+  return types.map((t) => String(t).charAt(0).toUpperCase() + String(t).slice(1)).join(' ');
+}
+
 /**
  * Parses search_printings structuredContent (the token-bypass channel) into
- * compact inline result rows: the full projected printing list already
- * arrives in the browser with every AI search — this just renders it.
- * Rows feed the rail (hover preview + add-to-binder/wants via printing_id).
+ * the same CardRow table rows binder/deck cards render — consistent UI. The
+ * full projected printing list already arrives in the browser with every AI
+ * search; rows feed the rail (hover preview + add-to-binder/wants via
+ * printing_id). No qty — search hits carry no owned quantity.
  */
 export function parseSearchResults(structured: any, maxRows = 20): SearchResultsCard | null {
   const first = structured?.results?.[0];
   if (!first || !Array.isArray(first.printings) || first.printings.length === 0) return null;
 
-  const rows: CardLine[] = first.printings.slice(0, maxRows).map((p: any) => {
-    const price = typeof p.price === 'number' ? ` · $${p.price.toFixed(2)}` : '';
+  const tableRows: CardRow[] = first.printings.slice(0, maxRows).map((p: any) => {
+    const name = p.name || 'Unknown card';
     return {
-      text: `${p.name} — ${String(p.set ?? '').toUpperCase()} ${p.collector_number ?? ''} · ${p.rarity ?? '?'}${price}`,
+      name,
       pitch: typeof p.pitch === 'number' ? p.pitch : undefined,
+      collector: (p.collector_number ?? '').toUpperCase() || undefined,
+      foiling: p.foiling || undefined,
+      type: typesLabel(p.types),
+      text: prettifyCardText(p.text, name),
+      image: p.image_url || getCardImageUrl({ printingId: p.printing_id }),
+      price: typeof p.price === 'number' ? p.price : undefined,
       ...(typeof p.printing_count === 'number' && p.printing_count > 1 ? { printingCount: p.printing_count } : {}),
       preview: {
-        imageUrl: getCardImageUrl({ printingId: p.printing_id }),
-        name: p.name,
+        imageUrl: p.image_url || getCardImageUrl({ printingId: p.printing_id }),
+        name,
         printingId: p.printing_id,
         priceLow: typeof p.price === 'number' ? p.price : undefined,
       },
     };
   });
 
-  return { rows, total: first.total ?? first.printings.length, shown: rows.length };
+  return { tableRows, total: first.total ?? first.printings.length, shown: tableRows.length };
 }
 
 /** Shape returned by GET /api/decks/archetype (deterministic, no AI). */
