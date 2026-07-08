@@ -157,7 +157,9 @@ export function FoilMaskEditor({
     return `${setUpper} · ${foilName}${variants ? ` · ${variants}` : ''}`;
   })();
 
-  async function handleBulkApply(overwrite = false) {
+  // Unset-only on purpose: the UI deliberately offers no overwrite mode, so a
+  // bulk apply can never clobber a mask that was saved by hand.
+  async function handleBulkApply() {
     setBulkApplying(true);
     try {
       const res = await fetch('/api/admin/foil-mask/bulk', {
@@ -168,14 +170,13 @@ export function FoilMaskEditor({
           foiling: row.foiling,
           isExtendedArt: row.isExtendedArt,
           artVariations: row.artVariations ?? [],
-          overwrite,
+          overwrite: false,
           top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round,
         }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Bulk apply failed');
-      const verb = overwrite ? 'Overwritten' : 'Applied';
-      toast({ title: verb, description: `Updated ${json.updated} printings matching ${bulkLabel}` });
+      toast({ title: 'Applied', description: `Updated ${json.updated} printings matching ${bulkLabel}` });
       fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Bulk apply failed';
@@ -185,7 +186,7 @@ export function FoilMaskEditor({
     }
   }
 
-  async function handleGlobalNoVariationApply(overwrite = false) {
+  async function handleGlobalNoVariationApply() {
     setBulkApplying(true);
     try {
       const res = await fetch('/api/admin/foil-mask/bulk', {
@@ -196,15 +197,14 @@ export function FoilMaskEditor({
           foiling: row.foiling,
           isExtendedArt: false,
           artVariations: [],
-          overwrite,
+          overwrite: false,
           top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round,
         }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Global apply failed');
-      const verb = overwrite ? 'Overwritten' : 'Applied';
       const foilName = row.foiling === 'r' ? 'Rainbow Foil' : row.foiling.toUpperCase();
-      toast({ title: verb, description: `Updated ${json.updated} ${foilName} printings with no art variations (all sets)` });
+      toast({ title: 'Applied', description: `Updated ${json.updated} ${foilName} printings with no art variations (all sets)` });
       fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Global apply failed';
@@ -343,21 +343,11 @@ export function FoilMaskEditor({
               size="sm"
               variant="outline"
               className="w-full border-yellow-500/40 text-yellow-600 hover:text-yellow-500 hover:border-yellow-500"
-              onClick={() => handleBulkApply(false)}
+              onClick={() => handleBulkApply()}
               disabled={saving || bulkApplying}
             >
               {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
               Apply to unset cards
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full border-orange-500/40 text-orange-600 hover:text-orange-500 hover:border-orange-500"
-              onClick={() => handleBulkApply(true)}
-              disabled={saving || bulkApplying}
-            >
-              {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
-              Overwrite all (including existing masks)
             </Button>
           </div>
 
@@ -369,7 +359,7 @@ export function FoilMaskEditor({
               size="sm"
               variant="outline"
               className="w-full border-blue-500/40 text-blue-500 hover:text-blue-400 hover:border-blue-400"
-              onClick={() => handleGlobalNoVariationApply(false)}
+              onClick={() => handleGlobalNoVariationApply()}
               disabled={saving || bulkApplying}
             >
               {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}

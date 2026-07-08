@@ -56,3 +56,13 @@ describe('FoilMaskEditor inset number inputs', () => {
     expect(topInputNow).toHaveFocus();
   });
 });
+
+describe('FoilMaskEditor bulk actions', () => {
+  it('offers only unset-only bulk applies — no destructive overwrite button', () => {
+    render(<FoilMaskEditor row={ROW} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: /apply to unset cards/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /apply globally/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /overwrite/i })).not.toBeInTheDocument();
+  });
+});
