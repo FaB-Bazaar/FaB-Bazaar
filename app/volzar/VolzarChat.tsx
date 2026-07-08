@@ -896,6 +896,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
       pendingContextRef.current.push(matchupsToContext(deckName, result.data.matchups));
     }
   }, [matchupPanels]);
+  // Opening/expanding a matchup panel grows the card without adding a chat
+  // item (which is what the main auto-scroll keys on) — pin the chat to the
+  // end so the revealed content lands on screen instead of below the fold.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [matchupPanels]);
 
   // "Add missing to wants" — deterministic, no AI. Bulk-adds the deck's curated
   // printings for every card the comparison says you still need (missing +
