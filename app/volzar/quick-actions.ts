@@ -98,6 +98,9 @@ export interface CardRow {
   note?: string;
   /** Grouped search: how many printings this representative row stands in for. */
   printingCount?: number;
+  /** Inventory-item id (binder rows only) — the PATCH/DELETE target for the
+   *  row ± quantity buttons; a printing can repeat across conditions. */
+  itemId?: string;
   preview: CardPreview;
 }
 
@@ -164,6 +167,7 @@ function toCardRow(c: any): CardRow {
     marvel: (c.rarity ?? d.rarity) === 'v',
     forTrade: c.forTrade ?? undefined,
     priority: c.priority ?? undefined,
+    itemId: c.id ?? c._id ?? undefined,
     preview: toCardPreview(c, name),
   };
 }
@@ -256,6 +260,8 @@ export interface QuickActionResult {
   /** True only when the deck API said canEdit (owner/co-owner) — gates the
    *  "Add card" button so it never shows on Decks to Beat / others' decks. */
   deckEditable?: boolean;
+  /** Where the row ± quantity buttons write. Absent → read-only table. */
+  mutate?: RowMutation;
   /** Cross-deck game results → a table (Game results action). */
   resultRows?: GameResultRow[];
   /** Curated deck printings the user still needs (missing + partial shortfall),
@@ -323,7 +329,7 @@ export function summarizeWantsCards(
     context: `The user's wants list (qty× name, priority): ${
       cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`).join('; ') || 'empty'
     }`,
-    ...(cards.length ? { tableRows: cards.map(toCardRow), copyHeader: 'Wants:' } : {}),
+    ...(cards.length ? { tableRows: cards.map(toCardRow), copyHeader: 'Wants:', mutate: { kind: 'wants' as const } } : {}),
   };
 }
 
@@ -447,7 +453,9 @@ export function summarizeDeckContents(deck: {
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(tableSections.length ? { tableSections } : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),
-    ...(deck.publicId && deck.canEdit ? { deckEditable: true } : {}),
+    ...(deck.publicId && deck.canEdit
+      ? { deckEditable: true, mutate: { kind: 'deck' as const, publicId: deck.publicId } }
+      : {}),
   };
 }
 
@@ -636,6 +644,7 @@ export function summarizeBinderCards(
   binderName: string,
   cards: Array<{ display_name?: string; name?: string; quantity?: number; forTrade?: boolean; set?: string; foiling?: string; pitch?: number; collector_number?: string; rarity?: string; is_extended_art?: boolean; printingDetails?: { set?: string; foiling?: string; pitch?: number } }>,
   totalQuantity?: number,
+  binderId?: string,
 ): QuickActionResult {
   const label = (c: { display_name?: string; name?: string }) => c.display_name || c.name || 'Unknown card';
   const lines: CardLine[] = cards.length === 0
@@ -655,6 +664,7 @@ export function summarizeBinderCards(
       cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.forTrade ? ' [for trade]' : ''}`).join('; ') || 'empty'
     }`,
     ...(cards.length ? { tableRows: cards.map(toCardRow), copyHeader: `${binderName}:` } : {}),
+    ...(binderId ? { mutate: { kind: 'binder' as const, binderId } } : {}),
   };
 }
 
@@ -917,6 +927,77 @@ export function advanceWorkspace<T>(stack: T[], item: T, actionId: string): T[] 
   return actionId.includes(':') ? [...stack, item] : [item];
 }
 
+/** Write target for the row ± quantity buttons in card tables. */
+export type RowMutation =
+  | { kind: 'binder'; binderId: string }
+  | { kind: 'wants' }
+  | { kind: 'deck'; publicId: string };
+
+/**
+ * Pure optimistic update: returns a copy of a data item with one row's qty
+ * adjusted (row removed at zero, section count kept in sync). Rows match by
+ * itemId when both sides have one (binder conditions), else printingId;
+ * `section` scopes deck updates (a printing can sit in Maindeck AND Inventory).
+ */
+export function adjustItemRowQty<T extends {
+  tableRows?: CardRow[];
+  tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>;
+}>(item: T, key: { printingId?: string; itemId?: string; section?: string }, delta: number): T {
+  const matches = (r: CardRow) =>
+    key.itemId && r.itemId ? r.itemId === key.itemId : r.preview.printingId === key.printingId;
+  const adjustRows = (rows: CardRow[]) => rows
+    .map((r) => (matches(r) ? { ...r, qty: Math.max(0, (r.qty ?? 1) + delta) } : r))
+    .filter((r) => !(matches(r) && (r.qty ?? 1) <= 0));
+  if (item.tableSections) {
+    return {
+      ...item,
+      tableSections: item.tableSections.map((s) =>
+        key.section && s.title !== key.section
+          ? s
+          : { ...s, rows: adjustRows(s.rows), count: Math.max(0, s.count + (s.rows.some(matches) ? delta : 0)) }),
+    };
+  }
+  if (item.tableRows) return { ...item, tableRows: adjustRows(item.tableRows) };
+  return item;
+}
+
+/**
+ * Persist a row's ± quantity change to its source (binder / wants / deck).
+ * Returns the new quantity so the caller can reconcile the optimistic UI.
+ */
+export async function adjustRowQuantity(
+  mutation: RowMutation,
+  row: CardRow,
+  delta: 1 | -1,
+  sectionTitle?: string,
+): Promise<{ ok: true; newQty: number } | { ok: false; error: string }> {
+  const printingId = row.preview.printingId;
+  const newQty = Math.max(0, (row.qty ?? 1) + delta);
+  if (mutation.kind === 'binder') {
+    if (!row.itemId) return { ok: false, error: 'This row is missing its inventory id — reopen the binder.' };
+    const result = newQty === 0
+      ? await bindersClient.deleteBinderCard(mutation.binderId, row.itemId)
+      : await bindersClient.updateBinderCard(mutation.binderId, row.itemId, { quantity: newQty });
+    if (!result.success) return { ok: false, error: result.error };
+    return { ok: true, newQty };
+  }
+  if (!printingId) return { ok: false, error: 'This row is missing its printing id.' };
+  if (mutation.kind === 'wants') {
+    const result = delta > 0
+      ? await wantsClient.addWantsItem(printingId, 1)
+      : await wantsClient.removeWantsItem(printingId, false, 1);
+    if (!result.success) return { ok: false, error: result.error };
+    return { ok: true, newQty };
+  }
+  // deck — the section title is the category (Hero/Equipment/Maindeck/Inventory)
+  const category = (sectionTitle ?? 'maindeck').toLowerCase() as any;
+  const result = delta > 0
+    ? await decksClient.addPrintings(mutation.publicId, [{ printingId, quantity: 1, category }])
+    : await decksClient.removePrinting(mutation.publicId, printingId, category, 1);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, newQty };
+}
+
 // ---------------------------------------------------------------------------
 // Add-card runners (CardSearchDialog → binder / wants)
 // ---------------------------------------------------------------------------
@@ -1046,7 +1127,7 @@ export async function runBinderDrill(binderId: string, binderName: string): Prom
   const raw = result.data as any;
   const cards = raw?.cards ?? [];
   const totalQuantity = raw?.pagination?.totalQuantity;
-  return summarizeBinderCards(binderName, cards, totalQuantity);
+  return summarizeBinderCards(binderName, cards, totalQuantity, binderId);
 }
 
 /** Drill-down: full deck contents (from a click on the decks card). */

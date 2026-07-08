@@ -11,7 +11,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, X, PanelRightOpen,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
@@ -27,7 +27,8 @@ import {
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
-  shouldOpenInWorkspace, advanceWorkspace,
+  shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty,
+  type RowMutation,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -152,7 +153,12 @@ const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' 
  * Zebra is computed explicitly (not CSS :nth-child) so interleaved section
  * subheaders don't flip the stripe parity.
  */
-function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '' }: {
+/** Stable per-row key for the ± busy set (binder conditions can repeat a printing). */
+function qtyRowKey(r: CardRow, sectionTitle?: string): string {
+  return `${sectionTitle ?? ''}|${r.itemId ?? r.preview.printingId ?? r.name}`;
+}
+
+function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', onAdjustQty, adjustBusyKeys }: {
   rows?: CardRow[];
   sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
@@ -160,6 +166,9 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   noteHeader?: string;
   maxHeightClass?: string;
   className?: string;
+  /** When set, qty cells render −/+ buttons that write through to the source. */
+  onAdjustQty?: (row: CardRow, delta: 1 | -1, sectionTitle?: string) => void;
+  adjustBusyKeys?: Set<string>;
 }) {
   // Adaptive columns: only render a column when some row actually has data
   // for it — a consensus table (no prices/sets) or a search table (no owned
@@ -174,7 +183,10 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
     tail: allRows.some((r) => r.forTrade || r.priority || r.note),
   };
   const colCount = 3 + Number(has.qty) + Number(has.type) + Number(has.collector) + Number(has.foiling) + Number(has.price) + Number(has.tail);
-  const renderRow = (r: CardRow, key: string, striped: boolean) => (
+  const renderRow = (r: CardRow, key: string, striped: boolean, sectionTitle?: string) => {
+    const busy = adjustBusyKeys?.has(qtyRowKey(r, sectionTitle)) ?? false;
+    const qtyBtn = `rounded border border-border p-0.5 text-gray-600 dark:text-gray-300 hover:bg-muted disabled:opacity-40 ${focusRing}`;
+    return (
     <tr
       key={key}
       onMouseEnter={() => onPreview(r.preview)}
@@ -194,7 +206,35 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
           />
         ) : null}
       </td>
-      {has.qty && <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.qty === 'number' ? `${r.qty}×` : ''}</td>}
+      {has.qty && (
+        <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
+          {onAdjustQty && typeof r.qty === 'number' ? (
+            <span className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onAdjustQty(r, -1, sectionTitle)}
+                disabled={busy}
+                aria-label={`Remove one copy of ${r.name}`}
+                title={r.qty <= 1 ? `Remove ${r.name}` : 'Remove one copy'}
+                className={qtyBtn}
+              >
+                <Minus className="h-3 w-3" aria-hidden="true" />
+              </button>
+              <span className="min-w-[2.5ch] text-center">{r.qty}×</span>
+              <button
+                type="button"
+                onClick={() => onAdjustQty(r, 1, sectionTitle)}
+                disabled={busy}
+                aria-label={`Add one copy of ${r.name}`}
+                title="Add one copy"
+                className={qtyBtn}
+              >
+                <Plus className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </span>
+          ) : typeof r.qty === 'number' ? `${r.qty}×` : ''}
+        </td>
+      )}
       <td className={`align-middle whitespace-nowrap font-medium ${has.type ? 'w-full md:w-auto' : 'w-full'}`}>
         <span
           tabIndex={0}
@@ -231,7 +271,8 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
         </td>
       )}
     </tr>
-  );
+    );
+  };
   return (
     // Thin themed scrollbar: the table scrolls inside the chat scroll, and a
     // full-width OS bar here read as "tables within tables" on Windows.
@@ -263,7 +304,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
                       {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
                     </td>
                   </tr>,
-                  ...sec.rows.map((r, ri) => renderRow(r, `${si}-${ri}`, n++ % 2 === 1)),
+                  ...sec.rows.map((r, ri) => renderRow(r, `${si}-${ri}`, n++ % 2 === 1, sec.title)),
                 ]);
               })()}
         </tbody>
@@ -396,7 +437,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
+  | { kind: 'data'; uid?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -716,6 +757,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // everything still renders inline as before.
   const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
   const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
+  const dataUidRef = useRef(0);
+  // Row ± quantity: in-flight keys (buttons disabled per row while writing)
+  const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
   // Cumulative session usage (accumulated from done events)
   const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
   const modelRef = useRef(models[0]);
@@ -853,7 +897,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // next React flush, so it can't stop a second dispatch landing in the same
   // tick — the ref flips before any await and closes that window for real.
   const runningActionRef = useRef(false);
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; deckEditable?: boolean; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
     if (busy || runningActionRef.current) return;
     runningActionRef.current = true;
     setErrorBanner(null);
@@ -867,7 +911,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, resultRows: result.resultRows, wantsAdd: result.wantsAdd };
+      // uid: stable identity across optimistic row-qty updates (each update
+      // replaces the item object in both the transcript and workspace stack).
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd };
       setItems((prev) => [...prev, dataItem]);
       // Tables and listings take over the workspace panel on desktop; drills
       // (actionId with ':') push so Back returns to the list they came from.
@@ -1259,6 +1305,35 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     setPreviewCard(printingToSwapOption(p, name).preview);
     setRailStatus({});
   }, [previewCard]);
+
+  // Row ± quantity: persist to the source (binder/wants/deck), then apply the
+  // same adjustment to the LATEST version of the item (matched by uid) in both
+  // the transcript and the workspace stack — capturing the item object would
+  // lose concurrent updates to sibling rows.
+  const adjustQty = useCallback(async (item: Extract<UiItem, { kind: 'data' }>, row: CardRow, delta: 1 | -1, sectionTitle?: string) => {
+    const mutation = item.mutate;
+    if (!mutation || !item.uid) return;
+    const key = qtyRowKey(row, sectionTitle);
+    setQtyBusyKeys((prev) => new Set(prev).add(key));
+    try {
+      const res = await adjustRowQuantity(mutation, row, delta, sectionTitle);
+      if (!res.ok) {
+        setErrorBanner(res.error);
+        return;
+      }
+      const rowKey = { printingId: row.preview.printingId, itemId: row.itemId, section: sectionTitle };
+      const apply = <T extends UiItem>(i: T): T =>
+        (i.kind === 'data' && i.uid === item.uid ? (adjustItemRowQty(i as any, rowKey, delta) as T) : i);
+      setItems((prev) => prev.map(apply));
+      setWorkspaceStack((prev) => prev.map((i) => apply(i)));
+    } finally {
+      setQtyBusyKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, []);
 
   // Split-button add flow. The dialog closes itself synchronously after a
   // single "Add to X" (onSelectCard → onOpenChange(false) in the same tick),
@@ -1805,7 +1880,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
                     <div className="lg:hidden">
-                      <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader} />
+                      <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
+                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
                     </div>
                   )}
                   {/* Desktop: the table/list lives in the workspace panel; the
@@ -1822,12 +1898,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       <button
                         type="button"
                         onClick={() => setWorkspaceStack([item])}
-                        disabled={workspace === item}
+                        disabled={workspace?.uid === item.uid}
                         className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
                         title="Show this list in the workspace panel"
                       >
                         <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                        {workspace === item ? 'In workspace' : 'Open in workspace'}
+                        {workspace?.uid === item.uid ? 'In workspace' : 'Open in workspace'}
                       </button>
                     </div>
                   )}
@@ -1848,7 +1924,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   )}
                   {item.tableSections && item.tableSections.length > 0 && (
                     <div className="lg:hidden">
-                      <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1" />
+                      <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
+                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
                     </div>
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
@@ -2236,9 +2313,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {workspace.tableSections && workspace.tableSections.length > 0 ? (
-            <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" />
+            <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
+              onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
-            <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" />
+            <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
+              onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
           ) : (
             // Listing view (binder/deck pickers): drill rows navigate the panel
             <div className="px-1.5 py-1">

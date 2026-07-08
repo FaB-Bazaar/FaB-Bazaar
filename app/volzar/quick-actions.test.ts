@@ -28,6 +28,7 @@ import {
   printingToSwapOption,
   shouldOpenInWorkspace,
   advanceWorkspace,
+  adjustItemRowQty,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -947,5 +948,70 @@ describe('advanceWorkspace', () => {
     const stack = [item('Your binders')];
     advanceWorkspace(stack, item('Binder: Brute'), 'binder:abc');
     expect(stack).toHaveLength(1);
+  });
+});
+
+describe('row quantity mutation plumbing', () => {
+  it('summarizeBinderCards carries the binder mutation target + per-row inventory itemId', () => {
+    const result = summarizeBinderCards('Brute', [
+      { id: 'item-1', display_name: 'Pummel', quantity: 3 } as any,
+    ], 3, 'binder-9');
+    expect(result.mutate).toEqual({ kind: 'binder', binderId: 'binder-9' });
+    expect(result.tableRows?.[0].itemId).toBe('item-1');
+  });
+
+  it('summarizeWantsCards marks rows as wants-mutable', () => {
+    const result = summarizeWantsCards([{ display_name: 'Pummel', quantity: 2 }]);
+    expect(result.mutate).toEqual({ kind: 'wants' });
+  });
+
+  it('summarizeDeckContents marks rows deck-mutable only when the deck is editable', () => {
+    const card = { quantity: 3, printingDetails: { display_name: 'Pummel' } };
+    const editable = summarizeDeckContents({ name: 'V', publicId: 'pub-1', canEdit: true, maindeck: [card] });
+    expect(editable.mutate).toEqual({ kind: 'deck', publicId: 'pub-1' });
+    const readonly = summarizeDeckContents({ name: 'V', publicId: 'pub-1', maindeck: [card] });
+    expect(readonly.mutate).toBeUndefined();
+  });
+});
+
+describe('adjustItemRowQty', () => {
+  const row = (printingId: string, qty: number) =>
+    ({ qty, name: printingId, preview: { imageUrl: '', name: printingId, printingId } }) as any;
+
+  it('updates the matching flat row without mutating the original item', () => {
+    const item = { tableRows: [row('p1', 3), row('p2', 1)] } as any;
+    const next = adjustItemRowQty(item, { printingId: 'p1' }, 1);
+    expect(next.tableRows[0].qty).toBe(4);
+    expect(item.tableRows[0].qty).toBe(3); // untouched
+    expect(next).not.toBe(item);
+  });
+
+  it('removes the row when quantity reaches zero', () => {
+    const item = { tableRows: [row('p1', 1), row('p2', 2)] } as any;
+    const next = adjustItemRowQty(item, { printingId: 'p1' }, -1);
+    expect(next.tableRows).toHaveLength(1);
+    expect(next.tableRows[0].preview.printingId).toBe('p2');
+  });
+
+  it('scopes section updates by section title (same printing can sit in Maindeck AND Inventory)', () => {
+    const item = {
+      tableSections: [
+        { title: 'Maindeck', count: 3, rows: [row('p1', 3)] },
+        { title: 'Inventory', count: 1, rows: [row('p1', 1)] },
+      ],
+    } as any;
+    const next = adjustItemRowQty(item, { printingId: 'p1', section: 'Maindeck' }, -1);
+    expect(next.tableSections[0].rows[0].qty).toBe(2);
+    expect(next.tableSections[0].count).toBe(2);
+    expect(next.tableSections[1].rows[0].qty).toBe(1); // Inventory untouched
+  });
+
+  it('matches binder rows by itemId when present (duplicate printings across conditions)', () => {
+    const a = { ...row('p1', 2), itemId: 'i-a' };
+    const b = { ...row('p1', 5), itemId: 'i-b' };
+    const item = { tableRows: [a, b] } as any;
+    const next = adjustItemRowQty(item, { printingId: 'p1', itemId: 'i-b' }, 1);
+    expect(next.tableRows[0].qty).toBe(2);
+    expect(next.tableRows[1].qty).toBe(6);
   });
 });

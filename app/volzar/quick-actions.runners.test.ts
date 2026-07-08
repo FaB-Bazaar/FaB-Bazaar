@@ -6,22 +6,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/client', () => ({
-  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn() },
-  wantsClient: { getUserWants: vi.fn(), addWantsItem: vi.fn() },
-  decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn(), addPrintings: vi.fn() },
+  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn(), updateBinderCard: vi.fn(), deleteBinderCard: vi.fn() },
+  wantsClient: { getUserWants: vi.fn(), addWantsItem: vi.fn(), removeWantsItem: vi.fn() },
+  decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn(), addPrintings: vi.fn(), removePrinting: vi.fn() },
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
 import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
+  adjustRowQuantity,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
 const mockGetUserDecks = vi.mocked(decksClient.getUserDecks);
 const mockAddCardsToBinder = vi.mocked(bindersClient.addCardsToBinder);
+const mockUpdateBinderCard = vi.mocked(bindersClient.updateBinderCard);
+const mockDeleteBinderCard = vi.mocked(bindersClient.deleteBinderCard);
 const mockAddWantsItem = vi.mocked(wantsClient.addWantsItem);
+const mockRemoveWantsItem = vi.mocked(wantsClient.removeWantsItem);
 const mockAddPrintings = vi.mocked(decksClient.addPrintings);
+const mockRemovePrinting = vi.mocked(decksClient.removePrinting);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -216,5 +221,65 @@ describe('decks quick action', () => {
     expect(mockGetUserDecks).toHaveBeenCalledTimes(1);
     const pagination = mockGetUserDecks.mock.calls[0][1] as { limit?: number } | undefined;
     expect(pagination?.limit ?? 0).toBeGreaterThanOrEqual(100000);
+  });
+});
+
+describe('adjustRowQuantity', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    qty: 3, name: 'Pummel', itemId: 'item-1',
+    preview: { imageUrl: '', name: 'Pummel', printingId: 'pr1' },
+    ...over,
+  }) as any;
+
+  it('binder +1 patches the inventory item to the new quantity', async () => {
+    mockUpdateBinderCard.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await adjustRowQuantity({ kind: 'binder', binderId: 'b1' }, row(), 1);
+
+    expect(mockUpdateBinderCard).toHaveBeenCalledWith('b1', 'item-1', { quantity: 4 });
+    expect(result).toEqual({ ok: true, newQty: 4 });
+  });
+
+  it('binder −1 at quantity 1 deletes the inventory item', async () => {
+    mockDeleteBinderCard.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await adjustRowQuantity({ kind: 'binder', binderId: 'b1' }, row({ qty: 1 }), -1);
+
+    expect(mockDeleteBinderCard).toHaveBeenCalledWith('b1', 'item-1');
+    expect(result).toEqual({ ok: true, newQty: 0 });
+  });
+
+  it('binder mutation without an itemId errors instead of guessing', async () => {
+    const result = await adjustRowQuantity({ kind: 'binder', binderId: 'b1' }, row({ itemId: undefined }), 1);
+    expect(result.ok).toBe(false);
+    expect(mockUpdateBinderCard).not.toHaveBeenCalled();
+  });
+
+  it('wants +1 adds one copy, −1 removes one copy (server handles removal at zero)', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+    mockRemoveWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+
+    await adjustRowQuantity({ kind: 'wants' }, row(), 1);
+    expect(mockAddWantsItem).toHaveBeenCalledWith('pr1', 1);
+
+    await adjustRowQuantity({ kind: 'wants' }, row(), -1);
+    expect(mockRemoveWantsItem).toHaveBeenCalledWith('pr1', false, 1);
+  });
+
+  it('deck routes through the section title as the category', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+    mockRemovePrinting.mockResolvedValue({ success: true, data: {} } as any);
+
+    await adjustRowQuantity({ kind: 'deck', publicId: 'pub-1' }, row(), 1, 'Inventory');
+    expect(mockAddPrintings).toHaveBeenCalledWith('pub-1', [{ printingId: 'pr1', quantity: 1, category: 'inventory' }]);
+
+    await adjustRowQuantity({ kind: 'deck', publicId: 'pub-1' }, row(), -1, 'Maindeck');
+    expect(mockRemovePrinting).toHaveBeenCalledWith('pub-1', 'pr1', 'maindeck', 1);
+  });
+
+  it('surfaces the client error on failure', async () => {
+    mockUpdateBinderCard.mockResolvedValue({ success: false, error: 'locked' } as any);
+    const result = await adjustRowQuantity({ kind: 'binder', binderId: 'b1' }, row(), 1);
+    expect(result).toEqual({ ok: false, error: 'locked' });
   });
 });
