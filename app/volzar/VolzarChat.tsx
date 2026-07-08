@@ -1147,11 +1147,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // single "Add to X" (onSelectCard → onOpenChange(false) in the same tick),
   // so the added-card label is recorded optimistically BEFORE the request
   // resolves — otherwise the close-time flush would miss the last card.
-  const openAddToBinder = useCallback((binderId: string) => {
-    const binder = binderOptions.find((b) => b._id === binderId);
-    setTargetBinderId(binderId); // remember as the new default target
-    setAddDialog({ destination: 'binder', binderId, binderName: binder?.name });
-  }, [binderOptions]);
+  const openAddToBinder = useCallback(() => {
+    const binder = binderOptions.find((b) => b._id === targetBinderId);
+    if (!binder) return;
+    setAddDialog({ destination: 'binder', binderId: binder._id, binderName: binder.name });
+  }, [binderOptions, targetBinderId]);
 
   const flushAddDialog = useCallback(() => {
     if (addDialog && addedCardsRef.current.length > 0) {
@@ -1287,28 +1287,46 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
               <span key={action.id} className="inline-flex shrink-0">
                 {main}
                 {addSide === 'binder' ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy || runningAction !== null || binderOptions.length === 0}
-                        className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
-                        aria-label="Add cards to a binder"
-                        title="Search cards and add them to a binder"
-                      >
-                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuLabel>Add cards to…</DropdownMenuLabel>
-                      {binderOptions.map((b) => (
-                        <DropdownMenuItem key={b._id} onSelect={() => openAddToBinder(b._id)} className="text-base">
-                          {b._id === targetBinderId ? '✓ ' : ''}{b.name}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  // Tri-button: middle segment shows the target binder (click
+                  // to change), + adds straight to it — no picking required.
+                  <>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={busy || runningAction !== null || binderOptions.length === 0}
+                          className={`rounded-none border-l border-border gap-1 px-2 ${focusRing}`}
+                          aria-label="Choose which binder to add cards to"
+                          title="Choose which binder the + adds cards to"
+                        >
+                          <span className="max-w-[7rem] truncate">
+                            {binderOptions.find((b) => b._id === targetBinderId)?.name ?? 'Binder'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Add cards to…</DropdownMenuLabel>
+                        {binderOptions.map((b) => (
+                          <DropdownMenuItem key={b._id} onSelect={() => setTargetBinderId(b._id)} className="text-base">
+                            {b._id === targetBinderId ? '✓ ' : ''}{b.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy || runningAction !== null || binderOptions.length === 0}
+                      onClick={openAddToBinder}
+                      className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
+                      aria-label="Add cards to the selected binder"
+                      title="Search cards and add them to the selected binder"
+                    >
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </>
                 ) : (
                   <Button
                     variant="secondary"
