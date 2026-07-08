@@ -5,6 +5,8 @@ vi.mock('@/lib/services', () => ({
   printingsService: {
     searchPrintings: vi.fn().mockResolvedValue({ success: true, data: { printings: [], total: 0 } }),
     bulkResolveByName: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    getCardIdsByTranslatedName: vi.fn().mockResolvedValue({ success: true, data: [] }),
+    getCardTranslations: vi.fn().mockResolvedValue({ success: true, data: [] }),
   },
 }));
 

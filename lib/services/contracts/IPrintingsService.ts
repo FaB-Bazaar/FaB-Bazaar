@@ -726,6 +726,18 @@ export interface IPrintingsService {
   ): AsyncResult<CardTranslationDTO[]>;
 
   /**
+   * Resolve a NATIVE-LANGUAGE card name (French, Japanese, …) to the cards it
+   * names, via card_translations. Whole-phrase substring match, accent- and
+   * case-insensitive (mirrors English strict-mode matching). Searched across
+   * all languages — a translated name identifies the same card regardless of
+   * which language it came from. Closest (shortest) names first, capped small;
+   * blank input returns an empty array without querying.
+   */
+  getCardIdsByTranslatedName(
+    name: string
+  ): AsyncResult<Array<{ cardUniqueId: string; language: string; displayName: string }>>;
+
+  /**
    * Get multiple printings by their printing_id values
    *
    * @param printingIds - Array of printing IDs

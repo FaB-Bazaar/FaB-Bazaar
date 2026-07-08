@@ -739,6 +739,42 @@ export class PostgresPrintingsService implements IPrintingsService {
   }
 
   /**
+   * Resolve a native-language card name to card ids via card_translations.
+   * Whole-phrase substring, accent/case-insensitive — the same
+   * immutable_unaccent ILIKE idiom as English strict-mode name matching.
+   * Searched across all languages; shortest (closest) names first, capped so
+   * a generic fragment can't flood the caller.
+   */
+  async getCardIdsByTranslatedName(
+    name: string
+  ): AsyncResult<Array<{ cardUniqueId: string; language: string; displayName: string }>> {
+    try {
+      const normalized = name.trim().toLowerCase();
+      if (!normalized) {
+        return { success: true, data: [] };
+      }
+
+      const rows = await db
+        .select({
+          cardUniqueId: cardTranslations.cardUniqueId,
+          language: cardTranslations.language,
+          displayName: cardTranslations.displayName,
+        })
+        .from(cardTranslations)
+        .where(sql`immutable_unaccent(${cardTranslations.name}) ILIKE immutable_unaccent(${'%' + normalized + '%'})`)
+        .orderBy(sql`length(${cardTranslations.name}) ASC`, cardTranslations.cardUniqueId)
+        .limit(25);
+
+      return { success: true, data: rows };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resolve translated card name',
+      };
+    }
+  }
+
+  /**
    * Get elemental cards by essence type(s)
    */
   async getElementalCards(

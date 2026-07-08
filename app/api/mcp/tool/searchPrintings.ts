@@ -63,6 +63,8 @@ type SectionInput = {
   total: number;
   printings: any[];
   foilingFallback?: boolean;
+  /** Language code when the section was recovered via a translated card name. */
+  translatedNameMatch?: string;
 };
 
 const MAX_SECTION_GROUPS = 10;
@@ -104,9 +106,12 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
     }
     const groups = [...groupsMap.values()];
 
-    const fallbackNote = r.foilingFallback
+    const fallbackNote = (r.foilingFallback
       ? '\n  ⚠️ No non-foil printing exists — showing available foil printing(s) instead'
-      : '';
+      : '')
+      + (r.translatedNameMatch
+        ? `\n  ℹ️ matched by ${r.translatedNameMatch.toUpperCase()} card name (translated-name lookup)`
+        : '');
 
     const shown = groups.slice(0, MAX_SECTION_GROUPS);
     const moreCards = groups.length > MAX_SECTION_GROUPS
@@ -602,6 +607,33 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           (r as any).foilingFallback = true;
         }
       });
+    }
+
+    // ── Translated-name fallback ──────────────────────────────────────────────
+    // A native-language card name ("Frappe Éclairée", "啓示の一撃") matches
+    // nothing in the English-only name search. For zero-result NAME queries,
+    // resolve the name against card_translations and re-search by card id —
+    // the model can pass the user's wording verbatim. Non-name filters from
+    // the original query (pitch, foilings, …) still apply to the re-search.
+    const translatedNameItems = output.filter(
+      r => r.total === 0 && (resolved[r.index].filters.name ?? '').trim(),
+    );
+    if (translatedNameItems.length > 0) {
+      await Promise.all(translatedNameItems.map(async r => {
+        const tRes = await printingsService.getCardIdsByTranslatedName(resolved[r.index].filters.name!);
+        if (!tRes.success || tRes.data.length === 0) return;
+        const ids = [...new Set(tRes.data.map(m => m.cardUniqueId))];
+        const { name: _n, exact: _e, ...restFilters } = resolved[r.index].filters as any;
+        const search = await printingsService.searchPrintings(
+          { ...restFilters, cardUniqueIds: ids },
+          { limit: options.limit || 12, sortBy: options.sortBy, sortOrder: options.sortOrder, groupByCard },
+        );
+        if (search.success && search.data.total > 0) {
+          r.printings = search.data.printings;
+          r.total = search.data.total;
+          (r as any).translatedNameMatch = tRes.data[0].language;
+        }
+      }));
     }
 
     // ── Language localization (options.language) ─────────────────────────────

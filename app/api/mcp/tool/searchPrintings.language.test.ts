@@ -14,6 +14,7 @@ vi.mock('@/lib/services', () => ({
     searchPrintings: vi.fn(),
     bulkResolveByName: vi.fn(),
     getCardTranslations: vi.fn(),
+    getCardIdsByTranslatedName: vi.fn(),
   },
 }));
 
@@ -23,6 +24,7 @@ import { printingsService } from '@/lib/services';
 const mockBulk = vi.mocked(printingsService.bulkResolveByName);
 const mockSearch = vi.mocked(printingsService.searchPrintings);
 const mockTranslations = vi.mocked(printingsService.getCardTranslations);
+const mockTranslatedName = vi.mocked(printingsService.getCardIdsByTranslatedName);
 
 const EN_PRINTING = {
   printing_id: 'pid_en',
@@ -71,6 +73,7 @@ beforeEach(() => {
   } as any);
   mockSearch.mockResolvedValue({ success: true, data: { printings: [FR_PRINTING], total: 1 } } as any);
   mockTranslations.mockResolvedValue({ success: true, data: [FR_TRANSLATION] } as any);
+  mockTranslatedName.mockResolvedValue({ success: true, data: [] } as any);
 });
 
 describe('search_printings options.language', () => {
@@ -111,6 +114,66 @@ describe('search_printings options.language', () => {
     expect(p.language).toBeUndefined(); // en is the default — not repeated per row
     expect(p.name_local).toBe('Frappe Éclairée');
     expect((result as any).message).toContain('no FR printing');
+  });
+
+  it('resolves a native-language card name via the translated-name fallback', async () => {
+    // The English name search finds nothing for the French wording…
+    mockBulk.mockResolvedValue({
+      success: true,
+      data: [{ name: 'frappe éclairée', printings: [] }],
+    } as any);
+    // …the translated-name lookup identifies the card…
+    mockTranslatedName.mockResolvedValue({
+      success: true,
+      data: [{ cardUniqueId: 'cuid_estrike', language: 'fr', displayName: 'Frappe Éclairée' }],
+    } as any);
+    // …and searches serve the re-search (by card id) vs localization (languages).
+    mockSearch.mockImplementation(async (filters: any) => {
+      if (filters.languages) return { success: true, data: { printings: [FR_PRINTING], total: 1 } } as any;
+      if (filters.cardUniqueIds) return { success: true, data: { printings: [EN_PRINTING], total: 1 } } as any;
+      return { success: true, data: { printings: [], total: 0 } } as any;
+    });
+
+    const result = await searchPrintingsTool.handler({
+      cards: [{ query: 'frappe éclairée' }],
+      options: { language: 'fr' },
+    });
+
+    expect(mockTranslatedName).toHaveBeenCalledWith('frappe éclairée');
+    const p = (result as any).results[0].printings[0];
+    // Recovered AND localized: the FR printing with the translated name.
+    expect(p.printing_id).toBe('pid_fr');
+    expect(p.name_local).toBe('Frappe Éclairée');
+    expect((result as any).message).toContain('matched by FR card name');
+  });
+
+  it('translated-name fallback works without options.language (English result)', async () => {
+    mockBulk.mockResolvedValue({
+      success: true,
+      data: [{ name: 'frappe éclairée', printings: [] }],
+    } as any);
+    mockTranslatedName.mockResolvedValue({
+      success: true,
+      data: [{ cardUniqueId: 'cuid_estrike', language: 'fr', displayName: 'Frappe Éclairée' }],
+    } as any);
+    mockSearch.mockResolvedValue({ success: true, data: { printings: [EN_PRINTING], total: 1 } } as any);
+
+    const result = await searchPrintingsTool.handler({
+      cards: [{ query: 'frappe éclairée' }],
+    });
+
+    const p = (result as any).results[0].printings[0];
+    expect(p.printing_id).toBe('pid_en');
+    expect((result as any).message).toContain('matched by FR card name');
+    expect(mockTranslations).not.toHaveBeenCalled();
+  });
+
+  it('does not try the translated-name fallback when the English search has results', async () => {
+    await searchPrintingsTool.handler({
+      cards: [{ query: 'enlightened strike' }],
+      options: { language: 'fr' },
+    });
+    expect(mockTranslatedName).not.toHaveBeenCalled();
   });
 
   it('does no localization work for English or missing language', async () => {
