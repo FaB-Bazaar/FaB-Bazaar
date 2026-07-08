@@ -885,6 +885,54 @@ export function buildMessageWithContext(pendingContext: string[], userText: stri
 }
 
 // ---------------------------------------------------------------------------
+// Add-card runners (CardSearchDialog → binder / wants)
+// ---------------------------------------------------------------------------
+
+/** First argument of CardSearchDialog's onSelectCard. */
+export interface CardSearchSelection {
+  card?: { name?: string };
+  printing?: { printing_id?: string; unique_id?: string; display_name?: string };
+  quantity?: number;
+  forTrade?: boolean;
+}
+
+export type AddCardOutcome = { ok: true; name: string } | { ok: false; error: string };
+
+function selectionPrinting(selection: CardSearchSelection): { printingId?: string; name: string; quantity: number } {
+  const printingId = selection.printing?.printing_id || selection.printing?.unique_id;
+  return {
+    printingId,
+    name: selection.printing?.display_name || selection.card?.name || 'card',
+    quantity: selection.quantity ?? 1,
+  };
+}
+
+export async function addSearchSelectionToBinder(
+  binderId: string,
+  selection: CardSearchSelection,
+): Promise<AddCardOutcome> {
+  const { printingId, name, quantity } = selectionPrinting(selection);
+  if (!printingId) return { ok: false, error: 'No printing selected.' };
+  const result = await bindersClient.addCardsToBinder(binderId, [
+    // forTrade passes through verbatim: BinderService-style `?? true` here
+    // would silently flip the dialog's "available for trade" toggle when off.
+    { printingId, quantity, forTrade: selection.forTrade },
+  ]);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, name };
+}
+
+export async function addSearchSelectionToWants(
+  selection: CardSearchSelection,
+): Promise<AddCardOutcome> {
+  const { printingId, name, quantity } = selectionPrinting(selection);
+  if (!printingId) return { ok: false, error: 'No printing selected.' };
+  const result = await wantsClient.addWantsItem(printingId, quantity);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, name };
+}
+
+// ---------------------------------------------------------------------------
 // Action runners (thin client-service wiring; parse legacy wire shapes)
 // ---------------------------------------------------------------------------
 

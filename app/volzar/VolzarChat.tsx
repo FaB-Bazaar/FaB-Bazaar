@@ -11,9 +11,13 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ChevronDown, Plus,
 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialog';
+import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
 import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
@@ -22,6 +26,7 @@ import {
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand, printingToSwapOption,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   fetchKitHeroes, runHeroKit,
+  addSearchSelectionToBinder, addSearchSelectionToWants,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -602,6 +607,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const [binderOptions, setBinderOptions] = useState<Array<{ _id: string; name: string }>>([]);
   const [targetBinderId, setTargetBinderId] = useState<string>('');
   const [railStatus, setRailStatus] = useState<{ wants?: 'busy' | 'done' | 'error'; binder?: 'busy' | 'done' | 'error' }>({});
+  // Card-search add flow (split buttons on My binders / My wants). Adds made
+  // while the dialog is open accumulate here and flush into one data card +
+  // one context entry when it closes.
+  const [addDialog, setAddDialog] = useState<{ destination: 'binder' | 'wants'; binderId?: string; binderName?: string } | null>(null);
+  const addedCardsRef = useRef<string[]>([]);
   // Cumulative session usage (accumulated from done events)
   const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
   const modelRef = useRef(models[0]);
@@ -1090,6 +1100,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     pendingContextRef.current = [];
     setSessionUsage({ input: 0, output: 0, cost: 0 });
     setWantsAddStatus({});
+    setAddDialog(null);
+    addedCardsRef.current = [];
   }, []);
 
   const addPreviewToWants = useCallback(async () => {
@@ -1130,6 +1142,48 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     setPreviewCard(printingToSwapOption(p, name).preview);
     setRailStatus({});
   }, [previewCard]);
+
+  // Split-button add flow. The dialog closes itself synchronously after a
+  // single "Add to X" (onSelectCard → onOpenChange(false) in the same tick),
+  // so the added-card label is recorded optimistically BEFORE the request
+  // resolves — otherwise the close-time flush would miss the last card.
+  const openAddToBinder = useCallback((binderId: string) => {
+    const binder = binderOptions.find((b) => b._id === binderId);
+    setTargetBinderId(binderId); // remember as the new default target
+    setAddDialog({ destination: 'binder', binderId, binderName: binder?.name });
+  }, [binderOptions]);
+
+  const flushAddDialog = useCallback(() => {
+    if (addDialog && addedCardsRef.current.length > 0) {
+      const dest = addDialog.destination === 'binder'
+        ? `binder “${addDialog.binderName ?? 'Binder'}”`
+        : 'wants list';
+      const lines = addedCardsRef.current;
+      setItems((prev) => [...prev, { kind: 'data', title: `Added to ${dest}`, lines }]);
+      pendingContextRef.current.push(`Via card search the user just added to their ${dest}: ${lines.join('; ')}`);
+      addedCardsRef.current = [];
+    }
+    setAddDialog(null);
+  }, [addDialog]);
+
+  const handleAddCardSelect = useCallback((selection: any) => {
+    const target = addDialog;
+    if (!target) return;
+    const label = `${selection?.quantity ?? 1}× ${selection?.printing?.display_name || selection?.card?.name || 'card'}`;
+    addedCardsRef.current.push(label);
+    const run = target.destination === 'binder' && target.binderId
+      ? addSearchSelectionToBinder(target.binderId, selection)
+      : addSearchSelectionToWants(selection);
+    run.then((outcome) => {
+      if (!outcome.ok) {
+        // Retract one occurrence if not yet flushed into the chat; the banner
+        // covers the rest ("Add and Continue" can queue duplicate labels).
+        const i = addedCardsRef.current.lastIndexOf(label);
+        if (i !== -1) addedCardsRef.current.splice(i, 1);
+        setErrorBanner(`Could not add ${label}: ${outcome.error}`);
+      }
+    });
+  }, [addDialog]);
 
   const addPreviewToBinder = useCallback(async () => {
     if (!previewCard?.printingId || !targetBinderId) return;
@@ -1209,20 +1263,68 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
             <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
           </span>
-          {QUICK_ACTIONS.map((action) => (
-            <Button
-              key={action.id}
-              variant="secondary"
-              size="sm"
-              disabled={busy || runningAction !== null}
-              onClick={() => runQuickAction(action.id)}
-              className={`shrink-0 gap-1.5 ${focusRing}`}
-              title="Runs directly against your data — no AI involved"
-            >
-              {runningAction === action.id && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              {action.label}
-            </Button>
-          ))}
+          {QUICK_ACTIONS.map((action) => {
+            // My binders / My wants are split buttons: the label runs the
+            // instant listing; the attached side button opens the card-search
+            // dialog to ADD cards (binder side picks the target binder first).
+            const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : null;
+            const main = (
+              <Button
+                key={addSide ? undefined : action.id}
+                variant="secondary"
+                size="sm"
+                disabled={busy || runningAction !== null}
+                onClick={() => runQuickAction(action.id)}
+                className={`shrink-0 gap-1.5 ${focusRing} ${addSide ? 'rounded-r-none' : ''}`}
+                title="Runs directly against your data — no AI involved"
+              >
+                {runningAction === action.id && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+                {action.label}
+              </Button>
+            );
+            if (!addSide) return main;
+            return (
+              <span key={action.id} className="inline-flex shrink-0">
+                {main}
+                {addSide === 'binder' ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={busy || runningAction !== null || binderOptions.length === 0}
+                        className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
+                        aria-label="Add cards to a binder"
+                        title="Search cards and add them to a binder"
+                      >
+                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuLabel>Add cards to…</DropdownMenuLabel>
+                      {binderOptions.map((b) => (
+                        <DropdownMenuItem key={b._id} onSelect={() => openAddToBinder(b._id)} className="text-base">
+                          {b._id === targetBinderId ? '✓ ' : ''}{b.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy || runningAction !== null}
+                    onClick={() => setAddDialog({ destination: 'wants' })}
+                    className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
+                    aria-label="Add a card to your wants list"
+                    title="Search cards and add them to your wants list"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
+              </span>
+            );
+          })}
           <Button
             variant="secondary"
             size="sm"
@@ -2042,6 +2144,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         onSelectPrinting={onSwapPicked}
       />
     )}
+    <CardSearchDialog
+      open={!!addDialog}
+      onOpenChange={(open) => { if (!open) flushAddDialog(); }}
+      onSelectCard={handleAddCardSelect}
+      destination={addDialog?.destination ?? 'binder'}
+    />
     </div>
   );
 }

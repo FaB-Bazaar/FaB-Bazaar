@@ -6,16 +6,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/client', () => ({
-  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn() },
-  wantsClient: { getUserWants: vi.fn() },
+  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn() },
+  wantsClient: { getUserWants: vi.fn(), addWantsItem: vi.fn() },
   decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn() },
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
-import { QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes } from './quick-actions';
-import { decksClient } from '@/lib/client';
+import {
+  QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
+  addSearchSelectionToBinder, addSearchSelectionToWants,
+} from './quick-actions';
+import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
 const mockGetUserDecks = vi.mocked(decksClient.getUserDecks);
+const mockAddCardsToBinder = vi.mocked(bindersClient.addCardsToBinder);
+const mockAddWantsItem = vi.mocked(wantsClient.addWantsItem);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -62,6 +67,78 @@ describe('fetchToBeatHeroes', () => {
     expect(heroes).toHaveLength(60);
     expect(heroes.some((h) => h.heroName === 'hero_page2_3')).toBe(true);
     fetchSpy.mockRestore();
+  });
+});
+
+// Payload shape produced by CardSearchDialog's onSelectCard.
+const selection = (over: Record<string, unknown> = {}) => ({
+  card: { unique_id: 'cu1', name: 'Enlightened Strike' },
+  printing: { printing_id: 'pr1', display_name: 'Enlightened Strike (Red)' },
+  quantity: 2,
+  forTrade: true,
+  ...over,
+});
+
+describe('addSearchSelectionToBinder', () => {
+  it('passes printingId, quantity, and forTrade through to addCardsToBinder for the chosen binder', async () => {
+    mockAddCardsToBinder.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await addSearchSelectionToBinder('binder-9', selection() as any);
+
+    expect(mockAddCardsToBinder).toHaveBeenCalledWith('binder-9', [
+      { printingId: 'pr1', quantity: 2, forTrade: true },
+    ]);
+    expect(result).toEqual({ ok: true, name: 'Enlightened Strike (Red)' });
+  });
+
+  it('preserves forTrade=false — server/service defaults elsewhere coerce ?? true', async () => {
+    mockAddCardsToBinder.mockResolvedValue({ success: true, data: {} } as any);
+
+    await addSearchSelectionToBinder('binder-9', selection({ forTrade: false }) as any);
+
+    expect(mockAddCardsToBinder.mock.calls[0][1][0].forTrade).toBe(false);
+  });
+
+  it('returns an error without calling the client when the selection has no printing id', async () => {
+    const result = await addSearchSelectionToBinder('binder-9', selection({ printing: {} }) as any);
+
+    expect(mockAddCardsToBinder).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+  });
+
+  it('surfaces the client error on failure', async () => {
+    mockAddCardsToBinder.mockResolvedValue({ success: false, error: 'nope' } as any);
+
+    const result = await addSearchSelectionToBinder('binder-9', selection() as any);
+
+    expect(result).toEqual({ ok: false, error: 'nope' });
+  });
+});
+
+describe('addSearchSelectionToWants', () => {
+  it('adds the selected printing and quantity to the wants list', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await addSearchSelectionToWants(selection() as any);
+
+    expect(mockAddWantsItem).toHaveBeenCalledWith('pr1', 2);
+    expect(result).toEqual({ ok: true, name: 'Enlightened Strike (Red)' });
+  });
+
+  it('falls back to printing.unique_id — the dialog maps printing_id onto unique_id in its grouped shape', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+
+    await addSearchSelectionToWants(selection({ printing: { unique_id: 'pr2', display_name: 'X' } }) as any);
+
+    expect(mockAddWantsItem).toHaveBeenCalledWith('pr2', 2);
+  });
+
+  it('surfaces the client error on failure', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: false, error: 'wants down' } as any);
+
+    const result = await addSearchSelectionToWants(selection() as any);
+
+    expect(result).toEqual({ ok: false, error: 'wants down' });
   });
 });
 
