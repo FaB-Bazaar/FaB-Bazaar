@@ -340,6 +340,26 @@ describe('summarizeComparison', () => {
   it('celebrates a fully owned deck', () => {
     const result = summarizeComparison('Deck', { owned: [{ printingId: 'a', cardName: 'X', needed: 1, owned: 1 }] });
     expect(result.lines[0]).toContain('You own everything');
+    expect(result.tableSections).toBeUndefined(); // nothing to tabulate
+  });
+
+  it('emits Missing/Partial table sections with an Owned tail column (consistent card-table UI)', () => {
+    const result = summarizeComparison('CC Gravy', {
+      owned: [{ printingId: 'a', cardName: 'Owned Card', needed: 3, owned: 3 }],
+      partial: [{ printingId: 'b', cardName: 'Half Card', needed: 3, owned: 1, pitch: 2, tcgLow: 1.2 }],
+      missing: [{ printingId: 'c', cardName: 'Gone Card', needed: 2, tcgMarket: 5.5, pitch: 3 }],
+    });
+    expect(result.tableSections?.map((s) => [s.title, s.count])).toEqual([
+      ['Missing — ~$11.00', 1],
+      ['Partial', 1],
+    ]);
+    const gone = result.tableSections![0].rows[0];
+    expect(gone).toMatchObject({ qty: 2, name: 'Gone Card', pitch: 3, price: 5.5, note: '0/2' });
+    expect(gone.image).toBeTruthy();
+    expect(gone.preview.printingId).toBe('c');
+    const half = result.tableSections![1].rows[0];
+    expect(half).toMatchObject({ qty: 3, name: 'Half Card', pitch: 2, price: 1.2, note: '1/3' });
+    expect(result.tableNoteHeader).toBe('Owned');
   });
 
   it('carries pitch on missing/partial lines and a cards[] of what you still need', () => {

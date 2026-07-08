@@ -1003,6 +1003,40 @@ export function summarizeComparison(
     })));
   }
 
+  // Section-grouped card-table rows — the same striped table the decklist
+  // renders, with owned/needed riding the tail "Owned" column.
+  const toCompareRow = (c: { printingId: string; cardName: string; needed: number; pitch?: number; tcgLow?: number; tcgMarket?: number; tcgplayerUrl?: string }, ownedCount: number): CardRow => ({
+    qty: c.needed,
+    name: c.cardName,
+    pitch: typeof c.pitch === 'number' && c.pitch > 0 ? c.pitch : undefined,
+    image: getCardImageUrl({ printingId: c.printingId }),
+    price: c.tcgLow ?? c.tcgMarket,
+    note: `${ownedCount}/${c.needed}`,
+    preview: {
+      imageUrl: getCardImageUrl({ printingId: c.printingId }),
+      name: c.cardName,
+      printingId: c.printingId,
+      priceLow: c.tcgLow,
+      priceMarket: c.tcgMarket,
+      tcgplayerUrl: c.tcgplayerUrl,
+    },
+  });
+  const tableSections: Array<{ title: string; count: number; rows: CardRow[] }> = [];
+  if (missing.length > 0) {
+    tableSections.push({
+      title: `Missing${missingCost > 0 ? ` — ~$${missingCost.toFixed(2)}` : ''}`,
+      count: missing.length,
+      rows: missing.map((m) => toCompareRow(m, 0)),
+    });
+  }
+  if (partial.length > 0) {
+    tableSections.push({
+      title: 'Partial',
+      count: partial.length,
+      rows: partial.map((p) => toCompareRow(p, p.owned)),
+    });
+  }
+
   // "View as cards" overlay = the cards you still need (missing in full +
   // the shortage of partial), so you can eyeball what's left to acquire.
   const viewCards: DeckViewCard[] = [
@@ -1033,6 +1067,7 @@ export function summarizeComparison(
       ? { cards: viewCards, cardsSubtitle: `Cards you're missing — not yet in your collection (${viewCards.length})` }
       : {}),
     ...(wantsAdd.length ? { wantsAdd } : {}),
+    ...(tableSections.length ? { tableSections, tableNoteHeader: 'Owned' } : {}),
   };
 }
 
