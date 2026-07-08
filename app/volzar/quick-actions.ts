@@ -253,6 +253,9 @@ export interface QuickActionResult {
   /** Public id of the deck this card represents — enables the deterministic
    *  "Add to my decks" button (a session-auth copy, no AI). Deck drills only. */
   publicId?: string;
+  /** True only when the deck API said canEdit (owner/co-owner) — gates the
+   *  "Add card" button so it never shows on Decks to Beat / others' decks. */
+  deckEditable?: boolean;
   /** Cross-deck game results → a table (Game results action). */
   resultRows?: GameResultRow[];
   /** Curated deck printings the user still needs (missing + partial shortfall),
@@ -372,6 +375,7 @@ export function summarizeDeckContents(deck: {
   name: string;
   format?: string;
   heroName?: string;
+  canEdit?: boolean;
   hero?: DeckCard[];
   equipment?: DeckCard[];
   maindeck?: DeckCard[];
@@ -443,6 +447,7 @@ export function summarizeDeckContents(deck: {
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(tableSections.length ? { tableSections } : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),
+    ...(deck.publicId && deck.canEdit ? { deckEditable: true } : {}),
   };
 }
 
@@ -890,8 +895,8 @@ export function buildMessageWithContext(pendingContext: string[], userText: stri
 
 /** First argument of CardSearchDialog's onSelectCard. */
 export interface CardSearchSelection {
-  card?: { name?: string };
-  printing?: { printing_id?: string; unique_id?: string; display_name?: string };
+  card?: { name?: string; types?: string[] };
+  printing?: { printing_id?: string; unique_id?: string; display_name?: string; types?: string[] };
   quantity?: number;
   forTrade?: boolean;
 }
@@ -928,6 +933,23 @@ export async function addSearchSelectionToWants(
   const { printingId, name, quantity } = selectionPrinting(selection);
   if (!printingId) return { ok: false, error: 'No printing selected.' };
   const result = await wantsClient.addWantsItem(printingId, quantity);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, name };
+}
+
+export async function addSearchSelectionToDeck(
+  deckPublicId: string,
+  selection: CardSearchSelection,
+): Promise<AddCardOutcome> {
+  const { printingId, name, quantity } = selectionPrinting(selection);
+  if (!printingId) return { ok: false, error: 'No printing selected.' };
+  // Same category rule as the deck editor's search (inferCategory in
+  // MobileCardSearch): hero → hero, equipment/weapon → equipment, else maindeck.
+  const types = (selection.card?.types ?? selection.printing?.types ?? []).map((t) => t.toLowerCase());
+  const category = types.includes('hero') ? 'hero'
+    : types.includes('equipment') || types.includes('weapon') ? 'equipment'
+    : 'maindeck';
+  const result = await decksClient.addPrintings(deckPublicId, [{ printingId, quantity, category }]);
   if (!result.success) return { ok: false, error: result.error };
   return { ok: true, name };
 }

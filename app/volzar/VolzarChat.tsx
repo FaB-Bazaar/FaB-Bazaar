@@ -26,7 +26,7 @@ import {
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand, printingToSwapOption,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   fetchKitHeroes, runHeroKit,
-  addSearchSelectionToBinder, addSearchSelectionToWants,
+  addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -300,7 +300,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -610,7 +610,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // Card-search add flow (split buttons on My binders / My wants). Adds made
   // while the dialog is open accumulate here and flush into one data card +
   // one context entry when it closes.
-  const [addDialog, setAddDialog] = useState<{ destination: 'binder' | 'wants'; binderId?: string; binderName?: string } | null>(null);
+  const [addDialog, setAddDialog] = useState<{ destination: 'binder' | 'wants' | 'deck'; binderId?: string; binderName?: string; deckPublicId?: string; deckName?: string } | null>(null);
   const addedCardsRef = useRef<string[]>([]);
   // Cumulative session usage (accumulated from done events)
   const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
@@ -745,7 +745,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; deckEditable?: boolean; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
@@ -758,7 +758,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -1157,7 +1157,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     if (addDialog && addedCardsRef.current.length > 0) {
       const dest = addDialog.destination === 'binder'
         ? `binder “${addDialog.binderName ?? 'Binder'}”`
-        : 'wants list';
+        : addDialog.destination === 'deck'
+          ? `deck “${addDialog.deckName ?? 'Deck'}”`
+          : 'wants list';
       const lines = addedCardsRef.current;
       setItems((prev) => [...prev, { kind: 'data', title: `Added to ${dest}`, lines }]);
       pendingContextRef.current.push(`Via card search the user just added to their ${dest}: ${lines.join('; ')}`);
@@ -1173,7 +1175,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     addedCardsRef.current.push(label);
     const run = target.destination === 'binder' && target.binderId
       ? addSearchSelectionToBinder(target.binderId, selection)
-      : addSearchSelectionToWants(selection);
+      : target.destination === 'deck' && target.deckPublicId
+        ? addSearchSelectionToDeck(target.deckPublicId, selection)
+        : addSearchSelectionToWants(selection);
     run.then((outcome) => {
       if (!outcome.ok) {
         // Retract one occurrence if not yet flushed into the chat; the banner
@@ -1635,6 +1639,21 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                         ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                         : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
                       Add to my decks
+                    </button>
+                  )}
+                  {item.deckPublicId && item.deckEditable && (
+                    <button
+                      type="button"
+                      onClick={() => setAddDialog({
+                        destination: 'deck',
+                        deckPublicId: item.deckPublicId,
+                        deckName: item.title.replace(/^Deck: /, ''),
+                      })}
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-sky-700 dark:text-sky-400 hover:bg-muted ${focusRing}`}
+                      title="Search cards and add them to this deck — instant, no AI"
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Add card
                     </button>
                   )}
                   {item.deckPublicId && (

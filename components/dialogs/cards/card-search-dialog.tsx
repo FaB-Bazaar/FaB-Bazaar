@@ -40,7 +40,7 @@ interface CardSearchDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSelectCard: (card: any, printing?: any, quantity?: number, shouldContinue?: boolean) => void
-  destination?: "binder" | "wants" | "event-wants"
+  destination?: "binder" | "wants" | "event-wants" | "deck"
   /** Seed the search box with this query each time the dialog opens (e.g. from a binder "no results" shortcut). */
   initialQuery?: string
 }
@@ -519,7 +519,7 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                     onClick={() => handleConfirmSelection(false)}
                     disabled={!selectedPrinting}
                   >
-                    Add to {destination === "event-wants" ? "Event Wants" : destination === "wants" ? "Wants List" : "Binder"}
+                    Add to {destination === "event-wants" ? "Event Wants" : destination === "wants" ? "Wants List" : destination === "deck" ? "Deck" : "Binder"}
                   </Button>
                   <Button
                     className="flex-1"

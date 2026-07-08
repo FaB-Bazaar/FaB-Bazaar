@@ -8,19 +8,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/lib/client', () => ({
   bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn() },
   wantsClient: { getUserWants: vi.fn(), addWantsItem: vi.fn() },
-  decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn() },
+  decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn(), addPrintings: vi.fn() },
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
 import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
-  addSearchSelectionToBinder, addSearchSelectionToWants,
+  addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
 const mockGetUserDecks = vi.mocked(decksClient.getUserDecks);
 const mockAddCardsToBinder = vi.mocked(bindersClient.addCardsToBinder);
 const mockAddWantsItem = vi.mocked(wantsClient.addWantsItem);
+const mockAddPrintings = vi.mocked(decksClient.addPrintings);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -139,6 +140,65 @@ describe('addSearchSelectionToWants', () => {
     const result = await addSearchSelectionToWants(selection() as any);
 
     expect(result).toEqual({ ok: false, error: 'wants down' });
+  });
+});
+
+describe('addSearchSelectionToDeck', () => {
+  it('adds a non-equipment card to the maindeck of the deck (by public id)', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await addSearchSelectionToDeck('pub-1', selection() as any);
+
+    expect(mockAddPrintings).toHaveBeenCalledWith('pub-1', [
+      { printingId: 'pr1', quantity: 2, category: 'maindeck' },
+    ]);
+    expect(result).toEqual({ ok: true, name: 'Enlightened Strike (Red)' });
+  });
+
+  it('routes equipment/weapon-typed cards to the equipment category (same rule as the deck editor)', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+
+    await addSearchSelectionToDeck('pub-1', selection({
+      card: { unique_id: 'cu2', name: 'Fyendal\'s Spring Tunic', types: ['Generic', 'Equipment'] },
+    }) as any);
+
+    expect(mockAddPrintings.mock.calls[0][1][0].category).toBe('equipment');
+  });
+
+  it('routes hero-typed cards to the hero category', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+
+    await addSearchSelectionToDeck('pub-1', selection({
+      card: { unique_id: 'cu3', name: 'Dorinthea', types: ['Hero', 'Young'] },
+    }) as any);
+
+    expect(mockAddPrintings.mock.calls[0][1][0].category).toBe('hero');
+  });
+
+  it('falls back to printing types when the grouped card has none', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+
+    await addSearchSelectionToDeck('pub-1', selection({
+      card: { unique_id: 'cu4', name: 'Sword' },
+      printing: { printing_id: 'pr4', display_name: 'Sword', types: ['Warrior', 'Weapon'] },
+    }) as any);
+
+    expect(mockAddPrintings.mock.calls[0][1][0].category).toBe('equipment');
+  });
+
+  it('returns an error without calling the client when the selection has no printing id', async () => {
+    const result = await addSearchSelectionToDeck('pub-1', selection({ printing: {} }) as any);
+
+    expect(mockAddPrintings).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+  });
+
+  it('surfaces the client error on failure', async () => {
+    mockAddPrintings.mockResolvedValue({ success: false, error: 'deck locked' } as any);
+
+    const result = await addSearchSelectionToDeck('pub-1', selection() as any);
+
+    expect(result).toEqual({ ok: false, error: 'deck locked' });
   });
 });
 

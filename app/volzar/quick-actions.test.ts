@@ -252,6 +252,15 @@ describe('summarizeDeckContents', () => {
     expect(result.context).toContain('3 red');
   });
 
+  it('marks the result editable only when the API says canEdit — gates the "Add card" button to owned decks', () => {
+    const base = { name: 'Victor', publicId: 'pub-1', maindeck: [card('Pummel', 3, 1)] };
+
+    expect(summarizeDeckContents({ ...base, canEdit: true }).deckEditable).toBe(true);
+    // Decks-to-Beat / other users' decks: no canEdit → no editable flag
+    expect(summarizeDeckContents(base).deckEditable).toBeUndefined();
+    expect(summarizeDeckContents({ ...base, canEdit: false }).deckEditable).toBeUndefined();
+  });
+
   it('exposes a cards[] array across sections for the deck-view overlay', () => {
     const result = summarizeDeckContents({
       name: 'Victor',
