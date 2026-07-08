@@ -11,7 +11,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ChevronDown, Plus, X, PanelRightOpen,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, X, PanelRightOpen,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
@@ -27,6 +27,7 @@ import {
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
+  shouldOpenInWorkspace, advanceWorkspace,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -285,6 +286,99 @@ function renderRulesText(text: string) {
       ? <img key={i} src={icon.src} alt={icon.alt} title={icon.alt} className="inline-block h-3 w-3 mx-px align-[-0.125em]" />
       : <span key={i}>{part}</span>;
   });
+}
+
+/**
+ * Renders a data card's lines (notes, section headers, drill links, hoverable
+ * card rows). Shared by the transcript chips and the workspace panel's list
+ * view (binder/deck pickers).
+ */
+function CardLinesList({ lines, hideTableLines, onDrill, drillDisabled, onPreview, columns = true }: {
+  lines: CardLine[];
+  /** Drop card rows + section headers already rendered by a CardTable. */
+  hideTableLines: boolean;
+  onDrill: (target: DrillTarget) => void;
+  drillDisabled: boolean;
+  onPreview: (preview: CardPreview) => void;
+  /** Two-column layout for long lists; the workspace panel uses one column. */
+  columns?: boolean;
+}) {
+  return (
+    <ul className={`text-sm space-y-0.5 ${columns && lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
+      {lines.map((line, lineIndex) => {
+        // When a section table renders the cards (deck drills), drop the
+        // now-redundant card rows + section-header strings here, keeping only
+        // notes (color summary) + drill buttons (compare).
+        if (hideTableLines) {
+          if (typeof line === 'string') {
+            if (line.startsWith('—')) return null;
+          } else if (line.preview) {
+            return null;
+          }
+        }
+        if (typeof line === 'string') {
+          // Section headers ("— Maindeck (28) —") vs plain notes.
+          const isHeader = line.startsWith('—');
+          if (isHeader) {
+            return (
+              <li key={lineIndex} className="break-inside-avoid font-semibold text-gray-700 dark:text-gray-200 mt-1.5 first:mt-0 list-none">
+                {line}
+              </li>
+            );
+          }
+          // Non-header note (e.g. color summary): indent to align with card names.
+          return (
+            <li key={lineIndex} className="break-inside-avoid list-none flex items-baseline gap-1.5">
+              <span className="w-5 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 break-words">{line}</span>
+            </li>
+          );
+        }
+        if (line.drill) {
+          const target = line.drill;
+          return (
+            <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+              <PitchGem pitch={line.pitch} />
+              <button
+                type="button"
+                onClick={() => onDrill(target)}
+                disabled={drillDisabled}
+                title={target.kind === 'deck-compare'
+                  ? 'Compare this deck against your whole collection — instant, no AI'
+                  : `Show contents of ${target.name} — instant, no AI`}
+                className={`min-w-0 break-words text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
+              >
+                {line.text}
+              </button>
+            </li>
+          );
+        }
+        if (line.preview) {
+          const preview = line.preview;
+          return (
+            <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+              <PitchGem pitch={line.pitch} />
+              <span
+                tabIndex={0}
+                onMouseEnter={() => onPreview(preview)}
+                onFocus={() => onPreview(preview)}
+                onClick={() => onPreview(preview)}
+                className={`min-w-0 break-words cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+              >
+                {line.text}
+              </span>
+            </li>
+          );
+        }
+        return (
+          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
+            <PitchGem pitch={line.pitch} />
+            <span className="min-w-0 break-words">{line.text}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 interface StructuredCard {
@@ -614,12 +708,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // one context entry when it closes.
   const [addDialog, setAddDialog] = useState<{ destination: 'binder' | 'wants' | 'deck'; binderId?: string; binderName?: string; deckPublicId?: string; deckName?: string } | null>(null);
   const addedCardsRef = useRef<string[]>([]);
-  // Workspace panel (prototype): heavy structured results (deck/binder/wants
-  // tables) open here — one at a time, full height, own scroll — instead of
-  // scrolling inside the transcript ("tables within tables"). The transcript
-  // keeps a compact chip per result that reopens the panel. Desktop (lg+) only;
-  // below lg the tables still render inline as before.
-  const [workspace, setWorkspace] = useState<Extract<UiItem, { kind: 'data' }> | null>(null);
+  // Workspace panel (prototype): everything the user reads or clicks through
+  // (tables AND binder/deck listings) opens here — full height, own scroll —
+  // instead of inside the transcript ("tables within tables"). A navigation
+  // stack makes list → drill → Back work; the transcript keeps a compact chip
+  // per result that restarts the stack there. Desktop (lg+) only; below lg
+  // everything still renders inline as before.
+  const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
+  const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
   // Cumulative session usage (accumulated from done events)
   const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
   const modelRef = useRef(models[0]);
@@ -773,9 +869,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           : undefined;
       const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, resultRows: result.resultRows, wantsAdd: result.wantsAdd };
       setItems((prev) => [...prev, dataItem]);
-      // Table-bearing results take over the workspace panel on desktop
-      if ((dataItem.tableSections?.length ?? 0) > 0 || (dataItem.tableRows?.length ?? 0) > 0) {
-        setWorkspace(dataItem);
+      // Tables and listings take over the workspace panel on desktop; drills
+      // (actionId with ':') push so Back returns to the list they came from.
+      if (shouldOpenInWorkspace(dataItem)) {
+        setWorkspaceStack((prev) => advanceWorkspace(prev, dataItem, actionId));
       }
       pendingContextRef.current.push(result.context);
     } catch (error) {
@@ -1121,7 +1218,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     setWantsAddStatus({});
     setAddDialog(null);
     addedCardsRef.current = [];
-    setWorkspace(null);
+    setWorkspaceStack([]);
   }, []);
 
   const addPreviewToWants = useCallback(async () => {
@@ -1698,31 +1795,33 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                 || !!item.deckPublicId;
               return (
                 <div key={index} className={`self-start w-full max-w-full rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
+                  {/* Actions live in the bottom row only — in the header they
+                      compress the title to zero width once the chat column
+                      narrows beside the workspace panel. */}
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span data-testid="data-card-title" className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
-                    <div className="ml-auto shrink-0 flex items-center gap-1.5">
-                      {cardActions}
-                    </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
                     <div className="lg:hidden">
                       <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader} />
                     </div>
                   )}
-                  {/* Desktop: the table lives in the workspace panel; the chip
-                      keeps a one-line summary that reopens it. */}
-                  {((item.tableRows?.length ?? 0) > 0 || (item.tableSections?.length ?? 0) > 0) && (
+                  {/* Desktop: the table/list lives in the workspace panel; the
+                      chip keeps a one-line summary that reopens it. */}
+                  {shouldOpenInWorkspace(item) && (
                     <div className="mt-0.5 hidden lg:flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-300">
                       <span className="min-w-0 truncate">
                         {item.tableSections?.length
                           ? item.tableSections.map((s) => `${s.title} ${s.count}`).join(' · ')
-                          : `${item.tableRows!.length} cards`}
+                          : item.tableRows?.length
+                            ? `${item.tableRows.length} cards`
+                            : `${item.lines.filter((l) => typeof l !== 'string' && l.drill).length} entries`}
                       </span>
                       <button
                         type="button"
-                        onClick={() => setWorkspace(item)}
+                        onClick={() => setWorkspaceStack([item])}
                         disabled={workspace === item}
                         className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
                         title="Show this list in the workspace panel"
@@ -1732,84 +1831,20 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       </button>
                     </div>
                   )}
-                  {/* Non-table results render as wrapping lines (min-w-0/break-words)
-                      so nothing is clipped and all text stays available for the AI
-                      context; overflow-auto scrolls only if a token exceeds width. */}
+                  {/* Non-table results render as wrapping lines. Pure listings
+                      (binder/deck pickers) live in the workspace on lg — the
+                      chip keeps only the summary row below. Deck chips keep
+                      their note lines (color summary, compare link). */}
                   {!(item.tableRows && item.tableRows.length > 0) && (
-                  <ul className={`text-sm space-y-0.5 ${item.lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
-                    {item.lines.map((line, lineIndex) => {
-                      // When a section table renders the cards (deck drills), drop
-                      // the now-redundant card rows + section-header strings here,
-                      // keeping only notes (color summary) + drill buttons (compare).
-                      if (item.tableSections && item.tableSections.length > 0) {
-                        if (typeof line === 'string') {
-                          if (line.startsWith('—')) return null;
-                        } else if (line.preview) {
-                          return null;
-                        }
-                      }
-                      if (typeof line === 'string') {
-                        // Section headers ("— Maindeck (28) —") vs plain notes.
-                        const isHeader = line.startsWith('—');
-                        if (isHeader) {
-                          return (
-                            <li key={lineIndex} className="break-inside-avoid font-semibold text-gray-700 dark:text-gray-200 mt-1.5 first:mt-0 list-none">
-                              {line}
-                            </li>
-                          );
-                        }
-                        // Non-header note (e.g. color summary): indent to align with card names.
-                        return (
-                          <li key={lineIndex} className="break-inside-avoid list-none flex items-baseline gap-1.5">
-                            <span className="w-5 shrink-0" aria-hidden="true" />
-                            <span className="min-w-0 break-words">{line}</span>
-                          </li>
-                        );
-                      }
-                      if (line.drill) {
-                        const target = line.drill;
-                        return (
-                          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
-                            <PitchGem pitch={line.pitch} />
-                            <button
-                              type="button"
-                              onClick={() => drill(target)}
-                              disabled={busy || runningAction !== null}
-                              title={target.kind === 'deck-compare'
-                                ? 'Compare this deck against your whole collection — instant, no AI'
-                                : `Show contents of ${target.name} — instant, no AI`}
-                              className={`min-w-0 break-words text-left underline underline-offset-2 text-blue-700 dark:text-blue-400 hover:text-blue-500 disabled:opacity-50 ${focusRing} rounded-sm`}
-                            >
-                              {line.text}
-                            </button>
-                          </li>
-                        );
-                      }
-                      if (line.preview) {
-                        const preview = line.preview;
-                        return (
-                          <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
-                            <PitchGem pitch={line.pitch} />
-                            <span
-                              tabIndex={0}
-                              onMouseEnter={() => showPreview(preview)}
-                              onFocus={() => showPreview(preview)}
-                              onClick={() => showPreview(preview)}
-                              className={`min-w-0 break-words cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
-                            >
-                              {line.text}
-                            </span>
-                          </li>
-                        );
-                      }
-                      return (
-                        <li key={lineIndex} className="break-inside-avoid list-none flex items-center gap-1.5">
-                          <PitchGem pitch={line.pitch} />
-                          <span className="min-w-0 break-words">{line.text}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                    <div className={(item.tableSections?.length ?? 0) === 0 && shouldOpenInWorkspace(item) ? 'lg:hidden' : ''}>
+                      <CardLinesList
+                        lines={item.lines}
+                        hideTableLines={(item.tableSections?.length ?? 0) > 0}
+                        onDrill={drill}
+                        drillDisabled={busy || runningAction !== null}
+                        onPreview={showPreview}
+                      />
+                    </div>
                   )}
                   {item.tableSections && item.tableSections.length > 0 && (
                     <div className="lg:hidden">
@@ -1946,12 +1981,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       </div>
                     );
                   })()}
-                  {/* Same actions repeated at the bottom — a tall card lands
-                      scrolled to its end, so the header buttons are off-screen.
-                      On lg the tables live in the workspace and the chip is
-                      short, so the repeat would sit right under the header. */}
                   {hasActions && (
-                    <div className={`mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2 ${((item.tableRows?.length ?? 0) > 0 || (item.tableSections?.length ?? 0) > 0) ? 'lg:hidden' : ''}`}>
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2">
                       {cardActions}
                     </div>
                   )}
@@ -2177,15 +2208,26 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         transcript), otherwise the card preview rail. */}
     {workspace ? (
       <aside
-        className="hidden lg:flex flex-col w-[28rem] xl:w-[34rem] shrink-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
+        className="hidden lg:flex flex-col flex-[1.4] min-w-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
         aria-label="Workspace"
       >
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
+          {workspaceStack.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setWorkspaceStack((prev) => prev.slice(0, -1))}
+              aria-label={`Back to ${workspaceStack[workspaceStack.length - 2].title}`}
+              title={`Back to ${workspaceStack[workspaceStack.length - 2].title}`}
+              className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
           <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
           <span className="font-semibold min-w-0 truncate">{workspace.title}</span>
           <button
             type="button"
-            onClick={() => setWorkspace(null)}
+            onClick={() => setWorkspaceStack([])}
             aria-label="Close workspace"
             className={`ml-auto shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
           >
@@ -2197,7 +2239,19 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
             <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" />
-          ) : null}
+          ) : (
+            // Listing view (binder/deck pickers): drill rows navigate the panel
+            <div className="px-1.5 py-1">
+              <CardLinesList
+                lines={workspace.lines}
+                hideTableLines={false}
+                onDrill={drill}
+                drillDisabled={busy || runningAction !== null}
+                onPreview={showPreview}
+                columns={false}
+              />
+            </div>
+          )}
         </div>
         {/* Hovered-card preview docks at the panel foot (the rail is hidden
             while the workspace is open) */}

@@ -26,6 +26,8 @@ import {
   recentYearMonths,
   isoDateMonthsAgo,
   printingToSwapOption,
+  shouldOpenInWorkspace,
+  advanceWorkspace,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -906,5 +908,44 @@ describe('summarizeHeroKit', () => {
     const res = summarizeHeroKit('Pleiades, Superstar', 'Living Legend', lists as any);
     expect(res.lines).toEqual(['No published kit lists for Pleiades, Superstar in Living Legend.']);
     expect(res.cards).toBeUndefined();
+  });
+});
+
+describe('shouldOpenInWorkspace', () => {
+  it('is true for table-bearing results (deck drills, wants, binder cards)', () => {
+    expect(shouldOpenInWorkspace({ lines: [], tableSections: [{ title: 'Maindeck', count: 3, rows: [] }] })).toBe(true);
+    expect(shouldOpenInWorkspace({ lines: [], tableRows: [{ name: 'Pummel' } as any] })).toBe(true);
+  });
+
+  it('is true for listings — results whose lines drill somewhere (binder/deck lists are pickers)', () => {
+    const listing = summarizeBinders([{ _id: 'b1', name: 'Wizard', slug: 'wizard' }]);
+    expect(shouldOpenInWorkspace(listing)).toBe(true);
+  });
+
+  it('is false for plain informational results (e.g. "Added to binder" confirmations)', () => {
+    expect(shouldOpenInWorkspace({ lines: ['2× Enlightened Strike'] })).toBe(false);
+    expect(shouldOpenInWorkspace({ lines: [{ text: '1× Pummel', preview: { imageUrl: '', name: 'Pummel' } }] })).toBe(false);
+  });
+});
+
+describe('advanceWorkspace', () => {
+  const item = (title: string) => ({ title }) as any;
+
+  it('a top-level quick action starts a fresh stack (no drilling context to go back to)', () => {
+    expect(advanceWorkspace([item('old list')], item('Your decks'), 'decks')).toEqual([item('Your decks')]);
+  });
+
+  it('a drill (actionId with ":") pushes onto the stack so Back returns to the list', () => {
+    const stack = [item('Your binders')];
+    expect(advanceWorkspace(stack, item('Binder: Brute'), 'binder:abc')).toEqual([
+      item('Your binders'),
+      item('Binder: Brute'),
+    ]);
+  });
+
+  it('does not mutate the input stack', () => {
+    const stack = [item('Your binders')];
+    advanceWorkspace(stack, item('Binder: Brute'), 'binder:abc');
+    expect(stack).toHaveLength(1);
   });
 });

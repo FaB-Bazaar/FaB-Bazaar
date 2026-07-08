@@ -890,6 +890,34 @@ export function buildMessageWithContext(pendingContext: string[], userText: stri
 }
 
 // ---------------------------------------------------------------------------
+// Workspace panel routing (chat = the log, workspace = the thing)
+// ---------------------------------------------------------------------------
+
+/**
+ * Should this instant result take over the workspace panel? Yes for anything
+ * the user reads or clicks through — card tables AND listings (drill lines:
+ * binder/deck pickers). No for plain informational cards ("Added to binder…"),
+ * which stay purely in the transcript.
+ */
+export function shouldOpenInWorkspace(result: {
+  lines: CardLine[];
+  tableRows?: unknown[];
+  tableSections?: unknown[];
+}): boolean {
+  if ((result.tableRows?.length ?? 0) > 0 || (result.tableSections?.length ?? 0) > 0) return true;
+  return result.lines.some((l) => typeof l !== 'string' && !!l.drill);
+}
+
+/**
+ * Workspace navigation stack. Top-level quick actions (actionId without ':')
+ * start fresh — there is nothing to go "back" to. Drills (binder:x, deck:y,
+ * deck-compare:z) push, so Back returns to the list they came from.
+ */
+export function advanceWorkspace<T>(stack: T[], item: T, actionId: string): T[] {
+  return actionId.includes(':') ? [...stack, item] : [item];
+}
+
+// ---------------------------------------------------------------------------
 // Add-card runners (CardSearchDialog → binder / wants)
 // ---------------------------------------------------------------------------
 

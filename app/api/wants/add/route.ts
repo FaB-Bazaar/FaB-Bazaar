@@ -140,11 +140,13 @@ export async function POST(req: NextRequest) {
         printingId,
         success: result.success,
         action: result.success ? result.data.action : undefined,
-        cardName: result.success ? result.data.item.display_name : undefined,
+        // item can be null despite success — a concurrent remove can delete
+        // the row between the service's write and its re-read
+        cardName: result.success ? result.data.item?.display_name : undefined,
         quantity,
         priority,
-        foiling: result.success ? result.data.item.foiling : undefined,
-        value: result.success ? result.data.item.tcg_market : undefined,
+        foiling: result.success ? result.data.item?.foiling : undefined,
+        value: result.success ? result.data.item?.tcg_market : undefined,
         error: result.success ? undefined : result.error,
       });
     }
@@ -172,11 +174,11 @@ export async function POST(req: NextRequest) {
           printingId: item.printingId,
           success: result.success,
           action: result.success ? result.data.action : undefined,
-          cardName: result.success ? result.data.item.display_name : undefined,
+          cardName: result.success ? result.data.item?.display_name : undefined,
           quantity: item.quantity || 1,
           priority: item.priority || "medium",
-          foiling: result.success ? result.data.item.foiling : undefined,
-          value: result.success ? result.data.item.tcg_market : undefined,
+          foiling: result.success ? result.data.item?.foiling : undefined,
+          value: result.success ? result.data.item?.tcg_market : undefined,
           error: result.success ? undefined : result.error,
         });
       }
