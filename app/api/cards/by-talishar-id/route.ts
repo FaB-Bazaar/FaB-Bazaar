@@ -26,6 +26,8 @@ interface CardLookup {
   displayName: string;
   pitch: number | null;
   imageUrl: string | null;
+  /** Representative printing (the image's source) — lets chat clients wire hover previews/wants. */
+  printingId: string | null;
   talisharCardId: string;
   // Only populated when `details` is requested (semantic fields for game analysis).
   typeText?: string | null;
@@ -42,6 +44,7 @@ interface DbRow {
   display_name: string;
   pitch: number | null;
   image_url: string | null;
+  printing_id: string | null;
   talishar_card_id: string;
   type_text?: string | null;
   types?: string[] | null;
@@ -67,7 +70,7 @@ async function lookupByTalisharIds(normalizedIds: string[], details = false): Pr
   const { rows } = await pool.query<DbRow>(
     `SELECT DISTINCT ON (c.card_unique_id)
             c.card_unique_id, c.display_name, c.pitch,
-            c.talishar_card_id, p.image_url${detailCols}
+            c.talishar_card_id, p.image_url, p.printing_id${detailCols}
      FROM cards c
      LEFT JOIN printings p ON p.card_unique_id = c.card_unique_id
      WHERE c.talishar_card_id = ANY($1)
@@ -82,6 +85,7 @@ async function lookupByTalisharIds(normalizedIds: string[], details = false): Pr
       displayName: r.display_name,
       pitch: r.pitch,
       imageUrl: r.image_url,
+      printingId: r.printing_id,
       talisharCardId: r.talishar_card_id,
     };
     if (details) {

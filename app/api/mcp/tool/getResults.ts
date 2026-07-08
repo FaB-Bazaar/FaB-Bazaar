@@ -106,22 +106,37 @@ function collectCardIds(payload: RawGamePayload, into: Set<string>): void {
   }
 }
 
+// Compact card list for the CHAT UI (structured, not for the model): name +
+// representative printing + image, the shape harvestCardsFromStructured reads
+// to linkify card names in the analysis and wire hover previews.
+interface StructuredGameCard {
+  name: string;
+  pitch?: number;
+  printing_id: string;
+  image_url?: string;
+}
+
 // One glossary covering every card across all games in the batch (deduped). The
 // by-talishar-id endpoint is public, so no auth header is needed. Best-effort.
-async function buildGlossary(apiBase: string, blobs: RawGamePayload[], cardNotes?: Record<string, string>): Promise<string> {
+async function buildGlossary(
+  apiBase: string,
+  blobs: RawGamePayload[],
+  cardNotes?: Record<string, string>,
+): Promise<{ glossary: string; structuredCards: StructuredGameCard[] }> {
   try {
     const idSet = new Set<string>();
     for (const b of blobs) collectCardIds(b, idSet);
     const ids = [...idSet];
-    if (ids.length === 0) return '';
+    if (ids.length === 0) return { glossary: '', structuredCards: [] };
     const res = await mcpFetch(`${apiBase}/api/cards/by-talishar-id`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids, details: true }),
     });
-    if (!res.ok) return '';
+    if (!res.ok) return { glossary: '', structuredCards: [] };
     const body = await res.json();
-    const cards: CardMeta[] = Object.values(body.data || {}).map((c: any) => ({
+    const rows: any[] = Object.values(body.data || {});
+    const cards: CardMeta[] = rows.map((c: any) => ({
       name: c.displayName,
       pitch: c.pitch,
       typeText: c.typeText,
@@ -131,9 +146,21 @@ async function buildGlossary(apiBase: string, blobs: RawGamePayload[], cardNotes
       keywords: c.keywords,
       text: c.text,
     }));
-    return renderCardGlossary(cards, cardNotes);
+    const seen = new Set<string>();
+    const structuredCards: StructuredGameCard[] = [];
+    for (const c of rows) {
+      if (!c.displayName || !c.printingId || seen.has(c.printingId)) continue;
+      seen.add(c.printingId);
+      structuredCards.push({
+        name: c.displayName,
+        ...(typeof c.pitch === 'number' && c.pitch > 0 ? { pitch: c.pitch } : {}),
+        printing_id: c.printingId,
+        ...(c.imageUrl ? { image_url: c.imageUrl } : {}),
+      });
+    }
+    return { glossary: renderCardGlossary(cards, cardNotes), structuredCards };
   } catch {
-    return '';
+    return { glossary: '', structuredCards: [] };
   }
 }
 
@@ -228,7 +255,7 @@ export const getResultsTool = {
       // Shared context — built ONCE for the whole batch.
       const { notesText: deckNotes, cardNotes } = await buildDeckContext(API_BASE_URL, tokenToUse, deck.publicId, oppHeroes);
       const heroPlans = buildHeroPlans(blobs);
-      const glossary = await buildGlossary(API_BASE_URL, blobs, cardNotes);
+      const { glossary, structuredCards } = await buildGlossary(API_BASE_URL, blobs, cardNotes);
 
       // Per-game readable turn-by-turn.
       const gameSections = fetched.map((f, i) => {
@@ -252,6 +279,10 @@ export const getResultsTool = {
         message,
         deckName: deck.name,
         resultIds: fetched.map((f) => f.resultId),
+        // Structured (UI-only, zero model tokens): every card in the game with
+        // its representative printing — the chat harvests this to linkify card
+        // names in the analysis and wire hover previews.
+        ...(structuredCards.length ? { cards: structuredCards } : {}),
         // The readable message already encodes the whole game (turn-by-turn +
         // glossary + notes), so the raw blob is NOT inlined — it's ~16k redundant
         // tokens. Fetch it via GET /api/decks/[id]/results/[resultId]/raw?shape=raw

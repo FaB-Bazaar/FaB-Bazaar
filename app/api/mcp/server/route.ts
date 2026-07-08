@@ -1114,6 +1114,12 @@ The new tool provides the same functionality with better guidance for proper wor
               jsonrpc: '2.0', id,
               result: {
                 content: [{ type: 'text', text: result.message || (result.success ? 'Game data retrieved.' : result.error) }],
+                // structuredContent is the browser-side channel (zero model
+                // tokens): the game's cards with representative printings, so
+                // the chat linkifies card names + wires hover previews.
+                ...(result.success && (result as any).cards
+                  ? { structuredContent: { cards: (result as any).cards } }
+                  : {}),
                 isError: !result.success,
                 ...result
               }

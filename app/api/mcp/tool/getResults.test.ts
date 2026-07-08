@@ -144,7 +144,7 @@ describe('get_results MCP tool', () => {
     expect(res.message.match(/race the gold engine/g)?.length).toBe(1);
     // batch stays concise — no raw blob dump
     expect(res.data).toBeNull();
-    expect(res.resultIds).toEqual(['r1', 'r2']);
+    expect((res as any).resultIds).toEqual(['r1', 'r2']);
   });
 
   it('injects the matchup note for the opponent hero', async () => {
@@ -181,5 +181,29 @@ describe('get_results MCP tool', () => {
     expect(res.success).toBe(true);
     expect(res.data).toBeNull();
     expect(res.message).toMatch(/no .*archive|not .*archived|no detailed/i);
+  });
+
+  it("exposes the game's cards as a harvestable structured cards[] (chat linkify + hover previews)", async () => {
+    wire({
+      decks: [{ name: 'Dash', publicId: 'pub1' }],
+      results: [{ id: 'r1' }],
+      raw: RAW,
+      meta: {
+        boom_grenade_red: {
+          displayName: 'Boom Grenade', pitch: 1, imageUrl: 'https://img/bg.webp',
+          printingId: 'pid_bg', typeText: 'Action - Attack', text: 'Deal damage.',
+        },
+      },
+    });
+    const res = await getResultsTool.handler({ deckName: 'Dash' }, undefined, 'tok');
+    expect(res.success).toBe(true);
+    // Shape matches what harvestCardsFromStructured reads: name + printing_id
+    // + image_url (+ pitch), on a top-level cards[].
+    expect((res as any).cards).toContainEqual({
+      name: 'Boom Grenade',
+      pitch: 1,
+      printing_id: 'pid_bg',
+      image_url: 'https://img/bg.webp',
+    });
   });
 });
