@@ -13,6 +13,9 @@ export default defineConfig({
     projects: [
       {
         name: 'jsdom',
+        // Projects don't inherit root plugins; without this, JSX in files that
+        // don't explicitly import React fails with "React is not defined".
+        esbuild: { jsx: 'automatic' },
         test: {
           environment: 'jsdom',
           include: ['components/**/*.test.{ts,tsx}', 'app/admin/**/*.test.{ts,tsx}', 'app/volzar/**/*.test.{ts,tsx}'],

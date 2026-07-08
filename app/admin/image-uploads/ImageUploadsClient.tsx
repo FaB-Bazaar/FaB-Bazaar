@@ -69,7 +69,58 @@ interface FoilMaskValues {
 const DEFAULT_MASK: FoilMaskValues = { top: 12.5, right: 9.5, bottom: 41.5, left: 9.5, round: '1.5%', locked: false };
 const CF_BASE_URL = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
 
-function FoilMaskEditor({
+// Module-level on purpose: defining this inside FoilMaskEditor gives it a new
+// identity every render, so React remounts the row and the number input drops
+// focus after each keystroke (typing "10" only registered "1").
+function SliderRow({ label, value, onValueChange }: { label: string; value: number; onValueChange: (v: number) => void }) {
+  const [inputVal, setInputVal] = useState(String(value));
+
+  useEffect(() => {
+    setInputVal(String(value));
+  }, [value]);
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-muted-foreground w-16 shrink-0">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={0.5}
+        value={value}
+        onChange={e => onValueChange(parseFloat(e.target.value))}
+        className="flex-1 h-2 accent-yellow-500 cursor-grab active:cursor-grabbing"
+        style={{ touchAction: 'none' }}
+      />
+      <input
+        type="number"
+        min={0}
+        max={100}
+        step={0.5}
+        value={inputVal}
+        onChange={e => {
+          setInputVal(e.target.value);
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v) && v >= 0 && v <= 100) {
+            onValueChange(v);
+          }
+        }}
+        onBlur={e => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v) && v >= 0 && v <= 100) {
+            onValueChange(v);
+          } else {
+            setInputVal(String(value));
+          }
+        }}
+        className="w-16 shrink-0 px-2 py-1 rounded border border-input bg-background text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-yellow-500"
+      />
+      <span className="text-sm text-muted-foreground shrink-0">%</span>
+    </div>
+  );
+}
+
+export function FoilMaskEditor({
   row,
   onClose,
   onSaved,
@@ -184,53 +235,6 @@ function FoilMaskEditor({
     }
   }
 
-  function SliderRow({ label, field, value }: { label: string; field: keyof Omit<FoilMaskValues, 'round' | 'locked'>; value: number }) {
-    const [inputVal, setInputVal] = useState(String(value));
-
-    useEffect(() => {
-      setInputVal(String(value));
-    }, [value]);
-
-    return (
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground w-16 shrink-0">{label}</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={0.5}
-          value={value}
-          onChange={e => setMask(prev => ({ ...prev, [field]: parseFloat(e.target.value) }))}
-          className="flex-1 h-2 accent-yellow-500 cursor-grab active:cursor-grabbing"
-          style={{ touchAction: 'none' }}
-        />
-        <input
-          type="number"
-          min={0}
-          max={100}
-          step={0.5}
-          value={inputVal}
-          onChange={e => {
-            setInputVal(e.target.value);
-            const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v >= 0 && v <= 100) {
-              setMask(prev => ({ ...prev, [field]: v }));
-            }
-          }}
-          onBlur={e => {
-            const v = parseFloat(e.target.value);
-            if (!isNaN(v) && v >= 0 && v <= 100) {
-              setMask(prev => ({ ...prev, [field]: v }));
-            } else {
-              setInputVal(String(value));
-            }
-          }}
-          className="w-16 shrink-0 px-2 py-1 rounded border border-input bg-background text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-yellow-500"
-        />
-        <span className="text-sm text-muted-foreground shrink-0">%</span>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -289,10 +293,10 @@ function FoilMaskEditor({
           )}
 
           <div className="space-y-3">
-            <SliderRow label="Top inset" field="top" value={mask.top} />
-            <SliderRow label="Right inset" field="right" value={mask.right} />
-            <SliderRow label="Bottom inset" field="bottom" value={mask.bottom} />
-            <SliderRow label="Left inset" field="left" value={mask.left} />
+            <SliderRow label="Top inset" value={mask.top} onValueChange={v => setMask(prev => ({ ...prev, top: v }))} />
+            <SliderRow label="Right inset" value={mask.right} onValueChange={v => setMask(prev => ({ ...prev, right: v }))} />
+            <SliderRow label="Bottom inset" value={mask.bottom} onValueChange={v => setMask(prev => ({ ...prev, bottom: v }))} />
+            <SliderRow label="Left inset" value={mask.left} onValueChange={v => setMask(prev => ({ ...prev, left: v }))} />
           </div>
 
           <div className="space-y-1">
