@@ -626,6 +626,22 @@ describe('summarizeArchetypeConsensus', () => {
     const r = summarizeArchetypeConsensus({ ...data, consensus: { deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } } });
     expect(r.lines.join(' ')).toMatch(/no featured/i);
   });
+
+  it('emits Core/Flex table sections with adoption riding the note column', () => {
+    const r = summarizeArchetypeConsensus(data);
+    expect(r.tableSections?.map((s) => [s.title, s.count])).toEqual([
+      ['Core — in all 10 decks', 2],
+      ['Flex — varies by build', 2],
+    ]);
+    const cc = r.tableSections![0].rows[0];
+    expect(cc).toMatchObject({ qty: 3, name: 'Cranial Crush', pitch: 3 });
+    expect(cc.image).toBeTruthy();
+    expect(cc.note).toBeUndefined(); // core is in every deck — no ratio noise
+    const dis = r.tableSections![1].rows[0];
+    expect(dis).toMatchObject({ qty: 3, name: 'Disable', note: '9/10 decks' });
+    // The note column gets a real header in the shared table.
+    expect(r.tableNoteHeader).toBe('Decks');
+  });
 });
 
 describe('buildMessageWithContext', () => {

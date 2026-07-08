@@ -94,6 +94,8 @@ export interface CardRow {
   marvel?: boolean;   // rarity 'v'
   forTrade?: boolean;
   priority?: string;
+  /** Free-text tail-column note (e.g. archetype adoption "9/10 decks"). */
+  note?: string;
   /** Grouped search: how many printings this representative row stands in for. */
   printingCount?: number;
   preview: CardPreview;
@@ -243,6 +245,9 @@ export interface QuickActionResult {
   /** Section-grouped rows → the same striped card table, split into subheaded
    *  groups (deck drills: Hero / Equipment / Maindeck). */
   tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>;
+  /** Column header for the table's tail note column (e.g. "Decks" for the
+   *  archetype adoption ratio). Only used when rows carry `note`. */
+  tableNoteHeader?: string;
   /** Copy header line (e.g. "Wants:" / binder name) for the Discord copy. */
   copyHeader?: string;
   /** Public id of the deck this card represents — enables the deterministic
@@ -747,6 +752,37 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     lines.push(...c.flex.map((card) => cardLine(card, true)));
   }
 
+  // The same striped card table deck drills / kits render — Core and Flex as
+  // sections, with the adoption ratio riding the tail "Decks" column on flex.
+  const toRow = (card: { name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }, note?: string): CardRow => ({
+    qty: card.typicalQty,
+    name: card.name,
+    pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
+    image: card.printingId ? getCardImageUrl({ printingId: card.printingId }) : undefined,
+    ...(note ? { note } : {}),
+    preview: {
+      // getCardImageUrl falls back to the cardback for a missing printingId.
+      imageUrl: getCardImageUrl({ printingId: card.printingId }),
+      name: card.name,
+      printingId: card.printingId,
+    },
+  });
+  const tableSections: Array<{ title: string; count: number; rows: CardRow[] }> = [];
+  if (c.core.length) {
+    tableSections.push({
+      title: `Core — in all ${c.deckCount} decks`,
+      count: c.core.length,
+      rows: c.core.map((card) => toRow(card)),
+    });
+  }
+  if (c.flex.length) {
+    tableSections.push({
+      title: 'Flex — varies by build',
+      count: c.flex.length,
+      rows: c.flex.map((card) => toRow(card, `${card.decks}/${c.deckCount} decks`)),
+    });
+  }
+
   const flexSummary = c.flex.slice(0, 8).map((f) => `${f.name} ${f.decks}/${c.deckCount}`).join(', ');
   const viewCards: DeckViewCard[] = [...c.core, ...c.flex].map((card) => ({
     printingId: card.printingId,
@@ -765,6 +801,7 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     ...(viewCards.length
       ? { cards: viewCards, cardsSubtitle: `Every card across these ${c.deckCount} decks — ${c.core.length} core + ${c.flex.length} flex` }
       : {}),
+    ...(tableSections.length ? { tableSections, tableNoteHeader: 'Decks' } : {}),
   };
 }
 

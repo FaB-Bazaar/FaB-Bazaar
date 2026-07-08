@@ -145,13 +145,28 @@ const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' 
  * Zebra is computed explicitly (not CSS :nth-child) so interleaved section
  * subheaders don't flip the stripe parity.
  */
-function CardTable({ rows, sections, onPreview, maxHeightClass = 'max-h-96', className = '' }: {
+function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '' }: {
   rows?: CardRow[];
   sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
+  /** Header label for the tail note/trade column (e.g. "Decks"). */
+  noteHeader?: string;
   maxHeightClass?: string;
   className?: string;
 }) {
+  // Adaptive columns: only render a column when some row actually has data
+  // for it — a consensus table (no prices/sets) or a search table (no owned
+  // qty) shouldn't show empty headers.
+  const allRows = rows ?? (sections ?? []).flatMap((s) => s.rows);
+  const has = {
+    qty: allRows.some((r) => typeof r.qty === 'number'),
+    type: allRows.some((r) => r.type || r.text),
+    collector: allRows.some((r) => r.collector),
+    foiling: allRows.some((r) => r.foiling),
+    price: allRows.some((r) => typeof r.price === 'number'),
+    tail: allRows.some((r) => r.forTrade || r.priority || r.note),
+  };
+  const colCount = 3 + Number(has.qty) + Number(has.type) + Number(has.collector) + Number(has.foiling) + Number(has.price) + Number(has.tail);
   const renderRow = (r: CardRow, key: string, striped: boolean) => (
     <tr
       key={key}
@@ -161,17 +176,19 @@ function CardTable({ rows, sections, onPreview, maxHeightClass = 'max-h-96', cla
       <td className="align-middle w-6"><PitchGem pitch={r.pitch} /></td>
       <td className="align-middle w-9">
         {r.image ? (
+          // max-w-none: the global img{max-width:100%} reset lets auto table
+          // layout squeeze this cell to 0 when another column demands w-full.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={r.image}
             alt=""
             loading="lazy"
-            className="h-11 w-8 shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
+            className="h-11 w-8 max-w-none shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
           />
         ) : null}
       </td>
-      <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.qty === 'number' ? `${r.qty}×` : ''}</td>
-      <td className="align-middle whitespace-nowrap font-medium w-full md:w-auto">
+      {has.qty && <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{typeof r.qty === 'number' ? `${r.qty}×` : ''}</td>}
+      <td className={`align-middle whitespace-nowrap font-medium ${has.type ? 'w-full md:w-auto' : 'w-full'}`}>
         <span
           tabIndex={0}
           onFocus={() => onPreview(r.preview)}
@@ -188,14 +205,24 @@ function CardTable({ rows, sections, onPreview, maxHeightClass = 'max-h-96', cla
           </span>
         )}
       </td>
-      <td className="hidden md:table-cell md:w-full align-middle py-1">
-        {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
-        {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
-      </td>
-      <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>
-      <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>
-      <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>
-      <td className="align-middle text-right whitespace-nowrap">{r.forTrade ? <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">trade</span> : r.priority ? <span className="text-xs text-gray-500 dark:text-gray-400">{r.priority}</span> : null}</td>
+      {has.type && (
+        <td className="hidden md:table-cell md:w-full align-middle py-1">
+          {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
+          {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
+        </td>
+      )}
+      {has.collector && <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>}
+      {has.foiling && <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>}
+      {has.price && <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>}
+      {has.tail && (
+        <td className="align-middle text-right whitespace-nowrap">
+          {r.forTrade
+            ? <span className="inline-block rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">trade</span>
+            : (r.priority || r.note)
+              ? <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{r.priority || r.note}</span>
+              : null}
+        </td>
+      )}
     </tr>
   );
   return (
@@ -205,13 +232,15 @@ function CardTable({ rows, sections, onPreview, maxHeightClass = 'max-h-96', cla
           <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
             <th className="w-6" aria-label="Pitch" />
             <th className="w-9" aria-label="Card image" />
-            <th className="text-right whitespace-nowrap">Qty</th>
-            <th className="w-full md:w-auto">Card</th>
-            <th className="hidden md:table-cell md:w-full">Type</th>
-            <th className="hidden sm:table-cell whitespace-nowrap">No.</th>
-            <th className="hidden sm:table-cell whitespace-nowrap">Foil</th>
-            <th className="text-right whitespace-nowrap">Price</th>
-            <th className="whitespace-nowrap" aria-label="Trade status" />
+            {has.qty && <th className="text-right whitespace-nowrap">Qty</th>}
+            <th className={has.type ? 'w-full md:w-auto' : 'w-full'}>Card</th>
+            {has.type && <th className="hidden md:table-cell md:w-full">Type</th>}
+            {has.collector && <th className="hidden sm:table-cell whitespace-nowrap">No.</th>}
+            {has.foiling && <th className="hidden sm:table-cell whitespace-nowrap">Foil</th>}
+            {has.price && <th className="text-right whitespace-nowrap">Price</th>}
+            {has.tail && (noteHeader
+              ? <th className="text-right whitespace-nowrap">{noteHeader}</th>
+              : <th className="whitespace-nowrap" aria-label="Trade status" />)}
           </tr>
         </thead>
         <tbody>
@@ -221,7 +250,7 @@ function CardTable({ rows, sections, onPreview, maxHeightClass = 'max-h-96', cla
                 let n = 0;
                 return (sections ?? []).flatMap((sec, si) => [
                   <tr key={`h-${si}`} className="bg-muted/70">
-                    <td colSpan={9} className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 border-y border-border">
+                    <td colSpan={colCount} className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 border-y border-border">
                       {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
                     </td>
                   </tr>,
@@ -271,7 +300,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
+  | { kind: 'data'; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -711,7 +740,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, []);
 
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
     if (busy || runningAction) return;
     setErrorBanner(null);
     setRunningAction(actionId);
@@ -724,7 +753,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         : actionId.startsWith('binder:')
           ? `${base}/binder/${actionId.slice('binder:'.length)}`
           : undefined;
-      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
+      setItems((prev) => [...prev, { kind: 'data', title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, resultRows: result.resultRows, wantsAdd: result.wantsAdd }]);
       pendingContextRef.current.push(result.context);
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
@@ -1524,7 +1553,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                     </div>
                   </div>
                   {item.tableRows && item.tableRows.length > 0 && (
-                    <CardTable rows={item.tableRows} onPreview={showPreview} />
+                    <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader} />
                   )}
                   {/* Non-table results render as wrapping lines (min-w-0/break-words)
                       so nothing is clipped and all text stays available for the AI
@@ -1606,7 +1635,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   </ul>
                   )}
                   {item.tableSections && item.tableSections.length > 0 && (
-                    <CardTable sections={item.tableSections} onPreview={showPreview} maxHeightClass="max-h-[32rem]" className="mt-1" />
+                    <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1" />
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
                     <div className="mt-1 max-h-96 overflow-y-auto overflow-x-auto">
