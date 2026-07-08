@@ -11,7 +11,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialog';
 import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
@@ -28,6 +28,8 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
+import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, type SwapEntry } from './deck-matchups';
+import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
 
@@ -70,6 +72,41 @@ function PitchGem({ pitch }: { pitch?: number }) {
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
       )}
     </span>
+  );
+}
+
+/**
+ * One side of a matchup's sideboard plan ("Side in" / "Side out") — aggregated
+ * swap ids with pitch gems and counts, mirroring the deck page's delta view.
+ */
+function SwapColumn({ kind, entries }: { kind: 'in' | 'out'; entries: SwapEntry[] }) {
+  const isIn = kind === 'in';
+  const Icon = isIn ? ArrowUp : ArrowDown;
+  const accent = isIn
+    ? 'text-emerald-700 dark:text-emerald-400 border-emerald-600/40'
+    : 'text-rose-700 dark:text-rose-400 border-rose-600/40';
+  const total = entries.reduce((s, e) => s + e.count, 0);
+  return (
+    <div className={`rounded-md border p-2 ${accent}`}>
+      <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-border">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="text-xs font-bold uppercase tracking-wider">{isIn ? 'Side in' : 'Side out'}</span>
+        <span className="ml-auto text-xs font-semibold text-gray-600 dark:text-gray-300 tabular-nums">{isIn ? '+' : '−'}{total}</span>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-sm text-gray-600 dark:text-gray-300 italic">No {isIn ? 'additions' : 'removals'}.</p>
+      ) : (
+        <ul className="space-y-0.5">
+          {entries.map((e) => (
+            <li key={e.id} className="flex items-center gap-1.5 text-sm text-foreground">
+              <PitchGem pitch={e.pitch ?? undefined} />
+              <span className="min-w-0 break-words">{e.name}</span>
+              <span className="ml-auto shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{e.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -825,6 +862,41 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, [addingDeckId]);
 
+  // "View matchups" — deterministic, no AI. Fetches the deck's configured
+  // matchup sideboard plans (deck metadata) once per card and toggles an
+  // in-card panel: one button per matchup, expanding to the pre-game Talishar
+  // checklist (turn order, notes, side in/out). Keyed by item index; a compact
+  // summary also rides the context queue so follow-up questions are grounded.
+  const [matchupPanels, setMatchupPanels] = useState<Record<number, { status: 'loading' | 'done' | 'error'; matchups: DeckMatchup[]; open: string | null }>>({});
+  const toggleMatchups = useCallback(async (index: number, publicId: string, deckName: string) => {
+    if (matchupPanels[index]) {
+      setMatchupPanels((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      return;
+    }
+    setMatchupPanels((prev) => ({ ...prev, [index]: { status: 'loading', matchups: [], open: null } }));
+    const result = await decksClient.getDeckMatchups(publicId);
+    setMatchupPanels((prev) => {
+      if (!prev[index]) return prev; // hidden again while the fetch was in flight
+      const matchups = result.success ? result.data.matchups : [];
+      return {
+        ...prev,
+        [index]: {
+          status: result.success ? 'done' : 'error',
+          matchups,
+          // A lone matchup opens itself — no second click for the common case.
+          open: matchups.length === 1 ? matchups[0].heroId : null,
+        },
+      };
+    });
+    if (result.success && result.data.matchups.length > 0) {
+      pendingContextRef.current.push(matchupsToContext(deckName, result.data.matchups));
+    }
+  }, [matchupPanels]);
+
   // "Add missing to wants" — deterministic, no AI. Bulk-adds the deck's curated
   // printings for every card the comparison says you still need (missing +
   // partial shortfall). The printing can be swapped later from the rail.
@@ -1336,6 +1408,20 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       Add to my decks
                     </button>
                   )}
+                  {item.deckPublicId && (
+                    <button
+                      type="button"
+                      onClick={() => toggleMatchups(index, item.deckPublicId!, item.title)}
+                      aria-expanded={!!matchupPanels[index]}
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted ${focusRing}`}
+                      title="Show this deck's configured matchup sideboard plans — instant, no AI"
+                    >
+                      {matchupPanels[index]?.status === 'loading'
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        : <Swords className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {matchupPanels[index] ? 'Hide matchups' : 'View matchups'}
+                    </button>
+                  )}
                 </>
               );
               const hasActions = (item.tableRows?.length ?? 0) > 0
@@ -1505,6 +1591,89 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       </table>
                     </div>
                   )}
+                  {/* "View matchups" panel — the deck's configured sideboard
+                      plans, expanded per-matchup into the pre-game Talishar
+                      checklist (turn order, notes, side in/out). */}
+                  {matchupPanels[index] && item.deckPublicId && (() => {
+                    const panel = matchupPanels[index];
+                    const openMatchup = panel.matchups.find((m) => m.heroId === panel.open) ?? null;
+                    return (
+                      <div data-testid="matchup-panel" className="mt-2 rounded-md border border-border p-2">
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                          <Swords className="h-3.5 w-3.5 shrink-0 text-violet-700 dark:text-violet-400" aria-hidden="true" />
+                          <span className="text-sm font-semibold">Matchups{panel.status === 'done' ? ` · ${panel.matchups.length}` : ''}</span>
+                          <a
+                            href={`${process.env.NEXT_PUBLIC_APP_URL || 'https://fabbazaar.app'}/decks/${item.deckPublicId}/matchups`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`ml-auto inline-flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 hover:underline ${focusRing} rounded-sm`}
+                          >
+                            <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                            Matchups page
+                          </a>
+                        </div>
+                        {panel.status === 'loading' && (
+                          <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-300">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Loading matchups…
+                          </div>
+                        )}
+                        {panel.status === 'error' && (
+                          <p className="text-sm text-red-700 dark:text-red-400">Couldn&apos;t load matchups for this deck.</p>
+                        )}
+                        {panel.status === 'done' && panel.matchups.length === 0 && (
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            No matchups configured for this deck yet — add them on the matchups page.
+                          </p>
+                        )}
+                        {panel.matchups.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Configured matchups">
+                            {panel.matchups.map((m) => {
+                              const active = panel.open === m.heroId;
+                              return (
+                                <button
+                                  key={m.heroId}
+                                  type="button"
+                                  aria-pressed={active}
+                                  onClick={() => setMatchupPanels((prev) => (prev[index]
+                                    ? { ...prev, [index]: { ...prev[index], open: active ? null : m.heroId } }
+                                    : prev))}
+                                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-sm hover:bg-muted ${focusRing} ${active
+                                    ? 'border-violet-500 bg-violet-500/10 font-semibold text-violet-800 dark:text-violet-300'
+                                    : 'border-border'}`}
+                                >
+                                  {active && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+                                  {matchupDisplayName(m.heroId)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {openMatchup && (
+                          <div className="mt-2 rounded-md border border-border bg-muted/30 p-2.5">
+                            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                              <span className="text-sm font-semibold">vs {matchupDisplayName(openMatchup.heroId)}</span>
+                              {turnOrderLabel(openMatchup.preferredTurnOrder) && (
+                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-800 dark:text-violet-300">
+                                  {turnOrderLabel(openMatchup.preferredTurnOrder)}
+                                </span>
+                              )}
+                            </div>
+                            {openMatchup.notes && (
+                              <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap mb-2">{openMatchup.notes}</p>
+                            )}
+                            {openMatchup.sideboard.in.length === 0 && openMatchup.sideboard.out.length === 0 ? (
+                              <p className="text-sm text-gray-600 dark:text-gray-300 italic">No sideboard swaps — play the list as-is.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <SwapColumn kind="in" entries={aggregateSwaps(openMatchup.sideboard.in)} />
+                                <SwapColumn kind="out" entries={aggregateSwaps(openMatchup.sideboard.out)} />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {/* Same actions repeated at the bottom — a tall card lands
                       scrolled to its end, so the header buttons are off-screen. */}
                   {hasActions && (

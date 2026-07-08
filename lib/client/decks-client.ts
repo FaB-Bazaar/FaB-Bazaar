@@ -28,6 +28,7 @@ import type {
   DeckLanguageConversionPlanDTO,
 } from '@/lib/services/contracts/IDeckService';
 import type { ImportFabraryResult } from '@/lib/decks/import-fabrary';
+import type { DeckMatchup } from '@/types/deck';
 
 // ====================================
 // Deck CRUD Operations
@@ -106,6 +107,31 @@ export async function getDeck(publicId: string): Promise<ApiResponse<DeckDTO>> {
   try {
     const response = await fetch(`/api/decks/${publicId}`);
     return await handleResponse<DeckDTO>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Get a deck's configured matchup sideboard plans
+ *
+ * @param publicId - The deck's public ID (21-char nanoid)
+ * @returns The matchups stored in the deck's metadata (may be empty)
+ *
+ * @example
+ * ```typescript
+ * const result = await getDeckMatchups('abc123...');
+ * if (result.success) {
+ *   console.log(result.data.matchups.map(m => m.heroId));
+ * }
+ * ```
+ */
+export async function getDeckMatchups(
+  publicId: string
+): Promise<ApiResponse<{ matchups: DeckMatchup[] }>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/matchups`);
+    return await handleResponse<{ matchups: DeckMatchup[] }>(response);
   } catch (error) {
     return handleError(error);
   }
