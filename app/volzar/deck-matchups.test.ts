@@ -10,6 +10,7 @@ import {
   aggregateSwaps,
   turnOrderLabel,
   matchupsToContext,
+  buildSwapLookup,
 } from './deck-matchups';
 
 describe('matchupDisplayName', () => {
@@ -50,6 +51,44 @@ describe('aggregateSwaps', () => {
 
   it('returns an empty list for no swaps', () => {
     expect(aggregateSwaps([])).toEqual([]);
+  });
+});
+
+describe('buildSwapLookup', () => {
+  const row = (name: string, pitch: number | undefined, image: string, type: string, text?: string) => ({
+    name,
+    pitch,
+    image,
+    type,
+    text,
+    preview: { name },
+  });
+
+  it('keys deck-card rows by talishar swap id (name + pitch suffix)', () => {
+    const lookup = buildSwapLookup([
+      { title: 'Maindeck', count: 3, rows: [row('Sink Below', 1, 'https://img/sb', 'Generic Defense Reaction', 'Put Sink Below into your hand.')] },
+      { title: 'Inventory', count: 2, rows: [row('Unmovable', 3, 'https://img/um', 'Guardian Defense Reaction')] },
+    ]);
+    expect(lookup.get('sink_below_red')).toMatchObject({
+      image: 'https://img/sb',
+      type: 'Generic Defense Reaction',
+      text: 'Put Sink Below into your hand.',
+    });
+    expect(lookup.get('unmovable_blue')).toMatchObject({ image: 'https://img/um', type: 'Guardian Defense Reaction' });
+  });
+
+  it('handles non-pitched cards and punctuation the way talishar ids do', () => {
+    const lookup = buildSwapLookup([
+      { title: 'Equipment', count: 1, rows: [row("Fyendal's Spring Tunic", undefined, 'https://img/fst', 'Generic Equipment - Chest')] },
+    ]);
+    expect(lookup.get('fyendals_spring_tunic')).toMatchObject({ image: 'https://img/fst' });
+  });
+
+  it('carries the row preview through for the hover rail', () => {
+    const lookup = buildSwapLookup([
+      { title: 'Maindeck', count: 1, rows: [row('Command and Conquer', 1, 'https://img/cnc', 'Generic Attack')] },
+    ]);
+    expect(lookup.get('command_and_conquer_red')?.preview).toEqual({ name: 'Command and Conquer' });
   });
 });
 

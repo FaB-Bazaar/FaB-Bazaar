@@ -296,6 +296,20 @@ describe('summarizeDeckContents', () => {
     expect(maindeck?.rows).toContainEqual(expect.objectContaining({ name: 'Overcrowded', qty: 3, pitch: 3 }));
   });
 
+  it('includes the Inventory (sideboard) section — matchup side-ins live there', () => {
+    const result = summarizeDeckContents({
+      name: 'Teklosaucen',
+      maindeck: [card('Overcrowded', 3, 3)],
+      inventory: [card('Unmovable', 2, 3)],
+    });
+    expect(result.lines).toContain('— Inventory (2) —');
+    expect(result.context).toContain('Inventory: 2x Unmovable (p3)');
+    expect(result.tableSections?.map((s) => [s.title, s.count])).toEqual([
+      ['Maindeck', 3],
+      ['Inventory', 2],
+    ]);
+  });
+
   it('omits tableSections for an empty deck', () => {
     expect(summarizeDeckContents({ name: 'Empty' }).tableSections).toBeUndefined();
   });

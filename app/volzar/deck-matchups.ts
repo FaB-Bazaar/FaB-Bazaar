@@ -3,6 +3,7 @@
 // names (lib/fab-constants/strategyPortraits), hero slugs are title-cased the
 // same way MatchupDeltaView humanizes unknown swap ids.
 import { getStrategyDisplayName, isStrategyId } from '@/lib/fab-constants/strategyPortraits';
+import { toTalisharIdentifier } from '@/lib/utils';
 
 export type SwapPitch = 1 | 2 | 3 | null;
 
@@ -54,6 +55,44 @@ export function turnOrderLabel(t: 'First' | 'Second' | 'NoPreference' | null): s
   if (t === 'Second') return 'Go second';
   if (t === 'NoPreference') return 'No turn-order preference';
   return null;
+}
+
+interface SwapRowLike {
+  name: string;
+  pitch?: number;
+  image?: string;
+  type?: string;
+  text?: string;
+  preview?: unknown;
+}
+
+export interface SwapCardInfo {
+  image?: string;
+  type?: string;
+  text?: string;
+  preview?: unknown;
+}
+
+const PITCH_ID_SUFFIX: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+
+/**
+ * Index a deck card's table rows by talishar swap id (`{name}_{pitch color}`,
+ * suffix omitted when non-pitched) so matchup side in/out lists can borrow the
+ * rows' thumbnail, type line, and hover preview. First row wins per id.
+ */
+export function buildSwapLookup(
+  sections: Array<{ title: string; count: number; rows: SwapRowLike[] }>,
+): Map<string, SwapCardInfo> {
+  const lookup = new Map<string, SwapCardInfo>();
+  for (const section of sections) {
+    for (const r of section.rows) {
+      const base = toTalisharIdentifier(r.name);
+      if (!base) continue;
+      const id = r.pitch && PITCH_ID_SUFFIX[r.pitch] ? `${base}_${PITCH_ID_SUFFIX[r.pitch]}` : base;
+      if (!lookup.has(id)) lookup.set(id, { image: r.image, type: r.type, text: r.text, preview: r.preview });
+    }
+  }
+  return lookup;
 }
 
 interface MatchupLike {

@@ -367,6 +367,7 @@ export function summarizeDeckContents(deck: {
   hero?: DeckCard[];
   equipment?: DeckCard[];
   maindeck?: DeckCard[];
+  inventory?: DeckCard[];
 }): QuickActionResult {
   const label = (c: DeckCard) => c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card';
   const cardLine = (c: DeckCard): CardLine => ({
@@ -381,6 +382,9 @@ export function summarizeDeckContents(deck: {
     ['Hero', deck.hero ?? []],
     ['Equipment', deck.equipment ?? []],
     ['Maindeck', deck.maindeck ?? []],
+    // Sideboard cards — matchup side-ins come from here, so the decklist table
+    // (and the swap-row thumbnail lookup built from it) must include them.
+    ['Inventory', deck.inventory ?? []],
   ];
 
   const lines: CardLine[] = [];

@@ -28,7 +28,7 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
-import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, type SwapEntry } from './deck-matchups';
+import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, buildSwapLookup, type SwapEntry, type SwapCardInfo } from './deck-matchups';
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
@@ -78,8 +78,15 @@ function PitchGem({ pitch }: { pitch?: number }) {
 /**
  * One side of a matchup's sideboard plan ("Side in" / "Side out") — aggregated
  * swap ids with pitch gems and counts, mirroring the deck page's delta view.
+ * `lookup` (built from the deck card's table rows) supplies each card's
+ * thumbnail, type line, and hover preview; unknown ids fall back to text-only.
  */
-function SwapColumn({ kind, entries }: { kind: 'in' | 'out'; entries: SwapEntry[] }) {
+function SwapColumn({ kind, entries, lookup, onHover }: {
+  kind: 'in' | 'out';
+  entries: SwapEntry[];
+  lookup?: Map<string, SwapCardInfo>;
+  onHover?: (preview: CardPreview) => void;
+}) {
   const isIn = kind === 'in';
   const Icon = isIn ? ArrowUp : ArrowDown;
   const accent = isIn
@@ -96,14 +103,45 @@ function SwapColumn({ kind, entries }: { kind: 'in' | 'out'; entries: SwapEntry[
       {entries.length === 0 ? (
         <p className="text-sm text-gray-600 dark:text-gray-300 italic">No {isIn ? 'additions' : 'removals'}.</p>
       ) : (
-        <ul className="space-y-0.5">
-          {entries.map((e) => (
-            <li key={e.id} className="flex items-center gap-1.5 text-sm text-foreground">
-              <PitchGem pitch={e.pitch ?? undefined} />
-              <span className="min-w-0 break-words">{e.name}</span>
-              <span className="ml-auto shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{e.count}</span>
-            </li>
-          ))}
+        <ul className="space-y-1">
+          {entries.map((e) => {
+            const info = lookup?.get(e.id);
+            const preview = info?.preview as CardPreview | undefined;
+            const show = preview && onHover ? () => onHover(preview) : undefined;
+            return (
+              <li key={e.id} onMouseEnter={show} className="flex items-center gap-1.5 text-sm text-foreground">
+                {info?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={info.image}
+                    alt=""
+                    loading="lazy"
+                    className="h-11 w-8 shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
+                  />
+                ) : (
+                  <span className="h-11 w-8 shrink-0 rounded-sm bg-muted ring-1 ring-black/10 dark:ring-white/15" aria-hidden="true" />
+                )}
+                <PitchGem pitch={e.pitch ?? undefined} />
+                <span className="min-w-0 flex-1">
+                  <span
+                    tabIndex={show ? 0 : undefined}
+                    onFocus={show}
+                    onClick={show}
+                    className={`block break-words ${show ? `cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}` : ''}`}
+                  >
+                    {e.name}
+                  </span>
+                  {info?.type && <span className="block text-xs text-gray-600 dark:text-gray-400">{info.type}</span>}
+                  {info?.text && (
+                    <span className="block text-xs leading-snug text-gray-500 dark:text-gray-400 line-clamp-2">
+                      {renderRulesText(info.text.length > 180 ? `${info.text.slice(0, 180).trimEnd()}…` : info.text)}
+                    </span>
+                  )}
+                </span>
+                <span className="ml-auto shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{e.count}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -1669,12 +1707,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                             )}
                             {openMatchup.sideboard.in.length === 0 && openMatchup.sideboard.out.length === 0 ? (
                               <p className="text-sm text-gray-600 dark:text-gray-300 italic">No sideboard swaps — play the list as-is.</p>
-                            ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <SwapColumn kind="in" entries={aggregateSwaps(openMatchup.sideboard.in)} />
-                                <SwapColumn kind="out" entries={aggregateSwaps(openMatchup.sideboard.out)} />
-                              </div>
-                            )}
+                            ) : (() => {
+                              const swapLookup = buildSwapLookup(item.tableSections ?? []);
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <SwapColumn kind="in" entries={aggregateSwaps(openMatchup.sideboard.in)} lookup={swapLookup} onHover={showPreview} />
+                                  <SwapColumn kind="out" entries={aggregateSwaps(openMatchup.sideboard.out)} lookup={swapLookup} onHover={showPreview} />
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
