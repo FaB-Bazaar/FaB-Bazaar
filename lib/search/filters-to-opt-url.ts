@@ -13,6 +13,24 @@
  * Pure + framework-free.
  */
 
+import { TYPE_CHIPS } from './card-filter-chips';
+
+// apiType ("defense reaction") → chip slug ("defense-reaction") — the /opt
+// type param carries the CHIP value, not the DB type token.
+const CHIP_BY_API_TYPE = new Map(TYPE_CHIPS.map((c) => [c.apiType, c.value]));
+
+// Boolean type-flag filters (bare type-phrase searches) → apiType.
+const FLAG_TO_API_TYPE: Array<[string, string]> = [
+  ['isDefenseReaction', 'defense reaction'],
+  ['isAttack', 'attack'],
+  ['isAction', 'action'],
+  ['isInstant', 'instant'],
+  ['isEquipment', 'equipment'],
+  ['isWeapon', 'weapon'],
+];
+
+const COLOR_TO_PITCH: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
+
 const csv = (a: unknown): string | null =>
   Array.isArray(a) && a.length > 0 ? a.map(String).join(',') : null;
 
@@ -31,8 +49,16 @@ export function filtersToOptParams(filters: Record<string, unknown>): URLSearchP
   }
 
   // /opt has a single-type chip; only an unambiguous single type maps.
+  // Chip params carry the chip slug, so normalize the apiType through
+  // TYPE_CHIPS ("defense reaction" → "defense-reaction").
   if (Array.isArray(filters.types) && filters.types.length === 1) {
-    p.set('type', String(filters.types[0]));
+    const t = String(filters.types[0]);
+    p.set('type', CHIP_BY_API_TYPE.get(t) ?? t);
+  } else {
+    // Boolean type flags from bare type-phrase searches ("defense reactions").
+    const flag = FLAG_TO_API_TYPE.find(([key]) => filters[key] === true);
+    const chip = flag ? CHIP_BY_API_TYPE.get(flag[1]) : undefined;
+    if (chip) p.set('type', chip);
   }
 
   const csvParams: Array<[string, unknown]> = [
@@ -50,7 +76,10 @@ export function filtersToOptParams(filters: Record<string, unknown>): URLSearchP
     if (v) p.set(key, v);
   }
 
-  const pitch = num(filters.pitch);
+  // Explicit pitch wins; a bare color word (red/yellow/blue) maps to the same
+  // pitch chip otherwise.
+  const pitch = num(filters.pitch)
+    ?? (typeof filters.color === 'string' ? num(COLOR_TO_PITCH[filters.color]) : null);
   if (pitch) p.set('pitch', pitch);
   if (typeof filters.format === 'string' && filters.format) p.set('format', filters.format);
 

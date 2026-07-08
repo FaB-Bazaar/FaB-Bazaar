@@ -73,3 +73,56 @@ describe.each([
     expect(parser.parseQuery('set:wtr').filters.sets).toContain('wtr');
   });
 });
+
+// Whole-query card-TYPE phrases ("defense reactions", "red attack actions")
+// are category searches, not card names — "list me all the good red defense
+// reactions" used to become a useless name search. Pin on BOTH parsers.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('bare card-type phrase queries — %s', (_label, parser) => {
+  it('treats a whole-query type phrase as a type filter, not a name', () => {
+    const f = parser.parseQuery('defense reactions').filters;
+    expect(f.isDefenseReaction).toBe(true);
+    expect(f.name).toBeUndefined();
+  });
+
+  it('handles a LEADING pitch color (first-token colors skip the standalone color rule)', () => {
+    const f = parser.parseQuery('red defense reactions').filters;
+    expect(f.isDefenseReaction).toBe(true);
+    expect(f.color).toBe('red');
+    expect(f.name).toBeUndefined();
+  });
+
+  it('trailing color still works via the standalone color rule', () => {
+    const f = parser.parseQuery('defense reactions blue').filters;
+    expect(f.isDefenseReaction).toBe(true);
+    expect(f.color).toBe('blue');
+  });
+
+  it('composes with other tokens (cost, price)', () => {
+    const f = parser.parseQuery('defense reactions cost<2 p:<5').filters;
+    expect(f.isDefenseReaction).toBe(true);
+    expect(f.name).toBeUndefined();
+  });
+
+  it('maps the common type phrases (singular + plural)', () => {
+    expect(parser.parseQuery('attack actions').filters.isAttack).toBe(true);
+    expect(parser.parseQuery('attack reaction').filters.types).toEqual(['attack reaction']);
+    expect(parser.parseQuery('instants').filters.isInstant).toBe(true);
+    expect(parser.parseQuery('equipment').filters.isEquipment).toBe(true);
+    expect(parser.parseQuery('weapons').filters.isWeapon).toBe(true);
+    expect(parser.parseQuery('auras').filters.types).toEqual(['aura']);
+    expect(parser.parseQuery('items').filters.types).toEqual(['item']);
+  });
+
+  it('does NOT hijack card names that merely contain a type word', () => {
+    expect(parser.parseQuery('aura of ebano').filters.name).toBe('aura of ebano');
+  });
+
+  it('keeps a guarded first-token color word in the name (Red Alert Boots)', () => {
+    // The standalone color rule declines first-token colors - the word must
+    // survive into the name search, not just be blanked from it.
+    expect(parser.parseQuery('red alert boots').filters.name).toBe('red alert boots');
+  });
+});

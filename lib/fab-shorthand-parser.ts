@@ -9,7 +9,9 @@ import { TalentUtils } from './talent-constants';
 
 interface ShorthandPattern {
   pattern: RegExp;
-  parser: (match: RegExpMatchArray, filters: PrintingsSearchFilters, workingQuery: string) => void;
+  /** Return false to DECLINE the match: the token is left in the query text
+   *  (it will reach the name search) instead of being blanked. */
+  parser: (match: RegExpMatchArray, filters: PrintingsSearchFilters, workingQuery: string) => void | false;
   description: string;
   examples: string[];
 }
@@ -708,9 +710,10 @@ export class FABShorthandParser {
     {
       pattern: /\b(red|yellow|blue)\b/gi,
       parser: (match, filters, workingQuery) => {
-        // Skip if this is the first non-whitespace content — likely a card name prefix
+        // Decline if this is the first non-whitespace content — likely a card
+        // name prefix ("Red Alert Boots"); the word must stay in the name.
         const before = workingQuery.substring(0, match.index!).trim();
-        if (!before) return;
+        if (!before) return false;
         const map: Record<string, string> = { red: 'red', yellow: 'yellow', blue: 'blue' };
         filters.color = map[match[1].toLowerCase()];
       },
@@ -754,9 +757,16 @@ export class FABShorthandParser {
       
       while ((match = regex.exec(workingQuery)) !== null) {
         try {
-          pattern.parser(match, filters, workingQuery);
+          const applied = pattern.parser(match, filters, workingQuery);
+          if (applied === false) {
+            // Declined (e.g. first-token color guard): keep the token in the
+            // text so it reaches the name search — advance past it instead
+            // of blanking it.
+            regex.lastIndex = match.index! + match[0].length;
+            continue;
+          }
           parsedTokens.push(`${match[0]} (${pattern.description})`);
-          
+
           // Replace matched token with spaces to preserve indices (don't trim/collapse inside loop)
           const matchStart = match.index!;
           const matchEnd = matchStart + match[0].length;
@@ -786,6 +796,38 @@ export class FABShorthandParser {
       .replace(/\s+/g, ' ')
       .replace(/[\u2018\u2019\u0027\u0060]/g, "'")
       .trim();
+
+    // Whole-query card-TYPE phrases ("defense reactions", "red attack actions")
+    // are category searches, not card names. Fires ONLY when nothing else
+    // remains, so names containing a type word ("aura of ebano") stay name
+    // searches. The optional leading color covers first-token colors, which
+    // the standalone color rule deliberately skips (name-prefix guard).
+    const typePhrase = remainingText.match(
+      /^(?:(red|yellow|blue)\s+)?(defense reactions?|attack reactions?|attack actions?|actions?|instants?|equipment|weapons?|auras?|items?)(?:\s+(red|yellow|blue))?$/i
+    );
+    if (typePhrase) {
+      const phraseColor = typePhrase[1] ?? typePhrase[3];
+      if (phraseColor) filters.color = phraseColor.toLowerCase();
+      const singular = typePhrase[2].toLowerCase().replace(/s$/, '');
+      const patch: Partial<PrintingsSearchFilters> = {
+        'defense reaction': { isDefenseReaction: true },
+        'attack reaction': { types: ['attack reaction'] },
+        'attack action': { isAttack: true },
+        'action': { isAction: true },
+        'instant': { isInstant: true },
+        'equipment': { isEquipment: true },
+        'weapon': { isWeapon: true },
+        'aura': { types: ['aura'] },
+        'item': { types: ['item'] },
+      }[singular] ?? {};
+      Object.assign(filters, patch);
+      parsedTokens.push(`${typePhrase[0]} (card type)`);
+      return {
+        filters,
+        remainingText: '',
+        parsedTokens
+      };
+    }
 
     // Map remaining plain text to filters.name (typo-tolerant name search).
     // Rule text is intentionally excluded from the default — use text:"phrase" or

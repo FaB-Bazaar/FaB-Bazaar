@@ -723,6 +723,39 @@ export class FABShorthandParser {
       .replace(/[\u2018\u2019\u0027\u0060]/g, "'")
       .trim();
 
+    // Whole-query card-TYPE phrases ("defense reactions", "red attack actions")
+    // are category searches, not card names. Fires ONLY when nothing else
+    // remains, so names containing a type word ("aura of ebano") stay name
+    // searches. The optional leading color covers first-token colors, which
+    // the standalone color rule deliberately skips (name-prefix guard).
+    // Kept in sync with lib/fab-shorthand-parser.ts (pinned by shared tests).
+    const typePhrase = remainingText.match(
+      /^(?:(red|yellow|blue)\s+)?(defense reactions?|attack reactions?|attack actions?|actions?|instants?|equipment|weapons?|auras?|items?)(?:\s+(red|yellow|blue))?$/i
+    );
+    if (typePhrase) {
+      const phraseColor = typePhrase[1] ?? typePhrase[3];
+      if (phraseColor) filters.color = phraseColor.toLowerCase();
+      const singular = typePhrase[2].toLowerCase().replace(/s$/, '');
+      const patch: Partial<PrintingsSearchFilters> = {
+        'defense reaction': { isDefenseReaction: true },
+        'attack reaction': { types: ['attack reaction'] },
+        'attack action': { isAttack: true },
+        'action': { isAction: true },
+        'instant': { isInstant: true },
+        'equipment': { isEquipment: true },
+        'weapon': { isWeapon: true },
+        'aura': { types: ['aura'] },
+        'item': { types: ['item'] },
+      }[singular] ?? {};
+      Object.assign(filters, patch);
+      parsedTokens.push(`${typePhrase[0]} (card type)`);
+      return {
+        filters,
+        remainingText: '',
+        parsedTokens
+      };
+    }
+
     // Map remaining plain text to filters.name (typo-tolerant name search).
     // Rule text is intentionally excluded from the default — use text:"phrase" or
     // text:word to search rule text explicitly.

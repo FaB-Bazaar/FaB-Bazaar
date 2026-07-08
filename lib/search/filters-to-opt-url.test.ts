@@ -81,3 +81,26 @@ describe('buildOptSearchUrl', () => {
     expect(buildOptSearchUrl({}, 'https://fabbazaar.app')).toBe('https://fabbazaar.app/opt');
   });
 });
+
+// Bare type-phrase searches ("red defense reactions") produce boolean type
+// flags + color — map them to /opt chips so the deep link isn't a bare /opt.
+describe('type-flag and color mapping', () => {
+  it('maps boolean type flags to the /opt type chip slug', () => {
+    expect(filtersToOptParams({ isDefenseReaction: true } as any).get('type')).toBe('defense-reaction');
+    expect(filtersToOptParams({ isAttack: true } as any).get('type')).toBe('attack');
+    expect(filtersToOptParams({ isInstant: true } as any).get('type')).toBe('instant');
+    expect(filtersToOptParams({ isEquipment: true } as any).get('type')).toBe('equipment');
+    expect(filtersToOptParams({ isWeapon: true } as any).get('type')).toBe('weapon');
+  });
+
+  it('normalizes a single multi-word types[] value to the chip slug', () => {
+    expect(filtersToOptParams({ types: ['attack reaction'] } as any).get('type')).toBe('attack-reaction');
+    expect(filtersToOptParams({ types: ['defense reaction'] } as any).get('type')).toBe('defense-reaction');
+  });
+
+  it('maps a color word to the pitch chip when pitch is absent (explicit pitch wins)', () => {
+    expect(filtersToOptParams({ color: 'red' } as any).get('pitch')).toBe('1');
+    expect(filtersToOptParams({ color: 'yellow' } as any).get('pitch')).toBe('2');
+    expect(filtersToOptParams({ color: 'blue', pitch: 2 } as any).get('pitch')).toBe('2');
+  });
+});
