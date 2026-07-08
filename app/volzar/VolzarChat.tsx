@@ -745,8 +745,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, []);
 
+  // Synchronous re-entrancy guard: `runningAction` state only updates on the
+  // next React flush, so it can't stop a second dispatch landing in the same
+  // tick — the ref flips before any await and closes that window for real.
+  const runningActionRef = useRef(false);
   const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; deckEditable?: boolean; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
-    if (busy || runningAction) return;
+    if (busy || runningActionRef.current) return;
+    runningActionRef.current = true;
     setErrorBanner(null);
     setRunningAction(actionId);
     try {
@@ -763,9 +768,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     } catch (error) {
       setErrorBanner(error instanceof Error ? error.message : 'Action failed');
     } finally {
+      runningActionRef.current = false;
       setRunningAction(null);
     }
-  }, [busy, runningAction, userId]);
+  }, [busy, userId]);
 
   // Copy a wants/binder card list as Discord-friendly shorthand + link.
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
