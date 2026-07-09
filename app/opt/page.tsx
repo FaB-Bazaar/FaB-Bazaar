@@ -326,6 +326,7 @@ export default function OptSearchPage() {
   const canAskVolzar = canUseVolzar({
     isSuperAdmin: session?.user?.roles?.isSuperAdmin,
     metafySupporterTier: session?.user?.roles?.metafySupporterTier,
+    volzarAccess: session?.user?.roles?.volzarAccess,
   });
   const askVolzarHref = `/volzar?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
   const askVolzarLink = canAskVolzar && hasAnyFilter && (
