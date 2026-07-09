@@ -244,6 +244,33 @@ export async function addCardsToBinder(
 }
 
 /**
+ * Swap an inventory item to a different printing of the same card, via the
+ * card route's `action: 'swapPrinting'` (same call the binder page's
+ * PrintingSwapDialog makes). NOTE: `/cards/[cardId]/swap-printing` — the
+ * endpoint BinderService.swapPrinting targets — does not exist (404s).
+ *
+ * @param binderId - The binder ID
+ * @param cardId - The inventory item ID
+ * @param newPrintingId - The printing to swap to
+ */
+export async function swapBinderCardPrinting(
+  binderId: string,
+  cardId: string,
+  newPrintingId: string
+): Promise<ApiResponse<{ merged?: boolean }>> {
+  try {
+    const response = await fetch(`/api/binders/${binderId}/cards/${cardId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'swapPrinting', newPrintingId }),
+    });
+    return await handleResponse<{ merged?: boolean }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Get a single card from binder
  *
  * @param binderId - The binder ID

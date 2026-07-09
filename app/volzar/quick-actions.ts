@@ -998,6 +998,93 @@ export async function adjustRowQuantity(
   return { ok: true, newQty };
 }
 
+/** The printing fields swapped onto a row (shape of printingToSwapOption). */
+export interface RowSwapOption {
+  printingId: string;
+  collector?: string;
+  foiling?: string;
+  isExtendedArt?: boolean;
+  priceLow?: number;
+  priceMarket?: number;
+  preview: CardPreview;
+}
+
+/**
+ * Pure optimistic update for a printing swap: replaces the matched row's
+ * printing-specific fields (qty + name stay). If a sibling row in the same
+ * scope already holds the target printing, the two merge (qty sums) —
+ * mirroring the binder swap endpoint's server-side merge.
+ */
+export function swapItemRowPrinting<T extends {
+  tableRows?: CardRow[];
+  tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>;
+}>(item: T, key: { printingId?: string; itemId?: string; section?: string }, swap: RowSwapOption): T {
+  const matches = (r: CardRow) =>
+    key.itemId && r.itemId ? r.itemId === key.itemId : r.preview.printingId === key.printingId;
+  const swapRows = (rows: CardRow[]) => {
+    const source = rows.find(matches);
+    if (!source) return rows;
+    const existing = rows.find((r) => !matches(r) && r.preview.printingId === swap.printingId);
+    if (existing) {
+      // Merge: server combined the quantities onto the target printing.
+      return rows
+        .filter((r) => !matches(r))
+        .map((r) => (r === existing ? { ...r, qty: (r.qty ?? 1) + (source.qty ?? 1) } : r));
+    }
+    return rows.map((r) => (matches(r) ? {
+      ...r,
+      collector: swap.collector,
+      foiling: swap.foiling,
+      extendedArt: !!swap.isExtendedArt,
+      price: swap.priceLow ?? swap.priceMarket,
+      image: swap.preview.imageUrl,
+      preview: swap.preview,
+    } : r));
+  };
+  if (item.tableSections) {
+    return {
+      ...item,
+      tableSections: item.tableSections.map((s) =>
+        key.section && s.title !== key.section ? s : { ...s, rows: swapRows(s.rows) }),
+    };
+  }
+  if (item.tableRows) return { ...item, tableRows: swapRows(item.tableRows) };
+  return item;
+}
+
+/**
+ * Persist a printing swap to its source. Wants has no swap endpoint — it is
+ * add-then-remove (in that order: a mid-flight failure duplicates the want
+ * instead of losing it). Binder uses the dedicated swap endpoint (server
+ * merges duplicates); decks swap within the row's section/category.
+ */
+export async function swapRowPrinting(
+  mutation: RowMutation,
+  row: CardRow,
+  newPrintingId: string,
+  sectionTitle?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const oldPrintingId = row.preview.printingId;
+  if (mutation.kind === 'binder') {
+    if (!row.itemId) return { ok: false, error: 'This row is missing its inventory id — reopen the binder.' };
+    const result = await bindersClient.swapBinderCardPrinting(mutation.binderId, row.itemId, newPrintingId);
+    if (!result.success) return { ok: false, error: result.error };
+    return { ok: true };
+  }
+  if (!oldPrintingId) return { ok: false, error: 'This row is missing its printing id.' };
+  if (mutation.kind === 'wants') {
+    const added = await wantsClient.addWantsItem(newPrintingId, row.qty ?? 1, (row.priority as any) ?? 'medium');
+    if (!added.success) return { ok: false, error: added.error };
+    const removed = await wantsClient.removeWantsItem(oldPrintingId, true);
+    if (!removed.success) return { ok: false, error: `Added the new printing, but removing the old one failed: ${removed.error}` };
+    return { ok: true };
+  }
+  const category = (sectionTitle ?? 'maindeck').toLowerCase() as any;
+  const result = await decksClient.swapPrinting(mutation.publicId, oldPrintingId, newPrintingId, category);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true };
+}
+
 /**
  * Create a binder from the tri-button dropdown and make it the add target.
  * The returned context line rides the pending-context queue so the NEXT chat

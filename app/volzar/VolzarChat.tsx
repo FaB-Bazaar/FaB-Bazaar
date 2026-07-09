@@ -29,6 +29,7 @@ import {
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
+  swapRowPrinting, swapItemRowPrinting,
   type RowMutation,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -159,7 +160,7 @@ function qtyRowKey(r: CardRow, sectionTitle?: string): string {
   return `${sectionTitle ?? ''}|${r.itemId ?? r.preview.printingId ?? r.name}`;
 }
 
-function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', onAdjustQty, adjustBusyKeys }: {
+function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', onAdjustQty, adjustBusyKeys, onSwapRow }: {
   rows?: CardRow[];
   sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
@@ -170,6 +171,8 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   /** When set, qty cells render −/+ buttons that write through to the source. */
   onAdjustQty?: (row: CardRow, delta: 1 | -1, sectionTitle?: string) => void;
   adjustBusyKeys?: Set<string>;
+  /** When set, rows render a swap-printing button (opens the printing picker). */
+  onSwapRow?: (row: CardRow, sectionTitle?: string) => void;
 }) {
   // Adaptive columns: only render a column when some row actually has data
   // for it — a consensus table (no prices/sets) or a search table (no owned
@@ -183,7 +186,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
     price: allRows.some((r) => typeof r.price === 'number'),
     tail: allRows.some((r) => r.forTrade || r.priority || r.note),
   };
-  const colCount = 3 + Number(has.qty) + Number(has.type) + Number(has.collector) + Number(has.foiling) + Number(has.price) + Number(has.tail);
+  const colCount = 3 + Number(has.qty) + Number(has.type) + Number(has.collector) + Number(has.foiling) + Number(has.price) + Number(has.tail) + Number(!!onSwapRow);
   const renderRow = (r: CardRow, key: string, striped: boolean, sectionTitle?: string) => {
     const busy = adjustBusyKeys?.has(qtyRowKey(r, sectionTitle)) ?? false;
     const qtyBtn = `rounded border border-border p-0.5 text-gray-600 dark:text-gray-300 hover:bg-muted disabled:opacity-40 ${focusRing}`;
@@ -271,6 +274,21 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
               : null}
         </td>
       )}
+      {onSwapRow && (
+        <td className="align-middle w-8 text-right">
+          {r.preview.printingId ? (
+            <button
+              type="button"
+              onClick={() => onSwapRow(r, sectionTitle)}
+              aria-label={`Swap printing of ${r.name}`}
+              title="Swap to a different printing"
+              className={`rounded border border-border p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+            >
+              <Repeat className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          ) : null}
+        </td>
+      )}
     </tr>
     );
   };
@@ -292,6 +310,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
             {has.tail && (noteHeader
               ? <th className="text-right whitespace-nowrap">{noteHeader}</th>
               : <th className="whitespace-nowrap" aria-label="Trade status" />)}
+            {onSwapRow && <th className="whitespace-nowrap" aria-label="Swap printing" />}
           </tr>
         </thead>
         <tbody>
@@ -761,6 +780,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const dataUidRef = useRef(0);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
+  // Row swap-printing: which row's printing picker is open
+  const [rowSwap, setRowSwap] = useState<{ itemUid: string; mutation: RowMutation; row: CardRow; sectionTitle?: string; cardUniqueId: string } | null>(null);
   // "New binder…" inline creation row (opened from the tri-button dropdown)
   const [newBinderOpen, setNewBinderOpen] = useState(false);
   const [newBinderName, setNewBinderName] = useState('');
@@ -1339,6 +1360,44 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
       });
     }
   }, []);
+
+  // Row swap-printing: resolve the row's card_unique_id (the printing picker is
+  // scoped per card), open ViewPrintingsDialog, and on pick persist via the
+  // source-specific swap (binder endpoint / wants add+remove / deck swap).
+  const openRowSwap = useCallback(async (item: Extract<UiItem, { kind: 'data' }>, row: CardRow, sectionTitle?: string) => {
+    if (!item.mutate || !item.uid || !row.preview.printingId) return;
+    try {
+      const res = await fetch(`/api/search/core?printingId=${encodeURIComponent(row.preview.printingId)}&limit=1`);
+      const data = await res.json();
+      const cuid = data?.data?.printings?.[0]?.card_unique_id;
+      if (!cuid) {
+        setErrorBanner('Could not load other printings for this card.');
+        return;
+      }
+      setRowSwap({ itemUid: item.uid, mutation: item.mutate, row, sectionTitle, cardUniqueId: cuid });
+    } catch {
+      setErrorBanner('Could not load other printings for this card.');
+    }
+  }, []);
+
+  const onRowSwapPicked = useCallback(async (p: any) => {
+    const ctx = rowSwap;
+    if (!ctx) return;
+    setRowSwap(null); // the dialog closes itself after a pick
+    const newPrintingId = p?.printing_id ?? p?.unique_id;
+    if (!newPrintingId) return;
+    const res = await swapRowPrinting(ctx.mutation, ctx.row, newPrintingId, ctx.sectionTitle);
+    if (!res.ok) {
+      setErrorBanner(res.error);
+      return;
+    }
+    const swap = printingToSwapOption(p, ctx.row.name);
+    const key = { printingId: ctx.row.preview.printingId, itemId: ctx.row.itemId, section: ctx.sectionTitle };
+    const apply = <T extends UiItem>(i: T): T =>
+      (i.kind === 'data' && i.uid === ctx.itemUid ? (swapItemRowPrinting(i as any, key, swap) as T) : i);
+    setItems((prev) => prev.map(apply));
+    setWorkspaceStack((prev) => prev.map((i) => apply(i)));
+  }, [rowSwap]);
 
   // "New binder…": create → select as the add target → queue a context line so
   // the next chat message teaches Volzar the binder exists ("put my Kano cards
@@ -1953,7 +2012,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   {item.tableRows && item.tableRows.length > 0 && (
                     <div className="lg:hidden">
                       <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
-                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
+                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
+                        onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
                     </div>
                   )}
                   {/* Desktop: the table/list lives in the workspace panel; the
@@ -1997,7 +2057,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   {item.tableSections && item.tableSections.length > 0 && (
                     <div className="lg:hidden">
                       <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
-                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
+                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
+                        onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
                     </div>
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
@@ -2386,10 +2447,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {workspace.tableSections && workspace.tableSections.length > 0 ? (
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
-              onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
+              onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
+              onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
             <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
-              onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys} />
+              onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
+              onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
           ) : (
             // Listing view (binder/deck pickers): drill rows navigate the panel
             <div className="px-1.5 py-1">
@@ -2506,6 +2569,16 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         cardUniqueId={swapCardUniqueId}
         currentPrintingId={previewCard.printingId}
         onSelectPrinting={onSwapPicked}
+      />
+    )}
+    {rowSwap && (
+      <ViewPrintingsDialog
+        open={!!rowSwap}
+        onOpenChange={(open) => { if (!open) setRowSwap(null); }}
+        cardName={rowSwap.row.name}
+        cardUniqueId={rowSwap.cardUniqueId}
+        currentPrintingId={rowSwap.row.preview.printingId!}
+        onSelectPrinting={onRowSwapPicked}
       />
     )}
     <CardSearchDialog

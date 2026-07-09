@@ -6,16 +6,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/client', () => ({
-  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn(), updateBinderCard: vi.fn(), deleteBinderCard: vi.fn(), createBinder: vi.fn() },
+  bindersClient: { getUserBinders: vi.fn(), getBinderCards: vi.fn(), addCardsToBinder: vi.fn(), updateBinderCard: vi.fn(), deleteBinderCard: vi.fn(), createBinder: vi.fn(), swapBinderCardPrinting: vi.fn() },
   wantsClient: { getUserWants: vi.fn(), addWantsItem: vi.fn(), removeWantsItem: vi.fn() },
-  decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn(), addPrintings: vi.fn(), removePrinting: vi.fn() },
+  decksClient: { getUserDecks: vi.fn(), getDeck: vi.fn(), getInventoryComparison: vi.fn(), addPrintings: vi.fn(), removePrinting: vi.fn(), swapPrinting: vi.fn() },
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
 import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
-  adjustRowQuantity, createBinderTarget,
+  adjustRowQuantity, createBinderTarget, swapRowPrinting,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
@@ -24,6 +24,8 @@ const mockAddCardsToBinder = vi.mocked(bindersClient.addCardsToBinder);
 const mockUpdateBinderCard = vi.mocked(bindersClient.updateBinderCard);
 const mockDeleteBinderCard = vi.mocked(bindersClient.deleteBinderCard);
 const mockCreateBinder = vi.mocked(bindersClient.createBinder);
+const mockSwapBinderCardPrinting = vi.mocked(bindersClient.swapBinderCardPrinting);
+const mockSwapDeckPrinting = vi.mocked(decksClient.swapPrinting);
 const mockAddWantsItem = vi.mocked(wantsClient.addWantsItem);
 const mockRemoveWantsItem = vi.mocked(wantsClient.removeWantsItem);
 const mockAddPrintings = vi.mocked(decksClient.addPrintings);
@@ -323,5 +325,58 @@ describe('createBinderTarget', () => {
     mockCreateBinder.mockResolvedValue({ success: false, error: 'name taken' } as any);
     const result = await createBinderTarget('Dupe', []);
     expect(result).toEqual({ ok: false, error: 'name taken' });
+  });
+});
+
+describe('swapRowPrinting', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    qty: 2, name: 'Pummel', itemId: 'item-1', priority: 'high',
+    preview: { imageUrl: '', name: 'Pummel', printingId: 'old1' },
+    ...over,
+  }) as any;
+
+  it('binder: swaps via the dedicated swap-printing endpoint (merges server-side)', async () => {
+    mockSwapBinderCardPrinting.mockResolvedValue({ success: true, data: { merged: true } } as any);
+
+    const result = await swapRowPrinting({ kind: 'binder', binderId: 'b1' }, row(), 'new1');
+
+    expect(mockSwapBinderCardPrinting).toHaveBeenCalledWith('b1', 'item-1', 'new1');
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('binder without an itemId errors instead of guessing', async () => {
+    const result = await swapRowPrinting({ kind: 'binder', binderId: 'b1' }, row({ itemId: undefined }), 'new1');
+    expect(result.ok).toBe(false);
+    expect(mockSwapBinderCardPrinting).not.toHaveBeenCalled();
+  });
+
+  it('wants: adds the new printing (qty + priority preserved) BEFORE removing the old — a failure duplicates rather than deletes', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+    mockRemoveWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await swapRowPrinting({ kind: 'wants' }, row(), 'new1');
+
+    expect(mockAddWantsItem).toHaveBeenCalledWith('new1', 2, 'high');
+    expect(mockRemoveWantsItem).toHaveBeenCalledWith('old1', true);
+    expect(mockAddWantsItem.mock.invocationCallOrder[0]).toBeLessThan(mockRemoveWantsItem.mock.invocationCallOrder[0]);
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('wants: does not remove the old printing when the add fails', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: false, error: 'nope' } as any);
+
+    const result = await swapRowPrinting({ kind: 'wants' }, row(), 'new1');
+
+    expect(result).toEqual({ ok: false, error: 'nope' });
+    expect(mockRemoveWantsItem).not.toHaveBeenCalled();
+  });
+
+  it('deck: routes the section title as the category', async () => {
+    mockSwapDeckPrinting.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await swapRowPrinting({ kind: 'deck', publicId: 'pub-1' }, row(), 'new1', 'Equipment');
+
+    expect(mockSwapDeckPrinting).toHaveBeenCalledWith('pub-1', 'old1', 'new1', 'equipment');
+    expect(result).toEqual({ ok: true });
   });
 });

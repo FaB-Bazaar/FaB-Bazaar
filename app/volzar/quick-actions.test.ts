@@ -28,7 +28,7 @@ import {
   printingToSwapOption,
   shouldOpenInWorkspace,
   advanceWorkspace,
-  adjustItemRowQty,
+  adjustItemRowQty, swapItemRowPrinting,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -1013,5 +1013,45 @@ describe('adjustItemRowQty', () => {
     const next = adjustItemRowQty(item, { printingId: 'p1', itemId: 'i-b' }, 1);
     expect(next.tableRows[0].qty).toBe(2);
     expect(next.tableRows[1].qty).toBe(6);
+  });
+});
+
+describe('swapItemRowPrinting', () => {
+  const row = (printingId: string, qty: number, over: Record<string, unknown> = {}) =>
+    ({ qty, name: 'Pummel', collector: 'OLD001', foiling: 's', price: 1, image: 'old.png',
+       preview: { imageUrl: 'old.png', name: 'Pummel', printingId }, ...over }) as any;
+  const swap = {
+    printingId: 'new1', collector: 'NEW009', foiling: 'r', isExtendedArt: true,
+    priceLow: 4.2, priceMarket: 5,
+    preview: { imageUrl: 'new.png', name: 'Pummel', printingId: 'new1', priceLow: 4.2 },
+  } as any;
+
+  it('replaces the row printing fields (collector/foil/price/image/preview) keeping qty + name', () => {
+    const item = { tableRows: [row('old1', 3)] } as any;
+    const next = swapItemRowPrinting(item, { printingId: 'old1' }, swap);
+    const r = next.tableRows[0];
+    expect(r).toMatchObject({ qty: 3, name: 'Pummel', collector: 'NEW009', foiling: 'r', price: 4.2, image: 'new.png', extendedArt: true });
+    expect(r.preview.printingId).toBe('new1');
+    expect(item.tableRows[0].collector).toBe('OLD001'); // original untouched
+  });
+
+  it('merges into an existing row that already has the target printing (qty sums, swapped row dropped)', () => {
+    const item = { tableRows: [row('old1', 2), row('new1', 3, { collector: 'NEW009' })] } as any;
+    const next = swapItemRowPrinting(item, { printingId: 'old1' }, swap);
+    expect(next.tableRows).toHaveLength(1);
+    expect(next.tableRows[0].qty).toBe(5);
+    expect(next.tableRows[0].preview.printingId).toBe('new1');
+  });
+
+  it('scopes deck-section swaps by section title', () => {
+    const item = {
+      tableSections: [
+        { title: 'Maindeck', count: 3, rows: [row('old1', 3)] },
+        { title: 'Inventory', count: 1, rows: [row('old1', 1)] },
+      ],
+    } as any;
+    const next = swapItemRowPrinting(item, { printingId: 'old1', section: 'Maindeck' }, swap);
+    expect(next.tableSections[0].rows[0].preview.printingId).toBe('new1');
+    expect(next.tableSections[1].rows[0].preview.printingId).toBe('old1'); // untouched
   });
 });
