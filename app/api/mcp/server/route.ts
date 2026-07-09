@@ -1145,6 +1145,12 @@ The new tool provides the same functionality with better guidance for proper wor
               jsonrpc: '2.0', id,
               result: {
                 content: [{ type: 'text', text: result.message || (result.success ? 'Coverage computed.' : result.error) }],
+                // structuredContent is the browser-side channel (zero model
+                // tokens): the chat renders these rows as clickable lines that
+                // drill into the You-vs-deck missing-cards comparison.
+                ...(result.success && result.decks?.length
+                  ? { structuredContent: { coverageDecks: result.decks } }
+                  : {}),
                 isError: !result.success,
                 ...result
               }

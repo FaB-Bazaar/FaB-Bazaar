@@ -28,7 +28,7 @@ import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/cli
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
-  QUICK_ACTIONS, buildMessageWithContext, buildAnalyzeGameMessage, runDrill, parseSearchResults, harvestCardsFromStructured,
+  QUICK_ACTIONS, buildMessageWithContext, buildAnalyzeGameMessage, runDrill, parseSearchResults, parseCoverageLines, harvestCardsFromStructured,
   fetchToBeatHeroes, runArchetypeConsensus, toShorthand, printingToSwapOption,
   fetchToBeatEvents, runToBeatByHero, runToBeatByEvent, TO_BEAT_MONTHS,
   fetchKitHeroes, runHeroKit,
@@ -482,7 +482,7 @@ interface StructuredCard {
 type UiItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; streaming: boolean }
-  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard; results?: SearchResultsCard; cards?: HarvestedCard[] }
+  | { kind: 'tool'; id: string; name: string; status: 'running' | 'ok' | 'error'; ms?: number; card?: StructuredCard; results?: SearchResultsCard; cards?: HarvestedCard[]; coverageLines?: CardLine[] }
   // Destructive tool call paused server-side awaiting Confirm/Deny.
   // pending → confirmed (tool_start arrives) or denied (failed tool_result
   // arrives without a tool_start). `submitting` disables the buttons while the
@@ -983,12 +983,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         }
         const card = toStructuredCard(event.structured);
         const results = parseSearchResults(event.structured) ?? undefined;
+        // Coverage rows (compare_collection_to_decks_to_beat) render as
+        // clickable lines — each drills into the You-vs-deck missing-cards view.
+        const coverageLines = parseCoverageLines(event.structured);
         // Every card any tool surfaced feeds the name→rail index for markdown
         // linkification — decks and binders too, not just searches.
         const cards = harvestCardsFromStructured(event.structured);
         setItems((prev) => prev.map((item) => {
           if (item.kind === 'tool' && item.id === event.id) {
-            return { ...item, status: event.ok ? ('ok' as const) : ('error' as const), ms: event.ms, card, results, cards };
+            return { ...item, status: event.ok ? ('ok' as const) : ('error' as const), ms: event.ms, card, results, cards, coverageLines };
           }
           // A result landing on a still-pending confirm card is the deny path
           // (denied calls never get a tool_start).
@@ -2526,7 +2529,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                     </>
                   )}
                 </Badge>
-                {(item.card || item.results) && (
+                {(item.card || item.results || item.coverageLines) && (
                   <div className={`rounded-md border border-border bg-card px-3 py-2 text-sm w-full ${item.results ? '' : 'max-w-xl'}`}>
                     {item.card?.title && <div className="font-semibold">{item.card.title}</div>}
                     {item.card?.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
@@ -2534,6 +2537,21 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                       // Same striped card table as binder/deck/kit cards —
                       // search results are cards too, keep them consistent.
                       <CardTable rows={item.results.tableRows} onPreview={showPreview} maxHeightClass="max-h-80" className="mt-1.5" />
+                    )}
+                    {item.coverageLines && (
+                      <>
+                        <p className="text-gray-600 dark:text-gray-300">
+                          Click a deck to see exactly which cards you&apos;re missing:
+                        </p>
+                        <CardLinesList
+                          lines={item.coverageLines}
+                          hideTableLines={false}
+                          onDrill={drill}
+                          drillDisabled={busy || runningAction !== null}
+                          onPreview={showPreview}
+                          columns={false}
+                        />
+                      </>
                     )}
                     {item.card?.url && (
                       <a

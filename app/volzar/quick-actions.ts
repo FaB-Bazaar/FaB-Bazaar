@@ -1473,6 +1473,36 @@ export async function runDeckCompareDrill(publicId: string, deckName: string): P
   return summarizeComparison(deckName, raw?.comparison ?? raw ?? {});
 }
 
+/**
+ * Lines for the compare_collection_to_decks_to_beat tool's structured payload
+ * (structuredContent.coverageDecks). Each deck renders as a clickable line
+ * that drills into the existing You-vs-deck comparison — the missing-cards
+ * delta — with zero AI tokens.
+ */
+export function parseCoverageLines(structured: unknown): CardLine[] | undefined {
+  if (!structured || typeof structured !== 'object') return undefined;
+  const rows = (structured as { coverageDecks?: unknown }).coverageDecks;
+  if (!Array.isArray(rows) || rows.length === 0) return undefined;
+  const lines: CardLine[] = [];
+  for (const raw of rows) {
+    const r = raw as Record<string, unknown>;
+    if (typeof r.publicId !== 'string' || typeof r.deckName !== 'string') continue;
+    const pct = Number(r.coveragePct);
+    const owned = Number(r.totalOwned);
+    const needed = Number(r.totalNeeded);
+    const missing = Number(r.missingCards);
+    const cost = Number(r.missingCost);
+    const tail = missing > 0
+      ? `${missing} missing${cost > 0 ? ` · $${cost.toFixed(2)} to finish` : ''}`
+      : 'complete ✓';
+    lines.push({
+      text: `${pct}% (${owned}/${needed}) — ${r.deckName} · ${tail}`,
+      drill: { kind: 'deck-compare', id: r.publicId, name: r.deckName },
+    });
+  }
+  return lines.length > 0 ? lines : undefined;
+}
+
 /** Dispatch a drill target from a clicked line. */
 export function runDrill(drill: DrillTarget): Promise<QuickActionResult> {
   if (drill.kind === 'binder') return runBinderDrill(drill.id, drill.name);
