@@ -13,6 +13,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
+  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -47,12 +49,21 @@ import { LayoutGrid } from 'lucide-react';
 // First-run launcher: each exercises a different capability (meta analysis,
 // collection compare, search, results) so the empty state teaches what the AI
 // can do — not just that it exists. Clicking sends immediately.
-const SUGGESTED_PROMPTS = [
-  'What are the top decks in the meta right now?',
-  'Which Decks to Beat could I build mostly from my collection?',
-  'Find budget generic attack actions under $1 with go again',
-  'How are my decks performing in my recent games?',
+const SUGGESTED_PROMPTS: Array<{ icon: LucideIcon; text: string }> = [
+  { icon: TrendingUp, text: 'What are the top decks in the meta right now?' },
+  { icon: BookOpen, text: 'Which Decks to Beat could I build mostly from my collection?' },
+  { icon: Search, text: 'Find budget generic attack actions under $1 with go again' },
+  { icon: BarChart3, text: 'How are my decks performing in my recent games?' },
 ];
+
+// Strip icons mirror the navbar (Your Collection = BookOpen, Your Decks =
+// Layers) so the quick actions read as "your stuff, right here".
+const ACTION_ICONS: Record<string, LucideIcon> = {
+  binders: BookOpen,
+  wants: Heart,
+  decks: Layers,
+  results: BarChart3,
+};
 
 const PITCH_GEM: Record<number, { bg: string; label: string }> = {
   1: { bg: 'bg-red-600', label: 'red' },
@@ -1665,6 +1676,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             // instant listing; the attached side button opens the card-search
             // dialog to ADD cards (binder side picks the target binder first).
             const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : null;
+            const ActionIcon = ACTION_ICONS[action.id];
             const main = (
               <Button
                 key={addSide ? undefined : action.id}
@@ -1675,7 +1687,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                 className={`shrink-0 gap-1.5 ${focusRing} ${addSide ? 'rounded-r-none' : ''}`}
                 title="Runs directly against your data — no AI involved"
               >
-                {runningAction === action.id && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+                {runningAction === action.id
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  : ActionIcon && <ActionIcon className="h-3.5 w-3.5" aria-hidden="true" />}
                 {action.label}
               </Button>
             );
@@ -1759,6 +1773,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             className={`shrink-0 gap-1.5 ${focusRing}`}
             title="Featured tournament decks, scoped by hero or event — no AI"
           >
+            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
             Decks to beat
           </Button>
           <Button
@@ -1770,6 +1785,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             className={`shrink-0 gap-1.5 ${focusRing}`}
             title="Compare all Decks to Beat of a hero — deterministic, no AI"
           >
+            <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
             Compare archetype
           </Button>
           <Button
@@ -1781,6 +1797,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             className={`shrink-0 gap-1.5 ${focusRing}`}
             title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
           >
+            <Package className="h-3.5 w-3.5" aria-hidden="true" />
             Hero kit
           </Button>
         </div>
@@ -1979,15 +1996,16 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                 Hey {username} — ask me anything about Flesh and Blood.
               </p>
               <div className="flex flex-col items-stretch gap-2 w-full">
-                {SUGGESTED_PROMPTS.map((prompt) => (
+                {SUGGESTED_PROMPTS.map(({ icon: PromptIcon, text }) => (
                   <button
-                    key={prompt}
+                    key={text}
                     type="button"
-                    onClick={() => void sendTurn(prompt, prompt)}
+                    onClick={() => void sendTurn(text, text)}
                     disabled={busy}
-                    className={`rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                    className={`flex items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
                   >
-                    {prompt}
+                    <PromptIcon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+                    <span className="min-w-0">{text}</span>
                   </button>
                 ))}
               </div>
