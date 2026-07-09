@@ -29,7 +29,7 @@ import {
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
-  swapRowPrinting, swapItemRowPrinting,
+  swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill,
   type RowMutation,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -1430,6 +1430,38 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     }
   }, [creatingBinder, newBinderName, binderOptions]);
 
+  // Dialog adds write server-side, so any open table showing that binder /
+  // deck / wants list must refetch or the add looks like a no-op. Re-drills
+  // the source once per successful add and swaps the fresh content into every
+  // matching item (transcript + workspace) by uid-preserving refresh. The seq
+  // guard drops out-of-order responses from rapid consecutive adds.
+  const refreshSeqRef = useRef(0);
+  const refreshItemsForTarget = useCallback(async (target: { destination: 'binder' | 'wants' | 'deck'; binderId?: string; binderName?: string; deckPublicId?: string }) => {
+    const matches = (i: UiItem) =>
+      i.kind === 'data' && !!i.mutate && (
+        (target.destination === 'binder' && i.mutate.kind === 'binder' && i.mutate.binderId === target.binderId)
+        || (target.destination === 'deck' && i.mutate.kind === 'deck' && i.mutate.publicId === target.deckPublicId)
+        || (target.destination === 'wants' && i.mutate.kind === 'wants'));
+    const seq = ++refreshSeqRef.current;
+    let fresh: Awaited<ReturnType<typeof runDeckDrill>> | null = null;
+    try {
+      if (target.destination === 'binder' && target.binderId) {
+        const name = target.binderName ?? binderOptions.find((b) => b._id === target.binderId)?.name ?? 'Binder';
+        fresh = await runBinderDrill(target.binderId, name);
+      } else if (target.destination === 'deck' && target.deckPublicId) {
+        fresh = await runDeckDrill(target.deckPublicId);
+      } else if (target.destination === 'wants') {
+        fresh = await QUICK_ACTIONS.find((a) => a.id === 'wants')!.run();
+      }
+    } catch {
+      return; // refresh is best-effort; the add itself already succeeded
+    }
+    if (!fresh || seq !== refreshSeqRef.current) return;
+    const apply = <T extends UiItem>(i: T): T => (matches(i) ? (refreshDataItem(i as any, fresh!) as T) : i);
+    setItems((prev) => prev.map(apply));
+    setWorkspaceStack((prev) => prev.map((i) => apply(i)));
+  }, [binderOptions]);
+
   // Split-button add flow. The dialog closes itself synchronously after a
   // single "Add to X" (onSelectCard → onOpenChange(false) in the same tick),
   // so the added-card label is recorded optimistically BEFORE the request
@@ -1472,9 +1504,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         const i = addedCardsRef.current.lastIndexOf(label);
         if (i !== -1) addedCardsRef.current.splice(i, 1);
         setErrorBanner(`Could not add ${label}: ${outcome.error}`);
+        return;
       }
+      // Refresh any open table showing this target so the add is visible
+      void refreshItemsForTarget(target);
     });
-  }, [addDialog]);
+  }, [addDialog, refreshItemsForTarget]);
 
   const addPreviewToBinder = useCallback(async () => {
     if (!previewCard?.printingId || !targetBinderId) return;

@@ -28,7 +28,7 @@ import {
   printingToSwapOption,
   shouldOpenInWorkspace,
   advanceWorkspace,
-  adjustItemRowQty, swapItemRowPrinting,
+  adjustItemRowQty, swapItemRowPrinting, refreshDataItem,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -1053,5 +1053,44 @@ describe('swapItemRowPrinting', () => {
     const next = swapItemRowPrinting(item, { printingId: 'old1', section: 'Maindeck' }, swap);
     expect(next.tableSections[0].rows[0].preview.printingId).toBe('new1');
     expect(next.tableSections[1].rows[0].preview.printingId).toBe('old1'); // untouched
+  });
+});
+
+describe('refreshDataItem', () => {
+  it('replaces the displayed content from a fresh drill while keeping the item identity (uid)', () => {
+    const item = {
+      kind: 'data', uid: 'd7', title: 'Deck: Old (CC)',
+      tableSections: [{ title: 'Maindeck', count: 1, rows: [] }],
+      mutate: { kind: 'deck', publicId: 'pub-1' },
+    } as any;
+    const fresh = {
+      title: 'Deck: Old (CC)',
+      lines: ['🎨 Maindeck colors: 3 red'],
+      context: 'ignored',
+      tableSections: [{ title: 'Maindeck', count: 4, rows: [] }],
+      publicId: 'pub-1',
+      deckEditable: true,
+      mutate: { kind: 'deck', publicId: 'pub-1' },
+    } as any;
+
+    const next = refreshDataItem(item, fresh);
+
+    expect(next.uid).toBe('d7');
+    expect(next.kind).toBe('data');
+    expect(next.tableSections[0].count).toBe(4);
+    expect(next.lines).toEqual(['🎨 Maindeck colors: 3 red']);
+    expect(next.deckPublicId).toBe('pub-1');
+    expect(next.deckEditable).toBe(true);
+  });
+
+  it('clears fields the fresh result no longer carries (no stale tables)', () => {
+    const item = { kind: 'data', uid: 'd8', title: 'Your wants (3)', tableRows: [{ name: 'X' }], wantsAdd: [{}] } as any;
+    const fresh = { title: 'Your wants (0)', lines: ['Your wants list is empty.'], context: '' } as any;
+
+    const next = refreshDataItem(item, fresh);
+
+    expect(next.title).toBe('Your wants (0)');
+    expect(next.tableRows).toBeUndefined();
+    expect(next.wantsAdd).toBeUndefined();
   });
 });

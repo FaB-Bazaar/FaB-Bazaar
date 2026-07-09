@@ -998,6 +998,34 @@ export async function adjustRowQuantity(
   return { ok: true, newQty };
 }
 
+/**
+ * Rebuild a transcript/workspace data item from a fresh drill of its source
+ * (after a dialog add wrote server-side, the open table must show it). The
+ * identity fields (kind, uid) survive; every displayed field comes from the
+ * fresh result — including `undefined`s, so stale tables can't linger.
+ */
+export function refreshDataItem<T extends { kind: string; uid?: string }>(
+  item: T,
+  fresh: QuickActionResult,
+): T {
+  return {
+    ...item,
+    title: fresh.title,
+    lines: fresh.lines,
+    cards: fresh.cards,
+    cardsSubtitle: fresh.cardsSubtitle,
+    tableRows: fresh.tableRows,
+    tableSections: fresh.tableSections,
+    tableNoteHeader: fresh.tableNoteHeader,
+    copyHeader: fresh.copyHeader,
+    deckPublicId: fresh.publicId,
+    deckEditable: fresh.deckEditable,
+    mutate: fresh.mutate,
+    resultRows: fresh.resultRows,
+    wantsAdd: fresh.wantsAdd,
+  };
+}
+
 /** The printing fields swapped onto a row (shape of printingToSwapOption). */
 export interface RowSwapOption {
   printingId: string;
