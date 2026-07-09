@@ -35,8 +35,9 @@ import {
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
+  runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS,
-  type RowMutation,
+  type RowMutation, type QuickActionResult,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -185,7 +186,7 @@ function qtyRowKey(r: CardRow, sectionTitle?: string): string {
   return `${sectionTitle ?? ''}|${r.itemId ?? r.preview.printingId ?? r.name}`;
 }
 
-function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', onAdjustQty, adjustBusyKeys, onSwapRow }: {
+function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', onAdjustQty, adjustBusyKeys, onSwapRow, onQuickAdd, quickAddStatus }: {
   rows?: CardRow[];
   sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
@@ -198,6 +199,12 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   adjustBusyKeys?: Set<string>;
   /** When set, rows render a swap-printing button (opens the printing picker). */
   onSwapRow?: (row: CardRow, sectionTitle?: string) => void;
+  /** Comparison tables: rows with addQty render heart/binder quick-add buttons
+   *  IN the row — the preview-rail buttons force mouse travel across other
+   *  rows, hover-previewing every card on the way. */
+  onQuickAdd?: (row: CardRow, dest: 'wants' | 'binder') => void;
+  /** Keyed `${printingId}|${dest}`. */
+  quickAddStatus?: Record<string, 'busy' | 'done' | 'error'>;
 }) {
   // Adaptive columns: only render a column when some row actually has data
   // for it — a consensus table (no prices/sets) or a search table (no owned
@@ -211,7 +218,8 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
     price: allRows.some((r) => typeof r.price === 'number'),
     tail: allRows.some((r) => r.forTrade || r.priority || r.note),
   };
-  const colCount = 3 + Number(has.qty) + Number(has.type) + Number(has.collector) + Number(has.foiling) + Number(has.price) + Number(has.tail) + Number(!!onSwapRow);
+  const hasQuickAdd = !!onQuickAdd && allRows.some((r) => typeof r.addQty === 'number' && r.addQty > 0);
+  const colCount = 3 + Number(has.qty) + Number(has.type) + Number(has.collector) + Number(has.foiling) + Number(has.price) + Number(has.tail) + Number(!!onSwapRow) + Number(hasQuickAdd);
   const renderRow = (r: CardRow, key: string, striped: boolean, sectionTitle?: string) => {
     const busy = adjustBusyKeys?.has(qtyRowKey(r, sectionTitle)) ?? false;
     const qtyBtn = `rounded border border-border p-0.5 text-gray-600 dark:text-gray-300 hover:bg-muted disabled:opacity-40 ${focusRing}`;
@@ -320,6 +328,40 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
           ) : null}
         </td>
       )}
+      {hasQuickAdd && (
+        <td className="align-middle text-right whitespace-nowrap">
+          {typeof r.addQty === 'number' && r.addQty > 0 && r.preview.printingId ? (
+            <span className="inline-flex items-center gap-1">
+              {(['wants', 'binder'] as const).map((dest) => {
+                const status = quickAddStatus?.[`${r.preview.printingId}|${dest}`];
+                const label = dest === 'wants'
+                  ? `Add ${r.addQty} to your wants list`
+                  : `Own ${r.addQty === 1 ? 'it' : 'them'}? Add ${r.addQty} to your binder`;
+                const doneLabel = dest === 'wants' ? 'Added to wants' : 'Added to binder';
+                const Icon = dest === 'wants' ? Heart : FolderPlus;
+                return (
+                  <button
+                    key={dest}
+                    type="button"
+                    onClick={() => onQuickAdd!(r, dest)}
+                    disabled={status === 'busy' || status === 'done'}
+                    aria-label={status === 'done' ? doneLabel : label}
+                    title={status === 'done' ? doneLabel : label}
+                    className={`rounded border p-1 disabled:opacity-70 ${focusRing} ${dest === 'wants'
+                      ? 'border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950'
+                      : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950'}`}
+                  >
+                    {status === 'busy' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                      : status === 'done' ? <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      : status === 'error' ? <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                      : <Icon className="h-3.5 w-3.5" aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </span>
+          ) : null}
+        </td>
+      )}
     </tr>
     );
   };
@@ -342,6 +384,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
               ? <th className="text-right whitespace-nowrap">{noteHeader}</th>
               : <th className="whitespace-nowrap" aria-label="Trade status" />)}
             {onSwapRow && <th className="whitespace-nowrap" aria-label="Swap printing" />}
+            {hasQuickAdd && <th className="text-right whitespace-nowrap">Add</th>}
           </tr>
         </thead>
         <tbody>
@@ -488,7 +531,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; uid?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> };
+  | { kind: 'data'; uid?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -1030,7 +1073,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // next React flush, so it can't stop a second dispatch landing in the same
   // tick — the ref flips before any await and closes that window for real.
   const runningActionRef = useRef(false);
-  const runInstant = useCallback(async (actionId: string, run: () => Promise<{ title: string; lines: CardLine[]; context: string; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; publicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }> }>) => {
+  const runInstant = useCallback(async (actionId: string, run: () => Promise<QuickActionResult>) => {
     if (busy || runningActionRef.current) return;
     runningActionRef.current = true;
     setErrorBanner(null);
@@ -1046,7 +1089,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           : undefined;
       // uid: stable identity across optimistic row-qty updates (each update
       // replaces the item object in both the transcript and workspace stack).
-      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd };
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
       setItems((prev) => [...prev, dataItem]);
       // Tables and listings take over the workspace panel on desktop; drills
       // (actionId with ':') push so Back returns to the list they came from.
@@ -1574,6 +1617,43 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     setItems((prev) => prev.map(apply));
     setWorkspaceStack((prev) => prev.map((i) => apply(i)));
   }, [binderOptions]);
+
+  // Comparison-row quick-add: heart → wants, folder → the selected target
+  // binder ("I actually own this — my collection just doesn't know it").
+  // After a binder add the comparison re-drills so the row visibly migrates
+  // out of Missing and the coverage numbers update.
+  const [quickAddStatus, setQuickAddStatus] = useState<Record<string, 'busy' | 'done' | 'error'>>({});
+  const quickAddRow = useCallback(async (item: Extract<UiItem, { kind: 'data' }>, row: CardRow, dest: 'wants' | 'binder') => {
+    const printingId = row.preview.printingId;
+    if (!printingId) return;
+    const key = `${printingId}|${dest}`;
+    setQuickAddStatus((s) => ({ ...s, [key]: 'busy' }));
+    const outcome = dest === 'wants'
+      ? await addCompareRowToWants(row)
+      : targetBinderId
+        ? await addCompareRowToBinder(targetBinderId, row)
+        : { ok: false as const, error: 'Pick a target binder first (the "to:" selector next to My binders).' };
+    if (!outcome.ok) {
+      setQuickAddStatus((s) => ({ ...s, [key]: 'error' }));
+      setErrorBanner(outcome.error);
+      return;
+    }
+    setQuickAddStatus((s) => ({ ...s, [key]: 'done' }));
+    if (dest === 'binder') {
+      // Refresh any open binder table for the destination…
+      void refreshItemsForTarget({ destination: 'binder', binderId: targetBinderId });
+      // …and re-drill THIS comparison so the row leaves Missing/Partial.
+      if (item.compareRefresh && item.uid) {
+        try {
+          const fresh = await runDeckCompareDrill(item.compareRefresh.publicId, item.compareRefresh.deckName);
+          const apply = <T extends UiItem>(i: T): T =>
+            (i.kind === 'data' && i.uid === item.uid ? (refreshDataItem(i as any, fresh) as T) : i);
+          setItems((prev) => prev.map(apply));
+          setWorkspaceStack((prev) => prev.map((i) => apply(i)));
+        } catch { /* refresh is best-effort; the add itself succeeded */ }
+      }
+    }
+  }, [targetBinderId, refreshItemsForTarget]);
 
   // After a successful AI write tool, refresh every distinct source currently
   // displayed as a mutable table (deduped — typically one drill).
@@ -2269,6 +2349,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                   {item.tableSections && item.tableSections.length > 0 && (
                     <div className="lg:hidden">
                       <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
+                        onQuickAdd={item.compareRefresh ? (row, dest) => void quickAddRow(item, row, dest) : undefined} quickAddStatus={quickAddStatus}
                         onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
                         onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
                     </div>
@@ -2704,6 +2785,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {workspace.tableSections && workspace.tableSections.length > 0 ? (
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
+              onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
               onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (

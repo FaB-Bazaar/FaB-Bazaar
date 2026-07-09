@@ -48,6 +48,9 @@ export type CardLine = string | {
   printingCount?: number;
 };
 
+/** Re-drill handle for a You-vs-deck comparison item (row quick-adds refresh it). */
+export type CompareRefresh = { publicId: string; deckName: string };
+
 const FOILING_SHORT: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
 
 /** " · SET · FOIL" tail for binder / wants lines (edition intentionally omitted). */
@@ -101,6 +104,9 @@ export interface CardRow {
   /** Inventory-item id (binder rows only) — the PATCH/DELETE target for the
    *  row ± quantity buttons; a printing can repeat across conditions. */
   itemId?: string;
+  /** Comparison rows: copies still unrecorded (needed − owned). Presence
+   *  renders the per-row quick-add buttons (heart → wants, folder → binder). */
+  addQty?: number;
   preview: CardPreview;
 }
 
@@ -267,6 +273,9 @@ export interface QuickActionResult {
   /** Curated deck printings the user still needs (missing + partial shortfall),
    *  ready for a one-click, no-AI `wantsClient.bulkAddWants`. Comparison card only. */
   wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>;
+  /** Comparison card only: how to re-drill this item after a row quick-add
+   *  writes (the row must visibly migrate out of Missing). */
+  compareRefresh?: CompareRefresh;
 }
 
 /** One recorded game for the Game-results table. resultId + deckName let the
@@ -1056,6 +1065,7 @@ export function refreshDataItem<T extends { kind: string; uid?: string }>(
     mutate: fresh.mutate,
     resultRows: fresh.resultRows,
     wantsAdd: fresh.wantsAdd,
+    compareRefresh: fresh.compareRefresh,
   };
 }
 
@@ -1404,6 +1414,9 @@ export function summarizeComparison(
     image: getCardImageUrl({ printingId: c.printingId }),
     price: c.tcgLow ?? c.tcgMarket,
     note: `${ownedCount}/${c.needed}`,
+    // shortage = copies still unrecorded — powers the per-row quick-add
+    // (heart → wants, folder → binder) so "I actually own this" is one click.
+    addQty: c.needed - ownedCount,
     preview: {
       imageUrl: getCardImageUrl({ printingId: c.printingId }),
       name: c.cardName,
@@ -1470,7 +1483,40 @@ export async function runDeckCompareDrill(publicId: string, deckName: string): P
   const result = await decksClient.getInventoryComparison(publicId, { binderMode: 'all', matchBy: 'card' });
   if (!result.success) throw new Error(result.error);
   const raw = result.data as any;
-  return summarizeComparison(deckName, raw?.comparison ?? raw ?? {});
+  return {
+    ...summarizeComparison(deckName, raw?.comparison ?? raw ?? {}),
+    compareRefresh: { publicId, deckName },
+  };
+}
+
+/**
+ * Row quick-add: record the shortage of a comparison row on the wants list —
+ * "I still need these" without leaving the row.
+ */
+export async function addCompareRowToWants(row: CardRow): Promise<AddCardOutcome> {
+  const printingId = row.preview.printingId;
+  const qty = row.addQty ?? 0;
+  if (!printingId || qty < 1) return { ok: false, error: 'Nothing to add.' };
+  const result = await wantsClient.addWantsItem(printingId, qty);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, name: row.name };
+}
+
+/**
+ * Row quick-add: record the shortage of a comparison row in a binder — the
+ * "I actually own these, my collection just doesn't know it" correction.
+ * forTrade false: these are cards the user owns and intends to PLAY in this
+ * deck — advertising them for trade must be an explicit act on the binder.
+ */
+export async function addCompareRowToBinder(binderId: string, row: CardRow): Promise<AddCardOutcome> {
+  const printingId = row.preview.printingId;
+  const qty = row.addQty ?? 0;
+  if (!printingId || qty < 1) return { ok: false, error: 'Nothing to add.' };
+  const result = await bindersClient.addCardsToBinder(binderId, [
+    { printingId, quantity: qty, forTrade: false },
+  ]);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, name: row.name };
 }
 
 /**
