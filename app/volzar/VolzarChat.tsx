@@ -10,6 +10,7 @@ import {
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
@@ -702,6 +703,42 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // Initializers (not effects) so StrictMode's double mount can't double-seed.
   const [items, setItems] = useState<UiItem[]>(() =>
     initialData ? [{ kind: 'data', title: initialData.title, lines: initialData.lines }] : []);
+
+  // The fixed cookie-consent banner sits exactly over the composer (this page
+  // sizes itself to end where the legal footer starts). Until consent is
+  // given, shrink the chat by the banner's measured height so the input stays
+  // reachable. ResizeObserver tracks the banner's responsive wrapping.
+  // Bridge B's ?from=opt&… params were consumed by the server render (context
+  // queued, data card seeded). Strip them so a reload or bookmark doesn't
+  // resurrect a stale handoff mid-conversation.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('from') === 'opt') {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
+  const { consentGiven } = useCookieConsent();
+  const [bannerInset, setBannerInset] = useState(0);
+  useEffect(() => {
+    if (consentGiven) { setBannerInset(0); return; }
+    let ro: ResizeObserver | null = null;
+    let timer: number | undefined;
+    let tries = 0;
+    const attach = () => {
+      const el = document.querySelector('[data-cookie-banner]');
+      if (!el) {
+        // banner mounts ~100ms after load; give up quietly if it never shows
+        if (tries++ < 20) timer = window.setTimeout(attach, 150);
+        return;
+      }
+      const update = () => setBannerInset(el.getBoundingClientRect().height);
+      update();
+      ro = new ResizeObserver(update);
+      ro.observe(el);
+    };
+    attach();
+    return () => { ro?.disconnect(); window.clearTimeout(timer); };
+  }, [consentGiven]);
   const [apiMessages, setApiMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [model, setModel] = useState(models[0]);
@@ -1604,7 +1641,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   }, [previewCard, targetBinderId]);
 
   return (
-    <div className="flex gap-4 items-stretch h-full min-h-0">
+    <div className="flex gap-4 items-stretch h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
         {/* Header row: title + model picker + reset on one line; badges wrap below */}
@@ -1648,7 +1685,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
               {mockMode && (
                 <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Mock mode — no API key configured
+                  Offline demo — replies follow a fixed script
                 </Badge>
               )}
               {sessionUsage.input > 0 && (
@@ -1664,7 +1701,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         {/* Quick actions — deterministic reads, zero AI tokens. One scrollable
             strip on mobile (chips don't wrap); wraps normally at sm+. */}
         <div
-          className="flex items-center gap-2 overflow-x-auto -mx-3 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-x-visible"
+          className="flex items-center gap-2 overflow-x-auto -mx-2 px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-x-visible"
           role="group"
           aria-label="Instant actions (no AI)"
         >

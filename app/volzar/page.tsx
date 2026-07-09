@@ -4,6 +4,7 @@ import { userService } from '@/lib/services';
 import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
+import { AccessGate } from './AccessGate';
 import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { describeOptState, optStateToChips } from '@/lib/search/opt-state-describe';
 
@@ -23,15 +24,19 @@ export default async function VolzarPage({ searchParams }: {
   const session = await auth();
   const user = session?.user;
 
+  // Signed out → sign-in with a way back here (a shared /volzar link should
+  // survive the round-trip). No access → an explanatory gate, NOT a silent
+  // bounce: lapsed supporters get downgraded by the re-verify below and need
+  // to see why the page "stopped working".
   if (!user?.id) {
-    redirect('/');
+    redirect('/auth/login?callbackUrl=%2Fvolzar');
   }
 
   await syncSupporterTierIfStale(user.id);
 
   const access = await userService.getVolzarAccess(user.id);
   if (!access.success || !canUseVolzar(access.data)) {
-    redirect('/');
+    return <AccessGate />;
   }
 
   // Bridge B: /opt hands its current search off via its own URL params plus
@@ -83,9 +88,11 @@ export default async function VolzarPage({ searchParams }: {
     // which wraps to TWO lines inside its max-w-5xl (≈47px) — so desktop chrome
     // is ~112.3px. Reserving less (the old 6.75rem) left the page 4px taller
     // than the viewport → a permanent window scrollbar on OSes with
-    // non-overlay scrollbars ("4 scrollbars" report). Mobile keeps the larger
-    // reservation for the bottom tab bar (~3.5rem).
-    <div className="mx-auto flex h-[calc(100dvh-10rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
+    // non-overlay scrollbars ("4 scrollbars" report). Mobile reserves more:
+    // bottom tab bar (~3.5rem) + the footer wrapping past two lines at narrow
+    // widths — 10rem measured 39px short at 390×844 (e2e/volzar-ux-fixes
+    // pins the no-overflow invariant), hence 12.5rem.
+    <div className="mx-auto flex h-[calc(100dvh-12.5rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
       <VolzarChat
         username={user.name || 'collector'}
         userId={user.id}

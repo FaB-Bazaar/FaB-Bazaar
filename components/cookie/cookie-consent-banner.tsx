@@ -91,7 +91,8 @@ export function CookieConsentBanner() {
     <>
       {/* Main Banner */}
       {!consentGiven && !showPreferences && (
-        <div 
+        <div
+          data-cookie-banner
           className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 shadow-lg p-4 md:p-6 z-50"
           style={{ 
             pointerEvents: 'auto'  // Keep this for explicit clickability
