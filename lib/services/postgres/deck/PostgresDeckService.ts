@@ -34,6 +34,7 @@ import type {
   DeckStatsDTO,
   OwnershipStatusDTO,
   InventoryComparisonDTO,
+  DeckCoverageSummaryDTO,
   AllocationDTO,
   UpgradePrintingSuggestionDTO,
   UpgradePrintingAlternativeDTO,
@@ -2258,6 +2259,79 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get inventory comparison',
+      };
+    }
+  }
+
+  async getDecksCoverageSummary(
+    publicIds: string[],
+    userId: string,
+    options?: { matchBy?: 'printing' | 'card'; topMissingLimit?: number }
+  ): AsyncResult<DeckCoverageSummaryDTO[]> {
+    const MAX_DECKS = 30;
+    if (!Array.isArray(publicIds) || publicIds.length === 0) {
+      return { success: false, error: 'publicIds must be a non-empty array of deck public IDs' };
+    }
+    if (publicIds.length > MAX_DECKS) {
+      return { success: false, error: `Too many decks (max ${MAX_DECKS} per call)` };
+    }
+    const topLimit = options?.topMissingLimit ?? 5;
+    const matchBy = options?.matchBy ?? 'card';
+    try {
+      const deckRows = await db
+        .select({ publicId: decks.publicId, name: decks.name, heroName: decks.heroName, format: decks.format })
+        .from(decks)
+        .where(inArray(decks.publicId, publicIds));
+      const metaByPublicId = new Map(deckRows.map((d) => [d.publicId, d]));
+
+      const summaries: DeckCoverageSummaryDTO[] = [];
+      for (const publicId of publicIds) {
+        const meta = metaByPublicId.get(publicId);
+        if (!meta) continue; // unknown id — skip, don't fail the batch
+        const cmp = await this.getInventoryComparison(publicId, userId, { matchBy });
+        if (!cmp.success) continue;
+        const { missing, partial, summary } = cmp.data;
+
+        // Gaps = fully-missing slots (shortage = needed) + partial slots.
+        // missingCost prices the shopping list at tcgLow (market as fallback).
+        const gaps = [
+          ...missing.map((m) => ({
+            printingId: m.printingId, cardName: m.cardName, pitch: m.pitch,
+            shortage: m.needed, tcgLow: m.tcgLow, tcgMarket: m.tcgMarket,
+          })),
+          ...partial.map((p) => ({
+            printingId: p.printingId, cardName: p.cardName, pitch: p.pitch,
+            shortage: p.shortage, tcgLow: p.tcgLow, tcgMarket: p.tcgMarket,
+          })),
+        ];
+        const gapPrice = (g: { tcgLow?: number; tcgMarket?: number }) => g.tcgLow ?? g.tcgMarket ?? 0;
+        const missingCost = gaps.reduce((sum, g) => sum + g.shortage * gapPrice(g), 0);
+        gaps.sort((a, b) => b.shortage * gapPrice(b) - a.shortage * gapPrice(a));
+
+        summaries.push({
+          publicId,
+          deckName: meta.name,
+          heroName: meta.heroName,
+          format: meta.format,
+          totalNeeded: summary.totalNeeded,
+          totalOwned: summary.totalOwned,
+          coveragePct: summary.completionPercentage,
+          missingCards: missing.length + partial.length,
+          missingCost: Math.round(missingCost * 100) / 100,
+          topMissing: gaps.slice(0, topLimit).map((g) => ({
+            printingId: g.printingId, cardName: g.cardName, pitch: g.pitch,
+            shortage: g.shortage, tcgLow: g.tcgLow,
+          })),
+        });
+      }
+
+      summaries.sort((a, b) => b.coveragePct - a.coveragePct || a.missingCost - b.missingCost);
+      return { success: true, data: summaries };
+    } catch (error) {
+      console.error('[PostgresDeckService.getDecksCoverageSummary] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to compute deck coverage',
       };
     }
   }

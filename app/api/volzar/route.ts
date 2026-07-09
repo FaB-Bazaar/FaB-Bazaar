@@ -48,6 +48,11 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
   // Featured tournament decks ("what are the decks to beat for X?") — public
   // read; without it the model can't answer meta questions in free text.
   'get_decks_to_beat',
+  // SQL-backed aggregates: one deterministic call each for "which Decks to
+  // Beat could I build from my collection?" and "how are my decks
+  // performing?" — no decklist+binder inference in the model.
+  'compare_collection_to_decks_to_beat',
+  'get_deck_performance',
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);

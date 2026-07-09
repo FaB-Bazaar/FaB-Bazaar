@@ -161,6 +161,9 @@ describe('POST /api/volzar', () => {
       'list_results', 'get_results',
       // Kit pools ground deck-building recommendations (anti-hallucination)
       'list_curated_lists', 'get_curated_list',
+      // Meta reads + SQL-backed aggregates (buildability / performance)
+      'get_decks_to_beat',
+      'compare_collection_to_decks_to_beat', 'get_deck_performance',
     ]));
   });
 

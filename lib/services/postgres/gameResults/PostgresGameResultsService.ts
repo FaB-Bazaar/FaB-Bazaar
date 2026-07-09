@@ -1,6 +1,6 @@
 import { db, pool } from '@/lib/postgres/db';
-import { gameResults, gameResultPayloads } from '@/lib/postgres/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { gameResults, gameResultPayloads, decks } from '@/lib/postgres/schema';
+import { eq, and, desc, sql, gte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { normalizeTalisharId } from '@/lib/talishar/cardId';
 import type { AsyncResult } from '../../contracts/common';
@@ -145,6 +145,29 @@ function toDTO(row: typeof gameResults.$inferSelect): GameResultDTO {
     playedAt: row.playedAt,
     createdAt: row.createdAt,
   };
+}
+
+/**
+ * Per-deck aggregate for "how are my decks performing?" — one compact row
+ * per deck with games in the window, sized for LLM/tool consumption.
+ */
+export interface DeckPerformanceDTO {
+  deckPublicId: string;
+  deckName: string;
+  heroName?: string | null;
+  format?: string | null;
+  games: number;
+  wins: number;
+  losses: number;
+  /** Rounded 0–100. */
+  winRatePct: number;
+  lastPlayedAt: Date;
+  /** Last up-to-10 results, newest first. */
+  recentForm: ('W' | 'L')[];
+  /** Highest win-rate opponent hero with >= minMatchupGames games. */
+  bestMatchup: { opponentHero: string; games: number; wins: number } | null;
+  /** Lowest win-rate opponent hero (null when it would repeat bestMatchup). */
+  worstMatchup: { opponentHero: string; games: number; wins: number } | null;
 }
 
 export class PostgresGameResultsService {
@@ -308,6 +331,87 @@ export class PostgresGameResultsService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[GameResults] getRecentGameResultsForUser failed:', message);
+      return { success: false, error: message };
+    }
+  }
+
+  async getDeckPerformanceForUser(
+    userId: string,
+    options?: { sinceDays?: number; minMatchupGames?: number }
+  ): Promise<AsyncResult<DeckPerformanceDTO[]>> {
+    const minMatchupGames = options?.minMatchupGames ?? 2;
+    try {
+      const params: unknown[] = [userId];
+      let sinceClause = '';
+      if (options?.sinceDays && options.sinceDays > 0) {
+        params.push(Math.floor(options.sinceDays));
+        sinceClause = ` AND gr.played_at >= NOW() - make_interval(days => $2::int)`;
+      }
+      const { rows } = await pool.query(
+        `SELECT d.public_id AS deck_public_id, d.name AS deck_name, d.hero_name,
+                d.format AS deck_format, gr.result::text AS result,
+                gr.opponent_hero, gr.played_at
+           FROM game_results gr
+           JOIN decks d ON d.id = gr.deck_id
+          WHERE d.user_id = $1
+            AND d.is_system_deck = false${sinceClause}
+          ORDER BY gr.played_at DESC`,
+        params
+      );
+
+      // Rows are newest-first, so Map insertion order = decks by last played.
+      type Row = {
+        deck_public_id: string; deck_name: string; hero_name: string | null;
+        deck_format: string | null; result: string; opponent_hero: string | null;
+        played_at: Date;
+      };
+      const byDeck = new Map<string, Row[]>();
+      for (const row of rows as Row[]) {
+        const list = byDeck.get(row.deck_public_id);
+        if (list) list.push(row);
+        else byDeck.set(row.deck_public_id, [row]);
+      }
+
+      const data: DeckPerformanceDTO[] = [...byDeck.values()].map((games) => {
+        const first = games[0];
+        const wins = games.filter((g) => g.result === 'win').length;
+
+        const matchups = new Map<string, { games: number; wins: number }>();
+        for (const g of games) {
+          if (!g.opponent_hero) continue;
+          const m = matchups.get(g.opponent_hero) ?? { games: 0, wins: 0 };
+          m.games += 1;
+          if (g.result === 'win') m.wins += 1;
+          matchups.set(g.opponent_hero, m);
+        }
+        const qualifying = [...matchups.entries()]
+          .filter(([, m]) => m.games >= minMatchupGames)
+          .map(([opponentHero, m]) => ({ opponentHero, games: m.games, wins: m.wins }))
+          .sort((a, b) => (b.wins / b.games) - (a.wins / a.games) || b.games - a.games);
+        const bestMatchup = qualifying[0] ?? null;
+        // A lone qualifying matchup shouldn't read as both best AND worst.
+        const worstMatchup = qualifying.length > 1 ? qualifying[qualifying.length - 1] : null;
+
+        return {
+          deckPublicId: first.deck_public_id,
+          deckName: first.deck_name,
+          heroName: first.hero_name ?? null,
+          format: first.deck_format ?? null,
+          games: games.length,
+          wins,
+          losses: games.length - wins,
+          winRatePct: Math.round((wins / games.length) * 100),
+          lastPlayedAt: first.played_at,
+          recentForm: games.slice(0, 10).map((g) => (g.result === 'win' ? 'W' as const : 'L' as const)),
+          bestMatchup,
+          worstMatchup,
+        };
+      });
+
+      return { success: true, data };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GameResults] getDeckPerformanceForUser failed:', message);
       return { success: false, error: message };
     }
   }

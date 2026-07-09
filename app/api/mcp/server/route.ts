@@ -47,6 +47,8 @@ import { getDecksToBeatTool } from '../tool/getDecksToBeat';
 import { listDecksTool } from '../tool/listDecks';
 import { listResultsTool } from '../tool/listResults';
 import { getResultsTool } from '../tool/getResults';
+import { getDeckPerformanceTool } from '../tool/getDeckPerformance';
+import { compareCollectionToDecksToBeatTool } from '../tool/compareCollectionToDecksToBeat';
 import { getDeckTool, shapeDeckForMcp } from '../tool/getDeck';
 import { createDeckTool } from '../tool/createDeck';
 import { addCardsToDeckTool } from '../tool/addCardsToDeck';
@@ -675,6 +677,16 @@ Step 5: get_binder (verify additions)
                 inputSchema: getResultsTool.parameters
               },
               {
+                name: getDeckPerformanceTool.name,
+                description: getDeckPerformanceTool.description,
+                inputSchema: getDeckPerformanceTool.parameters
+              },
+              {
+                name: compareCollectionToDecksToBeatTool.name,
+                description: compareCollectionToDecksToBeatTool.description,
+                inputSchema: compareCollectionToDecksToBeatTool.parameters
+              },
+              {
                 name: createDeckTool.name,
                 description: createDeckTool.description,
                 inputSchema: createDeckTool.parameters
@@ -1100,6 +1112,48 @@ The new tool provides the same functionality with better guidance for proper wor
             return NextResponse.json({
               jsonrpc: '2.0', id,
               result: { content: [{ type: 'text', text: `💥 Error listing results: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'get_deck_performance') {
+          if (DEBUG_MCP) console.log('📈 Executing get deck performance');
+          try {
+            const result = await getDeckPerformanceTool.handler(toolInput, authenticatedUser, bearerToken);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Performance computed.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in get_deck_performance:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error computing performance: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
+            }, { headers: corsHeaders() });
+          }
+        }
+
+        if (toolName === 'compare_collection_to_decks_to_beat') {
+          if (DEBUG_MCP) console.log('🧮 Executing collection coverage vs decks to beat');
+          try {
+            const result = await compareCollectionToDecksToBeatTool.handler(toolInput, authenticatedUser, bearerToken);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: {
+                content: [{ type: 'text', text: result.message || (result.success ? 'Coverage computed.' : result.error) }],
+                isError: !result.success,
+                ...result
+              }
+            }, { headers: corsHeaders() });
+          } catch (err) {
+            console.error('💥 Error in compare_collection_to_decks_to_beat:', err);
+            return NextResponse.json({
+              jsonrpc: '2.0', id,
+              result: { content: [{ type: 'text', text: `💥 Error computing coverage: ${err instanceof Error ? err.message : 'Unknown error'}` }], isError: true }
             }, { headers: corsHeaders() });
           }
         }

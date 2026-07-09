@@ -443,6 +443,34 @@ export interface InventoryComparisonDTO {
 }
 
 /**
+ * Compact per-deck coverage row for batch "which of these decks could I
+ * build from my collection?" queries (Decks-to-Beat buildability). One
+ * small row per deck — sized for LLM consumption, not full comparisons.
+ */
+export interface DeckCoverageSummaryDTO {
+  publicId: string;
+  deckName: string;
+  heroName?: string | null;
+  format?: string | null;
+  totalNeeded: number;
+  totalOwned: number;
+  /** Rounded 0–100. */
+  coveragePct: number;
+  /** Distinct card slots not fully covered (missing + partial). */
+  missingCards: number;
+  /** Cost to buy the gaps: shortage × tcgLow (fallback tcgMarket). */
+  missingCost: number;
+  /** Most expensive gaps first. */
+  topMissing: Array<{
+    printingId: string;
+    cardName: string;
+    pitch?: number;
+    shortage: number;
+    tcgLow?: number;
+  }>;
+}
+
+/**
  * One owned alternative printing of a card the user doesn't fully own in their deck.
  */
 export interface UpgradePrintingAlternativeDTO {
@@ -952,6 +980,21 @@ export interface IDeckService {
     userId: string,
     options?: { binderMode?: 'all' | 'specific'; binderId?: string; matchBy?: 'printing' | 'card' }
   ): AsyncResult<InventoryComparisonDTO>;
+
+  /**
+   * Batch coverage summaries: how much of each deck the user could build
+   * from their collection. One compact row per deck, ranked most-buildable
+   * first. Unknown publicIds are skipped, not errors.
+   *
+   * @param publicIds - Deck public IDs (max 30 per call)
+   * @param userId - The user whose collection to compare against
+   * @param options - matchBy defaults to 'card' (any printing satisfies a slot)
+   */
+  getDecksCoverageSummary(
+    publicIds: string[],
+    userId: string,
+    options?: { matchBy?: 'printing' | 'card'; topMissingLimit?: number }
+  ): AsyncResult<DeckCoverageSummaryDTO[]>;
 
   /**
    * Calculate deck statistics
