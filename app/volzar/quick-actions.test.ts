@@ -28,7 +28,7 @@ import {
   printingToSwapOption,
   shouldOpenInWorkspace,
   advanceWorkspace,
-  adjustItemRowQty, swapItemRowPrinting, refreshDataItem,
+  adjustItemRowQty, swapItemRowPrinting, refreshDataItem, collectMutationTargets, WRITE_TOOLS,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -1092,5 +1092,41 @@ describe('refreshDataItem', () => {
     expect(next.title).toBe('Your wants (0)');
     expect(next.tableRows).toBeUndefined();
     expect(next.wantsAdd).toBeUndefined();
+  });
+});
+
+describe('collectMutationTargets', () => {
+  it('dedupes refresh targets across items (a binder shown twice refreshes once)', () => {
+    const items = [
+      { kind: 'data', mutate: { kind: 'binder', binderId: 'b1' } },
+      { kind: 'data', mutate: { kind: 'binder', binderId: 'b1' } },
+      { kind: 'data', mutate: { kind: 'binder', binderId: 'b2' } },
+      { kind: 'data', mutate: { kind: 'deck', publicId: 'p1' } },
+      { kind: 'data', mutate: { kind: 'wants' } },
+      { kind: 'data', mutate: { kind: 'wants' } },
+      { kind: 'data' }, // no mutate → not a target
+      { kind: 'assistant' },
+    ] as any[];
+
+    expect(collectMutationTargets(items)).toEqual([
+      { destination: 'binder', binderId: 'b1' },
+      { destination: 'binder', binderId: 'b2' },
+      { destination: 'deck', deckPublicId: 'p1' },
+      { destination: 'wants' },
+    ]);
+  });
+
+  it('returns [] when nothing mutable is on screen', () => {
+    expect(collectMutationTargets([{ kind: 'assistant' }] as any[])).toEqual([]);
+  });
+});
+
+describe('WRITE_TOOLS', () => {
+  it('covers the collection-mutating MCP tools and nothing read-only', () => {
+    for (const t of ['add_to_binder', 'remove_from_binder', 'add_to_wants', 'remove_from_wants', 'add_cards_to_deck', 'remove_cards_from_deck', 'update_deck', 'create_deck']) {
+      expect(WRITE_TOOLS.has(t), t).toBe(true);
+    }
+    expect(WRITE_TOOLS.has('search_printings')).toBe(false);
+    expect(WRITE_TOOLS.has('get_binder')).toBe(false);
   });
 });

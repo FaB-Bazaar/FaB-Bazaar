@@ -999,6 +999,39 @@ export async function adjustRowQuantity(
 }
 
 /**
+ * Undo a row removal (the − at quantity 1): re-add the removed printing to
+ * its source with the original quantity — and priority (wants), for-trade
+ * flag (binder), or section/category (deck). A binder re-add creates a fresh
+ * inventory item with default condition; the original condition/notes are
+ * not recoverable once deleted.
+ */
+export async function undoRowRemoval(
+  mutation: RowMutation,
+  row: CardRow,
+  sectionTitle?: string,
+): Promise<AddCardOutcome> {
+  const printingId = row.preview.printingId;
+  if (!printingId) return { ok: false, error: 'This row is missing its printing id.' };
+  const qty = row.qty ?? 1;
+  if (mutation.kind === 'binder') {
+    const result = await bindersClient.addCardsToBinder(mutation.binderId, [
+      { printingId, quantity: qty, forTrade: row.forTrade },
+    ]);
+    if (!result.success) return { ok: false, error: result.error };
+    return { ok: true, name: row.name };
+  }
+  if (mutation.kind === 'wants') {
+    const result = await wantsClient.addWantsItem(printingId, qty, (row.priority as any) ?? 'medium');
+    if (!result.success) return { ok: false, error: result.error };
+    return { ok: true, name: row.name };
+  }
+  const category = (sectionTitle ?? 'maindeck').toLowerCase() as any;
+  const result = await decksClient.addPrintings(mutation.publicId, [{ printingId, quantity: qty, category }]);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true, name: row.name };
+}
+
+/**
  * Rebuild a transcript/workspace data item from a fresh drill of its source
  * (after a dialog add wrote server-side, the open table must show it). The
  * identity fields (kind, uid) survive; every displayed field comes from the
@@ -1024,6 +1057,42 @@ export function refreshDataItem<T extends { kind: string; uid?: string }>(
     resultRows: fresh.resultRows,
     wantsAdd: fresh.wantsAdd,
   };
+}
+
+/** MCP tools that mutate a binder / wants list / deck — after one succeeds,
+ *  every open table showing that data must refetch or the write looks lost. */
+export const WRITE_TOOLS = new Set([
+  'add_to_binder', 'remove_from_binder',
+  'add_to_wants', 'remove_from_wants',
+  'add_cards_to_deck', 'remove_cards_from_deck',
+  'update_deck', 'create_deck',
+]);
+
+/** A refetch target for refreshItemsForTarget-style refreshes. */
+export type RefreshTarget = { destination: 'binder' | 'wants' | 'deck'; binderId?: string; deckPublicId?: string };
+
+/**
+ * Distinct sources currently displayed as mutable tables. AI writes don't say
+ * which binder/deck they touched in a machine-usable way, so after a write
+ * tool succeeds we refresh everything on screen — deduped, this is 1-2 drills.
+ */
+export function collectMutationTargets(items: Array<{ kind?: string; mutate?: RowMutation }>): RefreshTarget[] {
+  const seen = new Set<string>();
+  const out: RefreshTarget[] = [];
+  for (const item of items) {
+    if (item.kind !== 'data' || !item.mutate) continue;
+    const m = item.mutate;
+    const target: RefreshTarget = m.kind === 'binder'
+      ? { destination: 'binder', binderId: m.binderId }
+      : m.kind === 'deck'
+        ? { destination: 'deck', deckPublicId: m.publicId }
+        : { destination: 'wants' };
+    const key = `${target.destination}|${target.binderId ?? target.deckPublicId ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(target);
+  }
+  return out;
 }
 
 /** The printing fields swapped onto a row (shape of printingToSwapOption). */

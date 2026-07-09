@@ -15,7 +15,7 @@ vi.mock('@/lib/client', () => ({
 import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
-  adjustRowQuantity, createBinderTarget, swapRowPrinting,
+  adjustRowQuantity, createBinderTarget, swapRowPrinting, undoRowRemoval,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
@@ -378,5 +378,48 @@ describe('swapRowPrinting', () => {
 
     expect(mockSwapDeckPrinting).toHaveBeenCalledWith('pub-1', 'old1', 'new1', 'equipment');
     expect(result).toEqual({ ok: true });
+  });
+});
+
+describe('undoRowRemoval', () => {
+  const removed = (over: Record<string, unknown> = {}) => ({
+    qty: 1, name: 'Aether Dart', priority: 'high', forTrade: true,
+    preview: { imageUrl: '', name: 'Aether Dart', printingId: 'pr9' },
+    ...over,
+  }) as any;
+
+  it('binder: re-adds the removed printing (quantity + forTrade preserved)', async () => {
+    mockAddCardsToBinder.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await undoRowRemoval({ kind: 'binder', binderId: 'b1' }, removed());
+
+    expect(mockAddCardsToBinder).toHaveBeenCalledWith('b1', [
+      { printingId: 'pr9', quantity: 1, forTrade: true },
+    ]);
+    expect(result).toEqual({ ok: true, name: 'Aether Dart' });
+  });
+
+  it('wants: re-adds with the original priority', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: true, data: {} } as any);
+
+    await undoRowRemoval({ kind: 'wants' }, removed());
+
+    expect(mockAddWantsItem).toHaveBeenCalledWith('pr9', 1, 'high');
+  });
+
+  it('deck: re-adds into the original section/category', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+
+    await undoRowRemoval({ kind: 'deck', publicId: 'pub-1' }, removed(), 'Equipment');
+
+    expect(mockAddPrintings).toHaveBeenCalledWith('pub-1', [
+      { printingId: 'pr9', quantity: 1, category: 'equipment' },
+    ]);
+  });
+
+  it('surfaces the client error', async () => {
+    mockAddWantsItem.mockResolvedValue({ success: false, error: 'down' } as any);
+    const result = await undoRowRemoval({ kind: 'wants' }, removed());
+    expect(result).toEqual({ ok: false, error: 'down' });
   });
 });

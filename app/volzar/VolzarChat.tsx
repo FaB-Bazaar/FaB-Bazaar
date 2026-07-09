@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -29,7 +29,8 @@ import {
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
-  swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill,
+  swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
+  collectMutationTargets, WRITE_TOOLS,
   type RowMutation,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -42,6 +43,16 @@ import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, 
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
+
+// First-run launcher: each exercises a different capability (meta analysis,
+// collection compare, search, results) so the empty state teaches what the AI
+// can do — not just that it exists. Clicking sends immediately.
+const SUGGESTED_PROMPTS = [
+  'What are the top decks in the meta right now?',
+  'Which Decks to Beat could I build mostly from my collection?',
+  'Find budget generic attack actions under $1 with go again',
+  'How are my decks performing in my recent games?',
+];
 
 const PITCH_GEM: Record<number, { bg: string; label: string }> = {
   1: { bg: 'bg-red-600', label: 'red' },
@@ -218,11 +229,17 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
                 type="button"
                 onClick={() => onAdjustQty(r, -1, sectionTitle)}
                 disabled={busy}
-                aria-label={`Remove one copy of ${r.name}`}
-                title={r.qty <= 1 ? `Remove ${r.name}` : 'Remove one copy'}
-                className={qtyBtn}
+                aria-label={r.qty <= 1 ? `Remove ${r.name} from this list` : `Remove one copy of ${r.name}`}
+                title={r.qty <= 1 ? `Remove ${r.name} from this list` : 'Remove one copy'}
+                className={r.qty <= 1
+                  ? `rounded border border-red-300 dark:border-red-800 p-0.5 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-40 ${focusRing}`
+                  : qtyBtn}
               >
-                <Minus className="h-3 w-3" aria-hidden="true" />
+                {/* Trash at 1: the next click DELETES the row — shape, not just
+                    color, signals it (SC 1.4.1) */}
+                {r.qty <= 1
+                  ? <Trash2 className="h-3 w-3" aria-hidden="true" />
+                  : <Minus className="h-3 w-3" aria-hidden="true" />}
               </button>
               <span className="min-w-[2.5ch] text-center">{r.qty}×</span>
               <button
@@ -281,7 +298,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
               type="button"
               onClick={() => onSwapRow(r, sectionTitle)}
               aria-label={`Swap printing of ${r.name}`}
-              title="Swap to a different printing"
+              title="Swap to a different printing — set, foil, or language"
               className={`rounded border border-border p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
             >
               <Repeat className="h-3.5 w-3.5" aria-hidden="true" />
@@ -782,6 +799,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
   // Row swap-printing: which row's printing picker is open
   const [rowSwap, setRowSwap] = useState<{ itemUid: string; mutation: RowMutation; row: CardRow; sectionTitle?: string; cardUniqueId: string } | null>(null);
+  // Undo affordance after a row removal (− at qty 1 deletes real data)
+  const [undoRemoval, setUndoRemoval] = useState<{ mutation: RowMutation; row: CardRow; sectionTitle?: string; fromTitle: string; busy?: boolean } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // "New binder…" inline creation row (opened from the tri-button dropdown)
   const [newBinderOpen, setNewBinderOpen] = useState(false);
   const [newBinderName, setNewBinderName] = useState('');
@@ -823,6 +843,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     toolResults: Array<{ id: string; content: string }>;
     committed: boolean;
   }>({ assistantText: '', toolCalls: [], toolResults: [], committed: true });
+
+  // Set after refreshItemsForTarget is declared (handleEvent runs with no deps)
+  const refreshAfterAiWriteRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -877,6 +900,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           id: event.id,
           content: event.ok ? event.content : `Error: ${event.content}`,
         });
+        // AI writes (add_to_binder, …) must repaint any open table showing
+        // that data — same staleness bug the dialog adds had. The ref dodges
+        // the declaration-order/stale-closure problem (handleEvent has no deps).
+        if (event.ok) {
+          const toolName = turnRef.current.toolCalls.find((c) => c.id === event.id)?.function?.name;
+          if (toolName && WRITE_TOOLS.has(toolName)) refreshAfterAiWriteRef.current?.();
+        }
         const card = toStructuredCard(event.structured);
         const results = parseSearchResults(event.structured) ?? undefined;
         // Every card any tool surfaced feeds the name→rail index for markdown
@@ -1352,6 +1382,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         (i.kind === 'data' && i.uid === item.uid ? (adjustItemRowQty(i as any, rowKey, delta) as T) : i);
       setItems((prev) => prev.map(apply));
       setWorkspaceStack((prev) => prev.map((i) => apply(i)));
+      // A removal (qty hit 0) gets a 10s Undo window
+      if (res.newQty === 0) {
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        setUndoRemoval({ mutation, row, sectionTitle, fromTitle: item.title });
+        undoTimerRef.current = setTimeout(() => setUndoRemoval(null), 10000);
+      }
     } finally {
       setQtyBusyKeys((prev) => {
         const next = new Set(prev);
@@ -1461,6 +1497,41 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     setItems((prev) => prev.map(apply));
     setWorkspaceStack((prev) => prev.map((i) => apply(i)));
   }, [binderOptions]);
+
+  // After a successful AI write tool, refresh every distinct source currently
+  // displayed as a mutable table (deduped — typically one drill).
+  const itemsRef = useRef<UiItem[]>([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => {
+    refreshAfterAiWriteRef.current = () => {
+      for (const target of collectMutationTargets(itemsRef.current as any)) {
+        void refreshItemsForTarget(target);
+      }
+    };
+  }, [refreshItemsForTarget]);
+
+  // Undo a row removal: re-add to the source, then refetch it so the row
+  // reappears with correct server state (a binder re-add gets a NEW inventory
+  // item id — the optimistic row can't know it).
+  const performUndo = useCallback(async () => {
+    const ctx = undoRemoval;
+    if (!ctx || ctx.busy) return;
+    setUndoRemoval({ ...ctx, busy: true });
+    const res = await undoRowRemoval(ctx.mutation, ctx.row, ctx.sectionTitle);
+    if (!res.ok) {
+      setUndoRemoval(null);
+      setErrorBanner(`Could not restore ${ctx.row.name}: ${res.error}`);
+      return;
+    }
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoRemoval(null);
+    const m = ctx.mutation;
+    void refreshItemsForTarget(m.kind === 'binder'
+      ? { destination: 'binder', binderId: m.binderId }
+      : m.kind === 'deck'
+        ? { destination: 'deck', deckPublicId: m.publicId }
+        : { destination: 'wants' });
+  }, [undoRemoval, refreshItemsForTarget]);
 
   // Split-button add flow. The dialog closes itself synchronously after a
   // single "Add to X" (onSelectCard → onOpenChange(false) in the same tick),
@@ -1626,6 +1697,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                           aria-label="Choose which binder to add cards to"
                           title="Choose which binder the + adds cards to"
                         >
+                          {/* "to:" says what this segment IS — without it the
+                              truncated binder name reads like a glitch */}
+                          <span className="text-xs text-gray-600 dark:text-gray-300">to:</span>
                           <span className="max-w-[7rem] truncate">
                             {binderOptions.find((b) => b._id === targetBinderId)?.name ?? 'Binder'}
                           </span>
@@ -1900,11 +1974,30 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           className="flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-3"
         >
           {items.length === 0 && (
-            <p className="text-gray-600 dark:text-gray-300 text-sm m-auto text-center max-w-sm">
-              Use the ⚡ instant buttons for your lists, or ask Volzar something that needs thinking —
-              searches, suggestions, adding cards.
-              {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
-            </p>
+            <div className="m-auto flex max-w-md flex-col items-center gap-4 text-center px-2">
+              <p className="text-base font-medium text-gray-800 dark:text-gray-100">
+                Hey {username} — ask me anything about Flesh and Blood.
+              </p>
+              <div className="flex flex-col items-stretch gap-2 w-full">
+                {SUGGESTED_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => void sendTurn(prompt, prompt)}
+                    disabled={busy}
+                    className={`rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
+                above are instant and free — they open your lists directly. Chat when you want thinking:
+                deck advice, searches, or “add 3 Command and Conquer to my binder”.
+                {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
+              </p>
+            </div>
           )}
           {items.map((item, index) => {
             if (item.kind === 'user') {
@@ -2067,10 +2160,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                         onClick={() => setWorkspaceStack([item])}
                         disabled={workspace?.uid === item.uid}
                         className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                        title="Show this list in the workspace panel"
+                        title="Show this list in the side panel"
                       >
                         <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                        {workspace?.uid === item.uid ? 'In workspace' : 'Open in workspace'}
+                        {workspace?.uid === item.uid ? 'Viewing' : 'View'}
                       </button>
                     </div>
                   )}
@@ -2408,6 +2501,36 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Undo bar — a − at qty 1 deleted a real row; 10s window to restore */}
+        {undoRemoval && (
+          <div role="status" className="flex items-center gap-2 rounded-md border border-border bg-muted/50 dark:bg-muted px-3 py-2 text-sm">
+            <Trash2 className="h-4 w-4 shrink-0 text-red-700 dark:text-red-400" aria-hidden="true" />
+            <span className="min-w-0 truncate">
+              Removed {undoRemoval.row.qty ?? 1}× {undoRemoval.row.name} from {undoRemoval.fromTitle}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void performUndo()}
+              disabled={undoRemoval.busy}
+              className={`ml-auto shrink-0 gap-1.5 ${focusRing}`}
+            >
+              {undoRemoval.busy
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                : <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />}
+              Undo
+            </Button>
+            <button
+              type="button"
+              onClick={() => setUndoRemoval(null)}
+              aria-label="Dismiss"
+              className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         )}
 
