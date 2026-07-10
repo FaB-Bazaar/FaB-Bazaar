@@ -717,6 +717,7 @@ export function parseSearchResults(structured: any, maxRows = 20): SearchResults
         name,
         printingId: p.printing_id,
         priceLow: typeof p.price === 'number' ? p.price : undefined,
+        tcgplayerUrl: p.tcgplayer_url || undefined,
       },
     };
   });

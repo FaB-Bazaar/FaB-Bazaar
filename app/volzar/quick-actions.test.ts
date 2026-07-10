@@ -519,6 +519,17 @@ describe('parseSearchResults', () => {
     expect(parsed?.total).toBe(500);
   });
 
+  it('threads tcgplayer_url into the row preview — powers the affiliate price link', () => {
+    const parsed = parseSearchResults({
+      results: [{ total: 2, printings: [
+        { ...printing('Snatch', 0.73), tcgplayer_url: 'https://www.tcgplayer.com/product/12345' },
+        printing('Snag', 1.5),
+      ] }],
+    });
+    expect((parsed?.tableRows[0] as any).preview.tcgplayerUrl).toBe('https://www.tcgplayer.com/product/12345');
+    expect((parsed?.tableRows[1] as any).preview.tcgplayerUrl).toBeUndefined();
+  });
+
   it('returns null for non-search or empty structured payloads', () => {
     expect(parseSearchResults({ title: 'x', url: 'y' })).toBeNull();
     expect(parseSearchResults({ results: [{ total: 0, printings: [] }] })).toBeNull();

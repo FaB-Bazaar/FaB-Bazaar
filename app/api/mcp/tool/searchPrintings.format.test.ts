@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { formatSearchSections, searchPrintingsTool } from './searchPrintings';
+import { formatSearchSections, searchPrintingsTool, projectPrintingForMcp } from './searchPrintings';
 
 vi.mock('@/lib/services', () => ({
   printingsService: {
@@ -24,6 +24,18 @@ const printing = (overrides: Partial<any>) => ({
   types: ['brute', 'action', 'attack'],
   tcg_market: 6.11,
   ...overrides,
+});
+
+describe('projectPrintingForMcp', () => {
+  it('carries tcgplayer_url so Volzar can render affiliate price links', () => {
+    const projected = projectPrintingForMcp(printing({ tcgplayer_url: 'https://www.tcgplayer.com/product/98765' }));
+    expect(projected.tcgplayer_url).toBe('https://www.tcgplayer.com/product/98765');
+  });
+
+  it('omits the key entirely when the printing has no TCGplayer listing (no token waste)', () => {
+    const projected = projectPrintingForMcp(printing({ tcgplayer_url: null }));
+    expect('tcgplayer_url' in projected).toBe(false);
+  });
 });
 
 describe('formatSearchSections', () => {

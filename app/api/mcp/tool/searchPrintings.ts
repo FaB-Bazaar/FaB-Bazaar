@@ -166,7 +166,7 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
   });
 }
 
-function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
+export function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   if (!p) return p;
   const out: any = {
     printing_id: p.printing_id,
@@ -182,6 +182,9 @@ function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
     types: Array.isArray(p.types) ? p.types : [],
     price: p[resolvePriceField(opts.priceField)] ?? null,
   };
+  // Buy link (Volzar renders it as an affiliate price link); omitted when
+  // absent so unlisted printings cost no tokens.
+  if (p.tcgplayer_url) out.tcgplayer_url = p.tcgplayer_url;
   if (p.is_extended_art) out.ea = true;
   if (Array.isArray(p.art_variations) && p.art_variations.length > 0) out.art = p.art_variations;
   // Localization (options.language): non-English printing language + the

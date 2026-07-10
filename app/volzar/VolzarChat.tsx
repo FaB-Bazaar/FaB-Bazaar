@@ -303,7 +303,36 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
       )}
       {has.collector && <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>}
       {has.foiling && <td className="hidden sm:table-cell align-middle text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.foiling ? FOIL_LABEL[r.foiling] : ''}</td>}
-      {has.price && <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{typeof r.price === 'number' ? `$${r.price.toFixed(2)}` : ''}</td>}
+      {has.price && (
+        <td className="align-middle text-right text-xs tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">
+          {typeof r.price === 'number' ? (
+            r.preview.tcgplayerUrl ? (
+              // Monetization: the price IS the buy link (impact.com affiliate
+              // wrap + consent handling live in TcgAffiliateLink). Icon is the
+              // white monotone TCGplayer mark — `invert` flips it black in
+              // light mode.
+              <TcgAffiliateLink
+                tcgplayerUrl={r.preview.tcgplayerUrl}
+                feature="VolzarTablePrice"
+                title={`Buy ${r.name} on TCGplayer`}
+                onClick={(e) => e.stopPropagation()}
+                className={`inline-flex items-center gap-1 rounded-sm underline decoration-dotted underline-offset-2 hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}`}
+              >
+                ${r.price.toFixed(2)}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/tcgplayer-mono.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="h-2.5 w-auto max-w-none shrink-0 invert dark:invert-0 opacity-60"
+                />
+              </TcgAffiliateLink>
+            ) : (
+              `$${r.price.toFixed(2)}`
+            )
+          ) : ''}
+        </td>
+      )}
       {has.tail && (
         <td className="align-middle text-right whitespace-nowrap">
           {r.forTrade
