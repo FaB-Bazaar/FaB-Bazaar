@@ -859,6 +859,9 @@ function harvestOne(raw: any, out: HarvestedCard[]): void {
       printingId,
       priceLow: num(raw.tcg_low ?? d.tcg_low ?? raw.price),
       priceMarket: num(raw.tcg_market ?? d.tcg_market),
+      // Rail's "Available for purchase here" affiliate link — without this,
+      // hovering a card named in an AI reply opened a buy-link-less rail.
+      tcgplayerUrl: raw.tcgplayer_url ?? d.tcgplayer_url ?? undefined,
     },
   });
 }

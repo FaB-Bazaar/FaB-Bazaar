@@ -591,6 +591,19 @@ describe('harvestCardsFromStructured', () => {
     expect(byName(cards, 'Command and Conquer')?.preview.printingId).toBe('b1');
   });
 
+  it('carries tcgplayer_url into previews — the rail buy link for cards named in AI replies', () => {
+    const cards = harvestCardsFromStructured({
+      results: [{ printings: [
+        { printing_id: 'p1', name: 'Gauntlet of Sword and Sorcery', tcgplayer_url: 'https://www.tcgplayer.com/product/555' },
+        { printing_id: 'p2', name: 'Snag' },
+      ] }],
+      cards: [{ printingId: 'b1', name: 'Pummel', printingDetails: { tcgplayer_url: 'https://www.tcgplayer.com/product/777' } }],
+    });
+    expect(byName(cards, 'Gauntlet of Sword and Sorcery')?.preview.tcgplayerUrl).toBe('https://www.tcgplayer.com/product/555');
+    expect(byName(cards, 'Pummel')?.preview.tcgplayerUrl).toBe('https://www.tcgplayer.com/product/777');
+    expect(byName(cards, 'Snag')?.preview.tcgplayerUrl).toBeUndefined();
+  });
+
   it('harvests get_wants cards[] with snake-case printing_id and display_name only', () => {
     const cards = harvestCardsFromStructured({
       cards: [{ printing_id: 'wt1', display_name: 'Enlightened Strike' }],

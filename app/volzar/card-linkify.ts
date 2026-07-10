@@ -14,12 +14,22 @@ export interface IndexedCard {
 }
 export type CardNameIndex = Map<string, IndexedCard[]>;
 
-// Curly/back apostrophes → straight, length-preserving so match offsets taken
-// on the normalized string still index correctly into the original text.
+// Curly/back apostrophes → straight and exotic spaces → plain space, BOTH
+// length-preserving (one char → one char) so match offsets taken on the
+// normalized string still index correctly into the original text.
+// The space fold matters: gpt-oss writes card names with U+202F (narrow
+// no-break space) in markdown tables — renders identically to a space but
+// silently defeats name matching, so the summarized-table linkify looked
+// randomly broken depending on the model's mood.
 const QUOTE_RE = /[‘’`]/g;
+const EXOTIC_SPACE_RE = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+
+function normalizeForMatch(s: string): string {
+  return s.replace(QUOTE_RE, "'").replace(EXOTIC_SPACE_RE, ' ');
+}
 
 export function normalizeCardName(s: string): string {
-  return s.replace(QUOTE_RE, "'").toLowerCase().trim();
+  return normalizeForMatch(s).toLowerCase().trim();
 }
 
 export function buildCardNameIndex(
@@ -75,7 +85,7 @@ export function splitTextByCardNames(text: string, index: CardNameIndex): LinkSe
   // punctuation, table pipes, or markdown emphasis still match.
   const re = new RegExp(`(?<![A-Za-z0-9])(${alternation})(?![A-Za-z0-9])`, 'gi');
 
-  const normalized = text.replace(QUOTE_RE, "'");
+  const normalized = normalizeForMatch(text);
   const segments: LinkSegment[] = [];
   let last = 0;
   let m: RegExpExecArray | null;

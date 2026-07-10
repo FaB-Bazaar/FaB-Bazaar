@@ -70,6 +70,27 @@ describe('splitTextByCardNames', () => {
     expect(linked[0].preview?.printingId).toBe('h1');
   });
 
+  it('matches names the model writes with exotic spaces (NNBSP/NBSP) — gpt-oss emits U+202F in tables', () => {
+    // Live repro: "Rev\u202FUp" renders identically to "Rev Up" but never
+    // linkified — the summarized-table linkify appeared randomly broken
+    // depending on which space codepoint the model emitted that day.
+    const nnbspText = 'Try Rev\u202FUp here';
+    const segs = splitTextByCardNames(nnbspText, index);
+    expect(segs.map((s) => s.value).join('')).toBe(nnbspText); // original text preserved
+    const linked = segs.filter((s) => s.preview);
+    expect(linked).toHaveLength(1);
+    expect(linked[0].value).toBe('Rev\u202FUp');
+    expect(linked[0].preview?.printingId).toBe('r1');
+
+    const nbsp = splitTextByCardNames('Rev\u00A0Up', index).filter((s) => s.preview);
+    expect(nbsp).toHaveLength(1);
+  });
+
+  it('normalizeCardName folds exotic spaces so index keys align', () => {
+    expect(normalizeCardName('Rev\u202FUp')).toBe('rev up');
+    expect(normalizeCardName('Rev\u00A0Up')).toBe('rev up');
+  });
+
   it('does not match a name embedded inside a larger word', () => {
     const segs = splitTextByCardNames('the Heister strikes', index);
     expect(segs.some((s) => s.preview)).toBe(false);
