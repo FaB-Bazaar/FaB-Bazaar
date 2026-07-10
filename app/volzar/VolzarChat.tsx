@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -1192,18 +1193,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   }, [toBeatOpen, toBeatMode, ensureHeroes, ensureToBeatEvents]);
 
   // ⚡ tab-bar deep link: /volzar?action=<id> auto-runs that instant action
-  // (to-beat opens its picker) exactly once, then strips the param — same
-  // one-shot rule as the Bridge B params so reloads can't re-fire it.
-  const actionLinkFiredRef = useRef(false);
+  // (to-beat opens its picker). Keyed on useSearchParams, NOT mount: tapping a
+  // sheet item while ALREADY on /volzar is a same-page navigation that never
+  // remounts this component. Stripping the param right away keeps it one-shot
+  // (same rule as the Bridge B params) — the strip itself re-fires the router
+  // params, which the early return absorbs.
+  const searchParams = useSearchParams();
   useEffect(() => {
-    if (actionLinkFiredRef.current) return;
-    const action = parseInstantActionParam(window.location.search);
+    const action = parseInstantActionParam(`?${searchParams.toString()}`);
     if (!action) return;
-    actionLinkFiredRef.current = true;
     window.history.replaceState(null, '', window.location.pathname);
-    if (action === 'to-beat') toggleToBeat();
-    else runQuickAction(action);
-  }, [runQuickAction, toggleToBeat]);
+    if (action === 'to-beat') {
+      if (!toBeatOpen) toggleToBeat();
+    } else {
+      runQuickAction(action);
+    }
+  }, [searchParams, runQuickAction, toggleToBeat, toBeatOpen]);
 
   const setToBeatModeAndLoad = useCallback((mode: 'hero' | 'event') => {
     setToBeatMode(mode);
