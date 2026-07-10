@@ -18,12 +18,14 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import {
-  Search, BookOpen, Layers, FileText, TrendingUp, Plus, Users, Trophy,
+  Search, BookOpen, Layers, FileText, TrendingUp, Plus, Users, Trophy, Zap, Heart,
 } from "lucide-react"
 import {
   Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose,
 } from "@/components/ui/drawer"
 import { cn } from "@/lib/utils"
+import { canUseVolzar, type VolzarAccessFlags } from "@/lib/ai/volzar-access"
+import { volzarInstantHref } from "@/app/volzar/instant-link"
 
 type DeckSort = "updated" | "name" | "created"
 
@@ -52,8 +54,15 @@ export default function MobileTabBar({
   const pathname = usePathname() || "/"
   const [collectionOpen, setCollectionOpen] = useState(false)
   const [decksOpen, setDecksOpen] = useState(false)
+  const [instantOpen, setInstantOpen] = useState(false)
+
+  // Volzar-access users get a ⚡ Instant sheet in place of the Search tab
+  // (Search stays reachable as the sheet's first item). Same session-flag
+  // gate as the desktop navbar's Volzar link.
+  const hasVolzar = canUseVolzar(user as VolzarAccessFlags | null)
 
   const searchActive = pathname.startsWith("/opt")
+  const instantActive = pathname.startsWith("/opt") || pathname.startsWith("/volzar")
   const collectionActive = pathname.startsWith("/collection") || pathname.startsWith("/binder/") || pathname.startsWith("/wants") || pathname.startsWith("/daily")
   const decksActive = pathname.startsWith("/decks")
 
@@ -85,10 +94,23 @@ export default function MobileTabBar({
         className="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-gray-300 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-gray-900/80 pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
-        <Link href="/opt" aria-current={searchActive ? "page" : undefined} className={cn(TAB, tone(searchActive))}>
-          <Search className="h-5 w-5" />
-          Search
-        </Link>
+        {hasVolzar ? (
+          <button
+            type="button"
+            onClick={() => setInstantOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={instantOpen}
+            className={cn(TAB, tone(instantActive))}
+          >
+            <Zap className="h-5 w-5" />
+            Instant
+          </button>
+        ) : (
+          <Link href="/opt" aria-current={searchActive ? "page" : undefined} className={cn(TAB, tone(searchActive))}>
+            <Search className="h-5 w-5" />
+            Search
+          </Link>
+        )}
 
         {user ? (
           <button
@@ -126,6 +148,42 @@ export default function MobileTabBar({
           </Link>
         )}
       </nav>
+
+      {/* ⚡ Instant sheet (Volzar-access users) — search + Volzar deep links.
+          The instant items land on /volzar and auto-run with zero AI tokens
+          (?action= is consumed one-shot by VolzarChat). */}
+      <Drawer open={instantOpen} onOpenChange={setInstantOpen}>
+        <DrawerContent className="max-h-[80vh]">
+          <DrawerHeader className="py-3">
+            <DrawerTitle className="flex items-center gap-1.5">
+              <Zap className="h-4 w-4" aria-hidden="true" /> Instant
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+            <SheetLink href="/opt" icon={Search}>Search cards</SheetLink>
+            <DrawerClose asChild>
+              <Link
+                href="/volzar"
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                {/* Volzar, the Lightning Rod card art — same mark as the navbar link */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+                Ask Volzar
+              </Link>
+            </DrawerClose>
+
+            <div className="border-t border-gray-300 dark:border-gray-800 my-1" />
+
+            <div className="px-4 py-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-600 dark:text-gray-300">
+              <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant — no AI
+            </div>
+            <SheetLink href={volzarInstantHref("binders")} icon={BookOpen}>My binders</SheetLink>
+            <SheetLink href={volzarInstantHref("wants")} icon={Heart}>My wants</SheetLink>
+            <SheetLink href={volzarInstantHref("to-beat")} icon={Trophy}>Decks to Beat</SheetLink>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Collection sheet */}
       <Drawer open={collectionOpen} onOpenChange={setCollectionOpen}>

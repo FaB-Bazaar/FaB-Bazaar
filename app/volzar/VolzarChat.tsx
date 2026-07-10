@@ -42,6 +42,7 @@ import {
 } from './quick-actions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
+import { parseInstantActionParam } from './instant-link';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
 import { RULE_TOKEN_ICON } from './rule-glyphs';
@@ -1189,6 +1190,20 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
       if (toBeatMode === 'event') void ensureToBeatEvents();
     }
   }, [toBeatOpen, toBeatMode, ensureHeroes, ensureToBeatEvents]);
+
+  // ⚡ tab-bar deep link: /volzar?action=<id> auto-runs that instant action
+  // (to-beat opens its picker) exactly once, then strips the param — same
+  // one-shot rule as the Bridge B params so reloads can't re-fire it.
+  const actionLinkFiredRef = useRef(false);
+  useEffect(() => {
+    if (actionLinkFiredRef.current) return;
+    const action = parseInstantActionParam(window.location.search);
+    if (!action) return;
+    actionLinkFiredRef.current = true;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (action === 'to-beat') toggleToBeat();
+    else runQuickAction(action);
+  }, [runQuickAction, toggleToBeat]);
 
   const setToBeatModeAndLoad = useCallback((mode: 'hero' | 'event') => {
     setToBeatMode(mode);
