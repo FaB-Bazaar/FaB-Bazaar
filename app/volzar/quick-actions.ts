@@ -1691,7 +1691,7 @@ export interface ToBeatHero {
 export async function fetchToBeatHeroes(): Promise<ToBeatHero[]> {
   const PAGE_LIMIT = 50;
   const MAX_PAGES = 10; // safety backstop (500 featured decks)
-  const map = new Map<string, { heroName: string; displayName: string; formats: Set<string> }>();
+  const map = new Map<string, { heroName: string; formats: Set<string> }>();
   for (let page = 1; page <= MAX_PAGES; page++) {
     const response = await fetch(`/api/decks/community?featured=true&limit=${PAGE_LIMIT}&page=${page}`, { credentials: 'include' });
     const body = await response.json().catch(() => ({}));
@@ -1701,15 +1701,20 @@ export async function fetchToBeatHeroes(): Promise<ToBeatHero[]> {
       const heroName = d.heroName;
       if (!heroName) continue;
       const key = heroName.toLowerCase();
-      const e = map.get(key) ?? { heroName, displayName: d.heroDisplayName || heroName, formats: new Set<string>() };
+      const e = map.get(key) ?? { heroName, formats: new Set<string>() };
       if (d.format) e.formats.add(d.format);
       map.set(key, e);
     }
     const total = Number(body?.data?.total ?? decks.length);
     if (decks.length === 0 || page * PAGE_LIMIT >= total) break;
   }
+  // Decks store hero_name in card-name (lowercase) form and the API's
+  // heroDisplayName is just as unreliable — resolve through the hero
+  // constants (nickname map first) like fetchKitHeroes does, so the picker
+  // never mixes "arakni, huntsman" with "Dash I/O".
+  const { toHeroDisplayName, getHeroInfo } = await import('@/lib/fab-constants/heroes');
   return [...map.values()]
-    .map((e) => ({ heroName: e.heroName, displayName: e.displayName, formats: [...e.formats] }))
+    .map((e) => ({ heroName: e.heroName, displayName: toHeroDisplayName(e.heroName, getHeroInfo(e.heroName)?.shortName), formats: [...e.formats] }))
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 

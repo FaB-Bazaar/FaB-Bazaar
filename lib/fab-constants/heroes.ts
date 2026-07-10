@@ -121,13 +121,18 @@ export function normalizeClassName(input?: string | null): string | null {
 
 // Properly-cased display name for a hero. Falls back to title-casing the canonical key
 // if the hero has no shortName nickname mapping.
+// Connectives stay lowercase in card names ("Warden of Thorns", "Ace in the
+// Hole") — title-casing them makes fallback names look glitched next to
+// nickname-mapped ones.
+const LOWERCASE_NAME_WORDS = new Set(['of', 'the', 'in', 'and', 'a', 'an', 'to', 'by']);
+
 export function toHeroDisplayName(canonicalKey: string, shortName?: string): string {
   if (shortName && HERO_NICKNAMES[shortName as keyof typeof HERO_NICKNAMES]) {
     return HERO_NICKNAMES[shortName as keyof typeof HERO_NICKNAMES];
   }
   return canonicalKey
     .split(' ')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w, i) => (i > 0 && LOWERCASE_NAME_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ');
 }
 

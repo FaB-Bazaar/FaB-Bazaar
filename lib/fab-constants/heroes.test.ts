@@ -103,6 +103,21 @@ describe('HERO_NICKNAMES', () => {
   });
 });
 
+describe('toHeroDisplayName', () => {
+  it('returns the canonical nickname-map name when the short name is known', () => {
+    expect(toHeroDisplayName('dash i/o', 'dashio')).toBe('Dash I/O');
+    expect(toHeroDisplayName('cindra, dracai of retribution', 'cindra')).toBe('Cindra, Dracai of Retribution');
+  });
+
+  it('title-cases fallback names but keeps connectives lowercase', () => {
+    // Heroes whose shortName has no nickname entry fall back to title-casing;
+    // "Web Of Deceit" (capital Of) read as a glitch next to nickname-mapped
+    // names like "Warden of Thorns" in the Volzar hero pickers.
+    expect(toHeroDisplayName('arakni, web of deceit')).toBe('Arakni, Web of Deceit');
+    expect(toHeroDisplayName('azalea, ace in the hole')).toBe('Azalea, Ace in the Hole');
+  });
+});
+
 describe('HERO_INFO', () => {
   it('has expected shape for a representative hero', () => {
     const rhinar = HERO_INFO['rhinar, reckless rampage'];

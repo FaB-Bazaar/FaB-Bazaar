@@ -77,6 +77,29 @@ describe('fetchToBeatHeroes', () => {
     expect(heroes.some((h) => h.heroName === 'hero_page2_3')).toBe(true);
     fetchSpy.mockRestore();
   });
+
+  it('canonicalizes display names — stored lowercase hero names render proper-cased like the kit picker', async () => {
+    // Decks store hero_name in card-name (lowercase) form; the API's
+    // heroDisplayName is unreliable (often the same lowercase string), which
+    // showed as mixed casing in the picker. Resolve through the hero
+    // constants (nickname map) exactly like fetchKitHeroes does.
+    const decks = [
+      { heroName: 'arakni, huntsman', format: 'Classic Constructed' },
+      { heroName: 'cindra, dracai of retribution', heroDisplayName: 'cindra, dracai of retribution', format: 'Classic Constructed' },
+      { heroName: 'dash i/o', format: 'Classic Constructed' },
+    ];
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { decks, total: decks.length } }),
+    } as any);
+
+    const names = (await fetchToBeatHeroes()).map((h) => h.displayName);
+
+    expect(names).toContain('Arakni, Huntsman');
+    expect(names).toContain('Cindra, Dracai of Retribution');
+    expect(names).toContain('Dash I/O');
+    fetchSpy.mockRestore();
+  });
 });
 
 // Payload shape produced by CardSearchDialog's onSelectCard.
