@@ -1,44 +1,35 @@
-// Hosted-chat tier policy: who gets how many chat turns per day, on which
-// models. This is the free/paid boundary design for the hosted AI tier —
-// enforcement lives in the volzar route; usage facts live in
-// llm_usage_daily (migration 0073). Access itself is gated by canUseVolzar
-// (lib/ai/volzar-access): superadmins + paid Metafy supporters. This maps
-// whoever passed that gate to an LLM tier — both currently resolve to 'paid'.
+// Hosted-chat limits policy: how many chat turns per day, on which model.
+// Volzar is standard for all signed-in users (access gate:
+// lib/ai/volzar-access), so cost control lives entirely here:
+//   • one uniform per-user daily budget (everyone runs the cheapest model,
+//     ~$0.002/turn at current gpt-oss-120b prices),
+//   • a site-wide daily backstop that bounds worst-case spend even under
+//     mass abuse or a signup flood,
+//   • plus the per-user 30-requests/hour burst limit in the route.
+// Enforcement lives in the volzar route; usage facts live in llm_usage_daily
+// (migration 0073). Superadmins are exempt from both daily caps (operator
+// accounts: model bake-offs, and the person diagnosing a tripped backstop
+// must not be locked out by it).
 
-import type { SupporterTier } from '@/lib/metafy/supporter-tier';
-
-export type LlmTier = 'free' | 'paid';
-
-export interface LlmTierLimits {
-  /** Chat turns per UTC day, across all models. Resets at midnight UTC. */
+export interface LlmLimits {
+  /** Chat turns per user per UTC day, across all models. Resets midnight UTC. */
   dailyMessages: number;
+  /** Chat turns per UTC day across ALL users — runaway-cost insurance. */
+  globalDailyMessages: number;
 }
 
-export const LLM_TIERS: Record<LlmTier, LlmTierLimits> = {
-  free: { dailyMessages: 20 },
-  paid: { dailyMessages: 200 },
+export const LLM_LIMITS: LlmLimits = {
+  dailyMessages: 50,
+  globalDailyMessages: 2000,
 };
 
-export function resolveLlmTier(opts: {
-  isSuperAdmin: boolean;
-  metafySupporterTier?: SupporterTier | null;
-  volzarAccess?: boolean | null;
-}): LlmTier {
-  // Anyone who can use the chat gets the paid LLM tier — including manual grants,
-  // else a comped user would 403 on the paid-only default model.
-  return opts.isSuperAdmin || opts.metafySupporterTier === 'paid' || !!opts.volzarAccess
-    ? 'paid'
-    : 'free';
-}
-
 /**
- * Free tier rides only zero-cost models (mock + OpenRouter ':free' variants);
- * paid tier gets everything on the route's allowlist. Applied after the
- * allowlist check — this narrows, never widens.
+ * Site-wide daily cap, overridable via VOLZAR_GLOBAL_DAILY_LIMIT for incident
+ * response (throttle without a deploy). Garbage values fall back to policy.
  */
-export function tierAllowsModel(tier: LlmTier, model: string): boolean {
-  if (tier === 'paid') return true;
-  return model === 'mock' || model.endsWith(':free');
+export function globalDailyLimit(): number {
+  const raw = Number(process.env.VOLZAR_GLOBAL_DAILY_LIMIT);
+  return Number.isFinite(raw) && raw > 0 ? raw : LLM_LIMITS.globalDailyMessages;
 }
 
 /**

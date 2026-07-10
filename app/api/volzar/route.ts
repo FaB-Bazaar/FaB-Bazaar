@@ -1,6 +1,6 @@
-// Hosted Volzar chat — the hosted AI tier (superadmins + paid supporters).
+// Hosted Volzar chat — standard for every signed-in user.
 //
-// POST: gates (session → Volzar access → rate limit → body validation), then
+// POST: gates (session → rate limit → body validation → daily quotas), then
 // runs the agent loop (lib/ai) and streams AgentEvents as SSE data-frames. The
 // loop executes tools through our own MCP endpoint (lib/ai/mcp-bridge), so every
 // tool call is usage-captured in mcp_usage_daily with client='fabbazaar-hosted'.
@@ -16,8 +16,7 @@ import { runAgentLoop } from '@/lib/ai/agent-loop';
 import { createLlm } from '@/lib/ai/openrouter';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
-import { LLM_TIERS, resolveLlmTier, tierAllowsModel, resolveChatModel } from '@/lib/ai/tiers';
-import { canUseVolzar } from '@/lib/ai/volzar-access';
+import { LLM_LIMITS, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
 import { assembleMessages } from './prompt';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
@@ -93,18 +92,17 @@ function validateBody(raw: unknown): { ok: true; messages: ChatMessage[]; model:
 }
 
 export async function POST(req: Request) {
-  // 1–2. Session + Volzar access (superadmins + paid Metafy supporters).
-  // Fetched fresh from the DB so a revoked supporter can't ride a stale token.
+  // 1–2. Session. Volzar is standard for all signed-in users — the flags
+  // read only feeds isSuperAdmin (model picking + quota exemption), so a
+  // failed read degrades to a capped standard user instead of blocking.
   const session = await auth();
   const user = session?.user;
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const access = await userService.getVolzarAccess(user.id);
-  if (!access.success || !canUseVolzar(access.data)) {
-    return NextResponse.json({ error: 'Forbidden - Volzar access required' }, { status: 403 });
-  }
-  const tier = resolveLlmTier(access.data!);
+  if (!access.success) console.error('[volzar] access-flags read failed:', access.error);
+  const isSuperAdmin = access.success && !!access.data?.isSuperAdmin;
 
   // 3. Rate limit
   const limitResult = await rateLimit({
@@ -147,28 +145,37 @@ export async function POST(req: Request) {
   // deployments run mock regardless of what the client asked for.
   const model = resolveChatModel({
     hasApiKey: !!process.env.OPENROUTER_API_KEY,
-    isSuperAdmin: access.data!.isSuperAdmin,
+    isSuperAdmin,
     requested: validated.model,
     defaultModel: DEFAULT_PAID_MODEL,
   });
-  if (!tierAllowsModel(tier, model)) {
-    return NextResponse.json({ error: `Model not available on the ${tier} tier` }, { status: 403 });
-  }
 
-  // 4.5. Daily message budget (per-user, resets midnight UTC). Checked after
-  // validation so malformed requests don't cost a DB read; recorded on the
-  // done event below. Fails open on read errors — availability over
-  // enforcement while this surface is superadmin-only.
-  const dailyLimit = LLM_TIERS[tier].dailyMessages;
-  const usedToday = await llmUsageService.getTodayRequestCount(user.id);
-  if (usedToday.success && usedToday.data >= dailyLimit) {
-    return NextResponse.json(
-      { error: `Daily message limit reached (${dailyLimit}/day) — resets at midnight UTC` },
-      { status: 429 },
-    );
-  }
-  if (!usedToday.success) {
-    console.error('[volzar] quota read failed (failing open):', usedToday.error);
+  // 4.5. Daily quotas (reset midnight UTC): a uniform per-user budget plus a
+  // site-wide backstop that bounds worst-case spend. Checked after validation
+  // so malformed requests don't cost DB reads; recorded on the done event
+  // below. Fails open on read errors — availability over enforcement (per-day
+  // cost is bounded and the reads are loudly logged). Superadmins are exempt
+  // (operator accounts; whoever diagnoses a tripped backstop must not be
+  // locked out by it).
+  if (!isSuperAdmin) {
+    const [usedToday, usedGlobally] = await Promise.all([
+      llmUsageService.getTodayRequestCount(user.id),
+      llmUsageService.getTodayGlobalRequestCount(),
+    ]);
+    if (usedToday.success && usedToday.data >= LLM_LIMITS.dailyMessages) {
+      return NextResponse.json(
+        { error: `Daily message limit reached (${LLM_LIMITS.dailyMessages}/day) — resets at midnight UTC` },
+        { status: 429 },
+      );
+    }
+    if (usedGlobally.success && usedGlobally.data >= globalDailyLimit()) {
+      return NextResponse.json(
+        { error: 'Volzar is at capacity today — try again after midnight UTC' },
+        { status: 429 },
+      );
+    }
+    if (!usedToday.success) console.error('[volzar] quota read failed (failing open):', usedToday.error);
+    if (!usedGlobally.success) console.error('[volzar] global quota read failed (failing open):', usedGlobally.error);
   }
 
   // 5. Mint a stateless JWT for the internal MCP calls. This (not

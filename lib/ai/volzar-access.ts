@@ -3,21 +3,22 @@
 // [+ /confirm]), and navbar link visibility — keep them all calling this so the
 // access rule lives in exactly one place.
 //
-// Rule: superadmins always, plus anyone on the paid Metafy supporter tier
-// (users.metafy_supporter_tier === 'paid'), plus anyone a superadmin has
-// manually granted (users.volzar_access — the non-Metafy comp path). The
-// ads-only isMetafySupporter boolean is intentionally NOT part of this gate.
+// Rule (since 2026-07): Volzar is standard for every signed-in user — the
+// gate only distinguishes signed-in (flags present) from signed-out
+// (null/undefined). Cost control lives in the daily message limits
+// (lib/ai/tiers.ts), NOT here. The flags interface is kept because callers
+// still pass their session/DB flags and the chat route reads isSuperAdmin
+// off it (model picking + quota exemption).
 
 import type { SupporterTier } from '@/lib/metafy/supporter-tier';
 
 export interface VolzarAccessFlags {
   isSuperAdmin?: boolean;
   metafySupporterTier?: SupporterTier | null;
-  /** Manual superadmin grant, independent of Metafy. */
+  /** Manual superadmin grant, independent of Metafy (pre-2026-07 comp path). */
   volzarAccess?: boolean | null;
 }
 
 export function canUseVolzar(flags: VolzarAccessFlags | null | undefined): boolean {
-  if (!flags) return false;
-  return !!flags.isSuperAdmin || flags.metafySupporterTier === 'paid' || !!flags.volzarAccess;
+  return !!flags;
 }

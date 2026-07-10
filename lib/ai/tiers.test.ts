@@ -1,52 +1,40 @@
 /**
- * Unit tests for hosted-chat tier policy: daily message budgets and per-tier
- * model access. Pure functions — no DB, no HTTP.
+ * Unit tests for hosted-chat limits policy: the uniform per-user daily
+ * message budget, the site-wide daily backstop, and model resolution.
+ * Pure functions — no DB, no HTTP.
  */
 
-import { describe, it, expect } from 'vitest';
-import { LLM_TIERS, resolveLlmTier, tierAllowsModel, resolveChatModel } from './tiers';
+import { describe, it, expect, afterEach } from 'vitest';
+import { LLM_LIMITS, globalDailyLimit, resolveChatModel } from './tiers';
 
-describe('resolveLlmTier', () => {
-  it('puts superadmins on the paid tier', () => {
-    expect(resolveLlmTier({ isSuperAdmin: true })).toBe('paid');
-    expect(resolveLlmTier({ isSuperAdmin: true, metafySupporterTier: 'free' })).toBe('paid');
+describe('LLM_LIMITS', () => {
+  it('gives every user the same 50-message daily budget', () => {
+    expect(LLM_LIMITS.dailyMessages).toBe(50);
   });
 
-  it('puts paid Metafy supporters on the paid tier', () => {
-    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'paid' })).toBe('paid');
-  });
-
-  it('puts manually-granted (volzarAccess) users on the paid tier', () => {
-    // Else a comped, non-Metafy user 403s on the paid-only default model.
-    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'free', volzarAccess: true })).toBe('paid');
-  });
-
-  it('defaults everyone else to free', () => {
-    expect(resolveLlmTier({ isSuperAdmin: false })).toBe('free');
-    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: 'free' })).toBe('free');
-    expect(resolveLlmTier({ isSuperAdmin: false, metafySupporterTier: null })).toBe('free');
+  it('defines a site-wide daily backstop well above the per-user cap', () => {
+    expect(LLM_LIMITS.globalDailyMessages).toBe(2000);
+    expect(LLM_LIMITS.globalDailyMessages).toBeGreaterThan(LLM_LIMITS.dailyMessages);
   });
 });
 
-describe('LLM_TIERS', () => {
-  it('defines a positive daily message budget for every tier, free below paid', () => {
-    expect(LLM_TIERS.free.dailyMessages).toBeGreaterThan(0);
-    expect(LLM_TIERS.paid.dailyMessages).toBeGreaterThan(LLM_TIERS.free.dailyMessages);
-  });
-});
-
-describe('tierAllowsModel', () => {
-  it('free tier allows mock and :free-suffixed models only', () => {
-    expect(tierAllowsModel('free', 'mock')).toBe(true);
-    expect(tierAllowsModel('free', 'openai/gpt-oss-120b:free')).toBe(true);
-    expect(tierAllowsModel('free', 'openai/gpt-5-nano')).toBe(false);
-    expect(tierAllowsModel('free', 'anthropic/claude-haiku-4.5')).toBe(false);
+describe('globalDailyLimit', () => {
+  afterEach(() => {
+    delete process.env.VOLZAR_GLOBAL_DAILY_LIMIT;
   });
 
-  it('paid tier allows any allowlisted model', () => {
-    expect(tierAllowsModel('paid', 'mock')).toBe(true);
-    expect(tierAllowsModel('paid', 'openai/gpt-5-nano')).toBe(true);
-    expect(tierAllowsModel('paid', 'anthropic/claude-haiku-4.5')).toBe(true);
+  it('defaults to the policy constant', () => {
+    expect(globalDailyLimit()).toBe(LLM_LIMITS.globalDailyMessages);
+  });
+
+  it('is env-overridable for incident response without a deploy', () => {
+    process.env.VOLZAR_GLOBAL_DAILY_LIMIT = '100';
+    expect(globalDailyLimit()).toBe(100);
+  });
+
+  it('ignores garbage env values', () => {
+    process.env.VOLZAR_GLOBAL_DAILY_LIMIT = 'lots';
+    expect(globalDailyLimit()).toBe(LLM_LIMITS.globalDailyMessages);
   });
 });
 

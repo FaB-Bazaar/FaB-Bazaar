@@ -39,9 +39,12 @@ describe('POST /api/volzar/confirm', () => {
     expect((await POST(request({ id: 'c1', decision: 'confirm' }))).status).toBe(401);
   });
 
-  it('403s for users without Volzar access (free non-admin)', async () => {
+  it('lets a plain signed-in user resolve their own confirmation — Volzar is standard', async () => {
     mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: false, metafySupporterTier: 'free' } } as any);
-    expect((await POST(request({ id: 'c1', decision: 'confirm' }))).status).toBe(403);
+    const pendingDecision = waitForConfirmation({ userId: 'user-1', id: 'c-std' });
+    const res = await POST(request({ id: 'c-std', decision: 'confirm' }));
+    expect(res.status).toBe(200);
+    await expect(pendingDecision).resolves.toBe('confirm');
   });
 
   it('400s on malformed bodies', async () => {

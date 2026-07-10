@@ -318,16 +318,13 @@ export default function OptSearchPage() {
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
   // ── Bridge B: hand the current search off to the hosted Volzar chat ──
-  // Same access rule as the chat itself (canUseVolzar: superadmins + paid
-  // supporters). The href reuses the page's own URL params plus from=opt &
-  // total=N; the chat page parses them back into OptUiState and queues a
-  // context string for the first message.
+  // Same access rule as the chat itself (canUseVolzar — any signed-in user;
+  // pass null when signed out or the always-truthy flags object would open
+  // the gate for anonymous visitors). The href reuses the page's own URL
+  // params plus from=opt & total=N; the chat page parses them back into
+  // OptUiState and queues a context string for the first message.
   const { data: session } = useSession();
-  const canAskVolzar = canUseVolzar({
-    isSuperAdmin: session?.user?.roles?.isSuperAdmin,
-    metafySupporterTier: session?.user?.roles?.metafySupporterTier,
-    volzarAccess: session?.user?.roles?.volzarAccess,
-  });
+  const canAskVolzar = canUseVolzar(session?.user ? (session.user.roles ?? {}) : null);
   const askVolzarHref = `/volzar?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
   const askVolzarLink = canAskVolzar && hasAnyFilter && (
     <Link

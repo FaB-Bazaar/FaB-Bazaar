@@ -10,7 +10,7 @@ vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
   userService: { getVolzarAccess: vi.fn() },
   oauthFlowService: { generateAccessToken: vi.fn().mockReturnValue('jwt-token') },
-  llmUsageService: { getTodayRequestCount: vi.fn(), recordTurn: vi.fn() },
+  llmUsageService: { getTodayRequestCount: vi.fn(), getTodayGlobalRequestCount: vi.fn(), recordTurn: vi.fn() },
 }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn() }));
 vi.mock('@/lib/ai/mcp-bridge', () => ({
@@ -35,6 +35,7 @@ const mockFetchLiteTools = vi.mocked(fetchLiteTools);
 const mockFetchToolsByName = vi.mocked(fetchToolsByName);
 const mockExecuteTool = vi.mocked(executeTool);
 const mockGetTodayRequestCount = vi.mocked(llmUsageService.getTodayRequestCount);
+const mockGetTodayGlobalRequestCount = vi.mocked(llmUsageService.getTodayGlobalRequestCount);
 const mockRecordTurn = vi.mocked(llmUsageService.recordTurn);
 
 const LITE_TOOLS = {
@@ -107,8 +108,13 @@ beforeEach(() => {
   mockFetchToolsByName.mockResolvedValue({ tools: [], validNames: new Set() } as any);
   mockExecuteTool.mockResolvedValue({ ok: true, content: 'Your Binders (9 total)' });
   mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 0 });
+  mockGetTodayGlobalRequestCount.mockResolvedValue({ success: true, data: 0 });
   mockRecordTurn.mockResolvedValue({ success: true, data: undefined });
 });
+
+/** A plain signed-in user: no supporter tier, no grants — quotas apply. */
+const standardAccess = () =>
+  mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: false, metafySupporterTier: 'free' } } as any);
 
 describe('POST /api/volzar', () => {
   it('401s without a session', async () => {
@@ -117,10 +123,11 @@ describe('POST /api/volzar', () => {
     expect(res.status).toBe(401);
   });
 
-  it('403s for free-tier non-admins (no Volzar access)', async () => {
-    mockGetAccess.mockResolvedValue({ success: true, data: { isSuperAdmin: false, metafySupporterTier: 'free' } } as any);
+  it('streams for a plain signed-in user — Volzar is standard, no supporter gate', async () => {
+    standardAccess();
     const res = await POST(request(VALID_BODY));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    await readSseEvents(res); // drain so this turn's done doesn't bleed into later tests
   });
 
   it('allows paid Metafy supporters who are not admins', async () => {
@@ -128,6 +135,13 @@ describe('POST /api/volzar', () => {
     const res = await POST(request(VALID_BODY));
     expect(res.status).toBe(200);
     await readSseEvents(res); // drain so this turn's done doesn't bleed into later tests
+  });
+
+  it('still streams when the access-flags read fails — access is universal, flags only feed isSuperAdmin', async () => {
+    mockGetAccess.mockResolvedValue({ success: false, error: 'db down' } as any);
+    const res = await POST(request(VALID_BODY));
+    expect(res.status).toBe(200);
+    await readSseEvents(res);
   });
 
   it('429s with rate-limit headers when the limit is hit', async () => {
@@ -189,6 +203,7 @@ describe('POST /api/volzar', () => {
   });
 
   it('429s with a pre-stream JSON error when the daily message budget is exhausted', async () => {
+    standardAccess();
     mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 10_000 });
     const res = await POST(request(VALID_BODY));
 
@@ -198,8 +213,29 @@ describe('POST /api/volzar', () => {
     expect(body.error).toMatch(/daily message limit/i);
   });
 
-  it('fails open when the quota read errors — availability over enforcement', async () => {
+  it('429s when the site-wide daily backstop is exhausted, even if this user has quota left', async () => {
+    standardAccess();
+    mockGetTodayGlobalRequestCount.mockResolvedValue({ success: true, data: 1_000_000 });
+    const res = await POST(request(VALID_BODY));
+
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toMatch(/capacity/i);
+  });
+
+  it('exempts superadmins from both daily caps (operator accounts)', async () => {
+    // beforeEach access is superadmin
+    mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 10_000 });
+    mockGetTodayGlobalRequestCount.mockResolvedValue({ success: true, data: 1_000_000 });
+    const res = await POST(request(VALID_BODY));
+    expect(res.status).toBe(200);
+    await readSseEvents(res);
+  });
+
+  it('fails open when the quota reads error — availability over enforcement', async () => {
+    standardAccess();
     mockGetTodayRequestCount.mockResolvedValue({ success: false, error: 'db down' });
+    mockGetTodayGlobalRequestCount.mockResolvedValue({ success: false, error: 'db down' });
     const res = await POST(request(VALID_BODY));
     expect(res.status).toBe(200);
     await readSseEvents(res); // drain so this turn's done doesn't bleed into later tests
@@ -220,8 +256,10 @@ describe('POST /api/volzar', () => {
   });
 
   it('checks the quota for the requesting user before streaming', async () => {
+    standardAccess();
     await readSseEvents(await POST(request(VALID_BODY)));
     expect(mockGetTodayRequestCount).toHaveBeenCalledWith('user-1');
+    expect(mockGetTodayGlobalRequestCount).toHaveBeenCalled();
   });
 
   it('pauses a destructive tool call until the user confirms, then executes it', async () => {

@@ -82,6 +82,23 @@ export class PostgresLlmUsageService {
     }
   }
 
+  /**
+   * Requests made today (UTC) across ALL users — the site-wide backstop
+   * input. One indexed aggregate; called once per chat turn.
+   */
+  async getTodayGlobalRequestCount(): AsyncResult<number> {
+    try {
+      const [row] = await db
+        .select({ requests: sql<number>`coalesce(sum(${llmUsageDaily.requests}), 0)::int` })
+        .from(llmUsageDaily)
+        .where(eq(llmUsageDaily.usageDate, todayUtc()));
+
+      return { success: true, data: row?.requests ?? 0 };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Failed to read LLM usage' };
+    }
+  }
+
   /** Per-model daily rows plus totals for one user over the last `days` days. */
   async getUserUsage(userId: string, days: number): AsyncResult<LlmUsageSummary> {
     try {

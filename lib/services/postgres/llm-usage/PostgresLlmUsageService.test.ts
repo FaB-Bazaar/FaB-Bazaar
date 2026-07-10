@@ -58,6 +58,48 @@ describe('recordTurn', () => {
   });
 });
 
+describe('getTodayGlobalRequestCount', () => {
+  it('sums today\'s requests across ALL users (the site-wide backstop input)', async () => {
+    const otherUserId = crypto.randomUUID();
+    await db.insert(users).values({ id: otherUserId, username: `test-${otherUserId}` });
+    try {
+      const before = await service.getTodayGlobalRequestCount();
+      expect(before.success).toBe(true);
+      if (!before.success) return;
+
+      await service.recordTurn({ userId: testUserId, model: 'mock', promptTokens: 1, completionTokens: 1 });
+      await service.recordTurn({ userId: testUserId, model: 'mock', promptTokens: 1, completionTokens: 1 });
+      await service.recordTurn({ userId: otherUserId, model: 'mock', promptTokens: 1, completionTokens: 1 });
+
+      const after = await service.getTodayGlobalRequestCount();
+      expect(after.success).toBe(true);
+      if (!after.success) return;
+      expect(after.data).toBe(before.data + 3);
+    } finally {
+      await db.delete(users).where(eq(users.id, otherUserId));
+    }
+  });
+
+  it('ignores previous days — the backstop resets at midnight UTC', async () => {
+    const before = await service.getTodayGlobalRequestCount();
+    if (!before.success) throw new Error(before.error);
+
+    // A heavy day yesterday must not count against today's backstop.
+    await db.insert(llmUsageDaily).values({
+      usageDate: new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10),
+      userId: testUserId,
+      model: 'mock',
+      requests: 500,
+      promptTokens: 1,
+      completionTokens: 1,
+    });
+
+    const after = await service.getTodayGlobalRequestCount();
+    if (!after.success) throw new Error(after.error);
+    expect(after.data).toBe(before.data);
+  });
+});
+
 describe('getTodayRequestCount', () => {
   it('sums requests across models for the current UTC day', async () => {
     await service.recordTurn({ userId: testUserId, model: 'mock', promptTokens: 1, completionTokens: 1 });

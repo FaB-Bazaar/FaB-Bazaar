@@ -55,10 +55,9 @@ describe('VolzarPage signed-out handling', () => {
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect((result as ReactElement).type).toBe(AccessGate);
-    expect((result as any).props.signedOut).toBe(true);
   });
 
-  it('still shows the supporter gate (not signed-out variant) to signed-in users without access', async () => {
+  it('renders the chat for any signed-in user — Volzar is standard, no supporter gate', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
     mockGetVolzarAccess.mockResolvedValue({
       success: true,
@@ -67,14 +66,15 @@ describe('VolzarPage signed-out handling', () => {
 
     const result = await VolzarPage({ searchParams: emptySearchParams() });
 
-    expect((result as ReactElement).type).toBe(AccessGate);
-    expect((result as any).props.signedOut).toBeFalsy();
+    expect((result as ReactElement).type).not.toBe(AccessGate);
+    const chats = findElements(result, (el) => (el.props as any)?.username === 'bob');
+    expect(chats.length).toBe(1);
   });
 });
 
-describe('AccessGate signed-out variant', () => {
+describe('AccessGate (signed-out gate)', () => {
   it('offers a sign-in link that returns to /volzar after login', () => {
-    const tree = AccessGate({ signedOut: true });
+    const tree = AccessGate();
 
     const signInLinks = findElements(
       tree,
@@ -83,15 +83,5 @@ describe('AccessGate signed-out variant', () => {
         && (el.props as any).href.includes('callbackUrl=%2Fvolzar'),
     );
     expect(signInLinks.length).toBeGreaterThan(0);
-  });
-
-  it('keeps the supporter CTAs for signed-in users without access', () => {
-    const tree = AccessGate({});
-
-    const metafyLinks = findElements(
-      tree,
-      (el) => (el.props as any)?.href === '/metafy',
-    );
-    expect(metafyLinks.length).toBeGreaterThan(0);
   });
 });

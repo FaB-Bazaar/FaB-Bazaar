@@ -1,6 +1,5 @@
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
-import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
 import { AccessGate } from './AccessGate';
@@ -9,14 +8,11 @@ import { describeOptState, optStateToChips } from '@/lib/search/opt-state-descri
 
 export const dynamic = 'force-dynamic';
 
-// Hosted AI tier: server-side agent loop over the lite MCP toolset, streamed to
-// the browser. Access = superadmins + paid Metafy supporters, gated through the
-// single source of truth (canUseVolzar), read fresh from the DB.
-//
-// On open we lazily re-verify the supporter's Metafy membership (throttled by a
-// TTL): a lapsed/cancelled subscriber is downgraded here and then bounced to the
-// home page by the gate below — so access reflects their CURRENT subscription,
-// not just what it was at link time.
+// Hosted AI: server-side agent loop over the lite MCP toolset, streamed to
+// the browser. Standard for every signed-in user (2026-07); usage limits are
+// enforced by the API route (lib/ai/tiers.ts). The Metafy tier re-verify
+// stays (TTL-throttled) — tier no longer gates access, but keeping the flag
+// fresh serves every other supporter surface.
 export default async function VolzarPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
@@ -26,19 +22,16 @@ export default async function VolzarPage({ searchParams }: {
   // Signed out → the gate with a sign-in CTA (callbackUrl brings them back
   // here), NOT an instant redirect: link crawlers (Discord/Twitter) are always
   // anonymous, and a 307 would hide this route's OG tags behind the login
-  // page's. No access → the same explanatory gate: lapsed supporters get
-  // downgraded by the re-verify below and need to see why the page "stopped
-  // working".
+  // page's.
   if (!user?.id) {
-    return <AccessGate signedOut />;
+    return <AccessGate />;
   }
 
   await syncSupporterTierIfStale(user.id);
 
+  // Flags feed only isSuperAdmin (model picker) now — a failed read degrades
+  // to a standard user instead of blocking the page.
   const access = await userService.getVolzarAccess(user.id);
-  if (!access.success || !canUseVolzar(access.data)) {
-    return <AccessGate />;
-  }
 
   // Bridge B: /opt hands its current search off via its own URL params plus
   // from=opt & total=N. The context string rides the pendingContext queue
@@ -67,7 +60,7 @@ export default async function VolzarPage({ searchParams }: {
     };
   }
 
-  const isSuperAdmin = !!access.data?.isSuperAdmin;
+  const isSuperAdmin = access.success && !!access.data?.isSuperAdmin;
   const mockMode = !process.env.OPENROUTER_API_KEY;
   // Ordered cheapest → most expensive ($/M input); default (models[0]) is the
   // cheapest paid model. The free tier is intentionally omitted — it's

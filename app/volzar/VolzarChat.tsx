@@ -12,8 +12,6 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
-import { useSession } from 'next-auth/react';
-import { canUseVolzar } from '@/lib/ai/volzar-access';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
@@ -755,29 +753,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   // sizes itself to end where the legal footer starts). Until consent is
   // given, shrink the chat by the banner's measured height so the input stays
   // reachable. ResizeObserver tracks the banner's responsive wrapping.
-  // Self-heal stale session flags: rendering at all means the server gate
-  // (fresh DB read) passed, so if the client session token still FAILS the
-  // access check it was minted before the grant / tier change. Refresh it
-  // once so the navbar entry, homepage redirect, and /opt handoff light up
-  // without a re-login.
-  const { data: session, status: sessionStatus, update: updateSession } = useSession();
-  const sessionHealedRef = useRef(false);
-  useEffect(() => {
-    if (sessionHealedRef.current || sessionStatus !== 'authenticated') return;
-    const roles = session?.user?.roles;
-    if (!canUseVolzar({
-      isSuperAdmin: roles?.isSuperAdmin,
-      metafySupporterTier: roles?.metafySupporterTier,
-      volzarAccess: roles?.volzarAccess,
-    })) {
-      sessionHealedRef.current = true;
-      // NB: update() with NO argument is a plain GET in next-auth v5 — the
-      // jwt callback never sees trigger === 'update' and nothing refreshes.
-      // Pass an (ignored) object to force the POST that triggers the DB
-      // re-read in auth.ts.
-      void updateSession({});
-    }
-  }, [session, sessionStatus, updateSession]);
+  // (The old session self-heal effect is gone: it refreshed stale JWT role
+  // flags so mid-session access grants lit up the navbar/tab-bar gates.
+  // Volzar is standard for all signed-in users now, so those gates no longer
+  // read role flags — nothing left to heal.)
 
   // Bridge B's ?from=opt&… params were consumed by the server render (context
   // queued, data card seeded). Strip them so a reload or bookmark doesn't
