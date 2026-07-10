@@ -1,5 +1,4 @@
 import { auth } from '@/auth';
-import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
 import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
@@ -24,12 +23,14 @@ export default async function VolzarPage({ searchParams }: {
   const session = await auth();
   const user = session?.user;
 
-  // Signed out → sign-in with a way back here (a shared /volzar link should
-  // survive the round-trip). No access → an explanatory gate, NOT a silent
-  // bounce: lapsed supporters get downgraded by the re-verify below and need
-  // to see why the page "stopped working".
+  // Signed out → the gate with a sign-in CTA (callbackUrl brings them back
+  // here), NOT an instant redirect: link crawlers (Discord/Twitter) are always
+  // anonymous, and a 307 would hide this route's OG tags behind the login
+  // page's. No access → the same explanatory gate: lapsed supporters get
+  // downgraded by the re-verify below and need to see why the page "stopped
+  // working".
   if (!user?.id) {
-    redirect('/auth/login?callbackUrl=%2Fvolzar');
+    return <AccessGate signedOut />;
   }
 
   await syncSupporterTierIfStale(user.id);
