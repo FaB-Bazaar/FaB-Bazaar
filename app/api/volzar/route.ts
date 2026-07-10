@@ -16,7 +16,7 @@ import { runAgentLoop } from '@/lib/ai/agent-loop';
 import { createLlm } from '@/lib/ai/openrouter';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
-import { LLM_LIMITS, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
+import { dailyLimitFor, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
 import { assembleMessages } from './prompt';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
@@ -158,13 +158,16 @@ export async function POST(req: Request) {
   // (operator accounts; whoever diagnoses a tripped backstop must not be
   // locked out by it).
   if (!isSuperAdmin) {
+    // Standard budget for everyone; a manual volzar_access grant
+    // (/admin/user-access) boosts it — the escalation path the message names.
+    const dailyLimit = dailyLimitFor(access.success ? access.data : undefined);
     const [usedToday, usedGlobally] = await Promise.all([
       llmUsageService.getTodayRequestCount(user.id),
       llmUsageService.getTodayGlobalRequestCount(),
     ]);
-    if (usedToday.success && usedToday.data >= LLM_LIMITS.dailyMessages) {
+    if (usedToday.success && usedToday.data >= dailyLimit) {
       return NextResponse.json(
-        { error: `Daily message limit reached (${LLM_LIMITS.dailyMessages}/day) — resets at midnight UTC` },
+        { error: `Daily message limit reached (${dailyLimit}/day) — resets at midnight UTC. Contact mistercakes on the Discord server to increase your limit.` },
         { status: 429 },
       );
     }

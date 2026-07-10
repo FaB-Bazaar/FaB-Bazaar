@@ -14,14 +14,27 @@
 export interface LlmLimits {
   /** Chat turns per user per UTC day, across all models. Resets midnight UTC. */
   dailyMessages: number;
+  /** Daily budget for manual volzar_access grants (see dailyLimitFor). */
+  boostedDailyMessages: number;
   /** Chat turns per UTC day across ALL users — runaway-cost insurance. */
   globalDailyMessages: number;
 }
 
 export const LLM_LIMITS: LlmLimits = {
   dailyMessages: 50,
+  boostedDailyMessages: 200,
   globalDailyMessages: 2000,
 };
+
+/**
+ * Per-user daily budget. Uniform for everyone — supporters included, by
+ * design — EXCEPT manual `users.volzar_access` grants (the /admin/user-access
+ * toggle): that's the "contact mistercakes on Discord" escalation lever the
+ * quota-exceeded message points at.
+ */
+export function dailyLimitFor(flags: { volzarAccess?: boolean | null } | null | undefined): number {
+  return flags?.volzarAccess ? LLM_LIMITS.boostedDailyMessages : LLM_LIMITS.dailyMessages;
+}
 
 /**
  * Site-wide daily cap, overridable via VOLZAR_GLOBAL_DAILY_LIMIT for incident

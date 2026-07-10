@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { LLM_LIMITS, globalDailyLimit, resolveChatModel } from './tiers';
+import { LLM_LIMITS, globalDailyLimit, dailyLimitFor, resolveChatModel } from './tiers';
 
 describe('LLM_LIMITS', () => {
   it('gives every user the same 50-message daily budget', () => {
@@ -15,6 +15,20 @@ describe('LLM_LIMITS', () => {
   it('defines a site-wide daily backstop well above the per-user cap', () => {
     expect(LLM_LIMITS.globalDailyMessages).toBe(2000);
     expect(LLM_LIMITS.globalDailyMessages).toBeGreaterThan(LLM_LIMITS.dailyMessages);
+  });
+});
+
+describe('dailyLimitFor', () => {
+  it('boosts a manual volzar_access grant — the "contact mistercakes" lever', () => {
+    expect(dailyLimitFor({ volzarAccess: true })).toBe(LLM_LIMITS.boostedDailyMessages);
+    expect(LLM_LIMITS.boostedDailyMessages).toBeGreaterThan(LLM_LIMITS.dailyMessages);
+  });
+
+  it('everyone else gets the standard budget — supporters included (uniform by design)', () => {
+    expect(dailyLimitFor({})).toBe(LLM_LIMITS.dailyMessages);
+    expect(dailyLimitFor({ metafySupporterTier: 'paid' })).toBe(LLM_LIMITS.dailyMessages);
+    expect(dailyLimitFor(undefined)).toBe(LLM_LIMITS.dailyMessages);
+    expect(dailyLimitFor(null)).toBe(LLM_LIMITS.dailyMessages);
   });
 });
 

@@ -211,6 +211,20 @@ describe('POST /api/volzar', () => {
     expect(res.headers.get('Content-Type')).toContain('application/json');
     const body = await res.json();
     expect(body.error).toMatch(/daily message limit/i);
+    // the escalation path is in the message — the admin can boost via /admin/user-access
+    expect(body.error).toMatch(/mistercakes/i);
+    expect(body.error).toMatch(/discord/i);
+  });
+
+  it('a manual volzar_access grant boosts the daily budget past the standard cap', async () => {
+    mockGetAccess.mockResolvedValue({
+      success: true,
+      data: { isSuperAdmin: false, metafySupporterTier: 'free', volzarAccess: true },
+    } as any);
+    mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 100 }); // over 50, under boost
+    const res = await POST(request(VALID_BODY));
+    expect(res.status).toBe(200);
+    await readSseEvents(res);
   });
 
   it('429s when the site-wide daily backstop is exhausted, even if this user has quota left', async () => {
