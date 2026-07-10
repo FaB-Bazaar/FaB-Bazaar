@@ -1298,7 +1298,13 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.keywords && filters.keywords.length > 0) {
-      conditions.push(sql`${cards.keywords} && ARRAY[${sql.join(lc(filters.keywords).map(t => sql`${t}`), sql`, `)}]::text[]`);
+      // Parameterized keywords are stored WITH their value ("arcane barrier 1",
+      // "amp x") — the base form must match every variant, so match exact OR
+      // "<keyword> <value>" prefix. Exact overlap alone returns 0 for
+      // "arcane barrier" and reads as "no such cards".
+      conditions.push(or(...lc(filters.keywords).map((k) =>
+        sql`EXISTS (SELECT 1 FROM unnest(${cards.keywords}) AS kw WHERE kw = ${k} OR kw LIKE ${`${k} %`})`,
+      ))!);
     }
 
     // Class and talent are both card affiliations. By default each constrains
@@ -1755,7 +1761,12 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.keywordsNot && filters.keywordsNot.length > 0) {
-      conditions.push(sql`NOT (${cards.keywords} && ${lc(filters.keywordsNot)})`);
+      // Variant-aware like the positive filter above. (The old raw-array
+      // interpolation `&& ${array}` also produced invalid SQL — this path
+      // errored on every call.)
+      for (const k of lc(filters.keywordsNot)) {
+        conditions.push(sql`NOT EXISTS (SELECT 1 FROM unnest(${cards.keywords}) AS kw WHERE kw = ${k} OR kw LIKE ${`${k} %`})`);
+      }
     }
 
     if (filters.textNot) {

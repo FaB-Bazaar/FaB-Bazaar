@@ -58,7 +58,7 @@ import { LayoutGrid } from 'lucide-react';
 const SUGGESTED_PROMPTS: Array<{ icon: LucideIcon; text: string }> = [
   { icon: TrendingUp, text: 'What are the top decks in the meta right now?' },
   { icon: BookOpen, text: 'Which Decks to Beat could I build mostly from my collection?' },
-  { icon: Search, text: 'Find budget generic attack actions under $1 with go again' },
+  { icon: Search, text: 'Find all Ninja armor that has arcane barrier' },
   { icon: BarChart3, text: 'How are my decks performing in my recent games?' },
 ];
 
