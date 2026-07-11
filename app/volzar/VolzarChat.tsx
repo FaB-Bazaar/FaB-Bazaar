@@ -2553,6 +2553,26 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
 
+        {/* Hovered-card preview — LARGE, in the rail's dead space under the
+            launchers, while the workspace occupies the right column (the
+            right preview rail is hidden then). Persists after unhover so the
+            add/swap buttons stay reachable. */}
+        {workspace && previewCard && (
+          <div data-testid="rail-preview" className="hidden lg:block">
+            <CardPreviewPanel
+              card={previewCard}
+              imageClassName="max-h-[32dvh] w-auto mx-auto rounded-md"
+              railStatus={railStatus}
+              onAddToWants={addPreviewToWants}
+              onAddToBinder={addPreviewToBinder}
+              onSwapPrinting={openSwap}
+              swapBusy={swapBusy}
+              binderOptions={binderOptions}
+              targetBinderId={targetBinderId}
+              onTargetBinderChange={setTargetBinderId}
+            />
+          </div>
+        )}
         </div>
         {/* end instant rail */}
 
@@ -3364,52 +3384,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </div>
           )}
         </div>
-        {/* Hovered-card preview docks at the panel foot (the rail is hidden
-            while the workspace is open) */}
-        {previewCard && (
-          <div className="flex items-center gap-2.5 border-t border-border px-3 py-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewCard.imageUrl} alt={previewCard.name} className="h-16 w-auto rounded max-w-none" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{previewCard.name}</p>
-              {(previewCard.priceLow != null || previewCard.priceMarket != null) && (
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {previewCard.priceLow != null && <>Low <span className="text-green-700 dark:text-green-400 font-semibold">${previewCard.priceLow.toFixed(2)}</span></>}
-                  {previewCard.priceLow != null && previewCard.priceMarket != null && ' · '}
-                  {previewCard.priceMarket != null && <>Market ${previewCard.priceMarket.toFixed(2)}</>}
-                </p>
-              )}
-            </div>
-            {previewCard.printingId && (
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={addPreviewToWants}
-                  disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
-                  aria-label="Add to wants"
-                  title="Add to wants"
-                  className={`rounded-md border border-border p-1.5 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                >
-                  {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    : railStatus.wants === 'done' ? <Check className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
-                    : <Heart className="h-4 w-4 text-rose-700 dark:text-rose-400" aria-hidden="true" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={addPreviewToBinder}
-                  disabled={!targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
-                  aria-label="Add to binder"
-                  title={`Add to binder${binderOptions.find((b) => b._id === targetBinderId)?.name ? ` — ${binderOptions.find((b) => b._id === targetBinderId)!.name}` : ''}`}
-                  className={`rounded-md border border-border p-1.5 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                >
-                  {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    : railStatus.binder === 'done' ? <Check className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
-                    : <FolderPlus className="h-4 w-4 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </aside>
     ) : railHasContent ? (
     // The rail only appears once something hoverable is on screen (a card
