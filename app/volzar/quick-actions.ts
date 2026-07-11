@@ -504,8 +504,20 @@ export function summarizeDeckContents(deck: {
     pitch: c.printingDetails?.pitch,
     preview: toCardPreview(c, label(c)),
   });
-  const contextLine = (c: DeckCard) =>
-    `${c.quantity ?? 1}x ${label(c)}${c.printingDetails?.pitch ? ` (p${c.printingDetails.pitch})` : ''}`;
+  // Context lines carry pitch + cost + the printed type line, so "describe
+  // this deck" answers classify from DATA instead of the model's memory (it
+  // once bucketed Sink Below, a defense reaction, under attacks). The hero's
+  // rules text rides along too — game-plan answers hinge on it.
+  const contextLine = (c: DeckCard, withText = false) => {
+    const pd = c.printingDetails as Record<string, unknown> | undefined;
+    const parts = [
+      pd?.pitch ? `p${pd.pitch}` : null,
+      typeof pd?.cost === 'number' ? `cost ${pd.cost}` : null,
+      typeof pd?.type_text_display === 'string' && pd.type_text_display ? pd.type_text_display : null,
+    ].filter(Boolean);
+    const text = withText && typeof pd?.text === 'string' && pd.text ? ` — ability: "${pd.text}"` : '';
+    return `${c.quantity ?? 1}x ${label(c)}${parts.length ? ` (${parts.join(', ')})` : ''}${text}`;
+  };
 
   const sections: Array<[string, DeckCard[]]> = [
     ['Hero', deck.hero ?? []],
@@ -523,7 +535,8 @@ export function summarizeDeckContents(deck: {
     const total = cards.reduce((sum, c) => sum + (c.quantity ?? 1), 0);
     lines.push(`— ${sectionName} (${total}) —`);
     lines.push(...cards.map(cardLine));
-    contextParts.push(`${sectionName}: ${cards.map(contextLine).join(', ')}`);
+    const withText = sectionName === 'Hero'; // hero ability text only — ~50 tokens, not 70 cards' worth
+    contextParts.push(`${sectionName}: ${cards.map((c) => contextLine(c, withText)).join(', ')}`);
   }
   // Instant, no-AI color breakdown of the maindeck — answers "how many blue
   // cards" the moment you open a deck, computed from pitch (not the LLM).

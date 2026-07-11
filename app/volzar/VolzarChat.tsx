@@ -192,7 +192,9 @@ const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' 
 const DECK_AI_PROMPTS: Array<{ label: string; build: (deckName: string) => string }> = [
   {
     label: 'Describe this deck',
-    build: (n) => `Describe the deck "${n}": its card types and quantities, cost curve, and the overall game plan.`,
+    build: (n) => `Describe the deck "${n}": its card types and quantities, cost curve, and the overall game plan. `
+      + `Classify every card STRICTLY by the type, pitch, and cost given in the deck context — do not re-categorize from memory. `
+      + `If you need a card's rules text beyond the hero ability in the context, look it up with search_printings instead of characterizing it from memory.`,
   },
   {
     label: 'What else fits?',

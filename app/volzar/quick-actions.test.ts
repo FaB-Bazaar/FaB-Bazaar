@@ -1257,3 +1257,42 @@ describe('deckShapeSummary (the df.describe() line)', () => {
     expect(s).toContain('+ 2 more');
   });
 });
+
+describe('summarizeDeckContents — self-sufficient AI context (no tool call needed)', () => {
+  const rich = (name: string, quantity: number, extra: Record<string, unknown>) => ({
+    quantity,
+    printingDetails: { display_name: name, image_url: `https://img/${name}`, ...extra },
+  }) as any;
+
+  it('context lines carry pitch, cost, and the printed type so the model never guesses card roles', () => {
+    const result = summarizeDeckContents({
+      name: 'Teklosaucen',
+      maindeck: [
+        rich('Command and Conquer', 3, { pitch: 1, cost: 2, type_text_display: 'Generic Action - Attack' }),
+        rich('Sink Below', 3, { pitch: 1, cost: 0, type_text_display: 'Generic Defense Reaction' }),
+      ],
+    });
+    expect(result.context).toContain('3x Command and Conquer (p1, cost 2, Generic Action - Attack)');
+    expect(result.context).toContain('3x Sink Below (p1, cost 0, Generic Defense Reaction)');
+  });
+
+  it('degrades gracefully when cost/type are absent (legacy payloads keep the old shape)', () => {
+    const result = summarizeDeckContents({
+      name: 'Old',
+      maindeck: [rich('Overcrowded', 3, { pitch: 3 })],
+    });
+    expect(result.context).toContain('3x Overcrowded (p3)');
+  });
+
+  it("includes the hero's actual rules text in context — game-plan answers hinge on it", () => {
+    const result = summarizeDeckContents({
+      name: 'Teklosaucen',
+      hero: [rich('Teklovossen, Esteemed Magnate', 1, {
+        type_text_display: 'Mechanologist Hero',
+        text: 'you may play evos from your banished zone.',
+      })],
+      maindeck: [rich('Overcrowded', 3, { pitch: 3 })],
+    });
+    expect(result.context).toContain('you may play evos from your banished zone');
+  });
+});
