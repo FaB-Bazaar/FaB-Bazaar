@@ -494,13 +494,11 @@ const STRIP_ACCENT_DOT: Record<NonNullable<StripSection['accent']>, string> = {
  * page's tile treatment — a 63/53 stacked crop of the card image (name bar +
  * art on top, the stats bar below; the text box is cut out) with a ×qty badge
  * — under deck-page style sections (maindeck split by pitch color).
- * Hover/focus a tile → `onHoverRow` floats the full-card detail overlay over
- * the chat column; the header toggle switches to the full table.
+ * Hover/focus a tile → the LARGE left-rail preview updates (via onPreview);
  */
-function WorkspaceStrips({ sections, onPreview, onHoverRow, ownership, onTileClick }: {
+function WorkspaceStrips({ sections, onPreview, ownership, onTileClick }: {
   sections: StripSection[];
   onPreview: (preview: CardPreview) => void;
-  onHoverRow: (row: CardRow | null) => void;
   /** printingId → owned/needed; renders the deck-page green/amber/red dot. */
   ownership?: DeckOwnership | null;
   /** Editable decks: click opens the tile action menu (hero tiles excluded). */
@@ -510,8 +508,6 @@ function WorkspaceStrips({ sections, onPreview, onHoverRow, ownership, onTileCli
     <div
       data-testid="workspace-strips"
       className="space-y-3 px-0.5 py-0.5"
-      onMouseLeave={() => onHoverRow(null)}
-      onBlur={() => onHoverRow(null)}
     >
       {sections.map((sec, si) => (
         <section key={`${sec.title}-${si}`}>
@@ -523,7 +519,7 @@ function WorkspaceStrips({ sections, onPreview, onHoverRow, ownership, onTileCli
           )}
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
             {sec.rows.map((r, ri) => {
-              const show = () => { onPreview(r.preview); onHoverRow(r); };
+              const show = () => onPreview(r.preview);
               const clickable = onTileClick && sec.sourceTitle !== 'Hero';
               const own = r.preview.printingId ? ownership?.get(r.preview.printingId) : undefined;
               const ownState = own ? (own.owned >= (r.qty ?? 1) ? 'full' : own.owned === 0 ? 'none' : 'partial') : null;
@@ -1123,9 +1119,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // (glanceable reference); binders/comparisons default to the table, whose
   // rows carry their primary actions (± qty, quick-add).
   const [workspaceView, setWorkspaceView] = useState<'strips' | 'table'>('strips');
-  // Row under the cursor in the strip view — floats the full-card detail
-  // overlay over the chat column (the rail's spot is taken by the panel).
-  const [stripHover, setStripHover] = useState<CardRow | null>(null);
   // Tile action menu (editable decks): click a tile → add/remove copy,
   // delete all, move to inventory/bench, swap printing — the deck page's
   // tile actions, chat-side. Clicking a tile deliberately does NOT expand
@@ -1136,7 +1129,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // Best-effort: one instant inventory-comparison fetch per deck open.
   const [deckOwnership, setDeckOwnership] = useState<DeckOwnership | null>(null);
   useEffect(() => {
-    setStripHover(null);
     if (!workspaceUid) return;
     // The workspace is a constant-width reference rail; the composer gets DOM
     // focus — deck work happens FROM the chat. Desktop only (the aside isn't
@@ -2542,48 +2534,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           className="relative flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
         >
 
-        {/* Full-card detail overlay for the workspace strip view — floats
-            centered over the chat column (the rail's spot is taken by the
-            panel) while a tile is hovered. Non-interactive by design:
-            pointer-events-none keeps tile hover tracking unbroken. */}
-        {stripHover && (
-          <div
-            data-testid="strip-hover-card"
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 z-20 hidden lg:flex items-center justify-center"
-          >
-            <div className="flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card/95 px-5 py-4 shadow-2xl backdrop-blur-sm">
-              {stripHover.image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={stripHover.image} alt="" className="w-64 max-w-none rounded-xl shadow-lg" />
-              )}
-              <div className="text-center">
-                <p className="font-semibold">
-                  {(stripHover.qty ?? 1) > 1 ? `${stripHover.qty}× ` : ''}{stripHover.name}
-                </p>
-                {stripHover.type && (
-                  <p className="text-xs text-gray-600 dark:text-gray-300">{stripHover.type}</p>
-                )}
-                {(stripHover.collector || stripHover.foiling) && (
-                  <p className="text-xs text-gray-600 dark:text-gray-300">
-                    {[stripHover.collector, FOIL_LABEL[stripHover.foiling ?? ''], stripHover.extendedArt ? 'EA' : undefined]
-                      .filter(Boolean).join(' · ')}
-                  </p>
-                )}
-                {(stripHover.preview.priceLow != null || stripHover.preview.priceMarket != null) && (
-                  <p className="text-sm">
-                    {stripHover.preview.priceLow != null && (
-                      <>Low <span className="font-semibold text-green-700 dark:text-green-400">${stripHover.preview.priceLow.toFixed(2)}</span></>
-                    )}
-                    {stripHover.preview.priceLow != null && stripHover.preview.priceMarket != null && ' · '}
-                    {stripHover.preview.priceMarket != null && <>Market ${stripHover.preview.priceMarket.toFixed(2)}</>}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Empty state: flexible spacer above the greeting + composer +
             prompts group so it reads as one centered block. The bottom spacer
             (after the prompts) is slightly larger, floating the group a touch
@@ -3295,7 +3245,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             {workspaceStripSections && (
               <button
                 type="button"
-                onClick={() => { setStripHover(null); setWorkspaceView((v) => (v === 'strips' ? 'table' : 'strips')); }}
+                onClick={() => setWorkspaceView((v) => (v === 'strips' ? 'table' : 'strips'))}
                 aria-label={workspaceView === 'strips' ? 'Show table' : 'Show strips'}
                 title={workspaceView === 'strips' ? 'Show table (details, prices, edit)' : 'Show strips (compact card view)'}
                 className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
@@ -3320,7 +3270,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             <WorkspaceStrips
               sections={workspaceStripSections}
               onPreview={showPreview}
-              onHoverRow={setStripHover}
               ownership={deckOwnership}
               onTileClick={workspace.mutate?.kind === 'deck'
                 ? (row, sourceTitle, e) => setTileMenu({ row, sourceTitle, x: e.clientX, y: e.clientY })
