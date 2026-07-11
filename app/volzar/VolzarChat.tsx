@@ -1838,14 +1838,18 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 </SelectContent>
               </Select>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={reset}
-              className={`ml-auto shrink-0 gap-1.5 ${focusRing}`}
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
-            </Button>
+            {/* Nothing to reset before the first turn — hiding the button
+                keeps the empty state down to title + composer (chat-app norm). */}
+            {!chatEmpty && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={reset}
+                className={`ml-auto shrink-0 gap-1.5 ${focusRing}`}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
+              </Button>
+            )}
           </div>
           {(mockMode || sessionUsage.input > 0) && (
             <div className="flex flex-wrap items-center gap-2">
@@ -1873,10 +1877,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         {/* Instant rail: quick actions + their pickers. Desktop: narrow left
             sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
         <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
-        {/* Quick actions — deterministic reads, zero AI tokens. One scrollable
-            strip on mobile (chips don't wrap); wraps at sm+; stacks at lg. */}
+        {/* Quick actions — deterministic reads, zero AI tokens. Hidden on
+            phones (< sm): the bottom tab bar's ⚡ Instant sheet covers the same
+            actions there and the chat page stays calm (mobile-chat norm).
+            Wrapping chips at sm+; stacked rail at lg. The pickers BELOW stay
+            renderable at every size — the sheet's "Decks to beat" deep link
+            opens one in-page on phones. */}
         <div
-          className="flex items-center gap-2 overflow-x-auto -mx-2 px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-x-visible lg:flex-col lg:items-stretch lg:gap-1.5"
+          className="hidden sm:flex items-center flex-wrap gap-2 lg:flex-col lg:items-stretch lg:gap-1.5"
           role="group"
           aria-label="Instant actions (no AI)"
         >
@@ -2815,7 +2823,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         {chatEmpty && (
           <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 pt-1">
             <div className="grid w-full gap-2 sm:grid-cols-2">
-              {promptList.map(({ icon, text }) => {
+              {promptList.map(({ icon, text }, i) => {
                 const PromptIcon = SUGGESTION_ICONS[icon] ?? Search;
                 return (
                   <button
@@ -2823,7 +2831,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                     type="button"
                     onClick={() => void sendTurn(text, text)}
                     disabled={busy}
-                    className={`flex items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                    // Phones show only the top two chips — the mobile-chat norm
+                    // is a calm empty state, not a wall of launcher cards.
+                    className={`${i >= 2 ? 'hidden sm:flex' : 'flex'} items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
                   >
                     <PromptIcon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
                     <span className="min-w-0">{text}</span>
@@ -2831,7 +2841,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 );
               })}
             </div>
-            <p className="max-w-xl text-center text-sm text-gray-600 dark:text-gray-300">
+            <p className="hidden sm:block max-w-xl text-center text-sm text-gray-600 dark:text-gray-300">
               The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
               above are instant and free — they open your lists directly. Chat when you want thinking:
               deck advice, searches, or “add 3 Command and Conquer to my binder”.
