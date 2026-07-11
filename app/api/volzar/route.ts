@@ -58,18 +58,19 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
-// Default model — what non-superadmins always run. TEMP trial (started
-// 2026-07-10): tencent/hy3:free, free on OpenRouter until 2026-07-21. Known
-// risk — free-tier models have previously 429'd on the first message under
-// load — so requests on it fall back to FALLBACK_MODEL (see createLlmWithFallback
-// below). Revert DEFAULT_PAID_MODEL to FALLBACK_MODEL when the trial ends.
-const DEFAULT_PAID_MODEL = 'tencent/hy3:free';
-const FALLBACK_MODEL = 'openai/gpt-oss-120b'; // pre-trial default — $0.03/M in
+// Default model — what non-superadmins always run (resolveChatModel pins them
+// here regardless of what the client sends; only superadmins can pick another
+// model). tencent/hy3:free stays in the allowlist for superadmin bake-offs
+// (free on OpenRouter until 2026-07-21) but is no longer the default — free
+// tiers have 429'd on the first message under load; requests that do land on
+// it still fall back (see createLlmWithFallback below).
+const DEFAULT_PAID_MODEL = 'openai/gpt-oss-120b'; // $0.03/M in
+const FALLBACK_MODEL = 'openai/gpt-oss-120b';
 
 function modelAllowlist(): string[] {
   return [
     'mock',
-    'tencent/hy3:free',         // $0/M in — trial default until 2026-07-21
+    'tencent/hy3:free',         // $0/M in — superadmin bake-offs only (free until 2026-07-21)
     'openai/gpt-oss-120b',      // $0.03/M in — fallback / bake-off anchor
     'openai/gpt-5-nano',        // $0.05/M in
     'google/gemini-2.5-flash-lite', // $0.10/M in

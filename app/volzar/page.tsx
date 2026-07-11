@@ -69,14 +69,13 @@ export default async function VolzarPage({ searchParams }: {
   const mockMode = !process.env.OPENROUTER_API_KEY;
   // models[0] is the picker default and MUST match the server's
   // DEFAULT_PAID_MODEL (app/api/volzar/route.ts) so superadmin chats run the
-  // same model everyone else is pinned to. Free trial: tencent/hy3:free until
-  // 2026-07-21, with a server-side 429 fallback to gpt-oss-120b. The picker
-  // itself renders only for superadmins — nobody else selects models at all.
+  // same model everyone else is pinned to. The picker itself renders only for
+  // superadmins — nobody else selects models at all.
   const models = mockMode
     ? ['mock']
     : [
-        'tencent/hy3:free',               // $0/M in — trial default until 2026-07-21
-        'openai/gpt-oss-120b',            // $0.03/M in — fallback / pre-trial default
+        'openai/gpt-oss-120b',            // $0.03/M in — default for everyone
+        'tencent/hy3:free',               // $0/M in — bake-offs (free until 2026-07-21)
         'openai/gpt-5-nano',              // $0.05/M in
         'google/gemini-2.5-flash-lite',   // $0.10/M in
         'anthropic/claude-haiku-4.5',     // $1/M in

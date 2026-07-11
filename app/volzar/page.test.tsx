@@ -76,7 +76,7 @@ describe('VolzarPage signed-out handling', () => {
 });
 
 describe('VolzarPage model list', () => {
-  it('defaults the picker to the free trial model (models[0] = tencent/hy3:free)', async () => {
+  it('defaults the picker to the standard model everyone runs (models[0] = openai/gpt-oss-120b)', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
     mockGetVolzarAccess.mockResolvedValue({
       success: true,
@@ -89,7 +89,7 @@ describe('VolzarPage model list', () => {
       const result = await VolzarPage({ searchParams: emptySearchParams() });
       const chats = findElements(result, (el) => Array.isArray((el.props as any)?.models));
       expect(chats.length).toBe(1);
-      expect((chats[0].props as any).models[0]).toBe('tencent/hy3:free');
+      expect((chats[0].props as any).models[0]).toBe('openai/gpt-oss-120b');
     } finally {
       if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
       else process.env.OPENROUTER_API_KEY = prevKey;
