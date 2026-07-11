@@ -719,17 +719,6 @@ type UiItem =
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
   | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
 
-// $/M-token prices for the session cost readout (mirrors the route allowlist;
-// unknown models show token counts only).
-const MODEL_PRICES: Record<string, { input: number; output: number }> = {
-  'openai/gpt-5-nano': { input: 0.05, output: 0.4 },
-  'openai/gpt-oss-120b': { input: 0.03, output: 0.15 },
-  'google/gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
-  'anthropic/claude-haiku-4.5': { input: 1, output: 5 },
-  'tencent/hy3:free': { input: 0, output: 0 },
-  mock: { input: 0, output: 0 },
-};
-
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
 /**
@@ -981,7 +970,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   }, [consentGiven]);
   const [apiMessages, setApiMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [model, setModel] = useState(models[0]);
+  // Model is backend-configured (server pins it anyway); no UI picker.
+  const model = models[0];
   const [busy, setBusy] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
@@ -1195,7 +1185,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const [newBinderName, setNewBinderName] = useState('');
   const [creatingBinder, setCreatingBinder] = useState(false);
   // Cumulative session usage (accumulated from done events)
-  const [sessionUsage, setSessionUsage] = useState({ input: 0, output: 0, cost: 0 });
   const modelRef = useRef(models[0]);
   useEffect(() => { modelRef.current = model; });
   const abortRef = useRef<AbortController | null>(null);
@@ -1319,15 +1308,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
 
       case 'done':
       case 'error': {
-        if (event.type === 'done' && event.usage) {
-          const usage = event.usage;
-          const price = MODEL_PRICES[modelRef.current];
-          setSessionUsage((prev) => ({
-            input: prev.input + usage.prompt_tokens,
-            output: prev.output + usage.completion_tokens,
-            cost: prev.cost + (price ? (usage.prompt_tokens * price.input + usage.completion_tokens * price.output) / 1e6 : 0),
-          }));
-        }
         const turn = turnRef.current;
         turn.committed = true;
         setApiMessages((prev) => [...prev, ...buildTurnMessages(turn)]);
@@ -1772,7 +1752,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     setErrorBanner(null);
     setBusy(false);
     pendingContextRef.current = [];
-    setSessionUsage({ input: 0, output: 0, cost: 0 });
     setWantsAddStatus({});
     setAddDialog(null);
     addedCardsRef.current = [];
@@ -2281,26 +2260,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
         <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
         {/* Phones hide the chips group behind the ⚡ sheet but still need New
-            chat + the model picker — mobile-only fallback cluster. */}
-        {(!chatEmpty || isSuperAdmin) && (
+            chat — mobile-only fallback. */}
+        {!chatEmpty && (
           <div className="flex sm:hidden flex-wrap items-center gap-2">
-            {!chatEmpty && (
-              <Button variant="outline" size="sm" onClick={reset} className={`shrink-0 gap-1.5 ${focusRing}`}>
-                <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
-              </Button>
-            )}
-            {isSuperAdmin && (
-              <Select value={model} onValueChange={setModel} disabled={busy}>
-                <SelectTrigger className={`h-8 w-56 text-sm ${focusRing}`} aria-label="Model">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Button variant="outline" size="sm" onClick={reset} className={`shrink-0 gap-1.5 ${focusRing}`}>
+              <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
+            </Button>
           </div>
         )}
         {/* Quick actions — deterministic reads, zero AI tokens. Hidden on
@@ -2549,35 +2514,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
 
-        {/* Model picker (superadmin) + usage badges — below the launchers so
-            the top of the rail is pure actions (sm+; phones use the fallback
-            cluster above). */}
-        {(isSuperAdmin || mockMode || sessionUsage.input > 0) && (
-          <div className="hidden sm:flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch">
-            {isSuperAdmin && (
-              <Select value={model} onValueChange={setModel} disabled={busy}>
-                <SelectTrigger className={`h-8 w-56 lg:w-full text-sm ${focusRing}`} aria-label="Model">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {mockMode && (
-              <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                Offline demo
-              </Badge>
-            )}
-            {sessionUsage.input > 0 && (
-              <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
-                {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
-                {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
-              </Badge>
-            )}
+        {/* Mock-deployment badge only — the model picker and usage/cost
+            readout were removed (backend-configured; not user-facing). */}
+        {mockMode && (
+          <div className="hidden sm:flex">
+            <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+              Offline demo
+            </Badge>
           </div>
         )}
         {/* Hovered-card preview — LARGE, in the rail's dead space under the
