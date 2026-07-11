@@ -2055,24 +2055,36 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
 
   return (
     <div className="flex flex-col gap-2 sm:gap-3 h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
-        {/* Header row: title + model picker + reset on one line; badges wrap below */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            {/* Volzar, the Lightning Rod card art (cropped) — the page's mark.
-                Same crop as app/volzar/icon.png (the tab favicon). */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/volzar-icon.png"
-              alt=""
-              aria-hidden="true"
-              className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border"
-            />
-            <span className="font-bold text-lg mr-1 shrink-0">Volzar</span>
+        {/* No header band — the thread + workspace get the full page height.
+            The model picker, usage badge, and New chat live at the top of the
+            instant rail instead. */}
+        {/* Everything below the header: [instant rail | chat | workspace/preview].
+            Below lg the rail is a normal block on top (horizontal chip strip),
+            so mobile keeps today's layout from the same markup. */}
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-2 sm:gap-3 lg:gap-4">
+
+        {/* Instant rail: quick actions + their pickers. Desktop: narrow left
+            sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
+        <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
+        {/* Old header controls, folded into the rail (all widths — phones
+            need New chat even with the chips hidden behind the ⚡ sheet). */}
+        {(!chatEmpty || isSuperAdmin || mockMode || sessionUsage.input > 0) && (
+          <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch">
+            {!chatEmpty && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={reset}
+                className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
+              </Button>
+            )}
             {/* Model picker is superadmin-only (bake-offs). Everyone else runs
                 the default model — hidden here and pinned server-side. */}
             {isSuperAdmin && (
               <Select value={model} onValueChange={setModel} disabled={busy}>
-                <SelectTrigger className={`flex-1 min-w-0 sm:w-64 sm:flex-none text-base ${focusRing}`} aria-label="Model">
+                <SelectTrigger className={`h-8 w-56 lg:w-full text-sm ${focusRing}`} aria-label="Model">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2082,45 +2094,20 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 </SelectContent>
               </Select>
             )}
-            {/* Nothing to reset before the first turn — hiding the button
-                keeps the empty state down to title + composer (chat-app norm). */}
-            {!chatEmpty && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={reset}
-                className={`ml-auto shrink-0 gap-1.5 ${focusRing}`}
-              >
-                <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
-              </Button>
+            {mockMode && (
+              <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                Offline demo
+              </Badge>
+            )}
+            {sessionUsage.input > 0 && (
+              <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
+                {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
+                {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
+              </Badge>
             )}
           </div>
-          {(mockMode || sessionUsage.input > 0) && (
-            <div className="flex flex-wrap items-center gap-2">
-              {mockMode && (
-                <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Offline demo — replies follow a fixed script
-                </Badge>
-              )}
-              {sessionUsage.input > 0 && (
-                <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
-                  {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
-                  {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Everything below the header: [instant rail | chat | workspace/preview].
-            Below lg the rail is a normal block on top (horizontal chip strip),
-            so mobile keeps today's layout from the same markup. */}
-        <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-2 sm:gap-3 lg:gap-4">
-
-        {/* Instant rail: quick actions + their pickers. Desktop: narrow left
-            sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
-        <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
+        )}
         {/* Quick actions — deterministic reads, zero AI tokens. Hidden on
             phones (< sm): the bottom tab bar's ⚡ Instant sheet covers the same
             actions there and the chat page stays calm (mobile-chat norm).
@@ -3087,6 +3074,38 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
 
+        {/* Empty state: launcher prompts + the ⚡ explainer sit ABOVE the
+            composer (greeting → prompts → input); they vanish on the first turn. */}
+        {chatEmpty && (
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 pt-1">
+            <div className="grid w-full gap-2 sm:grid-cols-2">
+              {promptList.map(({ icon, text }, i) => {
+                const PromptIcon = SUGGESTION_ICONS[icon] ?? Search;
+                return (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => void sendTurn(text, text)}
+                    disabled={busy}
+                    // Phones show only the top two chips — the mobile-chat norm
+                    // is a calm empty state, not a wall of launcher cards.
+                    className={`${i >= 2 ? 'hidden sm:flex' : 'flex'} items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                  >
+                    <PromptIcon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+                    <span className="min-w-0">{text}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="hidden sm:block max-w-xl text-center text-sm text-gray-600 dark:text-gray-300">
+              The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
+              above are instant and free — they open your lists directly. Chat when you want thinking:
+              deck advice, searches, or “add 3 Command and Conquer to my binder”.
+              {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
+            </p>
+          </div>
+        )}
+
         {/* Composer — centered with the greeting pre-first-turn, docked to the
             bottom edge (full width) once the conversation starts. */}
         <div className={chatEmpty ? 'mx-auto w-full max-w-2xl flex gap-2 items-end' : 'flex gap-2 items-end'}>
@@ -3124,37 +3143,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           )}
         </div>
 
-        {/* Empty state: launcher prompts + the ⚡ explainer live under the
-            centered composer (chip-style); they vanish on the first turn. */}
-        {chatEmpty && (
-          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 pt-1">
-            <div className="grid w-full gap-2 sm:grid-cols-2">
-              {promptList.map(({ icon, text }, i) => {
-                const PromptIcon = SUGGESTION_ICONS[icon] ?? Search;
-                return (
-                  <button
-                    key={text}
-                    type="button"
-                    onClick={() => void sendTurn(text, text)}
-                    disabled={busy}
-                    // Phones show only the top two chips — the mobile-chat norm
-                    // is a calm empty state, not a wall of launcher cards.
-                    className={`${i >= 2 ? 'hidden sm:flex' : 'flex'} items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                  >
-                    <PromptIcon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
-                    <span className="min-w-0">{text}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="hidden sm:block max-w-xl text-center text-sm text-gray-600 dark:text-gray-300">
-              The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
-              above are instant and free — they open your lists directly. Chat when you want thinking:
-              deck advice, searches, or “add 3 Command and Conquer to my binder”.
-              {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
-            </p>
-          </div>
-        )}
         {chatEmpty && <div className="flex-[1.4] min-h-4" aria-hidden="true" />}
     </div>
     {/* end chat column */}
