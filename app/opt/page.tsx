@@ -421,19 +421,20 @@ export default function OptSearchPage() {
   type FilterFacet = { key: string; label: string; count: number; align?: 'left' | 'right'; panelClassName?: string; body: React.ReactNode };
   const filterFacets: FilterFacet[] = [
     {
-      key: 'pitch', label: 'Pitch', count: selectedPitch !== null ? 1 : 0, panelClassName: 'w-auto',
+      key: 'pitch', label: 'Pitch', count: selectedPitch.length, panelClassName: 'w-auto',
       body: (
         <>
           <p className={SECTION}>Pitch</p>
+          {/* Multi-select OR: red + blue = cards that are either. */}
           <div className="flex items-center gap-2">
             {PITCH_CHIPS.map(chip => {
-              const isActive = selectedPitch === chip.value;
+              const isActive = selectedPitch.includes(chip.value);
               return (
                 <button
                   key={chip.value}
                   type="button"
                   aria-pressed={isActive}
-                  onClick={() => patch({ selectedPitch: selectedPitch === chip.value ? null : chip.value })}
+                  onClick={() => dispatch({ type: 'TOGGLE_PITCH', value: chip.value })}
                   className={cn(
                     'flex items-center gap-2 px-3 py-1.5 rounded-md border text-base font-medium transition-all',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',

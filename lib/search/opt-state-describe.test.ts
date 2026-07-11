@@ -12,7 +12,7 @@ describe('optStateToChips', () => {
 
   it('labels every facet family, resolving display names from chip constants', () => {
     const s = state({
-      selectedPitch: 1,
+      selectedPitch: [1],
       selectedType: 'attack',
       selectedClasses: ['Ninja'],
       selectedKeywords: ['go again'],
@@ -58,6 +58,15 @@ describe('optStateToChips', () => {
     ]);
   });
 
+  it('emits one removable chip per selected pitch (multi-select OR)', () => {
+    const s = state({ selectedPitch: [1, 3] });
+    const chips = optStateToChips(s);
+    expect(chips.map(c => c.label)).toEqual(['Pitch: Red', 'Pitch: Blue']);
+    // Removing one chip keeps the other selected.
+    const next = optSearchReducer(s, chips[0].removeAction);
+    expect(next.selectedPitch).toEqual([3]);
+  });
+
   it('labels packs from meta.availablePacks with a "Pack <id>" fallback', () => {
     const s = state({ selectedPacks: [42, 77] });
     const labels = optStateToChips(s, { availablePacks: [{ groupId: 42, name: 'GEM Pack 1' }] }).map(c => c.label);
@@ -66,7 +75,7 @@ describe('optStateToChips', () => {
 
   it('every chip removeAction actually clears its chip through the reducer', () => {
     const s = state({
-      selectedPitch: 1,
+      selectedPitch: [1],
       selectedType: 'attack',
       selectedClasses: ['Ninja', 'Brute'],
       selectedTalents: ['Shadow'],

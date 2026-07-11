@@ -98,6 +98,10 @@ describe('type-flag and color mapping', () => {
     expect(filtersToOptParams({ types: ['defense reaction'] } as any).get('type')).toBe('defense-reaction');
   });
 
+  it('serializes a pitch array (multi-select OR) as csv', () => {
+    expect(filtersToOptParams({ pitch: [1, 3] } as any).get('pitch')).toBe('1,3');
+  });
+
   it('maps a color word to the pitch chip when pitch is absent (explicit pitch wins)', () => {
     expect(filtersToOptParams({ color: 'red' } as any).get('pitch')).toBe('1');
     expect(filtersToOptParams({ color: 'yellow' } as any).get('pitch')).toBe('2');

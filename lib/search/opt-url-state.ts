@@ -26,7 +26,8 @@ export interface OptUiState {
   selectedClasses: string[];
   selectedTalents: string[];
   selectedTalentless: boolean;
-  selectedPitch: number | null;
+  /** Multi-select OR (e.g. red + blue). 0 is a real value (non-pitch cards). */
+  selectedPitch: number[];
   selectedKeywords: string[];
   selectedRarities: string[];
   selectedFoilings: string[];
@@ -54,7 +55,7 @@ export const DEFAULT_OPT_STATE: OptUiState = {
   selectedClasses: [],
   selectedTalents: [],
   selectedTalentless: false,
-  selectedPitch: null,
+  selectedPitch: [],
   selectedKeywords: [],
   selectedRarities: [],
   selectedFoilings: [],
@@ -87,7 +88,7 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
   if (s.selectedClasses.length) p.set('classes', csv(s.selectedClasses));
   if (s.selectedTalents.length) p.set('talents', csv(s.selectedTalents));
   if (s.selectedTalentless) p.set('talentless', '1');
-  if (s.selectedPitch !== null) p.set('pitch', String(s.selectedPitch));
+  if (s.selectedPitch.length) p.set('pitch', csv(s.selectedPitch.map(String)));
   if (s.selectedKeywords.length) p.set('keywords', csv(s.selectedKeywords));
   if (s.selectedRarities.length) p.set('rarities', csv(s.selectedRarities));
   if (s.selectedFoilings.length) p.set('foilings', csv(s.selectedFoilings));
@@ -124,8 +125,11 @@ export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   if (p.get('classes')) out.selectedClasses = splitCsv(p.get('classes'));
   if (p.get('talents')) out.selectedTalents = splitCsv(p.get('talents'));
   if (p.get('talentless') === '1') out.selectedTalentless = true;
-  const pitch = p.get('pitch');
-  if (pitch !== null && pitch !== '' && !Number.isNaN(Number(pitch))) out.selectedPitch = Number(pitch);
+  // csv OR legacy single value ("pitch=2" from pre-multi-select URLs).
+  if (p.get('pitch')) {
+    const pitches = splitCsv(p.get('pitch')).map(Number).filter((n) => !Number.isNaN(n));
+    if (pitches.length) out.selectedPitch = pitches;
+  }
   if (p.get('keywords')) out.selectedKeywords = splitCsv(p.get('keywords'));
   if (p.get('rarities')) out.selectedRarities = splitCsv(p.get('rarities'));
   if (p.get('foilings')) out.selectedFoilings = splitCsv(p.get('foilings'));

@@ -36,6 +36,7 @@ export type OptAction =
   | { type: 'TOGGLE_TALENT'; value: string }
   | { type: 'TOGGLE_TALENTLESS' }
   | { type: 'TOGGLE_IN'; key: OptArrayKey; value: string }
+  | { type: 'TOGGLE_PITCH'; value: number }
   | { type: 'TOGGLE_PACK'; value: number }
   | { type: 'PRUNE_PACKS'; valid: number[] }
   | { type: 'SET_RANGE'; range: RangeKey; min?: string; max?: string }
@@ -98,6 +99,9 @@ export function optSearchReducer(state: OptUiState, action: OptAction): OptUiSta
 
     case 'TOGGLE_IN':
       return { ...state, [action.key]: toggle(state[action.key], action.value) };
+
+    case 'TOGGLE_PITCH':
+      return { ...state, selectedPitch: toggle(state.selectedPitch, action.value) };
 
     case 'TOGGLE_PACK':
       return { ...state, selectedPacks: toggle(state.selectedPacks, action.value) };

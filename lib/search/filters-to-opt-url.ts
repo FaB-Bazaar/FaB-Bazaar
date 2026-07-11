@@ -76,9 +76,10 @@ export function filtersToOptParams(filters: Record<string, unknown>): URLSearchP
     if (v) p.set(key, v);
   }
 
-  // Explicit pitch wins; a bare color word (red/yellow/blue) maps to the same
-  // pitch chip otherwise.
-  const pitch = num(filters.pitch)
+  // Explicit pitch wins (single number or multi-select array); a bare color
+  // word (red/yellow/blue) maps to the same pitch chip otherwise.
+  const pitch = (Array.isArray(filters.pitch) ? csv(filters.pitch.filter((v) => typeof v === 'number')) : null)
+    ?? num(filters.pitch)
     ?? (typeof filters.color === 'string' ? num(COLOR_TO_PITCH[filters.color]) : null);
   if (pitch) p.set('pitch', pitch);
   if (typeof filters.format === 'string' && filters.format) p.set('format', filters.format);

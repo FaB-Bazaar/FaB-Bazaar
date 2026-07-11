@@ -105,7 +105,7 @@ export default function SearchPage() {
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedTalents, setSelectedTalents] = useState<string[]>([]);
   const [selectedTalentless, setSelectedTalentless] = useState(false);
-  const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
+  const [selectedPitch, setSelectedPitch] = useState<number[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [selectedRarities, setSelectedRarities] = useState<string[]>([]);
   const [selectedFoilings, setSelectedFoilings] = useState<string[]>([]);
@@ -166,7 +166,7 @@ export default function SearchPage() {
   const displayed = results;
 
   const clearAll = () => {
-    setQuery(''); setSelectedType(null); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch(null);
+    setQuery(''); setSelectedType(null); setSelectedClasses([]); setSelectedTalents([]); setSelectedTalentless(false); setSelectedPitch([]);
     setSelectedKeywords([]); setSelectedRarities([]); setSelectedFoilings([]);
     setSelectedEditions([]); setSelectedSets([]);
     setCostMin(''); setCostMax(''); setPowerMin(''); setPowerMax('');
@@ -223,13 +223,13 @@ export default function SearchPage() {
             <p className={SECTION}>Pitch</p>
             <div className="flex items-center gap-2">
               {PITCH_CHIPS.map(chip => {
-                const isActive = selectedPitch === chip.value;
+                const isActive = selectedPitch.includes(chip.value);
                 return (
                   <button
                     key={chip.value}
                     type="button"
                     title={chip.label}
-                    onClick={() => setSelectedPitch(p => p === chip.value ? null : chip.value)}
+                    onClick={() => setSelectedPitch(p => p.includes(chip.value) ? p.filter(v => v !== chip.value) : [...p, chip.value])}
                     className={cn(
                       'p-1 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                       isActive
@@ -242,8 +242,8 @@ export default function SearchPage() {
                   </button>
                 );
               })}
-              {selectedPitch !== null && (
-                <button onClick={() => setSelectedPitch(null)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">clear</button>
+              {selectedPitch.length > 0 && (
+                <button onClick={() => setSelectedPitch([])} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded">clear</button>
               )}
             </div>
           </div>

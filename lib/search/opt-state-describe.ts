@@ -41,10 +41,10 @@ const rangeLabel = (label: string, min: string, max: string) =>
 
 export function optStateToChips(s: OptUiState, meta?: OptDescribeMeta): OptChip[] {
   const chips: OptChip[] = [];
-  if (s.selectedPitch !== null) {
-    const p = PITCH_CHIPS.find(c => c.value === s.selectedPitch);
-    chips.push({ key: 'pitch', label: `Pitch: ${p?.label ?? s.selectedPitch}`, removeAction: { type: 'PATCH', patch: { selectedPitch: null } } });
-  }
+  s.selectedPitch.forEach(pitch => {
+    const p = PITCH_CHIPS.find(c => c.value === pitch);
+    chips.push({ key: `pitch:${pitch}`, label: `Pitch: ${p?.label ?? pitch}`, removeAction: { type: 'TOGGLE_PITCH', value: pitch } });
+  });
   if (s.selectedType) {
     const t = TYPE_CHIPS.find(c => c.value === s.selectedType);
     chips.push({ key: 'type', label: t?.label ?? s.selectedType, removeAction: { type: 'PATCH', patch: { selectedType: null } } });

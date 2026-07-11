@@ -27,7 +27,7 @@ describe('opt-url-state', () => {
     const s = state({
       query: 'blood', selectedType: 'action', selectedHeroAges: ['young'],
       selectedClasses: ['runeblade'], selectedTalents: ['draconic'], selectedTalentless: true,
-      selectedPitch: 1, selectedKeywords: ['go again'], selectedRarities: ['L'],
+      selectedPitch: [1, 3], selectedKeywords: ['go again'], selectedRarities: ['L'],
       selectedFoilings: ['r'], selectedEditions: ['n'], selectedSets: ['gem'], selectedPacks: [24176, 24720],
       selectedFormat: 'cc', costMin: '0', costMax: '3', powerMin: '2', powerMax: '6',
       defenseMin: '1', defenseMax: '3', priceMin: '5', priceMax: '50',
@@ -52,8 +52,17 @@ describe('opt-url-state', () => {
   });
 
   it('parses pitch 0 (a real value, not "absent")', () => {
-    expect(uiStateToParams(state({ selectedPitch: 0 })).get('pitch')).toBe('0');
-    expect(paramsToUiState(new URLSearchParams('pitch=0')).selectedPitch).toBe(0);
+    expect(uiStateToParams(state({ selectedPitch: [0] })).get('pitch')).toBe('0');
+    expect(paramsToUiState(new URLSearchParams('pitch=0')).selectedPitch).toEqual([0]);
+  });
+
+  it('pitch is multi-select (OR): serializes as csv and parses both csv and legacy single', () => {
+    expect(uiStateToParams(state({ selectedPitch: [1, 3] })).get('pitch')).toBe('1,3');
+    expect(paramsToUiState(new URLSearchParams('pitch=1,3')).selectedPitch).toEqual([1, 3]);
+    // Legacy single-value URLs (pre-multi-select) keep working.
+    expect(paramsToUiState(new URLSearchParams('pitch=2')).selectedPitch).toEqual([2]);
+    // Junk entries are dropped, valid ones kept.
+    expect(paramsToUiState(new URLSearchParams('pitch=1,abc')).selectedPitch).toEqual([1]);
   });
 
   it('ignores junk pitch and unknown view values', () => {

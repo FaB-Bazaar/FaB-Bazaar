@@ -115,6 +115,17 @@ describe('optSearchReducer', () => {
     });
   });
 
+  describe('TOGGLE_PITCH (multi-select OR)', () => {
+    it('toggles pitch values in and out independently', () => {
+      const one = reduce(DEFAULT_OPT_STATE, { type: 'TOGGLE_PITCH', value: 1 });
+      expect(one.selectedPitch).toEqual([1]);
+      const two = reduce(one, { type: 'TOGGLE_PITCH', value: 3 });
+      expect(two.selectedPitch).toEqual([1, 3]);
+      const back = reduce(two, { type: 'TOGGLE_PITCH', value: 1 });
+      expect(back.selectedPitch).toEqual([3]);
+    });
+  });
+
   describe('packs', () => {
     it('TOGGLE_PACK adds and removes a group id', () => {
       const s = reduce(DEFAULT_OPT_STATE, { type: 'TOGGLE_PACK', value: 42 });

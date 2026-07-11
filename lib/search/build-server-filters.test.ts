@@ -7,7 +7,7 @@ const baseState: SearchUiState = {
   selectedType: null,
   selectedClasses: [],
   selectedTalents: [],
-  selectedPitch: null,
+  selectedPitch: [],
   selectedKeywords: [],
   selectedRarities: [],
   selectedFoilings: [],
@@ -18,6 +18,17 @@ const baseState: SearchUiState = {
   defenseMin: '', defenseMax: '',
   priceMax: '',
 };
+
+describe('buildServerFilters — pitch (multi-select OR)', () => {
+  it('maps selected pitches to an array filter (server ORs via inArray)', () => {
+    expect(buildServerFilters({ ...baseState, selectedPitch: [1, 3] }).pitch).toEqual([1, 3]);
+    expect(buildServerFilters({ ...baseState, selectedPitch: [2] }).pitch).toEqual([2]);
+  });
+
+  it('omits the pitch filter when nothing is selected', () => {
+    expect(buildServerFilters(baseState)).not.toHaveProperty('pitch');
+  });
+});
 
 describe('buildServerFilters — search mode', () => {
   it('maps a bare query to filters.name by default (name mode)', () => {

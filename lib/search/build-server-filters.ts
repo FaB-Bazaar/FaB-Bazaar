@@ -42,7 +42,8 @@ export interface SearchUiState {
   selectedClasses: string[];
   selectedTalents: string[];
   selectedTalentless?: boolean;
-  selectedPitch: number | null;
+  /** Multi-select OR; empty = no pitch filter. */
+  selectedPitch: number[];
   selectedKeywords: string[];
   selectedRarities: string[];
   selectedFoilings: string[];
@@ -79,7 +80,8 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
     }
   }
 
-  if (s.selectedPitch !== null) f.pitch = s.selectedPitch;
+  // Multi-select OR — the service ORs arrays via inArray(cards.pitch, …).
+  if (s.selectedPitch.length) f.pitch = s.selectedPitch;
   if (s.selectedType) {
     if (s.selectedType === 'generic') {
       f.isGenericOnly = true;
