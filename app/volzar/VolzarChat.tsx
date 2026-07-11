@@ -569,6 +569,7 @@ const MODEL_PRICES: Record<string, { input: number; output: number }> = {
   'openai/gpt-oss-120b': { input: 0.03, output: 0.15 },
   'google/gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
   'anthropic/claude-haiku-4.5': { input: 1, output: 5 },
+  'tencent/hy3:free': { input: 0, output: 0 },
   mock: { input: 0, output: 0 },
 };
 

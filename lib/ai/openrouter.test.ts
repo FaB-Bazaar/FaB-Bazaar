@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LlmDelta, OpenAiTool } from './types';
-import { parseSseStream, createMockLlm } from './openrouter';
+import type { Llm, LlmDelta, OpenAiTool } from './types';
+import { parseSseStream, createMockLlm, withFallback } from './openrouter';
 
 async function* chunks(...parts: string[]): AsyncGenerator<string> {
   for (const part of parts) yield part;
@@ -155,5 +155,94 @@ describe('createMockLlm', () => {
     const deltas = await drain(mock({ messages: [{ role: 'user', content: 'hello there' }], tools: TOOLS }));
     const text = deltas.filter((d) => d.kind === 'text').map((d: any) => d.text).join('');
     expect(text).toMatch(/mock mode/i);
+  });
+});
+
+const REQ = { messages: [{ role: 'user' as const, content: 'hi' }], tools: TOOLS };
+
+// Llm stub that throws immediately (before yielding) — the observed shape of
+// a free-tier 429 on the first chunk.
+function throwingLlm(message: string): Llm {
+  return async function* () {
+    throw new Error(message);
+  };
+}
+
+// Llm stub that yields once, then throws — a mid-stream failure.
+function partialThenThrowingLlm(text: string, message: string): Llm {
+  return async function* () {
+    yield { kind: 'text', text } as LlmDelta;
+    throw new Error(message);
+  };
+}
+
+function textLlm(text: string): Llm {
+  return async function* () {
+    yield { kind: 'text', text } as LlmDelta;
+    yield { kind: 'finish', reason: 'stop' } as LlmDelta;
+  };
+}
+
+describe('withFallback', () => {
+  it('retries on the fallback when the primary 429s before any delta', async () => {
+    const primary = throwingLlm('OpenRouter request failed (HTTP 429): rate limited');
+    const fallback = textLlm('fallback answer');
+    const { llm, usedFallback } = withFallback({ primary, fallback });
+
+    const deltas = await drain(llm(REQ));
+
+    expect(deltas).toEqual([
+      { kind: 'text', text: 'fallback answer' },
+      { kind: 'finish', reason: 'stop' },
+    ]);
+    expect(usedFallback()).toBe(true);
+  });
+
+  it('stays on the fallback for subsequent calls once triggered', async () => {
+    let primaryCalls = 0;
+    const primary: Llm = async function* () {
+      primaryCalls++;
+      throw new Error('HTTP 429');
+    };
+    const fallback = textLlm('ok');
+    const { llm } = withFallback({ primary, fallback });
+
+    await drain(llm(REQ));
+    await drain(llm(REQ));
+
+    expect(primaryCalls).toBe(1); // second call went straight to fallback
+  });
+
+  it('does not retry a non-rate-limit error — propagates as-is', async () => {
+    const primary = throwingLlm('OpenRouter request failed (HTTP 402): insufficient credits');
+    const fallback = textLlm('should not be used');
+    const { llm, usedFallback } = withFallback({ primary, fallback });
+
+    await expect(drain(llm(REQ))).rejects.toThrow(/402/);
+    expect(usedFallback()).toBe(false);
+  });
+
+  it('does not retry once content has already streamed — propagates the mid-stream error', async () => {
+    const primary = partialThenThrowingLlm('partial', 'HTTP 429');
+    const fallback = textLlm('should not be used');
+    const { llm, usedFallback } = withFallback({ primary, fallback });
+
+    const gen = llm(REQ);
+    await expect(drain(gen)).rejects.toThrow(/429/);
+    expect(usedFallback()).toBe(false);
+  });
+
+  it('passes through cleanly when the primary succeeds', async () => {
+    const primary = textLlm('primary answer');
+    const fallback = throwingLlm('should not be called');
+    const { llm, usedFallback } = withFallback({ primary, fallback });
+
+    const deltas = await drain(llm(REQ));
+
+    expect(deltas).toEqual([
+      { kind: 'text', text: 'primary answer' },
+      { kind: 'finish', reason: 'stop' },
+    ]);
+    expect(usedFallback()).toBe(false);
   });
 });

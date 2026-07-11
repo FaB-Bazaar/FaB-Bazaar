@@ -19,6 +19,49 @@ export function createLlm(opts: { model: string }): Llm {
   return createOpenRouterLlm({ model: opts.model, apiKey });
 }
 
+/**
+ * Wraps a primary Llm with a one-time fallback: if it errors before yielding
+ * any delta (the observed failure mode for rate-limited free models — they
+ * 429 on the very first chunk), silently retry the SAME turn on `fallback`
+ * and stay on it for the rest of the request. A failure after content has
+ * already streamed is NOT retried (would duplicate/confuse output) and
+ * propagates as before. `usedFallback()` reports whether the fallback ever
+ * fired, so the caller can record which model actually served the turn.
+ */
+export function withFallback(opts: { primary: Llm; fallback: Llm }): {
+  llm: Llm;
+  usedFallback: () => boolean;
+} {
+  let fellBack = false;
+
+  const llm: Llm = async function* (req) {
+    if (fellBack) {
+      yield* opts.fallback(req);
+      return;
+    }
+    const gen = opts.primary(req);
+    let first: IteratorResult<LlmDelta>;
+    try {
+      first = await gen.next();
+    } catch (error) {
+      if (!isRateLimitError(error)) throw error;
+      fellBack = true;
+      yield* opts.fallback(req);
+      return;
+    }
+    if (first.done) return;
+    yield first.value;
+    yield* gen;
+  };
+
+  return { llm, usedFallback: () => fellBack };
+}
+
+function isRateLimitError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /HTTP 429|rate.?limit/i.test(message);
+}
+
 // ---------------------------------------------------------------------------
 // Real transport
 // ---------------------------------------------------------------------------

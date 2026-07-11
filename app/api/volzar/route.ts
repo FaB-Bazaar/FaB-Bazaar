@@ -13,7 +13,7 @@ import { auth } from '@/auth';
 import { userService, oauthFlowService, llmUsageService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { runAgentLoop } from '@/lib/ai/agent-loop';
-import { createLlm } from '@/lib/ai/openrouter';
+import { createLlm, withFallback } from '@/lib/ai/openrouter';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
 import { dailyLimitFor, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
@@ -55,14 +55,19 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
-// Default (cheapest) model — what non-superadmins always run. Kept in sync with
-// modelAllowlist()'s first paid entry.
-const DEFAULT_PAID_MODEL = 'openai/gpt-oss-120b';
+// Default model — what non-superadmins always run. TEMP trial (started
+// 2026-07-10): tencent/hy3:free, free on OpenRouter until 2026-07-21. Known
+// risk — free-tier models have previously 429'd on the first message under
+// load — so requests on it fall back to FALLBACK_MODEL (see createLlmWithFallback
+// below). Revert DEFAULT_PAID_MODEL to FALLBACK_MODEL when the trial ends.
+const DEFAULT_PAID_MODEL = 'tencent/hy3:free';
+const FALLBACK_MODEL = 'openai/gpt-oss-120b'; // pre-trial default — $0.03/M in
 
 function modelAllowlist(): string[] {
   return [
     'mock',
-    'openai/gpt-oss-120b',      // $0.03/M in — cheapest strong paid option (default)
+    'tencent/hy3:free',         // $0/M in — trial default until 2026-07-21
+    'openai/gpt-oss-120b',      // $0.03/M in — fallback / bake-off anchor
     'openai/gpt-5-nano',        // $0.05/M in
     'google/gemini-2.5-flash-lite', // $0.10/M in
     'anthropic/claude-haiku-4.5',   // $1/M in — quality anchor for bake-offs
@@ -206,7 +211,20 @@ export async function POST(req: Request) {
   // 7. Messages: always our system prompt; client-sent system messages are dropped
   const messages = assembleMessages(validated.messages, user.name || 'a collector');
 
-  const llm = createLlm({ model });
+  // Non-superadmins pinned to the free trial model get an automatic fallback
+  // to FALLBACK_MODEL if it errors before streaming anything (see
+  // withFallback). Superadmins picking it manually via the bake-off picker
+  // see its raw, unmodified behavior — that's the point of testing it.
+  const useFallback = model === 'tencent/hy3:free' && !isSuperAdmin;
+  const { llm, getActualModel } = useFallback
+    ? (() => {
+        const { llm, usedFallback } = withFallback({
+          primary: createLlm({ model }),
+          fallback: createLlm({ model: FALLBACK_MODEL }),
+        });
+        return { llm, getActualModel: () => (usedFallback() ? FALLBACK_MODEL : model) };
+      })()
+    : { llm: createLlm({ model }), getActualModel: () => model };
 
   // 8. SSE stream — one JSON AgentEvent per data frame
   const abortController = new AbortController();
@@ -223,7 +241,7 @@ export async function POST(req: Request) {
           void llmUsageService
             .recordTurn({
               userId: user.id!,
-              model,
+              model: getActualModel(),
               promptTokens: event.usage?.prompt_tokens ?? 0,
               completionTokens: event.usage?.completion_tokens ?? 0,
             })
