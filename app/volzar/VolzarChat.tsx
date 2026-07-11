@@ -1087,7 +1087,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const activeActionId = workspaceStack[0]?.sourceAction ?? null;
   // Live counts on the data launchers — one cheap fetch each on mount,
   // best-effort (a miss just hides the badge).
-  const [railCounts, setRailCounts] = useState<{ wants?: number; decks?: number }>({});
+  const [railCounts, setRailCounts] = useState<{ wants?: number; decks?: number; results?: number }>({});
   useEffect(() => {
     // /api/decks/basic 404s (route reads "basic" as a deckId) and /api/decks
     // ignores limit — fetch once, count the personal (non-system, non-featured)
@@ -1102,6 +1102,17 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     void wantsClient.getUserWants().then((r) => {
       if (r.success) setRailCounts((c) => ({ ...c, wants: (r.data as any)?.wantsList?.cards?.length }));
     }).catch(() => {});
+    // Total recorded games = sum of per-deck `games` from the performance
+    // aggregate (the /recent feed clamps at 50, so it can't count).
+    void fetch('/api/results/performance', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.success) {
+          const total = ((j.data ?? []) as Array<{ games?: number }>).reduce((sum, d) => sum + (d.games ?? 0), 0);
+          setRailCounts((c) => ({ ...c, results: total }));
+        }
+      })
+      .catch(() => {});
   }, []);
   const dataUidRef = useRef(0);
   // Focus-follows-engagement between the chat column and the workspace panel:
@@ -2338,6 +2349,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             const count = action.id === 'binders' ? (binderOptions.length || undefined)
               : action.id === 'wants' ? railCounts.wants
               : action.id === 'decks' ? railCounts.decks
+              : action.id === 'results' ? railCounts.results
               : undefined;
             const isActive = activeActionId === action.id;
             const main = (
