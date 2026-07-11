@@ -117,3 +117,6 @@ printings_backup_*.sql
 
 # One-off i18n prod backfill data export (large CSV; SQL runbook kept)
 scripts/i18n-prod-backfill/*.csv
+
+# Curated facet seed scripts are internal-only (repo is public)
+scripts/seed-*-facets.ts
