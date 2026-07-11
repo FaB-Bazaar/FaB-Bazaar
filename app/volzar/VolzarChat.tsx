@@ -937,6 +937,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
   const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
   const dataUidRef = useRef(0);
+  // Focus-follows-engagement between the chat column and the workspace panel:
+  // the pane being used gets the width (workspace opens/drills wide; clicking
+  // or tabbing into the chat contracts it). Desktop-only by construction —
+  // below lg the workspace aside isn't rendered.
+  const [paneFocus, setPaneFocus] = useState<'chat' | 'workspace'>('workspace');
+  const workspaceUid = workspace?.uid;
+  useEffect(() => {
+    if (workspaceUid) setPaneFocus('workspace');
+  }, [workspaceUid]);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
   // Row swap-printing: which row's printing picker is open
@@ -2187,8 +2196,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         </div>
         {/* end instant rail */}
 
-        {/* Chat column */}
-        <div className="flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3">
+        {/* Chat column — engaging it (click or keyboard focus anywhere inside)
+            reclaims width from the workspace panel. */}
+        <div
+          className="flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
+          onMouseDownCapture={() => setPaneFocus('chat')}
+          onFocusCapture={() => setPaneFocus('chat')}
+        >
 
         {/* Empty state: flexible spacer above the greeting + composer +
             prompts group so it reads as one centered block. The bottom spacer
@@ -2834,7 +2848,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         transcript), otherwise the card preview rail. */}
     {workspace ? (
       <aside
-        className="hidden lg:flex flex-col flex-[1.4] min-w-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden"
+        className={`hidden lg:flex flex-col min-w-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden transition-[flex-grow] duration-300 ease-out ${
+          paneFocus === 'workspace' ? 'flex-[2.4]' : 'flex-[0.8]'
+        }`}
+        onMouseDownCapture={() => setPaneFocus('workspace')}
+        onFocusCapture={() => setPaneFocus('workspace')}
         aria-label="Workspace"
       >
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
