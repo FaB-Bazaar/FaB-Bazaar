@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TcgAffiliateLink } from '@/components/tracking';
-import { FOILING_STYLES, EDITION_MAP } from '@/lib/fab-constants';
+import { FOILING_STYLES, EDITION_MAP, SET_MAP } from '@/lib/fab-constants';
+import { getSetImageOrFallback } from '@/lib/set-images';
 import { Minus, Plus, Check, Expand, X } from 'lucide-react';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
@@ -81,10 +82,26 @@ export function ImagesView({
             {/* Info badge - Collector Number, Edition, Foiling */}
             <div className="mb-1.5 bg-gray-100 dark:bg-gray-800 rounded-md px-2 py-1 border border-gray-300 dark:border-gray-700">
               <div className="flex items-center justify-between gap-2 text-xs">
-                {/* Left: Collector Number as Link */}
+                {/* Left: set symbol + Collector Number as Link. The symbol makes
+                    multi-set results scannable without decoding number prefixes. */}
+                {(() => {
+                  const setCode = (printing.set || '').toLowerCase();
+                  const setName = SET_MAP[setCode as keyof typeof SET_MAP] || setCode.toUpperCase();
+                  return setCode ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      data-testid="tile-set-symbol"
+                      src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
+                      alt={setName}
+                      title={setName}
+                      className="w-4 h-4 shrink-0 object-contain"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : null;
+                })()}
                 <Link
                   href={`/printing/${printing.printing_id}`}
-                  className="flex items-center gap-1 font-mono font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                  className="mr-auto flex items-center gap-1 font-mono font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {printing.collector_number || '—'}
