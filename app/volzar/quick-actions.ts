@@ -1019,6 +1019,25 @@ export interface HarvestedCard {
   preview: CardPreview;
 }
 
+/**
+ * Hover previews for INSTANT results: card names in AI replies hover-link only
+ * if the session's card index knows them, and tool-free turns (deck context
+ * rides the queue) never harvest anything — so data items' table rows feed the
+ * same index. A CardRow already has the {name, pitch, preview} shape.
+ */
+export function harvestCardsFromDataItem(item: {
+  tableRows?: CardRow[];
+  tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>;
+}): HarvestedCard[] {
+  const rows = [
+    ...(item.tableSections ?? []).flatMap((s) => s.rows),
+    ...(item.tableRows ?? []),
+  ];
+  return rows
+    .filter((r) => !!r.preview?.imageUrl)
+    .map((r) => ({ name: r.name, pitch: r.pitch, preview: r.preview }));
+}
+
 // Field extractors tolerant of every shape a card arrives in: get_deck flattens
 // to top-level {printingId,name,pitch}; get_binder uses {printingId,name}; the
 // wants route uses snake {printing_id, display_name}; search projects

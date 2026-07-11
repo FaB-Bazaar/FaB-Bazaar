@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   sortRowsForStrips,
+  harvestCardsFromDataItem,
   sumPersonalGames,
   deckShapeSummary,
   splitSectionsByPitch,
@@ -1339,5 +1340,31 @@ describe('sumPersonalGames (rail Game-results badge)', () => {
 
   it('returns 0 for empty inputs', () => {
     expect(sumPersonalGames([], new Set())).toBe(0);
+  });
+});
+
+describe('harvestCardsFromDataItem (hover previews for instant-drill cards)', () => {
+  const row = (name: string, pitch?: number) =>
+    ({ name, pitch, preview: { imageUrl: `https://img/${name}`, name, printingId: `pid-${name}`, priceLow: 1 } }) as any;
+
+  it('collects rows from tableSections AND tableRows so chat replies can hover-link them', () => {
+    const out = harvestCardsFromDataItem({
+      tableSections: [
+        { title: 'Maindeck', count: 2, rows: [row('Command and Conquer', 1), row('Sink Below', 1)] },
+      ],
+      tableRows: [row('Ragamuffin’s Hat')],
+    });
+    expect(out.map((c) => c.name)).toEqual(['Command and Conquer', 'Sink Below', 'Ragamuffin’s Hat']);
+    expect(out[0].preview.printingId).toBe('pid-Command and Conquer');
+    expect(out[0].pitch).toBe(1);
+  });
+
+  it('skips rows without a preview image (nothing to show on hover)', () => {
+    const bare = { name: 'X', preview: { imageUrl: '', name: 'X' } } as any;
+    expect(harvestCardsFromDataItem({ tableRows: [bare] })).toEqual([]);
+  });
+
+  it('returns [] for items with no card rows', () => {
+    expect(harvestCardsFromDataItem({})).toEqual([]);
   });
 });

@@ -9,7 +9,7 @@
 
 ## Card hover tags (linkify)
 
-- Card names in replies hover-link ONLY if a tool's STRUCTURED payload carried them: `harvestCardsFromStructured` reads `results[].printings`, top-level `cards[]`, and `deck.*` (and threads `tcgplayer_url` into previews — the rail's affiliate buy link). The MCP server route must place the payload in `structuredContent` — spreading `...result` into the JSON-RPC result is NOT enough (the browser bridge reads only `structuredContent`). `get_results` is the reference: it emits `cards[]` (name + printing_id + image_url).
+- Card names in replies hover-link ONLY if the session card index knows them — fed by BOTH tool structured payloads AND instant-drill data items (`harvestCardsFromDataItem` pulls table rows; without it, tool-free deck-context answers had zero hover targets — the model needs no special tagging, linkify matches plain names). Tool side: `harvestCardsFromStructured` reads `results[].printings`, top-level `cards[]`, and `deck.*` (and threads `tcgplayer_url` into previews — the rail's affiliate buy link). The MCP server route must place the payload in `structuredContent` — spreading `...result` into the JSON-RPC result is NOT enough (the browser bridge reads only `structuredContent`). `get_results` is the reference: it emits `cards[]` (name + printing_id + image_url).
 - **Linkify must fold exotic spaces** — gpt-oss writes card names with U+202F (narrow no-break space) in markdown tables; it renders identically to a space but silently defeats name matching, so linkify looked randomly broken run-to-run. `normalizeForMatch` (card-linkify.ts) folds NBSP/NNBSP/en-em-thin spaces length-preservingly. If linkify "sometimes doesn't work," check codepoints before debugging React.
 
 ## Behaviors

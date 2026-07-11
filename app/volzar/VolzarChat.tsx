@@ -38,7 +38,7 @@ import {
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
-  collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, type StripSection,
+  collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, harvestCardsFromDataItem, type StripSection,
   moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck,
   type DeckOwnership, type DeckSectionCategory,
   type RowMutation, type QuickActionResult,
@@ -1041,6 +1041,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     const cards: HarvestedCard[] = [];
     for (const it of items) {
       if (it.kind === 'tool' && it.cards) cards.push(...it.cards);
+      // Instant drills (deck/binder/wants/kit) — tool-free AI turns answer
+      // from queued context, so these rows are the only preview source.
+      if (it.kind === 'data') cards.push(...harvestCardsFromDataItem(it));
     }
     return buildCardNameIndex(cards);
   }, [items]);
