@@ -1801,9 +1801,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const railHasContent = !!previewCard || hasPreviewableContent(items, previewsByPid.size);
 
   return (
-    <div className="flex gap-4 items-stretch h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
-    <div className="flex-1 min-w-0 flex flex-col min-h-0">
-      <div className="flex flex-col gap-2 sm:gap-3 flex-1 min-h-0">
+    <div className="flex flex-col gap-2 sm:gap-3 h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
         {/* Header row: title + model picker + reset on one line; badges wrap below */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -1858,14 +1856,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           )}
         </div>
 
+        {/* Everything below the header: [instant rail | chat | workspace/preview].
+            Below lg the rail is a normal block on top (horizontal chip strip),
+            so mobile keeps today's layout from the same markup. */}
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-2 sm:gap-3 lg:gap-4">
+
+        {/* Instant rail: quick actions + their pickers. Desktop: narrow left
+            sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
+        <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
         {/* Quick actions — deterministic reads, zero AI tokens. One scrollable
-            strip on mobile (chips don't wrap); wraps normally at sm+. */}
+            strip on mobile (chips don't wrap); wraps at sm+; stacks at lg. */}
         <div
-          className="flex items-center gap-2 overflow-x-auto -mx-2 px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-x-visible"
+          className="flex items-center gap-2 overflow-x-auto -mx-2 px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-x-visible lg:flex-col lg:items-stretch lg:gap-1.5"
           role="group"
           aria-label="Instant actions (no AI)"
         >
-          <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300 lg:pb-0.5">
             <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
           </span>
           {QUICK_ACTIONS.map((action) => {
@@ -1881,7 +1887,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 size="sm"
                 disabled={busy || runningAction !== null}
                 onClick={() => runQuickAction(action.id)}
-                className={`shrink-0 gap-1.5 ${focusRing} ${addSide ? 'rounded-r-none' : ''}`}
+                className={`shrink-0 gap-1.5 lg:justify-start ${focusRing} ${addSide === 'wants' ? 'rounded-r-none lg:flex-1' : addSide ? 'rounded-r-none' : ''}`}
                 title="Runs directly against your data — no AI involved"
               >
                 {runningAction === action.id
@@ -1892,7 +1898,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             );
             if (!addSide) return main;
             return (
-              <span key={action.id} className="inline-flex shrink-0">
+              <span key={action.id} className="inline-flex shrink-0 lg:w-full">
                 {main}
                 {addSide === 'binder' ? (
                   // Tri-button: middle segment shows the target binder (click
@@ -1904,7 +1910,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                           variant="secondary"
                           size="sm"
                           disabled={busy || runningAction !== null || binderOptions.length === 0}
-                          className={`rounded-none border-l border-border gap-1 px-2 ${focusRing}`}
+                          className={`rounded-none border-l border-border gap-1 px-2 lg:flex-1 lg:min-w-0 lg:justify-start ${focusRing}`}
                           aria-label="Choose which binder to add cards to"
                           title="Choose which binder the + adds cards to"
                         >
@@ -1967,7 +1973,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             disabled={busy || runningAction !== null}
             onClick={toggleToBeat}
             aria-expanded={toBeatOpen}
-            className={`shrink-0 gap-1.5 ${focusRing}`}
+            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
             title="Featured tournament decks, scoped by hero or event — no AI"
           >
             <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1979,7 +1985,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             disabled={busy || runningAction !== null}
             onClick={toggleArchetype}
             aria-expanded={archetypeOpen}
-            className={`shrink-0 gap-1.5 ${focusRing}`}
+            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
             title="Compare all Decks to Beat of a hero — deterministic, no AI"
           >
             <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1991,7 +1997,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             disabled={busy || runningAction !== null}
             onClick={toggleKit}
             aria-expanded={kitOpen}
-            className={`shrink-0 gap-1.5 ${focusRing}`}
+            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
             title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
           >
             <Package className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2010,7 +2016,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               onKeyDown={(e) => { if (e.key === 'Enter') void createNewBinder(); if (e.key === 'Escape') setNewBinderOpen(false); }}
               placeholder="New binder name…"
               aria-label="New binder name"
-              className={`w-64 text-base ${focusRing}`}
+              className={`w-64 lg:w-full text-base ${focusRing}`}
               autoFocus
             />
             <Button
@@ -2054,8 +2060,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             {toBeatMode === 'hero' ? (
               <PickerSelect
                 label={`Hero (last ${TO_BEAT_MONTHS} months)`}
-                wrapperClassName="w-full sm:w-auto"
-                triggerClassName="w-full sm:min-w-[16rem]"
+                wrapperClassName="w-full sm:w-auto lg:w-full"
+                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
                 value={toBeatHero}
                 onValueChange={setToBeatHero}
                 disabled={heroesLoading}
@@ -2070,8 +2076,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             ) : (
               <PickerSelect
                 label={`Event (last ${TO_BEAT_MONTHS} months)`}
-                wrapperClassName="w-full sm:w-auto"
-                triggerClassName="w-full sm:min-w-[16rem]"
+                wrapperClassName="w-full sm:w-auto lg:w-full"
+                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
                 value={toBeatEvent}
                 onValueChange={setToBeatEvent}
                 disabled={toBeatEventsLoading}
@@ -2101,8 +2107,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
             <PickerSelect
               label="Hero (Decks to Beat)"
-              wrapperClassName="w-full sm:w-auto"
-              triggerClassName="w-full sm:min-w-[16rem]"
+              wrapperClassName="w-full sm:w-auto lg:w-full"
+              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
               value={selectedHero}
               onValueChange={setSelectedHero}
               disabled={heroesLoading}
@@ -2116,7 +2122,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </PickerSelect>
             <PickerSelect
               label="Window"
-              triggerClassName="w-40"
+              triggerClassName="w-40 lg:w-full"
               value={String(archetypeMonths)}
               onValueChange={(v) => setArchetypeMonths(Number(v))}
             >
@@ -2142,7 +2148,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
             <PickerSelect
               label="Format"
-              triggerClassName="w-52"
+              triggerClassName="w-52 lg:w-full"
               value={kitFormat}
               onValueChange={setKitFormatAndLoad}
             >
@@ -2154,8 +2160,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </PickerSelect>
             <PickerSelect
               label="Hero"
-              wrapperClassName="w-full sm:w-auto"
-              triggerClassName="w-full sm:min-w-[16rem]"
+              wrapperClassName="w-full sm:w-auto lg:w-full"
+              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
               value={kitHero}
               onValueChange={setKitHero}
               disabled={kitHeroesLoading}
@@ -2178,6 +2184,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </Button>
           </div>
         )}
+        </div>
+        {/* end instant rail */}
+
+        {/* Chat column */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3">
 
         {/* Empty state: flexible spacer above the greeting + composer +
             prompts group so it reads as one centered block. The bottom spacer
@@ -2815,8 +2826,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
         {chatEmpty && <div className="flex-[1.4] min-h-4" aria-hidden="true" />}
-      </div>
     </div>
+    {/* end chat column */}
 
     {/* Desktop right column: the workspace panel when a table-bearing result
         is open (full height, own scroll — tables never scroll inside the
@@ -2996,6 +3007,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       onSelectCard={handleAddCardSelect}
       destination={addDialog?.destination ?? 'binder'}
     />
+    </div>
+    {/* end [rail | chat | workspace] row */}
     </div>
   );
 }
