@@ -15,7 +15,7 @@ import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
-  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield,
+  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield, Table2,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -448,18 +448,25 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
 }
 
 /**
- * Ultra-minimal deck view for the COLLAPSED workspace panel (chat engaged,
- * narrow flex): Talishar-concat-style tiles — a fixed-height art-band crop of
- * the card image with the name, pitch gem, and ×qty overlaid — under the same
- * section headers as the table. Hover/focus previews at the panel foot; any
- * click re-engages the panel, which swaps back to the full table.
+ * Ultra-minimal deck view for the workspace panel (the DEFAULT for decks):
+ * Talishar-concat-style tiles — a fixed-height art-band crop of the card
+ * image with the name, pitch gem, and ×qty overlaid — under the same section
+ * headers as the table. Hover/focus a tile → `onHoverRow` floats the full-card
+ * detail overlay over the chat column (and the panel-foot preview updates);
+ * the header toggle switches to the full table.
  */
-function WorkspaceStrips({ sections, onPreview }: {
+function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
   sections: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
+  onHoverRow: (row: CardRow | null) => void;
 }) {
   return (
-    <div data-testid="workspace-strips" className="space-y-3 px-0.5 py-0.5">
+    <div
+      data-testid="workspace-strips"
+      className="space-y-3 px-0.5 py-0.5"
+      onMouseLeave={() => onHoverRow(null)}
+      onBlur={() => onHoverRow(null)}
+    >
       {sections.map((sec, si) => (
         <section key={`${sec.title}-${si}`}>
           {sec.title && (
@@ -469,7 +476,7 @@ function WorkspaceStrips({ sections, onPreview }: {
           )}
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-1">
             {sec.rows.map((r, ri) => {
-              const show = () => onPreview(r.preview);
+              const show = () => { onPreview(r.preview); onHoverRow(r); };
               return (
                 <li key={`${r.itemId ?? r.preview.printingId ?? r.name}-${ri}`}>
                   <button
@@ -1016,7 +1023,29 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const [paneFocus, setPaneFocus] = useState<'chat' | 'workspace'>('workspace');
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const workspaceUid = workspace?.uid;
+  // Strip view: the table content regrouped for WorkspaceStrips (flat rows
+  // become one untitled section). null when there's nothing visual to crop
+  // (image-less listings keep their normal rendering).
+  const workspaceStripSections = useMemo(() => {
+    if (!workspace) return null;
+    const sections = workspace.tableSections?.length
+      ? workspace.tableSections
+      : workspace.tableRows?.length
+        ? [{ title: '', count: workspace.tableRows.length, rows: workspace.tableRows }]
+        : [];
+    if (!sections.some((s) => s.rows.some((r) => r.image))) return null;
+    // Cluster by pitch color / type so the strip gems read as bands.
+    return sections.map((s) => ({ ...s, rows: sortRowsForStrips(s.rows) }));
+  }, [workspace]);
+  // Strips vs table, toggled from the panel header. Decks DEFAULT to strips
+  // (glanceable reference); binders/comparisons default to the table, whose
+  // rows carry their primary actions (± qty, quick-add).
+  const [workspaceView, setWorkspaceView] = useState<'strips' | 'table'>('strips');
+  // Row under the cursor in the strip view — floats the full-card detail
+  // overlay over the chat column (the rail's spot is taken by the panel).
+  const [stripHover, setStripHover] = useState<CardRow | null>(null);
   useEffect(() => {
+    setStripHover(null);
     if (!workspaceUid) return;
     // The workspace is a reference surface, not a form — DOM focus defaults to
     // the composer so typing goes to Volzar the moment a deck/list opens.
@@ -1032,21 +1061,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       if (!typingElsewhere) composerRef.current?.focus({ preventScroll: true });
     }
     setPaneFocus('workspace');
+    setWorkspaceView(workspace?.deckPublicId && workspaceStripSections ? 'strips' : 'table');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- per-open reset; workspace/strips are derived from the uid
   }, [workspaceUid]);
-  // Collapsed-panel strip view: the table content regrouped for WorkspaceStrips
-  // (flat rows become one untitled section). null when there's nothing visual
-  // to crop (image-less listings keep their normal rendering when narrow).
-  const workspaceStripSections = useMemo(() => {
-    if (!workspace) return null;
-    const sections = workspace.tableSections?.length
-      ? workspace.tableSections
-      : workspace.tableRows?.length
-        ? [{ title: '', count: workspace.tableRows.length, rows: workspace.tableRows }]
-        : [];
-    if (!sections.some((s) => s.rows.some((r) => r.image))) return null;
-    // Cluster by pitch color / type so the strip gems read as bands.
-    return sections.map((s) => ({ ...s, rows: sortRowsForStrips(s.rows) }));
-  }, [workspace]);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
   // Row swap-printing: which row's printing picker is open
@@ -2308,10 +2325,52 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         {/* Chat column — engaging it (click or keyboard focus anywhere inside)
             reclaims width from the workspace panel. */}
         <div
-          className="flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
+          className="relative flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
           onMouseDownCapture={() => setPaneFocus('chat')}
           onFocusCapture={() => setPaneFocus('chat')}
         >
+
+        {/* Full-card detail overlay for the workspace strip view — floats
+            centered over the chat column (the rail's spot is taken by the
+            panel) while a tile is hovered. Non-interactive by design:
+            pointer-events-none keeps tile hover tracking unbroken. */}
+        {stripHover && (
+          <div
+            data-testid="strip-hover-card"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-20 hidden lg:flex items-center justify-center"
+          >
+            <div className="flex flex-col items-center gap-2.5 rounded-2xl border border-border bg-card/95 px-5 py-4 shadow-2xl backdrop-blur-sm">
+              {stripHover.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={stripHover.image} alt="" className="w-64 max-w-none rounded-xl shadow-lg" />
+              )}
+              <div className="text-center">
+                <p className="font-semibold">
+                  {(stripHover.qty ?? 1) > 1 ? `${stripHover.qty}× ` : ''}{stripHover.name}
+                </p>
+                {stripHover.type && (
+                  <p className="text-xs text-gray-600 dark:text-gray-300">{stripHover.type}</p>
+                )}
+                {(stripHover.collector || stripHover.foiling) && (
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    {[stripHover.collector, FOIL_LABEL[stripHover.foiling ?? ''], stripHover.extendedArt ? 'EA' : undefined]
+                      .filter(Boolean).join(' · ')}
+                  </p>
+                )}
+                {(stripHover.preview.priceLow != null || stripHover.preview.priceMarket != null) && (
+                  <p className="text-sm">
+                    {stripHover.preview.priceLow != null && (
+                      <>Low <span className="font-semibold text-green-700 dark:text-green-400">${stripHover.preview.priceLow.toFixed(2)}</span></>
+                    )}
+                    {stripHover.preview.priceLow != null && stripHover.preview.priceMarket != null && ' · '}
+                    {stripHover.preview.priceMarket != null && <>Market ${stripHover.preview.priceMarket.toFixed(2)}</>}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Empty state: flexible spacer above the greeting + composer +
             prompts group so it reads as one centered block. The bottom spacer
@@ -2981,21 +3040,31 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           )}
           <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
           <span className="font-semibold min-w-0 truncate">{workspace.title}</span>
+          {workspaceStripSections && (
+            <button
+              type="button"
+              onClick={() => { setStripHover(null); setWorkspaceView((v) => (v === 'strips' ? 'table' : 'strips')); }}
+              aria-label={workspaceView === 'strips' ? 'Show table' : 'Show strips'}
+              title={workspaceView === 'strips' ? 'Show table (details, prices, edit)' : 'Show strips (compact card view)'}
+              className={`ml-auto shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+            >
+              {workspaceView === 'strips'
+                ? <Table2 className="h-4 w-4" aria-hidden="true" />
+                : <LayoutGrid className="h-4 w-4" aria-hidden="true" />}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setWorkspaceStack([])}
             aria-label="Close workspace"
-            className={`ml-auto shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+            className={`${workspaceStripSections ? '' : 'ml-auto '}shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
-          {paneFocus === 'chat' && workspaceStripSections ? (
-            // Collapsed (chat engaged): the squeezed table is unreadable at
-            // this width — show glanceable cropped-image strips instead.
-            // Clicking anywhere re-engages the panel → full table returns.
-            <WorkspaceStrips sections={workspaceStripSections} onPreview={showPreview} />
+          {workspaceView === 'strips' && workspaceStripSections ? (
+            <WorkspaceStrips sections={workspaceStripSections} onPreview={showPreview} onHoverRow={setStripHover} />
           ) : workspace.tableSections && workspace.tableSections.length > 0 ? (
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
               onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
