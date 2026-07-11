@@ -38,6 +38,23 @@ export function MarkdownMessage({ text, index, previewsByPid, onHoverCard }: Mar
               <img src={icon.src} alt={icon.alt} title={icon.alt} className="inline-block h-3 w-3 mx-px align-[-0.125em]" />
             );
           },
+          // Pitch notation "(pN)" → colored pip dots: 1 red / 2 yellow / 3
+          // blue. Count + color double-encode the value (SC 1.4.1). CSS dots,
+          // not the /icons/pitch-N.png card-frame pips — those are red at
+          // every pitch and unreadable at text size.
+          pitchicon: ({ node }: any) => {
+            const pitch = Number(node?.properties?.dataPitch);
+            if (pitch !== 1 && pitch !== 2 && pitch !== 3) return null;
+            const label = `pitch ${pitch} (${pitch === 1 ? 'red' : pitch === 2 ? 'yellow' : 'blue'})`;
+            const dot = pitch === 1 ? 'bg-red-500' : pitch === 2 ? 'bg-yellow-400' : 'bg-blue-500';
+            return (
+              <span role="img" aria-label={label} title={label} className="inline-flex items-center gap-[2px] mx-0.5">
+                {Array.from({ length: pitch }, (_, i) => (
+                  <span key={i} className={`inline-block h-2 w-2 rounded-full ring-1 ring-black/15 dark:ring-white/25 ${dot}`} aria-hidden="true" />
+                ))}
+              </span>
+            );
+          },
           // Card-name hover target injected by rehypeLinkifyCards. `cardref` is
           // a custom tag our rehype plugin emits, hence the Components cast.
           cardref: ({ node, children }: any) => {

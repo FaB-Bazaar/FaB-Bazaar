@@ -155,6 +155,9 @@ export function systemPrompt(username: string): string {
     `English conversations: omit options.language entirely.`,
     ``,
     `Keep replies concise. Use markdown lists for cards; include collector numbers.`,
+    `When you mention a card's pitch, write it as (p1), (p2), or (p3) right after`,
+    `the card name — the chat UI renders that notation as the red/yellow/blue`,
+    `pitch pip icons.`,
     `Never invent card data — if a tool didn't return it, say so.`,
   ].join('\n');
 }

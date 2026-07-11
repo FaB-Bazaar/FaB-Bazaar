@@ -17,7 +17,9 @@ export const RULE_TOKEN_ICON: Record<string, { src: string; alt: string }> = {
   i: { src: '/fab/symbols/intelligence.png', alt: 'intellect' },
 };
 
-const TOKEN_OR_BR = /(\{[pdrhi]\})|(<br\s*\/?>)/gi;
+// {p}-style rules tokens, literal <br>, and pitch notation "(p1)"/"(p2)"/"(p3)"
+// (the model's natural way of writing pitch — rendered as the pip icons).
+const TOKEN_OR_BR = /(\{[pdrhi]\})|(<br\s*\/?>)|\(p([123])\)/gi;
 
 // Elements whose text must stay verbatim (mirrors card-linkify's SKIP_TAGS).
 const SKIP_TAGS = new Set(['code', 'pre', 'a']);
@@ -50,6 +52,13 @@ export function rehypeRuleGlyphs() {
               type: 'element',
               tagName: 'ruleicon',
               properties: { dataToken: m[1].slice(1, -1).toLowerCase() },
+              children: [],
+            });
+          } else if (m[3]) {
+            out.push({
+              type: 'element',
+              tagName: 'pitchicon',
+              properties: { dataPitch: Number(m[3]) },
               children: [],
             });
           } else {

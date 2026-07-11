@@ -5,6 +5,7 @@
 - **Every card list renders through `CardTable`** (VolzarChat.tsx) — binder/wants (flat `tableRows`), deck drills / hero kits / comparisons / archetype consensus (`tableSections`), and AI search results. New card-shaped results must emit CardRow rows, not text lines. Columns are adaptive (only rendered when some row has data); a tail note column (`CardRow.note`) gets its header via `QuickActionResult.tableNoteHeader` (e.g. "Decks", "Owned").
 - **Table thumbnails need `max-w-none`** — the global `img{max-width:100%}` reset lets auto table layout collapse the `w-9` image cell to 0-width whenever a sibling column demands `w-full`. Symptom: images "never load" but their naturalWidth is fine.
 - **Model markdown** gets `{p}/{d}/{r}/{h}/{i}` glyphs + literal `<br>` → line break via `rehypeRuleGlyphs` (rule-glyphs.ts). rehype-raw is deliberately OFF — raw HTML renders as text unless that plugin converts it.
+- **Pitch notation `(p1)`/`(p2)`/`(p3)` in model markdown → colored pip dots** (1 red / 2 yellow / 3 blue; count + color double-encode per SC 1.4.1) via the same plugin (`pitchicon` element). CSS dots, NOT `/icons/pitch-N.png` — those card-frame pips are red at every pitch and unreadable at text size. The system prompt (app/api/volzar/prompt.ts) steers the model to write `(pN)` after card names. Pinned in rule-glyphs.test.ts + `e2e/volzar-pitch-pips.spec.ts` (stubbed SSE, no AI spend).
 
 ## Card hover tags (linkify)
 

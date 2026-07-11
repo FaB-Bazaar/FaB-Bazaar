@@ -74,3 +74,27 @@ describe('rehypeRuleGlyphs in the real remark/rehype pipeline', () => {
     expect(textOf(tree)).toContain('+1{p}');
   });
 });
+
+describe('pitch notation (pN) → pitch pip icons', () => {
+  it('swaps (p1)/(p2)/(p3) for pitchicon elements, removing the notation text', async () => {
+    const tree = await toGlyphTree('Command and Conquer (p1), Pulsewave Protocol (p2), Ripple Away (p3).');
+    const pips = collect(tree, 'pitchicon');
+    expect(pips.map((i) => i.properties.dataPitch)).toEqual([1, 2, 3]);
+    expect(textOf(tree)).toBe('Command and Conquer , Pulsewave Protocol , Ripple Away .');
+  });
+
+  it('works inside GFM table cells and is case-insensitive', async () => {
+    const md = ['| Card | Qty |', '|------|-----|', '| Fate Foreseen (P1) | 3 |'].join('\n');
+    const pips = collect(await toGlyphTree(md), 'pitchicon');
+    expect(pips).toHaveLength(1);
+    expect(pips[0].properties.dataPitch).toBe(1);
+  });
+
+  it('ignores non-pitch parentheticals and bare pN text', async () => {
+    const tree = await toGlyphTree('See (p4) and (page 1) and p1 alone and (p12).');
+    expect(collect(tree, 'pitchicon')).toHaveLength(0);
+    expect(textOf(tree)).toContain('(p4)');
+    expect(textOf(tree)).toContain('(p12)');
+    expect(textOf(tree)).toContain('p1 alone');
+  });
+});
