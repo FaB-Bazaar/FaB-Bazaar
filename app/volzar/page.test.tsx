@@ -75,6 +75,28 @@ describe('VolzarPage signed-out handling', () => {
   });
 });
 
+describe('VolzarPage model list', () => {
+  it('defaults the picker to the free trial model (models[0] = tencent/hy3:free)', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
+    mockGetVolzarAccess.mockResolvedValue({
+      success: true,
+      data: { isSuperAdmin: true, metafySupporterTier: null, volzarAccess: true },
+    } as any);
+    mockGetSuggestions.mockResolvedValue([] as any);
+    const prevKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    try {
+      const result = await VolzarPage({ searchParams: emptySearchParams() });
+      const chats = findElements(result, (el) => Array.isArray((el.props as any)?.models));
+      expect(chats.length).toBe(1);
+      expect((chats[0].props as any).models[0]).toBe('tencent/hy3:free');
+    } finally {
+      if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
+      else process.env.OPENROUTER_API_KEY = prevKey;
+    }
+  });
+});
+
 describe('VolzarPage suggested prompts', () => {
   it('passes the state-aware suggested prompts to the chat', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
