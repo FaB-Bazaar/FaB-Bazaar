@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Outfit } from "next/font/google"
 
 const OutfitFont = Outfit({ subsets: ["latin"] })
@@ -20,6 +20,15 @@ import { AnalyticsListener } from "@/components/analytics/AnalyticsListener"
 import { Suspense } from "react"
 
 
+
+// interactiveWidget: on Android the on-screen keyboard shrinks the layout
+// viewport instead of overlaying it, so dvh-sized shells (Volzar chat) compact
+// and the composer stays visible while typing. iOS ignores this key.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
+}
 
 // Your metadata object is perfect and remains unchanged.
 export const metadata: Metadata = {
@@ -186,7 +195,7 @@ export default async function RootLayout({
 
       </head>
       <body className={cn(
-        "min-h-screen font-sans antialiased bg-page",
+        "min-h-dvh font-sans antialiased bg-page",
         OutfitFont.className
       )}>
         <AdsConfigProvider adsEnabled={adsEnabled}>
@@ -198,8 +207,12 @@ export default async function RootLayout({
                   <AnalyticsListener />
                 </Suspense>
                 {/* pb-14 reserves space for the mobile bottom tab bar (sm:hidden) so
-                    it never covers the footer / page content. */}
-                <div className="relative flex flex-col min-h-screen pb-14 sm:pb-0">
+                    it never covers the footer / page content. min-h-DVH, not
+                    -screen: 100vh is iOS's LARGE viewport (URL bar collapsed),
+                    but inner shells (Volzar) size in dvh — the mismatch used to
+                    stretch main.flex-grow into a dead band between the chat
+                    composer and the footer whenever Safari's bar was visible. */}
+                <div className="relative flex flex-col min-h-dvh pb-14 sm:pb-0">
                   
                   <header className="sticky top-0 z-50">
                     <Navbar />

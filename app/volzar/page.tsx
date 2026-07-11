@@ -85,15 +85,17 @@ export default async function VolzarPage({ searchParams }: {
   return (
     // Full-bleed app shell: the chat owns the viewport below the navbar (like a
     // dedicated chat app) instead of floating as a card in a centered gutter.
-    // Height reserves navbar (4rem + 1px border = 65px) + the legal footer,
+    // Desktop reserves navbar (4rem + 1px border = 65px) + the legal footer,
     // which wraps to TWO lines inside its max-w-5xl (≈47px) — so desktop chrome
     // is ~112.3px. Reserving less (the old 6.75rem) left the page 4px taller
     // than the viewport → a permanent window scrollbar on OSes with
-    // non-overlay scrollbars ("4 scrollbars" report). Mobile reserves more:
-    // bottom tab bar (~3.5rem) + the footer wrapping past two lines at narrow
-    // widths — 10rem measured 39px short at 390×844 (e2e/volzar-ux-fixes
-    // pins the no-overflow invariant), hence 12.5rem.
-    <div className="mx-auto flex h-[calc(100dvh-12.5rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
+    // non-overlay scrollbars ("4 scrollbars" report).
+    // Mobile reserves ONLY navbar + tab bar (4rem + 1px + 3.5rem): the legal
+    // footer is deliberately a soft floor BELOW the fold — the chat fills the
+    // screen and scrolling past the thread reveals the footer (chat-app norm;
+    // the old 12.5rem reservation left a dead band above the footer, worst on
+    // iOS where 100vh ≠ 100dvh). e2e/volzar-ux-fixes pins the invariant.
+    <div className="mx-auto flex h-[calc(100dvh-7.5rem-1px)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
       <VolzarChat
         username={user.name || 'collector'}
         userId={user.id}
