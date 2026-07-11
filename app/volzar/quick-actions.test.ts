@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   sortRowsForStrips,
+  sumPersonalGames,
   deckShapeSummary,
   splitSectionsByPitch,
   prettifyCardText,
@@ -1321,5 +1322,22 @@ describe('summarizeDeckContents — Bench section', () => {
     expect(result.lines).toContain('— Bench (1) —');
     expect(result.tableSections?.map((s) => s.title)).toContain('Bench');
     expect(result.context).toContain('Bench: 1x Meganetic Protocol');
+  });
+});
+
+describe('sumPersonalGames (rail Game-results badge)', () => {
+  it('counts games only for unflagged personal decks — system/Decks-to-Beat games are excluded', () => {
+    const perf = [
+      { deckPublicId: 'mine-1', games: 4 },
+      { deckPublicId: 'mine-2', games: 3 },
+      { deckPublicId: 'system-deck', games: 10 },
+      { deckPublicId: undefined, games: 2 },
+      { deckPublicId: 'mine-1' }, // no games field
+    ];
+    expect(sumPersonalGames(perf, new Set(['mine-1', 'mine-2']))).toBe(7);
+  });
+
+  it('returns 0 for empty inputs', () => {
+    expect(sumPersonalGames([], new Set())).toBe(0);
   });
 });

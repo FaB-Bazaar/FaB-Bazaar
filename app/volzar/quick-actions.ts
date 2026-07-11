@@ -397,6 +397,19 @@ export async function fetchLatestGameForDeck(deckPublicId: string): Promise<Game
   return toGameResultRows(games)[0];
 }
 
+/**
+ * Rail "Game results" badge: total games on UNFLAGGED personal decks only —
+ * a superadmin owns the Decks to Beat system decks, and their games must not
+ * inflate the personal count.
+ */
+export function sumPersonalGames(
+  perf: Array<{ deckPublicId?: string; games?: number }>,
+  personalDeckIds: Set<string>,
+): number {
+  return perf.reduce((sum, row) =>
+    row.deckPublicId && personalDeckIds.has(row.deckPublicId) ? sum + (row.games ?? 0) : sum, 0);
+}
+
 /** One recorded game for the Game-results table. resultId + deckName let the
  *  model analyze it via get_results. */
 export interface GameResultRow {

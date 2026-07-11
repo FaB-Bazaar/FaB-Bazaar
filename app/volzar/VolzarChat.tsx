@@ -38,7 +38,7 @@ import {
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
-  collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, type StripSection,
+  collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, type StripSection,
   moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck,
   type DeckOwnership, type DeckSectionCategory,
   type RowMutation, type QuickActionResult,
@@ -1091,28 +1091,28 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   useEffect(() => {
     // /api/decks/basic 404s (route reads "basic" as a deckId) and /api/decks
     // ignores limit — fetch once, count the personal (non-system, non-featured)
-    // decks like the My decks listing does.
-    void decksClient.getUserDecks().then((r) => {
-      if (r.success) {
-        const all: any[] = (r.data as any)?.decks ?? [];
-        setRailCounts((c) => ({ ...c, decks: all.filter((d) => !d.isSystemDeck && !d.featured).length }));
-      }
+    // decks like the My decks listing does. The results badge needs the same
+    // personal set (a superadmin owns the Decks to Beat system decks — their
+    // games must not inflate the count), so both counts share one join.
+    void Promise.all([
+      decksClient.getUserDecks(),
+      fetch('/api/results/performance', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
+    ]).then(([decksRes, perf]) => {
+      if (!decksRes.success) return;
+      const all: any[] = (decksRes.data as any)?.decks ?? [];
+      const personal = all.filter((d) => !d.isSystemDeck && !d.featured);
+      setRailCounts((c) => ({
+        ...c,
+        decks: personal.length,
+        ...(perf?.success
+          ? { results: sumPersonalGames(perf.data ?? [], new Set(personal.map((d) => d.publicId))) }
+          : {}),
+      }));
     }).catch(() => {});
     // The wants route returns the whole list (no total field / no limit).
     void wantsClient.getUserWants().then((r) => {
       if (r.success) setRailCounts((c) => ({ ...c, wants: (r.data as any)?.wantsList?.cards?.length }));
     }).catch(() => {});
-    // Total recorded games = sum of per-deck `games` from the performance
-    // aggregate (the /recent feed clamps at 50, so it can't count).
-    void fetch('/api/results/performance', { credentials: 'include' })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j?.success) {
-          const total = ((j.data ?? []) as Array<{ games?: number }>).reduce((sum, d) => sum + (d.games ?? 0), 0);
-          setRailCounts((c) => ({ ...c, results: total }));
-        }
-      })
-      .catch(() => {});
   }, []);
   const dataUidRef = useRef(0);
   // Focus-follows-engagement between the chat column and the workspace panel:
