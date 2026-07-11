@@ -316,7 +316,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
           ) : typeof r.qty === 'number' ? `${r.qty}×` : ''}
         </td>
       )}
-      <td className={`align-middle whitespace-nowrap font-medium ${has.type ? 'w-full md:w-auto' : 'w-full'}`}>
+      <td className={`align-middle break-words font-medium ${has.type ? 'w-full md:w-auto' : 'w-full'}`}>
         <span
           tabIndex={0}
           onFocus={() => onPreview(r.preview)}
@@ -333,8 +333,11 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
           </span>
         )}
       </td>
+      {/* overflow-wrap:anywhere drops the flexible type column's min-content
+          floor so the table can always compress INTO its container instead of
+          clipping the Foil/swap columns off the panel edge. */}
       {has.type && (
-        <td className="hidden md:table-cell md:w-full align-middle py-1">
+        <td className="hidden md:table-cell md:w-full align-middle py-1 [overflow-wrap:anywhere]">
           {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
           {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
         </td>
@@ -435,7 +438,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   return (
     // Thin themed scrollbar: the table scrolls inside the chat scroll, and a
     // full-width OS bar here read as "tables within tables" on Windows.
-    <div className={`${maxHeightClass} overflow-y-auto overflow-x-hidden rounded-md border border-border [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent ${className}`}>
+    <div className={`${maxHeightClass} overflow-y-auto overflow-x-auto rounded-md border border-border [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent ${className}`}>
       <table className="w-full text-sm border-collapse [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:px-2.5 [&_th]:py-2 [&_td:first-child]:pl-3 [&_th:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:last-child]:pr-3">
         <thead>
           <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
@@ -1378,7 +1381,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       const params = new URLSearchParams({ cardUniqueId: deckData.heroCardUniqueId, limit: '50', show: 'browse_bulk' });
       const res = await fetch(`/api/printings/search?${params}`);
       const data = await res.json().catch(() => null);
-      heroPrintingId = sortPrintings(data?.data?.printings ?? [])[0]?.printing_id;
+      heroPrintingId = (sortPrintings(data?.data?.printings ?? []) as any[])[0]?.printing_id;
     }
     if (!heroPrintingId) {
       setErrorBanner('Could not resolve a printing for the selected hero.');
@@ -1622,8 +1625,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     if (lastUserIndex === -1) return;
     const trimmed = apiMessages.slice(0, lastUserIndex + 1);
     setApiMessages(trimmed);
+    // No model picker anymore: an override applies to this retry only.
     const useModel = modelOverride ?? model;
-    if (modelOverride) setModel(modelOverride);
     await performTurn(trimmed, useModel);
   }, [busy, apiMessages, model, performTurn]);
 
