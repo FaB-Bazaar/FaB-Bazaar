@@ -3246,7 +3246,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
 
         {/* Composer — centered with the greeting pre-first-turn, docked to the
             bottom edge (full width) once the conversation starts. */}
-        <div className={chatEmpty ? 'mx-auto w-full max-w-2xl flex gap-2 items-end' : 'flex gap-2 items-end'}>
+        {/* Send/Stop rides INSIDE the textarea (bottom-right) — an external
+            button column wasted a strip of width beside the input. */}
+        <div className={`relative ${chatEmpty ? 'mx-auto w-full max-w-2xl' : ''}`}>
           <Textarea
             ref={composerRef}
             value={input}
@@ -3261,24 +3263,26 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             aria-label="Message Volzar"
             rows={2}
             disabled={busy}
-            className={`text-base resize-none ${focusRing}`}
+            className={`text-base resize-none pr-14 ${focusRing}`}
           />
-          {busy ? (
-            <Button variant="outline" onClick={stop} aria-label="Stop" className={`h-11 rounded-full px-5 gap-2 shadow-sm ${focusRing}`}>
-              <Square className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Stop</span>
-            </Button>
-          ) : (
-            <Button
-              onClick={send}
-              disabled={!input.trim()}
-              aria-label="Send"
-              className={`h-11 rounded-full px-6 gap-2 font-medium shadow-sm transition-transform hover:-translate-y-px active:translate-y-0 disabled:shadow-none ${focusRing}`}
-            >
-              <Send className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Send</span>
-            </Button>
-          )}
+          <div className="absolute bottom-2 right-2">
+            {busy ? (
+              <Button variant="outline" size="icon" onClick={stop} aria-label="Stop" title="Stop" className={`h-9 w-9 rounded-full shadow-sm ${focusRing}`}>
+                <Square className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                onClick={send}
+                disabled={!input.trim()}
+                aria-label="Send"
+                title="Send (Enter)"
+                className={`h-9 w-9 rounded-full shadow-sm transition-transform hover:-translate-y-px active:translate-y-0 disabled:shadow-none ${focusRing}`}
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {chatEmpty && <div className="flex-[1.4] min-h-4" aria-hidden="true" />}
