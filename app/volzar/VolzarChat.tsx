@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialog';
 import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
+import CreateDeckDialog from '@/components/deck/CreateDeckDialog';
+import { sortPrintings } from '@/lib/fab-constants';
 import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
@@ -1171,6 +1173,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the open, not the object identity
   }, [workspaceUid]);
+  // "+" on the My decks row → the site's CreateDeckDialog; on success the
+  // new deck drills open in the workspace.
+  const [createDeckOpen, setCreateDeckOpen] = useState(false);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
   // Row swap-printing: which row's printing picker is open
@@ -1386,6 +1391,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const drill = useCallback((target: DrillTarget) => {
     void runInstant(`${target.kind}:${target.id}`, () => runDrill(target));
   }, [runInstant]);
+
+  // CreateDeckDialog submit: resolve the hero's printing (the dialog passes
+  // heroCardUniqueId; the deck API wants a printing), create, then drill the
+  // new deck open. Throwing keeps the dialog open on failure.
+  const handleCreateDeck = useCallback(async (deckData: {
+    name: string; description: string; format: string;
+    hero?: string; heroCardUniqueId?: string; heroPrintingId?: string; isPublic: boolean;
+  }) => {
+    let heroPrintingId = deckData.heroPrintingId;
+    if (!heroPrintingId && deckData.heroCardUniqueId) {
+      const params = new URLSearchParams({ cardUniqueId: deckData.heroCardUniqueId, limit: '50', show: 'browse_bulk' });
+      const res = await fetch(`/api/printings/search?${params}`);
+      const data = await res.json().catch(() => null);
+      heroPrintingId = sortPrintings(data?.data?.printings ?? [])[0]?.printing_id;
+    }
+    if (!heroPrintingId) {
+      setErrorBanner('Could not resolve a printing for the selected hero.');
+      throw new Error('no hero printing');
+    }
+    const { heroCardUniqueId: _hint, ...payload } = deckData;
+    const result = await decksClient.createDeck({ ...payload, heroPrintingId } as any);
+    if (!result.success) {
+      setErrorBanner(result.error);
+      throw new Error(result.error);
+    }
+    setCreateDeckOpen(false);
+    window.dispatchEvent(new CustomEvent('deckCreated')); // navbar deck list
+    setRailCounts((c) => (typeof c.decks === 'number' ? { ...c, decks: c.decks + 1 } : c));
+    const publicId = (result.data as any)?.publicId;
+    if (publicId) drill({ kind: 'deck', id: publicId, name: deckData.name });
+  }, [drill]);
 
   // Shared hero list (Decks-to-Beat heroes) — used by both the archetype
   // picker and the decks-to-beat by-hero picker; loaded once on demand.
@@ -2297,7 +2333,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             // My binders / My wants are split buttons: the label runs the
             // instant listing; the attached side button opens the card-search
             // dialog to ADD cards (binder side picks the target binder first).
-            const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : null;
+            const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : action.id === 'decks' ? 'deck' : null;
             const ActionIcon = ACTION_ICONS[action.id];
             const count = action.id === 'binders' ? (binderOptions.length || undefined)
               : action.id === 'wants' ? railCounts.wants
@@ -2312,7 +2348,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 disabled={busy || runningAction !== null}
                 onClick={() => runQuickAction(action.id)}
                 aria-current={isActive ? 'true' : undefined}
-                className={`shrink-0 gap-1.5 lg:justify-start border-l-[3px] ${isActive ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing} ${addSide === 'wants' ? 'rounded-r-none lg:flex-1' : addSide ? 'rounded-r-none' : ''}`}
+                className={`shrink-0 gap-1.5 lg:justify-start border-l-[3px] ${isActive ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing} ${addSide === 'wants' || addSide === 'deck' ? 'rounded-r-none lg:flex-1' : addSide ? 'rounded-r-none' : ''}`}
                 title="Runs directly against your data — no AI involved"
               >
                 {runningAction === action.id
@@ -2389,10 +2425,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                     variant="secondary"
                     size="sm"
                     disabled={busy || runningAction !== null}
-                    onClick={() => setAddDialog({ destination: 'wants' })}
+                    onClick={() => (addSide === 'wants' ? setAddDialog({ destination: 'wants' }) : setCreateDeckOpen(true))}
                     className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
-                    aria-label="Add a card to your wants list"
-                    title="Search cards and add them to your wants list"
+                    aria-label={addSide === 'wants' ? 'Add a card to your wants list' : 'Create a new deck'}
+                    title={addSide === 'wants' ? 'Search cards and add them to your wants list' : 'Create a new deck'}
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" />
                   </Button>
@@ -3426,6 +3462,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     {deckView && (
       <DeckCardsOverlay title={deckView.title} subtitle={deckView.subtitle} cards={deckView.cards} onClose={() => setDeckView(null)} />
     )}
+    <CreateDeckDialog open={createDeckOpen} onOpenChange={setCreateDeckOpen} onCreateDeck={handleCreateDeck} />
     {/* Tile action menu — the deck page's per-tile actions, chat-side. The
         full-screen wrapper eats the outside click WITHOUT engaging the panel
         (it sits above the aside, so the capture handlers never see it). */}
