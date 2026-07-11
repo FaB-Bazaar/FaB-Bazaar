@@ -1296,3 +1296,30 @@ describe('summarizeDeckContents — self-sufficient AI context (no tool call nee
     expect(result.context).toContain('you may play evos from your banished zone');
   });
 });
+
+describe('splitSectionsByPitch — sourceTitle for write plumbing', () => {
+  it('carries the unsplit section title so ±/swap/move resolve the right category and rows', () => {
+    const row = (name: string, pitch: number) => ({ name, pitch, preview: { imageUrl: '', name } }) as any;
+    const out = splitSectionsByPitch([
+      { title: 'Maindeck', count: 2, rows: [row('R', 1), row('B', 3)] },
+      { title: 'Equipment', count: 1, rows: [row('E', 0)] },
+    ]);
+    expect(out.find((s) => s.title === 'Maindeck — Red')?.sourceTitle).toBe('Maindeck');
+    expect(out.find((s) => s.title === 'Equipment')?.sourceTitle).toBe('Equipment');
+  });
+});
+
+describe('summarizeDeckContents — Bench section', () => {
+  it('includes benched cards as their own section (move-to-bench must not make cards vanish)', () => {
+    const card = (name: string, quantity: number) =>
+      ({ quantity, printingDetails: { display_name: name, image_url: `https://img/${name}` } }) as any;
+    const result = summarizeDeckContents({
+      name: 'Teklosaucen',
+      maindeck: [card('Overcrowded', 3)],
+      benched: [card('Meganetic Protocol', 1)],
+    } as any);
+    expect(result.lines).toContain('— Bench (1) —');
+    expect(result.tableSections?.map((s) => s.title)).toContain('Bench');
+    expect(result.context).toContain('Bench: 1x Meganetic Protocol');
+  });
+});

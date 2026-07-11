@@ -174,6 +174,23 @@ export interface StripSection {
   rows: CardRow[];
   /** Pitch-color subsection accent (drives the deck-page style colored header). */
   accent?: 'red' | 'yellow' | 'blue';
+  /** The UNSPLIT source section title ("Maindeck" for "Maindeck — Red") — what
+   *  the ±/swap/move plumbing needs for category + optimistic row matching. */
+  sourceTitle: string;
+}
+
+export type DeckSectionCategory = 'hero' | 'equipment' | 'maindeck' | 'inventory' | 'benched';
+
+/**
+ * Section title → deck API category. Handles the pitch-split subsection
+ * titles ("Maindeck — Red") and the Bench display name (category 'benched').
+ * Blind lowercasing broke both.
+ */
+export function deckCategoryFromSection(sectionTitle?: string): DeckSectionCategory {
+  const base = (sectionTitle ?? 'maindeck').split(' — ')[0].trim().toLowerCase();
+  if (base === 'hero' || base === 'equipment' || base === 'inventory') return base;
+  if (base === 'bench' || base === 'benched') return 'benched';
+  return 'maindeck';
 }
 
 const PITCH_SPLIT: Array<{ pitch: number | null; suffix: string; accent?: StripSection['accent'] }> = [
@@ -198,7 +215,7 @@ export function splitSectionsByPitch(
     const pitchOf = (r: CardRow) => (typeof r.pitch === 'number' && r.pitch > 0 ? r.pitch : null);
     const distinct = new Set(sec.rows.map(pitchOf));
     if (distinct.size <= 1) {
-      out.push({ ...sec, rows: sortRowsForStrips(sec.rows) });
+      out.push({ ...sec, rows: sortRowsForStrips(sec.rows), sourceTitle: sec.title });
       continue;
     }
     for (const { pitch, suffix, accent } of PITCH_SPLIT) {
@@ -209,6 +226,7 @@ export function splitSectionsByPitch(
         count: rows.reduce((s, r) => s + (r.qty ?? 1), 0),
         rows,
         accent,
+        sourceTitle: sec.title,
       });
     }
   }
@@ -497,6 +515,7 @@ export function summarizeDeckContents(deck: {
   equipment?: DeckCard[];
   maindeck?: DeckCard[];
   inventory?: DeckCard[];
+  benched?: DeckCard[];
 }): QuickActionResult {
   const label = (c: DeckCard) => c.printingDetails?.display_name || c.printingDetails?.name || 'Unknown card';
   const cardLine = (c: DeckCard): CardLine => ({
@@ -526,6 +545,9 @@ export function summarizeDeckContents(deck: {
     // Sideboard cards — matchup side-ins come from here, so the decklist table
     // (and the swap-row thumbnail lookup built from it) must include them.
     ['Inventory', deck.inventory ?? []],
+    // Benched cards are part of the deck — without this section, "move to
+    // bench" from the tile menu would make a card silently vanish.
+    ['Bench', deck.benched ?? []],
   ];
 
   const lines: CardLine[] = [];
@@ -1121,8 +1143,9 @@ export async function adjustRowQuantity(
     if (!result.success) return { ok: false, error: result.error };
     return { ok: true, newQty };
   }
-  // deck — the section title is the category (Hero/Equipment/Maindeck/Inventory)
-  const category = (sectionTitle ?? 'maindeck').toLowerCase() as any;
+  // deck — resolve the category from the section title (handles pitch-split
+  // subsection titles and Bench → 'benched')
+  const category = deckCategoryFromSection(sectionTitle);
   const result = delta > 0
     ? await decksClient.addPrintings(mutation.publicId, [{ printingId, quantity: 1, category }])
     : await decksClient.removePrinting(mutation.publicId, printingId, category, 1);
@@ -1157,7 +1180,7 @@ export async function undoRowRemoval(
     if (!result.success) return { ok: false, error: result.error };
     return { ok: true, name: row.name };
   }
-  const category = (sectionTitle ?? 'maindeck').toLowerCase() as any;
+  const category = deckCategoryFromSection(sectionTitle);
   const result = await decksClient.addPrintings(mutation.publicId, [{ printingId, quantity: qty, category }]);
   if (!result.success) return { ok: false, error: result.error };
   return { ok: true, name: row.name };
@@ -1309,7 +1332,7 @@ export async function swapRowPrinting(
     if (!removed.success) return { ok: false, error: `Added the new printing, but removing the old one failed: ${removed.error}` };
     return { ok: true };
   }
-  const category = (sectionTitle ?? 'maindeck').toLowerCase() as any;
+  const category = deckCategoryFromSection(sectionTitle);
   const result = await decksClient.swapPrinting(mutation.publicId, oldPrintingId, newPrintingId, category);
   if (!result.success) return { ok: false, error: result.error };
   return { ok: true };
@@ -1342,6 +1365,61 @@ export async function createBinderTarget(name: string, existingSlugs: string[]):
     binder: { _id: String(id), name: binderName },
     context: `The user just created a new EMPTY binder named "${binderName}". When they ask to add cards to it (by this name), use the add_to_binder tool targeting binder "${binderName}".`,
   };
+}
+
+/**
+ * Tile-menu "Move to …": remove EVERY copy from the source category, then
+ * re-add the row's quantity to the target — the same two-call sequence the
+ * deck page's move buttons use. Caller re-drills the deck afterwards.
+ */
+export async function moveDeckRow(
+  publicId: string,
+  row: CardRow,
+  fromSectionTitle: string | undefined,
+  to: DeckSectionCategory,
+): Promise<AddCardOutcome> {
+  const printingId = row.preview.printingId;
+  if (!printingId) return { ok: false, error: 'This row is missing its printing id.' };
+  const removed = await decksClient.removePrinting(publicId, printingId, deckCategoryFromSection(fromSectionTitle), 999999);
+  if (!removed.success) return { ok: false, error: removed.error };
+  const added = await decksClient.addPrintings(publicId, [{ printingId, quantity: row.qty ?? 1, category: to }]);
+  if (!added.success) return { ok: false, error: added.error };
+  return { ok: true, name: row.name };
+}
+
+/** Tile-menu "Delete all copies" — the 999999 sentinel removes the row outright. */
+export async function removeAllDeckCopies(
+  publicId: string,
+  row: CardRow,
+  fromSectionTitle: string | undefined,
+): Promise<AddCardOutcome> {
+  const printingId = row.preview.printingId;
+  if (!printingId) return { ok: false, error: 'This row is missing its printing id.' };
+  const removed = await decksClient.removePrinting(publicId, printingId, deckCategoryFromSection(fromSectionTitle), 999999);
+  if (!removed.success) return { ok: false, error: removed.error };
+  return { ok: true, name: row.name };
+}
+
+export type DeckOwnership = Map<string, { owned: number; needed: number }>;
+
+/**
+ * Collection ownership per printing (the deck page's green/red tile dots) —
+ * one instant inventory-comparison call. null on failure: dots are
+ * best-effort and must never block the deck view.
+ */
+export async function fetchDeckOwnership(publicId: string): Promise<DeckOwnership | null> {
+  try {
+    const result = await decksClient.getInventoryComparison(publicId);
+    if (!result.success) return null;
+    const d = result.data as any;
+    const map: DeckOwnership = new Map();
+    for (const i of d.owned ?? []) map.set(i.printingId, { owned: i.owned, needed: i.needed });
+    for (const i of d.partial ?? []) map.set(i.printingId, { owned: i.owned, needed: i.needed });
+    for (const i of d.missing ?? []) map.set(i.printingId, { owned: 0, needed: i.needed });
+    return map;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

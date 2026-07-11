@@ -16,6 +16,7 @@ import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   adjustRowQuantity, createBinderTarget, swapRowPrinting, undoRowRemoval,
+  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
@@ -444,5 +445,63 @@ describe('undoRowRemoval', () => {
     mockAddWantsItem.mockResolvedValue({ success: false, error: 'down' } as any);
     const result = await undoRowRemoval({ kind: 'wants' }, removed());
     expect(result).toEqual({ ok: false, error: 'down' });
+  });
+});
+
+describe('deck tile actions (move / delete-all / ownership)', () => {
+  const row = (printingId: string, qty: number) =>
+    ({ name: 'Card', qty, preview: { imageUrl: '', name: 'Card', printingId } }) as any;
+
+  it('moveDeckRow removes ALL copies from the source category then re-adds them to the target', async () => {
+    mockRemovePrinting.mockResolvedValue({ success: true, data: { success: true } } as any);
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+    const out = await moveDeckRow('pub-1', row('pid_1', 3), 'Maindeck — Red', 'inventory');
+    expect(out.ok).toBe(true);
+    expect(mockRemovePrinting).toHaveBeenCalledWith('pub-1', 'pid_1', 'maindeck', 999999);
+    expect(mockAddPrintings).toHaveBeenCalledWith('pub-1', [{ printingId: 'pid_1', quantity: 3, category: 'inventory' }]);
+  });
+
+  it('moveDeckRow surfaces the error and does not re-add when the removal fails', async () => {
+    mockRemovePrinting.mockResolvedValue({ success: false, error: 'nope' } as any);
+    const out = await moveDeckRow('pub-1', row('pid_1', 2), 'Inventory', 'maindeck');
+    expect(out).toEqual({ ok: false, error: 'nope' });
+    expect(mockAddPrintings).not.toHaveBeenCalled();
+  });
+
+  it('removeAllDeckCopies removes with the 999999 sentinel using the SOURCE section category', async () => {
+    mockRemovePrinting.mockResolvedValue({ success: true, data: { success: true } } as any);
+    const out = await removeAllDeckCopies('pub-1', row('pid_1', 3), 'Maindeck — Blue');
+    expect(out.ok).toBe(true);
+    expect(mockRemovePrinting).toHaveBeenCalledWith('pub-1', 'pid_1', 'maindeck', 999999);
+  });
+
+  it('fetchDeckOwnership maps owned/partial/missing into one printingId → {owned, needed} map', async () => {
+    vi.mocked(decksClient.getInventoryComparison).mockResolvedValue({
+      success: true,
+      data: {
+        owned: [{ printingId: 'a', owned: 3, needed: 3 }],
+        partial: [{ printingId: 'b', owned: 1, needed: 3 }],
+        missing: [{ printingId: 'c', needed: 2 }],
+      },
+    } as any);
+    const map = await fetchDeckOwnership('pub-1');
+    expect(map?.get('a')).toEqual({ owned: 3, needed: 3 });
+    expect(map?.get('b')).toEqual({ owned: 1, needed: 3 });
+    expect(map?.get('c')).toEqual({ owned: 0, needed: 2 });
+  });
+
+  it('fetchDeckOwnership returns null on failure (dots are best-effort)', async () => {
+    vi.mocked(decksClient.getInventoryComparison).mockResolvedValue({ success: false, error: 'x' } as any);
+    expect(await fetchDeckOwnership('pub-1')).toBeNull();
+  });
+
+  it('adjustRowQuantity resolves pitch-split and Bench section titles to real deck categories', async () => {
+    mockAddPrintings.mockResolvedValue({ success: true, data: {} } as any);
+    await adjustRowQuantity({ kind: 'deck', publicId: 'pub-1' }, row('pid_1', 2), 1, 'Maindeck — Red');
+    expect(mockAddPrintings).toHaveBeenCalledWith('pub-1', [{ printingId: 'pid_1', quantity: 1, category: 'maindeck' }]);
+
+    mockRemovePrinting.mockResolvedValue({ success: true, data: { success: true } } as any);
+    await adjustRowQuantity({ kind: 'deck', publicId: 'pub-1' }, row('pid_1', 2), -1, 'Bench');
+    expect(mockRemovePrinting).toHaveBeenCalledWith('pub-1', 'pid_1', 'benched', 1);
   });
 });

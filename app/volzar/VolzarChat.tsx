@@ -36,6 +36,8 @@ import {
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, type StripSection,
+  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection,
+  type DeckOwnership, type DeckSectionCategory,
   type RowMutation, type QuickActionResult,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -487,10 +489,14 @@ const STRIP_ACCENT_DOT: Record<NonNullable<StripSection['accent']>, string> = {
  * Hover/focus a tile → `onHoverRow` floats the full-card detail overlay over
  * the chat column; the header toggle switches to the full table.
  */
-function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
+function WorkspaceStrips({ sections, onPreview, onHoverRow, ownership, onTileClick }: {
   sections: StripSection[];
   onPreview: (preview: CardPreview) => void;
   onHoverRow: (row: CardRow | null) => void;
+  /** printingId → owned/needed; renders the deck-page green/amber/red dot. */
+  ownership?: DeckOwnership | null;
+  /** Editable decks: click opens the tile action menu (hero tiles excluded). */
+  onTileClick?: (row: CardRow, sourceTitle: string | undefined, e: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -510,14 +516,18 @@ function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
             {sec.rows.map((r, ri) => {
               const show = () => { onPreview(r.preview); onHoverRow(r); };
+              const clickable = onTileClick && sec.sourceTitle !== 'Hero';
+              const own = r.preview.printingId ? ownership?.get(r.preview.printingId) : undefined;
+              const ownState = own ? (own.owned >= (r.qty ?? 1) ? 'full' : own.owned === 0 ? 'none' : 'partial') : null;
               return (
                 <li key={`${r.itemId ?? r.preview.printingId ?? r.name}-${ri}`}>
                   <button
                     type="button"
+                    data-strip-tile
                     onMouseEnter={show}
                     onFocus={show}
-                    onClick={show}
-                    title={`${r.qty ? `${r.qty}× ` : ''}${r.name}`}
+                    onClick={(e) => { show(); if (clickable) onTileClick(r, sec.sourceTitle, e); }}
+                    title={`${r.qty ? `${r.qty}× ` : ''}${r.name}${clickable ? ' — click for actions' : ''}`}
                     className={`relative block w-full overflow-hidden rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 hover:ring-blue-400 ${focusRing}`}
                   >
                     {r.image ? (
@@ -554,6 +564,19 @@ function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
                       >
                         ×{r.qty}
                       </span>
+                    )}
+                    {ownState && (
+                      // Deck-page ownership dot: green = you own enough copies,
+                      // amber = some, red = none (title carries the numbers).
+                      <span
+                        data-ownership={ownState}
+                        role="img"
+                        aria-label={`You own ${own!.owned} of ${r.qty ?? 1}`}
+                        title={`You own ${own!.owned} of ${r.qty ?? 1}`}
+                        className={`absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full ring-1 ring-black/30 ${
+                          ownState === 'full' ? 'bg-green-400' : ownState === 'partial' ? 'bg-amber-400' : 'bg-red-500'
+                        }`}
+                      />
                     )}
                   </button>
                 </li>
@@ -1085,6 +1108,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // Row under the cursor in the strip view — floats the full-card detail
   // overlay over the chat column (the rail's spot is taken by the panel).
   const [stripHover, setStripHover] = useState<CardRow | null>(null);
+  // Tile action menu (editable decks): click a tile → add/remove copy,
+  // delete all, move to inventory/bench, swap printing — the deck page's
+  // tile actions, chat-side. Clicking a tile deliberately does NOT expand
+  // the panel (the capture guards below skip [data-strip-tile]).
+  const [tileMenu, setTileMenu] = useState<{ row: CardRow; sourceTitle?: string; x: number; y: number } | null>(null);
+  const [tileMenuBusy, setTileMenuBusy] = useState(false);
+  // Collection ownership per printing → the tiles' green/amber/red dots.
+  // Best-effort: one instant inventory-comparison fetch per deck open.
+  const [deckOwnership, setDeckOwnership] = useState<DeckOwnership | null>(null);
   useEffect(() => {
     setStripHover(null);
     if (!workspaceUid) return;
@@ -1102,6 +1134,16 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     setPaneFocus('chat');
     setWorkspaceView(workspace?.deckPublicId && workspaceStripSections ? 'strips' : 'table');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- per-open reset; workspace/strips are derived from the uid
+  }, [workspaceUid]);
+  useEffect(() => {
+    setTileMenu(null);
+    setDeckOwnership(null);
+    const pid = workspace?.deckPublicId;
+    if (!pid) return;
+    let cancelled = false;
+    void fetchDeckOwnership(pid).then((m) => { if (!cancelled) setDeckOwnership(m); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the open, not the object identity
   }, [workspaceUid]);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
@@ -1826,6 +1868,31 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     setItems((prev) => prev.map(apply));
     setWorkspaceStack((prev) => prev.map((i) => apply(i)));
   }, [binderOptions]);
+
+  // Tile-menu writes that restructure the deck (delete-all / move between
+  // categories): call the runner, re-drill the deck so sections update, and
+  // refresh the ownership dots (the needed counts changed).
+  const runTileMenuMutation = useCallback(async (kind: 'delete-all' | 'move', to?: DeckSectionCategory) => {
+    if (!tileMenu || workspace?.mutate?.kind !== 'deck') return;
+    const publicId = workspace.mutate.publicId;
+    setTileMenuBusy(true);
+    const outcome = kind === 'delete-all'
+      ? await removeAllDeckCopies(publicId, tileMenu.row, tileMenu.sourceTitle)
+      : await moveDeckRow(publicId, tileMenu.row, tileMenu.sourceTitle, to!);
+    setTileMenuBusy(false);
+    setTileMenu(null);
+    if (!outcome.ok) { setErrorBanner(outcome.error); return; }
+    void refreshItemsForTarget({ destination: 'deck', deckPublicId: publicId });
+    void fetchDeckOwnership(publicId).then(setDeckOwnership);
+  }, [tileMenu, workspace, refreshItemsForTarget]);
+
+  // Esc closes the tile menu.
+  useEffect(() => {
+    if (!tileMenu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTileMenu(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tileMenu]);
 
   // Comparison-row quick-add: heart → wants, folder → the selected target
   // binder ("I actually own this — my collection just doesn't know it").
@@ -3077,8 +3144,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         className={`hidden lg:flex flex-col min-w-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden transition-[flex-grow] duration-300 ease-out ${
           paneFocus === 'workspace' ? 'flex-[2.4]' : 'flex-[0.8]'
         }`}
-        onMouseDownCapture={() => setPaneFocus('workspace')}
-        onFocusCapture={() => setPaneFocus('workspace')}
+        onMouseDownCapture={(e) => { if (!(e.target as HTMLElement).closest?.('[data-strip-tile]')) setPaneFocus('workspace'); }}
+        onFocusCapture={(e) => { if (!(e.target as HTMLElement).closest?.('[data-strip-tile]')) setPaneFocus('workspace'); }}
         aria-label="Workspace"
       >
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
@@ -3119,7 +3186,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {workspaceView === 'strips' && workspaceStripSections ? (
-            <WorkspaceStrips sections={workspaceStripSections} onPreview={showPreview} onHoverRow={setStripHover} />
+            <WorkspaceStrips
+              sections={workspaceStripSections}
+              onPreview={showPreview}
+              onHoverRow={setStripHover}
+              ownership={deckOwnership}
+              onTileClick={workspace.mutate?.kind === 'deck'
+                ? (row, sourceTitle, e) => setTileMenu({ row, sourceTitle, x: e.clientX, y: e.clientY })
+                : undefined}
+            />
           ) : workspace.tableSections && workspace.tableSections.length > 0 ? (
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
               onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
@@ -3240,6 +3315,64 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     {deckView && (
       <DeckCardsOverlay title={deckView.title} subtitle={deckView.subtitle} cards={deckView.cards} onClose={() => setDeckView(null)} />
     )}
+    {/* Tile action menu — the deck page's per-tile actions, chat-side. The
+        full-screen wrapper eats the outside click WITHOUT engaging the panel
+        (it sits above the aside, so the capture handlers never see it). */}
+    {tileMenu && workspace?.mutate?.kind === 'deck' && (() => {
+      const sourceCategory = deckCategoryFromSection(tileMenu.sourceTitle);
+      const moveTargets: Array<{ to: DeckSectionCategory; label: string }> = [
+        ...(sourceCategory !== 'maindeck' && sourceCategory !== 'equipment' ? [{ to: 'maindeck' as const, label: 'Move to library' }] : []),
+        ...(sourceCategory !== 'inventory' ? [{ to: 'inventory' as const, label: 'Move to inventory' }] : []),
+        ...(sourceCategory !== 'benched' ? [{ to: 'benched' as const, label: 'Move to bench' }] : []),
+      ];
+      const menuItem = `flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50 ${focusRing}`;
+      const closeThen = (fn: () => void) => () => { setTileMenu(null); fn(); };
+      return (
+        <div data-tile-menu className="fixed inset-0 z-[80]" onMouseDown={() => setTileMenu(null)}>
+          <div
+            data-testid="tile-action-menu"
+            role="menu"
+            aria-label={`Actions for ${tileMenu.row.name}`}
+            className="absolute w-56 rounded-lg border border-border bg-card py-1 shadow-2xl"
+            style={{ left: Math.max(8, Math.min(tileMenu.x, window.innerWidth - 240)), top: Math.max(8, Math.min(tileMenu.y, window.innerHeight - 320)) }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="mb-1 flex items-center gap-2 border-b border-border px-3 py-1.5">
+              {tileMenu.row.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={tileMenu.row.image} alt="" className="h-10 w-7 max-w-none rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15" />
+              )}
+              <span className="min-w-0 truncate text-sm font-medium">
+                {(tileMenu.row.qty ?? 1) > 1 ? `${tileMenu.row.qty}× ` : ''}{tileMenu.row.name}
+              </span>
+            </div>
+            <button type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
+              onClick={closeThen(() => adjustQty(workspace, tileMenu.row, 1, tileMenu.sourceTitle))}>
+              <Plus className="h-4 w-4 text-gray-500" aria-hidden="true" /> Add copy
+            </button>
+            <button type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
+              title={(tileMenu.row.qty ?? 1) <= 1 ? 'Last copy — removes the card (with Undo)' : 'Remove one copy'}
+              onClick={closeThen(() => adjustQty(workspace, tileMenu.row, -1, tileMenu.sourceTitle))}>
+              <Minus className="h-4 w-4 text-gray-500" aria-hidden="true" /> Remove copy
+            </button>
+            <button type="button" role="menuitem" disabled={tileMenuBusy} className={`${menuItem} text-red-700 dark:text-red-400`}
+              onClick={() => void runTileMenuMutation('delete-all')}>
+              <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete all copies
+            </button>
+            {moveTargets.map(({ to, label }) => (
+              <button key={to} type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
+                onClick={() => void runTileMenuMutation('move', to)}>
+                <Package className="h-4 w-4 text-gray-500" aria-hidden="true" /> {label}
+              </button>
+            ))}
+            <button type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
+              onClick={closeThen(() => void openRowSwap(workspace, tileMenu.row, tileMenu.sourceTitle))}>
+              <Repeat className="h-4 w-4 text-gray-500" aria-hidden="true" /> Swap printing
+            </button>
+          </div>
+        </div>
+      );
+    })()}
     {previewCard?.printingId && swapCardUniqueId && (
       <ViewPrintingsDialog
         open={swapOpen}
