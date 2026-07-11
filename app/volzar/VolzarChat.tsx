@@ -1122,10 +1122,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // the pane being used gets the width (workspace opens/drills wide; clicking
   // or tabbing into the chat contracts it). Desktop-only by construction —
   // below lg the workspace aside isn't rendered.
-  // Starts (and re-opens) as 'chat': the panel must render narrow on its very
-  // first paint — a 'workspace' default painted one wide frame before the
-  // open effect contracted it (visible expand→contract flash).
-  const [paneFocus, setPaneFocus] = useState<'chat' | 'workspace'>('chat');
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const workspaceUid = workspace?.uid;
   // Strip view: the table content regrouped for WorkspaceStrips (flat rows
@@ -1162,18 +1158,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   useEffect(() => {
     setStripHover(null);
     if (!workspaceUid) return;
-    // Wide chat is the default: the workspace opens as a narrow reference
-    // rail and the composer gets DOM focus — deck work happens FROM the chat.
-    // Clicking into the panel expands it (focus-follows-engagement).
-    // Desktop only (the aside isn't rendered below lg, and focusing would pop
-    // the mobile keyboard).
+    // The workspace is a constant-width reference rail; the composer gets DOM
+    // focus — deck work happens FROM the chat. Desktop only (the aside isn't
+    // rendered below lg, and focusing would pop the mobile keyboard).
     if (window.matchMedia('(min-width: 1024px)').matches) {
       const active = document.activeElement;
       const typingElsewhere = active instanceof HTMLElement && active !== composerRef.current
         && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
       if (!typingElsewhere) composerRef.current?.focus({ preventScroll: true });
     }
-    setPaneFocus('chat');
     setWorkspaceView(workspace?.deckPublicId && workspaceStripSections ? 'strips' : 'table');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- per-open reset; workspace/strips are derived from the uid
   }, [workspaceUid]);
@@ -2563,12 +2556,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         </div>
         {/* end instant rail */}
 
-        {/* Chat column — engaging it (click or keyboard focus anywhere inside)
-            reclaims width from the workspace panel. */}
+        {/* Chat column */}
         <div
           className="relative flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
-          onMouseDownCapture={() => setPaneFocus('chat')}
-          onFocusCapture={() => setPaneFocus('chat')}
         >
 
         {/* Full-card detail overlay for the workspace strip view — floats
@@ -3280,15 +3270,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         transcript), otherwise the card preview rail. */}
     {workspace ? (
       <aside
-        className={`hidden lg:flex flex-col min-w-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden transition-[flex-grow] duration-300 ease-out ${
-          paneFocus === 'workspace' ? 'flex-[2.4]' : 'flex-[0.8]'
-        }`}
-        // Engaging the panel expands it — EXCEPT tiles (they open the action
-        // menu) and drill links (the drilled result opens narrow anyway;
-        // expanding for the fetch's duration reads as an expand→contract
-        // flash).
-        onMouseDownCapture={(e) => { if (!(e.target as HTMLElement).closest?.('[data-strip-tile],[data-drill]')) setPaneFocus('workspace'); }}
-        onFocusCapture={(e) => { if (!(e.target as HTMLElement).closest?.('[data-strip-tile],[data-drill]')) setPaneFocus('workspace'); }}
+        // CONSTANT width, by explicit request — no focus-follows-engagement,
+        // no resize on clicks anywhere. flex-[0.8] vs the chat's flex-1.
+        className="hidden lg:flex flex-col min-w-0 min-h-0 rounded-lg border border-border bg-card overflow-hidden flex-[0.8]"
         aria-label="Workspace"
       >
         <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
