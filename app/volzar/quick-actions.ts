@@ -168,6 +168,53 @@ export function sortRowsForStrips(rows: CardRow[]): CardRow[] {
     || a.name.localeCompare(b.name));
 }
 
+export interface StripSection {
+  title: string;
+  count: number;
+  rows: CardRow[];
+  /** Pitch-color subsection accent (drives the deck-page style colored header). */
+  accent?: 'red' | 'yellow' | 'blue';
+}
+
+const PITCH_SPLIT: Array<{ pitch: number | null; suffix: string; accent?: StripSection['accent'] }> = [
+  { pitch: 1, suffix: ' — Red', accent: 'red' },
+  { pitch: 2, suffix: ' — Yellow', accent: 'yellow' },
+  { pitch: 3, suffix: ' — Blue', accent: 'blue' },
+  { pitch: null, suffix: ' — Colorless' },
+];
+
+/**
+ * Deck-page style sectioning for the workspace tile view: a section whose rows
+ * span more than one pitch color (the maindeck) splits into Red / Yellow /
+ * Blue (/ Colorless) subsections, counts = quantity sums; single-color and
+ * pitchless sections (Hero, Equipment) pass through. Rows are sorted with
+ * sortRowsForStrips either way.
+ */
+export function splitSectionsByPitch(
+  sections: Array<{ title: string; count: number; rows: CardRow[] }>,
+): StripSection[] {
+  const out: StripSection[] = [];
+  for (const sec of sections) {
+    const pitchOf = (r: CardRow) => (typeof r.pitch === 'number' && r.pitch > 0 ? r.pitch : null);
+    const distinct = new Set(sec.rows.map(pitchOf));
+    if (distinct.size <= 1) {
+      out.push({ ...sec, rows: sortRowsForStrips(sec.rows) });
+      continue;
+    }
+    for (const { pitch, suffix, accent } of PITCH_SPLIT) {
+      const rows = sortRowsForStrips(sec.rows.filter((r) => pitchOf(r) === pitch));
+      if (rows.length === 0) continue;
+      out.push({
+        title: `${sec.title}${suffix}`,
+        count: rows.reduce((s, r) => s + (r.qty ?? 1), 0),
+        rows,
+        accent,
+      });
+    }
+  }
+  return out;
+}
+
 /** Build a CardRow from a wants/binder card payload (tolerant of flat + nested shapes). */
 function toCardRow(c: any): CardRow {
   const d = c.printingDetails ?? {};
@@ -400,6 +447,46 @@ function toDeckViewCard(c: DeckCard): DeckViewCard {
   };
 }
 
+/**
+ * The df.describe() of a decklist — an instant, no-AI plain-english shape
+ * line shown the moment a deck opens: qty-weighted type buckets (from the
+ * type line's tail, e.g. "…Action - Attack" → Attack), then the cost curve.
+ * Returns '' when there's nothing to summarize.
+ */
+export function deckShapeSummary(maindeck: DeckCard[]): string {
+  if (maindeck.length === 0) return '';
+  const buckets = new Map<string, number>();
+  let costQty = 0, costSum = 0, zeroCost = 0;
+  for (const c of maindeck) {
+    const qty = c.quantity ?? 1;
+    const pd = c.printingDetails as Record<string, unknown> | undefined;
+    const typeText = typeof pd?.type_text_display === 'string' ? pd.type_text_display : '';
+    // "Mechanologist Action - Attack" → "Attack"; "Generic Instant" → "Instant"
+    const tail = typeText.includes(' - ')
+      ? typeText.split(' - ').pop()!.trim()
+      : typeText.split(' ').pop()?.trim() || '';
+    if (tail) buckets.set(tail, (buckets.get(tail) ?? 0) + qty);
+    const cost = pd?.cost;
+    if (typeof cost === 'number') {
+      costQty += qty;
+      costSum += cost * qty;
+      if (cost === 0) zeroCost += qty;
+    }
+  }
+  const parts: string[] = [];
+  const sorted = [...buckets.entries()].sort((a, b) => b[1] - a[1]);
+  const MAX_BUCKETS = 6;
+  parts.push(...sorted.slice(0, MAX_BUCKETS).map(([t, n]) => `${n}× ${t}`));
+  if (sorted.length > MAX_BUCKETS) {
+    parts.push(`+ ${sorted.length - MAX_BUCKETS} more`);
+  }
+  if (costQty > 0) {
+    parts.push(`avg cost ${(costSum / costQty).toFixed(1)}`);
+    if (zeroCost > 0) parts.push(`${zeroCost} zero-cost`);
+  }
+  return parts.length ? `📊 ${parts.join(' · ')}` : '';
+}
+
 export function summarizeDeckContents(deck: {
   publicId?: string;
   name: string;
@@ -446,6 +533,9 @@ export function summarizeDeckContents(deck: {
     colorSummary = `🎨 Maindeck colors: ${colors.red} red · ${colors.yellow} yellow · ${colors.blue} blue`;
   }
 
+  // Instant df.describe()-style shape line — type buckets + cost curve.
+  const shapeSummary = deckShapeSummary(deck.maindeck ?? []);
+
   if (lines.length === 0) lines.push('This deck is empty.');
   else {
     if (deck.publicId) {
@@ -454,6 +544,7 @@ export function summarizeDeckContents(deck: {
         drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
       });
     }
+    if (shapeSummary) lines.unshift(shapeSummary);
     if (colorSummary) lines.unshift(colorSummary);
   }
 
@@ -473,7 +564,7 @@ export function summarizeDeckContents(deck: {
   return {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
     lines,
-    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
+    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${shapeSummary ? `Maindeck shape: ${shapeSummary.replace('📊 ', '')}. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(tableSections.length ? { tableSections } : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),

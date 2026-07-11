@@ -35,7 +35,7 @@ import {
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
-  collectMutationTargets, WRITE_TOOLS, sortRowsForStrips,
+  collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, type StripSection,
   type RowMutation, type QuickActionResult,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -183,6 +183,26 @@ function SwapColumn({ kind, entries, lookup, onHover }: {
 }
 
 const FOIL_LABEL: Record<string, string> = { s: 'NF', r: 'RF', c: 'CF', g: 'GF' };
+
+/**
+ * Deck-scoped AI launcher chips shown on a deck card the moment it opens —
+ * the "engage with the data" step after the instant 📊 shape line. Each costs
+ * one AI message; the deck contents ride along via the pending-context queue.
+ */
+const DECK_AI_PROMPTS: Array<{ label: string; build: (deckName: string) => string }> = [
+  {
+    label: 'Describe this deck',
+    build: (n) => `Describe the deck "${n}": its card types and quantities, cost curve, and the overall game plan.`,
+  },
+  {
+    label: 'What else fits?',
+    build: (n) => `What other cards could go well in the deck "${n}"? Suggest specific additions and what each would improve.`,
+  },
+  {
+    label: 'Discuss matchups',
+    build: (n) => `Discuss matchups for the deck "${n}": which popular archetypes is it strong or weak against, and why?`,
+  },
+];
 
 /**
  * The shared striped card table — binder / wants (flat rows), deck drills and
@@ -447,16 +467,26 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   );
 }
 
+// Deck-page pitch-section accents (mirrors DeckEditorListView's headers).
+const STRIP_ACCENT_TEXT: Record<NonNullable<StripSection['accent']>, string> = {
+  red: 'text-red-600 dark:text-red-400',
+  yellow: 'text-yellow-700 dark:text-yellow-400',
+  blue: 'text-blue-600 dark:text-blue-400',
+};
+const STRIP_ACCENT_DOT: Record<NonNullable<StripSection['accent']>, string> = {
+  red: 'bg-red-500', yellow: 'bg-yellow-400', blue: 'bg-blue-500',
+};
+
 /**
- * Ultra-minimal deck view for the workspace panel (the DEFAULT for decks):
- * Talishar-concat-style tiles — a fixed-height art-band crop of the card
- * image with the name, pitch gem, and ×qty overlaid — under the same section
- * headers as the table. Hover/focus a tile → `onHoverRow` floats the full-card
- * detail overlay over the chat column (and the panel-foot preview updates);
- * the header toggle switches to the full table.
+ * Compact deck view for the workspace panel (the DEFAULT for decks): the deck
+ * page's tile treatment — a 63/53 stacked crop of the card image (name bar +
+ * art on top, the stats bar below; the text box is cut out) with a ×qty badge
+ * — under deck-page style sections (maindeck split by pitch color).
+ * Hover/focus a tile → `onHoverRow` floats the full-card detail overlay over
+ * the chat column; the header toggle switches to the full table.
  */
 function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
-  sections: Array<{ title: string; count: number; rows: CardRow[] }>;
+  sections: StripSection[];
   onPreview: (preview: CardPreview) => void;
   onHoverRow: (row: CardRow | null) => void;
 }) {
@@ -470,11 +500,12 @@ function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
       {sections.map((sec, si) => (
         <section key={`${sec.title}-${si}`}>
           {sec.title && (
-            <h3 className="px-0.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
-              {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
+            <h3 className={`flex items-center gap-1.5 px-0.5 pb-1 text-[11px] font-bold uppercase tracking-wide ${sec.accent ? STRIP_ACCENT_TEXT[sec.accent] : 'text-gray-600 dark:text-gray-300'}`}>
+              {sec.accent && <span className={`inline-block h-2 w-2 rounded-full ${STRIP_ACCENT_DOT[sec.accent]}`} aria-hidden="true" />}
+              {sec.title} <span className={sec.accent ? '' : 'text-gray-400 dark:text-gray-500'}>· {sec.count}</span>
             </h3>
           )}
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-1">
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
             {sec.rows.map((r, ri) => {
               const show = () => { onPreview(r.preview); onHoverRow(r); };
               return (
@@ -485,36 +516,43 @@ function WorkspaceStrips({ sections, onPreview, onHoverRow }: {
                     onFocus={show}
                     onClick={show}
                     title={`${r.qty ? `${r.qty}× ` : ''}${r.name}`}
-                    className={`relative block h-9 w-full overflow-hidden rounded-md ring-1 ring-black/10 dark:ring-white/15 bg-muted hover:ring-blue-400 ${focusRing}`}
+                    className={`relative block w-full overflow-hidden rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 hover:ring-blue-400 ${focusRing}`}
                   >
-                    {r.image && (
-                      // Art-band crop: the fixed-height tile windows the upper-
-                      // middle of the card art (below the printed name bar) —
-                      // the HTML overlay supplies the readable name.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={r.image}
-                        alt=""
-                        loading="lazy"
-                        className="absolute inset-0 h-full w-full max-w-none object-cover"
-                        style={{ objectPosition: 'center 28%' }}
-                      />
-                    )}
-                    <span className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/20 to-black/40" aria-hidden="true" />
-                    <span className="absolute inset-0 flex items-center gap-1.5 px-1.5">
-                      <PitchGem pitch={r.pitch} />
-                      <span className="min-w-0 truncate text-xs font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                    {r.image ? (
+                      // Deck-page stacked crop: top 81% = name bar + art,
+                      // bottom sliver = the card's stats bar (text box cut out).
+                      <span className="flex w-full flex-col gap-px bg-gray-900" style={{ aspectRatio: '63/53' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={r.image}
+                          alt={r.name}
+                          loading="lazy"
+                          className="block w-full max-w-none"
+                          style={{ objectFit: 'cover', objectPosition: 'top', flex: '0 0 81%', minHeight: 0 }}
+                        />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={r.image}
+                          alt=""
+                          aria-hidden="true"
+                          loading="lazy"
+                          className="block w-full max-w-none"
+                          style={{ objectFit: 'cover', objectPosition: 'bottom', flex: '1 0 0', minHeight: 0 }}
+                        />
+                      </span>
+                    ) : (
+                      <span className="flex w-full items-center justify-center bg-muted p-1 text-center text-xs text-gray-600 dark:text-gray-300" style={{ aspectRatio: '63/53' }}>
                         {r.name}
                       </span>
-                      {typeof r.qty === 'number' && r.qty > 1 && (
-                        <span
-                          aria-label={`${r.qty} copies`}
-                          className="ml-auto shrink-0 rounded-full bg-black/60 px-1.5 text-[11px] font-black tabular-nums text-white ring-1 ring-white/40"
-                        >
-                          ×{r.qty}
-                        </span>
-                      )}
-                    </span>
+                    )}
+                    {typeof r.qty === 'number' && r.qty > 1 && (
+                      <span
+                        aria-label={`${r.qty} copies`}
+                        className="absolute bottom-1 right-1 min-w-[22px] rounded-full bg-blue-600/95 px-1.5 text-xs font-black tabular-nums text-white ring-2 ring-white/80 shadow"
+                      >
+                        ×{r.qty}
+                      </span>
+                    )}
                   </button>
                 </li>
               );
@@ -1034,8 +1072,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         ? [{ title: '', count: workspace.tableRows.length, rows: workspace.tableRows }]
         : [];
     if (!sections.some((s) => s.rows.some((r) => r.image))) return null;
-    // Cluster by pitch color / type so the strip gems read as bands.
-    return sections.map((s) => ({ ...s, rows: sortRowsForStrips(s.rows) }));
+    // Deck-page style sectioning: mixed-pitch sections (maindeck) split into
+    // Red / Yellow / Blue subsections; rows sort by pitch → type → name.
+    return splitSectionsByPitch(sections);
   }, [workspace]);
   // Strips vs table, toggled from the panel header. Decks DEFAULT to strips
   // (glanceable reference); binders/comparisons default to the table, whose
@@ -1047,20 +1086,18 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   useEffect(() => {
     setStripHover(null);
     if (!workspaceUid) return;
-    // The workspace is a reference surface, not a form — DOM focus defaults to
-    // the composer so typing goes to Volzar the moment a deck/list opens.
+    // Wide chat is the default: the workspace opens as a narrow reference
+    // rail and the composer gets DOM focus — deck work happens FROM the chat.
+    // Clicking into the panel expands it (focus-follows-engagement).
     // Desktop only (the aside isn't rendered below lg, and focusing would pop
-    // the mobile keyboard). Focus BEFORE claiming pane width: the programmatic
-    // focus fires the chat column's onFocusCapture ('chat') synchronously, and
-    // the 'workspace' write below lands in the same batch and wins — so the
-    // panel keeps its width despite the caret living in the chat.
+    // the mobile keyboard).
     if (window.matchMedia('(min-width: 1024px)').matches) {
       const active = document.activeElement;
       const typingElsewhere = active instanceof HTMLElement && active !== composerRef.current
         && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
       if (!typingElsewhere) composerRef.current?.focus({ preventScroll: true });
     }
-    setPaneFocus('workspace');
+    setPaneFocus('chat');
     setWorkspaceView(workspace?.deckPublicId && workspaceStripSections ? 'strips' : 'table');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- per-open reset; workspace/strips are derived from the uid
   }, [workspaceUid]);
@@ -2513,6 +2550,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       {matchupPanels[index] ? 'Hide matchups' : 'View matchups'}
                     </button>
                   )}
+                  {/* Deck-scoped AI launchers — deck contents already ride the
+                      pending-context queue, so each is a one-message question. */}
+                  {item.deckPublicId && DECK_AI_PROMPTS.map(({ label, build }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => void sendTurn(label, build(item.title.replace(/^Deck: /, '').replace(/ \([^)]*\)$/, '')))}
+                      disabled={busy || runningAction !== null}
+                      title={`${label} — uses AI (1 message)`}
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
+                      {label}
+                    </button>
+                  ))}
                 </>
               );
               const hasActions = (item.tableRows?.length ?? 0) > 0

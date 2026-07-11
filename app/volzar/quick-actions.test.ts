@@ -7,6 +7,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   sortRowsForStrips,
+  deckShapeSummary,
+  splitSectionsByPitch,
   prettifyCardText,
   summarizeBinders,
   summarizeWantsCards,
@@ -1181,5 +1183,77 @@ describe('sortRowsForStrips', () => {
     const copy = [...rows];
     sortRowsForStrips(rows);
     expect(rows).toEqual(copy);
+  });
+});
+
+describe('splitSectionsByPitch', () => {
+  const row = (name: string, pitch?: number, qty = 1, type?: string) =>
+    ({ name, pitch, qty, type, preview: { imageUrl: '', name } }) as any;
+
+  it('splits a mixed-pitch section into deck-page style color subsections (red → yellow → blue → colorless)', () => {
+    const out = splitSectionsByPitch([{
+      title: 'Maindeck',
+      count: 7,
+      rows: [row('B1', 3, 3), row('Y1', 2, 1), row('R1', 1, 2), row('N1', undefined, 1)],
+    }]);
+    expect(out.map((s) => s.title)).toEqual([
+      'Maindeck — Red', 'Maindeck — Yellow', 'Maindeck — Blue', 'Maindeck — Colorless',
+    ]);
+    expect(out.map((s) => s.accent)).toEqual(['red', 'yellow', 'blue', undefined]);
+    expect(out.map((s) => s.count)).toEqual([2, 1, 3, 1]); // qty sums
+  });
+
+  it('keeps single-pitch and pitchless sections intact (Hero, Equipment)', () => {
+    const out = splitSectionsByPitch([
+      { title: 'Hero', count: 1, rows: [row('Bravo')] },
+      { title: 'Equipment', count: 2, rows: [row('Anothos'), row('Crown')] },
+    ]);
+    expect(out.map((s) => s.title)).toEqual(['Hero', 'Equipment']);
+    expect(out[1].rows.map((r: any) => r.name)).toEqual(['Anothos', 'Crown']);
+  });
+
+  it('sorts rows within a subsection by type then name', () => {
+    const out = splitSectionsByPitch([{
+      title: 'Maindeck',
+      count: 3,
+      rows: [
+        row('Zeta', 1, 1, 'Action - Attack'),
+        row('Boom', 1, 1, 'Action - Item'),
+        row('Alpha', 1, 1, 'Action - Attack'),
+        row('Blue Thing', 3, 1),
+      ],
+    }]);
+    expect(out[0].rows.map((r: any) => r.name)).toEqual(['Alpha', 'Zeta', 'Boom']);
+  });
+});
+
+describe('deckShapeSummary (the df.describe() line)', () => {
+  const card = (qty: number, type?: string, cost?: number | null) =>
+    ({ quantity: qty, printingDetails: { type_text_display: type, cost } }) as any;
+
+  it('summarizes type buckets (qty-weighted, desc) and the cost curve in plain english', () => {
+    const s = deckShapeSummary([
+      card(3, 'Mechanologist Action - Attack', 2),
+      card(3, 'Mechanologist Action - Attack', 0),
+      card(2, 'Mechanologist Action - Item', 1),
+      card(1, 'Generic Instant', 0),
+    ]);
+    expect(s).toContain('6× Attack');
+    expect(s).toContain('2× Item');
+    expect(s).toContain('1× Instant');
+    expect(s.indexOf('6× Attack')).toBeLessThan(s.indexOf('2× Item'));
+    // avg cost = (3*2 + 3*0 + 2*1 + 1*0) / 9 = 8/9 ≈ 0.9
+    expect(s).toContain('avg cost 0.9');
+    expect(s).toContain('4 zero-cost');
+  });
+
+  it('returns empty string for an empty maindeck', () => {
+    expect(deckShapeSummary([])).toBe('');
+  });
+
+  it('caps the bucket list and counts the rest', () => {
+    const types = ['Attack', 'Item', 'Instant', 'Aura', 'Ally', 'Action', 'Equipment', 'Reaction'];
+    const s = deckShapeSummary(types.map((t, i) => card(8 - i, `Generic ${t}`, 1)));
+    expect(s).toContain('+ 2 more');
   });
 });
