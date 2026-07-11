@@ -2652,7 +2652,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             }
             if (item.kind === 'assistant') {
               return (
-                <div key={index} className={`self-start max-w-[85%] rounded-lg bg-card border border-border px-3.5 py-2`}>
+                <div key={index} className={`self-start max-w-full rounded-lg bg-card border border-border px-3.5 py-2`}>
                   <MarkdownMessage
                     text={item.text}
                     index={cardIndex}
@@ -2790,7 +2790,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 || (item.wantsAdd?.length ?? 0) > 0
                 || !!item.deckPublicId;
               return (
-                <div key={index} className={`self-start w-full max-w-full rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
+                <div key={index} className={`self-start w-full max-w-2xl rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
                   {/* Actions live in the bottom row only — in the header they
                       compress the title to zero width once the chat column
                       narrows beside the workspace panel. */}
