@@ -23,6 +23,7 @@ export const SET_IMAGES: Record<string, string> = {
   'sea': 'ecd78249-2a7f-415a-2c6c-89980e745400', // High Seas
   'omn': '3f1d8a2c-0223-47ce-22e3-6db46e976b00', // Omens of the Third Age
   'mpg': '3dd6c60e-cdb6-4bf4-7bc4-989156e13700', // Mastery Pack Guardian
+  'mpw': 'set-mpw-logo', // Mastery Pack Warrior
   'sup': 'e252874d-eeb0-41b9-7d17-19c117f17e00', // Super Slam
   'tcc': '9b38dc29-0c62-44b5-f9ee-7f094dfa2000', // Round the Table: TCC X LSS
   'smp': '8e5b5a22-4290-43cf-ab73-22b6ec5f5f00', // Smash Palace
