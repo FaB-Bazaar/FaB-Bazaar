@@ -43,7 +43,7 @@ beforeAll(async () => {
      FROM cards c
      INNER JOIN printings p ON p.card_unique_id = c.card_unique_id
      WHERE c.talishar_card_id IS NOT NULL AND p.image_url IS NOT NULL
-     ORDER BY c.talishar_card_id, p.set ASC NULLS LAST, p.edition ASC NULLS LAST
+     ORDER BY c.talishar_card_id, (p.language = 'en') DESC, p.set ASC NULLS LAST, p.edition ASC NULLS LAST
      LIMIT 2`
   );
   if (rows.length < 2) throw new Error('Need at least 2 cards with talishar_card_id and image_url seeded.');

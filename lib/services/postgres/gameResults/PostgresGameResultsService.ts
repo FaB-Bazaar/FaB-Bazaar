@@ -585,12 +585,16 @@ export class PostgresGameResultsService {
   private async resolveImageUrls(cardIds: string[]): Promise<Map<string, string>> {
     if (cardIds.length === 0) return new Map();
     const { rows } = await pool.query<{ talishar_card_id: string; image_url: string | null }>(
+      // Representative printing: has an image, English before other languages
+      // (the chat/results UI is English — JP/FR faces read as a bug), then the
+      // stable set/edition order.
       `SELECT DISTINCT ON (c.talishar_card_id)
               c.talishar_card_id, p.image_url
        FROM cards c
        LEFT JOIN printings p ON p.card_unique_id = c.card_unique_id
        WHERE c.talishar_card_id = ANY($1)
-       ORDER BY c.talishar_card_id, p.set ASC NULLS LAST, p.edition ASC NULLS LAST`,
+       ORDER BY c.talishar_card_id, (p.image_url IS NOT NULL) DESC, (p.language = 'en') DESC,
+                p.set ASC NULLS LAST, p.edition ASC NULLS LAST`,
       [cardIds]
     );
     const map = new Map<string, string>();

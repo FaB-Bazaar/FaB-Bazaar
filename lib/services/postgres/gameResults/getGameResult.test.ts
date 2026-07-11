@@ -40,7 +40,7 @@ beforeAll(async () => {
      FROM cards c
      INNER JOIN printings p ON p.card_unique_id = c.card_unique_id
      WHERE c.talishar_card_id IS NOT NULL AND p.image_url IS NOT NULL
-     ORDER BY c.talishar_card_id, p.set ASC NULLS LAST, p.edition ASC NULLS LAST
+     ORDER BY c.talishar_card_id, (p.language = 'en') DESC, p.set ASC NULLS LAST, p.edition ASC NULLS LAST
      LIMIT 2`
   );
   if (rows.length < 2) throw new Error('Need 2 cards seeded.');
@@ -57,7 +57,7 @@ beforeAll(async () => {
      WHERE c.talishar_card_id IS NOT NULL
        AND c.pitch IS NULL
        AND p.image_url IS NOT NULL
-     ORDER BY c.talishar_card_id, p.set ASC NULLS LAST, p.edition ASC NULLS LAST
+     ORDER BY c.talishar_card_id, (p.language = 'en') DESC, p.set ASC NULLS LAST, p.edition ASC NULLS LAST
      LIMIT 1`
   );
   if (equipRows.length < 1) throw new Error('Need a pitchless card seeded.');
@@ -148,6 +148,45 @@ describe('PostgresGameResultsService.getGameResult', () => {
     // Map is keyed by the original (un-normalized) cardId as it appears in
     // the turn log, so the client can do a direct lookup.
     expect(res.data.imageUrls[suffixedId]).toBe(equipSample.imageUrl);
+  });
+
+  it('prefers the English printing image even when a non-English printing sorts first', async () => {
+    // Synthetic card with two printings: a Japanese one that wins the
+    // (set, edition) sort and an English one that must win anyway — the chat
+    // UI is English, so hover previews must not surface JP card faces.
+    const cardUid = `t-${crypto.randomUUID().slice(0, 19)}`;
+    const talisharId = `test_lang_${crypto.randomUUID().slice(0, 8)}`;
+    const jaPrintingId = `t-${crypto.randomUUID().slice(0, 19)}`;
+    const enPrintingId = `t-${crypto.randomUUID().slice(0, 19)}`;
+    const enImage = 'https://example.com/en.png';
+    const jaImage = 'https://example.com/ja.png';
+    await db.insert(cards).values({
+      cardUniqueId: cardUid, name: 'lang test card', displayName: 'Lang Test Card', talisharCardId: talisharId,
+    });
+    await db.insert(printings).values([
+      { printingId: jaPrintingId, cardUniqueId: cardUid, set: 'AAA', edition: 'A', foiling: 'S', rarity: 'C', language: 'ja', imageUrl: jaImage },
+      { printingId: enPrintingId, cardUniqueId: cardUid, set: 'ZZZ', edition: 'Z', foiling: 'S', rarity: 'C', language: 'en', imageUrl: enImage },
+    ]);
+    try {
+      const resultId = crypto.randomUUID();
+      await db.insert(gameResults).values({
+        id: resultId,
+        deckId,
+        result: 'win',
+        conceded: false,
+        cardResults: [],
+        turnLog: [[1, talisharId, 'M']],
+      });
+
+      const res = await service.getGameResult(resultId, deckId);
+
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      expect(res.data.imageUrls[talisharId]).toBe(enImage);
+    } finally {
+      await db.delete(printings).where(eq(printings.cardUniqueId, cardUid));
+      await db.delete(cards).where(eq(cards.cardUniqueId, cardUid));
+    }
   });
 
   it('returns "Game result not found" when the resultId does not exist for this deck', async () => {

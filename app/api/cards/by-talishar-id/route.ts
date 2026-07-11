@@ -56,7 +56,8 @@ interface DbRow {
 }
 
 // One query, one round-trip. DISTINCT ON picks a single printing per card
-// (ordered by set/edition so the result is deterministic). The index on
+// (image-bearing English printings first, then set/edition — hover previews
+// in the English chat UI must not surface JP/FR card faces). The index on
 // cards.talishar_card_id makes this an indexed equality lookup. With `details`,
 // the SELECT also pulls the card's semantic fields (type/keywords/stats/text)
 // so callers like the get_results MCP tool can explain what each card does.
@@ -74,7 +75,8 @@ async function lookupByTalisharIds(normalizedIds: string[], details = false): Pr
      FROM cards c
      LEFT JOIN printings p ON p.card_unique_id = c.card_unique_id
      WHERE c.talishar_card_id = ANY($1)
-     ORDER BY c.card_unique_id, p.set ASC NULLS LAST, p.edition ASC NULLS LAST`,
+     ORDER BY c.card_unique_id, (p.image_url IS NOT NULL) DESC, (p.language = 'en') DESC,
+              p.set ASC NULLS LAST, p.edition ASC NULLS LAST`,
     [normalizedIds]
   );
 
