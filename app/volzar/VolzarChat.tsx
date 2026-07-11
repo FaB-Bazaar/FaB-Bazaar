@@ -15,7 +15,7 @@ import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
-  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search,
+  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -39,6 +39,9 @@ import {
   type RowMutation, type QuickActionResult,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
+import { hasPreviewableContent } from './empty-state';
+// Type-only: the value exports pull the service barrel — never import those here.
+import type { SuggestedPrompt } from '@/lib/ai/volzar-suggestions';
 import { MarkdownMessage } from './MarkdownMessage';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { parseInstantActionParam } from './instant-link';
@@ -50,15 +53,23 @@ import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
 
-// First-run launcher: each exercises a different capability (meta analysis,
-// collection compare, search, results) so the empty state teaches what the AI
-// can do — not just that it exists. Clicking sends immediately.
-const SUGGESTED_PROMPTS: Array<{ icon: LucideIcon; text: string }> = [
-  { icon: TrendingUp, text: 'What are the top decks in the meta right now?' },
-  { icon: BookOpen, text: 'Which Decks to Beat could I build mostly from my collection?' },
-  { icon: Search, text: 'Find all Ninja armor that has arcane barrier' },
-  { icon: BarChart3, text: 'How are my decks performing in my recent games?' },
+// First-run launcher prompts arrive personalized from the server
+// (lib/ai/volzar-suggestions via page.tsx); this static set is the fallback
+// when the prop is missing/empty. Each exercises a different capability (meta
+// analysis, collection compare, search, results) so the empty state teaches
+// what the AI can do — not just that it exists. Clicking sends immediately.
+const FALLBACK_SUGGESTED_PROMPTS: SuggestedPrompt[] = [
+  { icon: 'trending', text: 'What are the top decks in the meta right now?' },
+  { icon: 'book', text: 'Which Decks to Beat could I build mostly from my collection?' },
+  { icon: 'search', text: 'Find all Ninja armor that has arcane barrier' },
+  { icon: 'chart', text: 'How are my decks performing in my recent games?' },
 ];
+
+// Server prompts carry serializable icon keys; resolved to Lucide here.
+const SUGGESTION_ICONS: Record<string, LucideIcon> = {
+  trending: TrendingUp, book: BookOpen, search: Search, chart: BarChart3,
+  heart: Heart, layers: Layers, sparkles: Sparkles, shield: Shield,
+};
 
 // Strip icons mirror the navbar (Your Collection = BookOpen, Your Decks =
 // Layers) so the quick actions read as "your stuff, right here".
@@ -760,7 +771,7 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, initialContext, initialData }: {
+export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, suggestedPrompts, initialContext, initialData }: {
   username: string;
   userId: string;
   mockMode: boolean;
@@ -768,6 +779,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
   /** Only superadmins get the model picker; everyone else runs the default
    *  (cheapest) model, which the server also pins regardless of what's sent. */
   isSuperAdmin: boolean;
+  /** State-aware empty-state launcher prompts (server-built); falls back to
+   *  the static set when absent. */
+  suggestedPrompts?: SuggestedPrompt[];
   /** Pre-queued context (e.g. the Bridge B /opt handoff) — rides the
    *  pendingContext queue with the first free-text message, then clears.
    *  Also the seam a future embedded chat panel seeds. */
@@ -1778,6 +1792,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
     if (!result.success) setErrorBanner(result.error);
   }, [previewCard, targetBinderId]);
 
+  // Empty state (pre-first-turn): greeting + composer + launcher prompts sit
+  // vertically centered as one block (Claude-style); the composer docks to the
+  // bottom as soon as anything enters the thread. The preview rail stays off
+  // until something hoverable exists on screen.
+  const chatEmpty = items.length === 0;
+  const promptList = suggestedPrompts?.length ? suggestedPrompts : FALLBACK_SUGGESTED_PROMPTS;
+  const railHasContent = !!previewCard || hasPreviewableContent(items, previewsByPid.size);
+
   return (
     <div className="flex gap-4 items-stretch h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
@@ -2157,40 +2179,24 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           </div>
         )}
 
+        {/* Empty state: flexible spacer above the greeting + composer +
+            prompts group so it reads as one centered block. The bottom spacer
+            (after the prompts) is slightly larger, floating the group a touch
+            above true center. */}
+        {chatEmpty && <div className="flex-1 min-h-4" aria-hidden="true" />}
+
         {/* Thread */}
         <div
           ref={scrollRef}
           role="log"
           aria-live="polite"
           aria-label={`Chat with Volzar as ${username}`}
-          className="flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-3"
+          className={chatEmpty ? 'flex-none py-2 flex flex-col gap-3' : 'flex-1 min-h-0 overflow-y-auto py-2 flex flex-col gap-3'}
         >
-          {items.length === 0 && (
-            <div className="m-auto flex max-w-md flex-col items-center gap-4 text-center px-2">
-              <p className="text-base font-medium text-gray-800 dark:text-gray-100">
-                Hey {username} — ask me anything about Flesh and Blood.
-              </p>
-              <div className="flex flex-col items-stretch gap-2 w-full">
-                {SUGGESTED_PROMPTS.map(({ icon: PromptIcon, text }) => (
-                  <button
-                    key={text}
-                    type="button"
-                    onClick={() => void sendTurn(text, text)}
-                    disabled={busy}
-                    className={`flex items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                  >
-                    <PromptIcon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
-                    <span className="min-w-0">{text}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
-                above are instant and free — they open your lists directly. Chat when you want thinking:
-                deck advice, searches, or “add 3 Command and Conquer to my binder”.
-                {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
-              </p>
-            </div>
+          {chatEmpty && (
+            <p className="mx-auto max-w-2xl px-2 pb-2 text-center text-2xl font-semibold text-gray-800 dark:text-gray-100">
+              Hey {username} — ask me anything about Flesh and Blood.
+            </p>
           )}
           {items.map((item, index) => {
             if (item.kind === 'user') {
@@ -2743,8 +2749,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           </div>
         )}
 
-        {/* Composer */}
-        <div className="flex gap-2 items-end">
+        {/* Composer — centered with the greeting pre-first-turn, docked to the
+            bottom edge (full width) once the conversation starts. */}
+        <div className={chatEmpty ? 'mx-auto w-full max-w-2xl flex gap-2 items-end' : 'flex gap-2 items-end'}>
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -2777,6 +2784,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
             </Button>
           )}
         </div>
+
+        {/* Empty state: launcher prompts + the ⚡ explainer live under the
+            centered composer (chip-style); they vanish on the first turn. */}
+        {chatEmpty && (
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 pt-1">
+            <div className="grid w-full gap-2 sm:grid-cols-2">
+              {promptList.map(({ icon, text }) => {
+                const PromptIcon = SUGGESTION_ICONS[icon] ?? Search;
+                return (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => void sendTurn(text, text)}
+                    disabled={busy}
+                    className={`flex items-center gap-2.5 rounded-lg border border-border bg-card px-3.5 py-2.5 text-left text-sm text-gray-700 dark:text-gray-200 hover:border-primary/50 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+                  >
+                    <PromptIcon className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+                    <span className="min-w-0">{text}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="max-w-xl text-center text-sm text-gray-600 dark:text-gray-300">
+              The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
+              above are instant and free — they open your lists directly. Chat when you want thinking:
+              deck advice, searches, or “add 3 Command and Conquer to my binder”.
+              {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
+            </p>
+          </div>
+        )}
+        {chatEmpty && <div className="flex-[1.4] min-h-4" aria-hidden="true" />}
       </div>
     </div>
 
@@ -2882,8 +2920,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
           </div>
         )}
       </aside>
-    ) : (
-    <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    ) : railHasContent ? (
+    // The rail only appears once something hoverable is on screen (a card
+    // table, deck view, or linkified AI reply) — before that the conversation
+    // gets the full width and the empty state stays quiet.
+    <div className="hidden lg:flex flex-col gap-3 w-64 shrink-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden animate-in fade-in slide-in-from-right-4 duration-300">
       {previewCard ? (
         <CardPreviewPanel
           card={previewCard}
@@ -2902,7 +2943,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, i
         </div>
       )}
     </div>
-    )}
+    ) : null}
 
     {/* Mobile card preview — bottom sheet, opened by tapping a card name */}
     <Drawer open={mobilePreviewOpen && !!previewCard} onOpenChange={setMobilePreviewOpen}>

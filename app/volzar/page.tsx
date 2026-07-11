@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
+import { getVolzarSuggestedPrompts } from '@/lib/ai/volzar-suggestions';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
 import { AccessGate } from './AccessGate';
@@ -32,6 +33,10 @@ export default async function VolzarPage({ searchParams }: {
   // Flags feed only isSuperAdmin (model picker) now — a failed read degrades
   // to a standard user instead of blocking the page.
   const access = await userService.getVolzarAccess(user.id);
+
+  // Empty-state launcher prompts, personalized from a snapshot of the user's
+  // collection/decks/results (falls back to static defaults on any failure).
+  const suggestedPrompts = await getVolzarSuggestedPrompts(user.id);
 
   // Bridge B: /opt hands its current search off via its own URL params plus
   // from=opt & total=N. The context string rides the pendingContext queue
@@ -96,6 +101,7 @@ export default async function VolzarPage({ searchParams }: {
         mockMode={mockMode}
         models={models}
         isSuperAdmin={isSuperAdmin}
+        suggestedPrompts={suggestedPrompts}
         initialContext={initialContext}
         initialData={initialData}
       />

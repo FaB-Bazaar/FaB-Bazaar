@@ -11,6 +11,7 @@ vi.mock('@/lib/services', () => ({
   userService: { getVolzarAccess: vi.fn() },
 }));
 vi.mock('@/lib/metafy/sync-tier', () => ({ syncSupporterTierIfStale: vi.fn() }));
+vi.mock('@/lib/ai/volzar-suggestions', () => ({ getVolzarSuggestedPrompts: vi.fn() }));
 vi.mock('./VolzarChat', () => ({ VolzarChat: () => null }));
 
 import VolzarPage from './page';
@@ -18,10 +19,12 @@ import { AccessGate } from './AccessGate';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
+import { getVolzarSuggestedPrompts } from '@/lib/ai/volzar-suggestions';
 
 const mockAuth = vi.mocked(auth);
 const mockGetVolzarAccess = vi.mocked(userService.getVolzarAccess);
 const mockRedirect = vi.mocked(redirect);
+const mockGetSuggestions = vi.mocked(getVolzarSuggestedPrompts);
 
 const emptySearchParams = () => Promise.resolve({});
 
@@ -68,6 +71,24 @@ describe('VolzarPage signed-out handling', () => {
 
     expect((result as ReactElement).type).not.toBe(AccessGate);
     const chats = findElements(result, (el) => (el.props as any)?.username === 'bob');
+    expect(chats.length).toBe(1);
+  });
+});
+
+describe('VolzarPage suggested prompts', () => {
+  it('passes the state-aware suggested prompts to the chat', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
+    mockGetVolzarAccess.mockResolvedValue({
+      success: true,
+      data: { isSuperAdmin: false, metafySupporterTier: null, volzarAccess: false },
+    } as any);
+    const prompts = [{ icon: 'trending', text: 'What are the top decks in the meta right now?' }];
+    mockGetSuggestions.mockResolvedValue(prompts as any);
+
+    const result = await VolzarPage({ searchParams: emptySearchParams() });
+
+    expect(mockGetSuggestions).toHaveBeenCalledWith('u1');
+    const chats = findElements(result, (el) => (el.props as any)?.suggestedPrompts === prompts);
     expect(chats.length).toBe(1);
   });
 });
