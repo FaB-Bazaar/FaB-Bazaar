@@ -39,7 +39,6 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - `binderStatsService` — removed; use `binderService.getUserBindersWithStats()`
 - `denormalizationService` — removed (was MongoDB-only)
 - `tradeMatchingService`, `tradeAnalysisService`, `matchingService` — deprecated
-- Fabrary integration (`fabraryUrl`, `fabraryDeckId`) — removed from decks (0026)
 
 ## Known Gotchas
 
@@ -58,6 +57,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - **Two shorthand parsers, edit BOTH** — `lib/fab-shorthand-parser.ts` (MCP) and `lib/search/fab-shorthand-parser.ts` (/opt) drift; shared tests in `lib/fab-shorthand-parser.test.ts` pin them. A pattern's parser may `return false` to DECLINE a match (token stays in the text for the name search) — without it the token is blanked even when unapplied (the "red alert boots" → "alert boots" bug).
 - **`search_printings` is language-aware** — `options.language` ('fr'/'de'/'it'/'es'/'ja') swaps results to that language's printing when one exists (join: `card_unique_id` + `printings.language`, closest foiling/edition/set) + `name_local` from `card_translations`; the English printing is the guaranteed fallback. Name queries are English-only, BUT a zero-result name falls back to translated-name lookup (`getCardIdsByTranslatedName`), so native-language names resolve. Volzar chat UI notes live in `app/volzar/CLAUDE.md`.
 - **`/api/search/core` POST body is `{ filters, options }`** — `limit`/`sortBy`/`sortOrder` must go under `options`; at the top level they're silently ignored (defaults to limit 50). The legacy `PrintingSelector` passes them top-level.
+- **Representative-printing lookups must prefer English** — `DISTINCT ON` picks ordered only by set/edition started surfacing JA/FR card faces after the i18n backfill. Order by `(image_url IS NOT NULL) DESC, (language='en') DESC, set, edition` (see `/api/cards/by-talishar-id` + gameResults `resolveImageUrls`); integration-test fixtures must mirror the same ORDER BY or they drift.
 
 ## API Route Pattern
 
