@@ -2280,25 +2280,18 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         {/* Instant rail: quick actions + their pickers. Desktop: narrow left
             sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
         <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
-        {/* Old header controls, folded into the rail (all widths — phones
-            need New chat even with the chips hidden behind the ⚡ sheet). */}
-        {(!chatEmpty || isSuperAdmin || mockMode || sessionUsage.input > 0) && (
-          <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch">
+        {/* Phones hide the chips group behind the ⚡ sheet but still need New
+            chat + the model picker — mobile-only fallback cluster. */}
+        {(!chatEmpty || isSuperAdmin) && (
+          <div className="flex sm:hidden flex-wrap items-center gap-2">
             {!chatEmpty && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={reset}
-                className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
-              >
+              <Button variant="outline" size="sm" onClick={reset} className={`shrink-0 gap-1.5 ${focusRing}`}>
                 <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
               </Button>
             )}
-            {/* Model picker is superadmin-only (bake-offs). Everyone else runs
-                the default model — hidden here and pinned server-side. */}
             {isSuperAdmin && (
               <Select value={model} onValueChange={setModel} disabled={busy}>
-                <SelectTrigger className={`h-8 w-56 lg:w-full text-sm ${focusRing}`} aria-label="Model">
+                <SelectTrigger className={`h-8 w-56 text-sm ${focusRing}`} aria-label="Model">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2307,18 +2300,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                   ))}
                 </SelectContent>
               </Select>
-            )}
-            {mockMode && (
-              <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                Offline demo
-              </Badge>
-            )}
-            {sessionUsage.input > 0 && (
-              <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
-                {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
-                {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
-              </Badge>
             )}
           </div>
         )}
@@ -2333,9 +2314,24 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           role="group"
           aria-label="Instant actions (no AI)"
         >
-          <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300 lg:pb-0.5">
-            <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
-          </span>
+          <div className="flex shrink-0 items-center gap-1 lg:w-full lg:justify-between lg:pb-0.5">
+            <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+              <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
+            </span>
+            {/* New chat, compacted so My binders sits where it used to. */}
+            {!chatEmpty && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={reset}
+                aria-label="New chat"
+                title="New chat"
+                className={`h-7 gap-1 px-2 text-xs ${focusRing}`}
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> New chat
+              </Button>
+            )}
+          </div>
           {QUICK_ACTIONS.map((action) => {
             // My binders / My wants are split buttons: the label runs the
             // instant listing; the attached side button opens the card-search
@@ -2553,6 +2549,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
 
+        {/* Model picker (superadmin) + usage badges — below the launchers so
+            the top of the rail is pure actions (sm+; phones use the fallback
+            cluster above). */}
+        {(isSuperAdmin || mockMode || sessionUsage.input > 0) && (
+          <div className="hidden sm:flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch">
+            {isSuperAdmin && (
+              <Select value={model} onValueChange={setModel} disabled={busy}>
+                <SelectTrigger className={`h-8 w-56 lg:w-full text-sm ${focusRing}`} aria-label="Model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((m) => (
+                    <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {mockMode && (
+              <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                Offline demo
+              </Badge>
+            )}
+            {sessionUsage.input > 0 && (
+              <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
+                {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
+                {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
+              </Badge>
+            )}
+          </div>
+        )}
         {/* Hovered-card preview — LARGE, in the rail's dead space under the
             launchers, while the workspace occupies the right column (the
             right preview rail is hidden then). Persists after unhover so the
