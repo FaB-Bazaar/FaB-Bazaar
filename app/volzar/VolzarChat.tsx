@@ -36,7 +36,7 @@ import {
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, type StripSection,
-  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection,
+  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck,
   type DeckOwnership, type DeckSectionCategory,
   type RowMutation, type QuickActionResult,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
@@ -1565,6 +1565,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     void sendTurn(display, content);
   }, [sendTurn]);
 
+  // Deck card's "Review latest Talishar game": instant lookup of the newest
+  // recorded game for the deck, then the regular analyzeGame turn.
+  const reviewLatestGame = useCallback(async (item: Extract<UiItem, { kind: 'data' }>) => {
+    if (!item.deckPublicId) return;
+    try {
+      const row = await fetchLatestGameForDeck(item.deckPublicId);
+      if (!row) {
+        setErrorBanner(`No Talishar games recorded for ${item.title.replace(/^Deck: /, '')} yet — sync a game first.`);
+        return;
+      }
+      analyzeGame(row);
+    } catch (e) {
+      setErrorBanner(e instanceof Error ? e.message : 'Could not load game results.');
+    }
+  }, [analyzeGame]);
+
   // Re-run the last user turn (optionally on a different model): trims any
   // partial assistant/tool messages from the failed attempt so the payload
   // ends with the user message again (the route requires it).
@@ -2580,7 +2596,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       {wantsAddStatus[index] === 'done' ? 'Added to wants' : `Add missing to wants (${item.wantsAdd.length})`}
                     </button>
                   )}
-                  {item.deckPublicId && (
+                  {/* Copying a deck you already own makes no sense — this is
+                      for Decks to Beat / other people's decks. ("Add card"
+                      moved to the workspace panel header.) */}
+                  {item.deckPublicId && !item.deckEditable && (
                     <button
                       type="button"
                       onClick={() => addDeckToMine(item.deckPublicId!)}
@@ -2592,21 +2611,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                         ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                         : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
                       Add to my decks
-                    </button>
-                  )}
-                  {item.deckPublicId && item.deckEditable && (
-                    <button
-                      type="button"
-                      onClick={() => setAddDialog({
-                        destination: 'deck',
-                        deckPublicId: item.deckPublicId,
-                        deckName: item.title.replace(/^Deck: /, ''),
-                      })}
-                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-sky-700 dark:text-sky-400 hover:bg-muted ${focusRing}`}
-                      title="Search cards and add them to this deck — instant, no AI"
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Add card
                     </button>
                   )}
                   {item.deckPublicId && (
@@ -2639,6 +2643,21 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       {label}
                     </button>
                   ))}
+                  {/* Own decks: one-click review of the newest recorded game
+                      (instant lookup → one AI message via analyzeGame). */}
+                  {item.deckPublicId && item.deckEditable && (
+                    <button
+                      type="button"
+                      onClick={() => void reviewLatestGame(item)}
+                      disabled={busy || runningAction !== null}
+                      title="Volzar reviews your most recent Talishar game with this deck — uses AI (1 message)"
+                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
+                      Review latest Talishar game
+                    </button>
+                  )}
                 </>
               );
               const hasActions = (item.tableRows?.length ?? 0) > 0
@@ -3170,27 +3189,46 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           )}
           <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
           <span className="font-semibold min-w-0 truncate">{workspace.title}</span>
-          {workspaceStripSections && (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {/* Editable decks: card search+add lives at the top of the deck
+                workspace (moved off the chat card). */}
+            {workspace.deckPublicId && workspace.deckEditable && (
+              <button
+                type="button"
+                onClick={() => setAddDialog({
+                  destination: 'deck',
+                  deckPublicId: workspace.deckPublicId,
+                  deckName: workspace.title.replace(/^Deck: /, ''),
+                })}
+                className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs text-sky-700 dark:text-sky-400 hover:bg-muted ${focusRing}`}
+                title="Search cards and add them to this deck — instant, no AI"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Add card
+              </button>
+            )}
+            {workspaceStripSections && (
+              <button
+                type="button"
+                onClick={() => { setStripHover(null); setWorkspaceView((v) => (v === 'strips' ? 'table' : 'strips')); }}
+                aria-label={workspaceView === 'strips' ? 'Show table' : 'Show strips'}
+                title={workspaceView === 'strips' ? 'Show table (details, prices, edit)' : 'Show strips (compact card view)'}
+                className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+              >
+                {workspaceView === 'strips'
+                  ? <Table2 className="h-4 w-4" aria-hidden="true" />
+                  : <LayoutGrid className="h-4 w-4" aria-hidden="true" />}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => { setStripHover(null); setWorkspaceView((v) => (v === 'strips' ? 'table' : 'strips')); }}
-              aria-label={workspaceView === 'strips' ? 'Show table' : 'Show strips'}
-              title={workspaceView === 'strips' ? 'Show table (details, prices, edit)' : 'Show strips (compact card view)'}
-              className={`ml-auto shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+              onClick={() => setWorkspaceStack([])}
+              aria-label="Close workspace"
+              className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
             >
-              {workspaceView === 'strips'
-                ? <Table2 className="h-4 w-4" aria-hidden="true" />
-                : <LayoutGrid className="h-4 w-4" aria-hidden="true" />}
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setWorkspaceStack([])}
-            aria-label="Close workspace"
-            className={`${workspaceStripSections ? '' : 'ml-auto '}shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {workspaceView === 'strips' && workspaceStripSections ? (

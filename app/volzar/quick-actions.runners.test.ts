@@ -16,7 +16,7 @@ import {
   QUICK_ACTIONS, runHeroKit, fetchToBeatHeroes,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   adjustRowQuantity, createBinderTarget, swapRowPrinting, undoRowRemoval,
-  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership,
+  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, fetchLatestGameForDeck,
 } from './quick-actions';
 import { bindersClient, decksClient, wantsClient } from '@/lib/client';
 
@@ -503,5 +503,35 @@ describe('deck tile actions (move / delete-all / ownership)', () => {
     mockRemovePrinting.mockResolvedValue({ success: true, data: { success: true } } as any);
     await adjustRowQuantity({ kind: 'deck', publicId: 'pub-1' }, row('pid_1', 2), -1, 'Bench');
     expect(mockRemovePrinting).toHaveBeenCalledWith('pub-1', 'pid_1', 'benched', 1);
+  });
+});
+
+describe('fetchLatestGameForDeck', () => {
+  const game = (id: string, deckPublicId: string, playedAt: string) => ({
+    id, deckPublicId, deckName: 'Teklosaucen', playerHero: 'teklovossen_esteemed_magnate',
+    opponentHero: 'dash_io', result: 'win', playedAt,
+  });
+
+  it('returns the newest recorded game for THIS deck as an analyzable row', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: [
+        game('g3', 'other-deck', '2026-07-10T10:00:00Z'),
+        game('g2', 'pub-1', '2026-07-09T10:00:00Z'),
+        game('g1', 'pub-1', '2026-07-01T10:00:00Z'),
+      ] }),
+    } as any);
+    const row = await fetchLatestGameForDeck('pub-1');
+    expect(row).toMatchObject({ resultId: 'g2', deckName: 'Teklosaucen', result: 'win', date: '2026-07-09' });
+    vi.restoreAllMocks();
+  });
+
+  it('returns null when the deck has no recorded games', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: [game('g3', 'other-deck', '2026-07-10T10:00:00Z')] }),
+    } as any);
+    expect(await fetchLatestGameForDeck('pub-1')).toBeNull();
+    vi.restoreAllMocks();
   });
 });

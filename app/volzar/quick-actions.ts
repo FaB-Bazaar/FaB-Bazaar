@@ -358,6 +358,45 @@ export interface QuickActionResult {
   compareRefresh?: CompareRefresh;
 }
 
+/** API game payload → the GameResultRow shape analyzeGame consumes. */
+export function toGameResultRows(results: Array<{
+  id: string;
+  deckPublicId?: string;
+  deckName?: string;
+  format?: string | null;
+  playerHero?: string | null;
+  opponentHero?: string | null;
+  result?: 'win' | 'loss';
+  playedAt?: string | Date | null;
+}>): GameResultRow[] {
+  const dateLabel = (d?: string | Date | null) =>
+    d ? String(typeof d === 'string' ? d : d.toISOString()).slice(0, 10) : '';
+  return results.map((r) => ({
+    deckName: r.deckName ?? 'Unknown deck',
+    deckPublicId: r.deckPublicId,
+    resultId: r.id,
+    playerHero: heroLabel(r.playerHero),
+    opponentHero: heroLabel(r.opponentHero),
+    result: r.result === 'win' ? 'win' : 'loss',
+    date: dateLabel(r.playedAt),
+    ...(r.format ? { format: r.format } : {}),
+  }));
+}
+
+/**
+ * The deck card's "Review latest Talishar game": newest recorded game for
+ * THIS deck (the /recent feed is newest-first), ready for analyzeGame.
+ * null = no games recorded for the deck.
+ */
+export async function fetchLatestGameForDeck(deckPublicId: string): Promise<GameResultRow | null> {
+  const response = await fetch('/api/results/recent?limit=50', { credentials: 'include' });
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Could not load game results');
+  const games = (data.data ?? []).filter((g: any) => g.deckPublicId === deckPublicId);
+  if (games.length === 0) return null;
+  return toGameResultRows(games)[0];
+}
+
 /** One recorded game for the Game-results table. resultId + deckName let the
  *  model analyze it via get_results. */
 export interface GameResultRow {
@@ -632,18 +671,7 @@ export function summarizeGameResults(
     playedAt?: string | Date | null;
   }>,
 ): QuickActionResult {
-  const dateLabel = (d?: string | Date | null) =>
-    d ? String(typeof d === 'string' ? d : d.toISOString()).slice(0, 10) : '';
-  const rows: GameResultRow[] = results.map((r) => ({
-    deckName: r.deckName ?? 'Unknown deck',
-    deckPublicId: r.deckPublicId,
-    resultId: r.id,
-    playerHero: heroLabel(r.playerHero),
-    opponentHero: heroLabel(r.opponentHero),
-    result: r.result === 'win' ? 'win' : 'loss',
-    date: dateLabel(r.playedAt),
-    ...(r.format ? { format: r.format } : {}),
-  }));
+  const rows = toGameResultRows(results);
 
   const lines: CardLine[] = rows.length === 0
     ? ['No recorded games yet.']
