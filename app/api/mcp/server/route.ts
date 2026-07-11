@@ -6,6 +6,7 @@ import { articleFormattingResource } from '../resource/articleFormatting';
 import { cardIndexResource } from '../resource/cardIndex';
 import { heroIdsResource } from '../resource/heroIds';
 import { heroesByFormatResource } from '../resource/heroesByFormat';
+import { facetTagsResource } from '../resource/facetTags';
 import { cardGridViewerResource } from '../resource/cardGridViewer';
 import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
@@ -405,6 +406,7 @@ async function handleMcpPost(req: Request) {
               '  3. Read `searchable://card/fields` before calling search_printings.',
               '  4. Read `fab://card-index` once per session before working with decklists (card name → printing ID lookup).',
               '  5. Read `fab://heroes-by-format` before building/validating a hero+format deck pool (e.g. "Oldhim in Silver Age"). DB-derived per-format legality, split adult vs young; note many heroes (e.g. Oldhim) exist as BOTH a young hero and an adult hero legal in different formats.',
+              '  6. Read `fab://facet-tags` before using the facetTags[] filter (function-based search: "what beats fatigue", "combo enablers"). Curated vocabulary + definitions; ids alone mislead.',
               '',
               'ERROR CONVENTION:',
               '  All tools return either { success: true, data, message? } or { success: false, error: "..." }.',
@@ -524,6 +526,7 @@ CONDITIONALLY REQUIRED (read these when relevant):
 4️⃣ {"uri": "fab://hero-ids"}          — BEFORE calling save_deck_matchup
 5️⃣ {"uri": "fab://heroes-by-format"}  — BEFORE building/validating a hero+format deck pool (per-format legality, adult vs young)
 6️⃣ {"uri": "article://formatting"}    — BEFORE editing articles
+7️⃣ {"uri": "fab://facet-tags"}        — BEFORE using the facetTags[] filter (curated function-tag vocabulary + definitions)
 
 ═══════════════════════════════════════════════════════════════════
 CRITICAL RULES (read these — do not skip):
@@ -581,7 +584,8 @@ CURATOR/ADMIN TOOLS:
                         'fab://card-index',
                         'fab://hero-ids',
                         'fab://heroes-by-format',
-                        'article://formatting'
+                        'article://formatting',
+                        'fab://facet-tags'
                       ],
                       default: 'fab://constants'
                     }
@@ -876,12 +880,22 @@ Step 5: get_binder (verify additions)
             );
           }
 
+          if (uri === 'fab://facet-tags') {
+            const resourceData = await facetTagsResource.handler();
+            return buildResponse(
+              resourceData,
+              `✅ Loaded fab://facet-tags — curated function-tag vocabulary (what a card does/enables), grouped by dimension with definitions + coverage counts.`,
+              `💡 Pass these ids to search_printings filters.facetTags[]. Read each def before picking — ids alone mislead. Empty results mean "no tagged cards match", not "no cards do this".`,
+              { _facetTagsLoaded: true }
+            );
+          }
+
           return NextResponse.json({
             jsonrpc: '2.0',
             id,
             error: {
               code: -32602,
-              message: `Unknown resource URI: ${uri}. Valid URIs: fab://constants, searchable://card/fields, fab://card-index, fab://hero-ids, fab://heroes-by-format, article://formatting.`
+              message: `Unknown resource URI: ${uri}. Valid URIs: fab://constants, searchable://card/fields, fab://card-index, fab://hero-ids, fab://heroes-by-format, article://formatting, fab://facet-tags.`
             }
           }, { headers: corsHeaders() });
         }
@@ -2000,6 +2014,12 @@ The new tool provides the same functionality with better guidance for proper wor
                 name: heroesByFormatResource.name,
                 description: `🏆 FORMAT POOLS: ${heroesByFormatResource.description}`,
                 mimeType: heroesByFormatResource.mimeType
+              },
+              {
+                uri: facetTagsResource.uri,
+                name: facetTagsResource.name,
+                description: `🧭 FUNCTION SEARCH: ${facetTagsResource.description}`,
+                mimeType: facetTagsResource.mimeType
               },
               {
                 uri: cardGridViewerResource.uri,

@@ -194,6 +194,11 @@ export const fabConstantsResource = {
       ll: 'Living Legend format',
       silver_age: 'Silver Age format — community nicknames: "sage", "sa". Always translate these to silver_age before filtering.'
     },
+    facet_search: {
+      description: 'Cards also carry curated FUNCTION tags — what a card does/enables/counters (e.g. beats-fatigue, combo-enabler, pitch-stack). Search them with the facetTags[] filter.',
+      required_read: 'Read fab://facet-tags for the tag vocabulary + definitions BEFORE using facetTags — ids alone mislead, and the vocabulary grows over time.',
+    },
+
     price_ranges: PRICE_RANGES,
     power_ranges: POWER_RANGES,
     cost_ranges: COST_RANGES,

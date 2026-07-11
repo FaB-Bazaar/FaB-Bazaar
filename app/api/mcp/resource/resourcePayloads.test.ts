@@ -43,6 +43,8 @@ describe('fab://constants payload', () => {
     expect(Object.keys(data.hero_mappings.nicknames).length).toBeGreaterThan(30);
     // Full roster moved out — pointer to the dedicated resource must exist
     expect(text).toContain('fab://heroes-by-format');
+    // Facet vocabulary lives in its own resource — pointer must exist
+    expect(text).toContain('fab://facet-tags');
     // Alias→canonical maps stay (shorthand parsing source of truth)
     expect(data.foiling_mappings.mappings).toBeTruthy();
     expect(data.rarity_mappings.mappings).toBeTruthy();

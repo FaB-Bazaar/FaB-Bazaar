@@ -178,7 +178,14 @@ describe('POST /api/volzar', () => {
       // Meta reads + SQL-backed aggregates (buildability / performance)
       'get_decks_to_beat',
       'compare_collection_to_decks_to_beat', 'get_deck_performance',
+      // Ban/legality registry (public read) — "is X banned in CC?"
+      'list_card_restrictions',
     ]));
+  });
+
+  it('system prompt steers ban/legality questions to list_card_restrictions', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    expect(system.content).toContain('list_card_restrictions');
   });
 
   it('streams SSE for a valid mock conversation: tool round-trip then done', async () => {

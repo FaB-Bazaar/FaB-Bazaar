@@ -245,6 +245,7 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
     'hasReviled', 'hasPirate', 'hasElemental',
     'isGenericOnly', 'hasClassAndTalent', 'hasClassOnly', 'hasTalentOnly',
     'isExtendedArt', 'artVariations',
+    'facetTags', 'heroAges', 'talentless', 'classTalentUnion', 'hasPricing',
     'isFirstEdition', 'isUnlimited', 'isNormalEdition',
     'isNormalFoil', 'isRainbowFoil', 'isColdFoil',
     'isCommon', 'isRare', 'isSuperRare', 'isMajestic', 'isLegendary',
@@ -390,6 +391,8 @@ Results are returned in a compact projection — each printing includes printing
 
 Always pass ALL cards you need in one call — never loop.
 
+EITHER/OR queries ("red OR blue dominate attacks"): filters within one descriptor are ANDed. To express OR across fields, pass one descriptor per branch in the same call — the sections come back side by side and you merge them (dedupe by card_unique_id).
+
 Each entry in \`cards\` uses either a shorthand query string or a structured filters object:
 
 Option A — shorthand query (best for trade posts):
@@ -441,7 +444,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
             },
             filters: {
               type: 'object',
-              description: 'Structured filters. name, exact, text, searchableText, collectorNumber, printingIds, cardUniqueId, sets[], types[], classes[], talents[], keywords[], traits[], color, pitch, power/Min/Max, cost/Min/Max, defense/Min/Max, rarities[], foilings[], editions[], artists[], priceMin/Max, priceField, heroLegal, heroClasses[], heroTalents[], heroEssences[], excludeClasses[], excludeTalents[], format, includeBanned, includeSuspended. Negation: setsNot[], typesNot[], raritiesNot[], foilingsNot[], editionsNot[], colorNot[], classesNot[], keywordsNot[], textNot, talentsNot[]. Printing-differentiating booleans: isFirstEdition, isUnlimited, isNormalEdition, isNormalFoil, isRainbowFoil, isColdFoil, isExtendedArt, artVariations[], hasProductId.',
+              description: 'Structured filters. name, exact, text, searchableText, collectorNumber, printingIds, cardUniqueId, sets[], types[], classes[], talents[], keywords[], traits[], color, pitch, power/Min/Max, cost/Min/Max, defense/Min/Max, rarities[], foilings[], editions[], artists[], priceMin/Max, priceField, hasPricing, heroLegal, heroClasses[], heroTalents[], heroEssences[], excludeClasses[], excludeTalents[], talentless, classTalentUnion, heroAges[] ("young"/"adult"), facetTags[], format, includeBanned, includeSuspended. Negation: setsNot[], typesNot[], raritiesNot[], foilingsNot[], editionsNot[], colorNot[], classesNot[], keywordsNot[], textNot, talentsNot[]. Printing-differentiating booleans: isFirstEdition, isUnlimited, isNormalEdition, isNormalFoil, isRainbowFoil, isColdFoil, isExtendedArt, artVariations[], hasProductId.',
               properties: {
                 name:             { type: 'string', description: 'Card name. Defaults to exact matching when provided — set exact: false only for fuzzy/typo-tolerant search.' },
                 exact:            { type: 'boolean', description: 'Default: true when name is set. Set false to enable fuzzy/similarity matching.' },
@@ -453,6 +456,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
                 editions:         { type: 'array', items: { type: 'string', enum: ['a','f','u','n'] }, description: 'a=Alpha f=FirstEdition u=Unlimited n=Normal' },
                 format:           { type: 'string', enum: ['blitz', 'cc', 'commoner', 'll', 'silver_age'] },
                 heroLegal:        { type: 'string', description: 'Hero name — returns cards legal for that hero' },
+                facetTags:        { type: 'array', items: { type: 'string' }, description: 'Curated function tags — what a card DOES/enables (e.g. "beats-fatigue", "combo-enabler", "disruption", "pitch-stack"). Matches cards tagged with ANY listed tag. Read fab://facet-tags first for the tag vocabulary with definitions. Coverage is curated and growing — an empty result means "no tagged cards match", not "no cards do this".' },
                 priceMin:         { type: 'number' },
                 priceMax:         { type: 'number' },
                 priceField:       { type: 'string', enum: ['tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market'] },

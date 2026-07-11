@@ -52,6 +52,9 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
   // performing?" — no decklist+binder inference in the model.
   'compare_collection_to_decks_to_beat',
   'get_deck_performance',
+  // Ban/legality registry — public read (GET /api/banned-cards has no auth
+  // gate; the superadmin check guards writes only). Answers "is X banned?".
+  'list_card_restrictions',
 ]);
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
