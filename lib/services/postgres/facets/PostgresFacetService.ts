@@ -117,6 +117,35 @@ export class PostgresFacetService implements IFacetService {
     return this.mutate(cardUniqueId, tag, 'add');
   }
 
+  async setStrategyNotes(cardUniqueId: string, notes: string | null): AsyncResult<{ updated: true }> {
+    try {
+      const value = notes?.trim() ? notes.trim() : null;
+      const rows = await db
+        .update(cards)
+        .set({ strategyNotes: value })
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .returning({ id: cards.cardUniqueId });
+      if (rows.length === 0) return { success: false, error: 'Card not found' };
+      return { success: true, data: { updated: true } };
+    } catch (error) {
+      return fail(error, 'Failed to set strategy notes');
+    }
+  }
+
+  async getStrategyNotes(cardUniqueId: string): AsyncResult<{ notes: string | null }> {
+    try {
+      const [row] = await db
+        .select({ notes: cards.strategyNotes })
+        .from(cards)
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .limit(1);
+      if (!row) return { success: false, error: 'Card not found' };
+      return { success: true, data: { notes: row.notes ?? null } };
+    } catch (error) {
+      return fail(error, 'Failed to read strategy notes');
+    }
+  }
+
   async removeCardFacetTag(cardUniqueId: string, tag: string): AsyncResult<{ applied: number }> {
     return this.mutate(cardUniqueId, tag, 'remove');
   }

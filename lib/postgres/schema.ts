@@ -388,6 +388,12 @@ export const cards = pgTable('cards', {
   // migration 0059 (Drizzle can't express GIN).
   facetTags: text('facet_tags').array().notNull().default(sql`ARRAY[]::text[]`),
 
+  // Curated strategy prose (why it's good / how it's used — markdown). Also
+  // curation-owned (CARD_ADMIN_OWNED_COLS); written only via facetService.
+  // Per card_unique_id with NO same-name fan-out: red/blue pitches of a card
+  // can play different roles, so each variant gets its own prose (0077).
+  strategyNotes: text('strategy_notes'),
+
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

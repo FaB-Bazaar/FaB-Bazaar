@@ -136,3 +136,59 @@ describe('PostgresFacetService — add/remove fan-out + safe projection', () => 
     expect(res.success).toBe(false);
   });
 });
+
+describe('PostgresFacetService — strategy notes', () => {
+  let cardId: string;
+  let siblingId: string;
+
+  beforeAll(async () => {
+    // Two pitch variants of the same name — notes must NOT fan out (unlike tags:
+    // red and blue of a card can play different roles, so prose is per-variant).
+    const rows = await db
+      .select({ id: cards.cardUniqueId })
+      .from(cards)
+      .where(eq(cards.displayName, 'Aether Dart'))
+      .orderBy(cards.cardUniqueId);
+    cardId = rows[0].id;
+    siblingId = rows[1].id;
+  });
+
+  afterEach(async () => {
+    await db.execute(sql`UPDATE cards SET strategy_notes = NULL WHERE card_unique_id IN (${cardId}, ${siblingId})`);
+  });
+
+  it('sets and reads back strategy notes for one card', async () => {
+    const set = await service.setStrategyNotes(cardId, 'Test note: excellent vs. daggers.');
+    expect(set.success).toBe(true);
+    const get = await service.getStrategyNotes(cardId);
+    expect(get.success && get.data.notes).toBe('Test note: excellent vs. daggers.');
+  });
+
+  it('does NOT fan out to same-name pitch variants', async () => {
+    await service.setStrategyNotes(cardId, 'red-specific note');
+    const sibling = await service.getStrategyNotes(siblingId);
+    expect(sibling.success && sibling.data.notes).toBe(null);
+  });
+
+  it('clears notes when set to null', async () => {
+    await service.setStrategyNotes(cardId, 'temp');
+    const res = await service.setStrategyNotes(cardId, null);
+    expect(res.success).toBe(true);
+    const get = await service.getStrategyNotes(cardId);
+    expect(get.success && get.data.notes).toBe(null);
+  });
+
+  it('rejects an unknown card id', async () => {
+    const res = await service.setStrategyNotes('zzz-no-such-card', 'x');
+    expect(res.success).toBe(false);
+  });
+
+  it('never mutates any cards column other than strategy_notes', async () => {
+    const cols = { name: cards.name, text: cards.text, power: cards.power, facetTags: cards.facetTags };
+    const before = await db.select(cols).from(cards).where(eq(cards.cardUniqueId, cardId));
+    await service.setStrategyNotes(cardId, 'note');
+    await service.setStrategyNotes(cardId, null);
+    const after = await db.select(cols).from(cards).where(eq(cards.cardUniqueId, cardId));
+    expect(after).toEqual(before);
+  });
+});

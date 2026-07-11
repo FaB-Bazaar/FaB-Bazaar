@@ -173,6 +173,9 @@ CARD_ADMIN_OWNED_COLS = {
     #                 CARD_FIELDS today, listed here so it is never clobbered if
     #                 it ever is added.
     'facet_tags',
+    # strategy_notes — curated per-card strategy prose (facetService, migration
+    #                  0077); same protection rationale as facet_tags.
+    'strategy_notes',
 }
 
 
