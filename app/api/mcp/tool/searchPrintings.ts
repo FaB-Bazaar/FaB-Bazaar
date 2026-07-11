@@ -42,6 +42,17 @@ function formatPrinting(p: any, opts: ProjectOptions = {}): string {
     `    Rarity: ${RARITY_DISPLAY[p.rarity] || p.rarity || '?'} | Price: ${(() => { const v = p[resolvePriceField(opts.priceField)]; return v ? `$${v.toFixed(2)}` : 'N/A'; })()}`,
     `    Types: ${Array.isArray(p.types) && p.types.length > 0 ? p.types.join(', ') : '—'}`,
   ];
+  // Real card stats, so the model never infers cost/power from rules text
+  // (gpt-oss once declared Command and Conquer 0-cost and cited a cost field
+  // this payload didn't carry). Zero is a real value — print it.
+  const PITCH_COLOR: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+  const stats = [
+    typeof p.cost === 'number' ? `cost ${p.cost}` : null,
+    typeof p.power === 'number' ? `power ${p.power}` : null,
+    typeof p.defense === 'number' ? `defense ${p.defense}` : null,
+    typeof p.pitch === 'number' && PITCH_COLOR[p.pitch] ? `pitch ${p.pitch} (${PITCH_COLOR[p.pitch]})` : null,
+  ].filter(Boolean);
+  if (stats.length > 0) lines.push(`    Stats: ${stats.join(' | ')}`);
   if (p.language && p.language !== 'en') {
     lines.push(`    Language: ${String(p.language).toUpperCase()}`);
   } else if (p.name_local && opts.language) {

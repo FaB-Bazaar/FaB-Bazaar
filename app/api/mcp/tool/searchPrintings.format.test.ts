@@ -350,3 +350,38 @@ describe('searchPrintingsTool.handler — card-level grouping', () => {
     expect(result.results[0].printings).toHaveLength(3);
   });
 });
+
+describe('stats line (cost / power / defense / pitch)', () => {
+  it('includes the card stats so the model never has to guess cost', () => {
+    const sections = formatSearchSections(
+      [{ index: 0, query: 'cnc', total: 1, printings: [printing({
+        name: 'Command and Conquer', cost: 2, power: 6, defense: 3, pitch: 1,
+      })] }],
+      {}
+    );
+    expect(sections[0]).toContain('Stats: cost 2 | power 6 | defense 3 | pitch 1 (red)');
+  });
+
+  it('skips missing stats without dangling separators, omitting the line when no stats exist', () => {
+    const noCost = formatSearchSections(
+      [{ index: 0, query: 'q', total: 1, printings: [printing({ cost: null, power: null, defense: 2, pitch: 3 })] }],
+      {}
+    );
+    expect(noCost[0]).toContain('Stats: defense 2 | pitch 3 (blue)');
+    expect(noCost[0]).not.toContain('cost');
+
+    const bare = formatSearchSections(
+      [{ index: 0, query: 'q', total: 1, printings: [printing({ cost: null, power: null, defense: null, pitch: null })] }],
+      {}
+    );
+    expect(bare[0]).not.toContain('Stats:');
+  });
+
+  it('treats zero as a real stat (0-cost cards say cost 0 explicitly)', () => {
+    const sections = formatSearchSections(
+      [{ index: 0, query: 'q', total: 1, printings: [printing({ cost: 0, power: 4, defense: 3, pitch: 2 })] }],
+      {}
+    );
+    expect(sections[0]).toContain('Stats: cost 0 | power 4 | defense 3 | pitch 2 (yellow)');
+  });
+});

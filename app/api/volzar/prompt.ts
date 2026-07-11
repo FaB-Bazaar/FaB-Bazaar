@@ -158,7 +158,10 @@ export function systemPrompt(username: string): string {
     `When you mention a card's pitch, write it as (p1), (p2), or (p3) right after`,
     `the card name — the chat UI renders that notation as the red/yellow/blue`,
     `pitch pip icons.`,
-    `Never invent card data — if a tool didn't return it, say so.`,
+    `Never invent card data — if a tool didn't return it, say so. In particular,`,
+    `never infer a card's cost or stats from its rules text or pitch: search`,
+    `results carry a "Stats:" line (cost/power/defense/pitch) — that is the only`,
+    `source of truth for those numbers.`,
   ].join('\n');
 }
 
