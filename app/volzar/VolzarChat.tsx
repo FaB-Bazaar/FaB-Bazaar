@@ -2055,13 +2055,398 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
 
   return (
     <div className="flex flex-col gap-2 sm:gap-3 h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
-        {/* No header band — the thread gets the full page height. Model picker,
-            usage, and New chat live in the control cluster next to the
-            instant chips, directly above the composer. */}
-        {/* [chat | workspace/preview] — the instant launchers live INSIDE the
-            chat column, directly above the composer (composer-first layout). */}
+        {/* Header row: title + model picker + reset on one line; badges wrap below */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            {/* Volzar, the Lightning Rod card art (cropped) — the page's mark.
+                Same crop as app/volzar/icon.png (the tab favicon). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/volzar-icon.png"
+              alt=""
+              aria-hidden="true"
+              className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border"
+            />
+            <span className="font-bold text-lg mr-1 shrink-0">Volzar</span>
+            {/* Model picker is superadmin-only (bake-offs). Everyone else runs
+                the default model — hidden here and pinned server-side. */}
+            {isSuperAdmin && (
+              <Select value={model} onValueChange={setModel} disabled={busy}>
+                <SelectTrigger className={`flex-1 min-w-0 sm:w-64 sm:flex-none text-base ${focusRing}`} aria-label="Model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((m) => (
+                    <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {/* Nothing to reset before the first turn — hiding the button
+                keeps the empty state down to title + composer (chat-app norm). */}
+            {!chatEmpty && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={reset}
+                className={`ml-auto shrink-0 gap-1.5 ${focusRing}`}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
+              </Button>
+            )}
+          </div>
+          {(mockMode || sessionUsage.input > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {mockMode && (
+                <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Offline demo — replies follow a fixed script
+                </Badge>
+              )}
+              {sessionUsage.input > 0 && (
+                <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
+                  {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
+                  {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Everything below the header: [instant rail | chat | workspace/preview].
+            Below lg the rail is a normal block on top (horizontal chip strip),
+            so mobile keeps today's layout from the same markup. */}
         <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-2 sm:gap-3 lg:gap-4">
 
+        {/* Instant rail: quick actions + their pickers. Desktop: narrow left
+            sidebar (vertical list); mobile/tablet: the scrollable chip strip. */}
+        <div className="flex flex-col gap-2 sm:gap-3 lg:w-64 lg:shrink-0 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:thin]">
+        {/* Quick actions — deterministic reads, zero AI tokens. Hidden on
+            phones (< sm): the bottom tab bar's ⚡ Instant sheet covers the same
+            actions there and the chat page stays calm (mobile-chat norm).
+            Wrapping chips at sm+; stacked rail at lg. The pickers BELOW stay
+            renderable at every size — the sheet's "Decks to beat" deep link
+            opens one in-page on phones. */}
+        <div
+          className="hidden sm:flex items-center flex-wrap gap-2 lg:flex-col lg:items-stretch lg:gap-1.5"
+          role="group"
+          aria-label="Instant actions (no AI)"
+        >
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300 lg:pb-0.5">
+            <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
+          </span>
+          {QUICK_ACTIONS.map((action) => {
+            // My binders / My wants are split buttons: the label runs the
+            // instant listing; the attached side button opens the card-search
+            // dialog to ADD cards (binder side picks the target binder first).
+            const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : null;
+            const ActionIcon = ACTION_ICONS[action.id];
+            const main = (
+              <Button
+                key={addSide ? undefined : action.id}
+                variant="secondary"
+                size="sm"
+                disabled={busy || runningAction !== null}
+                onClick={() => runQuickAction(action.id)}
+                className={`shrink-0 gap-1.5 lg:justify-start ${focusRing} ${addSide === 'wants' ? 'rounded-r-none lg:flex-1' : addSide ? 'rounded-r-none' : ''}`}
+                title="Runs directly against your data — no AI involved"
+              >
+                {runningAction === action.id
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  : ActionIcon && <ActionIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+                {action.label}
+              </Button>
+            );
+            if (!addSide) return main;
+            return (
+              <span key={action.id} className="inline-flex shrink-0 lg:w-full">
+                {main}
+                {addSide === 'binder' ? (
+                  // Tri-button: middle segment shows the target binder (click
+                  // to change), + adds straight to it — no picking required.
+                  <>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={busy || runningAction !== null || binderOptions.length === 0}
+                          className={`rounded-none border-l border-border gap-1 px-2 lg:flex-1 lg:min-w-0 lg:justify-start ${focusRing}`}
+                          aria-label="Choose which binder to add cards to"
+                          title="Choose which binder the + adds cards to"
+                        >
+                          {/* "to:" says what this segment IS — without it the
+                              truncated binder name reads like a glitch */}
+                          <span className="text-xs text-gray-600 dark:text-gray-300">to:</span>
+                          <span className="max-w-[7rem] truncate">
+                            {binderOptions.find((b) => b._id === targetBinderId)?.name ?? 'Binder'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Add cards to…</DropdownMenuLabel>
+                        {binderOptions.map((b) => (
+                          <DropdownMenuItem key={b._id} onSelect={() => setTargetBinderId(b._id)} className="text-base">
+                            {b._id === targetBinderId ? '✓ ' : ''}{b.name}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => { setNewBinderOpen(true); setToBeatOpen(false); setArchetypeOpen(false); setKitOpen(false); }}
+                          className="text-base text-blue-700 dark:text-blue-400"
+                        >
+                          <Plus className="h-4 w-4" aria-hidden="true" /> New binder…
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy || runningAction !== null || binderOptions.length === 0}
+                      onClick={openAddToBinder}
+                      className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
+                      aria-label="Add cards to the selected binder"
+                      title="Search cards and add them to the selected binder"
+                    >
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={busy || runningAction !== null}
+                    onClick={() => setAddDialog({ destination: 'wants' })}
+                    className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
+                    aria-label="Add a card to your wants list"
+                    title="Search cards and add them to your wants list"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
+              </span>
+            );
+          })}
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || runningAction !== null}
+            onClick={toggleToBeat}
+            aria-expanded={toBeatOpen}
+            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
+            title="Featured tournament decks, scoped by hero or event — no AI"
+          >
+            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+            Decks to beat
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || runningAction !== null}
+            onClick={toggleArchetype}
+            aria-expanded={archetypeOpen}
+            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
+            title="Compare all Decks to Beat of a hero — deterministic, no AI"
+          >
+            <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
+            Compare archetype
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || runningAction !== null}
+            onClick={toggleKit}
+            aria-expanded={kitOpen}
+            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
+            title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
+          >
+            <Package className="h-3.5 w-3.5" aria-hidden="true" />
+            Hero kit
+          </Button>
+        </div>
+
+        {/* "New binder…" inline creation row (from the tri-button dropdown).
+            Creating selects it as the add target and queues AI context so chat
+            adds ("put X in <name>") resolve immediately. */}
+        {newBinderOpen && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 dark:bg-muted p-3">
+            <Input
+              value={newBinderName}
+              onChange={(e) => setNewBinderName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void createNewBinder(); if (e.key === 'Escape') setNewBinderOpen(false); }}
+              placeholder="New binder name…"
+              aria-label="New binder name"
+              className={`w-64 lg:w-full text-base ${focusRing}`}
+              autoFocus
+            />
+            <Button
+              size="sm"
+              onClick={() => void createNewBinder()}
+              disabled={creatingBinder || !newBinderName.trim()}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {creatingBinder && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Create binder
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setNewBinderOpen(false)} className={focusRing}>
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
+        {toBeatOpen && (
+          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
+            <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+              Browse by
+              <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Browse decks to beat by">
+                {(['hero', 'event'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setToBeatModeAndLoad(mode)}
+                    aria-pressed={toBeatMode === mode}
+                    className={`px-3 py-1.5 text-sm ${focusRing} ${
+                      toBeatMode === mode
+                        ? 'bg-primary font-semibold text-primary-foreground'
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    {toBeatMode === mode ? '✓ ' : ''}{mode === 'hero' ? 'Hero' : 'Event'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {toBeatMode === 'hero' ? (
+              <PickerSelect
+                label={`Hero (last ${TO_BEAT_MONTHS} months)`}
+                wrapperClassName="w-full sm:w-auto lg:w-full"
+                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+                value={toBeatHero}
+                onValueChange={setToBeatHero}
+                disabled={heroesLoading}
+                placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
+              >
+                {heroes.map((h) => (
+                  <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                  </SelectItem>
+                ))}
+              </PickerSelect>
+            ) : (
+              <PickerSelect
+                label={`Event (last ${TO_BEAT_MONTHS} months)`}
+                wrapperClassName="w-full sm:w-auto lg:w-full"
+                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+                value={toBeatEvent}
+                onValueChange={setToBeatEvent}
+                disabled={toBeatEventsLoading}
+                placeholder={toBeatEventsLoading ? 'Loading events…' : toBeatEvents.length === 0 ? 'No events found' : 'Select an event'}
+              >
+                {toBeatEvents.map((e) => (
+                  <SelectItem key={`${e.eventName}|${e.eventDate}`} value={e.eventName} className="text-sm">
+                    {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
+                  </SelectItem>
+                ))}
+              </PickerSelect>
+            )}
+            <Button
+              size="sm"
+              disabled={(toBeatMode === 'hero' ? !toBeatHero : !toBeatEvent) || busy || runningAction !== null}
+              onClick={runToBeat}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'to-beat' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Show decks
+            </Button>
+          </div>
+        )}
+
+        {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
+        {archetypeOpen && (
+          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
+            <PickerSelect
+              label="Hero (Decks to Beat)"
+              wrapperClassName="w-full sm:w-auto lg:w-full"
+              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+              value={selectedHero}
+              onValueChange={setSelectedHero}
+              disabled={heroesLoading}
+              placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
+            >
+              {heroes.map((h) => (
+                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                  {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                </SelectItem>
+              ))}
+            </PickerSelect>
+            <PickerSelect
+              label="Window"
+              triggerClassName="w-40 lg:w-full"
+              value={String(archetypeMonths)}
+              onValueChange={(v) => setArchetypeMonths(Number(v))}
+            >
+              <SelectItem value="1" className="text-sm">Last 1 month</SelectItem>
+              <SelectItem value="3" className="text-sm">Last 3 months</SelectItem>
+              <SelectItem value="6" className="text-sm">Last 6 months</SelectItem>
+              <SelectItem value="12" className="text-sm">Last 12 months</SelectItem>
+            </PickerSelect>
+            <Button
+              size="sm"
+              disabled={!selectedHero || busy || runningAction !== null}
+              onClick={runArchetype}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'archetype' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Compare
+            </Button>
+          </div>
+        )}
+
+        {/* Hero-kit picker — the curated pool for one hero + format */}
+        {kitOpen && (
+          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
+            <PickerSelect
+              label="Format"
+              triggerClassName="w-52 lg:w-full"
+              value={kitFormat}
+              onValueChange={setKitFormatAndLoad}
+            >
+              <SelectItem value="Classic Constructed" className="text-sm">Classic Constructed</SelectItem>
+              <SelectItem value="Silver Age" className="text-sm">Silver Age</SelectItem>
+              <SelectItem value="Blitz" className="text-sm">Blitz</SelectItem>
+              <SelectItem value="Living Legend" className="text-sm">Living Legend</SelectItem>
+              <SelectItem value="Commoner" className="text-sm">Commoner</SelectItem>
+            </PickerSelect>
+            <PickerSelect
+              label="Hero"
+              wrapperClassName="w-full sm:w-auto lg:w-full"
+              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+              value={kitHero}
+              onValueChange={setKitHero}
+              disabled={kitHeroesLoading}
+              placeholder={kitHeroesLoading ? 'Loading heroes…' : kitHeroes.length === 0 ? 'No kits in this format' : 'Select a hero'}
+            >
+              {kitHeroes.map((h) => (
+                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                  {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
+                </SelectItem>
+              ))}
+            </PickerSelect>
+            <Button
+              size="sm"
+              disabled={!kitHero || busy || runningAction !== null}
+              onClick={runKit}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'hero-kit' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Show kit
+            </Button>
+          </div>
+        )}
+        </div>
+        {/* end instant rail */}
 
         {/* Chat column — engaging it (click or keyboard focus anywhere inside)
             reclaims width from the workspace panel. */}
@@ -2701,378 +3086,6 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </button>
           </div>
         )}
-
-        {/* Instant launchers + control cluster — one strip directly above the
-            composer. Pickers open as panels above the strip. */}
-        <div className={`flex flex-col gap-2 sm:gap-3 ${chatEmpty ? 'mx-auto w-full max-w-2xl' : ''}`}>
-        {/* Quick actions — deterministic reads, zero AI tokens. Hidden on
-            phones (< sm): the bottom tab bar's ⚡ Instant sheet covers the same
-            actions there and the chat page stays calm (mobile-chat norm).
-            Wrapping chips at sm+; stacked rail at lg. The pickers BELOW stay
-            renderable at every size — the sheet's "Decks to beat" deep link
-            opens one in-page on phones. */}
-        <div className="flex items-start gap-2">
-        <div
-          className="hidden sm:flex flex-1 min-w-0 items-center flex-wrap gap-2"
-          role="group"
-          aria-label="Instant actions (no AI)"
-        >
-          <span className="inline-flex shrink-0 items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
-            <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
-          </span>
-          {QUICK_ACTIONS.map((action) => {
-            // My binders / My wants are split buttons: the label runs the
-            // instant listing; the attached side button opens the card-search
-            // dialog to ADD cards (binder side picks the target binder first).
-            const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : null;
-            const ActionIcon = ACTION_ICONS[action.id];
-            const main = (
-              <Button
-                key={addSide ? undefined : action.id}
-                variant="secondary"
-                size="sm"
-                disabled={busy || runningAction !== null}
-                onClick={() => runQuickAction(action.id)}
-                className={`shrink-0 gap-1.5 ${focusRing} ${addSide ? 'rounded-r-none' : ''}`}
-                title="Runs directly against your data — no AI involved"
-              >
-                {runningAction === action.id
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  : ActionIcon && <ActionIcon className="h-3.5 w-3.5" aria-hidden="true" />}
-                {action.label}
-              </Button>
-            );
-            if (!addSide) return main;
-            return (
-              <span key={action.id} className="inline-flex shrink-0">
-                {main}
-                {addSide === 'binder' ? (
-                  // Tri-button: middle segment shows the target binder (click
-                  // to change), + adds straight to it — no picking required.
-                  <>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={busy || runningAction !== null || binderOptions.length === 0}
-                          className={`rounded-none border-l border-border gap-1 px-2 ${focusRing}`}
-                          aria-label="Choose which binder to add cards to"
-                          title="Choose which binder the + adds cards to"
-                        >
-                          {/* "to:" says what this segment IS — without it the
-                              truncated binder name reads like a glitch */}
-                          <span className="text-xs text-gray-600 dark:text-gray-300">to:</span>
-                          <span className="max-w-[7rem] truncate">
-                            {binderOptions.find((b) => b._id === targetBinderId)?.name ?? 'Binder'}
-                          </span>
-                          <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Add cards to…</DropdownMenuLabel>
-                        {binderOptions.map((b) => (
-                          <DropdownMenuItem key={b._id} onSelect={() => setTargetBinderId(b._id)} className="text-base">
-                            {b._id === targetBinderId ? '✓ ' : ''}{b.name}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={() => { setNewBinderOpen(true); setToBeatOpen(false); setArchetypeOpen(false); setKitOpen(false); }}
-                          className="text-base text-blue-700 dark:text-blue-400"
-                        >
-                          <Plus className="h-4 w-4" aria-hidden="true" /> New binder…
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={busy || runningAction !== null || binderOptions.length === 0}
-                      onClick={openAddToBinder}
-                      className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
-                      aria-label="Add cards to the selected binder"
-                      title="Search cards and add them to the selected binder"
-                    >
-                      <Plus className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={busy || runningAction !== null}
-                    onClick={() => setAddDialog({ destination: 'wants' })}
-                    className={`rounded-l-none border-l border-border px-2 ${focusRing}`}
-                    aria-label="Add a card to your wants list"
-                    title="Search cards and add them to your wants list"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                )}
-              </span>
-            );
-          })}
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy || runningAction !== null}
-            onClick={toggleToBeat}
-            aria-expanded={toBeatOpen}
-            className={`shrink-0 gap-1.5 ${focusRing}`}
-            title="Featured tournament decks, scoped by hero or event — no AI"
-          >
-            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-            Decks to beat
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy || runningAction !== null}
-            onClick={toggleArchetype}
-            aria-expanded={archetypeOpen}
-            className={`shrink-0 gap-1.5 ${focusRing}`}
-            title="Compare all Decks to Beat of a hero — deterministic, no AI"
-          >
-            <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
-            Compare archetype
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy || runningAction !== null}
-            onClick={toggleKit}
-            aria-expanded={kitOpen}
-            className={`shrink-0 gap-1.5 ${focusRing}`}
-            title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
-          >
-            <Package className="h-3.5 w-3.5" aria-hidden="true" />
-            Hero kit
-          </Button>
-        </div>
-        {/* Control cluster (all widths): usage, model (superadmin), New chat */}
-        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {mockMode && (
-            <Badge className="gap-1.5 border-amber-500 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-              Offline demo
-            </Badge>
-          )}
-          {sessionUsage.input > 0 && (
-            <Badge variant="secondary" className="gap-1 font-normal tabular-nums" title="Cumulative LLM usage this chat">
-              {(sessionUsage.input / 1000).toFixed(1)}k in · {(sessionUsage.output / 1000).toFixed(1)}k out
-              {sessionUsage.cost > 0 && <> · ${sessionUsage.cost.toFixed(4)}</>}
-            </Badge>
-          )}
-          {/* Model picker is superadmin-only (bake-offs). Everyone else runs
-              the default model — hidden here and pinned server-side. */}
-          {isSuperAdmin && (
-            <Select value={model} onValueChange={setModel} disabled={busy}>
-              <SelectTrigger className={`h-8 w-48 text-sm ${focusRing}`} aria-label="Model">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((m) => (
-                  <SelectItem key={m} value={m} className="text-base">{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {/* Nothing to reset before the first turn. */}
-          {!chatEmpty && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={reset}
-              className={`shrink-0 gap-1.5 ${focusRing}`}
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
-            </Button>
-          )}
-        </div>
-        </div>
-
-        {/* "New binder…" inline creation row (from the tri-button dropdown).
-            Creating selects it as the add target and queues AI context so chat
-            adds ("put X in <name>") resolve immediately. */}
-        {newBinderOpen && (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 dark:bg-muted p-3">
-            <Input
-              value={newBinderName}
-              onChange={(e) => setNewBinderName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void createNewBinder(); if (e.key === 'Escape') setNewBinderOpen(false); }}
-              placeholder="New binder name…"
-              aria-label="New binder name"
-              className={`w-64 text-base ${focusRing}`}
-              autoFocus
-            />
-            <Button
-              size="sm"
-              onClick={() => void createNewBinder()}
-              disabled={creatingBinder || !newBinderName.trim()}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {creatingBinder && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Create binder
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setNewBinderOpen(false)} className={focusRing}>
-              Cancel
-            </Button>
-          </div>
-        )}
-
-        {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
-        {toBeatOpen && (
-          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
-              Browse by
-              <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Browse decks to beat by">
-                {(['hero', 'event'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setToBeatModeAndLoad(mode)}
-                    aria-pressed={toBeatMode === mode}
-                    className={`px-3 py-1.5 text-sm ${focusRing} ${
-                      toBeatMode === mode
-                        ? 'bg-primary font-semibold text-primary-foreground'
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    {toBeatMode === mode ? '✓ ' : ''}{mode === 'hero' ? 'Hero' : 'Event'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {toBeatMode === 'hero' ? (
-              <PickerSelect
-                label={`Hero (last ${TO_BEAT_MONTHS} months)`}
-                wrapperClassName="w-full sm:w-auto"
-                triggerClassName="w-full sm:min-w-[16rem]"
-                value={toBeatHero}
-                onValueChange={setToBeatHero}
-                disabled={heroesLoading}
-                placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
-              >
-                {heroes.map((h) => (
-                  <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
-                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
-                  </SelectItem>
-                ))}
-              </PickerSelect>
-            ) : (
-              <PickerSelect
-                label={`Event (last ${TO_BEAT_MONTHS} months)`}
-                wrapperClassName="w-full sm:w-auto"
-                triggerClassName="w-full sm:min-w-[16rem]"
-                value={toBeatEvent}
-                onValueChange={setToBeatEvent}
-                disabled={toBeatEventsLoading}
-                placeholder={toBeatEventsLoading ? 'Loading events…' : toBeatEvents.length === 0 ? 'No events found' : 'Select an event'}
-              >
-                {toBeatEvents.map((e) => (
-                  <SelectItem key={`${e.eventName}|${e.eventDate}`} value={e.eventName} className="text-sm">
-                    {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
-                  </SelectItem>
-                ))}
-              </PickerSelect>
-            )}
-            <Button
-              size="sm"
-              disabled={(toBeatMode === 'hero' ? !toBeatHero : !toBeatEvent) || busy || runningAction !== null}
-              onClick={runToBeat}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {runningAction === 'to-beat' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Show decks
-            </Button>
-          </div>
-        )}
-
-        {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
-        {archetypeOpen && (
-          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <PickerSelect
-              label="Hero (Decks to Beat)"
-              wrapperClassName="w-full sm:w-auto"
-              triggerClassName="w-full sm:min-w-[16rem]"
-              value={selectedHero}
-              onValueChange={setSelectedHero}
-              disabled={heroesLoading}
-              placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
-            >
-              {heroes.map((h) => (
-                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
-                  {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
-                </SelectItem>
-              ))}
-            </PickerSelect>
-            <PickerSelect
-              label="Window"
-              triggerClassName="w-40"
-              value={String(archetypeMonths)}
-              onValueChange={(v) => setArchetypeMonths(Number(v))}
-            >
-              <SelectItem value="1" className="text-sm">Last 1 month</SelectItem>
-              <SelectItem value="3" className="text-sm">Last 3 months</SelectItem>
-              <SelectItem value="6" className="text-sm">Last 6 months</SelectItem>
-              <SelectItem value="12" className="text-sm">Last 12 months</SelectItem>
-            </PickerSelect>
-            <Button
-              size="sm"
-              disabled={!selectedHero || busy || runningAction !== null}
-              onClick={runArchetype}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {runningAction === 'archetype' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Compare
-            </Button>
-          </div>
-        )}
-
-        {/* Hero-kit picker — the curated pool for one hero + format */}
-        {kitOpen && (
-          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <PickerSelect
-              label="Format"
-              triggerClassName="w-52"
-              value={kitFormat}
-              onValueChange={setKitFormatAndLoad}
-            >
-              <SelectItem value="Classic Constructed" className="text-sm">Classic Constructed</SelectItem>
-              <SelectItem value="Silver Age" className="text-sm">Silver Age</SelectItem>
-              <SelectItem value="Blitz" className="text-sm">Blitz</SelectItem>
-              <SelectItem value="Living Legend" className="text-sm">Living Legend</SelectItem>
-              <SelectItem value="Commoner" className="text-sm">Commoner</SelectItem>
-            </PickerSelect>
-            <PickerSelect
-              label="Hero"
-              wrapperClassName="w-full sm:w-auto"
-              triggerClassName="w-full sm:min-w-[16rem]"
-              value={kitHero}
-              onValueChange={setKitHero}
-              disabled={kitHeroesLoading}
-              placeholder={kitHeroesLoading ? 'Loading heroes…' : kitHeroes.length === 0 ? 'No kits in this format' : 'Select a hero'}
-            >
-              {kitHeroes.map((h) => (
-                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
-                  {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
-                </SelectItem>
-              ))}
-            </PickerSelect>
-            <Button
-              size="sm"
-              disabled={!kitHero || busy || runningAction !== null}
-              onClick={runKit}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {runningAction === 'hero-kit' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Show kit
-            </Button>
-          </div>
-        )}
-        </div>
-        {/* end instant rail */}
 
         {/* Composer — centered with the greeting pre-first-turn, docked to the
             bottom edge (full width) once the conversation starts. */}
