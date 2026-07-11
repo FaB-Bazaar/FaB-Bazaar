@@ -447,6 +447,78 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   );
 }
 
+/**
+ * Ultra-minimal deck view for the COLLAPSED workspace panel (chat engaged,
+ * narrow flex): Talishar-concat-style tiles — a fixed-height art-band crop of
+ * the card image with the name, pitch gem, and ×qty overlaid — under the same
+ * section headers as the table. Hover/focus previews at the panel foot; any
+ * click re-engages the panel, which swaps back to the full table.
+ */
+function WorkspaceStrips({ sections, onPreview }: {
+  sections: Array<{ title: string; count: number; rows: CardRow[] }>;
+  onPreview: (preview: CardPreview) => void;
+}) {
+  return (
+    <div data-testid="workspace-strips" className="space-y-3 px-0.5 py-0.5">
+      {sections.map((sec, si) => (
+        <section key={`${sec.title}-${si}`}>
+          {sec.title && (
+            <h3 className="px-0.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+              {sec.title} <span className="text-gray-400 dark:text-gray-500">· {sec.count}</span>
+            </h3>
+          )}
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-1">
+            {sec.rows.map((r, ri) => {
+              const show = () => onPreview(r.preview);
+              return (
+                <li key={`${r.itemId ?? r.preview.printingId ?? r.name}-${ri}`}>
+                  <button
+                    type="button"
+                    onMouseEnter={show}
+                    onFocus={show}
+                    onClick={show}
+                    title={`${r.qty ? `${r.qty}× ` : ''}${r.name}`}
+                    className={`relative block h-9 w-full overflow-hidden rounded-md ring-1 ring-black/10 dark:ring-white/15 bg-muted hover:ring-blue-400 ${focusRing}`}
+                  >
+                    {r.image && (
+                      // Art-band crop: the fixed-height tile windows the upper-
+                      // middle of the card art (below the printed name bar) —
+                      // the HTML overlay supplies the readable name.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.image}
+                        alt=""
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full max-w-none object-cover"
+                        style={{ objectPosition: 'center 28%' }}
+                      />
+                    )}
+                    <span className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/20 to-black/40" aria-hidden="true" />
+                    <span className="absolute inset-0 flex items-center gap-1.5 px-1.5">
+                      <PitchGem pitch={r.pitch} />
+                      <span className="min-w-0 truncate text-xs font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                        {r.name}
+                      </span>
+                      {typeof r.qty === 'number' && r.qty > 1 && (
+                        <span
+                          aria-label={`${r.qty} copies`}
+                          className="ml-auto shrink-0 rounded-full bg-black/60 px-1.5 text-[11px] font-black tabular-nums text-white ring-1 ring-white/40"
+                        >
+                          ×{r.qty}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 // FaB rules-text tokens ({p} power, {h} life, {r} resource, {d} defense,
 // {i} intellect) → inline glyphs (RULE_TOKEN_ICON shared with the markdown
 // renderer). Unknown tokens fall through as plain text.
@@ -942,10 +1014,37 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // or tabbing into the chat contracts it). Desktop-only by construction —
   // below lg the workspace aside isn't rendered.
   const [paneFocus, setPaneFocus] = useState<'chat' | 'workspace'>('workspace');
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const workspaceUid = workspace?.uid;
   useEffect(() => {
-    if (workspaceUid) setPaneFocus('workspace');
+    if (!workspaceUid) return;
+    // The workspace is a reference surface, not a form — DOM focus defaults to
+    // the composer so typing goes to Volzar the moment a deck/list opens.
+    // Desktop only (the aside isn't rendered below lg, and focusing would pop
+    // the mobile keyboard). Focus BEFORE claiming pane width: the programmatic
+    // focus fires the chat column's onFocusCapture ('chat') synchronously, and
+    // the 'workspace' write below lands in the same batch and wins — so the
+    // panel keeps its width despite the caret living in the chat.
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      const active = document.activeElement;
+      const typingElsewhere = active instanceof HTMLElement && active !== composerRef.current
+        && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (!typingElsewhere) composerRef.current?.focus({ preventScroll: true });
+    }
+    setPaneFocus('workspace');
   }, [workspaceUid]);
+  // Collapsed-panel strip view: the table content regrouped for WorkspaceStrips
+  // (flat rows become one untitled section). null when there's nothing visual
+  // to crop (image-less listings keep their normal rendering when narrow).
+  const workspaceStripSections = useMemo(() => {
+    if (!workspace) return null;
+    const sections = workspace.tableSections?.length
+      ? workspace.tableSections
+      : workspace.tableRows?.length
+        ? [{ title: '', count: workspace.tableRows.length, rows: workspace.tableRows }]
+        : [];
+    return sections.some((s) => s.rows.some((r) => r.image)) ? sections : null;
+  }, [workspace]);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());
   // Row swap-printing: which row's printing picker is open
@@ -2786,6 +2885,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             bottom edge (full width) once the conversation starts. */}
         <div className={chatEmpty ? 'mx-auto w-full max-w-2xl flex gap-2 items-end' : 'flex gap-2 items-end'}>
           <Textarea
+            ref={composerRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -2889,7 +2989,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
-          {workspace.tableSections && workspace.tableSections.length > 0 ? (
+          {paneFocus === 'chat' && workspaceStripSections ? (
+            // Collapsed (chat engaged): the squeezed table is unreadable at
+            // this width — show glanceable cropped-image strips instead.
+            // Clicking anywhere re-engages the panel → full table returns.
+            <WorkspaceStrips sections={workspaceStripSections} onPreview={showPreview} />
+          ) : workspace.tableSections && workspace.tableSections.length > 0 ? (
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
               onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}

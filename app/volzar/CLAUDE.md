@@ -14,6 +14,8 @@
 ## Behaviors
 
 - Auto-scroll keys on `items[]` — anything that grows a card IN PLACE (e.g. the matchup panel) needs its own scroll effect (see the matchupPanels effect).
+- **Workspace open → DOM focus goes to the composer** (the panel is a reference surface; typing should reach Volzar immediately) while the panel still takes the width. Ordering trick in the `workspaceUid` effect: programmatic `.focus()` fires the chat column's `onFocusCapture('chat')` synchronously, and the effect's `setPaneFocus('workspace')` afterwards wins the same React batch. Desktop-only (`matchMedia lg`) and skipped when the user is mid-typing in another field. Pinned in `e2e/volzar-workspace-minimal.spec.ts` (gitignored).
+- **Collapsed workspace (paneFocus 'chat') renders `WorkspaceStrips`, not the squeezed table** — Talishar-concat-style fixed-height tiles (art-band CSS crop via `objectPosition`, HTML name/pitch/×qty overlay) whenever the item has image-bearing rows; image-less listings keep their normal rendering. Any click in the panel re-engages it → full table returns. Same e2e spec pins this.
 - Instant pickers (Decks to beat / archetype / kit) are mutually exclusive and close when their action runs — keep new pickers consistent.
 - `fetchToBeatHeroes` PAGINATES: `/api/decks/community` clamps limit to 50/page and the featured pool is 100+, so a single page silently drops heroes from the dropdown.
 - Matchup swap-row thumbnails come from the deck card's `tableSections` via `buildSwapLookup` — the deck drill must keep its Inventory section or side-in enrichment silently degrades to name-only rows.
