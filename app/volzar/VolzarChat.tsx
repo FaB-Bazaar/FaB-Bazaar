@@ -35,7 +35,7 @@ import {
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
-  collectMutationTargets, WRITE_TOOLS,
+  collectMutationTargets, WRITE_TOOLS, sortRowsForStrips,
   type RowMutation, type QuickActionResult,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
@@ -1043,7 +1043,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       : workspace.tableRows?.length
         ? [{ title: '', count: workspace.tableRows.length, rows: workspace.tableRows }]
         : [];
-    return sections.some((s) => s.rows.some((r) => r.image)) ? sections : null;
+    if (!sections.some((s) => s.rows.some((r) => r.image))) return null;
+    // Cluster by pitch color / type so the strip gems read as bands.
+    return sections.map((s) => ({ ...s, rows: sortRowsForStrips(s.rows) }));
   }, [workspace]);
   // Row ± quantity: in-flight keys (buttons disabled per row while writing)
   const [qtyBusyKeys, setQtyBusyKeys] = useState<Set<string>>(new Set());

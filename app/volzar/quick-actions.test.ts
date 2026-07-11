@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  sortRowsForStrips,
   prettifyCardText,
   summarizeBinders,
   summarizeWantsCards,
@@ -1152,5 +1153,33 @@ describe('WRITE_TOOLS', () => {
     }
     expect(WRITE_TOOLS.has('search_printings')).toBe(false);
     expect(WRITE_TOOLS.has('get_binder')).toBe(false);
+  });
+});
+
+describe('sortRowsForStrips', () => {
+  const row = (name: string, pitch?: number, type?: string) =>
+    ({ name, pitch, type, preview: { imageUrl: '', name } }) as any;
+
+  it('clusters by pitch color (red → yellow → blue), pitchless last', () => {
+    const rows = [row('Blue Card', 3), row('Gearless', undefined), row('Red Card', 1), row('Yellow Card', 2)];
+    expect(sortRowsForStrips(rows).map((r: any) => r.name))
+      .toEqual(['Red Card', 'Yellow Card', 'Blue Card', 'Gearless']);
+  });
+
+  it('groups by type within a pitch color, then name', () => {
+    const rows = [
+      row('Zeta Strike', 1, 'Mechanologist Action - Attack'),
+      row('Boom Grenade', 1, 'Mechanologist Action - Item'),
+      row('Alpha Rampage', 1, 'Mechanologist Action - Attack'),
+    ];
+    expect(sortRowsForStrips(rows).map((r: any) => r.name))
+      .toEqual(['Alpha Rampage', 'Zeta Strike', 'Boom Grenade']);
+  });
+
+  it('does not mutate the input array', () => {
+    const rows = [row('B', 3), row('A', 1)];
+    const copy = [...rows];
+    sortRowsForStrips(rows);
+    expect(rows).toEqual(copy);
   });
 });

@@ -153,6 +153,21 @@ export function toShorthand(r: CardRow): string {
   return parts.join(' ');
 }
 
+/**
+ * Display order for the collapsed-workspace strip view: cluster by pitch color
+ * (red 1 → yellow 2 → blue 3, pitchless cards last), then by type line within
+ * a color, then name — so the pitch gems and card types read as bands instead
+ * of noise. Non-mutating; the table view keeps the source order.
+ */
+export function sortRowsForStrips(rows: CardRow[]): CardRow[] {
+  const pitchRank = (r: CardRow) =>
+    typeof r.pitch === 'number' && r.pitch > 0 ? r.pitch : Number.MAX_SAFE_INTEGER;
+  return [...rows].sort((a, b) =>
+    pitchRank(a) - pitchRank(b)
+    || (a.type ?? '').localeCompare(b.type ?? '')
+    || a.name.localeCompare(b.name));
+}
+
 /** Build a CardRow from a wants/binder card payload (tolerant of flat + nested shapes). */
 function toCardRow(c: any): CardRow {
   const d = c.printingDetails ?? {};
