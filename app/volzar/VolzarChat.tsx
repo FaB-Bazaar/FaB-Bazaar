@@ -282,7 +282,7 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
         ) : null}
       </td>
       {has.qty && (
-        <td className="align-middle text-right tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">
+        <td className={`align-middle ${onAdjustQty ? 'text-center' : 'text-right'} tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap`}>
           {onAdjustQty && typeof r.qty === 'number' ? (
             <span className="inline-flex items-center gap-1">
               <button
@@ -441,7 +441,9 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
           <tr className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 [&_th]:border-b [&_th]:border-border">
             <th className="w-6" aria-label="Pitch" />
             <th className="w-9" aria-label="Card image" />
-            {has.qty && <th className="text-right whitespace-nowrap">Qty</th>}
+            {/* Editable tables render a −/qty/+ cluster — center the label
+                over it (right-aligned it floats over the + button). */}
+            {has.qty && <th className={`${onAdjustQty ? 'text-center' : 'text-right'} whitespace-nowrap`}>Qty</th>}
             <th className={has.type ? 'w-full md:w-auto' : 'w-full'}>Card</th>
             {has.type && <th className="hidden md:table-cell md:w-full">Type</th>}
             {has.collector && <th className="hidden sm:table-cell whitespace-nowrap">No.</th>}
@@ -823,71 +825,56 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
             </TcgAffiliateLink>
           </div>
         )}
-        {card.printingId && onSwapPrinting && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onSwapPrinting}
-            disabled={swapBusy}
-            className={`mt-2 w-full justify-center gap-2 ${focusRing}`}
-            title="Choose a different set / foiling / art for this card"
-          >
-            {swapBusy
-              ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              : <Repeat className="h-4 w-4" aria-hidden="true" />}
-            Swap printing
-          </Button>
-        )}
-      </div>
-
-      {card.printingId && (
-        <div className={`rounded-lg border border-border bg-card p-3 flex flex-col gap-2`}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAddToWants}
-            disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
-            className={`justify-start gap-2 ${focusRing}`}
-          >
-            {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              : railStatus.wants === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
-              : railStatus.wants === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
-              : <Heart className="h-4 w-4" aria-hidden="true" />}
-            {railStatus.wants === 'done' ? 'Added to wants' : 'Add to wants'}
-          </Button>
-
-          {binderOptions.length > 0 && (
-            <>
-              <Select value={targetBinderId} onValueChange={onTargetBinderChange}>
-                <SelectTrigger className={`text-sm ${focusRing}`} aria-label="Target binder">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {binderOptions.map((b) => (
-                    <SelectItem key={b._id} value={b._id} className="text-sm">{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {card.printingId && (
+          // Compact action row: swap · wants · binder, side by side. The
+          // binder target comes from the rail's "to:" picker (title shows it).
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {onSwapPrinting && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onAddToBinder}
-                disabled={!targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
-                className={`justify-start gap-2 ${focusRing}`}
+                onClick={onSwapPrinting}
+                disabled={swapBusy}
+                aria-label="Swap printing"
+                title="Swap printing — choose a different set / foiling / art"
+                className={`justify-center ${focusRing}`}
               >
-                {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  : railStatus.binder === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
-                  : railStatus.binder === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
-                  : <FolderPlus className="h-4 w-4" aria-hidden="true" />}
-                {railStatus.binder === 'done' ? 'Added to binder' : 'Add to binder'}
+                {swapBusy
+                  ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  : <Repeat className="h-4 w-4" aria-hidden="true" />}
               </Button>
-            </>
-          )}
-          <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1">
-            <Zap className="h-3 w-3" aria-hidden="true" /> Instant — no AI
-          </p>
-        </div>
-      )}
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddToWants}
+              disabled={railStatus.wants === 'busy' || railStatus.wants === 'done'}
+              aria-label="Add to wants"
+              title="Add to wants — instant, no AI"
+              className={`justify-center ${focusRing}`}
+            >
+              {railStatus.wants === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                : railStatus.wants === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                : railStatus.wants === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+                : <Heart className="h-4 w-4 text-rose-700 dark:text-rose-400" aria-hidden="true" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddToBinder}
+              disabled={binderOptions.length === 0 || !targetBinderId || railStatus.binder === 'busy' || railStatus.binder === 'done'}
+              aria-label="Add to binder"
+              title={`Add to binder${binderOptions.find((b) => b._id === targetBinderId)?.name ? ` — ${binderOptions.find((b) => b._id === targetBinderId)!.name}` : ''} (pick with the to: selector) — instant, no AI`}
+              className={`justify-center ${focusRing}`}
+            >
+              {railStatus.binder === 'busy' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                : railStatus.binder === 'done' ? <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" aria-hidden="true" />
+                : railStatus.binder === 'error' ? <XCircle className="h-4 w-4 text-red-600 dark:text-red-500" aria-hidden="true" />
+                : <FolderPlus className="h-4 w-4 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />}
+            </Button>
+          </div>
+        )}
+      </div>
     </>
   );
 }
