@@ -9,6 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
@@ -714,7 +715,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; uid?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
+  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
 
 // $/M-token prices for the session cost readout (mirrors the route allowlist;
 // unknown models show token counts only).
@@ -1079,6 +1080,27 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // everything still renders inline as before.
   const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
   const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
+  // Which rail launcher "owns" the open workspace: drills PUSH onto the
+  // stack, so the ROOT item keeps the launcher's provenance (sourceAction).
+  const activeActionId = workspaceStack[0]?.sourceAction ?? null;
+  // Live counts on the data launchers — one cheap fetch each on mount,
+  // best-effort (a miss just hides the badge).
+  const [railCounts, setRailCounts] = useState<{ wants?: number; decks?: number }>({});
+  useEffect(() => {
+    // /api/decks/basic 404s (route reads "basic" as a deckId) and /api/decks
+    // ignores limit — fetch once, count the personal (non-system, non-featured)
+    // decks like the My decks listing does.
+    void decksClient.getUserDecks().then((r) => {
+      if (r.success) {
+        const all: any[] = (r.data as any)?.decks ?? [];
+        setRailCounts((c) => ({ ...c, decks: all.filter((d) => !d.isSystemDeck && !d.featured).length }));
+      }
+    }).catch(() => {});
+    // The wants route returns the whole list (no total field / no limit).
+    void wantsClient.getUserWants().then((r) => {
+      if (r.success) setRailCounts((c) => ({ ...c, wants: (r.data as any)?.wantsList?.cards?.length }));
+    }).catch(() => {});
+  }, []);
   const dataUidRef = useRef(0);
   // Focus-follows-engagement between the chat column and the workspace panel:
   // the pane being used gets the width (workspace opens/drills wide; clicking
@@ -1326,7 +1348,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           : undefined;
       // uid: stable identity across optimistic row-qty updates (each update
       // replaces the item object in both the transcript and workspace stack).
-      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
       setItems((prev) => [...prev, dataItem]);
       // Tables and listings take over the workspace panel on desktop; drills
       // (actionId with ':') push so Back returns to the list they came from.
@@ -2053,6 +2075,155 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const promptList = suggestedPrompts?.length ? suggestedPrompts : FALLBACK_SUGGESTED_PROMPTS;
   const railHasContent = !!previewCard || hasPreviewableContent(items, previewsByPid.size);
 
+  // Picker bodies — shared by the desktop popovers (anchored to their rail
+  // buttons) and the < lg inline panels (the ⚡ sheet's deep links need an
+  // in-page panel on phones, where the popover anchor is display:none).
+  const renderToBeatPicker = () => (
+    <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+              Browse by
+              <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Browse decks to beat by">
+                {(['hero', 'event'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setToBeatModeAndLoad(mode)}
+                    aria-pressed={toBeatMode === mode}
+                    className={`px-3 py-1.5 text-sm ${focusRing} ${
+                      toBeatMode === mode
+                        ? 'bg-primary font-semibold text-primary-foreground'
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    {toBeatMode === mode ? '✓ ' : ''}{mode === 'hero' ? 'Hero' : 'Event'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {toBeatMode === 'hero' ? (
+              <PickerSelect
+                label={`Hero (last ${TO_BEAT_MONTHS} months)`}
+                wrapperClassName="w-full sm:w-auto lg:w-full"
+                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+                value={toBeatHero}
+                onValueChange={setToBeatHero}
+                disabled={heroesLoading}
+                placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
+              >
+                {heroes.map((h) => (
+                  <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                  </SelectItem>
+                ))}
+              </PickerSelect>
+            ) : (
+              <PickerSelect
+                label={`Event (last ${TO_BEAT_MONTHS} months)`}
+                wrapperClassName="w-full sm:w-auto lg:w-full"
+                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+                value={toBeatEvent}
+                onValueChange={setToBeatEvent}
+                disabled={toBeatEventsLoading}
+                placeholder={toBeatEventsLoading ? 'Loading events…' : toBeatEvents.length === 0 ? 'No events found' : 'Select an event'}
+              >
+                {toBeatEvents.map((e) => (
+                  <SelectItem key={`${e.eventName}|${e.eventDate}`} value={e.eventName} className="text-sm">
+                    {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
+                  </SelectItem>
+                ))}
+              </PickerSelect>
+            )}
+            <Button
+              size="sm"
+              disabled={(toBeatMode === 'hero' ? !toBeatHero : !toBeatEvent) || busy || runningAction !== null}
+              onClick={runToBeat}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'to-beat' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Show decks
+            </Button>
+    </div>
+  );
+  const renderArchetypePicker = () => (
+    <div className="flex flex-wrap items-end gap-3">
+            <PickerSelect
+              label="Hero (Decks to Beat)"
+              wrapperClassName="w-full sm:w-auto lg:w-full"
+              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+              value={selectedHero}
+              onValueChange={setSelectedHero}
+              disabled={heroesLoading}
+              placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
+            >
+              {heroes.map((h) => (
+                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                  {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
+                </SelectItem>
+              ))}
+            </PickerSelect>
+            <PickerSelect
+              label="Window"
+              triggerClassName="w-40 lg:w-full"
+              value={String(archetypeMonths)}
+              onValueChange={(v) => setArchetypeMonths(Number(v))}
+            >
+              <SelectItem value="1" className="text-sm">Last 1 month</SelectItem>
+              <SelectItem value="3" className="text-sm">Last 3 months</SelectItem>
+              <SelectItem value="6" className="text-sm">Last 6 months</SelectItem>
+              <SelectItem value="12" className="text-sm">Last 12 months</SelectItem>
+            </PickerSelect>
+            <Button
+              size="sm"
+              disabled={!selectedHero || busy || runningAction !== null}
+              onClick={runArchetype}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'archetype' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Compare
+            </Button>
+    </div>
+  );
+  const renderKitPicker = () => (
+    <div className="flex flex-wrap items-end gap-3">
+            <PickerSelect
+              label="Format"
+              triggerClassName="w-52 lg:w-full"
+              value={kitFormat}
+              onValueChange={setKitFormatAndLoad}
+            >
+              <SelectItem value="Classic Constructed" className="text-sm">Classic Constructed</SelectItem>
+              <SelectItem value="Silver Age" className="text-sm">Silver Age</SelectItem>
+              <SelectItem value="Blitz" className="text-sm">Blitz</SelectItem>
+              <SelectItem value="Living Legend" className="text-sm">Living Legend</SelectItem>
+              <SelectItem value="Commoner" className="text-sm">Commoner</SelectItem>
+            </PickerSelect>
+            <PickerSelect
+              label="Hero"
+              wrapperClassName="w-full sm:w-auto lg:w-full"
+              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
+              value={kitHero}
+              onValueChange={setKitHero}
+              disabled={kitHeroesLoading}
+              placeholder={kitHeroesLoading ? 'Loading heroes…' : kitHeroes.length === 0 ? 'No kits in this format' : 'Select a hero'}
+            >
+              {kitHeroes.map((h) => (
+                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
+                  {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
+                </SelectItem>
+              ))}
+            </PickerSelect>
+            <Button
+              size="sm"
+              disabled={!kitHero || busy || runningAction !== null}
+              onClick={runKit}
+              className={`gap-1.5 ${focusRing}`}
+            >
+              {runningAction === 'hero-kit' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Show kit
+            </Button>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-2 sm:gap-3 h-full min-h-0" style={bannerInset ? { paddingBottom: bannerInset } : undefined}>
         {/* No header band — the thread + workspace get the full page height.
@@ -2128,6 +2299,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             // dialog to ADD cards (binder side picks the target binder first).
             const addSide = action.id === 'binders' ? 'binder' : action.id === 'wants' ? 'wants' : null;
             const ActionIcon = ACTION_ICONS[action.id];
+            const count = action.id === 'binders' ? (binderOptions.length || undefined)
+              : action.id === 'wants' ? railCounts.wants
+              : action.id === 'decks' ? railCounts.decks
+              : undefined;
+            const isActive = activeActionId === action.id;
             const main = (
               <Button
                 key={addSide ? undefined : action.id}
@@ -2135,13 +2311,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 size="sm"
                 disabled={busy || runningAction !== null}
                 onClick={() => runQuickAction(action.id)}
-                className={`shrink-0 gap-1.5 lg:justify-start ${focusRing} ${addSide === 'wants' ? 'rounded-r-none lg:flex-1' : addSide ? 'rounded-r-none' : ''}`}
+                aria-current={isActive ? 'true' : undefined}
+                className={`shrink-0 gap-1.5 lg:justify-start border-l-[3px] ${isActive ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing} ${addSide === 'wants' ? 'rounded-r-none lg:flex-1' : addSide ? 'rounded-r-none' : ''}`}
                 title="Runs directly against your data — no AI involved"
               >
                 {runningAction === action.id
                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   : ActionIcon && <ActionIcon className="h-3.5 w-3.5" aria-hidden="true" />}
                 {action.label}
+                {typeof count === 'number' && (
+                  <span
+                    data-testid={`rail-count-${action.id}`}
+                    className="ml-auto rounded-full bg-black/5 dark:bg-white/10 px-1.5 text-xs tabular-nums text-gray-600 dark:text-gray-300"
+                  >
+                    {count}
+                  </span>
+                )}
               </Button>
             );
             if (!addSide) return main;
@@ -2215,42 +2400,63 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               </span>
             );
           })}
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy || runningAction !== null}
-            onClick={toggleToBeat}
-            aria-expanded={toBeatOpen}
-            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
-            title="Featured tournament decks, scoped by hero or event — no AI"
-          >
-            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-            Decks to beat
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy || runningAction !== null}
-            onClick={toggleArchetype}
-            aria-expanded={archetypeOpen}
-            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
-            title="Compare all Decks to Beat of a hero — deterministic, no AI"
-          >
-            <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
-            Compare archetype
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy || runningAction !== null}
-            onClick={toggleKit}
-            aria-expanded={kitOpen}
-            className={`shrink-0 gap-1.5 lg:justify-start ${focusRing}`}
-            title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
-          >
-            <Package className="h-3.5 w-3.5" aria-hidden="true" />
-            Hero kit
-          </Button>
+          <Popover open={toBeatOpen} onOpenChange={(o) => { if (o) { if (!toBeatOpen) toggleToBeat(); } else setToBeatOpen(false); }}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy || runningAction !== null}
+                aria-expanded={toBeatOpen}
+                aria-current={activeActionId === 'to-beat' ? 'true' : undefined}
+                className={`shrink-0 gap-1.5 lg:justify-start border-l-[3px] ${activeActionId === 'to-beat' ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing}`}
+                title="Featured tournament decks, scoped by hero or event — no AI"
+              >
+                <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
+                Decks to beat
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="right" align="start" className="hidden lg:block w-auto max-w-[26rem] p-3">
+              {renderToBeatPicker()}
+            </PopoverContent>
+          </Popover>
+          <Popover open={archetypeOpen} onOpenChange={(o) => { if (o) { if (!archetypeOpen) toggleArchetype(); } else setArchetypeOpen(false); }}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy || runningAction !== null}
+                aria-expanded={archetypeOpen}
+                aria-current={activeActionId === 'archetype' ? 'true' : undefined}
+                className={`shrink-0 gap-1.5 lg:justify-start border-l-[3px] ${activeActionId === 'archetype' ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing}`}
+                title="Compare all Decks to Beat of a hero — deterministic, no AI"
+              >
+                <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
+                Compare archetype
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="right" align="start" className="hidden lg:block w-auto max-w-[26rem] p-3">
+              {renderArchetypePicker()}
+            </PopoverContent>
+          </Popover>
+          <Popover open={kitOpen} onOpenChange={(o) => { if (o) { if (!kitOpen) toggleKit(); } else setKitOpen(false); }}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy || runningAction !== null}
+                aria-expanded={kitOpen}
+                aria-current={activeActionId === 'hero-kit' ? 'true' : undefined}
+                className={`shrink-0 gap-1.5 lg:justify-start border-l-[3px] ${activeActionId === 'hero-kit' ? 'border-primary bg-primary/10 font-semibold' : 'border-transparent'} ${focusRing}`}
+                title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
+              >
+                <Package className="h-3.5 w-3.5" aria-hidden="true" />
+                Hero kit
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="right" align="start" className="hidden lg:block w-auto max-w-[26rem] p-3">
+              {renderKitPicker()}
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* "New binder…" inline creation row (from the tri-button dropdown).
@@ -2282,156 +2488,27 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         )}
 
-        {/* Decks-to-beat picker — scope by hero (last N months) or by event */}
+        {/* Decks-to-beat picker (inline < lg; popover on desktop) */}
         {toBeatOpen && (
-          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
-              Browse by
-              <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Browse decks to beat by">
-                {(['hero', 'event'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setToBeatModeAndLoad(mode)}
-                    aria-pressed={toBeatMode === mode}
-                    className={`px-3 py-1.5 text-sm ${focusRing} ${
-                      toBeatMode === mode
-                        ? 'bg-primary font-semibold text-primary-foreground'
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    {toBeatMode === mode ? '✓ ' : ''}{mode === 'hero' ? 'Hero' : 'Event'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {toBeatMode === 'hero' ? (
-              <PickerSelect
-                label={`Hero (last ${TO_BEAT_MONTHS} months)`}
-                wrapperClassName="w-full sm:w-auto lg:w-full"
-                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
-                value={toBeatHero}
-                onValueChange={setToBeatHero}
-                disabled={heroesLoading}
-                placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
-              >
-                {heroes.map((h) => (
-                  <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
-                    {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
-                  </SelectItem>
-                ))}
-              </PickerSelect>
-            ) : (
-              <PickerSelect
-                label={`Event (last ${TO_BEAT_MONTHS} months)`}
-                wrapperClassName="w-full sm:w-auto lg:w-full"
-                triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
-                value={toBeatEvent}
-                onValueChange={setToBeatEvent}
-                disabled={toBeatEventsLoading}
-                placeholder={toBeatEventsLoading ? 'Loading events…' : toBeatEvents.length === 0 ? 'No events found' : 'Select an event'}
-              >
-                {toBeatEvents.map((e) => (
-                  <SelectItem key={`${e.eventName}|${e.eventDate}`} value={e.eventName} className="text-sm">
-                    {e.eventName} · {e.eventDate}{e.count ? ` · ${e.count} decks` : ''}
-                  </SelectItem>
-                ))}
-              </PickerSelect>
-            )}
-            <Button
-              size="sm"
-              disabled={(toBeatMode === 'hero' ? !toBeatHero : !toBeatEvent) || busy || runningAction !== null}
-              onClick={runToBeat}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {runningAction === 'to-beat' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Show decks
-            </Button>
+          <div className="lg:hidden rounded-md border border-border bg-muted/30 dark:bg-muted p-3">
+            {renderToBeatPicker()}
           </div>
         )}
 
         {/* Archetype comparison picker — instant, no-AI cross-deck consensus */}
         {archetypeOpen && (
-          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <PickerSelect
-              label="Hero (Decks to Beat)"
-              wrapperClassName="w-full sm:w-auto lg:w-full"
-              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
-              value={selectedHero}
-              onValueChange={setSelectedHero}
-              disabled={heroesLoading}
-              placeholder={heroesLoading ? 'Loading heroes…' : heroes.length === 0 ? 'No featured decks found' : 'Select a hero'}
-            >
-              {heroes.map((h) => (
-                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
-                  {h.displayName}{h.formats.length ? ` · ${h.formats.join('/')}` : ''}
-                </SelectItem>
-              ))}
-            </PickerSelect>
-            <PickerSelect
-              label="Window"
-              triggerClassName="w-40 lg:w-full"
-              value={String(archetypeMonths)}
-              onValueChange={(v) => setArchetypeMonths(Number(v))}
-            >
-              <SelectItem value="1" className="text-sm">Last 1 month</SelectItem>
-              <SelectItem value="3" className="text-sm">Last 3 months</SelectItem>
-              <SelectItem value="6" className="text-sm">Last 6 months</SelectItem>
-              <SelectItem value="12" className="text-sm">Last 12 months</SelectItem>
-            </PickerSelect>
-            <Button
-              size="sm"
-              disabled={!selectedHero || busy || runningAction !== null}
-              onClick={runArchetype}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {runningAction === 'archetype' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Compare
-            </Button>
+          <div className="lg:hidden rounded-md border border-border bg-muted/30 dark:bg-muted p-3">
+            {renderArchetypePicker()}
           </div>
         )}
 
         {/* Hero-kit picker — the curated pool for one hero + format */}
         {kitOpen && (
-          <div className={`flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 dark:bg-muted p-3`}>
-            <PickerSelect
-              label="Format"
-              triggerClassName="w-52 lg:w-full"
-              value={kitFormat}
-              onValueChange={setKitFormatAndLoad}
-            >
-              <SelectItem value="Classic Constructed" className="text-sm">Classic Constructed</SelectItem>
-              <SelectItem value="Silver Age" className="text-sm">Silver Age</SelectItem>
-              <SelectItem value="Blitz" className="text-sm">Blitz</SelectItem>
-              <SelectItem value="Living Legend" className="text-sm">Living Legend</SelectItem>
-              <SelectItem value="Commoner" className="text-sm">Commoner</SelectItem>
-            </PickerSelect>
-            <PickerSelect
-              label="Hero"
-              wrapperClassName="w-full sm:w-auto lg:w-full"
-              triggerClassName="w-full sm:min-w-[16rem] lg:min-w-0"
-              value={kitHero}
-              onValueChange={setKitHero}
-              disabled={kitHeroesLoading}
-              placeholder={kitHeroesLoading ? 'Loading heroes…' : kitHeroes.length === 0 ? 'No kits in this format' : 'Select a hero'}
-            >
-              {kitHeroes.map((h) => (
-                <SelectItem key={h.heroName} value={h.heroName} className="text-sm">
-                  {h.displayName}{h.kitCount ? ` · ${h.kitCount} list${h.kitCount === 1 ? '' : 's'}` : ''}
-                </SelectItem>
-              ))}
-            </PickerSelect>
-            <Button
-              size="sm"
-              disabled={!kitHero || busy || runningAction !== null}
-              onClick={runKit}
-              className={`gap-1.5 ${focusRing}`}
-            >
-              {runningAction === 'hero-kit' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-              Show kit
-            </Button>
+          <div className="lg:hidden rounded-md border border-border bg-muted/30 dark:bg-muted p-3">
+            {renderKitPicker()}
           </div>
         )}
+
         </div>
         {/* end instant rail */}
 
