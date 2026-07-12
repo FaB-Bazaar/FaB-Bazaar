@@ -17,6 +17,7 @@ import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
   BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield, Table2, Globe2,
+  Maximize2,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -26,7 +27,7 @@ import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialo
 import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
 import CreateDeckDialog from '@/components/deck/CreateDeckDialog';
 import { sortPrintings } from '@/lib/fab-constants';
-import { volzarClient, wantsClient, bindersClient, decksClient, locationsClient } from '@/lib/client';
+import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
@@ -48,7 +49,7 @@ import { hasPreviewableContent } from './empty-state';
 // Type-only: the value exports pull the service barrel — never import those here.
 import type { SuggestedPrompt } from '@/lib/ai/volzar-suggestions';
 import { MarkdownMessage } from './MarkdownMessage';
-import { uiStrings } from './ui-strings';
+import { uiStrings, SUPPORTED_LANGUAGES } from './ui-strings';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { parseInstantActionParam } from './instant-link';
 import { buildCardNameIndex } from './card-linkify';
@@ -58,6 +59,7 @@ import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, 
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
+import { CardSpotlightOverlay, type SpotlightCard } from './CardSpotlightOverlay';
 
 // First-run launcher prompts arrive personalized from the server
 // (lib/ai/volzar-suggestions via page.tsx); this static set is the fallback
@@ -225,7 +227,7 @@ function qtyRowKey(r: CardRow, sectionTitle?: string): string {
   return `${sectionTitle ?? ''}|${r.itemId ?? r.preview.printingId ?? r.name}`;
 }
 
-function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', compact = false, onAdjustQty, adjustBusyKeys, onSwapRow, onQuickAdd, quickAddStatus }: {
+function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', compact = false, onAdjustQty, adjustBusyKeys, onSwapRow, onQuickAdd, quickAddStatus, onImageClick }: {
   rows?: CardRow[];
   sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
@@ -248,6 +250,10 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   onQuickAdd?: (row: CardRow, dest: 'wants' | 'binder') => void;
   /** Keyed `${printingId}|${dest}`. */
   quickAddStatus?: Record<string, 'busy' | 'done' | 'error'>;
+  /** When set, the row thumbnail becomes a button opening the tile action
+   *  menu (Present header, qty edits, swap) — the same options as clicking
+   *  the card's tile in the strips view. */
+  onImageClick?: (row: CardRow, sectionTitle: string | undefined, e: React.MouseEvent) => void;
 }) {
   // Adaptive columns: only render a column when some row actually has data
   // for it — a consensus table (no prices/sets) or a search table (no owned
@@ -275,15 +281,33 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
       <td className="align-middle w-6"><PitchGem pitch={r.pitch} /></td>
       <td className="align-middle w-9">
         {r.image ? (
-          // max-w-none: the global img{max-width:100%} reset lets auto table
-          // layout squeeze this cell to 0 when another column demands w-full.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={r.image}
-            alt=""
-            loading="lazy"
-            className="h-11 w-8 max-w-none shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
-          />
+          onImageClick ? (
+            <button
+              type="button"
+              onClick={(e) => onImageClick(r, sectionTitle, e)}
+              aria-label={`Actions for ${r.name}`}
+              title={`${r.name} — click for actions`}
+              className={`block rounded-sm hover:ring-2 hover:ring-blue-400 ${focusRing}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={r.image}
+                alt=""
+                loading="lazy"
+                className="h-11 w-8 max-w-none shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
+              />
+            </button>
+          ) : (
+            // max-w-none: the global img{max-width:100%} reset lets auto table
+            // layout squeeze this cell to 0 when another column demands w-full.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={r.image}
+              alt=""
+              loading="lazy"
+              className="h-11 w-8 max-w-none shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
+            />
+          )
         ) : null}
       </td>
       {has.qty && (
@@ -897,7 +921,7 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, suggestedPrompts, needsCountry, language, initialContext, initialData }: {
+export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, suggestedPrompts, needsLanguage, language, initialContext, initialData }: {
   username: string;
   userId: string;
   mockMode: boolean;
@@ -910,7 +934,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   suggestedPrompts?: SuggestedPrompt[];
   /** No country on the profile → offer the one-time country picker (drives
    *  localized prompts + Volzar's reply language). */
-  needsCountry?: boolean;
+  needsLanguage?: boolean;
   /** Country-derived UI language code ('en' default) — see ui-strings.ts. */
   language?: string;
   /** Pre-queued context (e.g. the Bridge B /opt handoff) — rides the
@@ -1134,8 +1158,21 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // delete all, move to inventory/bench, swap printing — the deck page's
   // tile actions, chat-side. Clicking a tile deliberately does NOT expand
   // the panel (the capture guards below skip [data-strip-tile]).
-  const [tileMenu, setTileMenu] = useState<{ row: CardRow; sourceTitle?: string; x: number; y: number } | null>(null);
+  // `item` = the data item the menu mutates (a chat wants/binder card OR the
+  // workspace drill) — the menu is no longer workspace-only, so it must carry
+  // its own target instead of closing over `workspace`.
+  const [tileMenu, setTileMenu] = useState<{ item: Extract<UiItem, { kind: 'data' }>; row: CardRow; sourceTitle?: string; x: number; y: number } | null>(null);
   const [tileMenuBusy, setTileMenuBusy] = useState(false);
+  // "Present" — big-card spotlight overlay (CardSpotlightOverlay). Fed from
+  // result-card Present buttons, tile clicks on non-editable drills, and the
+  // tile action menu. Pure client state; zero AI.
+  const [spotlight, setSpotlight] = useState<{ title?: string; cards: SpotlightCard[] } | null>(null);
+  const presentRows = useCallback((rows: CardRow[], title?: string) => {
+    setSpotlight({
+      title,
+      cards: rows.map((r) => ({ name: r.name, imageUrl: r.preview.imageUrl || r.image, qty: r.qty })),
+    });
+  }, []);
   // Collection ownership per printing → the tiles' green/amber/red dots.
   // Best-effort: one instant inventory-comparison fetch per deck open.
   const [deckOwnership, setDeckOwnership] = useState<DeckOwnership | null>(null);
@@ -1190,45 +1227,43 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // First-visit country nudge. Dismissal persists in localStorage; a save
-  // hides it for good (the server stops sending needsCountry) and refreshes
+  // hides it for good (the server stops sending needsLanguage) and refreshes
   // the page so the suggested prompts re-render in the new language.
-  const [countryNudgeOpen, setCountryNudgeOpen] = useState(false);
-  const [countryOptions, setCountryOptions] = useState<Array<{ iso2: string; name: string }>>([]);
-  const [nudgeCountry, setNudgeCountry] = useState('');
-  const [savingCountry, setSavingCountry] = useState(false);
+  const [languageNudgeOpen, setLanguageNudgeOpen] = useState(false);
+  const [nudgeLanguage, setNudgeLanguage] = useState('');
+  const [savingLanguage, setSavingLanguage] = useState(false);
   const router = useRouter();
   useEffect(() => {
-    if (!needsCountry) return;
+    if (!needsLanguage) return;
+    // Dismiss key kept from the nudge's country era: every e2e spec seeds it,
+    // and users who said "Not now" shouldn't be re-nagged by the rename.
     if (window.localStorage.getItem('volzar-country-nudge-dismissed')) return;
-    setCountryNudgeOpen(true);
-    void locationsClient.getCountries().then((r) => {
-      if (r.success) setCountryOptions(r.data as Array<{ iso2: string; name: string }>);
-    }).catch(() => {});
-  }, [needsCountry]);
-  const dismissCountryNudge = useCallback(() => {
+    setLanguageNudgeOpen(true);
+  }, [needsLanguage]);
+  const dismissLanguageNudge = useCallback(() => {
     window.localStorage.setItem('volzar-country-nudge-dismissed', '1');
-    setCountryNudgeOpen(false);
+    setLanguageNudgeOpen(false);
   }, []);
-  const saveCountry = useCallback(async () => {
-    if (!nudgeCountry) return;
-    setSavingCountry(true);
+  const saveLanguage = useCallback(async () => {
+    if (!nudgeLanguage) return;
+    setSavingLanguage(true);
     try {
-      const res = await fetch('/api/user/country', {
+      const res = await fetch('/api/user/language', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ country: nudgeCountry }),
+        body: JSON.stringify({ language: nudgeLanguage }),
       });
       const data = await res.json().catch(() => null);
       if (!data?.success) {
-        setErrorBanner(data?.error ?? 'Could not save your country.');
+        setErrorBanner(data?.error ?? 'Could not save your language.');
         return;
       }
-      setCountryNudgeOpen(false);
+      setLanguageNudgeOpen(false);
       router.refresh(); // re-render the server prompts in the new language
     } finally {
-      setSavingCountry(false);
+      setSavingLanguage(false);
     }
-  }, [nudgeCountry, router]);
+  }, [nudgeLanguage, router]);
 
   useEffect(() => {
     // One instant call to populate the add-to-binder picker
@@ -1977,8 +2012,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // categories): call the runner, re-drill the deck so sections update, and
   // refresh the ownership dots (the needed counts changed).
   const runTileMenuMutation = useCallback(async (kind: 'delete-all' | 'move', to?: DeckSectionCategory) => {
-    if (!tileMenu || workspace?.mutate?.kind !== 'deck') return;
-    const publicId = workspace.mutate.publicId;
+    if (tileMenu?.item.mutate?.kind !== 'deck') return;
+    const publicId = tileMenu.item.mutate.publicId;
     setTileMenuBusy(true);
     const outcome = kind === 'delete-all'
       ? await removeAllDeckCopies(publicId, tileMenu.row, tileMenu.sourceTitle)
@@ -1988,7 +2023,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     if (!outcome.ok) { setErrorBanner(outcome.error); return; }
     void refreshItemsForTarget({ destination: 'deck', deckPublicId: publicId });
     void fetchDeckOwnership(publicId).then(setDeckOwnership);
-  }, [tileMenu, workspace, refreshItemsForTarget]);
+  }, [tileMenu, refreshItemsForTarget]);
 
   // Esc closes the tile menu.
   useEffect(() => {
@@ -2592,33 +2627,34 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           className="relative flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
         >
 
-        {/* First-visit country nudge — sets users.country_code, which drives
-            localized prompts and Volzar's reply language. */}
-        {countryNudgeOpen && (
+        {/* First-visit language nudge — sets users.preferred_language (the
+            explicit override in resolveUserLanguage), which drives localized
+            prompts, page chrome, and Volzar's reply language. */}
+        {languageNudgeOpen && (
           <div
-            data-testid="country-nudge"
+            data-testid="language-nudge"
             className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
           >
             <Globe2 className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
             <span className="min-w-0 flex-1">
-              Where are you based? Volzar will reply in your language.
+              What language should Volzar reply in?
             </span>
             <select
-              value={nudgeCountry}
-              onChange={(e) => setNudgeCountry(e.target.value)}
-              aria-label="Country"
+              value={nudgeLanguage}
+              onChange={(e) => setNudgeLanguage(e.target.value)}
+              aria-label="Language"
               className={`h-8 max-w-[12rem] rounded-md border border-input bg-background px-2 text-sm ${focusRing}`}
             >
-              <option value="">Select country…</option>
-              {countryOptions.map((c) => (
-                <option key={c.iso2} value={c.iso2}>{c.name}</option>
+              <option value="">Select language…</option>
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>{l.label}</option>
               ))}
             </select>
-            <Button size="sm" onClick={() => void saveCountry()} disabled={!nudgeCountry || savingCountry} className={`gap-1.5 ${focusRing}`}>
-              {savingCountry && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            <Button size="sm" onClick={() => void saveLanguage()} disabled={!nudgeLanguage || savingLanguage} className={`gap-1.5 ${focusRing}`}>
+              {savingLanguage && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
               Save
             </Button>
-            <Button size="sm" variant="ghost" onClick={dismissCountryNudge} className={focusRing}>
+            <Button size="sm" variant="ghost" onClick={dismissLanguageNudge} className={focusRing}>
               Not now
             </Button>
           </div>
@@ -2807,7 +2843,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                   {item.tableRows && item.tableRows.length > 0 && (
                     <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
                       onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
-                      onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
+                      onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
+                      onImageClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
                   )}
                   {/* Desktop: the table/list lives in the workspace panel; the
                       chip keeps a one-line summary that reopens it. */}
@@ -2852,7 +2889,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
                         onQuickAdd={item.compareRefresh ? (row, dest) => void quickAddRow(item, row, dest) : undefined} quickAddStatus={quickAddStatus}
                         onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
-                        onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
+                        onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
+                        onImageClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
                     </div>
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
@@ -3122,6 +3160,17 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                         {item.results && item.results.tableRows.length > 0 && (
                           <button
                             type="button"
+                            onClick={() => presentRows(item.results!.tableRows, item.card?.title || item.card?.subtitle || 'Search results')}
+                            aria-label="Present these cards"
+                            title="Present — show these cards front and center"
+                            className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+                          >
+                            <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        )}
+                        {item.results && item.results.tableRows.length > 0 && (
+                          <button
+                            type="button"
                             onClick={() => setSearchResultView((v) => ({ ...v, [item.id]: (v[item.id] ?? 'tiles') === 'tiles' ? 'table' : 'tiles' }))}
                             aria-label={(searchResultView[item.id] ?? 'tiles') === 'tiles' ? 'Show table' : 'Show tiles'}
                             title={(searchResultView[item.id] ?? 'tiles') === 'tiles' ? 'Show table (details, prices)' : 'Show tiles (compact card view)'}
@@ -3145,6 +3194,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                           <WorkspaceStrips
                             sections={[{ title: '', count: item.results.tableRows.length, rows: item.results.tableRows, sourceTitle: '' }]}
                             onPreview={showPreview}
+                            // Read-only results: clicking a tile presents it.
+                            onTileClick={(row) => presentRows([row], item.card?.title || 'Search results')}
                           />
                         </div>
                       ) : (
@@ -3392,19 +3443,25 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               sections={workspaceStripSections}
               onPreview={showPreview}
               ownership={deckOwnership}
-              onTileClick={workspace.mutate?.kind === 'deck'
-                ? (row, sourceTitle, e) => setTileMenu({ row, sourceTitle, x: e.clientX, y: e.clientY })
-                : undefined}
+              onTileClick={workspace.mutate
+                // Any mutable drill (deck/wants/binder) gets the action menu;
+                // deck-only entries are gated inside the menu itself.
+                ? (row, sourceTitle, e) => setTileMenu({ item: workspace, row, sourceTitle, x: e.clientX, y: e.clientY })
+                // Read-only drills (Decks to Beat, others' decks): no actions
+                // to offer, so a tile click presents the card directly.
+                : (row) => presentRows([row], workspace.title)}
             />
           ) : workspace.tableSections && workspace.tableSections.length > 0 ? (
             <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
               onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
-              onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
+              onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined}
+              onImageClick={workspace.mutate ? (row, s, e) => setTileMenu({ item: workspace, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
             <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
-              onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
+              onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined}
+              onImageClick={workspace.mutate ? (row, s, e) => setTileMenu({ item: workspace, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
           ) : (
             // Listing view (binder/deck pickers): drill rows navigate the panel
             <div className="px-1.5 py-1">
@@ -3474,9 +3531,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     {/* Tile action menu — the deck page's per-tile actions, chat-side. The
         full-screen wrapper eats the outside click WITHOUT engaging the panel
         (it sits above the aside, so the capture handlers never see it). */}
-    {tileMenu && workspace?.mutate?.kind === 'deck' && (() => {
+    {tileMenu && tileMenu.item.mutate && (() => {
+      // Moves + delete-all are deck-structure operations; wants/binder rows
+      // only get qty edits, swap, and the Present header.
+      const isDeck = tileMenu.item.mutate.kind === 'deck';
       const sourceCategory = deckCategoryFromSection(tileMenu.sourceTitle);
-      const moveTargets: Array<{ to: DeckSectionCategory; label: string }> = [
+      const moveTargets: Array<{ to: DeckSectionCategory; label: string }> = !isDeck ? [] : [
         ...(sourceCategory !== 'maindeck' && sourceCategory !== 'equipment' ? [{ to: 'maindeck' as const, label: 'Move to library' }] : []),
         ...(sourceCategory !== 'inventory' ? [{ to: 'inventory' as const, label: 'Move to inventory' }] : []),
         ...(sourceCategory !== 'benched' ? [{ to: 'benched' as const, label: 'Move to bench' }] : []),
@@ -3493,7 +3553,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             style={{ left: Math.max(8, Math.min(tileMenu.x, window.innerWidth - 240)), top: Math.max(8, Math.min(tileMenu.y, window.innerHeight - 320)) }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="mb-1 flex items-center gap-2 border-b border-border px-3 py-1.5">
+            {/* The header IS the Present trigger — clicking the card's name/
+                thumbnail shows it front and center (user request: not a menu
+                item at the bottom). */}
+            <button type="button" role="menuitem"
+              aria-label={`Present ${tileMenu.row.name} front and center`}
+              title="Present — show this card front and center"
+              className={`mb-1 flex w-full items-center gap-2 border-b border-border px-3 py-1.5 text-left hover:bg-muted ${focusRing}`}
+              onClick={closeThen(() => presentRows([tileMenu.row], tileMenu.sourceTitle))}>
               {tileMenu.row.image && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={tileMenu.row.image} alt="" className="h-10 w-7 max-w-none rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15" />
@@ -3501,20 +3568,23 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               <span className="min-w-0 truncate text-sm font-medium">
                 {(tileMenu.row.qty ?? 1) > 1 ? `${tileMenu.row.qty}× ` : ''}{tileMenu.row.name}
               </span>
-            </div>
+              <Maximize2 className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+            </button>
             <button type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
-              onClick={closeThen(() => adjustQty(workspace, tileMenu.row, 1, tileMenu.sourceTitle))}>
+              onClick={closeThen(() => adjustQty(tileMenu.item, tileMenu.row, 1, tileMenu.sourceTitle))}>
               <Plus className="h-4 w-4 text-gray-500" aria-hidden="true" /> Add copy
             </button>
             <button type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
               title={(tileMenu.row.qty ?? 1) <= 1 ? 'Last copy — removes the card (with Undo)' : 'Remove one copy'}
-              onClick={closeThen(() => adjustQty(workspace, tileMenu.row, -1, tileMenu.sourceTitle))}>
+              onClick={closeThen(() => adjustQty(tileMenu.item, tileMenu.row, -1, tileMenu.sourceTitle))}>
               <Minus className="h-4 w-4 text-gray-500" aria-hidden="true" /> Remove copy
             </button>
-            <button type="button" role="menuitem" disabled={tileMenuBusy} className={`${menuItem} text-red-700 dark:text-red-400`}
-              onClick={() => void runTileMenuMutation('delete-all')}>
-              <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete all copies
-            </button>
+            {isDeck && (
+              <button type="button" role="menuitem" disabled={tileMenuBusy} className={`${menuItem} text-red-700 dark:text-red-400`}
+                onClick={() => void runTileMenuMutation('delete-all')}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete all copies
+              </button>
+            )}
             {moveTargets.map(({ to, label }) => (
               <button key={to} type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
                 onClick={() => void runTileMenuMutation('move', to)}>
@@ -3522,13 +3592,16 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               </button>
             ))}
             <button type="button" role="menuitem" disabled={tileMenuBusy} className={menuItem}
-              onClick={closeThen(() => void openRowSwap(workspace, tileMenu.row, tileMenu.sourceTitle))}>
+              onClick={closeThen(() => void openRowSwap(tileMenu.item, tileMenu.row, tileMenu.sourceTitle))}>
               <Repeat className="h-4 w-4 text-gray-500" aria-hidden="true" /> Swap printing
             </button>
           </div>
         </div>
       );
     })()}
+    {spotlight && (
+      <CardSpotlightOverlay title={spotlight.title} cards={spotlight.cards} onClose={() => setSpotlight(null)} />
+    )}
     {previewCard?.printingId && swapCardUniqueId && (
       <ViewPrintingsDialog
         open={swapOpen}

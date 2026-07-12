@@ -38,14 +38,17 @@ export default async function VolzarPage({ searchParams }: {
   // collection/decks/results (falls back to static defaults on any failure).
   const suggestedPrompts = await getVolzarSuggestedPrompts(user.id);
 
-  // First-visit country nudge: no country set → VolzarChat offers a picker
-  // (country drives prompt localization + Volzar's reply language).
+  // First-visit language nudge: shown only when the user has given us NO
+  // language signal at all — neither an explicit preferred_language (the
+  // nudge/profile setting) nor a country_code (the legacy auto mapping).
   // Fully guarded: the logged-in home page must render even if this read
   // throws synchronously (nudge simply doesn't show).
   const basicInfo = await Promise.resolve()
     .then(() => userService.getBasicInfo(user.id))
     .catch(() => null);
-  const needsCountry = !!basicInfo?.success && !basicInfo.data?.countryCode;
+  const needsLanguage = !!basicInfo?.success
+    && !basicInfo.data?.preferredLanguage
+    && !basicInfo.data?.countryCode;
   const language = resolveUserLanguage(basicInfo?.success ? basicInfo.data ?? {} : {});
 
   // Bridge B: /opt hands its current search off via its own URL params plus
@@ -113,7 +116,7 @@ export default async function VolzarPage({ searchParams }: {
         models={models}
         isSuperAdmin={isSuperAdmin}
         suggestedPrompts={suggestedPrompts}
-        needsCountry={needsCountry}
+        needsLanguage={needsLanguage}
         language={language}
         initialContext={initialContext}
         initialData={initialData}

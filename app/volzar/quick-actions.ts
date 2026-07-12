@@ -470,7 +470,13 @@ export function summarizeWantsCards(
     context: `The user's wants list (qty× name, priority): ${
       cards.map((c) => `${c.quantity ?? 1}× ${label(c)}${c.priority ? ` (${c.priority})` : ''}`).join('; ') || 'empty'
     }`,
-    ...(cards.length ? { tableRows: cards.map(toCardRow), copyHeader: 'Wants:', mutate: { kind: 'wants' as const } } : {}),
+    // Rows drop type/rules text on purpose: next to the workspace rail the
+    // TYPE column wrapped char-by-char; detail lives on hover + Present.
+    ...(cards.length ? {
+      tableRows: cards.map((c) => { const { type: _type, text: _text, ...row } = toCardRow(c); return row; }),
+      copyHeader: 'Wants:',
+      mutate: { kind: 'wants' as const },
+    } : {}),
   };
 }
 
