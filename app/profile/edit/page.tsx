@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { toast } from "sonner"
 import { locationsClient } from "@/lib/client"
+import { SUPPORTED_LANGUAGES } from "@/app/volzar/ui-strings"
 
 export default function EditProfilePage() {
   const router = useRouter()
@@ -29,6 +30,7 @@ export default function EditProfilePage() {
   const [userProfile, setUserProfile] = useState<any>(null)
   // Coarse self-set location (country + state only — used to default store discovery)
   const [country, setCountry] = useState("")
+  const [preferredLanguage, setPreferredLanguage] = useState("")
   const [stateCode, setStateCode] = useState("")
   const [countries, setCountries] = useState<{ iso2: string; name: string }[]>([])
   const [states, setStates] = useState<{ id: number; stateCode: string; name: string }[]>([])
@@ -64,6 +66,7 @@ export default function EditProfilePage() {
           setUsername(data.user.username || "")
           setDiscordUsername(data.user.discordUsername || "")
           setCountry(data.user.countryCode || "")
+          setPreferredLanguage(data.user.preferredLanguage || "")
           setStateCode(data.user.stateCode || "")
         }
       } catch (err) {
@@ -119,6 +122,7 @@ export default function EditProfilePage() {
           discordUsername,
           country,
           state: stateCode,
+          preferredLanguage,
         }),
       })
       const data = await response.json()
@@ -238,6 +242,24 @@ export default function EditProfilePage() {
                 </select>
                 <p className="text-xs text-gray-500">
                   Used to suggest nearby stores and events — never shown as an address
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="preferredLanguage">Preferred language (Optional)</Label>
+                <select
+                  id="preferredLanguage"
+                  value={preferredLanguage}
+                  onChange={(e) => setPreferredLanguage(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Auto — based on country</option>
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>{l.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Volzar chats and prompts use this language; card names stay in English
                 </p>
               </div>
 

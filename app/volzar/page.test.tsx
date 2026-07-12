@@ -11,7 +11,7 @@ vi.mock('@/lib/services', () => ({
   userService: { getVolzarAccess: vi.fn(), getBasicInfo: vi.fn().mockResolvedValue({ success: true, data: null }) },
 }));
 vi.mock('@/lib/metafy/sync-tier', () => ({ syncSupporterTierIfStale: vi.fn() }));
-vi.mock('@/lib/ai/volzar-suggestions', () => ({ getVolzarSuggestedPrompts: vi.fn(), languageForCountry: vi.fn().mockReturnValue('en') }));
+vi.mock('@/lib/ai/volzar-suggestions', () => ({ getVolzarSuggestedPrompts: vi.fn(), resolveUserLanguage: vi.fn().mockReturnValue('en') }));
 vi.mock('./VolzarChat', () => ({ VolzarChat: () => null }));
 
 import VolzarPage from './page';

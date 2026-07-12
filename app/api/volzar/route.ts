@@ -18,7 +18,7 @@ import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-brid
 import { waitForConfirmation } from '@/lib/ai/confirmations';
 import { dailyLimitFor, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
 import { assembleMessages } from './prompt';
-import { languageForCountry, SUGGESTION_LANGUAGE_NAMES } from '@/lib/ai/volzar-suggestions';
+import { resolveUserLanguage, SUGGESTION_LANGUAGE_NAMES } from '@/lib/ai/volzar-suggestions';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
 export const dynamic = 'force-dynamic';
@@ -218,7 +218,7 @@ export async function POST(req: Request) {
   // language (best-effort — a failed read just means English).
   const basicInfo = await userService.getBasicInfo(user.id).catch(() => null);
   const replyLanguage = SUGGESTION_LANGUAGE_NAMES[
-    languageForCountry(basicInfo?.success ? basicInfo.data?.countryCode : undefined)
+    resolveUserLanguage(basicInfo?.success ? basicInfo.data ?? {} : {})
   ];
   const messages = assembleMessages(validated.messages, user.name || 'a collector', replyLanguage);
 

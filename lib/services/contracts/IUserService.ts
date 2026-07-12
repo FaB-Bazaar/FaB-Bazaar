@@ -64,6 +64,8 @@ export interface UserBasicInfoDTO {
   /** ISO country code (users.country_code) — the impl always returned these;
    *  the DTO just never declared them. */
   countryCode?: string;
+  /** Volzar localization override (users.preferred_language); null/absent = auto. */
+  preferredLanguage?: string;
   isStore?: boolean;
 }
 
@@ -100,6 +102,8 @@ export interface UserProfileDTO {
   /** Self-set location (coarse: country + state only) */
   countryCode?: string;
   stateCode?: string;
+  /** Volzar localization override (users.preferred_language). */
+  preferredLanguage?: string;
 }
 
 /**
@@ -170,6 +174,8 @@ export interface UpdateProfileDTO {
   country?: string;
   /** State/region code — persisted to users.state_code */
   state?: string;
+  /** Volzar language override — persisted to users.preferred_language ('' clears). */
+  preferredLanguage?: string;
 }
 
 export interface MetafyCommunityDTO {

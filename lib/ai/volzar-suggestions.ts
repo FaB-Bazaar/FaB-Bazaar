@@ -56,6 +56,20 @@ export const SUGGESTION_LANGUAGE_NAMES: Record<SuggestionLanguage, string> = {
   zh: 'Simplified Chinese', pt: 'Portuguese',
 };
 
+/**
+ * Full language resolution: an explicit (valid) preferred_language wins;
+ * otherwise the country mapping; otherwise English. 'en' as an explicit
+ * preference is final — a French resident who wants English gets English.
+ */
+export function resolveUserLanguage(user: {
+  preferredLanguage?: string | null;
+  countryCode?: string | null;
+}): SuggestionLanguage {
+  const pref = user.preferredLanguage?.toLowerCase();
+  if (pref && pref in PROMPT_TEXTS) return pref as SuggestionLanguage;
+  return languageForCountry(user.countryCode);
+}
+
 /** users.country_code → suggested-prompt language ('en' when unknown). */
 export function languageForCountry(countryCode?: string | null): SuggestionLanguage {
   if (!countryCode) return 'en';
@@ -286,8 +300,8 @@ export async function getVolzarSuggestedPrompts(userId: string): Promise<Suggest
     const deckData = ok(decks);
     const wantsData = ok(wants);
     const recentData = ok(recent);
-    // Country-set users get the prompts in their language (best-effort).
-    const language = languageForCountry(ok(userRow)?.countryCode);
+    // Preferred language wins; country is the fallback (best-effort).
+    const language = resolveUserLanguage(ok(userRow) ?? {});
 
     if (!binderData && !deckData && wantsData === undefined && !recentData) {
       return DEFAULT_SUGGESTED_PROMPTS;

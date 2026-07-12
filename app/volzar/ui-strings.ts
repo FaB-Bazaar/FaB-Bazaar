@@ -160,6 +160,21 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
   },
 };
 
+/** Picker options for the preferred-language setting (profile edit). */
+export const SUPPORTED_LANGUAGES: Array<{ code: string; label: string }> = [
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'es', label: 'Español' },
+  { code: 'pt', label: 'Português' },
+  { code: 'da', label: 'Dansk' },
+  { code: 'sv', label: 'Svenska' },
+  { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' },
+  { code: 'zh', label: '中文（简体）' },
+];
+
 /** Dictionary for a language code; unknown/missing → English. */
 export function uiStrings(language?: string): VolzarUiStrings {
   return UI_STRINGS[language ?? 'en'] ?? UI_STRINGS.en;

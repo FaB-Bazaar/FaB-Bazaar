@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { userService } from "@/lib/services"
+import { SUPPORTED_LANGUAGES } from "@/app/volzar/ui-strings"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const { username, discordUsername, city, state, country, country_id } = await request.json()
+    const { username, discordUsername, city, state, country, country_id, preferredLanguage } = await request.json()
 
     if (!username) {
       return NextResponse.json({ success: false, error: "Username is required" }, { status: 400 })
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
     if (state) updates.state = state
     if (country) updates.country = country
     if (country_id) updates.country_id = country_id
+    // Volzar language override — '' clears (auto); otherwise a supported code.
+    if (preferredLanguage !== undefined) {
+      if (typeof preferredLanguage !== 'string' || (preferredLanguage !== '' && !SUPPORTED_LANGUAGES.some((l) => l.code === preferredLanguage))) {
+        return NextResponse.json({ success: false, error: 'Unsupported preferredLanguage' }, { status: 400 })
+      }
+      updates.preferredLanguage = preferredLanguage
+    }
 
     // Update profile using service
     const result = await userService.updateProfile(session.user.id, updates)

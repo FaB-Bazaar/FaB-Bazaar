@@ -79,3 +79,25 @@ describe('PostgresUserService.updateProfile — location', () => {
     expect(row.stateCode).toBe('TX');
   });
 });
+
+describe('PostgresUserService — preferred language (Volzar localization override)', () => {
+  it('persists, surfaces via getBasicInfo, and clears with an empty string', async () => {
+    const set = await service.updateProfile(userId, { preferredLanguage: 'fr' });
+    expect(set.success).toBe(true);
+
+    const info = await service.getBasicInfo(userId);
+    expect(info.success && info.data?.preferredLanguage).toBe('fr');
+
+    const cleared = await service.updateProfile(userId, { preferredLanguage: '' });
+    expect(cleared.success).toBe(true);
+    const info2 = await service.getBasicInfo(userId);
+    expect(info2.success && info2.data?.preferredLanguage).toBeUndefined();
+  });
+
+  it('leaves the language untouched when the update omits it', async () => {
+    await service.updateProfile(userId, { preferredLanguage: 'ja' });
+    await service.updateProfile(userId, { country: 'US' });
+    const info = await service.getBasicInfo(userId);
+    expect(info.success && info.data?.preferredLanguage).toBe('ja');
+  });
+});

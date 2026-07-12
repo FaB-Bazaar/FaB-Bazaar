@@ -43,6 +43,7 @@ export async function GET() {
         metafyCommunities,
         countryCode: profile.countryCode,
         stateCode: profile.stateCode,
+        preferredLanguage: profile.preferredLanguage,
       },
       sessionType: "nextauth",
       debug: {

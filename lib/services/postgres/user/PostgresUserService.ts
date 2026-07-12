@@ -289,6 +289,7 @@ export class PostgresUserService implements IUserService {
           discordUsername: true,
           avatarUrl: true,
           countryCode: true,
+          preferredLanguage: true,
           isStore: true,
         },
       });
@@ -305,6 +306,7 @@ export class PostgresUserService implements IUserService {
           discordUsername: user.discordUsername || undefined,
           avatarUrl: user.avatarUrl || undefined,
           countryCode: user.countryCode || undefined,
+          preferredLanguage: user.preferredLanguage || undefined,
           isStore: user.isStore || false,
         },
       };
@@ -416,6 +418,7 @@ export class PostgresUserService implements IUserService {
           metafyUsername: user.metafyUsername || undefined,
           metafyPartner: user.metafyPartner ?? false,
           countryCode: user.countryCode || undefined,
+          preferredLanguage: user.preferredLanguage || undefined,
           stateCode: user.stateCode || undefined,
         },
       };
@@ -652,6 +655,7 @@ export class PostgresUserService implements IUserService {
       if (updates.discordUsername !== undefined) set.discordUsername = updates.discordUsername;
       if (updates.country !== undefined) set.countryCode = updates.country || null;
       if (updates.state !== undefined) set.stateCode = updates.state || null;
+      if (updates.preferredLanguage !== undefined) set.preferredLanguage = updates.preferredLanguage || null;
 
       const result = await db
         .update(users)

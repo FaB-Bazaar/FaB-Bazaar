@@ -120,6 +120,8 @@ export const users = pgTable('users', {
 
   // Location (coarse, user-set on /profile/edit — no city/coords by design)
   countryCode: text('country_code'),
+  // Volzar localization override; NULL = auto (country_code → English)
+  preferredLanguage: text('preferred_language'),
   stateCode: text('state_code'),
 
   // Roles

@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
-import { getVolzarSuggestedPrompts, languageForCountry } from '@/lib/ai/volzar-suggestions';
+import { getVolzarSuggestedPrompts, resolveUserLanguage } from '@/lib/ai/volzar-suggestions';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
 import { AccessGate } from './AccessGate';
@@ -46,7 +46,7 @@ export default async function VolzarPage({ searchParams }: {
     .then(() => userService.getBasicInfo(user.id))
     .catch(() => null);
   const needsCountry = !!basicInfo?.success && !basicInfo.data?.countryCode;
-  const language = languageForCountry(basicInfo?.success ? basicInfo.data?.countryCode : undefined);
+  const language = resolveUserLanguage(basicInfo?.success ? basicInfo.data ?? {} : {});
 
   // Bridge B: /opt hands its current search off via its own URL params plus
   // from=opt & total=N. The context string rides the pendingContext queue

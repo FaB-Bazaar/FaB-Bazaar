@@ -14,6 +14,7 @@ import {
   DEFAULT_SUGGESTED_PROMPTS,
   type VolzarUserState,
   languageForCountry,
+  resolveUserLanguage,
 } from './volzar-suggestions';
 import { binderService, deckService, wantsService, gameResultsService } from '@/lib/services';
 
@@ -262,5 +263,25 @@ describe('buildSuggestedPrompts — extended languages render', () => {
     // Interpolated record survives translation
     expect(prompts[2].text).toContain('Bravo');
     expect(prompts[2].text).not.toMatch(/I went/);
+  });
+});
+
+describe('resolveUserLanguage', () => {
+  it('an explicit preferred language wins over the country', () => {
+    expect(resolveUserLanguage({ preferredLanguage: 'fr', countryCode: 'DE' })).toBe('fr');
+  });
+
+  it('falls back to the country mapping when no preference is set', () => {
+    expect(resolveUserLanguage({ preferredLanguage: null, countryCode: 'JP' })).toBe('ja');
+    expect(resolveUserLanguage({ countryCode: 'BR' })).toBe('pt');
+  });
+
+  it('ignores unknown preference values and defaults to English with neither', () => {
+    expect(resolveUserLanguage({ preferredLanguage: 'xx', countryCode: 'DE' })).toBe('de');
+    expect(resolveUserLanguage({})).toBe('en');
+  });
+
+  it('treats an explicit "en" preference as final even in a mapped country', () => {
+    expect(resolveUserLanguage({ preferredLanguage: 'en', countryCode: 'FR' })).toBe('en');
   });
 });
