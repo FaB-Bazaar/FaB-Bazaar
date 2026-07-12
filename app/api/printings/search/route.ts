@@ -54,7 +54,9 @@ function sortedKeys<T extends object>(obj: T): T {
 // those are handled by _priceVersion). Without this, a sort/logic change keeps
 // serving stale cached results for up to the 24h TTL after deploy.
 //   v2 — pitch tiebreak (red→yellow→blue) on name sorts
-const SEARCH_CACHE_VERSION = 'v2';
+//   v3 — Marvels demoted globally (not just within their set) in the
+//        canonical printing cascade
+const SEARCH_CACHE_VERSION = 'v3';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')
