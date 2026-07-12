@@ -94,24 +94,8 @@ export default function MobileTabBar({
         className="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-gray-300 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-gray-900/80 pb-[env(safe-area-inset-bottom)]"
         aria-label="Primary"
       >
-        {hasVolzar ? (
-          <button
-            type="button"
-            onClick={() => setInstantOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={instantOpen}
-            className={cn(TAB, tone(instantActive))}
-          >
-            <Zap className="h-5 w-5" />
-            Instant
-          </button>
-        ) : (
-          <Link href="/opt" aria-current={searchActive ? "page" : undefined} className={cn(TAB, tone(searchActive))}>
-            <Search className="h-5 w-5" />
-            Search
-          </Link>
-        )}
-
+        {/* Order: Collection · Instant · Decks — the ⚡ hub sits in the
+            middle (thumb-reach primary), flanked by the two libraries. */}
         {user ? (
           <button
             type="button"
@@ -127,6 +111,24 @@ export default function MobileTabBar({
           <Link href="/collection" aria-current={collectionActive ? "page" : undefined} className={cn(TAB, tone(collectionActive))}>
             <BookOpen className="h-5 w-5" />
             Collection
+          </Link>
+        )}
+
+        {hasVolzar ? (
+          <button
+            type="button"
+            onClick={() => setInstantOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={instantOpen}
+            className={cn(TAB, tone(instantActive))}
+          >
+            <Zap className="h-5 w-5" />
+            Instant
+          </button>
+        ) : (
+          <Link href="/opt" aria-current={searchActive ? "page" : undefined} className={cn(TAB, tone(searchActive))}>
+            <Search className="h-5 w-5" />
+            Search
           </Link>
         )}
 
