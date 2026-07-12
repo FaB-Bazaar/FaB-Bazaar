@@ -115,6 +115,25 @@ describe('ImagesView card preview', () => {
   });
 });
 
+describe('ImagesView info badge edition', () => {
+  it('abbreviates the Normal edition to N so it fits narrow mobile tiles', () => {
+    renderView({ printings: [{ ...printing, edition: 'N' }] });
+    expect(screen.queryByText('Normal')).not.toBeInTheDocument();
+    expect(screen.getByTitle('Normal')).toHaveTextContent(/^N$/);
+  });
+
+  it('keeps abbreviating First Edition and Unlimited', () => {
+    renderView({
+      printings: [
+        { ...printing, printing_id: 'p-first', edition: 'F' },
+        { ...printing, printing_id: 'p-unl', edition: 'U' },
+      ],
+    });
+    expect(screen.getByText('1st')).toBeInTheDocument();
+    expect(screen.getByText('UNL')).toBeInTheDocument();
+  });
+});
+
 describe('ImagesView language flag', () => {
   it('shows flag + code for a localized printing in the info badge', () => {
     renderView({ printings: [{ ...printing, language: 'fr' }] });
