@@ -180,6 +180,9 @@ export default function MobileTabBar({
             </div>
             <SheetLink href={volzarInstantHref("binders")} icon={BookOpen}>My binders</SheetLink>
             <SheetLink href={volzarInstantHref("wants")} icon={Heart}>My wants</SheetLink>
+            {/* Opens the decks listing IN Volzar (?action=decks auto-run) —
+                NOT the /decks page; the Decks tab's own sheet covers that. */}
+            <SheetLink href={volzarInstantHref("decks")} icon={Layers}>My decks</SheetLink>
             <SheetLink href={volzarInstantHref("to-beat")} icon={Trophy}>Decks to Beat</SheetLink>
           </div>
         </DrawerContent>
