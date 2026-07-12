@@ -257,7 +257,13 @@ export default function OptSearchPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // Arrivals via redirect/link (e.g. from Volzar) can carry a stale scroll or
+  // visual-viewport pan — land with the command bar in view, then focus
+  // without letting the focus re-scroll on its own terms.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
 
   // Load the packs available for the selected sets (only multi-group sets like
   // GEM return any). Drives the conditional pack facet below. Pruning of
@@ -985,7 +991,10 @@ export default function OptSearchPage() {
 
       {/* ── MOBILE FILTER SHEET ── (sm:hidden trigger; desktop uses the popover row) */}
       <Drawer open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DrawerContent className="max-h-[88vh]">
+        {/* dvh, not vh: on iOS 88vh is measured against the LARGE viewport
+            (toolbars collapsed), which pushes the footer button under
+            Safari's bottom bar when the toolbars are showing. */}
+        <DrawerContent className="max-h-[85dvh]">
           <DrawerHeader className="flex flex-row items-center justify-between py-3">
             <DrawerTitle>Filters</DrawerTitle>
             <div className="flex items-center gap-3">
@@ -1004,6 +1013,17 @@ export default function OptSearchPage() {
               >
                 Syntax →
               </button>
+              {/* Explicit close — the swipe-down gesture and the footer button
+                  aren't discoverable for everyone. */}
+              <DrawerClose asChild>
+                <button
+                  type="button"
+                  aria-label="Close filters"
+                  className="p-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <X className="w-4 h-4" aria-hidden />
+                </button>
+              </DrawerClose>
             </div>
           </DrawerHeader>
 
@@ -1043,7 +1063,7 @@ export default function OptSearchPage() {
           <DrawerFooter className="pt-2">
             <DrawerClose asChild>
               <button className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                {hasAnyFilter ? `Show ${total.toLocaleString()} ${groupByCard ? 'cards' : 'printings'}` : 'Done'}
+                {hasAnyFilter ? `Show ${total.toLocaleString()} ${(groupByCard ? 'card' : 'printing') + (total === 1 ? '' : 's')}` : 'Done'}
               </button>
             </DrawerClose>
           </DrawerFooter>
