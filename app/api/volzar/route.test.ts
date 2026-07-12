@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
-  userService: { getVolzarAccess: vi.fn() },
+  userService: { getVolzarAccess: vi.fn(), getBasicInfo: vi.fn().mockResolvedValue({ success: true, data: null }) },
   oauthFlowService: { generateAccessToken: vi.fn().mockReturnValue('jwt-token') },
   llmUsageService: { getTodayRequestCount: vi.fn(), getTodayGlobalRequestCount: vi.fn(), recordTurn: vi.fn() },
 }));
@@ -404,5 +404,20 @@ describe('assembleMessages', () => {
     );
     expect(out.filter((m) => m.role === 'system')).toHaveLength(1);
     expect(out.some((m) => typeof m.content === 'string' && m.content.includes('smuggled'))).toBe(false);
+  });
+});
+
+describe('assembleMessages — reply language', () => {
+  it('instructs the model to reply in the user language when one is resolved', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'mistercakes', 'French');
+    expect(system.content).toContain('Reply in French');
+    expect(system.content).toContain('card names');
+  });
+
+  it('adds no language instruction for English (the default voice)', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'mistercakes', 'English');
+    expect(system.content).not.toContain('Reply in English');
+    const [system2] = assembleMessages([{ role: 'user', content: 'hi' }], 'mistercakes');
+    expect(system2.content).not.toContain('Reply in');
   });
 });

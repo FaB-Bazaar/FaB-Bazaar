@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
-import { getVolzarSuggestedPrompts } from '@/lib/ai/volzar-suggestions';
+import { getVolzarSuggestedPrompts, languageForCountry } from '@/lib/ai/volzar-suggestions';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
 import { AccessGate } from './AccessGate';
@@ -37,6 +37,16 @@ export default async function VolzarPage({ searchParams }: {
   // Empty-state launcher prompts, personalized from a snapshot of the user's
   // collection/decks/results (falls back to static defaults on any failure).
   const suggestedPrompts = await getVolzarSuggestedPrompts(user.id);
+
+  // First-visit country nudge: no country set → VolzarChat offers a picker
+  // (country drives prompt localization + Volzar's reply language).
+  // Fully guarded: the logged-in home page must render even if this read
+  // throws synchronously (nudge simply doesn't show).
+  const basicInfo = await Promise.resolve()
+    .then(() => userService.getBasicInfo(user.id))
+    .catch(() => null);
+  const needsCountry = !!basicInfo?.success && !basicInfo.data?.countryCode;
+  const language = languageForCountry(basicInfo?.success ? basicInfo.data?.countryCode : undefined);
 
   // Bridge B: /opt hands its current search off via its own URL params plus
   // from=opt & total=N. The context string rides the pendingContext queue
@@ -103,6 +113,8 @@ export default async function VolzarPage({ searchParams }: {
         models={models}
         isSuperAdmin={isSuperAdmin}
         suggestedPrompts={suggestedPrompts}
+        needsCountry={needsCountry}
+        language={language}
         initialContext={initialContext}
         initialData={initialData}
       />

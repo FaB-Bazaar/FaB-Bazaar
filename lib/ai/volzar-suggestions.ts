@@ -49,6 +49,13 @@ const COUNTRY_LANGUAGE: Record<string, SuggestionLanguage> = {
   BR: 'pt', PT: 'pt',
 };
 
+/** Display names for the reply-language instruction in the system prompt. */
+export const SUGGESTION_LANGUAGE_NAMES: Record<SuggestionLanguage, string> = {
+  en: 'English', fr: 'French', de: 'German', it: 'Italian', es: 'Spanish',
+  ja: 'Japanese', da: 'Danish', sv: 'Swedish', ko: 'Korean',
+  zh: 'Simplified Chinese', pt: 'Portuguese',
+};
+
 /** users.country_code → suggested-prompt language ('en' when unknown). */
 export function languageForCountry(countryCode?: string | null): SuggestionLanguage {
   if (!countryCode) return 'en';

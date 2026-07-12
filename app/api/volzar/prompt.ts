@@ -3,7 +3,7 @@
 
 import type { ChatMessage } from '@/lib/ai/types';
 
-export function systemPrompt(username: string): string {
+export function systemPrompt(username: string, languageName?: string): string {
   return [
     `You are Volzar, the FaB Bazaar assistant for Flesh and Blood TCG collectors.`,
     `You are chatting with ${username}. All tools operate on their account.`,
@@ -154,6 +154,11 @@ export function systemPrompt(username: string): string {
     `card is only printed in English — say so briefly when it matters.`,
     `English conversations: omit options.language entirely.`,
     ``,
+    ...(languageName && languageName !== 'English' ? [
+      `Reply in ${languageName} by default — it is the user's preferred language`,
+      `(from their profile). Switch only if the user writes in another language.`,
+      `Keep card names, deck names, set codes, and game terms in English.`,
+    ] : []),
     `Keep replies concise. Use markdown lists for cards; include collector numbers.`,
     `When you mention a card's pitch, write it as (p1), (p2), or (p3) right after`,
     `the card name — the chat UI renders that notation as the red/yellow/blue`,
@@ -172,9 +177,9 @@ export function systemPrompt(username: string): string {
  * rules — a caller with chat access must not be able to replace or smuggle
  * past it via the API (the UI never sends a system message).
  */
-export function assembleMessages(clientMessages: ChatMessage[], username: string): ChatMessage[] {
+export function assembleMessages(clientMessages: ChatMessage[], username: string, languageName?: string): ChatMessage[] {
   return [
-    { role: 'system', content: systemPrompt(username) },
+    { role: 'system', content: systemPrompt(username, languageName) },
     ...clientMessages.filter((m) => m.role !== 'system'),
   ];
 }

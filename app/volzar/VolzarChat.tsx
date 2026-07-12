@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
   Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
-  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield, Table2,
+  BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield, Table2, Globe2,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -26,7 +26,7 @@ import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialo
 import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
 import CreateDeckDialog from '@/components/deck/CreateDeckDialog';
 import { sortPrintings } from '@/lib/fab-constants';
-import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
+import { volzarClient, wantsClient, bindersClient, decksClient, locationsClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
@@ -48,6 +48,7 @@ import { hasPreviewableContent } from './empty-state';
 // Type-only: the value exports pull the service barrel — never import those here.
 import type { SuggestedPrompt } from '@/lib/ai/volzar-suggestions';
 import { MarkdownMessage } from './MarkdownMessage';
+import { uiStrings } from './ui-strings';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { parseInstantActionParam } from './instant-link';
 import { buildCardNameIndex } from './card-linkify';
@@ -892,7 +893,7 @@ function toStructuredCard(structured: unknown): StructuredCard | undefined {
   return card.title || card.url ? card : undefined;
 }
 
-export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, suggestedPrompts, initialContext, initialData }: {
+export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, suggestedPrompts, needsCountry, language, initialContext, initialData }: {
   username: string;
   userId: string;
   mockMode: boolean;
@@ -903,6 +904,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   /** State-aware empty-state launcher prompts (server-built); falls back to
    *  the static set when absent. */
   suggestedPrompts?: SuggestedPrompt[];
+  /** No country on the profile → offer the one-time country picker (drives
+   *  localized prompts + Volzar's reply language). */
+  needsCountry?: boolean;
+  /** Country-derived UI language code ('en' default) — see ui-strings.ts. */
+  language?: string;
   /** Pre-queued context (e.g. the Bridge B /opt handoff) — rides the
    *  pendingContext queue with the first free-text message, then clears.
    *  Also the seam a future embedded chat panel seeds. */
@@ -910,6 +916,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   /** Visible data card announcing the queued context in the thread. */
   initialData?: { title: string; lines: CardLine[] };
 }) {
+  const t = uiStrings(language);
   // Initializers (not effects) so StrictMode's double mount can't double-seed.
   const [items, setItems] = useState<UiItem[]>(() =>
     initialData ? [{ kind: 'data', title: initialData.title, lines: initialData.lines }] : []);
@@ -1171,6 +1178,47 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   useEffect(() => { modelRef.current = model; });
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // First-visit country nudge. Dismissal persists in localStorage; a save
+  // hides it for good (the server stops sending needsCountry) and refreshes
+  // the page so the suggested prompts re-render in the new language.
+  const [countryNudgeOpen, setCountryNudgeOpen] = useState(false);
+  const [countryOptions, setCountryOptions] = useState<Array<{ iso2: string; name: string }>>([]);
+  const [nudgeCountry, setNudgeCountry] = useState('');
+  const [savingCountry, setSavingCountry] = useState(false);
+  const router = useRouter();
+  useEffect(() => {
+    if (!needsCountry) return;
+    if (window.localStorage.getItem('volzar-country-nudge-dismissed')) return;
+    setCountryNudgeOpen(true);
+    void locationsClient.getCountries().then((r) => {
+      if (r.success) setCountryOptions(r.data as Array<{ iso2: string; name: string }>);
+    }).catch(() => {});
+  }, [needsCountry]);
+  const dismissCountryNudge = useCallback(() => {
+    window.localStorage.setItem('volzar-country-nudge-dismissed', '1');
+    setCountryNudgeOpen(false);
+  }, []);
+  const saveCountry = useCallback(async () => {
+    if (!nudgeCountry) return;
+    setSavingCountry(true);
+    try {
+      const res = await fetch('/api/user/country', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: nudgeCountry }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!data?.success) {
+        setErrorBanner(data?.error ?? 'Could not save your country.');
+        return;
+      }
+      setCountryNudgeOpen(false);
+      router.refresh(); // re-render the server prompts in the new language
+    } finally {
+      setSavingCountry(false);
+    }
+  }, [nudgeCountry, router]);
 
   useEffect(() => {
     // One instant call to populate the add-to-binder picker
@@ -2246,7 +2294,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         {!chatEmpty && (
           <div className="flex sm:hidden flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={reset} className={`shrink-0 gap-1.5 ${focusRing}`}>
-              <RotateCcw className="h-4 w-4" aria-hidden="true" /> New chat
+              <RotateCcw className="h-4 w-4" aria-hidden="true" /> {t.newChat}
             </Button>
           </div>
         )}
@@ -2263,7 +2311,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         >
           <div className="flex shrink-0 items-center gap-1 lg:w-full lg:justify-between lg:pb-0.5">
             <span className="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
-              <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Instant:
+              <Zap className="h-3.5 w-3.5" aria-hidden="true" /> {t.instantLabel}
             </span>
             {/* New chat, compacted so My binders sits where it used to. */}
             {!chatEmpty && (
@@ -2275,7 +2323,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 title="New chat"
                 className={`h-7 gap-1 px-2 text-xs ${focusRing}`}
               >
-                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> New chat
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> {t.newChat}
               </Button>
             )}
           </div>
@@ -2305,7 +2353,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 {runningAction === action.id
                   ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   : ActionIcon && <ActionIcon className="h-3.5 w-3.5" aria-hidden="true" />}
-                {action.label}
+                {(t.actions as Record<string, string>)[action.id] ?? action.label}
                 {typeof count === 'number' && (
                   <span
                     data-testid={`rail-count-${action.id}`}
@@ -2399,7 +2447,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 title="Featured tournament decks, scoped by hero or event — no AI"
               >
                 <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-                Decks to beat
+                {t.actions['to-beat']}
               </Button>
             </PopoverTrigger>
             <PopoverContent side="right" align="start" className="hidden lg:block w-auto max-w-[26rem] p-3">
@@ -2418,7 +2466,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 title="Compare all Decks to Beat of a hero — deterministic, no AI"
               >
                 <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
-                Compare archetype
+                {t.actions.archetype}
               </Button>
             </PopoverTrigger>
             <PopoverContent side="right" align="start" className="hidden lg:block w-auto max-w-[26rem] p-3">
@@ -2437,7 +2485,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 title="A hero's curated card pool with types + rules text — no AI, and deck questions after it need no tool calls"
               >
                 <Package className="h-3.5 w-3.5" aria-hidden="true" />
-                Hero kit
+                {t.actions['hero-kit']}
               </Button>
             </PopoverTrigger>
             <PopoverContent side="right" align="start" className="hidden lg:block w-auto max-w-[26rem] p-3">
@@ -2534,6 +2582,38 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           className="relative flex-1 min-w-0 flex flex-col min-h-0 gap-2 sm:gap-3"
         >
 
+        {/* First-visit country nudge — sets users.country_code, which drives
+            localized prompts and Volzar's reply language. */}
+        {countryNudgeOpen && (
+          <div
+            data-testid="country-nudge"
+            className="mx-auto flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+          >
+            <Globe2 className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              Where are you based? Volzar will reply in your language.
+            </span>
+            <select
+              value={nudgeCountry}
+              onChange={(e) => setNudgeCountry(e.target.value)}
+              aria-label="Country"
+              className={`h-8 max-w-[12rem] rounded-md border border-input bg-background px-2 text-sm ${focusRing}`}
+            >
+              <option value="">Select country…</option>
+              {countryOptions.map((c) => (
+                <option key={c.iso2} value={c.iso2}>{c.name}</option>
+              ))}
+            </select>
+            <Button size="sm" onClick={() => void saveCountry()} disabled={!nudgeCountry || savingCountry} className={`gap-1.5 ${focusRing}`}>
+              {savingCountry && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={dismissCountryNudge} className={focusRing}>
+              Not now
+            </Button>
+          </div>
+        )}
+
         {/* Empty state: flexible spacer above the greeting + composer +
             prompts group so it reads as one centered block. The bottom spacer
             (after the prompts) is slightly larger, floating the group a touch
@@ -2550,7 +2630,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         >
           {chatEmpty && (
             <p className="mx-auto max-w-2xl px-2 pb-2 text-center text-2xl font-semibold text-gray-800 dark:text-gray-100">
-              Hey {username} — ask me anything about Flesh and Blood.
+              {t.greeting(username)}
             </p>
           )}
           {items.map((item, index) => {
@@ -3147,9 +3227,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               })}
             </div>
             <p className="hidden sm:block max-w-xl text-center text-sm text-gray-600 dark:text-gray-300">
-              The <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> buttons
-              above are instant and free — they open your lists directly. Chat when you want thinking:
-              deck advice, searches, or “add 3 Command and Conquer to my binder”.
+              {t.explainer[0]} <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> {t.explainer[1]}
               {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
             </p>
           </div>
@@ -3170,7 +3248,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 send();
               }
             }}
-            placeholder={isMobile ? 'Ask Volzar…' : 'Ask Volzar… (Enter to send, Shift+Enter for a new line)'}
+            placeholder={isMobile ? t.placeholderMobile : t.placeholder}
             aria-label="Message Volzar"
             rows={2}
             disabled={busy}

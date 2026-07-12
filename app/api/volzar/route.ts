@@ -18,6 +18,7 @@ import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-brid
 import { waitForConfirmation } from '@/lib/ai/confirmations';
 import { dailyLimitFor, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
 import { assembleMessages } from './prompt';
+import { languageForCountry, SUGGESTION_LANGUAGE_NAMES } from '@/lib/ai/volzar-suggestions';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
 
 export const dynamic = 'force-dynamic';
@@ -213,7 +214,13 @@ export async function POST(req: Request) {
   }
 
   // 7. Messages: always our system prompt; client-sent system messages are dropped
-  const messages = assembleMessages(validated.messages, user.name || 'a collector');
+  // Reply-language preference: country-set users get answers in their
+  // language (best-effort — a failed read just means English).
+  const basicInfo = await userService.getBasicInfo(user.id).catch(() => null);
+  const replyLanguage = SUGGESTION_LANGUAGE_NAMES[
+    languageForCountry(basicInfo?.success ? basicInfo.data?.countryCode : undefined)
+  ];
+  const messages = assembleMessages(validated.messages, user.name || 'a collector', replyLanguage);
 
   // Non-superadmins pinned to the free trial model get an automatic fallback
   // to FALLBACK_MODEL if it errors before streaming anything (see
