@@ -233,6 +233,12 @@ describe('languageForCountry — extended set', () => {
     expect(languageForCountry('PT')).toBe('pt');
     expect(languageForCountry('MX')).toBe('es'); // from the first pass
   });
+
+  it('keeps Taiwan, Hong Kong, and Singapore on English (explicit product decision)', () => {
+    expect(languageForCountry('TW')).toBe('en');
+    expect(languageForCountry('HK')).toBe('en');
+    expect(languageForCountry('SG')).toBe('en');
+  });
 });
 
 describe('buildSuggestedPrompts — extended languages render', () => {

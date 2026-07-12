@@ -32,8 +32,8 @@ export type SuggestionLanguage = 'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'da' 
 // search_printings' card languages; da/sv/ko/zh/pt are chat-only (the model
 // speaks them; card searches still resolve via English names). Multilingual
 // countries (CH, BE, CA) stay English — guessing wrong there is worse than
-// defaulting. CN → simplified Chinese; TW/HK (traditional) stay English until
-// someone asks for zh-Hant.
+// defaulting. CN → simplified Chinese; TW/HK (traditional) and SG stay
+// English — explicit product decision (2026-07), do not add them.
 const COUNTRY_LANGUAGE: Record<string, SuggestionLanguage> = {
   FR: 'fr',
   DE: 'de', AT: 'de',
