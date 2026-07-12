@@ -209,6 +209,56 @@ describe('POST /api/volzar', () => {
     );
   });
 
+  it('logs a [volzar-trace] tool line per call with args, outcome, and duration', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await POST(request(VALID_BODY));
+    await readSseEvents(res); // drain the stream so the loop completes
+
+    const traces = logSpy.mock.calls
+      .filter((c) => c[0] === '[volzar-trace]')
+      .map((c) => JSON.parse(c[1] as string));
+    const toolTraces = traces.filter((t) => t.kind === 'tool');
+
+    expect(toolTraces.length).toBeGreaterThan(0);
+    expect(toolTraces[0]).toMatchObject({ tool: 'list_binders', ok: true });
+    expect(typeof toolTraces[0].ms).toBe('number');
+    expect(typeof toolTraces[0].args).toBe('string');
+    expect(toolTraces[0].result).toContain('Your Binders');
+    logSpy.mockRestore();
+  });
+
+  it('logs failed tool calls with the error content the model saw', async () => {
+    mockExecuteTool.mockResolvedValue({ ok: false, content: 'filters.rarity must be an array' });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await POST(request(VALID_BODY));
+    await readSseEvents(res);
+
+    const toolTraces = logSpy.mock.calls
+      .filter((c) => c[0] === '[volzar-trace]')
+      .map((c) => JSON.parse(c[1] as string))
+      .filter((t) => t.kind === 'tool');
+
+    expect(toolTraces.some((t) => t.ok === false && t.result.includes('filters.rarity'))).toBe(true);
+    logSpy.mockRestore();
+  });
+
+  it('logs one [volzar-trace] turn summary with the tool-call count and capped flag', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const res = await POST(request(VALID_BODY));
+    await readSseEvents(res);
+
+    const traces = logSpy.mock.calls
+      .filter((c) => c[0] === '[volzar-trace]')
+      .map((c) => JSON.parse(c[1] as string));
+    const turnTraces = traces.filter((t) => t.kind === 'turn');
+    const toolTraces = traces.filter((t) => t.kind === 'tool');
+
+    expect(turnTraces).toHaveLength(1);
+    expect(turnTraces[0]).toMatchObject({ toolCalls: toolTraces.length, capped: false });
+    expect(typeof turnTraces[0].model).toBe('string');
+    logSpy.mockRestore();
+  });
+
   it('429s with a pre-stream JSON error when the daily message budget is exhausted', async () => {
     standardAccess();
     mockGetTodayRequestCount.mockResolvedValue({ success: true, data: 10_000 });

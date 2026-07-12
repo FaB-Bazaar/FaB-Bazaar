@@ -242,9 +242,20 @@ export async function POST(req: Request) {
   req.signal?.addEventListener?.('abort', () => abortController.abort());
   const encoder = new TextEncoder();
 
+  // Per-turn trace (docker logs, greppable via '[volzar-trace]'): one 'tool'
+  // line per call with the args and outcome the model actually saw, one 'turn'
+  // summary at stream end. Aggregate tables (llm_usage_daily/mcp_usage_daily)
+  // can't reconstruct call sequences — this is what explains a flailing turn.
+  const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max)}…` : s);
+  let toolCallCount = 0;
+  let capped = false;
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (event: AgentEvent) => {
+        if (event.type === 'error' && event.message.startsWith('Reached the tool-call limit')) {
+          capped = true;
+        }
         if (event.type === 'done') {
           // Meter the turn (fire-and-forget — capture must never affect the
           // stream). One request per turn; token counts are provider-reported
@@ -272,7 +283,22 @@ export async function POST(req: Request) {
         messages,
         tools,
         llm,
-        executeTool: ({ name, args, signal }) => executeTool({ name, args, bearer, validNames, signal }),
+        executeTool: async ({ name, args, signal }) => {
+          const started = Date.now();
+          const result = await executeTool({ name, args, bearer, validNames, signal });
+          toolCallCount++;
+          console.log('[volzar-trace]', JSON.stringify({
+            kind: 'tool',
+            user: user.id,
+            model: getActualModel(),
+            tool: name,
+            ok: result.ok,
+            ms: Date.now() - started,
+            args: truncate(JSON.stringify(args), 600),
+            result: truncate(result.content, 300),
+          }));
+          return result;
+        },
         confirmation: {
           required: (name) => CONFIRM_REQUIRED_TOOLS.has(name),
           // Keyed to the session user: only their own confirm POST can release it.
@@ -285,6 +311,15 @@ export async function POST(req: Request) {
           send({ type: 'error', message: error instanceof Error ? error.message : String(error) });
         })
         .finally(() => {
+          // Logged in finally, not on 'done' — a capped turn emits only an
+          // error event, and the summary must cover those turns most of all.
+          console.log('[volzar-trace]', JSON.stringify({
+            kind: 'turn',
+            user: user.id,
+            model: getActualModel(),
+            toolCalls: toolCallCount,
+            capped,
+          }));
           try {
             controller.close();
           } catch {
