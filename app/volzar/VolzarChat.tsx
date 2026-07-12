@@ -775,14 +775,14 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
 }) {
   return (
     <>
-      <div className={`rounded-lg border border-border bg-card p-3`}>
+      <div className={`rounded-lg border border-border bg-card p-2.5`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={card.imageUrl}
           alt={card.name}
           className={imageClassName}
         />
-        <p className="mt-2 font-semibold text-center">{card.name}</p>
+        <p className="mt-1.5 font-semibold text-center">{card.name}</p>
         {(card.priceLow !== undefined || card.priceMarket !== undefined) && (
           <div className="mt-1 flex justify-center gap-4 text-sm tabular-nums">
             {card.priceLow !== undefined && (
@@ -800,7 +800,7 @@ function CardPreviewPanel({ card, imageClassName = 'w-full rounded-md', railStat
           </div>
         )}
         {card.tcgplayerUrl && (
-          <div className="text-sm mt-2 pt-2 border-t border-border">
+          <div className="text-sm mt-1.5 pt-1.5 border-t border-border">
             <TcgAffiliateLink
               tcgplayerUrl={card.tcgplayerUrl}
               feature="volzar"
@@ -1159,6 +1159,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the open, not the object identity
   }, [workspaceUid]);
+  // Search tool results: tiles by default, per-result toggle to the table.
+  const [searchResultView, setSearchResultView] = useState<Record<string, 'tiles' | 'table'>>({});
   // "+" on the My decks row → the site's CreateDeckDialog; on success the
   // new deck drills open in the workspace.
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
@@ -2562,7 +2564,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           <div data-testid="rail-preview" className="hidden lg:block">
             <CardPreviewPanel
               card={previewCard}
-              imageClassName="max-h-[32dvh] w-auto mx-auto rounded-md"
+              imageClassName="max-h-[24dvh] w-auto mx-auto rounded-md"
               railStatus={railStatus}
               onAddToWants={addPreviewToWants}
               onAddToBinder={addPreviewToBinder}
@@ -3101,12 +3103,43 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 </Badge>
                 {(item.card || item.results || item.coverageLines) && (
                   <div className={`rounded-md border border-border bg-card px-3 py-2 text-sm w-full ${item.results ? '' : 'max-w-xl'}`}>
-                    {item.card?.title && <div className="font-semibold">{item.card.title}</div>}
-                    {item.card?.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
+                    {(item.card?.title || (item.results && item.results.tableRows.length > 0)) && (
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          {item.card?.title && <div className="font-semibold">{item.card.title}</div>}
+                          {item.card?.subtitle && <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>}
+                        </div>
+                        {item.results && item.results.tableRows.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchResultView((v) => ({ ...v, [item.id]: (v[item.id] ?? 'tiles') === 'tiles' ? 'table' : 'tiles' }))}
+                            aria-label={(searchResultView[item.id] ?? 'tiles') === 'tiles' ? 'Show table' : 'Show tiles'}
+                            title={(searchResultView[item.id] ?? 'tiles') === 'tiles' ? 'Show table (details, prices)' : 'Show tiles (compact card view)'}
+                            className={`shrink-0 rounded-md p-1 text-gray-600 dark:text-gray-300 hover:bg-muted ${focusRing}`}
+                          >
+                            {(searchResultView[item.id] ?? 'tiles') === 'tiles'
+                              ? <Table2 className="h-4 w-4" aria-hidden="true" />
+                              : <LayoutGrid className="h-4 w-4" aria-hidden="true" />}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {!item.card?.title && !(item.results && item.results.tableRows.length > 0) && item.card?.subtitle && (
+                      <div className="text-gray-600 dark:text-gray-300">{item.card.subtitle}</div>
+                    )}
                     {item.results && item.results.tableRows.length > 0 && (
-                      // Same striped card table as binder/deck/kit cards —
-                      // search results are cards too, keep them consistent.
-                      <CardTable rows={item.results.tableRows} onPreview={showPreview} maxHeightClass="max-h-80" className="mt-1.5" />
+                      (searchResultView[item.id] ?? 'tiles') === 'tiles' ? (
+                        // Deck-page tiles — same treatment as the deck view;
+                        // the toggle brings back the striped detail table.
+                        <div data-testid="search-tiles" className="mt-1.5">
+                          <WorkspaceStrips
+                            sections={[{ title: '', count: item.results.tableRows.length, rows: item.results.tableRows, sourceTitle: '' }]}
+                            onPreview={showPreview}
+                          />
+                        </div>
+                      ) : (
+                        <CardTable rows={item.results.tableRows} onPreview={showPreview} maxHeightClass="max-h-80" className="mt-1.5" />
+                      )
                     )}
                     {item.coverageLines && (
                       <>
