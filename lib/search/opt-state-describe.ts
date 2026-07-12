@@ -92,6 +92,7 @@ export function optStateToChips(s: OptUiState, meta?: OptDescribeMeta): OptChip[
   if (s.costMin || s.costMax) chips.push({ key: 'cost', label: rangeLabel('Cost', s.costMin, s.costMax), removeAction: { type: 'CLEAR_RANGE', range: 'cost' } });
   if (s.powerMin || s.powerMax) chips.push({ key: 'power', label: rangeLabel('Power', s.powerMin, s.powerMax), removeAction: { type: 'CLEAR_RANGE', range: 'power' } });
   if (s.defenseMin || s.defenseMax) chips.push({ key: 'def', label: rangeLabel('Defense', s.defenseMin, s.defenseMax), removeAction: { type: 'CLEAR_RANGE', range: 'defense' } });
+  if (s.arcaneMin || s.arcaneMax) chips.push({ key: 'arcane', label: rangeLabel('Arcane', s.arcaneMin, s.arcaneMax), removeAction: { type: 'CLEAR_RANGE', range: 'arcane' } });
   if (s.priceMin || s.priceMax) {
     const priceLabel = s.priceMin && s.priceMax
       ? `$${s.priceMin}–$${s.priceMax}`

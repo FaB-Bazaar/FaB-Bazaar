@@ -38,6 +38,7 @@ export interface OptUiState {
   costMin: string; costMax: string;
   powerMin: string; powerMax: string;
   defenseMin: string; defenseMax: string;
+  arcaneMin: string; arcaneMax: string;
   priceMin: string; priceMax: string;
   selectedLanguages: string[];
   sortBy: string;
@@ -66,6 +67,7 @@ export const DEFAULT_OPT_STATE: OptUiState = {
   costMin: '', costMax: '',
   powerMin: '', powerMax: '',
   defenseMin: '', defenseMax: '',
+  arcaneMin: '', arcaneMax: '',
   priceMin: '', priceMax: '',
   selectedLanguages: ['en'],
   sortBy: 'name',
@@ -102,6 +104,8 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
   if (s.powerMax) p.set('powerMax', s.powerMax);
   if (s.defenseMin) p.set('defMin', s.defenseMin);
   if (s.defenseMax) p.set('defMax', s.defenseMax);
+  if (s.arcaneMin) p.set('arcMin', s.arcaneMin);
+  if (s.arcaneMax) p.set('arcMax', s.arcaneMax);
   if (s.priceMin) p.set('priceMin', s.priceMin);
   if (s.priceMax) p.set('priceMax', s.priceMax);
   // Languages: ['en'] is the default; [] means ALL languages (encode as 'all').
@@ -141,6 +145,7 @@ export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   setStr('costMin', 'costMin'); setStr('costMax', 'costMax');
   setStr('powerMin', 'powerMin'); setStr('powerMax', 'powerMax');
   setStr('defMin', 'defenseMin'); setStr('defMax', 'defenseMax');
+  setStr('arcMin', 'arcaneMin'); setStr('arcMax', 'arcaneMax');
   setStr('priceMin', 'priceMin'); setStr('priceMax', 'priceMax');
   const lang = p.get('lang');
   if (lang) out.selectedLanguages = lang === 'all' ? [] : splitCsv(lang);

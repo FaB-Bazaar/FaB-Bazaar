@@ -108,3 +108,16 @@ describe('type-flag and color mapping', () => {
     expect(filtersToOptParams({ color: 'blue', pitch: 2 } as any).get('pitch')).toBe('2');
   });
 });
+
+describe('arcane deep-link params', () => {
+  it('maps arcaneMin/arcaneMax to arcMin/arcMax', () => {
+    const p = filtersToOptParams({ types: ['action'], arcaneMin: 3 });
+    expect(p.get('arcMin')).toBe('3');
+    expect(p.get('type')).toBe('non-attack-action');
+  });
+
+  it('an arcane-only search no longer produces a bare /opt link', () => {
+    expect(buildOptSearchUrl({ arcaneMin: 3 }, 'https://fabbazaar.app'))
+      .toBe('https://fabbazaar.app/opt?arcMin=3');
+  });
+});

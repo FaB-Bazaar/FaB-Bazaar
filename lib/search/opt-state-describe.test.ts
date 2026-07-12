@@ -126,3 +126,12 @@ describe('describeOptState', () => {
     );
   });
 });
+
+describe('arcane chip', () => {
+  it('renders an Arcane range chip with a CLEAR_RANGE remove action', () => {
+    const chips = optStateToChips({ ...DEFAULT_OPT_STATE, arcaneMin: '3' });
+    const chip = chips.find((c) => c.key === 'arcane');
+    expect(chip?.label).toBe('Arcane ≥ 3');
+    expect(chip?.removeAction).toEqual({ type: 'CLEAR_RANGE', range: 'arcane' });
+  });
+});

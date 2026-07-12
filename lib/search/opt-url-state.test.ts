@@ -77,3 +77,17 @@ describe('opt-url-state', () => {
     expect(parsed.groupByCard).toBeUndefined();
   });
 });
+
+describe('arcane range params', () => {
+  it('serializes arcaneMin/arcaneMax as arcMin/arcMax', () => {
+    const p = uiStateToParams({ ...DEFAULT_OPT_STATE, arcaneMin: '3', arcaneMax: '5' });
+    expect(p.get('arcMin')).toBe('3');
+    expect(p.get('arcMax')).toBe('5');
+  });
+
+  it('hydrates arcMin/arcMax back into state', () => {
+    const s = paramsToUiState(new URLSearchParams('arcMin=3&arcMax=5'));
+    expect(s.arcaneMin).toBe('3');
+    expect(s.arcaneMax).toBe('5');
+  });
+});

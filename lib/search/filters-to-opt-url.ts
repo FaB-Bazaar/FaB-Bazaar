@@ -88,6 +88,7 @@ export function filtersToOptParams(filters: Record<string, unknown>): URLSearchP
     ['costMin', filters.costMin], ['costMax', filters.costMax],
     ['powerMin', filters.powerMin], ['powerMax', filters.powerMax],
     ['defMin', filters.defenseMin], ['defMax', filters.defenseMax],
+    ['arcMin', filters.arcaneMin], ['arcMax', filters.arcaneMax],
     ['priceMin', filters.priceMin], ['priceMax', filters.priceMax],
   ];
   for (const [key, value] of rangeParams) {

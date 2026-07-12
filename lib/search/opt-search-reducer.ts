@@ -25,7 +25,7 @@ export type OptArrayKey =
   | 'selectedEditions'
   | 'selectedSets';
 
-export type RangeKey = 'cost' | 'power' | 'defense' | 'price';
+export type RangeKey = 'cost' | 'power' | 'defense' | 'arcane' | 'price';
 
 export type OptAction =
   | { type: 'HYDRATE'; state: Partial<OptUiState> }

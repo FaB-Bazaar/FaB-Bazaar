@@ -366,6 +366,10 @@ export function describeSearchDescriptor(card: { query?: string; filters?: Recor
   if (Array.isArray(f.sets) && f.sets.length) parts.push(`sets ${f.sets.join(',')}`);
   if (Array.isArray(f.rarities) && f.rarities.length) parts.push(`rarity ${f.rarities.join(',')}`);
   if (Array.isArray(f.keywords) && f.keywords.length) parts.push(`keyword ${f.keywords.join(',')}`);
+  if (typeof f.arcaneMin === 'number' && typeof f.arcaneMax === 'number') parts.push(`arcane ${f.arcaneMin}–${f.arcaneMax}`);
+  else if (typeof f.arcaneMin === 'number') parts.push(`arcane ≥ ${f.arcaneMin}`);
+  else if (typeof f.arcaneMax === 'number') parts.push(`arcane ≤ ${f.arcaneMax}`);
+  if (typeof f.arcane === 'number') parts.push(`arcane ${f.arcane}`);
   const pitchNames: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
   if (typeof f.pitch === 'number' && pitchNames[f.pitch]) parts.push(pitchNames[f.pitch]);
   if (typeof f.color === 'string') parts.push(f.color);

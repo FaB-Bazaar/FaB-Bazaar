@@ -222,3 +222,11 @@ describe('FORMAT_OPTIONS', () => {
     expect(labels.ll).toBe('Living Legend');
   });
 });
+
+describe('arcane range', () => {
+  it('maps arcaneMin/arcaneMax state to numeric service filters', () => {
+    const f = buildServerFilters({ ...baseState, arcaneMin: '3', arcaneMax: '5' });
+    expect(f.arcaneMin).toBe(3);
+    expect(f.arcaneMax).toBe(5);
+  });
+});

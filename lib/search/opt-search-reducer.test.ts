@@ -194,3 +194,13 @@ describe('optSearchReducer', () => {
     });
   });
 });
+
+describe('arcane range actions', () => {
+  it('SET_RANGE and CLEAR_RANGE work for the arcane range', () => {
+    let s = optSearchReducer(DEFAULT_OPT_STATE, { type: 'SET_RANGE', range: 'arcane', min: '3' });
+    expect(s.arcaneMin).toBe('3');
+    s = optSearchReducer(s, { type: 'CLEAR_RANGE', range: 'arcane' });
+    expect(s.arcaneMin).toBe('');
+    expect(s.arcaneMax).toBe('');
+  });
+});

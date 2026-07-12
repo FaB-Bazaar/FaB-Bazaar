@@ -240,7 +240,7 @@ export default function OptSearchPage() {
     query, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
     selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
     selectedEditions, selectedSets, selectedPacks, selectedFormat,
-    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, priceMin, priceMax,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, priceMin, priceMax,
     selectedLanguages, sortBy, sortOrder, viewMode, groupByCard,
   } = state;
   const patch = (p: Partial<OptUiState>) => dispatch({ type: 'PATCH', patch: p });
@@ -340,7 +340,7 @@ export default function OptSearchPage() {
     key: c.key, label: c.label, onRemove: () => dispatch(c.removeAction),
   }));
 
-  const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax].filter(Boolean).length;
+  const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax, arcaneMin || arcaneMax].filter(Boolean).length;
 
   // ── Reusable control snippets (rendered inline on desktop, inside the mobile
   //    filter sheet on small screens). Controlled components, so mounting the
@@ -591,6 +591,7 @@ export default function OptSearchPage() {
             <RangeRow label="Cost"    min={costMin}    setMin={v => dispatch({ type: 'SET_RANGE', range: 'cost', min: v })}    max={costMax}    setMax={v => dispatch({ type: 'SET_RANGE', range: 'cost', max: v })} />
             <RangeRow label="Power"   min={powerMin}   setMin={v => dispatch({ type: 'SET_RANGE', range: 'power', min: v })}   max={powerMax}   setMax={v => dispatch({ type: 'SET_RANGE', range: 'power', max: v })} />
             <RangeRow label="Defense" min={defenseMin} setMin={v => dispatch({ type: 'SET_RANGE', range: 'defense', min: v })} max={defenseMax} setMax={v => dispatch({ type: 'SET_RANGE', range: 'defense', max: v })} />
+            <RangeRow label="Arcane"  min={arcaneMin}  setMin={v => dispatch({ type: 'SET_RANGE', range: 'arcane', min: v })}  max={arcaneMax}  setMax={v => dispatch({ type: 'SET_RANGE', range: 'arcane', max: v })} />
           </div>
         </>
       ),

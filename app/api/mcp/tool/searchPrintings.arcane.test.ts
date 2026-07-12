@@ -17,7 +17,7 @@ vi.mock('@/lib/services', () => ({
 }));
 
 // Import AFTER mocks (vi.mock is hoisted)
-import { searchPrintingsTool, formatSearchSections, projectPrintingForMcp } from './searchPrintings';
+import { searchPrintingsTool, formatSearchSections, projectPrintingForMcp, describeSearchDescriptor } from './searchPrintings';
 import { printingsService } from '@/lib/services';
 
 const mockSearch = vi.mocked(printingsService.searchPrintings);
@@ -74,6 +74,15 @@ describe('search_printings arcane result surface', () => {
   it('carries arcane in the structured projection, omitting it when absent', () => {
     expect(projectPrintingForMcp(printing).arcane).toBe(3);
     expect('arcane' in projectPrintingForMcp({ ...printing, arcane: null })).toBe(false);
+  });
+});
+
+describe('search_printings arcane deep-link subtitle', () => {
+  it('describes arcane constraints instead of "no filters — the entire card pool"', () => {
+    expect(describeSearchDescriptor({ filters: { arcaneMin: 3 } })).toBe('arcane ≥ 3');
+    expect(describeSearchDescriptor({ filters: { types: ['action'], arcaneMin: 3 } }))
+      .toBe('action · arcane ≥ 3');
+    expect(describeSearchDescriptor({ filters: { arcane: 2 } })).toBe('arcane 2');
   });
 });
 

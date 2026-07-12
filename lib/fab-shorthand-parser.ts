@@ -87,6 +87,41 @@ export class FABShorthandParser {
       examples: ["power>3", "power<6", "power!2,3", "power:1,4,5", "power4"]
     },
 
+    // Arcane damage stat (cards.arcane) — same grammar as power. Deliberately
+    // NO "arc" alias: "arc" is the Arcane Rising set code and "arc123" a
+    // collector number.
+    {
+      pattern: /\barcane([!<>:]?)(\d+(?:,\d+)*)/gi,
+      parser: (match, filters) => {
+        const operator = match[1] || ':';
+        const values = match[2].split(',').map(v => parseInt(v.trim()));
+
+        switch (operator) {
+          case '>':
+            // arcane>2 means arcane >= 3
+            filters.arcaneMin = values[0] + 1;
+            break;
+
+          case '<':
+            // arcane<4 means arcane <= 3
+            filters.arcaneMax = values[0] - 1;
+            break;
+
+          case '!':
+            if (!filters.arcaneNot) filters.arcaneNot = [];
+            filters.arcaneNot.push(...values);
+            break;
+
+          case ':':
+          default:
+            filters.arcane = values.length === 1 ? values[0] : values;
+            break;
+        }
+      },
+      description: "Arcane damage with flexible operators and multiple values",
+      examples: ["arcane>2", "arcane<4", "arcane!1,2", "arcane:3", "arcane3"]
+    },
+
     // Cost searches - high priority to avoid conflicts
     {
       pattern: /\bcost([!<>:]?)(\d+(?:,\d+)*)/gi,

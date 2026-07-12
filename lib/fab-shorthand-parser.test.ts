@@ -126,3 +126,40 @@ describe.each([
     expect(parser.parseQuery('red alert boots').filters.name).toBe('red alert boots');
   });
 });
+
+// Arcane damage stat (cards.arcane, migration 0079) — same operator grammar as
+// power on BOTH parsers. No `arc` alias: "arc" is the Arcane Rising set code
+// and "arc123" is a collector number.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser arcane stat — %s', (_label, parser) => {
+  it('parses arcane:3 and bare arcane3 as exact matches', () => {
+    expect(parser.parseQuery('arcane:3').filters.arcane).toBe(3);
+    expect(parser.parseQuery('arcane3').filters.arcane).toBe(3);
+  });
+
+  it('parses arcane>2 as arcaneMin 3', () => {
+    expect(parser.parseQuery('arcane>2').filters.arcaneMin).toBe(3);
+  });
+
+  it('parses arcane<4 as arcaneMax 3', () => {
+    expect(parser.parseQuery('arcane<4').filters.arcaneMax).toBe(3);
+  });
+
+  it('parses arcane!1,2 as arcaneNot', () => {
+    expect(parser.parseQuery('arcane!1,2').filters.arcaneNot).toEqual([1, 2]);
+  });
+
+  it('combines with other tokens and consumes the token from the name', () => {
+    const f = parser.parseQuery('arcane>2 t:action').filters;
+    expect(f.arcaneMin).toBe(3);
+    expect(f.types).toContain('action');
+    expect(f.name ?? '').not.toMatch(/arcane/);
+  });
+
+  it('does NOT treat the arc set code as an arcane token', () => {
+    expect(parser.parseQuery('set:arc').filters.arcane).toBeUndefined();
+    expect(parser.parseQuery('set:arc').filters.sets).toContain('arc');
+  });
+});
