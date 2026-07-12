@@ -107,13 +107,14 @@ function languageRank(language?: string | null): number {
  *          is used as the default printing for imports, and a native English
  *          speaker should never default to a localized printing
  * Then gold foils last regardless of set (tournament-winner prizes)
- * Then within each language:
+ * Then within each language (gold foils and Marvels sink last globally —
+ * tournament prizes / chase cards are never a sensible default):
  *   set displayOrder — the CURATED ranking stored on the `sets` DB row
  *   (seeded main booster → supplemental → promo → blitz deck → armory,
  *   release date within tier; re-order by updating the row + regenerating)
- *   then within a set, edition-major with Marvels last:
+ *   then within a set, edition-major:
  *     edition (unlimited before 1st for WTR/ARC/CRU/MON, else alpha → 1st →
- *     unlimited → normal) → foiling (non-foil → RF → CF → GF) → Marvel last
+ *     unlimited → normal) → foiling (non-foil → RF → CF → GF)
  *
  * Works with any printing object that has `set`, `foiling`, `rarity`, and `edition` fields.
  */
@@ -134,6 +135,13 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
     const bGold = (b.foiling || '').toLowerCase() === 'g' ? 1 : 0;
     if (aGold !== bGold) return aGold - bGold;
 
+    // 0c. Marvels (rarity 'v') last regardless of set — chase cards; a card
+    // whose only main-set printing is the Marvel must still default to its
+    // regular printing from a later product (armory deck, blitz deck, …)
+    const aMarvel = (a.rarity || '').toLowerCase() === 'v' ? 1 : 0;
+    const bMarvel = (b.rarity || '').toLowerCase() === 'v' ? 1 : 0;
+    if (aMarvel !== bMarvel) return aMarvel - bMarvel;
+
     const aCode = (a.set || '').toLowerCase();
     const bCode = (b.set || '').toLowerCase();
     const aMeta = SET_METADATA[aCode];
@@ -144,18 +152,13 @@ export function sortPrintings<T extends { set?: string; foiling?: string; rarity
     const bOrder = bMeta?.displayOrder ?? Number.MAX_SAFE_INTEGER;
     if (aOrder !== bOrder) return aOrder - bOrder;
 
-    // 2. Marvels (rarity 'v') always sort after every regular printing of the set
-    const aMarvel = (a.rarity || '').toLowerCase() === 'v' ? 1 : 0;
-    const bMarvel = (b.rarity || '').toLowerCase() === 'v' ? 1 : 0;
-    if (aMarvel !== bMarvel) return aMarvel - bMarvel;
-
-    // 3. Edition (major) — priority varies by set (unlimited before 1st for WTR/ARC/CRU/MON)
+    // 2. Edition (major) — priority varies by set (unlimited before 1st for WTR/ARC/CRU/MON)
     const editionPriority = getEditionPriority(aCode || bCode);
     const aEd = editionPriority[a.edition ?? 'n'] ?? 3;
     const bEd = editionPriority[b.edition ?? 'n'] ?? 3;
     if (aEd !== bEd) return aEd - bEd;
 
-    // 4. Foiling (minor within edition)
+    // 3. Foiling (minor within edition)
     const FOIL_PRIORITY: Record<string, number> = { s: 0, n: 0, r: 1, c: 2, g: 3 };
     const aFoil = FOIL_PRIORITY[(a.foiling || 's').toLowerCase()] ?? 0;
     const bFoil = FOIL_PRIORITY[(b.foiling || 's').toLowerCase()] ?? 0;

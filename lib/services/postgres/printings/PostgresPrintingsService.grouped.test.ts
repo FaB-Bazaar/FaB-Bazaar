@@ -63,6 +63,24 @@ describe('PostgresPrintingsService — grouped search (opt-in)', () => {
     expect(repr.foiling).toBe('r');
   });
 
+  it('GROUPED representative is never a Marvel when a non-Marvel printing exists (any set)', async () => {
+    // Oysten, Heart of Gold: the ONLY High Seas (sea) printing is the Marvel
+    // (SEA263, rarity 'v'); the regular rare is in the Gravy Bones armory deck
+    // (agb, later display_order). Set order must not shield the Marvel from
+    // demotion — the accessible armory printing is the tile.
+    const res = await service.searchPrintings(
+      { name: 'oysten, heart of gold', languages: ['en'] },
+      { limit: 10, searchMode: 'strict', groupByCard: true },
+    );
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+
+    expect(res.data.printings.length).toBe(1);
+    const repr = res.data.printings[0];
+    expect(repr.rarity).not.toBe('v');
+    expect(repr.set).toBe('agb');
+  });
+
   it('GROUPED representative is an English printing when the card has one', async () => {
     // 'steel on steel' has ja/fr printings whose tcg_low is NULL alongside
     // English ones — without a language preference the printing_id tiebreak

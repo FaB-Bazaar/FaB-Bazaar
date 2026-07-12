@@ -155,13 +155,13 @@ export class PostgresPrintingsService implements IPrintingsService {
       };
 
       // Representative printing per card: the CANONICAL printing, mirroring
-      // the client-side sortPrintings cascade — English first, then the
-      // curated sets.display_order (live JOIN, so admin reorders apply to
-      // search tiles immediately, no snapshot regeneration), then within the
-      // set: Marvels last, edition (unlimited before 1st for sets flagged
-      // unlimited_before_first), foiling (NF → RF → CF → GF), price and
-      // printing_id as final tiebreaks. DISTINCT ON requires the ORDER BY to
-      // lead with the distinct key.
+      // the client-side sortPrintings cascade — English first, Marvels last
+      // globally, then the curated sets.display_order (live JOIN, so admin
+      // reorders apply to search tiles immediately, no snapshot
+      // regeneration), then within the set: edition (unlimited before 1st for
+      // sets flagged unlimited_before_first), foiling (NF → RF → CF → GF),
+      // price and printing_id as final tiebreaks. DISTINCT ON requires the
+      // ORDER BY to lead with the distinct key.
       const repr = db
         .selectDistinctOn([printings.cardUniqueId], reprFields)
         .from(printings)
@@ -1803,9 +1803,11 @@ export class PostgresPrintingsService implements IPrintingsService {
   /**
    * Canonical printing-order cascade — orders the PRINTINGS of a card once the
    * primary sort has found the right cards. Mirrors lib/fab-constants
-   * sortPrintings: English → gold foils last (tournament prizes) → curated
-   * sets.display_order (live JOIN — admin reorders apply immediately) →
-   * Marvels last within a set → edition (unlimited-first where flagged) →
+   * sortPrintings: English → gold foils last (tournament prizes) → Marvels
+   * last globally (chase cards; a card whose only main-set printing is the
+   * Marvel must default to its regular printing from a later product) →
+   * curated sets.display_order (live JOIN — admin reorders apply immediately)
+   * → edition (unlimited-first where flagged) →
    * foiling (NF → RF → CF) → price → printing_id. Queries using this MUST
    * leftJoin(sets, eq(sets.code, printings.set)).
    */
@@ -1815,8 +1817,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       sql`CASE ${printings.language} WHEN 'en' THEN 0 WHEN 'fr' THEN 1 WHEN 'ja' THEN 2 ELSE 3 END`,
       printings.language,
       sql`CASE WHEN ${printings.foiling} = 'g' THEN 1 ELSE 0 END`,
-      sql`COALESCE(${sets.displayOrder}, 2147483647)`,
       sql`CASE WHEN ${printings.rarity} = 'v' THEN 1 ELSE 0 END`,
+      sql`COALESCE(${sets.displayOrder}, 2147483647)`,
       sql`CASE WHEN COALESCE(${sets.unlimitedBeforeFirst}, false)
             THEN CASE ${printings.edition} WHEN 'u' THEN 0 WHEN 'a' THEN 1 WHEN 'f' THEN 2 ELSE 3 END
             ELSE CASE ${printings.edition} WHEN 'a' THEN 0 WHEN 'f' THEN 1 WHEN 'u' THEN 2 ELSE 3 END

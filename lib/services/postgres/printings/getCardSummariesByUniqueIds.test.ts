@@ -85,6 +85,25 @@ describe('PostgresPrintingsService.getCardSummariesByUniqueIds', () => {
     expect(p.data.printings[0].set).toBe('wtr');
   });
 
+  it('never picks a Marvel representative when a non-Marvel printing exists', async () => {
+    // Oysten, Heart of Gold: earliest set (sea) only has the Marvel (SEA263);
+    // the regular rare is the later Gravy Bones armory printing (agb). The
+    // earliest-set preference must not surface the chase Marvel as the face.
+    const OYSTEN = 'fDMt9jWjpCQKJPQbfcpWg';
+    const res = await service.getCardSummariesByUniqueIds([OYSTEN]);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data).toHaveLength(1);
+    const p = await service.searchPrintings(
+      { printingIds: [res.data[0].representativePrintingId] },
+      { limit: 1 },
+    );
+    expect(p.success).toBe(true);
+    if (!p.success) return;
+    expect(p.data.printings[0].rarity).not.toBe('v');
+    expect(p.data.printings[0].set).toBe('agb');
+  });
+
   it('includes card-level health and intelligence (for hero tiles)', async () => {
     const RHINAR = 'wr9wBtTWwRrPrdhCRHCdN';
     const res = await service.getCardSummariesByUniqueIds([RHINAR]);

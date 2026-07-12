@@ -3,8 +3,9 @@
  *
  * The primary sort finds the right CARDS (name relevance / user choice); the
  * canonical cascade then orders each card's PRINTINGS as a trailing tiebreak:
- * English → gold foils last → curated sets.display_order → Marvels last
- * within a set → edition (unlimited-first where flagged) → foiling → price.
+ * English → gold foils last → Marvels last globally → curated
+ * sets.display_order → edition (unlimited-first where flagged) → foiling →
+ * price.
  *
  * This is what /search/results (home page search) renders verbatim — it does
  * no client-side re-sort. Runs against local Postgres.
@@ -28,8 +29,8 @@ describe('PostgresPrintingsService — flat search canonical printing order', ()
     expect(rows).toEqual([
       'dyn/n/r/l', // canonical: Dynasty rainbow (no NF run exists)
       'dyn/n/c/l', // then cold foil
-      'dyn/n/c/v', // Marvel last within the set
       'gem/n/r/p', // GEM promo by set order
+      'dyn/n/c/v', // Marvel sinks below every non-Marvel, even cross-set
       'fab/n/g/p', // gold foil dead last despite earlier set order
     ]);
   });

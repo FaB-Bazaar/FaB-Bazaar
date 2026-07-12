@@ -105,6 +105,19 @@ describe('sortPrintings — language priority', () => {
     expect(sorted.map((p) => p.set)).toEqual(['dyn', 'gem', 'fab']);
   });
 
+  it('sinks Marvels below non-Marvel printings from ANY set, not just their own', () => {
+    // Oysten, Heart of Gold: its only main-set (sea, display_order 160)
+    // printing is the Marvel; the regular rare lives in the Gravy Bones armory
+    // deck (agb, display_order 1030). Marvels are chase cards — the accessible
+    // armory printing must be the default despite its later set order.
+    const seaMarvel = { set: 'sea', foiling: 'c', edition: 'n', rarity: 'v', language: 'en' };
+    const agbRare = { set: 'agb', foiling: 's', edition: 'n', rarity: 'r', language: 'en' };
+
+    const sorted = sortPrintings([seaMarvel, agbRare]);
+
+    expect(sorted.map((p) => p.set)).toEqual(['agb', 'sea']);
+  });
+
   it('orders non-English groups deterministically (fr, ja, then others by code)', () => {
     const de = { set: 'wtr', foiling: 's', edition: 'u', language: 'de' };
     const ja = { set: 'wtr', foiling: 's', edition: 'u', language: 'ja' };
