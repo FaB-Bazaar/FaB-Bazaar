@@ -187,3 +187,18 @@
 .chord-chip-exit {
   animation: chord-chip-out 0.13s ease-in forwards;
 }
+
+/* iOS Safari auto-zooms the page when focusing a text control whose computed
+   font-size is under 16px — and never zooms back out, leaving the layout
+   clipped on the right and the fixed bottom tab bar outside the visual
+   viewport. Force form controls to at least 16px on touch devices and phone
+   widths. !important is required to beat Tailwind text-sm/text-xs utilities
+   (utility class specificity > element selector, regardless of source order).
+   Checkbox/radio/range never summon the keyboard, so they keep their size. */
+@media (max-width: 639px), (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
