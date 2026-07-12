@@ -225,7 +225,7 @@ function qtyRowKey(r: CardRow, sectionTitle?: string): string {
   return `${sectionTitle ?? ''}|${r.itemId ?? r.preview.printingId ?? r.name}`;
 }
 
-function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', onAdjustQty, adjustBusyKeys, onSwapRow, onQuickAdd, quickAddStatus }: {
+function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'max-h-96', className = '', compact = false, onAdjustQty, adjustBusyKeys, onSwapRow, onQuickAdd, quickAddStatus }: {
   rows?: CardRow[];
   sections?: Array<{ title: string; count: number; rows: CardRow[] }>;
   onPreview: (preview: CardPreview) => void;
@@ -233,6 +233,10 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
   noteHeader?: string;
   maxHeightClass?: string;
   className?: string;
+  /** Narrow-container mode (the workspace rail): TYPE shows only its primary
+   *  segment ("Ice Action", not "Ice Action - Aura") and the rules preview is
+   *  dropped — the full detail lives in the chat-column table. */
+  compact?: boolean;
   /** When set, qty cells render −/+ buttons that write through to the source. */
   onAdjustQty?: (row: CardRow, delta: 1 | -1, sectionTitle?: string) => void;
   adjustBusyKeys?: Set<string>;
@@ -339,8 +343,8 @@ function CardTable({ rows, sections, onPreview, noteHeader, maxHeightClass = 'ma
           clipping the Foil/swap columns off the panel edge. */}
       {has.type && (
         <td className="hidden md:table-cell md:w-full align-middle py-1 [overflow-wrap:anywhere]">
-          {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{r.type}</div> : null}
-          {r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
+          {r.type ? <div className="text-xs text-gray-500 dark:text-gray-400">{compact ? r.type.split(' - ')[0] : r.type}</div> : null}
+          {!compact && r.text ? <div className="text-xs leading-snug text-gray-400 dark:text-gray-500 line-clamp-2">{renderRulesText(r.text.length > 180 ? `${r.text.slice(0, 180).trimEnd()}…` : r.text)}</div> : null}
         </td>
       )}
       {has.collector && <td className="hidden sm:table-cell align-middle text-xs tabular-nums text-gray-500 dark:text-gray-400 whitespace-nowrap">{r.collector ?? ''}</td>}
@@ -1146,7 +1150,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
       if (!typingElsewhere) composerRef.current?.focus({ preventScroll: true });
     }
-    setWorkspaceView(workspace?.deckPublicId && workspaceStripSections ? 'strips' : 'table');
+    // Tiles wherever there's something visual to show — decks AND wants/
+    // binders (their full table now lives in the chat column; the rail table
+    // is the opt-in edit mode). Comparisons stay on the table: their primary
+    // actions (in-row quick-add) only exist there.
+    setWorkspaceView(workspaceStripSections && !workspace?.compareRefresh ? 'strips' : 'table');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- per-open reset; workspace/strips are derived from the uid
   }, [workspaceUid]);
   useEffect(() => {
@@ -2792,12 +2800,14 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                     <span data-testid="data-card-title" className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
                   </div>
+                  {/* Flat card tables (wants/binders) render HERE in the wide
+                      chat column at every breakpoint — the readable "LLM-style
+                      table", zero AI. The rail keeps tiles + an opt-in compact
+                      table for ± editing (user request, 2026-07-12). */}
                   {item.tableRows && item.tableRows.length > 0 && (
-                    <div className="lg:hidden">
-                      <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
-                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
-                        onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
-                    </div>
+                    <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
+                      onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
+                      onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined} />
                   )}
                   {/* Desktop: the table/list lives in the workspace panel; the
                       chip keeps a one-line summary that reopens it. */}
@@ -3387,12 +3397,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 : undefined}
             />
           ) : workspace.tableSections && workspace.tableSections.length > 0 ? (
-            <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
+            <CardTable sections={workspace.tableSections} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
               onQuickAdd={workspace.compareRefresh ? (row, dest) => void quickAddRow(workspace, row, dest) : undefined} quickAddStatus={quickAddStatus}
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
               onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
           ) : workspace.tableRows && workspace.tableRows.length > 0 ? (
-            <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none"
+            <CardTable rows={workspace.tableRows} onPreview={showPreview} noteHeader={workspace.tableNoteHeader} maxHeightClass="max-h-none" compact
               onAdjustQty={workspace.mutate ? (row, delta, s) => adjustQty(workspace, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
               onSwapRow={workspace.mutate ? (row, s) => void openRowSwap(workspace, row, s) : undefined} />
           ) : (
