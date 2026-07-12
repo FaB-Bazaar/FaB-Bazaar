@@ -209,54 +209,56 @@ describe('POST /api/volzar', () => {
     );
   });
 
-  it('logs a [volzar-trace] tool line per call with args, outcome, and duration', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  // Traces MUST go through process.stdout.write, not console.log — the
+  // next.config removeConsole compiler option strips console.log from
+  // production builds, which silently deleted the first version of this.
+  function stdoutTraces(spy: ReturnType<typeof vi.spyOn>): any[] {
+    return spy.mock.calls
+      .map((c) => String(c[0]))
+      .filter((s) => s.startsWith('[volzar-trace] '))
+      .map((s) => JSON.parse(s.slice('[volzar-trace] '.length)));
+  }
+
+  it('writes a [volzar-trace] tool line per call with args, outcome, and duration', async () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const res = await POST(request(VALID_BODY));
     await readSseEvents(res); // drain the stream so the loop completes
 
-    const traces = logSpy.mock.calls
-      .filter((c) => c[0] === '[volzar-trace]')
-      .map((c) => JSON.parse(c[1] as string));
-    const toolTraces = traces.filter((t) => t.kind === 'tool');
+    const toolTraces = stdoutTraces(writeSpy).filter((t) => t.kind === 'tool');
 
     expect(toolTraces.length).toBeGreaterThan(0);
     expect(toolTraces[0]).toMatchObject({ tool: 'list_binders', ok: true });
     expect(typeof toolTraces[0].ms).toBe('number');
     expect(typeof toolTraces[0].args).toBe('string');
     expect(toolTraces[0].result).toContain('Your Binders');
-    logSpy.mockRestore();
+    writeSpy.mockRestore();
   });
 
-  it('logs failed tool calls with the error content the model saw', async () => {
+  it('writes failed tool calls with the error content the model saw', async () => {
     mockExecuteTool.mockResolvedValue({ ok: false, content: 'filters.rarity must be an array' });
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const res = await POST(request(VALID_BODY));
     await readSseEvents(res);
 
-    const toolTraces = logSpy.mock.calls
-      .filter((c) => c[0] === '[volzar-trace]')
-      .map((c) => JSON.parse(c[1] as string))
-      .filter((t) => t.kind === 'tool');
+    const toolTraces = stdoutTraces(writeSpy).filter((t) => t.kind === 'tool');
 
     expect(toolTraces.some((t) => t.ok === false && t.result.includes('filters.rarity'))).toBe(true);
-    logSpy.mockRestore();
+    writeSpy.mockRestore();
   });
 
-  it('logs one [volzar-trace] turn summary with the tool-call count and capped flag', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  it('writes one [volzar-trace] turn summary with the tool-call count and capped flag', async () => {
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const res = await POST(request(VALID_BODY));
     await readSseEvents(res);
 
-    const traces = logSpy.mock.calls
-      .filter((c) => c[0] === '[volzar-trace]')
-      .map((c) => JSON.parse(c[1] as string));
+    const traces = stdoutTraces(writeSpy);
     const turnTraces = traces.filter((t) => t.kind === 'turn');
     const toolTraces = traces.filter((t) => t.kind === 'tool');
 
     expect(turnTraces).toHaveLength(1);
     expect(turnTraces[0]).toMatchObject({ toolCalls: toolTraces.length, capped: false });
     expect(typeof turnTraces[0].model).toBe('string');
-    logSpy.mockRestore();
+    writeSpy.mockRestore();
   });
 
   it('429s with a pre-stream JSON error when the daily message budget is exhausted', async () => {

@@ -246,6 +246,10 @@ export async function POST(req: Request) {
   // line per call with the args and outcome the model actually saw, one 'turn'
   // summary at stream end. Aggregate tables (llm_usage_daily/mcp_usage_daily)
   // can't reconstruct call sequences — this is what explains a flailing turn.
+  // process.stdout.write, NOT console.log: the removeConsole compiler option
+  // in next.config strips console.log from production builds.
+  const trace = (payload: Record<string, unknown>) =>
+    process.stdout.write(`[volzar-trace] ${JSON.stringify(payload)}\n`);
   const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max)}…` : s);
   let toolCallCount = 0;
   let capped = false;
@@ -287,7 +291,7 @@ export async function POST(req: Request) {
           const started = Date.now();
           const result = await executeTool({ name, args, bearer, validNames, signal });
           toolCallCount++;
-          console.log('[volzar-trace]', JSON.stringify({
+          trace({
             kind: 'tool',
             user: user.id,
             model: getActualModel(),
@@ -296,7 +300,7 @@ export async function POST(req: Request) {
             ms: Date.now() - started,
             args: truncate(JSON.stringify(args), 600),
             result: truncate(result.content, 300),
-          }));
+          });
           return result;
         },
         confirmation: {
@@ -313,13 +317,13 @@ export async function POST(req: Request) {
         .finally(() => {
           // Logged in finally, not on 'done' — a capped turn emits only an
           // error event, and the summary must cover those turns most of all.
-          console.log('[volzar-trace]', JSON.stringify({
+          trace({
             kind: 'turn',
             user: user.id,
             model: getActualModel(),
             toolCalls: toolCallCount,
             capped,
-          }));
+          });
           try {
             controller.close();
           } catch {
