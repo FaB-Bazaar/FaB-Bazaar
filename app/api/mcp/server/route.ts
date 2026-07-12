@@ -12,6 +12,7 @@ import { deckViewerResource } from '../resource/deckViewer';
 import { rateLimit } from '@/lib/rate-limit';
 import { authTokenService, userService, mcpUsageService } from '@/lib/services';
 import { filterToolsForToolset, resolveToolset } from './toolsets';
+import { validateQueryComplexity } from './query-complexity';
 
 // Import the tools
 import { searchPrintingsTool } from '../tool/searchPrintings';
@@ -125,49 +126,9 @@ function getClientIP(req: Request): string {
   return 'unknown';
 }
 
-// Helper to validate query complexity
-function validateQueryComplexity(toolInput: any): { isValid: boolean; error?: string } {
-  const options = toolInput.options || {};
-
-  // New schema: cards[] array — each entry carries its own filters/query
-  if (toolInput.cards?.length > 0) {
-    if (options.limit > 100) {
-      return { isValid: false, error: "Maximum limit is 100 results per request" };
-    }
-    return { isValid: true };
-  }
-
-  // Legacy schema: top-level filters/query (backwards-compat path)
-  const filters = toolInput.filters || {};
-
-  if (filters.searchableText && filters.searchableText.length < 2) {
-    return { isValid: false, error: "Search text must be at least 2 characters" };
-  }
-
-  const hasSpecificFilter = !!(
-    filters.name || filters.sets?.length || filters.types?.length ||
-    filters.classes?.length || filters.talents?.length || filters.rarities?.length ||
-    filters.foilings?.length || filters.editions?.length || filters.color ||
-    filters.collectorNumber || filters.printingIds || filters.cardUniqueId ||
-    filters.cardUniqueIds || filters.text || filters.searchableText ||
-    filters.heroLegal || filters.heroClasses?.length || filters.heroTalents?.length ||
-    filters.format
-  );
-  const hasQuery = !!(toolInput.query?.trim());
-  const effectiveLimit = options.limit || 12;
-
-  if (!hasSpecificFilter && !hasQuery && effectiveLimit > 50) {
-    return { isValid: false, error: "Large queries require at least one specific filter (name, set, type, talent, class, rarity, etc.)" };
-  }
-  if (options.limit > 100) {
-    return { isValid: false, error: "Maximum limit is 100 results per request" };
-  }
-  if (options.page > 1000) {
-    return { isValid: false, error: "Maximum page number is 1000" };
-  }
-
-  return { isValid: true };
-}
+// Query complexity guard lives in its own module (testable — route files
+// can only export handlers). Over-limit `options.limit` is clamped in place,
+// not rejected; see query-complexity.ts.
 
 // Enhanced tools/call handler
 // Thin usage-capture wrapper: measures request/response bytes of successful
