@@ -60,6 +60,11 @@ export interface UserBasicInfoDTO {
   username?: string;
   discordUsername?: string;
   discordId?: string;
+  avatarUrl?: string;
+  /** ISO country code (users.country_code) — the impl always returned these;
+   *  the DTO just never declared them. */
+  countryCode?: string;
+  isStore?: boolean;
 }
 
 /**

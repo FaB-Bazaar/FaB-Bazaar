@@ -5,6 +5,7 @@ vi.mock('@/lib/services', () => ({
   deckService: { listUserDecksBasic: vi.fn() },
   wantsService: { getTotalWantsQuantity: vi.fn() },
   gameResultsService: { getRecentGameResultsForUser: vi.fn() },
+  userService: { getBasicInfo: vi.fn().mockResolvedValue({ success: true, data: null }) },
 }));
 
 import {
@@ -12,6 +13,7 @@ import {
   getVolzarSuggestedPrompts,
   DEFAULT_SUGGESTED_PROMPTS,
   type VolzarUserState,
+  languageForCountry,
 } from './volzar-suggestions';
 import { binderService, deckService, wantsService, gameResultsService } from '@/lib/services';
 
@@ -164,5 +166,59 @@ describe('getVolzarSuggestedPrompts', () => {
 
     expect(prompts.some((p) => p.text.match(/Decks to Beat.*my collection/i))).toBe(true);
     expect(prompts).toHaveLength(4);
+  });
+});
+
+describe('languageForCountry', () => {
+  it('maps card-platform languages by country and defaults everything else to English', () => {
+    expect(languageForCountry('FR')).toBe('fr');
+    expect(languageForCountry('DE')).toBe('de');
+    expect(languageForCountry('AT')).toBe('de');
+    expect(languageForCountry('IT')).toBe('it');
+    expect(languageForCountry('ES')).toBe('es');
+    expect(languageForCountry('MX')).toBe('es');
+    expect(languageForCountry('JP')).toBe('ja');
+    expect(languageForCountry('US')).toBe('en');
+    expect(languageForCountry('nz')).toBe('en');
+    expect(languageForCountry(undefined)).toBe('en');
+  });
+
+  it('is case-insensitive', () => {
+    expect(languageForCountry('fr')).toBe('fr');
+    expect(languageForCountry('jp')).toBe('ja');
+  });
+});
+
+describe('buildSuggestedPrompts — localization', () => {
+  const state = {
+    collectionCards: 100,
+    deckCount: 3,
+    wantsCount: 5,
+    recentGames: [
+      { hero: 'Bravo', deckName: 'Guardian', result: 'win' as const },
+      { hero: 'Bravo', deckName: 'Guardian', result: 'loss' as const },
+    ],
+  };
+
+  it('renders every slot in French for lang fr — including the interpolated record', () => {
+    const prompts = buildSuggestedPrompts(state, 'fr');
+    expect(prompts).toHaveLength(4);
+    expect(prompts[0].text).toContain('méta');
+    expect(prompts[1].text).toContain('Decks to Beat'); // product name stays
+    expect(prompts[2].text).toContain('1-1');
+    expect(prompts[2].text).toContain('Bravo');
+    expect(prompts[2].text).not.toMatch(/I went/);
+    expect(prompts[3].text).not.toMatch(/wants list/);
+  });
+
+  it('renders Japanese for lang ja', () => {
+    const prompts = buildSuggestedPrompts(state, 'ja');
+    expect(prompts[0].text).toContain('メタ');
+    expect(prompts[2].text).toContain('Bravo');
+  });
+
+  it('defaults to English when no language is given (back-compat)', () => {
+    const prompts = buildSuggestedPrompts(state);
+    expect(prompts[0].text).toBe('What are the top decks in the meta right now?');
   });
 });
