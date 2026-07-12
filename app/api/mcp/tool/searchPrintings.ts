@@ -50,6 +50,7 @@ function formatPrinting(p: any, opts: ProjectOptions = {}): string {
     typeof p.cost === 'number' ? `cost ${p.cost}` : null,
     typeof p.power === 'number' ? `power ${p.power}` : null,
     typeof p.defense === 'number' ? `defense ${p.defense}` : null,
+    typeof p.arcane === 'number' ? `arcane ${p.arcane}` : null,
     typeof p.pitch === 'number' && PITCH_COLOR[p.pitch] ? `pitch ${p.pitch} (${PITCH_COLOR[p.pitch]})` : null,
   ].filter(Boolean);
   if (stats.length > 0) lines.push(`    Stats: ${stats.join(' | ')}`);
@@ -196,6 +197,8 @@ export function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   // Buy link (Volzar renders it as an affiliate price link); omitted when
   // absent so unlisted printings cost no tokens.
   if (p.tcgplayer_url) out.tcgplayer_url = p.tcgplayer_url;
+  // Arcane damage stat: only carried when the card deals any (token thrift).
+  if (typeof p.arcane === 'number') out.arcane = p.arcane;
   if (p.is_extended_art) out.ea = true;
   if (Array.isArray(p.art_variations) && p.art_variations.length > 0) out.art = p.art_variations;
   // Localization (options.language): non-English printing language + the
@@ -240,6 +243,7 @@ function convertMCPFilters(mcpFilters: any): PrintingsSearchFilters {
     'power', 'powerMin', 'powerMax', 'powerNot',
     'cost', 'costs', 'costMin', 'costMax', 'costNot',
     'defense', 'defenseMin', 'defenseMax', 'defenseNot',
+    'arcane', 'arcaneMin', 'arcaneMax', 'arcaneNot',
     'pitch', 'priceMin', 'priceMax', 'priceField',
     'heroClasses', 'heroTalents', 'heroEssences', 'excludeClasses', 'excludeTalents',
     'format', 'includeBanned', 'includeSuspended',
@@ -455,7 +459,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
             },
             filters: {
               type: 'object',
-              description: 'Structured filters. name, exact, text, searchableText, collectorNumber, printingIds, cardUniqueId, sets[], types[], classes[], talents[], keywords[], traits[], color, pitch, power/Min/Max, cost/Min/Max, defense/Min/Max, rarities[], foilings[], editions[], artists[], priceMin/Max, priceField, hasPricing, heroLegal, heroClasses[], heroTalents[], heroEssences[], excludeClasses[], excludeTalents[], talentless, classTalentUnion, heroAges[] ("young"/"adult"), facetTags[], format, includeBanned, includeSuspended. Negation: setsNot[], typesNot[], raritiesNot[], foilingsNot[], editionsNot[], colorNot[], classesNot[], keywordsNot[], textNot, talentsNot[]. Printing-differentiating booleans: isFirstEdition, isUnlimited, isNormalEdition, isNormalFoil, isRainbowFoil, isColdFoil, isExtendedArt, artVariations[], hasProductId.',
+              description: 'Structured filters. name, exact, text, searchableText, collectorNumber, printingIds, cardUniqueId, sets[], types[], classes[], talents[], keywords[], traits[], color, pitch, power/Min/Max, cost/Min/Max, defense/Min/Max, arcane/Min/Max (arcane damage dealt when played; e.g. arcaneMin: 3 = "deals 3+ arcane damage"), rarities[], foilings[], editions[], artists[], priceMin/Max, priceField, hasPricing, heroLegal, heroClasses[], heroTalents[], heroEssences[], excludeClasses[], excludeTalents[], talentless, classTalentUnion, heroAges[] ("young"/"adult"), facetTags[], format, includeBanned, includeSuspended. Negation: setsNot[], typesNot[], raritiesNot[], foilingsNot[], editionsNot[], colorNot[], classesNot[], keywordsNot[], textNot, talentsNot[], arcaneNot[]. Printing-differentiating booleans: isFirstEdition, isUnlimited, isNormalEdition, isNormalFoil, isRainbowFoil, isColdFoil, isExtendedArt, artVariations[], hasProductId.',
               properties: {
                 name:             { type: 'string', description: 'Card name. Defaults to exact matching when provided — set exact: false only for fuzzy/typo-tolerant search.' },
                 exact:            { type: 'boolean', description: 'Default: true when name is set. Set false to enable fuzzy/similarity matching.' },

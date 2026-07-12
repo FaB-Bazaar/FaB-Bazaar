@@ -307,6 +307,10 @@ export const cards = pgTable('cards', {
   costText: text('cost_text'),
   defense: integer('defense'),
   defenseText: text('defense_text'),
+  // Arcane damage dealt when played (fab-cube `arcane` field, pipeline 003).
+  // NULL = none; "X"/variable amounts stay NULL with the token in arcaneText.
+  arcane: integer('arcane'),
+  arcaneText: text('arcane_text'),
   pitch: integer('pitch'),
   pitchText: text('pitch_text'),
   health: integer('health'),

@@ -5,7 +5,7 @@
  * Handles full card search with 50+ filters
  */
 
-import { eq, and, or, sql, inArray, notInArray, desc, asc, gte, lte } from 'drizzle-orm';
+import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions, sets, tcgGroups } from '@/lib/postgres/schema';
 import type {
@@ -1071,6 +1071,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       costText: cards.costText,
       defense: cards.defense,
       defenseText: cards.defenseText,
+      arcane: cards.arcane,
+      arcaneText: cards.arcaneText,
       pitch: cards.pitch,
       pitchText: cards.pitchText,
       health: cards.health,
@@ -1373,7 +1375,7 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.powerNot && filters.powerNot.length > 0) {
-      conditions.push(sql`${cards.power} IS NULL OR NOT ${cards.power} = ANY(${filters.powerNot})`);
+      conditions.push(or(isNull(cards.power), notInArray(cards.power, filters.powerNot))!);
     }
 
     if (filters.cost !== undefined) {
@@ -1399,7 +1401,7 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.costNot && filters.costNot.length > 0) {
-      conditions.push(sql`${cards.cost} IS NULL OR NOT ${cards.cost} = ANY(${filters.costNot})`);
+      conditions.push(or(isNull(cards.cost), notInArray(cards.cost, filters.costNot))!);
     }
 
     if (filters.defense !== undefined) {
@@ -1421,7 +1423,29 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.defenseNot && filters.defenseNot.length > 0) {
-      conditions.push(sql`${cards.defense} IS NULL OR NOT ${cards.defense} = ANY(${filters.defenseNot})`);
+      conditions.push(or(isNull(cards.defense), notInArray(cards.defense, filters.defenseNot))!);
+    }
+
+    if (filters.arcane !== undefined) {
+      if (Array.isArray(filters.arcane)) {
+        conditions.push(inArray(cards.arcane, filters.arcane));
+      } else if (filters.arcane === null) {
+        conditions.push(sql`${cards.arcane} IS NULL`);
+      } else {
+        conditions.push(eq(cards.arcane, filters.arcane));
+      }
+    }
+
+    if (filters.arcaneMin !== undefined) {
+      conditions.push(gte(cards.arcane, filters.arcaneMin));
+    }
+
+    if (filters.arcaneMax !== undefined) {
+      conditions.push(lte(cards.arcane, filters.arcaneMax));
+    }
+
+    if (filters.arcaneNot && filters.arcaneNot.length > 0) {
+      conditions.push(or(isNull(cards.arcane), notInArray(cards.arcane, filters.arcaneNot))!);
     }
 
     if (filters.pitch !== undefined) {
@@ -1940,12 +1964,14 @@ export class PostgresPrintingsService implements IPrintingsService {
       power: row.power ?? null,
       cost: row.cost ?? null,
       defense: row.defense ?? null,
+      arcane: row.arcane ?? null,
       pitch: row.pitch ?? null,
       health: row.health ?? null,
       intelligence: row.intelligence ?? null,
       power_text: row.powerText || '',
       cost_text: row.costText || '',
       defense_text: row.defenseText || '',
+      arcane_text: row.arcaneText || '',
       pitch_text: row.pitchText || '',
       collector_number: row.collectorNumber || '',
       set: row.set,

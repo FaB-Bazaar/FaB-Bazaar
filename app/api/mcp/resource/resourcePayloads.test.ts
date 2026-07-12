@@ -69,6 +69,8 @@ describe('searchable://card/fields payload', () => {
     expect(text).toContain('heroClasses');
     // Core API reference sections survive
     expect(data.filter_reference?.stat_filters).toBeTruthy();
+    // Arcane damage stat is documented ("what deals 3+ arcane damage")
+    expect(data.filter_reference.stat_filters.arcane).toContain('arcaneMin');
     expect(text).toContain('searchAllVersions');
     // Negation convention
     expect(text).toContain('raritiesNot');

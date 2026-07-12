@@ -85,6 +85,7 @@ export const searchCapabilitiesResource = {
         power: 'Exact match: power: 6  |  Range: powerMin: 4, powerMax: 8  |  Exclude: powerNot: [0, 1]',
         cost: 'Exact match: cost: 0  |  Multiple: costs: [0,1,2]  |  Range: costMin/costMax  |  Exclude: costNot: [5,6]',
         defense: 'Exact match: defense: 3  |  Range: defenseMin/defenseMax  |  Exclude: defenseNot: [0]',
+        arcane: 'Arcane damage dealt when played. Exact: arcane: 3  |  Range: arcaneMin/arcaneMax ("deals 3+ arcane damage" → arcaneMin: 3)  |  Exclude: arcaneNot: [1]. NULL for cards with no (or variable "X") arcane damage — never matched by ranges.',
         pitch: 'pitch: 1 (red)  |  pitch: 2 (yellow)  |  pitch: 3 (blue)'
       },
       talent_filters: {

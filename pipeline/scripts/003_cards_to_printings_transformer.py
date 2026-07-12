@@ -449,6 +449,11 @@ class CardsToPrintingsTransformer:
             'pitch': self.parse_numeric_value(card.get('pitch')),
             'health': self.parse_numeric_value(card.get('health')),
             'intelligence': self.parse_numeric_value(card.get('intelligence')),
+            # Arcane damage dealt when played. 'X' parses to None so range
+            # filters (arcaneMin) never match variable amounts; raw token kept
+            # in arcane_text like power/power_text.
+            'arcane': self.parse_numeric_value(card.get('arcane')),
+            'arcane_text': str(card.get('arcane', '')),
             'power_text': str(card.get('power', '')),
             'cost_text': str(card.get('cost', '')),
             'defense_text': str(card.get('defense', '')),

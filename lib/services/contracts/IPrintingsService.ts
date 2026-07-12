@@ -44,6 +44,8 @@ export interface PrintingDTO {
   power?: number | null;
   cost?: number | null;
   defense?: number | null;
+  /** Arcane damage dealt when played (null = none or variable "X"). */
+  arcane?: number | null;
   pitch?: number | null;
   health?: number | null;
   intelligence?: number | null;
@@ -52,6 +54,7 @@ export interface PrintingDTO {
   power_text: string;
   cost_text: string;
   defense_text: string;
+  arcane_text?: string;
   pitch_text: string;
 
   // Printing-specific
@@ -263,6 +266,11 @@ export interface PrintingsSearchFilters {
   defenseMin?: number;
   defenseMax?: number;
   defenseNot?: number[];
+  /** Arcane damage dealt when played (NULL = none; "X" amounts are NULL). */
+  arcane?: number | number[] | null;
+  arcaneMin?: number;
+  arcaneMax?: number;
+  arcaneNot?: number[];
   pitch?: number | number[] | null;
 
   // Printing attributes

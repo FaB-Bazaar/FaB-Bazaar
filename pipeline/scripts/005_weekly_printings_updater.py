@@ -55,6 +55,7 @@ CARD_FIELDS: List[str] = [
     'types', 'traits', 'keywords', 'keywords_display', 'abilities', 'classes', 'talents', 'essences',
     # Game stats
     'power', 'power_text', 'cost', 'cost_text', 'defense', 'defense_text',
+    'arcane', 'arcane_text',
     'pitch', 'pitch_text', 'health', 'intelligence', 'color', 'played_horizontally',
     # Type flags
     'is_action', 'is_attack', 'is_defense_reaction', 'is_instant',
