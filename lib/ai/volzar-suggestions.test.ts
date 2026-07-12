@@ -222,3 +222,39 @@ describe('buildSuggestedPrompts — localization', () => {
     expect(prompts[0].text).toBe('What are the top decks in the meta right now?');
   });
 });
+
+describe('languageForCountry — extended set', () => {
+  it('maps the nordic, east-asian, and lusophone countries', () => {
+    expect(languageForCountry('DK')).toBe('da');
+    expect(languageForCountry('SE')).toBe('sv');
+    expect(languageForCountry('KR')).toBe('ko');
+    expect(languageForCountry('CN')).toBe('zh');
+    expect(languageForCountry('BR')).toBe('pt');
+    expect(languageForCountry('PT')).toBe('pt');
+    expect(languageForCountry('MX')).toBe('es'); // from the first pass
+  });
+});
+
+describe('buildSuggestedPrompts — extended languages render', () => {
+  const state = {
+    collectionCards: 100,
+    deckCount: 3,
+    wantsCount: 5,
+    recentGames: [{ hero: 'Bravo', deckName: 'Guardian', result: 'win' as const }],
+  };
+
+  it.each([
+    ['da', 'metaen'],
+    ['sv', 'metan'],
+    ['ko', '메타'],
+    ['zh', '牌组'],
+    ['pt', 'decks do meta'],
+  ] as const)('renders %s prompts', (lang, marker) => {
+    const prompts = buildSuggestedPrompts(state, lang as any);
+    expect(prompts).toHaveLength(4);
+    expect(prompts[0].text.toLowerCase()).toContain(marker.toLowerCase());
+    // Interpolated record survives translation
+    expect(prompts[2].text).toContain('Bravo');
+    expect(prompts[2].text).not.toMatch(/I went/);
+  });
+});

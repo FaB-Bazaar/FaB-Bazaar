@@ -26,11 +26,14 @@ export interface VolzarUserState {
 const COVERAGE_MIN_CARDS = 20;
 const RECENT_GAMES_LOOKBACK = 20;
 
-export type SuggestionLanguage = 'en' | 'fr' | 'de' | 'it' | 'es' | 'ja';
+export type SuggestionLanguage = 'en' | 'fr' | 'de' | 'it' | 'es' | 'ja' | 'da' | 'sv' | 'ko' | 'zh' | 'pt';
 
-// Card-platform languages by home country (mirrors search_printings'
-// options.language support). Multilingual countries (CH, BE, CA) stay
-// English — guessing wrong there is worse than defaulting.
+// Prompt language by home country. The fr/de/it/es/ja set mirrors
+// search_printings' card languages; da/sv/ko/zh/pt are chat-only (the model
+// speaks them; card searches still resolve via English names). Multilingual
+// countries (CH, BE, CA) stay English — guessing wrong there is worse than
+// defaulting. CN → simplified Chinese; TW/HK (traditional) stay English until
+// someone asks for zh-Hant.
 const COUNTRY_LANGUAGE: Record<string, SuggestionLanguage> = {
   FR: 'fr',
   DE: 'de', AT: 'de',
@@ -39,6 +42,11 @@ const COUNTRY_LANGUAGE: Record<string, SuggestionLanguage> = {
   EC: 'es', VE: 'es', GT: 'es', CR: 'es', PA: 'es', DO: 'es', BO: 'es',
   PY: 'es', HN: 'es', NI: 'es', SV: 'es',
   JP: 'ja',
+  DK: 'da',
+  SE: 'sv',
+  KR: 'ko',
+  CN: 'zh',
+  BR: 'pt', PT: 'pt',
 };
 
 /** users.country_code → suggested-prompt language ('en' when unknown). */
@@ -121,6 +129,56 @@ const PROMPT_TEXTS: Record<SuggestionLanguage, PromptTexts> = {
     banned: 'Classic Constructedで禁止・制限されているカードは？',
     whoHas: '私のウォンツリストのカードをトレードに出している人は？',
     search: 'アーケインバリアを持つニンジャの防具を探して',
+  },
+  da: {
+    meta: 'Hvad er de bedste decks i metaen lige nu?',
+    coverage: 'Hvilke Decks to Beat kunne jeg bygge mest ud fra min samling?',
+    newbie: 'Jeg er ny til Flesh and Blood — hvilken billig helt er god at starte med?',
+    record: (w, l, label) => `Jeg gik ${w}-${l} med ${label} i mine seneste kampe — hvad bør jeg justere?`,
+    upgrade: 'Kig på mine decks og foreslå, hvilket jeg skal opgradere først',
+    banned: 'Hvilke kort er bannede eller begrænsede i Classic Constructed?',
+    whoHas: 'Hvem har kort fra min ønskeliste til bytte?',
+    search: 'Find alle Ninja-rustninger med arcane barrier',
+  },
+  sv: {
+    meta: 'Vilka är de bästa deckarna i metan just nu?',
+    coverage: 'Vilka Decks to Beat skulle jag kunna bygga mestadels från min samling?',
+    newbie: 'Jag är ny på Flesh and Blood — vilken budgethjälte är bra att börja med?',
+    record: (w, l, label) => `Jag gick ${w}-${l} med ${label} i mina senaste matcher — vad borde jag justera?`,
+    upgrade: 'Titta på mina decks och föreslå vilket jag ska uppgradera först',
+    banned: 'Vilka kort är bannade eller begränsade i Classic Constructed?',
+    whoHas: 'Vem har kort från min önskelista tillgängliga för byte?',
+    search: 'Hitta alla Ninja-rustningar med arcane barrier',
+  },
+  ko: {
+    meta: '지금 메타에서 가장 강한 덱은 뭐야?',
+    coverage: '내 컬렉션으로 거의 만들 수 있는 Decks to Beat은 어떤 거야?',
+    newbie: 'Flesh and Blood 입문자인데 — 저예산으로 시작하기 좋은 영웅은?',
+    record: (w, l, label) => `최근 경기에서 ${label} 사용, ${w}승 ${l}패였어 — 뭘 조정해야 할까?`,
+    upgrade: '내 덱들을 보고 어떤 덱부터 업그레이드할지 추천해 줘',
+    banned: 'Classic Constructed에서 금지되거나 제한된 카드는?',
+    whoHas: '내 원츠 리스트 카드를 트레이드로 내놓은 사람 있어?',
+    search: 'arcane barrier가 있는 Ninja 방어구를 모두 찾아 줘',
+  },
+  zh: {
+    meta: '现在环境里最强的牌组有哪些？',
+    coverage: '哪些 Decks to Beat 我可以主要用自己的收藏组出来？',
+    newbie: '我是 Flesh and Blood 新手 — 有什么适合入门的平价英雄？',
+    record: (w, l, label) => `最近的对局里我用 ${label} 打出了 ${w} 胜 ${l} 负 — 我该调整什么？`,
+    upgrade: '看看我的牌组，建议先升级哪一副',
+    banned: 'Classic Constructed 里有哪些牌被禁用或限制？',
+    whoHas: '谁有我愿望清单里的牌可以交换？',
+    search: '找出所有带 arcane barrier 的 Ninja 护甲',
+  },
+  pt: {
+    meta: 'Quais são os melhores decks do meta agora?',
+    coverage: 'Quais Decks to Beat eu poderia montar principalmente com a minha coleção?',
+    newbie: 'Sou novo em Flesh and Blood — qual herói barato é bom para começar?',
+    record: (w, l, label) => `Fiz ${w}-${l} com ${label} nas minhas últimas partidas — o que devo ajustar?`,
+    upgrade: 'Olhe meus decks e sugira qual melhorar primeiro',
+    banned: 'Quais cartas estão banidas ou restritas no Classic Constructed?',
+    whoHas: 'Quem tem cartas da minha lista de desejos disponíveis para troca?',
+    search: 'Encontre todas as armaduras Ninja com arcane barrier',
   },
 };
 
