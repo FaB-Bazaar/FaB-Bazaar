@@ -34,7 +34,21 @@ export function deckColorBreakdown(cards: PitchCard[]): DeckColorBreakdown {
 
 // ── Cross-deck archetype consensus ─────────────────────────────────────────
 
-export interface ConsensusCard {
+/**
+ * Card-intrinsic attributes carried through the consensus so the AI context can
+ * self-describe every core+flex card (type/cost/power/defense/rules text). They
+ * are identical across every deck that runs the card, so the first occurrence
+ * populates them (same first-seen rule as `printingId`).
+ */
+export interface ConsensusCardAttrs {
+  typeText?: string;
+  cost?: number;
+  power?: number;
+  defense?: number;
+  text?: string;
+}
+
+export interface ConsensusCard extends ConsensusCardAttrs {
   name: string;
   pitch?: number;
   /** How many decks in the set run this card. */
@@ -47,7 +61,7 @@ export interface ConsensusCard {
 
 export interface ConsensusDeck {
   name: string;
-  cards: Array<{ name: string; pitch?: number; quantity?: number; cardUniqueId?: string; printingId?: string }>;
+  cards: Array<{ name: string; pitch?: number; quantity?: number; cardUniqueId?: string; printingId?: string } & ConsensusCardAttrs>;
 }
 
 export interface ArchetypeConsensus {
@@ -120,23 +134,38 @@ export function computeArchetypeConsensus(decks: ConsensusDeck[]): ArchetypeCons
     return { deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } };
   }
 
-  // key → { name, pitch, representative printingId, quantities: one per deck }
-  const agg = new Map<string, { name: string; pitch?: number; printingId?: string; quantities: number[] }>();
+  // key → { name, pitch, representative printingId, card attrs, quantities: one per deck }
+  type AggEntry = { name: string; pitch?: number; printingId?: string; quantities: number[] } & ConsensusCardAttrs;
+  const agg = new Map<string, AggEntry>();
   const curve = { red: 0, yellow: 0, blue: 0 };
+
+  // First-seen wins for each card-intrinsic attribute (identical across decks).
+  const fillAttrs = (e: AggEntry, src: ConsensusCardAttrs) => {
+    if (e.typeText === undefined) e.typeText = src.typeText;
+    if (e.cost === undefined) e.cost = src.cost;
+    if (e.power === undefined) e.power = src.power;
+    if (e.defense === undefined) e.defense = src.defense;
+    if (e.text === undefined) e.text = src.text;
+  };
 
   for (const deck of decks) {
     // Collapse duplicate rows within a deck (same card listed twice) into one qty.
-    const perDeck = new Map<string, { name: string; pitch?: number; printingId?: string; qty: number }>();
+    const perDeck = new Map<string, { name: string; pitch?: number; printingId?: string; qty: number } & ConsensusCardAttrs>();
     for (const c of deck.cards ?? []) {
       const key = c.cardUniqueId || `${c.name.toLowerCase()}|${c.pitch ?? 0}`;
       const qty = c.quantity ?? 1;
       const cur = perDeck.get(key);
       if (cur) cur.qty += qty;
-      else perDeck.set(key, { name: c.name, pitch: c.pitch, printingId: c.printingId, qty });
+      else perDeck.set(key, {
+        name: c.name, pitch: c.pitch, printingId: c.printingId, qty,
+        typeText: c.typeText, cost: c.cost, power: c.power, defense: c.defense, text: c.text,
+      });
     }
-    for (const [key, { name, pitch, printingId, qty }] of perDeck) {
+    for (const [key, entry] of perDeck) {
+      const { name, pitch, printingId, qty } = entry;
       const e = agg.get(key) ?? { name, pitch, printingId, quantities: [] };
       if (!e.printingId && printingId) e.printingId = printingId;
+      fillAttrs(e, entry);
       e.quantities.push(qty);
       agg.set(key, e);
       if (pitch === 1) curve.red += qty;
@@ -147,8 +176,11 @@ export function computeArchetypeConsensus(decks: ConsensusDeck[]): ArchetypeCons
 
   const core: ConsensusCard[] = [];
   const flex: ConsensusCard[] = [];
-  for (const { name, pitch, printingId, quantities } of agg.values()) {
-    const card: ConsensusCard = { name, pitch, printingId, decks: quantities.length, typicalQty: mode(quantities) };
+  for (const { name, pitch, printingId, quantities, typeText, cost, power, defense, text } of agg.values()) {
+    const card: ConsensusCard = {
+      name, pitch, printingId, decks: quantities.length, typicalQty: mode(quantities),
+      typeText, cost, power, defense, text,
+    };
     (quantities.length === deckCount ? core : flex).push(card);
   }
 

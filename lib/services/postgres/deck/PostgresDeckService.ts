@@ -1340,6 +1340,13 @@ export class PostgresDeckService implements IDeckService {
           quantity: c.quantity ?? 1,
           cardUniqueId: c.printingDetails?.card_unique_id,
           printingId: c.printingId,
+          // Card-intrinsic attrs → the AI consensus context self-describes each
+          // card (type/cost/power/defense/text) so follow-ups don't hallucinate.
+          typeText: c.printingDetails?.type_text_display,
+          cost: c.printingDetails?.cost,
+          power: c.printingDetails?.power,
+          defense: c.printingDetails?.defense,
+          text: c.printingDetails?.text,
         }));
         consensusDecks.push({ name: s.name, cards });
         includedDecks.push({

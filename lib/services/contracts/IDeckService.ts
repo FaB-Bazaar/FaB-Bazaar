@@ -343,11 +343,27 @@ export interface PublicDeckFilters {
  * Deterministic cross-deck archetype consensus (no AI): what a set of decks
  * (e.g. every Decks-to-Beat build of one hero in a window) agree on.
  */
+// Card-intrinsic attributes ride each consensus card so the AI context can
+// self-describe it (type/cost/power/defense/rules text) — the model only sees
+// that context, and without these it invents card roles on follow-ups.
+export interface ConsensusResultCard {
+  name: string;
+  pitch?: number;
+  decks: number;
+  typicalQty: number;
+  printingId?: string;
+  typeText?: string;
+  cost?: number;
+  power?: number;
+  defense?: number;
+  text?: string;
+}
+
 export interface ArchetypeConsensusResult {
   consensus: {
     deckCount: number;
-    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
-    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
+    core: ConsensusResultCard[];
+    flex: ConsensusResultCard[];
     colorCurve: { red: number; yellow: number; blue: number };
   };
   decks: Array<{ publicId: string; name: string; placing?: number | null; eventName?: string | null; eventDate?: string | null }>;

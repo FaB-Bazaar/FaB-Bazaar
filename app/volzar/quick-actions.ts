@@ -913,6 +913,25 @@ export function parseSearchResults(structured: any, maxRows = 20): SearchResults
   return { tableRows, total: first.total ?? first.printings.length, shown: tableRows.length };
 }
 
+/**
+ * One consensus card. The card-intrinsic attributes (type/cost/power/defense/
+ * text) ride along so `context` can self-describe every core+flex card — the
+ * model only sees `context`, never the rendered table, and without these it
+ * invents card roles on follow-up questions.
+ */
+export interface ConsensusCardDetail {
+  name: string;
+  pitch?: number;
+  decks: number;
+  typicalQty: number;
+  printingId?: string;
+  typeText?: string;
+  cost?: number;
+  power?: number;
+  defense?: number;
+  text?: string;
+}
+
 /** Shape returned by GET /api/decks/archetype (deterministic, no AI). */
 export interface ArchetypeConsensusData {
   heroName: string;
@@ -920,8 +939,8 @@ export interface ArchetypeConsensusData {
   months: number;
   consensus: {
     deckCount: number;
-    core: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
-    flex: Array<{ name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }>;
+    core: ConsensusCardDetail[];
+    flex: ConsensusCardDetail[];
     colorCurve: { red: number; yellow: number; blue: number };
   };
   decks: Array<{ publicId: string; name: string; placing?: number | null; eventName?: string | null }>;
@@ -944,7 +963,7 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     };
   }
 
-  const cardLine = (card: { name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }, showRatio: boolean): CardLine => ({
+  const cardLine = (card: ConsensusCardDetail, showRatio: boolean): CardLine => ({
     text: `${card.typicalQty}× ${card.name}${showRatio ? ` — ${card.decks}/${c.deckCount} decks` : ''}`,
     pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
     // Rail hover preview from the representative printing (like the wants/deck lists).
@@ -967,7 +986,7 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
 
   // The same striped card table deck drills / kits render — Core and Flex as
   // sections, with the adoption ratio riding the tail "Decks" column on flex.
-  const toRow = (card: { name: string; pitch?: number; decks: number; typicalQty: number; printingId?: string }, note?: string): CardRow => ({
+  const toRow = (card: ConsensusCardDetail, note?: string): CardRow => ({
     qty: card.typicalQty,
     name: card.name,
     pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
@@ -996,7 +1015,25 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     });
   }
 
-  const flexSummary = c.flex.slice(0, 8).map((f) => `${f.name} ${f.decks}/${c.deckCount}`).join(', ');
+  // The model only ever sees `context`, never the rendered table. Each card
+  // self-describes — pitch, cost, power/defense, printed type line, and rules
+  // text — so follow-up questions ("why run X", "what's the game plan") answer
+  // from DATA instead of the model's memory (it once bucketed Sink Below, a
+  // defense reaction, under attacks). NO flex truncation: the divergence
+  // between builds is the whole point, and a dropped flex card is the exact
+  // gap that made follow-ups hallucinate.
+  const contextLine = (card: ConsensusCardDetail, ratio: boolean): string => {
+    const attrs = [
+      card.pitch && card.pitch > 0 ? `p${card.pitch}` : null,
+      typeof card.cost === 'number' ? `cost ${card.cost}` : null,
+      typeof card.power === 'number' ? `${card.power}p` : null,
+      typeof card.defense === 'number' ? `${card.defense}d` : null,
+      card.typeText || null,
+    ].filter(Boolean);
+    const ability = card.text ? ` — text: "${card.text}"` : '';
+    const adoption = ratio ? ` [${card.decks}/${c.deckCount} decks]` : '';
+    return `${card.typicalQty}x ${card.name}${attrs.length ? ` (${attrs.join(', ')})` : ''}${adoption}${ability}`;
+  };
   const viewCards: DeckViewCard[] = [...c.core, ...c.flex].map((card) => ({
     printingId: card.printingId,
     name: card.name,
@@ -1008,8 +1045,8 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     title,
     lines,
     context: `Deterministic consensus across ${c.deckCount} featured ${heroName} decks (last ${months} mo). `
-      + `Core (all decks): ${c.core.map((x) => `${x.typicalQty}× ${x.name}`).join(', ')}. `
-      + `Flex (varies): ${flexSummary}. `
+      + `Core (in all ${c.deckCount} decks): ${c.core.map((x) => contextLine(x, false)).join('; ')}. `
+      + `Flex (varies by build): ${c.flex.map((x) => contextLine(x, true)).join('; ')}. `
       + `Avg color curve: ${c.colorCurve.red}R/${c.colorCurve.yellow}Y/${c.colorCurve.blue}B.`,
     ...(viewCards.length
       ? { cards: viewCards, cardsSubtitle: `Every card across these ${c.deckCount} decks — ${c.core.length} core + ${c.flex.length} flex` }

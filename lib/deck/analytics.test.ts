@@ -73,6 +73,26 @@ describe('computeArchetypeConsensus', () => {
     const r = computeArchetypeConsensus([]);
     expect(r).toEqual({ deckCount: 0, core: [], flex: [], colorCurve: { red: 0, yellow: 0, blue: 0 } });
   });
+
+  it('carries card-intrinsic attributes (type/cost/power/defense/text) onto consensus cards', () => {
+    // The AI context self-describes each card from these; they're identical
+    // across decks (card-intrinsic), so the first occurrence populates them.
+    const rich = {
+      name: 'Disable', pitch: 3, quantity: 3, cardUniqueId: 'u_dis', printingId: 'pid_Disable',
+      typeText: 'Generic Action', cost: 0, power: undefined, defense: 3,
+      text: 'Your opponent cannot play instants during their next action phase.',
+    };
+    const bare = { name: 'Disable', pitch: 3, quantity: 3, cardUniqueId: 'u_dis', printingId: 'pid_Disable' };
+    const r = computeArchetypeConsensus([
+      { name: 'Deck A', cards: [rich] },
+      { name: 'Deck B', cards: [bare] },
+    ]);
+    const disable = r.core.find((x) => x.name === 'Disable');
+    expect(disable).toMatchObject({
+      typeText: 'Generic Action', cost: 0, defense: 3,
+      text: 'Your opponent cannot play instants during their next action phase.',
+    });
+  });
 });
 
 describe('groupDeckViewByPitch', () => {

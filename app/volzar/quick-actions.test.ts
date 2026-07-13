@@ -703,6 +703,57 @@ describe('summarizeArchetypeConsensus', () => {
     // The note column gets a real header in the shared table.
     expect(r.tableNoteHeader).toBe('Decks');
   });
+
+  // The model only ever sees `context`, not the rendered table. Follow-up
+  // questions ("why run X", "what's the game plan") hallucinated because the
+  // context was just qty + name. It must self-describe every core AND flex
+  // card — type, cost, power/defense, and rules text — like the deck-chip
+  // context does, or the cheap pinned model invents card roles.
+  const richData = {
+    heroName: 'victor goldmane, high and mighty',
+    format: 'cc',
+    months: 3,
+    consensus: {
+      deckCount: 10,
+      core: [
+        {
+          name: 'Cranial Crush', pitch: 3, decks: 10, typicalQty: 3, printingId: 'pid_cc',
+          cost: 3, power: 11, defense: 3, typeText: 'Guardian Action - Attack',
+          text: 'If Cranial Crush hits, the next attack this turn gains +3.',
+        },
+      ],
+      // Nine flex cards: the 9th must still reach context (no slice(0,8) cap).
+      flex: Array.from({ length: 9 }, (_, i) => ({
+        name: `Flex Card ${i + 1}`, pitch: 1, decks: 9 - i, typicalQty: 3,
+        printingId: `pid_flex_${i + 1}`, cost: i, power: 4, defense: 2,
+        typeText: 'Generic Action - Attack',
+        text: i === 8 ? 'The ninth card unique ability marker.' : 'Filler ability.',
+      })),
+      colorCurve: { red: 30, yellow: 12, blue: 30 },
+    },
+    decks: [],
+  };
+
+  it('context self-describes every core card with type, cost, power/defense and rules text', () => {
+    const ctx = summarizeArchetypeConsensus(richData).context;
+    expect(ctx).toContain('Cranial Crush');
+    expect(ctx).toContain('cost 3');
+    expect(ctx).toContain('p3');
+    // power/defense so the model can classify attacks vs. defense reactions
+    expect(ctx).toMatch(/11\s*power|power\s*11|11p/);
+    expect(ctx).toMatch(/3\s*def|def\s*3|3d/);
+    expect(ctx).toContain('Guardian Action - Attack');
+    expect(ctx).toContain('If Cranial Crush hits');
+  });
+
+  it('context carries full info for flex cards too — including past the 8th (no truncation)', () => {
+    const ctx = summarizeArchetypeConsensus(richData).context;
+    // The 9th flex card and its rules text must survive.
+    expect(ctx).toContain('Flex Card 9');
+    expect(ctx).toContain('The ninth card unique ability marker.');
+    // adoption ratio still present for flex
+    expect(ctx).toContain('9/10');
+  });
 });
 
 describe('buildMessageWithContext', () => {
