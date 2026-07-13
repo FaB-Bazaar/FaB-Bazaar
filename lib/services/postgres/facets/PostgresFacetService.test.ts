@@ -48,6 +48,35 @@ describe('PostgresFacetService — definitions', () => {
     expect(res.success).toBe(false);
   });
 
+  it('updates a tag label without touching the slug id or its assignments', async () => {
+    await service.createTagDefinition({ id: TAG_A, dim: 'strategic', label: 'lowercase-oops', def: 'd' });
+    const res = await service.updateTagDefinition(TAG_A, { label: 'Fatigue' });
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data.id).toBe(TAG_A); // slug unchanged
+    expect(res.data.label).toBe('Fatigue');
+    const list = await service.listTagDefinitions();
+    expect(list.success && list.data.find((t) => t.id === TAG_A)?.label).toBe('Fatigue');
+  });
+
+  it('leaves omitted fields as-is on update', async () => {
+    await service.createTagDefinition({ id: TAG_A, dim: 'strategic', label: 'Keep', def: 'orig-def' });
+    const res = await service.updateTagDefinition(TAG_A, { label: 'Changed' });
+    expect(res.success && res.data.def).toBe('orig-def');
+    expect(res.success && res.data.dim).toBe('strategic');
+  });
+
+  it('rejects updating a nonexistent tag', async () => {
+    const res = await service.updateTagDefinition('zzz-no-such-tag', { label: 'X' });
+    expect(res.success).toBe(false);
+  });
+
+  it('rejects a blank label on update', async () => {
+    await service.createTagDefinition({ id: TAG_A, dim: 'strategic', label: 'Keep' });
+    const res = await service.updateTagDefinition(TAG_A, { label: '   ' });
+    expect(res.success).toBe(false);
+  });
+
   it('reports usage counts with a count field per tag', async () => {
     const res = await service.getTagUsageCounts();
     expect(res.success).toBe(true);

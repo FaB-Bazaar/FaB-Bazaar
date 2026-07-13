@@ -438,6 +438,13 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
   }, [card.card_unique_id])
   useEffect(() => { load() }, [load])
 
+  // Close on Escape (in addition to backdrop click + the X button).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   const toggle = async (tag: string) => {
     if (!isSignedIn) return // buttons are disabled; belt-and-suspenders
     const cur = byTag[tag] ?? { tag, votes: 0, votedByMe: false }

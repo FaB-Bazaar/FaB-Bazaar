@@ -13,6 +13,7 @@ import type {
   FacetTagDefinitionDTO,
   FacetTagDefinitionWithCount,
   CreateFacetTagInput,
+  UpdateFacetTagInput,
   CardCommunityTag,
   CardFacetSummaryTag,
   FacetSuggestionDTO,
@@ -105,6 +106,37 @@ export class PostgresFacetService implements IFacetService {
       return { success: true, data: toDTO(row) };
     } catch (error) {
       return fail(error, 'Failed to create facet tag');
+    }
+  }
+
+  async updateTagDefinition(id: string, input: UpdateFacetTagInput): AsyncResult<FacetTagDefinitionDTO> {
+    try {
+      if (input.dim !== undefined && !DIMENSIONS.includes(input.dim)) {
+        return { success: false, error: `dim must be one of: ${DIMENSIONS.join(', ')}` };
+      }
+      if (input.label !== undefined && !input.label.trim()) {
+        return { success: false, error: 'label is required' };
+      }
+
+      // Only assign provided fields; the slug id is immutable and never updated.
+      const patch: Partial<typeof facetTagDefinitions.$inferInsert> = {};
+      if (input.dim !== undefined) patch.dim = input.dim;
+      if (input.label !== undefined) patch.label = input.label.trim();
+      if (input.def !== undefined) patch.def = input.def.trim();
+      if (input.draft !== undefined) patch.draft = input.draft;
+      if (Object.keys(patch).length === 0) {
+        return { success: false, error: 'No fields to update' };
+      }
+
+      const [row] = await db
+        .update(facetTagDefinitions)
+        .set(patch)
+        .where(eq(facetTagDefinitions.id, id))
+        .returning();
+      if (!row) return { success: false, error: `Tag "${id}" not found` };
+      return { success: true, data: toDTO(row) };
+    } catch (error) {
+      return fail(error, 'Failed to update facet tag');
     }
   }
 

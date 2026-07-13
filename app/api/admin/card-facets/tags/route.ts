@@ -38,6 +38,31 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ success: true, data: result.data });
 }
 
+// PATCH /api/admin/card-facets/tags — edit an existing tag definition (label/def/dim/draft).
+// The slug id is immutable; assignments keyed off it are untouched.
+export async function PATCH(request: NextRequest) {
+  const body = await request.json().catch(() => ({}));
+  const gate = await requireFacetManager(request, body);
+  if (!gate.ok) return gate.response;
+
+  const { id, dim, label, def, draft } = body as Record<string, unknown>;
+  if (typeof id !== 'string' || !id.trim()) {
+    return NextResponse.json({ error: 'id is required' }, { status: 400 });
+  }
+
+  const result = await facetService.updateTagDefinition(id, {
+    dim: typeof dim === 'string' ? (dim as any) : undefined,
+    label: typeof label === 'string' ? label : undefined,
+    def: typeof def === 'string' ? def : undefined,
+    draft: typeof draft === 'boolean' ? draft : undefined,
+  });
+  if (!result.success) {
+    const status = /not found/i.test(result.error) ? 404 : 400;
+    return NextResponse.json({ error: result.error }, { status });
+  }
+  return NextResponse.json({ success: true, data: result.data });
+}
+
 // DELETE /api/admin/card-facets/tags?id=... — delete a tag definition (only if unassigned)
 export async function DELETE(request: NextRequest) {
   const gate = await requireFacetManager(request);

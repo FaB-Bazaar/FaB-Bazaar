@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { Trash2, Plus, X, Loader2 } from 'lucide-react'
+import { Trash2, Plus, X, Loader2, Pencil, Check } from 'lucide-react'
 import { useCardSearch } from '@/hooks/search/useCardSearch'
 import { useToast } from '@/hooks/use-toast'
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService'
@@ -78,6 +78,9 @@ export function CardFacetsClient() {
     }
   }
 
+  // ── edit tag (label/def) ──
+  const [editingId, setEditingId] = useState<string | null>(null)
+
   // ── per-card editor ──
   const [editCard, setEditCard] = useState<any | null>(null)
 
@@ -108,27 +111,41 @@ export function CardFacetsClient() {
                 <ul className="space-y-1">
                   {group.map((d) => (
                     <li key={d.id} className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleFilter(d.id)}
-                        title={d.def}
-                        className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-sm border focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
-                          selected.has(d.id)
-                            ? 'bg-blue-100 text-blue-800 border-blue-500 dark:bg-blue-900/60 dark:text-blue-200'
-                            : 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
-                        }`}
-                      >
-                        {selected.has(d.id) ? '✓ ' : ''}{d.label}
-                        <span className="ml-1 text-xs text-gray-600 dark:text-gray-400">({d.cardCount})</span>
-                      </button>
-                      <button
-                        onClick={() => deleteTag(d.id)}
-                        disabled={d.cardCount > 0}
-                        title={d.cardCount > 0 ? 'Unassign from all cards before deleting' : `Delete ${d.label}`}
-                        aria-label={`Delete ${d.label}`}
-                        className="p-1.5 rounded-md text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {editingId === d.id ? (
+                        <EditTagForm def={d} onDone={() => setEditingId(null)} onSaved={loadDefs} toast={toast} />
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => toggleFilter(d.id)}
+                            title={d.def}
+                            className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-sm border focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                              selected.has(d.id)
+                                ? 'bg-blue-100 text-blue-800 border-blue-500 dark:bg-blue-900/60 dark:text-blue-200'
+                                : 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                            }`}
+                          >
+                            {selected.has(d.id) ? '✓ ' : ''}{d.label}
+                            <span className="ml-1 text-xs text-gray-600 dark:text-gray-400">({d.cardCount})</span>
+                          </button>
+                          <button
+                            onClick={() => setEditingId(d.id)}
+                            title={`Edit ${d.label}`}
+                            aria-label={`Edit ${d.label}`}
+                            className="p-1.5 rounded-md text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteTag(d.id)}
+                            disabled={d.cardCount > 0}
+                            title={d.cardCount > 0 ? 'Unassign from all cards before deleting' : `Delete ${d.label}`}
+                            aria-label={`Delete ${d.label}`}
+                            className="p-1.5 rounded-md text-gray-600 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -275,6 +292,54 @@ function SuggestionsPanel({ onApproved, toast }: { onApproved: () => void; toast
 }
 
 // ── New tag form ──────────────────────────────────────────────────────────
+// Inline label/def editor for an existing tag. The slug id is immutable, so it
+// is shown read-only — only the display label and definition are editable.
+function EditTagForm({ def, onDone, onSaved, toast }: { def: TagDef; onDone: () => void; onSaved: () => void; toast: ReturnType<typeof useToast>['toast'] }) {
+  const [label, setLabel] = useState(def.label)
+  const [description, setDescription] = useState(def.def)
+  const [busy, setBusy] = useState(false)
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!label.trim()) return
+    setBusy(true)
+    const res = await fetch('/api/admin/card-facets/tags', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: def.id, label: label.trim(), def: description.trim() }),
+    })
+    const json = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (res.ok && json.success) {
+      toast({ title: 'Tag updated', description: label.trim() })
+      onSaved(); onDone()
+    } else {
+      toast({ title: 'Could not update tag', description: json.error ?? `HTTP ${res.status}`, variant: 'destructive' })
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="flex-1 space-y-1.5 p-2 rounded-md border border-blue-400 dark:border-blue-500 bg-white dark:bg-gray-800">
+      <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="label" required autoFocus
+        onKeyDown={(e) => { if (e.key === 'Escape') onDone() }}
+        className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none" />
+      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="definition (optional)"
+        onKeyDown={(e) => { if (e.key === 'Escape') onDone() }}
+        className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none" />
+      <div className="flex items-center gap-1">
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 font-mono flex-1 truncate" title={`slug: ${def.id} (immutable)`}>{def.id}</span>
+        <button type="submit" disabled={busy || !label.trim()} aria-label="Save"
+          className="p-1.5 rounded-md text-green-600 hover:text-green-700 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none">
+          <Check className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={onDone} aria-label="Cancel"
+          className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function NewTagForm({ defs, onCreated, toast }: { defs: TagDef[]; onCreated: () => void; toast: ReturnType<typeof useToast>['toast'] }) {
   const [open, setOpen] = useState(false)
   const [id, setId] = useState('')

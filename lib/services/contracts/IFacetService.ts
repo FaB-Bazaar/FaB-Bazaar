@@ -24,6 +24,18 @@ export interface CreateFacetTagInput {
   draft?: boolean;
 }
 
+/**
+ * Fields editable on an existing tag definition. The slug `id` is immutable —
+ * it is the PK referenced by assignments, votes and the audit trail — so it is
+ * addressed separately and never appears here. Omitted fields are left as-is.
+ */
+export interface UpdateFacetTagInput {
+  dim?: FacetDimension;
+  label?: string;
+  def?: string;
+  draft?: boolean;
+}
+
 /** A community-voted facet tag on a card, with its confidence count. */
 export interface CardCommunityTag {
   tag: string;
@@ -101,6 +113,13 @@ export interface IFacetService {
 
   /** Create a new tag definition. */
   createTagDefinition(input: CreateFacetTagInput): AsyncResult<FacetTagDefinitionDTO>;
+
+  /**
+   * Edit an existing tag definition's display fields (label/def/dim/draft). The
+   * slug `id` is immutable; assignments keyed off it are untouched. Fails if no
+   * tag with that id exists.
+   */
+  updateTagDefinition(id: string, input: UpdateFacetTagInput): AsyncResult<FacetTagDefinitionDTO>;
 
   /** Delete a tag definition — fails if it is assigned to any card. */
   deleteTagDefinition(id: string): AsyncResult<{ deleted: true }>;
