@@ -1,6 +1,6 @@
 /**
  * Unit tests for the shared filter-facet descriptor builder used by /opt and
- * /card-facets. Asserts descriptor keys/counts only — popover bodies are JSX
+ * /tags. Asserts descriptor keys/counts only — popover bodies are JSX
  * rendered by the consuming pages (covered by their e2e specs).
  */
 import { describe, it, expect, vi } from 'vitest';

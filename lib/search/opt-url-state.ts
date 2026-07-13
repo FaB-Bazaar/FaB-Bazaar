@@ -103,9 +103,10 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
   if (s.selectedEditions.length) p.set('editions', csv(s.selectedEditions));
   if (s.selectedSets.length) p.set('sets', csv(s.selectedSets));
   if (s.selectedPacks.length) p.set('pack', csv(s.selectedPacks.map(String)));
-  if (s.selectedFacets.length) p.set('facets', csv(s.selectedFacets));
-  // match-all only matters with facets selected; keep the URL clean otherwise.
-  if (s.selectedFacets.length && s.facetsMatchAll) p.set('facetsAll', '1');
+  // URL param is 'tags' (user-facing term). State key stays selectedFacets.
+  if (s.selectedFacets.length) p.set('tags', csv(s.selectedFacets));
+  // match-all only matters with tags selected; keep the URL clean otherwise.
+  if (s.selectedFacets.length && s.facetsMatchAll) p.set('tagsAll', '1');
   if (s.selectedFormat) p.set('format', s.selectedFormat);
   if (s.costMin) p.set('costMin', s.costMin);
   if (s.costMax) p.set('costMax', s.costMax);
@@ -149,8 +150,10 @@ export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   if (p.get('editions')) out.selectedEditions = splitCsv(p.get('editions'));
   if (p.get('sets')) out.selectedSets = splitCsv(p.get('sets'));
   if (p.get('pack')) out.selectedPacks = splitCsv(p.get('pack')).map(Number).filter((n) => !Number.isNaN(n));
-  if (p.get('facets')) out.selectedFacets = splitCsv(p.get('facets'));
-  if (p.get('facetsAll') === '1') out.facetsMatchAll = true;
+  // Read the new 'tags' param, falling back to legacy 'facets' for old links.
+  const tagsParam = p.get('tags') ?? p.get('facets');
+  if (tagsParam) out.selectedFacets = splitCsv(tagsParam);
+  if (p.get('tagsAll') === '1' || p.get('facetsAll') === '1') out.facetsMatchAll = true;
   const format = p.get('format'); if (format) out.selectedFormat = format;
   const setStr = (k: string, key: keyof OptUiState) => { const v = p.get(k); if (v) (out as Record<string, unknown>)[key] = v; };
   setStr('costMin', 'costMin'); setStr('costMax', 'costMax');

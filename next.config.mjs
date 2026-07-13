@@ -7,6 +7,8 @@ const nextConfig = {
     return [
       // Product rename: Fabby Chat → Volzar (keeps old bookmarks working)
       { source: '/fabby-chat', destination: '/volzar', permanent: false },
+      // Page rename: /card-facets → /tags (public browse; API paths unchanged)
+      { source: '/card-facets', destination: '/tags', permanent: false },
     ]
   },
 

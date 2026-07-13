@@ -38,18 +38,31 @@ describe('opt-url-state', () => {
     expect(round).toEqual(s);
   });
 
-  it('serializes and parses facet selections + match-all mode', () => {
+  it('serializes tag selections as tags + match-all mode (not the old facets param)', () => {
     const p = uiStateToParams(state({ selectedFacets: ['tutor', 'evasive'], facetsMatchAll: true }));
-    expect(p.get('facets')).toBe('tutor,evasive');
-    expect(p.get('facetsAll')).toBe('1');
+    expect(p.get('tags')).toBe('tutor,evasive');
+    expect(p.get('tagsAll')).toBe('1');
+    expect(p.has('facets')).toBe(false);
+    expect(p.has('facetsAll')).toBe(false);
+    const parsed = paramsToUiState(new URLSearchParams('tags=tutor,evasive&tagsAll=1'));
+    expect(parsed.selectedFacets).toEqual(['tutor', 'evasive']);
+    expect(parsed.facetsMatchAll).toBe(true);
+  });
+
+  it('still parses legacy facets/facetsAll params (old shared links keep working)', () => {
     const parsed = paramsToUiState(new URLSearchParams('facets=tutor,evasive&facetsAll=1'));
     expect(parsed.selectedFacets).toEqual(['tutor', 'evasive']);
     expect(parsed.facetsMatchAll).toBe(true);
   });
 
-  it('omits facetsAll when ANY (default) and parses default as false', () => {
-    expect(uiStateToParams(state({ selectedFacets: ['tutor'], facetsMatchAll: false })).has('facetsAll')).toBe(false);
-    expect(paramsToUiState(new URLSearchParams('facets=tutor')).facetsMatchAll).toBeUndefined();
+  it('prefers the new tags param over a stale legacy facets param if both are present', () => {
+    const parsed = paramsToUiState(new URLSearchParams('tags=tutor&facets=evasive'));
+    expect(parsed.selectedFacets).toEqual(['tutor']);
+  });
+
+  it('omits tagsAll when ANY (default) and parses default as false', () => {
+    expect(uiStateToParams(state({ selectedFacets: ['tutor'], facetsMatchAll: false })).has('tagsAll')).toBe(false);
+    expect(paramsToUiState(new URLSearchParams('tags=tutor')).facetsMatchAll).toBeUndefined();
   });
 
   it('omits search mode when name (default) and serializes text mode', () => {

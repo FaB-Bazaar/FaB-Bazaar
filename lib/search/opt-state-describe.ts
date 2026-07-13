@@ -69,7 +69,7 @@ export function optStateToChips(s: OptUiState, meta?: OptDescribeMeta): OptChip[
     chips.push({ key: `kw:${kw}`, label: def?.label ?? kw, removeAction: { type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw } });
   });
   s.selectedFacets.forEach(tag => {
-    chips.push({ key: `facet:${tag}`, label: `Facet: ${meta?.facetLabels?.[tag] ?? tag}`, removeAction: { type: 'TOGGLE_IN', key: 'selectedFacets', value: tag } });
+    chips.push({ key: `facet:${tag}`, label: `Tag: ${meta?.facetLabels?.[tag] ?? tag}`, removeAction: { type: 'TOGGLE_IN', key: 'selectedFacets', value: tag } });
   });
   s.selectedRarities.forEach(r => {
     const def = RARITY_OPTIONS.find(o => o.value === r);

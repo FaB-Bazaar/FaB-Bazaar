@@ -233,7 +233,7 @@ export default function OptSearchPage() {
     </>
   );
 
-  // ── Filter facet descriptors — shared with /card-facets
+  // ── Filter facet descriptors — shared with /tags
   //    (components/search/card-filter-facets). Rendered as desktop popovers
   //    and the mobile filter-sheet accordion below. ──
   const filterFacets = buildFilterFacets({ state, dispatch, availablePacks, facetDefs });

@@ -23,7 +23,7 @@ const DIM_LABEL: Record<Dim, string> = {
   synergy: 'Synergy — named packages / lines',
 }
 const VOTE_THRESHOLD = 2
-const SIGN_IN_HREF = '/auth/login?callbackUrl=%2Fcard-facets'
+const SIGN_IN_HREF = '/auth/login?callbackUrl=%2Ftags'
 
 export function PublicCardFacetsClient({ isSignedIn }: { isSignedIn: boolean }) {
   const { toast } = useToast()
@@ -117,9 +117,9 @@ export function PublicCardFacetsClient({ isSignedIn }: { isSignedIn: boolean }) 
             />
           </div>
           <span className="text-xs text-gray-600 dark:text-gray-400 tabular-nums" aria-live="polite">
-            {!hasAnyFilter ? 'Pick filters or facets to list cards'
+            {!hasAnyFilter ? 'Pick filters or tags to list cards'
               : loading ? 'Searching…'
-              : `${total.toLocaleString()} card${total === 1 ? '' : 's'}${selectedFacets.length > 1 ? (facetsMatchAll ? ' with ALL selected facets' : ' matching ANY selected facet') : ''}`}
+              : `${total.toLocaleString()} card${total === 1 ? '' : 's'}${selectedFacets.length > 1 ? (facetsMatchAll ? ' with ALL selected tags' : ' matching ANY selected tag') : ''}`}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -172,7 +172,7 @@ export function PublicCardFacetsClient({ isSignedIn }: { isSignedIn: boolean }) 
         <div className="flex-1 min-w-0">
           {!hasAnyFilter ? (
             <p className="text-gray-600 dark:text-gray-300 mt-2">
-              Select facets on the left — or narrow with the filters above (class, set, pitch, …) to find
+              Select tags on the left — or narrow with the filters above (class, set, pitch, …) to find
               a niche worth tagging.
             </p>
           ) : loading ? (
@@ -285,7 +285,7 @@ function FacetRail({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Filter tags…"
-            aria-label="Filter facet tags"
+            aria-label="Filter tags"
             className="w-full pl-7 pr-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
           />
         </div>

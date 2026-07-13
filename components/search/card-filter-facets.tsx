@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * Shared card-filter UI for /opt and /card-facets: the filter-popover
+ * Shared card-filter UI for /opt and /tags: the filter-popover
  * primitives (Popover, Pill, ArtChip, RangeRow, ActiveChip, FacetsPanel) and
  * the `buildFilterFacets` descriptor array both pages render — /opt as a
- * desktop popover row + mobile accordion sheet, /card-facets as a popover row.
+ * desktop popover row + mobile accordion sheet, /tags as a popover row.
  *
  * Extracted from app/opt/page.tsx so the two pages cannot drift (the
  * two-shorthand-parsers lesson). State flows through OptUiState + the
@@ -204,12 +204,12 @@ export function FacetsPanel({
   return (
     <>
       <div className="flex items-center justify-between mb-2">
-        <p className={cn(SECTION, 'mb-0')}>Facets</p>
+        <p className={cn(SECTION, 'mb-0')}>Tags</p>
         <MatchModeToggle matchAll={matchAll} onSetMatchAll={onSetMatchAll} />
       </div>
 
       {defs.length === 0 ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400">Loading facets…</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Loading tags…</p>
       ) : (
         <>
           <div className="relative">
@@ -218,7 +218,7 @@ export function FacetsPanel({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Filter tags…"
-              aria-label="Filter facet tags"
+              aria-label="Filter tags"
               className="w-full pl-7 pr-2 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -252,14 +252,14 @@ export function FacetsPanel({
 /** Any/All switch — whether a card must match ANY or ALL selected facet tags. */
 export function MatchModeToggle({ matchAll, onSetMatchAll }: { matchAll: boolean; onSetMatchAll: (all: boolean) => void }) {
   return (
-    <div className="flex items-center rounded-full border border-gray-300 dark:border-gray-700 overflow-hidden text-xs" role="group" aria-label="Facet match mode">
+    <div className="flex items-center rounded-full border border-gray-300 dark:border-gray-700 overflow-hidden text-xs" role="group" aria-label="Tag match mode">
       {([['any', false], ['all', true]] as const).map(([lbl, all]) => (
         <button
           key={lbl}
           type="button"
           onClick={() => onSetMatchAll(all)}
           aria-pressed={matchAll === all}
-          title={all ? 'Cards that have ALL selected facets' : 'Cards that have ANY selected facet'}
+          title={all ? 'Cards that have ALL selected tags' : 'Cards that have ANY selected tag'}
           className={cn(
             'px-2 py-1 font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
             matchAll === all ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300',
@@ -332,7 +332,7 @@ export function buildFilterFacets({
   dispatch: Dispatch<OptAction>;
   availablePacks: { groupId: number; name: string }[];
   facetDefs: FacetDef[];
-  /** Facet keys to omit (e.g. /card-facets hides 'facets' — its rail owns them). */
+  /** Facet keys to omit (e.g. /tags hides 'facets' — its rail owns them). */
   exclude?: string[];
 }): FilterFacet[] {
   const {
@@ -473,7 +473,7 @@ export function buildFilterFacets({
       ),
     },
     {
-      key: 'facets', label: 'Facets', count: selectedFacets.length, panelClassName: 'w-80',
+      key: 'facets', label: 'Tags', count: selectedFacets.length, panelClassName: 'w-80',
       body: (
         <FacetsPanel
           defs={facetDefs}
