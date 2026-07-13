@@ -19,6 +19,23 @@ const baseState: SearchUiState = {
   priceMax: '',
 };
 
+describe('buildServerFilters — facets', () => {
+  it('maps selectedFacets to facetTags, ANY mode by default', () => {
+    const f = buildServerFilters({ ...baseState, selectedFacets: ['tutor', 'evasive'] });
+    expect(f.facetTags).toEqual(['tutor', 'evasive']);
+    expect(f.facetTagsMode ?? 'any').toBe('any');
+  });
+
+  it('sets facetTagsMode to all when facetsMatchAll is true', () => {
+    const f = buildServerFilters({ ...baseState, selectedFacets: ['tutor', 'evasive'], facetsMatchAll: true });
+    expect(f.facetTagsMode).toBe('all');
+  });
+
+  it('omits the facet filter when none are selected (even with match-all set)', () => {
+    expect(buildServerFilters({ ...baseState, facetsMatchAll: true })).not.toHaveProperty('facetTags');
+  });
+});
+
 describe('buildServerFilters — pitch (multi-select OR)', () => {
   it('maps selected pitches to an array filter (server ORs via inArray)', () => {
     expect(buildServerFilters({ ...baseState, selectedPitch: [1, 3] }).pitch).toEqual([1, 3]);

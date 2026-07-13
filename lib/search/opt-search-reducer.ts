@@ -23,7 +23,8 @@ export type OptArrayKey =
   | 'selectedRarities'
   | 'selectedFoilings'
   | 'selectedEditions'
-  | 'selectedSets';
+  | 'selectedSets'
+  | 'selectedFacets';
 
 export type RangeKey = 'cost' | 'power' | 'defense' | 'arcane' | 'price';
 

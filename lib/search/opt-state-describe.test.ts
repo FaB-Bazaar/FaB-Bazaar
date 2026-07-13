@@ -36,6 +36,20 @@ describe('optStateToChips', () => {
     ]);
   });
 
+  it('labels facet chips, resolving display names from meta.facetLabels', () => {
+    const chips = optStateToChips(state({ selectedFacets: ['tutor'] }), { facetLabels: { tutor: 'Tutor' } });
+    const chip = chips.find(c => c.key === 'facet:tutor');
+    expect(chip?.label).toBe('Facet: Tutor');
+    // removeAction round-trips through the reducer to clear the facet
+    const next = optSearchReducer(state({ selectedFacets: ['tutor'] }), chip!.removeAction);
+    expect(next.selectedFacets).toEqual([]);
+  });
+
+  it('falls back to the raw facet id when no label is supplied', () => {
+    const chips = optStateToChips(state({ selectedFacets: ['tutor'] }));
+    expect(chips.find(c => c.key === 'facet:tutor')?.label).toBe('Facet: tutor');
+  });
+
   it('labels hero ages, talentless, ranges, price, and non-default language', () => {
     const s = state({
       selectedHeroAges: ['young'],

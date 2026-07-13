@@ -3,40 +3,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Search, X, Check, ChevronDown, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown, Sparkles } from 'lucide-react';
+import { Search, X, Check, SlidersHorizontal, List, Images, Heart, UploadCloud, ArrowUpDown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { RarityIcon } from '@/components/shared/RarityIcon';
-import { getSetImageOrFallback } from '@/lib/set-images';
-import { SET_MAP } from '@/lib/fab-constants';
-import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 import SyntaxGuideModal from '@/components/dialogs/search/query-syntax-guide-modal';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerClose } from '@/components/ui/drawer';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
-import {
-  TYPE_CHIPS, CLASS_ICONS, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
-  KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
-} from '@/lib/search/card-filter-chips';
+import { buildFilterFacets, Popover, ActiveChip, SECTION, type FacetDef } from '@/components/search/card-filter-facets';
 import { ImagesView } from '@/components/search/ImagesView';
 import { ChecklistView } from '@/components/search/ChecklistView';
 import { AppShellAttribution } from '@/components/search/AppShellAttribution';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { useOptSearchState } from '@/hooks/search/useOptSearchState';
-import { languageFlag } from '@/lib/utils/printing-language';
-import { LANGUAGES } from '@/lib/search/build-server-filters';
 import { optStateToChips } from '@/lib/search/opt-state-describe';
-import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { trackSearch } from '@/lib/gtag';
-
-const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
-
-// Sets selectable in the /opt set grid: the shared curated list plus GEM. GEM is
-// a promo set kept out of CARD_FILTER_SETS (and thus the deck builder's filters),
-// but it's offered here so its per-pack filter facet is reachable. Extend this
-// list if other multi-group sets ever need pack filtering on /opt.
-const OPT_FILTER_SETS: string[] = [...CARD_FILTER_SETS, 'gem'];
 
 // Clickable example queries shown in the empty state. Either a plain card name
 // or `key:value` shorthand (a bare phrase is treated as a name). All verified to
@@ -48,184 +30,6 @@ const EXAMPLE_QUERIES = [
   'text:dominate t:attack',
 ];
 
-// ─── Popover (filter dropdown) ────────────────────────────────────────────────
-// Self-contained: closes on outside-click and Escape. No extra deps.
-
-function Popover({
-  label, count = 0, align = 'left', panelClassName, children,
-}: {
-  label: string;
-  count?: number;
-  align?: 'left' | 'right';
-  panelClassName?: string;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-          count > 0
-            ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
-            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-600',
-        )}
-      >
-        {label}
-        {count > 0 && (
-          <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-white/25 text-xs leading-none">
-            {count}
-          </span>
-        )}
-        <ChevronDown className={cn('w-3 h-3 transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div
-          className={cn(
-            'absolute z-30 mt-1.5 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-3',
-            align === 'right' ? 'right-0' : 'left-0',
-            panelClassName ?? 'w-64',
-          )}
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Art chip (type / class) ──────────────────────────────────────────────────
-
-function ArtChip({
-  label, iconUrl, iconPosition, active, activeClass, onClick,
-}: {
-  label: string;
-  iconUrl?: string;
-  iconPosition?: string;
-  active: boolean;
-  activeClass: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'group flex flex-col items-center gap-1 p-1 rounded border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-        active ? activeClass : 'bg-transparent border-transparent text-slate-600 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-[#E2EAF3] dark:hover:bg-gray-800',
-      )}
-    >
-      <div
-        className={cn(
-          'w-full rounded overflow-hidden ring-1 transition-all',
-          active
-            ? 'ring-current opacity-100 shadow-md'
-            : 'ring-black/10 dark:ring-gray-700 opacity-70 dark:opacity-50 group-hover:opacity-90 dark:group-hover:opacity-80 shadow-sm',
-        )}
-        style={{ aspectRatio: '1 / 1' }}
-      >
-        {iconUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={iconUrl}
-            alt={label}
-            className="w-full object-cover"
-            style={{ height: '220%', objectPosition: iconPosition ?? 'center 24%' }}
-            draggable={false}
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-            <span className="w-2 h-2 rounded-full bg-gray-600" />
-          </div>
-        )}
-      </div>
-      <span className="text-xs leading-tight truncate w-full text-center capitalize">{label}</span>
-    </button>
-  );
-}
-
-// ─── Pill (keyword / rarity / foiling / edition) ─────────────────────────────
-
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        'flex items-center gap-1 px-2 py-1 rounded-full border text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-        active
-          ? 'border-gray-700 dark:border-gray-100 bg-gray-800 dark:bg-gray-100 text-gray-100 dark:text-gray-900'
-          : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-500 hover:text-gray-800 dark:hover:text-gray-200',
-      )}
-    >
-      {children}
-      {active && <Check className="w-3.5 h-3.5 shrink-0" aria-hidden />}
-    </button>
-  );
-}
-
-// ─── Min/max numeric row ──────────────────────────────────────────────────────
-
-function RangeRow({
-  label, min, setMin, max, setMax,
-}: {
-  label: string;
-  min: string; setMin: (v: string) => void;
-  max: string; setMax: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs text-gray-600 dark:text-gray-400 w-14 shrink-0">{label}</span>
-      <input type="number" min="0" placeholder="Min" value={min} onChange={e => setMin(e.target.value)}
-        className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      <span className="text-gray-400 text-xs">–</span>
-      <input type="number" min="0" placeholder="Max" value={max} onChange={e => setMax(e.target.value)}
-        className="w-16 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-    </div>
-  );
-}
-
-// ─── Active-filter chip ───────────────────────────────────────────────────────
-
-function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-200">
-      {label}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${label} filter`}
-        className="p-0.5 rounded-full hover:bg-blue-200/60 dark:hover:bg-blue-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </span>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OptSearchPage() {
@@ -236,13 +40,9 @@ export default function OptSearchPage() {
     state, dispatch, urlReady, debouncedQuery, filters, hasAnyFilter,
     clearAll: resetFilters,
   } = useOptSearchState();
-  const {
-    query, searchMode, selectedType, selectedHeroAges, selectedClasses, selectedTalents,
-    selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
-    selectedEditions, selectedSets, selectedPacks, selectedFormat,
-    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, priceMin, priceMax,
-    selectedLanguages, sortBy, sortOrder, viewMode, groupByCard,
-  } = state;
+  // Only the fields the page body itself reads — the filter popovers get the
+  // whole state via buildFilterFacets (components/search/card-filter-facets).
+  const { query, searchMode, selectedSets, selectedLanguages, sortBy, sortOrder, viewMode, groupByCard } = state;
   const patch = (p: Partial<OptUiState>) => dispatch({ type: 'PATCH', patch: p });
 
   // ── UI-only state (not part of the shareable search state) ──
@@ -250,6 +50,21 @@ export default function OptSearchPage() {
   // The pack facet only renders when a selected set actually has packs (e.g.
   // GEM), so it stays invisible for normal sets.
   const [availablePacks, setAvailablePacks] = useState<{ groupId: number; name: string }[]>([]);
+  // Curated facet vocabulary (public read). Dynamic, unlike the hardcoded chip
+  // constants, so it's fetched once; drafts are curator-internal and hidden.
+  const [facetDefs, setFacetDefs] = useState<FacetDef[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/card-facets/tags')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.success) setFacetDefs((j.data as any[]).filter((d) => !d.draft)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const facetLabels = React.useMemo(
+    () => Object.fromEntries(facetDefs.map((d) => [d.id, d.label])),
+    [facetDefs],
+  );
   const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false);
   // Mobile-only: the filter bottom sheet (desktop uses the inline popover row).
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -321,8 +136,6 @@ export default function OptSearchPage() {
     inputRef.current?.focus();
   };
 
-  const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
-
   // ── Bridge B: hand the current search off to the hosted Volzar chat ──
   // Same access rule as the chat itself (canUseVolzar — any signed-in user;
   // pass null when signed out or the always-truthy flags object would open
@@ -342,11 +155,9 @@ export default function OptSearchPage() {
   );
 
   // ── Active-filter chip descriptors (pure projection + reducer removeActions) ──
-  const activeChips = optStateToChips(state, { availablePacks }).map(c => ({
+  const activeChips = optStateToChips(state, { availablePacks, facetLabels }).map(c => ({
     key: c.key, label: c.label, onRemove: () => dispatch(c.removeAction),
   }));
-
-  const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax, arcaneMin || arcaneMax].filter(Boolean).length;
 
   // ── Reusable control snippets (rendered inline on desktop, inside the mobile
   //    filter sheet on small screens). Controlled components, so mounting the
@@ -422,312 +233,10 @@ export default function OptSearchPage() {
     </>
   );
 
-  // ── Filter facet descriptors — single source rendered both as desktop
-  //    popovers and as mobile filter-sheet accordion sections. ──
-  type FilterFacet = { key: string; label: string; count: number; align?: 'left' | 'right'; panelClassName?: string; body: React.ReactNode };
-  const filterFacets: FilterFacet[] = [
-    {
-      key: 'pitch', label: 'Pitch', count: selectedPitch.length, panelClassName: 'w-auto',
-      body: (
-        <>
-          <p className={SECTION}>Pitch</p>
-          {/* Multi-select OR: red + blue = cards that are either. */}
-          <div className="flex items-center gap-2">
-            {PITCH_CHIPS.map(chip => {
-              const isActive = selectedPitch.includes(chip.value);
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => dispatch({ type: 'TOGGLE_PITCH', value: chip.value })}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-md border text-base font-medium transition-all',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                    isActive
-                      ? cn(chip.active, 'text-gray-900 dark:text-white')
-                      : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700',
-                  )}
-                >
-                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', chip.dot)} aria-hidden />
-                  {chip.label}
-                  {isActive && <Check className="w-4 h-4 shrink-0" aria-hidden />}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'type', label: 'Type', count: (selectedType ? 1 : 0) + selectedHeroAges.length, panelClassName: 'w-72',
-      body: (
-        <>
-          <p className={SECTION}>Type</p>
-          <div className="grid grid-cols-4 gap-1">
-            {TYPE_CHIPS.map(chip => (
-              <ArtChip
-                key={chip.value}
-                label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
-                active={selectedType === chip.value} activeClass={chip.active}
-                onClick={() => dispatch({ type: 'TOGGLE_TYPE', value: chip.value })}
-              />
-            ))}
-          </div>
-          <p className={cn(SECTION, 'mt-3')}>Hero</p>
-          <div className="grid grid-cols-2 gap-1">
-            {HERO_AGE_CHIPS.map(chip => (
-              <ArtChip
-                key={chip.value}
-                label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
-                active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
-                onClick={() => dispatch({ type: 'TOGGLE_HERO_AGE', value: chip.value })}
-              />
-            ))}
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'class', label: 'Class', count: selectedClasses.length, panelClassName: 'w-72',
-      body: (
-        <>
-          <p className={SECTION}>Class</p>
-          <div className="grid grid-cols-4 gap-1">
-            {ALL_CLASSES.map(cls => {
-              const icon = CLASS_ICONS[cls];
-              return (
-                <ArtChip
-                  key={cls}
-                  label={cls} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
-                  active={selectedClasses.includes(cls)} activeClass="bg-indigo-900/50 border-indigo-600"
-                  onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedClasses', value: cls })}
-                />
-              );
-            })}
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'talent', label: 'Talent', count: selectedTalents.length + (selectedTalentless ? 1 : 0), panelClassName: 'w-72',
-      body: (
-        <>
-          <p className={SECTION}>Talent</p>
-          <div className="mb-2">
-            <Pill active={selectedTalentless} onClick={() => dispatch({ type: 'TOGGLE_TALENTLESS' })}>
-              Talentless
-            </Pill>
-          </div>
-          <div className="grid grid-cols-4 gap-1">
-            {ALL_TALENTS.map(tal => {
-              const icon = CLASS_ICONS[tal];
-              return (
-                <ArtChip
-                  key={tal}
-                  label={tal} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
-                  active={selectedTalents.includes(tal)} activeClass="bg-teal-900/50 border-teal-600"
-                  onClick={() => dispatch({ type: 'TOGGLE_TALENT', value: tal })}
-                />
-              );
-            })}
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'keywords', label: 'Keywords', count: selectedKeywords.length, panelClassName: 'w-72',
-      body: (
-        <>
-          <p className={SECTION}>Keywords</p>
-          <div className="flex flex-wrap gap-1">
-            {KEYWORD_CHIPS.map(kw => (
-              <Pill key={kw.value} active={selectedKeywords.includes(kw.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw.value })}>
-                {kw.label}
-              </Pill>
-            ))}
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'format', label: 'Format', count: selectedFormat ? 1 : 0, panelClassName: 'w-56',
-      body: (
-        <>
-          <p className={SECTION}>Format</p>
-          <div className="flex flex-wrap gap-1">
-            {FORMAT_OPTIONS.map(fmt => (
-              <Pill
-                key={fmt.value}
-                active={selectedFormat === fmt.value}
-                onClick={() => patch({ selectedFormat: selectedFormat === fmt.value ? null : fmt.value })}
-              >
-                {fmt.label}
-              </Pill>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 leading-snug">
-            Shows cards legal in the selected format (banned &amp; suspended excluded).
-          </p>
-        </>
-      ),
-    },
-    {
-      key: 'rarity', label: 'Rarity', count: selectedRarities.length, panelClassName: 'w-64',
-      body: (
-        <>
-          <p className={SECTION}>Rarity</p>
-          <div className="flex flex-wrap gap-1">
-            {RARITY_OPTIONS.map(r => (
-              <Pill key={r.value} active={selectedRarities.includes(r.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedRarities', value: r.value })}>
-                <RarityIcon rarityCode={r.value} size="sm" />
-                {r.label}
-              </Pill>
-            ))}
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'stats', label: 'Stats', count: statsCount, panelClassName: 'w-64',
-      body: (
-        <>
-          <p className={SECTION}>Stats</p>
-          <div className="space-y-2">
-            <RangeRow label="Cost"    min={costMin}    setMin={v => dispatch({ type: 'SET_RANGE', range: 'cost', min: v })}    max={costMax}    setMax={v => dispatch({ type: 'SET_RANGE', range: 'cost', max: v })} />
-            <RangeRow label="Power"   min={powerMin}   setMin={v => dispatch({ type: 'SET_RANGE', range: 'power', min: v })}   max={powerMax}   setMax={v => dispatch({ type: 'SET_RANGE', range: 'power', max: v })} />
-            <RangeRow label="Defense" min={defenseMin} setMin={v => dispatch({ type: 'SET_RANGE', range: 'defense', min: v })} max={defenseMax} setMax={v => dispatch({ type: 'SET_RANGE', range: 'defense', max: v })} />
-            <RangeRow label="Arcane"  min={arcaneMin}  setMin={v => dispatch({ type: 'SET_RANGE', range: 'arcane', min: v })}  max={arcaneMax}  setMax={v => dispatch({ type: 'SET_RANGE', range: 'arcane', max: v })} />
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'price', label: 'Price', count: (priceMin || priceMax) ? 1 : 0, panelClassName: 'w-64',
-      body: (
-        <>
-          <p className={SECTION}>Price</p>
-          <div className="flex flex-wrap gap-1">
-            {PRICE_PRESETS.map(p => {
-              const active = priceMin === p.min && priceMax === p.max;
-              return (
-                <Pill
-                  key={p.label}
-                  active={active}
-                  onClick={() => dispatch({ type: 'TOGGLE_PRICE_PRESET', min: p.min, max: p.max })}
-                >
-                  {p.label}
-                </Pill>
-              );
-            })}
-          </div>
-          <div className="mt-3">
-            <p className={SECTION}>Custom range ($)</p>
-            <RangeRow label="Price" min={priceMin} setMin={v => dispatch({ type: 'SET_RANGE', range: 'price', min: v })} max={priceMax} setMax={v => dispatch({ type: 'SET_RANGE', range: 'price', max: v })} />
-          </div>
-          <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 leading-snug">
-            Based on TCGplayer low; English printings only.
-          </p>
-        </>
-      ),
-    },
-    {
-      key: 'more', label: 'More', count: selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80',
-      body: (
-        <div className="space-y-3">
-          <div>
-            <p className={SECTION}>Foiling</p>
-            <div className="flex flex-wrap gap-1">
-              {FOILING_OPTIONS.map(f => (
-                <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedFoilings', value: f.value })}>
-                  <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', f.swatch)} />
-                  {f.label}
-                </Pill>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className={SECTION}>Edition</p>
-            <div className="flex flex-wrap gap-1">
-              {EDITION_OPTIONS.map(e => (
-                <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedEditions', value: e.value })}>
-                  {e.label}
-                </Pill>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className={SECTION}>Set</p>
-            <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
-              {OPT_FILTER_SETS.map(setCode => (
-                <button
-                  key={setCode}
-                  type="button"
-                  title={SET_MAP[setCode as keyof typeof SET_MAP]}
-                  aria-pressed={selectedSets.includes(setCode)}
-                  onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: setCode })}
-                  className={cn(
-                    'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                    selectedSets.includes(setCode)
-                      ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
-                  )}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
-                    className="w-7 h-7 object-contain"
-                    alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <span className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          {availablePacks.length > 0 && (
-            <div>
-              <p className={SECTION}>Pack</p>
-              <div className="flex flex-wrap gap-1">
-                {availablePacks.map(p => (
-                  <Pill
-                    key={p.groupId}
-                    active={selectedPacks.includes(p.groupId)}
-                    onClick={() => dispatch({ type: 'TOGGLE_PACK', value: p.groupId })}
-                  >
-                    {p.name}
-                  </Pill>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'language', label: 'Language', count: isDefaultLang ? 0 : (selectedLanguages.length || 1), align: 'right', panelClassName: 'w-56',
-      body: (
-        <>
-          <p className={SECTION}>Language</p>
-          <div className="space-y-2">
-            <Pill active={selectedLanguages.length === 0} onClick={() => patch({ selectedLanguages: [] })}>
-              All languages
-            </Pill>
-            <div className="flex flex-wrap gap-1">
-              {LANGUAGES.map(l => (
-                <Pill key={l.code} active={selectedLanguages.includes(l.code)} onClick={() => patch({ selectedLanguages: toggleLanguageSelection(selectedLanguages, l.code) })}>
-                  <span aria-hidden>{languageFlag(l.code)}</span> {l.label}
-                </Pill>
-              ))}
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 leading-snug">
-              Only English printings have prices &amp; TCGplayer links.
-            </p>
-          </div>
-        </>
-      ),
-    },
-  ];
+  // ── Filter facet descriptors — shared with /card-facets
+  //    (components/search/card-filter-facets). Rendered as desktop popovers
+  //    and the mobile filter-sheet accordion below. ──
+  const filterFacets = buildFilterFacets({ state, dispatch, availablePacks, facetDefs });
 
   // ── Render ──
   return (

@@ -34,6 +34,10 @@ export interface OptUiState {
   selectedEditions: string[];
   selectedSets: string[];
   selectedPacks: number[];
+  /** Curated facet tags (community + curator). Matched against cards.facet_tags. */
+  selectedFacets: string[];
+  /** false = ANY facet (overlap, default); true = ALL facets (contains). */
+  facetsMatchAll: boolean;
   selectedFormat: string | null;
   costMin: string; costMax: string;
   powerMin: string; powerMax: string;
@@ -63,6 +67,8 @@ export const DEFAULT_OPT_STATE: OptUiState = {
   selectedEditions: [],
   selectedSets: [],
   selectedPacks: [],
+  selectedFacets: [],
+  facetsMatchAll: false,
   selectedFormat: null,
   costMin: '', costMax: '',
   powerMin: '', powerMax: '',
@@ -97,6 +103,9 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
   if (s.selectedEditions.length) p.set('editions', csv(s.selectedEditions));
   if (s.selectedSets.length) p.set('sets', csv(s.selectedSets));
   if (s.selectedPacks.length) p.set('pack', csv(s.selectedPacks.map(String)));
+  if (s.selectedFacets.length) p.set('facets', csv(s.selectedFacets));
+  // match-all only matters with facets selected; keep the URL clean otherwise.
+  if (s.selectedFacets.length && s.facetsMatchAll) p.set('facetsAll', '1');
   if (s.selectedFormat) p.set('format', s.selectedFormat);
   if (s.costMin) p.set('costMin', s.costMin);
   if (s.costMax) p.set('costMax', s.costMax);
@@ -140,6 +149,8 @@ export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   if (p.get('editions')) out.selectedEditions = splitCsv(p.get('editions'));
   if (p.get('sets')) out.selectedSets = splitCsv(p.get('sets'));
   if (p.get('pack')) out.selectedPacks = splitCsv(p.get('pack')).map(Number).filter((n) => !Number.isNaN(n));
+  if (p.get('facets')) out.selectedFacets = splitCsv(p.get('facets'));
+  if (p.get('facetsAll') === '1') out.facetsMatchAll = true;
   const format = p.get('format'); if (format) out.selectedFormat = format;
   const setStr = (k: string, key: keyof OptUiState) => { const v = p.get(k); if (v) (out as Record<string, unknown>)[key] = v; };
   setStr('costMin', 'costMin'); setStr('costMax', 'costMax');

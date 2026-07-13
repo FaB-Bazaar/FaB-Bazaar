@@ -38,6 +38,20 @@ describe('opt-url-state', () => {
     expect(round).toEqual(s);
   });
 
+  it('serializes and parses facet selections + match-all mode', () => {
+    const p = uiStateToParams(state({ selectedFacets: ['tutor', 'evasive'], facetsMatchAll: true }));
+    expect(p.get('facets')).toBe('tutor,evasive');
+    expect(p.get('facetsAll')).toBe('1');
+    const parsed = paramsToUiState(new URLSearchParams('facets=tutor,evasive&facetsAll=1'));
+    expect(parsed.selectedFacets).toEqual(['tutor', 'evasive']);
+    expect(parsed.facetsMatchAll).toBe(true);
+  });
+
+  it('omits facetsAll when ANY (default) and parses default as false', () => {
+    expect(uiStateToParams(state({ selectedFacets: ['tutor'], facetsMatchAll: false })).has('facetsAll')).toBe(false);
+    expect(paramsToUiState(new URLSearchParams('facets=tutor')).facetsMatchAll).toBeUndefined();
+  });
+
   it('omits search mode when name (default) and serializes text mode', () => {
     expect(uiStateToParams(state({ searchMode: 'name' })).has('mode')).toBe(false);
     expect(uiStateToParams(state({ searchMode: 'text' })).get('mode')).toBe('text');

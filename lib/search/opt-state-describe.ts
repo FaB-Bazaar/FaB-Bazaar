@@ -30,6 +30,8 @@ export interface OptChip {
 export interface OptDescribeMeta {
   /** Fetched pack names for selected sets; labels fall back to "Pack <id>". */
   availablePacks?: { groupId: number; name: string }[];
+  /** Facet id → display label (fetched vocabulary); labels fall back to the id. */
+  facetLabels?: Record<string, string>;
   /** Result count to include in the description. */
   total?: number;
   /** Canonical /opt link to include in the description. */
@@ -65,6 +67,9 @@ export function optStateToChips(s: OptUiState, meta?: OptDescribeMeta): OptChip[
   s.selectedKeywords.forEach(kw => {
     const def = KEYWORD_CHIPS.find(k => k.value === kw);
     chips.push({ key: `kw:${kw}`, label: def?.label ?? kw, removeAction: { type: 'TOGGLE_IN', key: 'selectedKeywords', value: kw } });
+  });
+  s.selectedFacets.forEach(tag => {
+    chips.push({ key: `facet:${tag}`, label: `Facet: ${meta?.facetLabels?.[tag] ?? tag}`, removeAction: { type: 'TOGGLE_IN', key: 'selectedFacets', value: tag } });
   });
   s.selectedRarities.forEach(r => {
     const def = RARITY_OPTIONS.find(o => o.value === r);
