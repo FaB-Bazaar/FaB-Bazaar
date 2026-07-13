@@ -84,6 +84,14 @@ export function filtersToOptParams(filters: Record<string, unknown>): URLSearchP
   if (pitch) p.set('pitch', pitch);
   if (typeof filters.format === 'string' && filters.format) p.set('format', filters.format);
 
+  // Curated function tags → the /opt 'tags' param (facetTags filter ↔ selectedFacets
+  // chips). facetTagsMode 'all' becomes tagsAll=1, but only with tags selected.
+  const tags = csv(filters.facetTags);
+  if (tags) {
+    p.set('tags', tags);
+    if (filters.facetTagsMode === 'all') p.set('tagsAll', '1');
+  }
+
   const rangeParams: Array<[string, unknown]> = [
     ['costMin', filters.costMin], ['costMax', filters.costMax],
     ['powerMin', filters.powerMin], ['powerMax', filters.powerMax],

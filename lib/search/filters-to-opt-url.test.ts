@@ -44,6 +44,19 @@ describe('filtersToOptParams', () => {
     expect(p.get('costMin')).toBe('2');
   });
 
+  it('maps facetTags to the tags param (ANY mode, default)', () => {
+    const p = filtersToOptParams({ facetTags: ['combo-enabler', 'disruption'] });
+    expect(p.get('tags')).toBe('combo-enabler,disruption');
+    expect(p.has('tagsAll')).toBe(false);
+  });
+
+  it('maps facetTagsMode "all" to tagsAll=1 (only when tags present)', () => {
+    expect(filtersToOptParams({ facetTags: ['tutor'], facetTagsMode: 'all' }).get('tagsAll')).toBe('1');
+    // match-all with no tags selected must not leak a bare tagsAll param
+    expect(filtersToOptParams({ facetTagsMode: 'all' } as any).has('tagsAll')).toBe(false);
+    expect(filtersToOptParams({ facetTags: ['tutor'], facetTagsMode: 'any' }).has('tagsAll')).toBe(false);
+  });
+
   it('maps text search to q + mode=text', () => {
     const p = filtersToOptParams({ text: 'create a frostbite' });
     expect(p.get('q')).toBe('create a frostbite');
