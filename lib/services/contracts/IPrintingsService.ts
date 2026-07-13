@@ -287,9 +287,17 @@ export interface PrintingsSearchFilters {
   // Physical printing language(s), e.g. ['en']. Only English printings carry
   // TCGplayer ids + prices, so price-aware UIs default to ['en'].
   languages?: string[];
-  // Curated facet classification tags (cards.facet_tags array overlap). See
-  // lib/search/card-facets.ts for the vocabulary.
+  // Curated facet classification tags. See lib/search/card-facets.ts for the
+  // vocabulary. Matched against cards.facet_tags — ANY (array overlap, default)
+  // or ALL (array contains) per facetTagsMode.
   facetTags?: string[];
+  // 'any' (default): a card matches if it has ANY listed tag (overlap, &&).
+  // 'all': a card must have EVERY listed tag (contains, @>).
+  facetTagsMode?: 'any' | 'all';
+  // Personal truth: this user's own votes count as matching even below the
+  // community threshold. Set SERVER-SIDE from the authenticated caller only —
+  // routes must strip any client-supplied value.
+  facetTagsViewerId?: string;
 
   // Price filters
   priceMin?: number;

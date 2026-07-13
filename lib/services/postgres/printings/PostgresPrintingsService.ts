@@ -7,7 +7,7 @@
 
 import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { printings, cards, bannedCards, cardTranslations, cardFacetTags, facetTagDefinitions, sets, tcgGroups } from '@/lib/postgres/schema';
+import { printings, cards, bannedCards, cardTranslations, cardFacetTags, cardFacetTagVotes, facetTagDefinitions, sets, tcgGroups } from '@/lib/postgres/schema';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -1484,11 +1484,31 @@ export class PostgresPrintingsService implements IPrintingsService {
     }
 
     if (filters.facetTags && filters.facetTags.length > 0) {
-      conditions.push(sql`${cards.facetTags} && ARRAY[${sql.join(filters.facetTags.map((t) => sql`${t}`), sql`, `)}]::text[]`);
+      const arr = sql`ARRAY[${sql.join(filters.facetTags.map((t) => sql`${t}`), sql`, `)}]::text[]`;
+      const viewer = filters.facetTagsViewerId;
+      // ALL → contains (@>): card must have every tag. ANY (default) → overlap (&&).
+      // With a viewer, that user's OWN votes count as live for them ("personal
+      // truth", even below the community threshold) — merged into the match.
+      if (filters.facetTagsMode === 'all') {
+        conditions.push(
+          viewer
+            ? sql`${arr} <@ (${cards.facetTags} || COALESCE((SELECT array_agg(v.tag) FROM ${cardFacetTagVotes} v WHERE v.card_unique_id = ${cards.cardUniqueId} AND v.user_id = ${viewer}), ARRAY[]::text[]))`
+            : sql`${cards.facetTags} @> ${arr}`,
+        );
+      } else {
+        conditions.push(
+          viewer
+            ? sql`(${cards.facetTags} && ${arr} OR EXISTS (SELECT 1 FROM ${cardFacetTagVotes} v WHERE v.card_unique_id = ${cards.cardUniqueId} AND v.user_id = ${viewer} AND v.tag = ANY(${arr})))`
+            : sql`${cards.facetTags} && ${arr}`,
+        );
+      }
     }
 
     if (filters.artists && filters.artists.length > 0) {
-      conditions.push(sql`${printings.artists} && ${filters.artists}`);
+      // Artists are stored lowercase; lowercase the input so "Carlos Cruchaga"
+      // finds "carlos cruchaga". (The old raw-array interpolation `&& ${array}`
+      // also produced invalid SQL — this filter errored on every call.)
+      conditions.push(sql`${printings.artists} && ARRAY[${sql.join(lc(filters.artists).map((a) => sql`${a}`), sql`, `)}]::text[]`);
     }
 
     // ===== PRICE FILTERS =====

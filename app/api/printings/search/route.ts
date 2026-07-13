@@ -304,6 +304,15 @@ export async function POST(request: NextRequest) {
 
     const { filters = {}, options = {} } = body;
 
+    // Personal facet truth: the caller's own facet votes count as live for THEM
+    // (below the community threshold). The viewer id is derived from auth ONLY —
+    // always strip the client-supplied field (spoofing another user's view), and
+    // only set it alongside a facetTags filter so unrelated searches keep a
+    // shared cache key. Must happen BEFORE buildSearchCacheKey (per-viewer keys).
+    delete filters.facetTagsViewerId;
+    if (authResult?.success && authResult.userId && Array.isArray(filters.facetTags) && filters.facetTags.length > 0) {
+      filters.facetTagsViewerId = authResult.userId;
+    }
 
     // Fetch current price version (MAX price_updated_at) to detect stale cache
     let currentPriceVersion = 'unknown';
@@ -316,9 +325,14 @@ export async function POST(request: NextRequest) {
       console.error('[Printings Search POST] Price version query error:', err);
     }
 
+    // Personalized searches (viewer id set) NEVER touch the cache: the cache
+    // invalidates on price changes only, but the user's own votes change their
+    // results instantly — a cached personal entry is stale the moment they vote.
+    const personalized = Boolean(filters.facetTagsViewerId);
+
     // Try Redis cache first
     const cacheKey = buildSearchCacheKey(filters, options);
-    const redis = getRedisClient();
+    const redis = personalized ? null : getRedisClient();
     let searchData = null;
 
     if (redis) {
