@@ -126,6 +126,7 @@ For React components and multi-step UI flows (admin forms, dialogs, pages), reac
 - `beforeAll`: query a real FK value (e.g. `printingId`) needed to insert test rows
 - `beforeEach`: insert isolated test data using `crypto.randomUUID()` IDs
 - `afterEach`: `db.delete(users).where(eq(users.id, testUserId))` — cascade handles binders → inventory items
+- **Facet tests: one fixture card per FILE** — files run in parallel against one DB, and two files reprojecting the same card's `facet_tags` is a lost-update race. Taken cards are listed in each facet test file's header comment. Scope cleanup to your own slugs (never `LIKE 'zzz-%'`); dynamic card pickers must ORDER BY from opposite ends (ASC vs DESC) so they can't collide.
 - Import service directly: `import { PostgresBinderService } from './PostgresBinderService'`
 - Do **not** import from `@/lib/services` in service test files (circular dep risk — see Known Gotchas)
 

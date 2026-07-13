@@ -57,6 +57,13 @@ import { ServiceFactory } from "@/lib/services"
 ServiceFactory.setUserService(mockUserService)
 ```
 
+## Card Facets (community + curator)
+
+- **Two layers project into `cards.facet_tags`** (the index /opt, Volzar and MCP search): curator `card_facet_tags` (authoritative) ∪ community `card_facet_tag_votes` at ≥2 distinct voters (`COMMUNITY_VOTE_THRESHOLD`). Every write reprojects via the single `reproject()` in `PostgresFacetService`; "remove" = retracting your own vote. Migration 0080.
+- **Personal truth** — `facetTags` searches with `facetTagsViewerId` also match the viewer's OWN sub-threshold votes. The viewer id is set SERVER-SIDE in `/api/printings/search` (any client-supplied value is stripped), and personalized searches BYPASS the Redis search cache — it invalidates on price changes only, so a personal entry is stale the moment the user votes.
+- **`facet_tag_definitions.draft` is display-only** — it does NOT keep an assigned tag out of search. New-term proposals therefore live in the separate `facet_tag_suggestions` review queue (curator approval mints a definition) — never as draft defs.
+- **Route split**: `/api/card-facets/*` = any signed-in user (vote/suggest; reads public), `/api/admin/card-facets/*` = curator/superadmin only. `facetTagsMode: 'all'` = `@>` contains; default ANY = `&&` overlap.
+
 ## Circular Dependency Warning
 
 Never import from `@/lib/services` in any file that `index.ts` imports transitively (e.g. service implementations, `lib/metafy/tokens.ts`). It puts `ServiceFactory` in TDZ → `ReferenceError` at runtime. Use lazy `await import('@/lib/services')` inside async function bodies instead.
