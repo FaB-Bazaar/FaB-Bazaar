@@ -61,7 +61,9 @@ export type AgentEvent =
   // for rich rendering. It is NEVER placed in the LLM's messages — the model
   // sees only `content` (the text block). This is the token-bypass channel.
   | { type: 'tool_result'; id: string; name: string; ok: boolean; content: string; ms: number; structured?: unknown }
-  | { type: 'done'; usage?: Usage; iterations: number }
+  // `capped: true` — the turn hit the iteration cap and this is the forced
+  // final answer pass (tools withheld), not a natural completion.
+  | { type: 'done'; usage?: Usage; iterations: number; capped?: boolean }
   | { type: 'error'; message: string };
 
 export interface ToolExecutionResult {

@@ -107,7 +107,11 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
   return output.map(r => {
     const label = r.query;
     if (r.printings.length === 0) {
-      return `🔍 **${label}** — no results`;
+      // Guidance matters more than the zero itself: without it, models retry
+      // the same terms as free text or in new spellings until they hit the
+      // agent-loop cap (see completeness test).
+      return `🔍 **${label}** — no results
+  ℹ️ Zero matches. Category words (class, type, keyword) are NOT card names — put them in structured filters: { filters: { classes: ["..."], types: ["..."], keywords: ["..."] } }. If you already used valid structured filters, none exist — report that as the answer instead of retrying variations.`;
     }
 
     const groupsMap = new Map<string, any[]>();
@@ -174,7 +178,15 @@ export function formatSearchSections(output: SectionInput[], projectOpts: Projec
       ? ` across ${groups.length} cards`
       : '';
 
-    return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${cardsLine}${fallbackNote}\n${body}${moreCards}`;
+    // Completeness is stated EXPLICITLY — without it, models re-run the same
+    // query with higher limits / different sorts / extra pages hunting for
+    // more, burning their agent-loop tool budget (see completeness test).
+    const remaining = r.total - r.printings.length;
+    const completeness = remaining > 0
+      ? `\n  ⚠️ PARTIAL result set — ${remaining} more matching printing${remaining !== 1 ? 's' : ''} not shown. Narrow the filters, or request the next page.`
+      : `\n  ✅ COMPLETE result set — every match is shown. Re-running this query with a higher limit, another sort, other pages, or includeText returns the same cards.`;
+
+    return `🔍 **${label}** — ${r.total} printing${r.total !== 1 ? 's' : ''}${cardsLine}${fallbackNote}\n${body}${moreCards}${completeness}`;
   });
 }
 

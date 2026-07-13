@@ -210,13 +210,51 @@ describe('runAgentLoop', () => {
     expect(executeTool).toHaveBeenCalledWith(expect.objectContaining({ args: {} }));
   });
 
-  it('stops with a terminal error when the iteration cap is hit while tools are still requested', async () => {
+  it('makes a final tool-less answer pass when the iteration cap is hit', async () => {
+    // 3 iterations of tool requests exhaust the cap; the loop must then ask
+    // the LLM ONCE more — with no tools offered and an explicit answer-now
+    // instruction — so the user gets an answer built from the gathered data
+    // instead of a dead-end error.
     const toolTurn: LlmDelta[] = [
       { kind: 'tool_calls', toolCalls: [call('x', 'list_binders')] },
       { kind: 'finish', reason: 'tool_calls' },
     ];
-    const { llm } = scriptedLlm(toolTurn, toolTurn, toolTurn);
+    const finalTurn: LlmDelta[] = [
+      { kind: 'text', text: 'Here is what I found so far.' },
+      { kind: 'usage', usage: { prompt_tokens: 100, completion_tokens: 10 } },
+      { kind: 'finish', reason: 'stop' },
+    ];
+    const toolsSeen: (OpenAiTool[] | undefined)[] = [];
+    const base = scriptedLlm(toolTurn, toolTurn, toolTurn, finalTurn);
+    const llm: Llm = async function* (opts) {
+      toolsSeen.push(opts.tools);
+      yield* base.llm(opts);
+    };
     const events = await collect({ llm, maxIterations: 3 });
+
+    // The final pass offered NO tools and appended an answer-now instruction.
+    expect(base.calls).toHaveLength(4);
+    expect(toolsSeen[3]).toEqual([]);
+    const lastMsg = base.calls[3].at(-1)!;
+    expect(lastMsg.role).toBe('system');
+    expect(String(lastMsg.content)).toMatch(/answer now/i);
+
+    // Its text streamed to the user, and the turn ended in done (capped).
+    const text = events.filter((e) => e.type === 'token').map((e: any) => e.text).join('');
+    expect(text).toContain('Here is what I found so far.');
+    const done = events.at(-1) as any;
+    expect(done.type).toBe('done');
+    expect(done.capped).toBe(true);
+    expect(terminals(events)).toHaveLength(1);
+  });
+
+  it('falls back to the cap error when the final answer pass itself throws', async () => {
+    const toolTurn: LlmDelta[] = [
+      { kind: 'tool_calls', toolCalls: [call('x', 'list_binders')] },
+      { kind: 'finish', reason: 'tool_calls' },
+    ];
+    const base = scriptedLlm(toolTurn, toolTurn, toolTurn); // 4th call → throws 'scripted llm exhausted'
+    const events = await collect({ llm: base.llm, maxIterations: 3 });
 
     const last = events.at(-1)!;
     expect(last.type).toBe('error');

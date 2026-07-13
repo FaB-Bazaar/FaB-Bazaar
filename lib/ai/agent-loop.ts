@@ -168,6 +168,52 @@ export async function runAgentLoop(opts: {
     }
 
     if (aborted()) return;
+
+    // Cap reached with tools still requested. Benchmarks showed the model
+    // often already HOLDS the complete answer at this point (it burned its
+    // last iterations re-verifying) — so make one final pass with no tools
+    // and an answer-now instruction instead of throwing the work away.
+    try {
+      const finalMessages: ChatMessage[] = [
+        ...messages,
+        {
+          role: 'system',
+          content:
+            'Tool budget exhausted — no more tool calls are available. Answer now using only the tool results already gathered above. If the gathered data cannot answer the question, say so briefly.',
+        },
+      ];
+      let finalText = '';
+      let finishReason: 'stop' | 'tool_calls' | 'length' = 'stop';
+      for await (const delta of llm({ messages: finalMessages, tools: [], signal })) {
+        if (aborted()) return;
+        switch (delta.kind) {
+          case 'text':
+            finalText += delta.text;
+            onEvent({ type: 'token', text: delta.text });
+            break;
+          case 'usage':
+            usage = usage
+              ? {
+                  prompt_tokens: usage.prompt_tokens + delta.usage.prompt_tokens,
+                  completion_tokens: usage.completion_tokens + delta.usage.completion_tokens,
+                }
+              : delta.usage;
+            break;
+          case 'finish':
+            finishReason = delta.reason;
+            break;
+        }
+      }
+      if (finishReason === 'length') {
+        onEvent({ type: 'token', text: '\n\n[response truncated]' });
+      }
+      onEvent({ type: 'done', usage, iterations: maxIterations + 1, capped: true });
+      return;
+    } catch {
+      // Final pass failed — fall through to the original terminal error.
+    }
+
+    if (aborted()) return;
     onEvent({
       type: 'error',
       message: `Reached the tool-call limit (${maxIterations}) for one message. Try a more specific request.`,

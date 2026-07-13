@@ -258,7 +258,10 @@ export async function POST(req: Request) {
     start(controller) {
       const send = (event: AgentEvent) => {
         if (event.type === 'error' && event.message.startsWith('Reached the tool-call limit')) {
-          capped = true;
+          capped = true; // final answer pass failed — hard cap
+        }
+        if (event.type === 'done' && event.capped) {
+          capped = true; // cap hit but the forced final pass produced an answer
         }
         if (event.type === 'done') {
           // Meter the turn (fire-and-forget — capture must never affect the
