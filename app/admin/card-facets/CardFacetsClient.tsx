@@ -82,6 +82,8 @@ export function CardFacetsClient() {
   const [editCard, setEditCard] = useState<any | null>(null)
 
   return (
+    <>
+    <SuggestionsPanel onApproved={loadDefs} toast={toast} />
     <div className="flex flex-col md:flex-row gap-6">
       {/* ── Left rail ── */}
       <aside className="md:w-72 shrink-0 space-y-4">
@@ -180,6 +182,95 @@ export function CardFacetsClient() {
         />
       )}
     </div>
+    </>
+  )
+}
+
+// ── Suggestions review queue (admin) ───────────────────────────────────────
+interface Suggestion {
+  id: string; proposedId: string | null; dim: Dim; label: string; def: string;
+  rationale: string; proposedBy: string; status: string
+}
+
+function SuggestionsPanel({ onApproved, toast }: { onApproved: () => void; toast: ReturnType<typeof useToast>['toast'] }) {
+  const [items, setItems] = useState<Suggestion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [slugEdits, setSlugEdits] = useState<Record<string, string>>({})
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch('/api/admin/card-facets/suggestions?status=pending')
+    const json = await res.json().catch(() => ({}))
+    if (res.ok && json.success) setItems(json.data as Suggestion[])
+    setLoading(false)
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const act = async (s: Suggestion, action: 'approve' | 'reject') => {
+    setBusy(s.id)
+    const slug = (slugEdits[s.id] ?? s.proposedId ?? '').trim()
+    const body: any = { id: s.id, action }
+    if (action === 'approve' && slug) body.overrides = { id: slug }
+    const res = await fetch('/api/admin/card-facets/suggestions', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const json = await res.json().catch(() => ({}))
+    setBusy(null)
+    if (res.ok && json.success) {
+      toast({ title: action === 'approve' ? 'Suggestion approved' : 'Suggestion rejected', description: s.label })
+      setItems((prev) => prev.filter((i) => i.id !== s.id))
+      if (action === 'approve') onApproved()
+    } else {
+      toast({ title: `Could not ${action}`, description: json.error ?? `HTTP ${res.status}`, variant: 'destructive' })
+    }
+  }
+
+  if (loading) return null
+  if (items.length === 0) return null
+
+  return (
+    <section className="mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+      <h2 className="text-lg font-bold mb-3 text-amber-900 dark:text-amber-200">
+        Suggested tags — {items.length} pending review
+      </h2>
+      <ul className="space-y-3">
+        {items.map((s) => (
+          <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">
+                {s.label} <span className="text-xs font-normal text-gray-500 dark:text-gray-400">({s.dim})</span>
+              </p>
+              {s.def && <p className="text-xs text-gray-600 dark:text-gray-300">{s.def}</p>}
+              {s.rationale && <p className="text-xs italic text-gray-500 dark:text-gray-400">“{s.rationale}”</p>}
+            </div>
+            <input
+              value={slugEdits[s.id] ?? s.proposedId ?? ''}
+              onChange={(e) => setSlugEdits((p) => ({ ...p, [s.id]: e.target.value }))}
+              placeholder="final-slug"
+              aria-label={`Final slug for ${s.label}`}
+              className="w-40 px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+            />
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => act(s, 'approve')}
+                disabled={busy === s.id}
+                className="px-3 py-1.5 rounded-md text-sm font-semibold bg-green-600 text-white disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => act(s, 'reject')}
+                disabled={busy === s.id}
+                className="px-3 py-1.5 rounded-md text-sm font-semibold bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+              >
+                Reject
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

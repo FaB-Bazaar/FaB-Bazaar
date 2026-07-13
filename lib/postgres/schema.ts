@@ -13,6 +13,7 @@ import {
   boolean,
   integer,
   bigint,
+  bigserial,
   real,
   numeric,
   smallint,
@@ -431,6 +432,55 @@ export const cardFacetTags = pgTable('card_facet_tags', {
 }, (table) => ({
   pk: primaryKey({ columns: [table.cardUniqueId, table.tag] }),
   tagIdx: index('idx_card_facet_tags_tag').on(table.tag),
+}));
+
+// Community facet votes (migration 0080). One row per (card, tag, user). The
+// COUNT of distinct voters is the confidence signal; a community tag enters the
+// searchable cards.facet_tags projection only at >= 2 votes (curator-assigned
+// card_facet_tags stays authoritative regardless). Removing = retracting your
+// own vote. Votes fan out across same-name pitch variants, like curator tags.
+export const cardFacetTagVotes = pgTable('card_facet_tag_votes', {
+  cardUniqueId: text('card_unique_id').notNull().references(() => cards.cardUniqueId, { onDelete: 'cascade' }),
+  tag: text('tag').notNull().references(() => facetTagDefinitions.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.cardUniqueId, table.tag, table.userId] }),
+  cardTagIdx: index('idx_card_facet_tag_votes_card_tag').on(table.cardUniqueId, table.tag),
+  userIdx: index('idx_card_facet_tag_votes_user').on(table.userId),
+}));
+
+// Append-only audit log of every facet add/remove (migration 0080). Deliberately
+// NO foreign keys — the trail must survive user/card deletion (accountability).
+export const facetTagAudit = pgTable('facet_tag_audit', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  cardUniqueId: text('card_unique_id'), // null for tag-level actions
+  tag: text('tag').notNull(),
+  action: text('action').notNull(), // 'add' | 'remove'
+  userId: text('user_id'), // actor; null only if system
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  userIdx: index('idx_facet_tag_audit_user').on(table.userId),
+  cardIdx: index('idx_facet_tag_audit_card').on(table.cardUniqueId),
+}));
+
+// New-term review queue (migration 0080). Users PROPOSE vocabulary; a curator
+// approves (minting a facet_tag_definitions row) or rejects. Never touches
+// cards.facet_tags — the AI vocabulary stays curator-controlled until promotion.
+export const facetTagSuggestions = pgTable('facet_tag_suggestions', {
+  id: text('id').primaryKey(), // app-generated (crypto.randomUUID)
+  proposedId: text('proposed_id'), // suggested slug; curator may finalize on approval
+  dim: text('dim').notNull(), // 'mechanical' | 'strategic' | 'synergy'
+  label: text('label').notNull(),
+  def: text('def').notNull().default(''),
+  rationale: text('rationale').notNull().default(''),
+  proposedBy: text('proposed_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  statusIdx: index('idx_facet_tag_suggestions_status').on(table.status),
 }));
 
 // ============================================================================

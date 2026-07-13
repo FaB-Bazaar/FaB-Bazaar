@@ -1,17 +1,33 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { cards, cardFacetTags, facetTagDefinitions } from '@/lib/postgres/schema';
+import {
+  cards,
+  cardFacetTags,
+  cardFacetTagVotes,
+  facetTagAudit,
+  facetTagDefinitions,
+  facetTagSuggestions,
+} from '@/lib/postgres/schema';
 import type {
   IFacetService,
   FacetTagDefinitionDTO,
   FacetTagDefinitionWithCount,
   CreateFacetTagInput,
+  CardCommunityTag,
+  CardFacetSummaryTag,
+  FacetSuggestionDTO,
+  CreateSuggestionInput,
+  ApproveSuggestionOverrides,
+  SuggestionStatus,
   FacetDimension,
 } from '@/lib/services/contracts/IFacetService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 
 const DIMENSIONS: readonly FacetDimension[] = ['mechanical', 'strategic', 'synergy'];
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** Distinct community voters required before a tag enters cards.facet_tags. */
+export const COMMUNITY_VOTE_THRESHOLD = 2;
 
 /**
  * Postgres implementation of the facet content manager. Imports db/schema
@@ -185,13 +201,7 @@ export class PostgresFacetService implements IFacetService {
           } else {
             await tx.delete(cardFacetTags).where(and(eq(cardFacetTags.cardUniqueId, id), eq(cardFacetTags.tag, tag)));
           }
-          // Re-project from the source of truth — never trust an in-memory array.
-          await tx
-            .update(cards)
-            .set({
-              facetTags: sql`COALESCE((SELECT array_agg(${cardFacetTags.tag} ORDER BY ${cardFacetTags.tag}) FROM ${cardFacetTags} WHERE ${cardFacetTags.cardUniqueId} = ${id}), ARRAY[]::text[])`,
-            })
-            .where(eq(cards.cardUniqueId, id));
+          await reproject(tx, id);
         }
       });
 
@@ -200,6 +210,255 @@ export class PostgresFacetService implements IFacetService {
       return fail(error, 'Failed to update card facet tag');
     }
   }
+
+  async voteCardFacetTag(cardUniqueId: string, tag: string, userId: string): AsyncResult<{ votes: number; applied: number }> {
+    return this.vote(cardUniqueId, tag, userId, 'add');
+  }
+
+  async unvoteCardFacetTag(cardUniqueId: string, tag: string, userId: string): AsyncResult<{ votes: number; applied: number }> {
+    return this.vote(cardUniqueId, tag, userId, 'remove');
+  }
+
+  /**
+   * Cast/retract one community vote across every same-name variant, re-project
+   * (curator tags ∪ community tags ≥ threshold), and write ONE append-only audit
+   * row against the clicked card. The whole fan-out runs in one transaction.
+   */
+  private async vote(
+    cardUniqueId: string,
+    tag: string,
+    userId: string,
+    op: 'add' | 'remove',
+  ): AsyncResult<{ votes: number; applied: number }> {
+    try {
+      const [def] = await db
+        .select({ id: facetTagDefinitions.id })
+        .from(facetTagDefinitions)
+        .where(eq(facetTagDefinitions.id, tag))
+        .limit(1);
+      if (!def) return { success: false, error: `Unknown facet tag: ${tag}` };
+
+      const [card] = await db
+        .select({ name: cards.displayName })
+        .from(cards)
+        .where(eq(cards.cardUniqueId, cardUniqueId))
+        .limit(1);
+      if (!card) return { success: false, error: 'Card not found' };
+
+      const variants = await db
+        .select({ id: cards.cardUniqueId })
+        .from(cards)
+        .where(eq(cards.displayName, card.name));
+
+      await db.transaction(async (tx) => {
+        for (const { id } of variants) {
+          if (op === 'add') {
+            await tx.insert(cardFacetTagVotes).values({ cardUniqueId: id, tag, userId }).onConflictDoNothing();
+          } else {
+            await tx
+              .delete(cardFacetTagVotes)
+              .where(and(eq(cardFacetTagVotes.cardUniqueId, id), eq(cardFacetTagVotes.tag, tag), eq(cardFacetTagVotes.userId, userId)));
+          }
+          await reproject(tx, id);
+        }
+        await tx.insert(facetTagAudit).values({ cardUniqueId, tag, action: op, userId });
+      });
+
+      const [row] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${cardFacetTagVotes.userId})::int` })
+        .from(cardFacetTagVotes)
+        .where(and(eq(cardFacetTagVotes.cardUniqueId, cardUniqueId), eq(cardFacetTagVotes.tag, tag)));
+
+      return { success: true, data: { votes: Number(row?.count) || 0, applied: variants.length } };
+    } catch (error) {
+      return fail(error, 'Failed to record facet vote');
+    }
+  }
+
+  async getCardCommunityTags(cardUniqueId: string, userId?: string): AsyncResult<CardCommunityTag[]> {
+    try {
+      const votedByMe = userId
+        ? sql`BOOL_OR(${cardFacetTagVotes.userId} = ${userId})`
+        : sql`false`;
+      const result = await db.execute(sql`
+        SELECT ${cardFacetTagVotes.tag} AS tag,
+               COUNT(DISTINCT ${cardFacetTagVotes.userId})::int AS votes,
+               ${votedByMe} AS voted_by_me
+        FROM ${cardFacetTagVotes}
+        WHERE ${cardFacetTagVotes.cardUniqueId} = ${cardUniqueId}
+        GROUP BY ${cardFacetTagVotes.tag}
+        ORDER BY votes DESC, tag ASC
+      `);
+      const rows = (result as unknown as { rows: any[] }).rows ?? (result as unknown as any[]);
+      return {
+        success: true,
+        data: rows.map((r: any) => ({ tag: r.tag, votes: Number(r.votes) || 0, votedByMe: r.voted_by_me === true })),
+      };
+    } catch (error) {
+      return fail(error, 'Failed to read community facet tags');
+    }
+  }
+
+  async getFacetSummaryForCards(cardUniqueIds: string[], viewerId?: string): AsyncResult<Record<string, CardFacetSummaryTag[]>> {
+    try {
+      if (cardUniqueIds.length === 0) return { success: true, data: {} };
+
+      // Two simple reads merged in JS: the live projection, and community counts
+      // (with a per-tag "did the viewer vote this" flag for personal-truth display).
+      const liveRows = await db
+        .select({ id: cards.cardUniqueId, ft: cards.facetTags })
+        .from(cards)
+        .where(and(inArray(cards.cardUniqueId, cardUniqueIds), sql`${cards.facetTags} <> '{}'`));
+
+      const mineExpr = viewerId ? sql`BOOL_OR(${cardFacetTagVotes.userId} = ${viewerId})` : sql`false`;
+      const voteResult = await db.execute(sql`
+        SELECT ${cardFacetTagVotes.cardUniqueId} AS id, ${cardFacetTagVotes.tag} AS tag,
+               COUNT(DISTINCT ${cardFacetTagVotes.userId})::int AS votes,
+               ${mineExpr} AS mine
+        FROM ${cardFacetTagVotes}
+        WHERE ${cardFacetTagVotes.cardUniqueId} IN (${sql.join(cardUniqueIds.map((c) => sql`${c}`), sql`, `)})
+        GROUP BY 1, 2
+      `);
+      const voteRows = (voteResult as unknown as { rows: any[] }).rows ?? (voteResult as unknown as any[]);
+
+      const byCard = new Map<string, Map<string, CardFacetSummaryTag>>();
+      const entry = (id: string, tag: string) => {
+        let m = byCard.get(id);
+        if (!m) { m = new Map(); byCard.set(id, m); }
+        let t = m.get(tag);
+        if (!t) { t = { tag, votes: 0, live: false, mine: false }; m.set(tag, t); }
+        return t;
+      };
+      for (const r of liveRows) for (const tag of r.ft) entry(r.id, tag).live = true;
+      for (const r of voteRows) {
+        const t = entry(r.id, r.tag);
+        t.votes = Number(r.votes) || 0;
+        t.mine = r.mine === true;
+      }
+
+      const data: Record<string, CardFacetSummaryTag[]> = {};
+      for (const [id, m] of byCard) {
+        data[id] = [...m.values()].sort((a, b) => Number(b.live) - Number(a.live) || b.votes - a.votes || a.tag.localeCompare(b.tag));
+      }
+      return { success: true, data };
+    } catch (error) {
+      return fail(error, 'Failed to read facet summary');
+    }
+  }
+
+  async createSuggestion(input: CreateSuggestionInput): AsyncResult<FacetSuggestionDTO> {
+    try {
+      if (!DIMENSIONS.includes(input.dim)) {
+        return { success: false, error: `dim must be one of: ${DIMENSIONS.join(', ')}` };
+      }
+      if (!input.label?.trim()) {
+        return { success: false, error: 'label is required' };
+      }
+      const [row] = await db
+        .insert(facetTagSuggestions)
+        .values({
+          id: crypto.randomUUID(),
+          proposedId: input.proposedId?.trim() || null,
+          dim: input.dim,
+          label: input.label.trim(),
+          def: input.def?.trim() ?? '',
+          rationale: input.rationale?.trim() ?? '',
+          proposedBy: input.proposedBy,
+        })
+        .returning();
+      return { success: true, data: toSuggestionDTO(row) };
+    } catch (error) {
+      return fail(error, 'Failed to create suggestion');
+    }
+  }
+
+  async listSuggestions(status?: SuggestionStatus): AsyncResult<FacetSuggestionDTO[]> {
+    try {
+      const rows = status
+        ? await db.select().from(facetTagSuggestions).where(eq(facetTagSuggestions.status, status)).orderBy(desc(facetTagSuggestions.createdAt))
+        : await db.select().from(facetTagSuggestions).orderBy(desc(facetTagSuggestions.createdAt));
+      return { success: true, data: rows.map(toSuggestionDTO) };
+    } catch (error) {
+      return fail(error, 'Failed to list suggestions');
+    }
+  }
+
+  async approveSuggestion(id: string, reviewerId: string, overrides?: ApproveSuggestionOverrides): AsyncResult<FacetTagDefinitionDTO> {
+    try {
+      const [sug] = await db.select().from(facetTagSuggestions).where(eq(facetTagSuggestions.id, id)).limit(1);
+      if (!sug) return { success: false, error: 'Suggestion not found' };
+      if (sug.status !== 'pending') return { success: false, error: `Suggestion already ${sug.status}` };
+
+      const created = await this.createTagDefinition({
+        id: overrides?.id ?? sug.proposedId ?? '',
+        dim: (overrides?.dim ?? sug.dim) as FacetDimension,
+        label: overrides?.label ?? sug.label,
+        def: overrides?.def ?? sug.def,
+      });
+      if (!created.success) return created;
+
+      await db
+        .update(facetTagSuggestions)
+        .set({ status: 'approved', reviewedBy: reviewerId, reviewedAt: new Date() })
+        .where(eq(facetTagSuggestions.id, id));
+      return created;
+    } catch (error) {
+      return fail(error, 'Failed to approve suggestion');
+    }
+  }
+
+  async rejectSuggestion(id: string, reviewerId: string): AsyncResult<{ rejected: true }> {
+    try {
+      const [sug] = await db.select({ status: facetTagSuggestions.status }).from(facetTagSuggestions).where(eq(facetTagSuggestions.id, id)).limit(1);
+      if (!sug) return { success: false, error: 'Suggestion not found' };
+      if (sug.status !== 'pending') return { success: false, error: `Suggestion already ${sug.status}` };
+
+      await db
+        .update(facetTagSuggestions)
+        .set({ status: 'rejected', reviewedBy: reviewerId, reviewedAt: new Date() })
+        .where(eq(facetTagSuggestions.id, id));
+      return { success: true, data: { rejected: true } };
+    } catch (error) {
+      return fail(error, 'Failed to reject suggestion');
+    }
+  }
+}
+
+function toSuggestionDTO(row: typeof facetTagSuggestions.$inferSelect): FacetSuggestionDTO {
+  return {
+    id: row.id,
+    proposedId: row.proposedId,
+    dim: row.dim as FacetDimension,
+    label: row.label,
+    def: row.def,
+    rationale: row.rationale,
+    proposedBy: row.proposedBy,
+    status: row.status as SuggestionStatus,
+    reviewedBy: row.reviewedBy,
+    reviewedAt: row.reviewedAt,
+    createdAt: row.createdAt,
+  };
+}
+
+/**
+ * Recompute cards.facet_tags for ONE card id from the sources of truth:
+ * curator assignments (always) ∪ community tags at/above the vote threshold.
+ * Only ever writes the facet_tags column. Runs inside the caller's transaction.
+ */
+async function reproject(tx: any, id: string): Promise<void> {
+  await tx.execute(sql`
+    UPDATE ${cards} SET facet_tags = COALESCE((
+      SELECT array_agg(tag ORDER BY tag) FROM (
+        SELECT ${cardFacetTags.tag} AS tag FROM ${cardFacetTags} WHERE ${cardFacetTags.cardUniqueId} = ${id}
+        UNION
+        SELECT ${cardFacetTagVotes.tag} AS tag FROM ${cardFacetTagVotes}
+          WHERE ${cardFacetTagVotes.cardUniqueId} = ${id}
+          GROUP BY ${cardFacetTagVotes.tag}
+          HAVING COUNT(DISTINCT ${cardFacetTagVotes.userId}) >= ${COMMUNITY_VOTE_THRESHOLD}
+      ) s
+    ), ARRAY[]::text[])
+    WHERE ${cards.cardUniqueId} = ${id}
+  `);
 }
 
 function toDTO(row: typeof facetTagDefinitions.$inferSelect): FacetTagDefinitionDTO {

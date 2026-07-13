@@ -184,7 +184,10 @@ describe('PostgresFacetService — strategy notes', () => {
   });
 
   it('never mutates any cards column other than strategy_notes', async () => {
-    const cols = { name: cards.name, text: cards.text, power: cards.power, facetTags: cards.facetTags };
+    // ccLegal, NOT facetTags: the votes test file legitimately projects its own
+    // tags onto this same fixture card in parallel, so a facetTags before/after
+    // snapshot races. No parallel test writes name/text/power/ccLegal.
+    const cols = { name: cards.name, text: cards.text, power: cards.power, ccLegal: cards.ccLegal };
     const before = await db.select(cols).from(cards).where(eq(cards.cardUniqueId, cardId));
     await service.setStrategyNotes(cardId, 'note');
     await service.setStrategyNotes(cardId, null);
