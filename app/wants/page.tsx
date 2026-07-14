@@ -9,8 +9,6 @@ import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
 import { WantsCard } from '@/components/wants';
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
-import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { WantsHeader } from "@/components/wants/WantsHeader";
 import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar";
@@ -587,8 +585,6 @@ export default function NewWantsPage() {
         </div>
       </div>
 
-      <DesktopAnchorAd />
-      <MobileAnchorAd />
     </div>
   );
 }

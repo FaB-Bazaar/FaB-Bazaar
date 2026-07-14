@@ -7,10 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { updateUserFlag } from '@/app/actions/userActions';
-import { setAdsEnabled } from '@/app/actions/siteSettingsActions';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
-import { Loader2, Shield, Settings, User, Store, RefreshCw, Sparkles, MonitorOff, Package } from 'lucide-react';
+import { Loader2, Shield, Settings, User, Store, RefreshCw, Sparkles, Package } from 'lucide-react';
 
 // Define the full user type with all the new fields
 type UserType = {
@@ -110,13 +109,11 @@ const SectionHeader = ({
   </div>
 );
 
-export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialUsers: UserType[]; initialAdsEnabled: boolean }) {
+export function UserAccessClient({ initialUsers }: { initialUsers: UserType[] }) {
   const [users, setUsers] = useState<UserType[]>(initialUsers);
   const [saving, setSaving] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingKits, setRefreshingKits] = useState(false);
-  const [adsEnabled, setAdsEnabledState] = useState(initialAdsEnabled);
-  const [togglingAds, setTogglingAds] = useState(false);
   const { toast } = useToast();
 
   async function handleFlagChange(userId: string, field: string, value: boolean) {
@@ -236,27 +233,6 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
     }
   }
 
-  async function handleToggleAds(value: boolean) {
-    setTogglingAds(true);
-    try {
-      await setAdsEnabled(value);
-      setAdsEnabledState(value);
-      toast({
-        title: value ? "Ads enabled" : "Ads disabled",
-        description: value ? "Google AdSense ads are now showing site-wide." : "Google AdSense ads are now hidden site-wide.",
-        duration: 3000,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update ads setting.",
-        variant: "destructive",
-        duration: 5000,
-      });
-    } finally {
-      setTogglingAds(false);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -340,34 +316,6 @@ export function UserAccessClient({ initialUsers, initialAdsEnabled }: { initialU
                 </>
               )}
             </Button>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Ads Toggle */}
-      <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <MonitorOff className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Google AdSense</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {adsEnabled ? "Ads are currently showing site-wide." : "Ads are currently hidden site-wide."}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {togglingAds && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-              <Switch
-                checked={adsEnabled}
-                onCheckedChange={handleToggleAds}
-                disabled={togglingAds}
-                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-              />
-            </div>
           </div>
         </CardHeader>
       </Card>

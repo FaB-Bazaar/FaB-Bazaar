@@ -22,8 +22,6 @@ import {
 } from 'lucide-react';
 import { HERO_INFO } from '@/lib/fab-constants';
 import type { EnrichedArticle } from './page';
-import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
-import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
 
 // Extract unique classes from HERO_INFO
 const HERO_CLASSES = [
@@ -817,10 +815,8 @@ export function GuidesContent({ articles }: GuidesContentProps) {
       </div>
 
       {/* Desktop Video-Capable Ad - Shows at bottom on desktop only */}
-      <DesktopAnchorAd className="overflow-hidden" />
 
       {/* Mobile Anchor Ad - Shows at bottom on mobile only */}
-      <MobileAnchorAd />
     </div>
   );
 }

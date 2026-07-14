@@ -38,8 +38,6 @@ import { TradeRequestSidebar } from "@/components/binder/TradeRequestSidebar";
 import { MobileTradeRequestSheet } from "@/components/binder/MobileTradeRequestSheet";
 import { MobileSelectedCardsSheet } from "@/components/binder/MobileSelectedCardsSheet";
 // Ads disabled until further notice
-// import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
-// import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
 import { getSetImageOrFallback } from "@/lib/set-images";
 import { CARD_FILTER_SETS } from "@/lib/fab-constants/sets";
 
@@ -120,8 +118,6 @@ export default function BinderPage() {
   // Mobile state
   const [isMobileTradeSheetOpen, setIsMobileTradeSheetOpen] = useState(false);
 
-  // Ad refresh state - increment to force ad refresh
-  const [adRefreshKey, setAdRefreshKey] = useState(0);
 
 
 
@@ -600,9 +596,6 @@ const handleTradeRequestSent = async () => {
   try {
     await BinderActions.addCardToBinder(card, printing, binder, toast, quantity, forTrade);
     refreshCurrentView();
-
-    // Refresh the desktop anchor ad after adding a card
-    setAdRefreshKey(prev => prev + 1);
 
     if (!shouldContinue) {
       setIsCardSearchOpen(false);
@@ -1510,8 +1503,6 @@ const SuperSlamDisclosure = () => {
       )}
 
       {/* Ads disabled until further notice */}
-      {/* <DesktopAnchorAd key={adRefreshKey} /> */}
-      {/* <MobileAnchorAd key={adRefreshKey} /> */}
     </div>
   );
 }

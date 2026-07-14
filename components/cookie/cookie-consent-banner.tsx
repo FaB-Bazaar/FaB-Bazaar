@@ -204,8 +204,8 @@ export function CookieConsentBanner() {
               <div className="flex-1 pr-4">
                 <h4 className="font-medium mb-1">Advertising Cookies</h4>
                 <p className="text-sm text-gray-500">
-                  Used by Google AdSense to show relevant ads and measure ad performance. 
-                  These cookies may track you across websites.
+                  Enable affiliate tracking on outbound TCGplayer links, which supports
+                  this site at no cost to you. These cookies may track you across websites.
                 </p>
               </div>
               <Switch

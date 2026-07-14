@@ -156,21 +156,6 @@
   margin: 0;
 }
 
-/* Force desktop ad height constraint - override AdSense dynamic sizing */
-.desktop-ad-container {
-  height: 110px !important;
-  max-height: 110px !important;
-  overflow: hidden !important;
-}
-
-.desktop-ad-container .ad-container,
-.desktop-ad-container .ad-container > ins,
-.desktop-ad-container .adsbygoogle {
-  height: 90px !important;
-  max-height: 90px !important;
-  overflow: hidden !important;
-}
-
 /* Chord HUD overlay chip animations */
 @keyframes chord-chip-in {
   from { opacity: 0; transform: translateY(28px) scale(0.7); }

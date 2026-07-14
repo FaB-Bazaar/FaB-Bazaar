@@ -32,8 +32,6 @@ import { AffiliateDisclosure } from '@/components/tracking/AffiliateDisclosure';
 import { FeaturedCardsCarousel } from '@/components/shared/FeaturedCardsCarousel';
 
 // Add ad components
-import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad";
-import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad";
 import { ShareButton } from "@/components/shared/ShareButton";
 
 const components = {
@@ -338,10 +336,8 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
       </div>
 
       {/* Desktop Video-Capable Ad - Shows at bottom on desktop only */}
-      <DesktopAnchorAd className="desktop-ad-container" />
 
       {/* Mobile Anchor Ad - Shows at bottom on mobile only */}
-      <MobileAnchorAd />
     </>
   );
 }

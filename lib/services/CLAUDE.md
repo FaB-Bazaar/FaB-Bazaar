@@ -45,7 +45,7 @@ import { userService, binderService, printingsService } from "@/lib/services"
 | `eventService` | Event management |
 | `curatedListService` | Curated card lists |
 | `gameResultsService` | Game result tracking |
-| `siteSettingsService` | Site-wide key-value config (e.g., `ads_enabled`). Generic `get<T>(key)` / `set(key, value)` |
+| `siteSettingsService` | Site-wide key-value config. Generic `get<T>(key)` / `set(key, value)` |
 | `setsService` | Set metadata reference data (`sets` table = source of truth: names, release dates/order, category/tier, core-set flag). After editing the table, regenerate the client snapshot: `npx tsx --env-file=.env.local scripts/generate-set-constants.ts` |
 
 ## Testing

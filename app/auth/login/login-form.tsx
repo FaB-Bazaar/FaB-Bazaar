@@ -1,5 +1,6 @@
 // app/auth/login/login-form.tsx
 
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { loginWithDiscord } from "./actions" // <-- Import the new action
@@ -23,6 +24,17 @@ export function LoginForm() {
             Continue with Discord
           </Button>
         </form>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          By continuing, you agree to our{" "}
+          <Link href="/terms-of-service" className="text-blue-600 hover:text-blue-800 underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy-policy" className="text-blue-600 hover:text-blue-800 underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
         {/* The rest of the component remains the same */}
         <p className="text-center text-sm text-gray-500 mt-4">
           Don't have a Discord account?{" "}

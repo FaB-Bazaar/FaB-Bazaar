@@ -14,8 +14,6 @@ import { SiteFooter } from "@/components/site-footer"
 import { DarkModeProvider } from '@/contexts/DarkModeContext'
 import { cn } from "@/lib/utils"
 import { Toaster } from "@/components/ui/toaster"
-import { AdsConfigProvider } from "@/contexts/AdsConfigContext"
-import { getAdsEnabled } from "@/app/actions/siteSettingsActions"
 import { AnalyticsListener } from "@/components/analytics/AnalyticsListener"
 import { Suspense } from "react"
 
@@ -112,8 +110,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const adsEnabled = await getAdsEnabled();
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -198,7 +194,6 @@ export default async function RootLayout({
         "min-h-dvh font-sans antialiased bg-page",
         OutfitFont.className
       )}>
-        <AdsConfigProvider adsEnabled={adsEnabled}>
         <DarkModeProvider>
           <CookieConsentProvider>
             <AuthSessionProvider>
@@ -233,7 +228,6 @@ export default async function RootLayout({
             </AuthSessionProvider>
           </CookieConsentProvider>
         </DarkModeProvider>
-        </AdsConfigProvider>
 
         {/* Web Components - Load after DOM is ready */}
         <Script

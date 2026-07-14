@@ -7,270 +7,247 @@ export default function PrivacyPolicy() {
       <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Privacy Policy</h1>
 
       <div className="prose prose-slate dark:prose-invert max-w-none text-gray-900 dark:text-gray-100">
-        <p className="mb-4">Last updated: {new Date().toLocaleDateString()}</p>
+        <p className="mb-4">Last updated: July 13, 2026</p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">1. Introduction</h2>
         <p>
-          Welcome to FaB Bazaar, a Flesh and Blood collection management and trade discovery platform. 
-          We are committed to protecting your privacy and personal data. This Privacy Policy explains how 
-          we collect, use, disclose, and safeguard your information when you use our website, mobile 
-          applications, Discord bot, API services, and related services (collectively, the "Platform").
+          Welcome to FaB Bazaar, a Flesh and Blood collection management and trade discovery platform.
+          We are committed to protecting your privacy and personal data. This Privacy Policy explains how
+          we collect, use, disclose, and safeguard your information when you use our website, Discord bot,
+          API services, AI assistant, and related services (collectively, the "Platform").
         </p>
         <p>
-          By using our Platform, you agree to the collection and use of information in accordance with this 
-          Privacy Policy and our Terms of Service.
+          FaB Bazaar is a free, open-source community project. We process no payments and hold no
+          financial information about you. By using our Platform, you agree to the collection and use of
+          information in accordance with this Privacy Policy and our Terms of Service.
         </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">2. Information We Collect</h2>
-        
-        <h3 className="text-xl font-medium mt-4 mb-2">2.1 Personal Information</h3>
-        <p>We collect the following personal information:</p>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">2.1 Account Information</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Authentication Data:</strong> Discord ID, Discord username, email address (from Discord OAuth)</li>
-          <li><strong>Profile Information:</strong> Username, display name, local store preferences, location data (city/state for local trading discovery)</li>
-          <li><strong>Account Credentials:</strong> MCP tokens for API access (securely hashed and stored)</li>
-          <li><strong>Contact Information:</strong> Email addresses for notifications and communication</li>
+          <li>Authentication data: Discord ID, Discord username, and the email address Discord provides through OAuth. We do not use this email address for marketing and do not send newsletters.</li>
+          <li>Profile information: username, display name, country and language preferences, and local store selection (used for local trading discovery at the city/store level, never a home address).</li>
+          <li>API credentials: MCP tokens (stored hashed) and OAuth client registrations for applications you connect to your account.</li>
         </ul>
 
         <h3 className="text-xl font-medium mt-4 mb-2">2.2 Platform Activity Data</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Card Collections:</strong> Binder contents, card conditions, trade availability, pricing preferences</li>
-          <li><strong>Wants Lists:</strong> Desired cards, priority levels, trading preferences</li>
-          <li><strong>Deck Information:</strong> Deck lists, formats, hero selections, card quantities</li>
-          <li><strong>Trade Workflow Data:</strong> Digital trade agreements, communication between traders, trade tracking status</li>
-          <li><strong>Search Activity:</strong> Card searches, filter preferences, "Who Has" queries</li>
+          <li>Card collections: binder contents, card conditions, and trade availability.</li>
+          <li>Wants lists: desired cards and trading preferences.</li>
+          <li>Decks: deck lists, formats, hero selections, and card quantities.</li>
+          <li>Game results: data imported from Talishar games you play, consisting of the actions taken during the game and the hero name of each deck. No personal identifiers for your opponent are stored, and opponents who opted out of stats sharing on Talishar have their detailed data excluded. Game results are visible only to you and any co-owners of the deck.</li>
+          <li>Articles and card tags: content you author, including whether each card tag is private or public (see the Terms of Service for how public tags are licensed).</li>
+          <li>Trade activity: trade requests and trade-interest notifications you send or receive.</li>
+          <li>Search activity: card searches, filter preferences, and "Who Has" queries.</li>
         </ul>
 
-        <h3 className="text-xl font-medium mt-4 mb-2">2.3 Technical Information</h3>
+        <h3 className="text-xl font-medium mt-4 mb-2">2.3 AI Assistant (Volzar) Data</h3>
+        <p>
+          When you use Volzar, your messages and the account data needed to answer them (such as binder,
+          wants, deck, and game-result contents) are processed to generate a response. We do not store
+          your conversations on our servers; chat history lives in your browser session. We record only
+          daily usage counts to enforce fair-use limits. See Section 6 for where AI processing happens.
+        </p>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">2.4 Technical Information</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Usage Data:</strong> IP addresses, browser types, device information, page views, session duration</li>
-          <li><strong>Cookies and Tracking:</strong> Session cookies, preference settings, analytics data</li>
-          <li><strong>API Usage:</strong> MCP integration logs, request patterns, authentication events</li>
-          <li><strong>Webhooks:</strong> Notification configurations, endpoint URLs, delivery logs</li>
+          <li>Usage data: IP addresses, browser types, device information, page views.</li>
+          <li>Cookies and tracking: session cookies, preference settings, and analytics data as described in Section 5.</li>
+          <li>API usage: authentication events, request logs, and rate-limiting counters.</li>
         </ul>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">3. How We Use Your Information</h2>
-        
+
         <h3 className="text-xl font-medium mt-4 mb-2">3.1 Platform Services</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li>Provide and maintain collection management and discovery tools</li>
+          <li>Provide and maintain collection management, deck building, and discovery tools</li>
           <li>Authenticate users and manage account security</li>
           <li>Connect traders with matching collections and wants lists</li>
-          <li>Process binder management and wants list functionality</li>
-          <li>Enable deck building and sharing features</li>
-          <li>Provide digital trade workflow tracking (tracking only - we are not a party to trades)</li>
+          <li>Power features you invoke, such as search, trade matching, deck statistics, and the Volzar AI assistant</li>
           <li>Display local store connections for community discovery</li>
         </ul>
 
         <h3 className="text-xl font-medium mt-4 mb-2">3.2 Communication and Notifications</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li>Send trade match alerts when users have complementary wants/haves</li>
-          <li>Deliver webhook notifications for binder and wants list updates</li>
+          <li>Announce activity on public binders to our Discord community</li>
+          <li>Deliver trade requests and trade-interest notifications</li>
           <li>Provide Discord bot functionality and commands</li>
-          <li>Send service updates and important account information</li>
-          <li>Notify users of potential trade opportunities</li>
         </ul>
+        <p>
+          We do not send marketing email. Service announcements are posted on the Platform and in our
+          Discord community.
+        </p>
 
         <h3 className="text-xl font-medium mt-4 mb-2">3.3 Platform Improvement and Safety</h3>
         <ul className="list-disc pl-6 mb-4">
           <li>Analyze usage patterns to improve features</li>
-          <li>Optimize search and matching algorithms</li>
-          <li>Enhance user experience and platform performance</li>
-          <li>Monitor for prohibited activity (sales attempts, fraud, abuse)</li>
-          <li>Enforce our trade-only policies and Terms of Service</li>
+          <li>Monitor for fraud, abuse, and misrepresentation</li>
+          <li>Enforce our Terms of Service</li>
         </ul>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">4. What We Don't Do</h2>
-        <p><strong>Important clarifications about our platform:</strong></p>
         <ul className="list-disc pl-6 mb-4">
-          <li>We do NOT process payments or handle any financial transactions</li>
-          <li>We do NOT hold cards in escrow or act as an intermediary</li>
-          <li>We do NOT verify user identities, card authenticity, or card conditions</li>
-          <li>We do NOT guarantee trade completion or act as a dispute resolver</li>
-          <li>We do NOT participate in, arbitrate, or take responsibility for user-to-user trades</li>
-          <li>We do NOT collect or track sales data (our platform is trade-only)</li>
+          <li>We do NOT process payments or hold any financial information</li>
+          <li>We do NOT sell, trade, or rent your personal information</li>
+          <li>We do NOT send marketing email</li>
+          <li>We do NOT use your content to train proprietary or closed-source machine-learning models</li>
+          <li>We do NOT send your data to any AI provider unless you use Volzar or authorize a connected application</li>
+          <li>We do NOT verify user identities or act as a party to trades or sales between users</li>
         </ul>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">5. Cookies and Tracking Technologies</h2>
         <p>
-          We use cookies and similar technologies to enhance your experience. Our cookie consent system 
-          allows you to control which cookies are used.
+          We use cookies and similar technologies to operate the Platform. Our cookie consent banner
+          lets you control which optional cookies are used, and you can change your choices at any time
+          via the cookie settings in the site footer.
         </p>
 
         <h3 className="text-xl font-medium mt-4 mb-2">5.1 Cookie Categories</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Necessary Cookies:</strong> Essential for platform functionality, authentication, and security (always active)</li>
-          <li><strong>Functional Cookies:</strong> Remember your preferences (dark mode, language, local store settings)</li>
-          <li><strong>Analytics Cookies:</strong> Google Analytics 4 data to understand usage patterns and improve our services. Google Analytics scripts are not loaded until you grant analytics consent — no tracking occurs before your choice. When enabled, we track: page views, card searches (including the search term you enter), card detail views, deck views, deck creation, deck imports, Presenter mode opens, and login events. We also set a user-type property (anonymous or authenticated) on each session. Deck names you create are included as a parameter on deck-related events. We do <strong>not</strong> send your email, user ID, or Discord identifier to Google Analytics. IP addresses are anonymized, and Google Signals and ad personalization are disabled for analytics.</li>
-          <li><strong>Advertising Cookies:</strong> Google AdSense cookies for relevant ad display and performance measurement</li>
-          <li><strong>Affiliate Cookies:</strong> Track affiliate referrals and partnerships when you've consented to advertising cookies</li>
+          <li>Necessary cookies: essential for platform functionality, authentication, and security (always active).</li>
+          <li>Functional cookies: remember your preferences (dark mode, language, local store settings).</li>
+          <li>Analytics cookies: Google Analytics 4 data to understand usage patterns and improve our services. Google Analytics scripts are not loaded until you grant analytics consent; no tracking occurs before your choice. When enabled, we track: page views, card searches (including the search term you enter), card detail views, deck views, deck creation, deck imports, Presenter mode opens, and login events. We also set a user-type property (anonymous or authenticated) on each session. Deck names you create are included as a parameter on deck-related events. We do not send your email, user ID, or Discord identifier to Google Analytics. IP addresses are anonymized, and Google Signals and ad personalization are disabled for analytics.</li>
+          <li>Advertising cookies: enable affiliate referral tracking, and ad display where advertisements are active on the Platform.</li>
         </ul>
 
-        <h3 className="text-xl font-medium mt-4 mb-2">5.2 Cookie Consent and Management</h3>
+        <h3 className="text-xl font-medium mt-4 mb-2">5.2 Affiliate Links</h3>
         <p>
-          We are compliant with cookie consent requirements and provide clear disclosures about cookie usage. 
-          When you first visit our Platform, you will see a cookie consent banner that allows you to:
-        </p>
-        <ul className="list-disc pl-6 mb-4">
-          <li>Accept all cookies</li>
-          <li>Reject optional cookies (only necessary cookies will be used)</li>
-          <li>Customize your cookie preferences by category</li>
-        </ul>
-        <p>
-          If you opt to allow advertising cookies, this enables:
-        </p>
-        <ul className="list-disc pl-6 mb-4">
-          <li><strong>Google AdSense:</strong> Display of relevant advertisements</li>
-          <li><strong>Affiliate Links:</strong> Tracking of referral partnerships (such as TCGPlayer affiliate links)</li>
-        </ul>
-        <p>
-          You can change your cookie preferences at any time through our cookie settings in the footer 
-          of our website. You may also configure your browser to refuse cookies, though this may limit 
-          platform functionality. Necessary cookies cannot be disabled as they are essential for the 
-          Platform to function.
+          Outbound links to TCGplayer may include affiliate tracking that supports the Platform, at no
+          cost to you. Affiliate tracking is applied only when you have enabled advertising cookies;
+          otherwise, links point directly to the marketplace with no tracking parameters added.
         </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">6. Third-Party Services and Data Sharing</h2>
-        
-        <h3 className="text-xl font-medium mt-4 mb-2">6.1 Authentication and Social Services</h3>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">6.1 Services We Use</h3>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Discord OAuth:</strong> For user authentication and profile information</li>
-          <li><strong>Discord API:</strong> For bot functionality and server integration</li>
+          <li>Discord: authentication (OAuth), bot functionality, and community notifications.</li>
+          <li>OpenRouter and AI model providers: when you use Volzar, your messages and the account data needed to answer them are transmitted to OpenRouter and routed to an AI model provider for processing, subject to their terms and privacy policies. This happens only when you use Volzar.</li>
+          <li>Talishar (talishar.net): deck sync and game-result import, as described in Section 2.2 and Talishar's own terms.</li>
+          <li>Google Analytics: consent-based usage analytics (see Section 5.1).</li>
+          <li>Metafy: if you link a Metafy account, we check your supporter status with Metafy. Donations are processed entirely by Metafy; we never see payment details.</li>
+          <li>Infrastructure providers: self-hosted database on infrastructure we operate, with hosting, DNS, and content delivery services (including Cloudflare).</li>
+          <li>TCG pricing sources: we receive card pricing data from third-party sources; we do not send them your personal data.</li>
         </ul>
 
-        <h3 className="text-xl font-medium mt-4 mb-2">6.2 Analytics and Advertising</h3>
-        <ul className="list-disc pl-6 mb-4">
-          <li><strong>Google Analytics:</strong> Website usage analytics and performance monitoring</li>
-          <li><strong>Google AdSense:</strong> Advertising services and revenue generation</li>
-        </ul>
-
-        <h3 className="text-xl font-medium mt-4 mb-2">6.3 Data and Infrastructure</h3>
-        <ul className="list-disc pl-6 mb-4">
-          <li><strong>PostgreSQL (self-hosted):</strong> Database hosting and data storage on infrastructure we operate directly</li>
-          <li><strong>Cloud Hosting Services:</strong> Platform infrastructure, DNS, and content delivery (including Cloudflare)</li>
-          <li><strong>TCG Pricing APIs:</strong> Card pricing and market data (for informational purposes only)</li>
-        </ul>
-
-        <h3 className="text-xl font-medium mt-4 mb-2">6.4 Data Sharing Practices</h3>
-        <p>We do not sell, trade, or rent your personal information to third parties. We share information only:</p>
-        <ul className="list-disc pl-6 mb-4">
-          <li>With your explicit consent for specific features</li>
-          <li>To connect traders with matching collections (card lists, wants lists visible per your privacy settings)</li>
-          <li>For local trading connections (city/state level only, never full addresses)</li>
-          <li>When required by law or to protect our rights</li>
-          <li>With service providers who assist in platform operations (under strict confidentiality)</li>
-        </ul>
+        <h3 className="text-xl font-medium mt-4 mb-2">6.2 Connected Applications</h3>
         <p>
-          <strong>We never share financial information because we don't collect it - we don't process payments.</strong>
+          If you authorize a third-party application (such as an AI client) through our OAuth service,
+          that application can access your account data as described in the Terms of Service. You control
+          this access and can revoke it at any time from your account settings. Connected applications
+          operate under their own privacy policies.
         </p>
 
-        <h2 className="text-2xl font-semibold mt-6 mb-4">7. Data Security and Protection</h2>
-        <p>We implement comprehensive security measures to protect your data:</p>
-        
-        <h3 className="text-xl font-medium mt-4 mb-2">7.1 Technical Safeguards</h3>
+        <h3 className="text-xl font-medium mt-4 mb-2">6.3 Data Sharing Practices</h3>
+        <p>We do not sell, trade, or rent your personal information. We share information only:</p>
         <ul className="list-disc pl-6 mb-4">
-          <li>Encryption of sensitive data at rest and in transit (TLS/SSL)</li>
+          <li>As you direct: public binders, public tags, published articles, and trade matching visible per your settings</li>
+          <li>With applications you explicitly authorize (Section 6.2)</li>
+          <li>With the service providers above, to the extent needed to operate the Platform</li>
+          <li>When required by law or to protect our rights and the safety of our users</li>
+        </ul>
+
+        <h2 className="text-2xl font-semibold mt-6 mb-4">7. Data Security and Protection</h2>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">7.1 Safeguards</h3>
+        <ul className="list-disc pl-6 mb-4">
+          <li>Encryption of data in transit (TLS/SSL)</li>
+          <li>Hashed storage of authentication tokens</li>
           <li>Secure authentication mechanisms and session management</li>
           <li>API rate limiting and abuse prevention</li>
-          <li>Regular security monitoring and vulnerability assessments</li>
-          <li>Secure database configurations and access controls</li>
+          <li>Access to personal data limited to the Platform's operator</li>
+          <li>Regular encrypted backups</li>
         </ul>
 
-        <h3 className="text-xl font-medium mt-4 mb-2">7.2 Operational Security</h3>
-        <ul className="list-disc pl-6 mb-4">
-          <li>Limited access to personal data on a need-to-know basis</li>
-          <li>Regular backups with encryption</li>
-          <li>Incident response procedures</li>
-          <li>Employee data handling training</li>
-        </ul>
-
-        <h3 className="text-xl font-medium mt-4 mb-2">7.3 Data Breach Notification</h3>
+        <h3 className="text-xl font-medium mt-4 mb-2">7.2 Data Breach Notification</h3>
         <p>
-          In the event of a data breach that affects your personal information, we will notify you 
-          in accordance with applicable law, typically within 72 hours of discovering the breach. 
-          Notification will be sent via email and/or posted prominently on the Platform.
+          In the event of a data breach that affects your personal information, we will notify you
+          without undue delay and in accordance with applicable law, by posting a notice prominently
+          on the Platform.
         </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">8. Your Privacy Rights</h2>
-        
-        <h3 className="text-xl font-medium mt-4 mb-2">8.1 GDPR Rights (EU Users)</h3>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">8.1 Self-Serve Tools</h3>
+        <p>
+          The most common privacy actions are available directly in your account: you can export your
+          collection data at any time, edit your profile information, control the visibility of binders
+          and tags, revoke connected applications, and delete your account from your profile page.
+          Account deletion takes effect immediately and permanently removes your account and its
+          associated personal data.
+        </p>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">8.2 GDPR Rights (EU Users)</h3>
         <p>Under the General Data Protection Regulation, you have the right to:</p>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Access:</strong> Request copies of your personal data</li>
-          <li><strong>Rectification:</strong> Correct inaccurate or incomplete data</li>
-          <li><strong>Erasure:</strong> Request deletion of your data ("right to be forgotten")</li>
-          <li><strong>Portability:</strong> Receive your data in a structured, machine-readable format</li>
-          <li><strong>Object:</strong> Object to processing based on legitimate interests</li>
-          <li><strong>Restrict:</strong> Limit how we process your data</li>
-          <li><strong>Withdraw Consent:</strong> Remove consent for specific processing activities</li>
+          <li>Access: request copies of your personal data</li>
+          <li>Rectification: correct inaccurate or incomplete data</li>
+          <li>Erasure: request deletion of your data ("right to be forgotten")</li>
+          <li>Portability: receive your data in a structured, machine-readable format</li>
+          <li>Object: object to processing based on legitimate interests</li>
+          <li>Restrict: limit how we process your data</li>
+          <li>Withdraw consent: remove consent for specific processing activities</li>
         </ul>
 
-        <h3 className="text-xl font-medium mt-4 mb-2">8.2 CCPA Rights (California Users)</h3>
+        <h3 className="text-xl font-medium mt-4 mb-2">8.3 CCPA Rights (California Users)</h3>
         <p>Under the California Consumer Privacy Act, you have the right to:</p>
         <ul className="list-disc pl-6 mb-4">
           <li>Know what personal information is collected and how it's used</li>
           <li>Delete personal information held by us</li>
-          <li>Opt-out of the sale of personal information (we do not sell your data)</li>
+          <li>Opt out of the sale of personal information (we do not sell your data)</li>
           <li>Non-discrimination for exercising your privacy rights</li>
         </ul>
 
-        <h3 className="text-xl font-medium mt-4 mb-2">8.3 How to Exercise Your Rights</h3>
-        <p>To exercise any of these rights, please contact us using the information in Section 13. We will respond to your request within 30 days.</p>
+        <h3 className="text-xl font-medium mt-4 mb-2">8.4 How to Exercise Your Rights</h3>
+        <p>
+          For anything not covered by the self-serve tools, contact us using the information in
+          Section 12. We will respond to your request within 30 days.
+        </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">9. Data Retention</h2>
-        <p>We retain your personal data based on the following criteria:</p>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Account Data:</strong> Retained while your account is active and for 2 years after deletion</li>
-          <li><strong>Trade Workflow Tracking:</strong> Retained for 3 years for user safety, platform improvement, and legal compliance</li>
-          <li><strong>Analytics Data:</strong> Retained for up to 14 months in Google Analytics 4, per our configured retention setting; events older than the retention window are automatically deleted by Google</li>
-          <li><strong>Communication Logs:</strong> Retained for 1 year for support and safety purposes</li>
-          <li><strong>Violation Records:</strong> Records of Terms of Service violations (sales attempts, fraud) retained for 5 years for platform safety</li>
-          <li><strong>Legal Compliance:</strong> Some data may be retained longer if required by law</li>
+          <li>Account and activity data: retained while your account is active, and deleted immediately when you delete your account. Copies may persist for a limited period in routine encrypted backups before those backups expire.</li>
+          <li>Public contributions: card tags published under the open data license described in the Terms of Service remain available under that license.</li>
+          <li>Analytics data: retained for up to 14 months in Google Analytics 4, per our configured retention setting; older events are automatically deleted by Google.</li>
+          <li>Server and security logs: retained for a limited period for abuse prevention and troubleshooting.</li>
+          <li>Moderation records: records of serious Terms of Service violations may be retained as needed for platform safety.</li>
+          <li>Legal compliance: some data may be retained longer if required by law.</li>
         </ul>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">10. International Data Transfers</h2>
         <p>
-          FaB Bazaar operates from Georgia, USA. If you access our Platform from outside the United States, 
-          your information may be transferred to, stored, and processed in the United States. We ensure 
-          appropriate safeguards are in place for international transfers, including:
+          FaB Bazaar operates from the United States. If you access our Platform from outside the
+          United States, your information is transferred to, stored, and processed in the United
+          States. Where our service providers process data internationally, that processing is covered
+          by their standard data protection terms, including Standard Contractual Clauses where
+          applicable.
         </p>
-        <ul className="list-disc pl-6 mb-4">
-          <li>Adherence to the EU-US Data Privacy Framework where applicable</li>
-          <li>Standard Contractual Clauses (SCCs) with service providers for transfers outside the EEA/UK</li>
-          <li>Ensuring an adequate level of protection for your data through technical and contractual safeguards</li>
-        </ul>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">11. Children's Privacy</h2>
         <p>
-          Account creation on our Platform requires a Discord account. Discord requires users to be at 
-          least 13 years of age (or the minimum age required in their country, whichever is greater). 
+          Account creation on our Platform requires a Discord account. Discord requires users to be at
+          least 13 years of age (or the minimum age required in their country, whichever is greater).
           By requiring Discord authentication, we comply with age restrictions set by Discord's Terms of Service.
         </p>
         <p>
-          We do not knowingly collect personal information from children below Discord's minimum age requirements. 
-          If we discover that we have collected personal information from a user below the required age, 
+          We do not knowingly collect personal information from children below Discord's minimum age requirements.
+          If we discover that we have collected personal information from a user below the required age,
           we will delete such information immediately.
         </p>
         <p>
-          Users between 13 and 18 (or their country's age of majority) should have parental or guardian 
-          consent to use the Platform. Parents are encouraged to monitor their children's use of the 
+          Users between 13 and 18 (or their country's age of majority) should have parental or guardian
+          consent to use the Platform. Parents are encouraged to monitor their children's use of the
           Platform and trading activities.
         </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">12. Changes to This Privacy Policy</h2>
         <p>
-          We may update this Privacy Policy from time to time to reflect changes in our practices or 
-          applicable laws. We will notify you of material changes by:
-        </p>
-        <ul className="list-disc pl-6 mb-4">
-          <li>Posting a notice on our Platform</li>
-          <li>Sending an email notification (if you have provided an email address)</li>
-          <li>Discord notification through our bot (if you use Discord integration)</li>
-        </ul>
-        <p>
-          Changes will take effect 30 days after notification, except for changes required by law, 
-          which may take effect immediately. Your continued use of the Platform after changes take 
-          effect constitutes acceptance of the updated Privacy Policy.
+          We may update this Privacy Policy from time to time to reflect changes in our practices or
+          applicable laws. If a change is material, we will post a notice on the Platform at least 30
+          days before it takes effect, except for changes required by law, which may take effect
+          immediately. Your continued use of the Platform after changes take effect constitutes
+          acceptance of the updated Privacy Policy.
         </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">13. Contact Information</h2>
@@ -297,10 +274,10 @@ export default function PrivacyPolicy() {
         <h2 className="text-2xl font-semibold mt-6 mb-4">14. Legal Basis for Processing (GDPR)</h2>
         <p>Our legal basis for processing your personal data includes:</p>
         <ul className="list-disc pl-6 mb-4">
-          <li><strong>Consent:</strong> For marketing communications and optional features</li>
-          <li><strong>Contract:</strong> To provide collection management and trade discovery services</li>
-          <li><strong>Legitimate Interest:</strong> For platform improvement, security, and community safety</li>
-          <li><strong>Legal Obligation:</strong> For compliance with applicable laws</li>
+          <li>Consent: for optional cookies (analytics, advertising) and optional features</li>
+          <li>Contract: to provide collection management and trade discovery services</li>
+          <li>Legitimate interest: for platform improvement, security, and community safety</li>
+          <li>Legal obligation: for compliance with applicable laws</li>
         </ul>
 
         <div className="mt-8 mb-4 flex gap-4">

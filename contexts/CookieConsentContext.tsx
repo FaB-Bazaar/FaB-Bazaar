@@ -9,7 +9,6 @@ declare global {
   interface Window {
     gtag: (...args: any[]) => void
     dataLayer: any[]
-    adsbygoogle: any[]
     impactStat: (...args: any[]) => void
   }
 }
@@ -70,18 +69,6 @@ function loadGoogleAnalytics() {
       allow_ad_personalization_signals: false,
     })
   }
-}
-
-// Load AdSense script dynamically after consent
-function loadAdSense() {
-  if (typeof window === "undefined" || document.querySelector('#adsense-script')) return
-
-  const script = document.createElement('script')
-  script.id = 'adsense-script'
-  script.async = true
-  script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8256117741560128'
-  script.crossOrigin = 'anonymous'
-  document.head.appendChild(script)
 }
 
 // Load Impact tracking script dynamically after advertising consent
@@ -153,7 +140,6 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
       loadGoogleAnalytics()
     }
     if (consentOptions.advertising) {
-      loadAdSense()
       loadImpactTracking()
     }
 

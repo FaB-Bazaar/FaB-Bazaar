@@ -30,8 +30,6 @@ import { useSession } from "next-auth/react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import { SharedWantsCard } from '@/components/wants';
 import { DarkModeToggle } from "@/components/DarkModeToggle";
-import { MobileAnchorAd } from "@/components/ads/mobile-anchor-ad"
-import { DesktopAnchorAd } from "@/components/ads/desktop-anchor-ad"
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure"
 import { profileHref, displayUsername } from "@/lib/utils/display-username"
 import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar"
@@ -837,10 +835,8 @@ export default function SharedWantsListPage({
       )}
 
       {/* Desktop Video-Capable Ad - Shows at bottom on desktop only */}
-      <DesktopAnchorAd />
 
       {/* Mobile Anchor Ad - Shows at bottom on mobile only */}
-      <MobileAnchorAd />
     </div>
   );
 }
