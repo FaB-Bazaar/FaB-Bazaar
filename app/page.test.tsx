@@ -8,21 +8,24 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/services', () => ({
   articleService: { listArticles: vi.fn() },
+  userService: { getBasicInfo: vi.fn() },
 }));
 vi.mock('@/components/home/HomePageClient', () => ({ default: () => null }));
 
 import HomePage from './page';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import { articleService } from '@/lib/services';
+import { articleService, userService } from '@/lib/services';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
 const mockListArticles = vi.mocked(articleService.listArticles);
+const mockGetBasicInfo = vi.mocked(userService.getBasicInfo);
 const mockRedirect = vi.mocked(redirect);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockListArticles.mockResolvedValue({ success: true, data: { articles: [] } } as any);
+  mockGetBasicInfo.mockResolvedValue({ success: true, data: { _id: 'u1' } } as any);
 });
 
 describe('HomePage routing', () => {
@@ -35,6 +38,27 @@ describe('HomePage routing', () => {
 
   it('sends superadmins to /volzar too — no operator carve-out on the homepage', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'admin', roles: { isSuperAdmin: true } } } as any);
+
+    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
+  });
+
+  it('honors the landing page preference (collection)', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', roles: {} } } as any);
+    mockGetBasicInfo.mockResolvedValue({ success: true, data: { _id: 'u1', landingPage: 'collection' } } as any);
+
+    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/collection');
+  });
+
+  it('honors the landing page preference (decks)', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', roles: {} } } as any);
+    mockGetBasicInfo.mockResolvedValue({ success: true, data: { _id: 'u1', landingPage: 'decks' } } as any);
+
+    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/decks');
+  });
+
+  it('falls back to /volzar when the preference read fails', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', roles: {} } } as any);
+    mockGetBasicInfo.mockRejectedValue(new Error('db down'));
 
     await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
   });

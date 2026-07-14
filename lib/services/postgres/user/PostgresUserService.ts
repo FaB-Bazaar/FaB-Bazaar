@@ -290,6 +290,7 @@ export class PostgresUserService implements IUserService {
           avatarUrl: true,
           countryCode: true,
           preferredLanguage: true,
+          landingPage: true,
           isStore: true,
         },
       });
@@ -307,6 +308,7 @@ export class PostgresUserService implements IUserService {
           avatarUrl: user.avatarUrl || undefined,
           countryCode: user.countryCode || undefined,
           preferredLanguage: user.preferredLanguage || undefined,
+          landingPage: user.landingPage || undefined,
           isStore: user.isStore || false,
         },
       };
@@ -419,6 +421,7 @@ export class PostgresUserService implements IUserService {
           metafyPartner: user.metafyPartner ?? false,
           countryCode: user.countryCode || undefined,
           preferredLanguage: user.preferredLanguage || undefined,
+          landingPage: user.landingPage || undefined,
           stateCode: user.stateCode || undefined,
         },
       };
@@ -656,6 +659,7 @@ export class PostgresUserService implements IUserService {
       if (updates.country !== undefined) set.countryCode = updates.country || null;
       if (updates.state !== undefined) set.stateCode = updates.state || null;
       if (updates.preferredLanguage !== undefined) set.preferredLanguage = updates.preferredLanguage || null;
+      if (updates.landingPage !== undefined) set.landingPage = updates.landingPage || null;
 
       const result = await db
         .update(users)

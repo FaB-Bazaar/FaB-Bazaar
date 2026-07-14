@@ -66,6 +66,8 @@ export interface UserBasicInfoDTO {
   countryCode?: string;
   /** Volzar localization override (users.preferred_language); null/absent = auto. */
   preferredLanguage?: string;
+  /** Logged-in landing page (users.landing_page); absent = /volzar default. */
+  landingPage?: string;
   isStore?: boolean;
 }
 
@@ -104,6 +106,8 @@ export interface UserProfileDTO {
   stateCode?: string;
   /** Volzar localization override (users.preferred_language). */
   preferredLanguage?: string;
+  /** Logged-in landing page (users.landing_page); absent = /volzar default. */
+  landingPage?: string;
 }
 
 /**
@@ -176,6 +180,8 @@ export interface UpdateProfileDTO {
   state?: string;
   /** Volzar language override — persisted to users.preferred_language ('' clears). */
   preferredLanguage?: string;
+  /** Landing page preference — persisted to users.landing_page ('' clears). */
+  landingPage?: string;
 }
 
 export interface MetafyCommunityDTO {

@@ -125,6 +125,9 @@ export const users = pgTable('users', {
   preferredLanguage: text('preferred_language'),
   stateCode: text('state_code'),
 
+  // Logged-in landing page: 'volzar' | 'collection' | 'decks'; NULL = /volzar
+  landingPage: text('landing_page'),
+
   // Roles
   isAdmin: boolean('is_admin').default(false).notNull(),
   isSuperAdmin: boolean('is_super_admin').default(false).notNull(),

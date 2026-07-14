@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { userService } from "@/lib/services"
 import { SUPPORTED_LANGUAGES } from "@/app/volzar/ui-strings"
+import { isLandingPage } from "@/lib/landing-page"
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const { username, discordUsername, city, state, country, country_id, preferredLanguage } = await request.json()
+    const { username, discordUsername, city, state, country, country_id, preferredLanguage, landingPage } = await request.json()
 
     if (!username) {
       return NextResponse.json({ success: false, error: "Username is required" }, { status: 400 })
@@ -30,6 +31,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'Unsupported preferredLanguage' }, { status: 400 })
       }
       updates.preferredLanguage = preferredLanguage
+    }
+    // Landing page preference — '' clears (back to /volzar); otherwise a known value.
+    if (landingPage !== undefined) {
+      if (typeof landingPage !== 'string' || (landingPage !== '' && !isLandingPage(landingPage))) {
+        return NextResponse.json({ success: false, error: 'Unsupported landingPage' }, { status: 400 })
+      }
+      updates.landingPage = landingPage
     }
 
     // Update profile using service

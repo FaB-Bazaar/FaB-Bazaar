@@ -15,6 +15,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { locationsClient } from "@/lib/client"
 import { SUPPORTED_LANGUAGES } from "@/app/volzar/ui-strings"
+import { LANDING_PAGE_OPTIONS } from "@/lib/landing-page"
 
 export default function EditProfilePage() {
   const router = useRouter()
@@ -31,6 +32,7 @@ export default function EditProfilePage() {
   // Coarse self-set location (country + state only — used to default store discovery)
   const [country, setCountry] = useState("")
   const [preferredLanguage, setPreferredLanguage] = useState("")
+  const [landingPage, setLandingPage] = useState("")
   const [stateCode, setStateCode] = useState("")
   const [countries, setCountries] = useState<{ iso2: string; name: string }[]>([])
   const [states, setStates] = useState<{ id: number; stateCode: string; name: string }[]>([])
@@ -67,6 +69,7 @@ export default function EditProfilePage() {
           setDiscordUsername(data.user.discordUsername || "")
           setCountry(data.user.countryCode || "")
           setPreferredLanguage(data.user.preferredLanguage || "")
+          setLandingPage(data.user.landingPage || "")
           setStateCode(data.user.stateCode || "")
         }
       } catch (err) {
@@ -123,6 +126,7 @@ export default function EditProfilePage() {
           country,
           state: stateCode,
           preferredLanguage,
+          landingPage,
         }),
       })
       const data = await response.json()
@@ -260,6 +264,24 @@ export default function EditProfilePage() {
                 </select>
                 <p className="text-xs text-gray-500">
                   Volzar chats and prompts use this language; card names stay in English
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="landingPage">Home page (Optional)</Label>
+                <select
+                  id="landingPage"
+                  value={landingPage}
+                  onChange={(e) => setLandingPage(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Default — Volzar (AI chat)</option>
+                  {LANDING_PAGE_OPTIONS.filter((o) => o.value !== 'volzar').map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Where you land after signing in or visiting the home page
                 </p>
               </div>
 
