@@ -193,15 +193,17 @@ export function validateListIdentifierParams(params: {
 
 export function validatePrintingIds(printingIds: string[] | undefined, paramName = 'printingIds'): string | null {
   if (!printingIds?.length) return null;
-  const bad = printingIds.filter(id => {
-    const shape = classifyIdentifier(id);
-    return shape === 'nanoid' || shape === 'uuid';
-  });
+  // A printing_id is ALWAYS a 21-char nanoid (all 43,414 rows in the DB). Collector
+  // numbers like "EVO249" / "dyn043-cf" live in a SEPARATE column and are NOT printing
+  // IDs — they're the usual paste mistake. Card entry IDs share the nanoid shape, so
+  // by shape alone we can only reject non-nanoids. (classifyIdentifier's 'printingId'
+  // label is a legacy misnomer for the collector-number shape.)
+  const bad = printingIds.filter(id => classifyIdentifier(id) !== 'nanoid');
   if (bad.length) {
     return (
-      `${bad.length} value(s) in \`${paramName}\` look like card entry IDs (nanoids), not printing IDs. ` +
-      `Printing IDs look like "wtr001" or "dyn043-cf" (from search_printings or fab://card-index). ` +
-      `If you meant card entry IDs, pass them as \`cardEntryIds\` instead. Bad: ${bad.slice(0, 3).join(', ')}${bad.length > 3 ? '…' : ''}`
+      `${bad.length} value(s) in \`${paramName}\` look like collector numbers (e.g. "EVO249"), not printing IDs. ` +
+      `A printing_id is a 21-char nanoid — look one up with \`search_printings\` (or fab://card-index). ` +
+      `Bad: ${bad.slice(0, 3).join(', ')}${bad.length > 3 ? '…' : ''}`
     );
   }
   return null;
