@@ -525,13 +525,17 @@ const STRIP_ACCENT_DOT: Record<NonNullable<StripSection['accent']>, string> = {
  * — under deck-page style sections (maindeck split by pitch color).
  * Hover/focus a tile → the LARGE left-rail preview updates (via onPreview);
  */
-function WorkspaceStrips({ sections, onPreview, ownership, onTileClick }: {
+function WorkspaceStrips({ sections, onPreview, ownership, onTileClick, full, gridClass }: {
   sections: StripSection[];
   onPreview: (preview: CardPreview) => void;
   /** printingId → owned/needed; renders the deck-page green/amber/red dot. */
   ownership?: DeckOwnership | null;
   /** Editable decks: click opens the tile action menu (hero tiles excluded). */
   onTileClick?: (row: CardRow, sourceTitle: string | undefined, e: React.MouseEvent) => void;
+  /** Full-card tiles (binder-page style) instead of the stacked 63/53 crop. */
+  full?: boolean;
+  /** Grid column override — e.g. the chat binder view's fixed 2-per-row. */
+  gridClass?: string;
 }) {
   return (
     <div
@@ -546,7 +550,7 @@ function WorkspaceStrips({ sections, onPreview, ownership, onTileClick }: {
               {sec.title} <span className={sec.accent ? '' : 'text-gray-400 dark:text-gray-500'}>· {sec.count}</span>
             </h3>
           )}
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
+          <ul className={`grid gap-1 ${gridClass ?? 'grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]'}`}>
             {sec.rows.map((r, ri) => {
               const show = () => onPreview(r.preview);
               const clickable = onTileClick && sec.sourceTitle !== 'Hero';
@@ -563,7 +567,17 @@ function WorkspaceStrips({ sections, onPreview, ownership, onTileClick }: {
                     title={`${r.qty ? `${r.qty}× ` : ''}${r.name}${clickable ? ' — click for actions' : ''}`}
                     className={`relative block w-full overflow-hidden rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 hover:ring-blue-400 ${focusRing}`}
                   >
-                    {r.image ? (
+                    {r.image && full ? (
+                      // Binder-page style: the whole card, text box included.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.image}
+                        alt={r.name}
+                        loading="lazy"
+                        className="block w-full max-w-none"
+                        style={{ aspectRatio: '63/88', objectFit: 'cover' }}
+                      />
+                    ) : r.image ? (
                       // Deck-page stacked crop: top 81% = name bar + art,
                       // bottom sliver = the card's stats bar (text box cut out).
                       <span className="flex w-full flex-col gap-px bg-gray-900" style={{ aspectRatio: '63/53' }}>
@@ -586,7 +600,7 @@ function WorkspaceStrips({ sections, onPreview, ownership, onTileClick }: {
                         />
                       </span>
                     ) : (
-                      <span className="flex w-full items-center justify-center bg-muted p-1 text-center text-xs text-gray-600 dark:text-gray-300" style={{ aspectRatio: '63/53' }}>
+                      <span className="flex w-full items-center justify-center bg-muted p-1 text-center text-xs text-gray-600 dark:text-gray-300" style={{ aspectRatio: full ? '63/88' : '63/53' }}>
                         {r.name}
                       </span>
                     )}
@@ -1206,6 +1220,10 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   }, [workspaceUid]);
   // Search tool results: tiles by default, per-result toggle to the table.
   const [searchResultView, setSearchResultView] = useState<Record<string, 'tiles' | 'table'>>({});
+  // Binder drills in the CHAT column: 2-per-row full-card tiles by default
+  // (mobile binder-page look), per-card toggle back to the detail table
+  // (which keeps ± editing / prices). Keyed by data-item uid.
+  const [chatCardView, setChatCardView] = useState<Record<string, 'tiles' | 'table'>>({});
   // "+" on the My decks row → the site's CreateDeckDialog; on success the
   // new deck drills open in the workspace.
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
@@ -2826,26 +2844,58 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                 || (item.cards?.length ?? 0) > 0
                 || (item.wantsAdd?.length ?? 0) > 0
                 || !!item.deckPublicId;
+              // Binder drills get the tile grid as the primary chat view
+              // (user request, 2026-07-14) — wants/comparisons keep the table.
+              const binderTiles = (item.mutate?.kind === 'binder' || item.title.startsWith('Binder: '))
+                && !!item.tableRows?.length && item.tableRows.some((r) => r.image);
+              const chatViewKey = item.uid ?? `i${index}`;
+              const chatView = binderTiles ? (chatCardView[chatViewKey] ?? 'tiles') : 'table';
               return (
                 <div key={index} className={`self-start w-full max-w-2xl rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
                   {/* Actions live in the bottom row only — in the header they
                       compress the title to zero width once the chat column
-                      narrows beside the workspace panel. */}
+                      narrows beside the workspace panel. (The view toggle is a
+                      lone shrink-0 icon — small enough to keep here.) */}
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span data-testid="data-card-title" className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
+                    {binderTiles && (
+                      <button
+                        type="button"
+                        onClick={() => setChatCardView((v) => ({ ...v, [chatViewKey]: chatView === 'tiles' ? 'table' : 'tiles' }))}
+                        aria-label={chatView === 'tiles' ? 'Show table' : 'Show tiles'}
+                        title={chatView === 'tiles' ? 'Show table (details, prices, edit)' : 'Show tiles (binder card view)'}
+                        className={`ml-auto shrink-0 rounded-md border border-border p-1 hover:bg-muted ${focusRing}`}
+                      >
+                        {chatView === 'tiles'
+                          ? <Table2 className="h-4 w-4" aria-hidden="true" />
+                          : <LayoutGrid className="h-4 w-4" aria-hidden="true" />}
+                      </button>
+                    )}
                   </div>
-                  {/* Flat card tables (wants/binders) render HERE in the wide
-                      chat column at every breakpoint — the readable "LLM-style
-                      table", zero AI. The rail keeps tiles + an opt-in compact
-                      table for ± editing (user request, 2026-07-12). */}
-                  {item.tableRows && item.tableRows.length > 0 && (
+                  {/* Flat card lists (wants/binders) render HERE in the wide
+                      chat column at every breakpoint, zero AI. Binders default
+                      to a 2-per-row full-card tile grid (the mobile binder
+                      page look, user request 2026-07-14); the table — with ±
+                      editing and prices — stays one header toggle away. Wants
+                      keep the table (user request, 2026-07-12). */}
+                  {item.tableRows && item.tableRows.length > 0 && (binderTiles && chatView === 'tiles' ? (
+                    <div data-testid="chat-binder-tiles" className="mt-1">
+                      <WorkspaceStrips
+                        sections={[{ title: '', count: item.tableRows.length, rows: item.tableRows, sourceTitle: '' }]}
+                        onPreview={showPreview}
+                        full
+                        gridClass="grid-cols-2"
+                        onTileClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s || undefined, x: e.clientX, y: e.clientY }) : undefined}
+                      />
+                    </div>
+                  ) : (
                     <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
                       onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
                       onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
                       onImageClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
-                  )}
+                  ))}
                   {/* Desktop: the table/list lives in the workspace panel; the
                       chip keeps a one-line summary that reopens it. */}
                   {shouldOpenInWorkspace(item) && (
