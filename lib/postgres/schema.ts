@@ -434,20 +434,28 @@ export const cardFacetTags = pgTable('card_facet_tags', {
   tagIdx: index('idx_card_facet_tags_tag').on(table.tag),
 }));
 
-// Community facet votes (migration 0080). One row per (card, tag, user). The
-// COUNT of distinct voters is the confidence signal; a community tag enters the
-// searchable cards.facet_tags projection only at >= 2 votes (curator-assigned
-// card_facet_tags stays authoritative regardless). Removing = retracting your
+// Community facet votes (migration 0080; visibility lifecycle migration 0083).
+// One row per (card, tag, user). `status` gates public visibility:
+//   'private' — creator-only; NEVER counted toward the projection threshold.
+//   'pending' — public requested, awaiting curator approval; creator-only meanwhile.
+//   'public'  — approved; counts toward the >= 2 distinct-voter threshold
+//               (curator-assigned card_facet_tags stays authoritative regardless).
+// A public tag still only projects for ALL users at 2+ public votes; below that it
+// stays creator-only via the personal-truth search path. Removing = retracting your
 // own vote. Votes fan out across same-name pitch variants, like curator tags.
 export const cardFacetTagVotes = pgTable('card_facet_tag_votes', {
   cardUniqueId: text('card_unique_id').notNull().references(() => cards.cardUniqueId, { onDelete: 'cascade' }),
   tag: text('tag').notNull().references(() => facetTagDefinitions.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  status: text('status').notNull().default('private'), // 'private' | 'pending' | 'public'
+  reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.cardUniqueId, table.tag, table.userId] }),
   cardTagIdx: index('idx_card_facet_tag_votes_card_tag').on(table.cardUniqueId, table.tag),
   userIdx: index('idx_card_facet_tag_votes_user').on(table.userId),
+  statusIdx: index('idx_card_facet_tag_votes_status').on(table.status),
 }));
 
 // Append-only audit log of every facet add/remove (migration 0080). Deliberately

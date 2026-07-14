@@ -7,7 +7,9 @@ import {
   facetTagAudit,
   facetTagDefinitions,
   facetTagSuggestions,
+  users,
 } from '@/lib/postgres/schema';
+import { displayUsername } from '@/lib/utils/display-username';
 import type {
   IFacetService,
   FacetTagDefinitionDTO,
@@ -243,12 +245,95 @@ export class PostgresFacetService implements IFacetService {
     }
   }
 
-  async voteCardFacetTag(cardUniqueId: string, tag: string, userId: string): AsyncResult<{ votes: number; applied: number }> {
-    return this.vote(cardUniqueId, tag, userId, 'add');
+  async voteCardFacetTag(
+    cardUniqueId: string,
+    tag: string,
+    userId: string,
+    visibility: 'private' | 'public' = 'private',
+  ): AsyncResult<{ votes: number; applied: number }> {
+    // 'public' is a REQUEST — it lands as 'pending' until a curator approves.
+    return this.vote(cardUniqueId, tag, userId, 'add', visibility === 'public' ? 'pending' : 'private');
   }
 
   async unvoteCardFacetTag(cardUniqueId: string, tag: string, userId: string): AsyncResult<{ votes: number; applied: number }> {
     return this.vote(cardUniqueId, tag, userId, 'remove');
+  }
+
+  /** Curator: approve a pending public request -> 'public' (now counts toward the threshold). */
+  async approveFacetVote(cardUniqueId: string, tag: string, userId: string, reviewerId: string): AsyncResult<Record<string, never>> {
+    return this.setVoteStatusAcrossVariants(cardUniqueId, tag, userId, 'public', reviewerId);
+  }
+
+  /** Curator: reject a pending request -> back to 'private' (stays the voter's personal tag). */
+  async rejectFacetVote(cardUniqueId: string, tag: string, userId: string, reviewerId: string): AsyncResult<Record<string, never>> {
+    return this.setVoteStatusAcrossVariants(cardUniqueId, tag, userId, 'private', reviewerId);
+  }
+
+  /** Owner: toggle their own vote. 'public' re-enters the approval queue (pending); 'private' is immediate. */
+  async setFacetVoteVisibility(cardUniqueId: string, tag: string, userId: string, visibility: 'private' | 'public'): AsyncResult<Record<string, never>> {
+    return this.setVoteStatusAcrossVariants(cardUniqueId, tag, userId, visibility === 'public' ? 'pending' : 'private', null);
+  }
+
+  /** The curator approval queue: one row per (card name, tag, requester), deduped across pitch variants. */
+  async listPendingFacetVotes(): AsyncResult<
+    { cardUniqueId: string; tag: string; userId: string; username: string; cardName: string }[]
+  > {
+    try {
+      const rows = await db
+        .select({
+          cardUniqueId: cardFacetTagVotes.cardUniqueId,
+          tag: cardFacetTagVotes.tag,
+          userId: cardFacetTagVotes.userId,
+          username: users.username,
+          cardName: cards.displayName,
+        })
+        .from(cardFacetTagVotes)
+        .innerJoin(users, eq(users.id, cardFacetTagVotes.userId))
+        .innerJoin(cards, eq(cards.cardUniqueId, cardFacetTagVotes.cardUniqueId))
+        .where(eq(cardFacetTagVotes.status, 'pending'));
+
+      const seen = new Set<string>();
+      const deduped: { cardUniqueId: string; tag: string; userId: string; username: string; cardName: string }[] = [];
+      for (const r of rows) {
+        const key = `${r.cardName} ${r.tag} ${r.userId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push({ ...r, username: displayUsername(r.username) });
+      }
+      return { success: true, data: deduped };
+    } catch (error) {
+      return fail(error, 'Failed to list pending facet votes');
+    }
+  }
+
+  /** Fan a vote's status change across every same-name variant, re-projecting each. */
+  private async setVoteStatusAcrossVariants(
+    cardUniqueId: string,
+    tag: string,
+    userId: string,
+    status: 'private' | 'pending' | 'public',
+    reviewerId: string | null,
+  ): AsyncResult<Record<string, never>> {
+    try {
+      const [card] = await db.select({ name: cards.displayName }).from(cards).where(eq(cards.cardUniqueId, cardUniqueId)).limit(1);
+      if (!card) return { success: false, error: 'Card not found' };
+
+      const variants = await db.select({ id: cards.cardUniqueId }).from(cards).where(eq(cards.displayName, card.name));
+      const reviewedAt = reviewerId ? new Date() : null;
+
+      await db.transaction(async (tx) => {
+        for (const { id } of variants) {
+          await tx
+            .update(cardFacetTagVotes)
+            .set({ status, reviewedBy: reviewerId, reviewedAt })
+            .where(and(eq(cardFacetTagVotes.cardUniqueId, id), eq(cardFacetTagVotes.tag, tag), eq(cardFacetTagVotes.userId, userId)));
+          await reproject(tx, id);
+        }
+      });
+      return { success: true, data: {} };
+    } catch (error) {
+      return fail(error, 'Failed to update facet vote status');
+    }
   }
 
   /**
@@ -261,6 +346,7 @@ export class PostgresFacetService implements IFacetService {
     tag: string,
     userId: string,
     op: 'add' | 'remove',
+    status: 'private' | 'pending' | 'public' = 'private',
   ): AsyncResult<{ votes: number; applied: number }> {
     try {
       const [def] = await db
@@ -285,7 +371,7 @@ export class PostgresFacetService implements IFacetService {
       await db.transaction(async (tx) => {
         for (const { id } of variants) {
           if (op === 'add') {
-            await tx.insert(cardFacetTagVotes).values({ cardUniqueId: id, tag, userId }).onConflictDoNothing();
+            await tx.insert(cardFacetTagVotes).values({ cardUniqueId: id, tag, userId, status }).onConflictDoNothing();
           } else {
             await tx
               .delete(cardFacetTagVotes)
@@ -309,22 +395,34 @@ export class PostgresFacetService implements IFacetService {
 
   async getCardCommunityTags(cardUniqueId: string, userId?: string): AsyncResult<CardCommunityTag[]> {
     try {
-      const votedByMe = userId
-        ? sql`BOOL_OR(${cardFacetTagVotes.userId} = ${userId})`
-        : sql`false`;
+      // Public count = 'public' votes only. `mine`/`myStatus` reflect the viewer's
+      // own vote of ANY visibility (personal truth). A tag is listed only if it has
+      // a public vote OR the viewer voted it — never leak others' private/pending.
+      const votedByMe = userId ? sql`BOOL_OR(${cardFacetTagVotes.userId} = ${userId})` : sql`false`;
+      const myStatus = userId
+        ? sql`MAX(CASE WHEN ${cardFacetTagVotes.userId} = ${userId} THEN ${cardFacetTagVotes.status} END)`
+        : sql`NULL`;
+      const mineHaving = userId ? sql` OR BOOL_OR(${cardFacetTagVotes.userId} = ${userId})` : sql``;
       const result = await db.execute(sql`
         SELECT ${cardFacetTagVotes.tag} AS tag,
-               COUNT(DISTINCT ${cardFacetTagVotes.userId})::int AS votes,
-               ${votedByMe} AS voted_by_me
+               (COUNT(DISTINCT ${cardFacetTagVotes.userId}) FILTER (WHERE ${cardFacetTagVotes.status} = 'public'))::int AS votes,
+               ${votedByMe} AS voted_by_me,
+               ${myStatus} AS my_status
         FROM ${cardFacetTagVotes}
         WHERE ${cardFacetTagVotes.cardUniqueId} = ${cardUniqueId}
         GROUP BY ${cardFacetTagVotes.tag}
+        HAVING (COUNT(*) FILTER (WHERE ${cardFacetTagVotes.status} = 'public')) > 0${mineHaving}
         ORDER BY votes DESC, tag ASC
       `);
       const rows = (result as unknown as { rows: any[] }).rows ?? (result as unknown as any[]);
       return {
         success: true,
-        data: rows.map((r: any) => ({ tag: r.tag, votes: Number(r.votes) || 0, votedByMe: r.voted_by_me === true })),
+        data: rows.map((r: any) => ({
+          tag: r.tag,
+          votes: Number(r.votes) || 0,
+          votedByMe: r.voted_by_me === true,
+          myStatus: (r.my_status ?? null) as CardCommunityTag['myStatus'],
+        })),
       };
     } catch (error) {
       return fail(error, 'Failed to read community facet tags');
@@ -342,14 +440,20 @@ export class PostgresFacetService implements IFacetService {
         .from(cards)
         .where(and(inArray(cards.cardUniqueId, cardUniqueIds), sql`${cards.facetTags} <> '{}'`));
 
+      // The public count reflects ONLY 'public'-status votes — private/pending
+      // votes never leak into another user's view. `mine` still reflects the
+      // viewer's own vote of ANY status (personal truth). A (card, tag) row is
+      // included only if it has a public vote OR the viewer voted it themselves.
       const mineExpr = viewerId ? sql`BOOL_OR(${cardFacetTagVotes.userId} = ${viewerId})` : sql`false`;
+      const mineHaving = viewerId ? sql` OR BOOL_OR(${cardFacetTagVotes.userId} = ${viewerId})` : sql``;
       const voteResult = await db.execute(sql`
         SELECT ${cardFacetTagVotes.cardUniqueId} AS id, ${cardFacetTagVotes.tag} AS tag,
-               COUNT(DISTINCT ${cardFacetTagVotes.userId})::int AS votes,
+               (COUNT(DISTINCT ${cardFacetTagVotes.userId}) FILTER (WHERE ${cardFacetTagVotes.status} = 'public'))::int AS votes,
                ${mineExpr} AS mine
         FROM ${cardFacetTagVotes}
         WHERE ${cardFacetTagVotes.cardUniqueId} IN (${sql.join(cardUniqueIds.map((c) => sql`${c}`), sql`, `)})
         GROUP BY 1, 2
+        HAVING (COUNT(*) FILTER (WHERE ${cardFacetTagVotes.status} = 'public')) > 0${mineHaving}
       `);
       const voteRows = (voteResult as unknown as { rows: any[] }).rows ?? (voteResult as unknown as any[]);
 
@@ -484,7 +588,7 @@ async function reproject(tx: any, id: string): Promise<void> {
         SELECT ${cardFacetTags.tag} AS tag FROM ${cardFacetTags} WHERE ${cardFacetTags.cardUniqueId} = ${id}
         UNION
         SELECT ${cardFacetTagVotes.tag} AS tag FROM ${cardFacetTagVotes}
-          WHERE ${cardFacetTagVotes.cardUniqueId} = ${id}
+          WHERE ${cardFacetTagVotes.cardUniqueId} = ${id} AND ${cardFacetTagVotes.status} = 'public'
           GROUP BY ${cardFacetTagVotes.tag}
           HAVING COUNT(DISTINCT ${cardFacetTagVotes.userId}) >= ${COMMUNITY_VOTE_THRESHOLD}
       ) s

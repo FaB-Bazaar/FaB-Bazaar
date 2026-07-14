@@ -76,28 +76,34 @@ async function projectedTags(cardId: string): Promise<string[]> {
 }
 
 describe('PostgresFacetService — community votes: threshold projection', () => {
-  it('does NOT project a tag with a single vote (below the consensus threshold)', async () => {
-    const res = await service.voteCardFacetTag(variantIds[0], TAG_A, userA);
-    expect(res.success).toBe(true);
+  // Under the visibility model (migration 0083) only APPROVED public votes count
+  // toward the >= 2 threshold. Helper: request public + curator-approve.
+  async function approvedPublicVote(cardId: string, tag: string, userId: string) {
+    await service.voteCardFacetTag(cardId, tag, userId, 'public');
+    await service.approveFacetVote(cardId, tag, userId, userC); // userC = curator
+  }
+
+  it('does NOT project a tag with a single approved public vote (below the threshold)', async () => {
+    await approvedPublicVote(variantIds[0], TAG_A, userA);
     for (const id of variantIds) expect(await projectedTags(id)).not.toContain(TAG_A);
   });
 
-  it('projects a tag once two distinct users vote it', async () => {
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userA);
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userB);
+  it('projects a tag once two distinct approved public voters exist', async () => {
+    await approvedPublicVote(variantIds[0], TAG_A, userA);
+    await approvedPublicVote(variantIds[0], TAG_A, userB);
     for (const id of variantIds) expect(await projectedTags(id)).toContain(TAG_A);
   });
 
   it('un-projects the tag when a voter retracts back below the threshold', async () => {
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userA);
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userB);
+    await approvedPublicVote(variantIds[0], TAG_A, userA);
+    await approvedPublicVote(variantIds[0], TAG_A, userB);
     await service.unvoteCardFacetTag(variantIds[0], TAG_A, userB);
     for (const id of variantIds) expect(await projectedTags(id)).not.toContain(TAG_A);
   });
 
   it('treats repeat votes from the same user as idempotent (count stays 1)', async () => {
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userA);
-    const res = await service.voteCardFacetTag(variantIds[0], TAG_A, userA);
+    await service.voteCardFacetTag(variantIds[0], TAG_A, userA, 'public');
+    const res = await service.voteCardFacetTag(variantIds[0], TAG_A, userA, 'public');
     expect(res.success && res.data.votes).toBe(1);
     for (const id of variantIds) expect(await projectedTags(id)).not.toContain(TAG_A);
   });
@@ -130,9 +136,12 @@ describe('PostgresFacetService — community votes: fan-out + read model', () =>
     }
   });
 
-  it('reports per-tag vote counts and whether the caller voted', async () => {
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userA);
-    await service.voteCardFacetTag(variantIds[0], TAG_A, userB);
+  it('reports per-tag PUBLIC vote counts and whether the caller voted', async () => {
+    // Public count reflects approved public votes only (migration 0083).
+    await service.voteCardFacetTag(variantIds[0], TAG_A, userA, 'public');
+    await service.approveFacetVote(variantIds[0], TAG_A, userA, userC);
+    await service.voteCardFacetTag(variantIds[0], TAG_A, userB, 'public');
+    await service.approveFacetVote(variantIds[0], TAG_A, userB, userC);
     const res = await service.getCardCommunityTags(variantIds[0], userA);
     expect(res.success).toBe(true);
     if (!res.success) return;

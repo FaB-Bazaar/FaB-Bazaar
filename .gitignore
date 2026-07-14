@@ -120,3 +120,7 @@ scripts/i18n-prod-backfill/*.csv
 
 # Curated facet seed scripts are internal-only (repo is public)
 scripts/seed-*-facets.ts
+
+# Generated facet-tag export — attribution lives in the DB, never committed
+# (git history can't honor a later retraction). Regenerate locally if needed.
+card-facets.json

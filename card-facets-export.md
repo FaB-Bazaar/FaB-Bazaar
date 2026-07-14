@@ -32,3 +32,7 @@
 • **Breeze Rider Boots** → chain-extender, combo-buff, beats-fatigue, key-turn
 
 💡 **Why it matters:** these tags live in a table that joins to the card + printing data, so you can search by **function + identity + price** at once — e.g. *"Katsu's combo-enablers that beat fatigue, under $5"* (respecting class/talent legality — Katsu is an untalented ninja, so no draconic cards).
+
+---
+
+📄 **License:** This tag data is released under [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) — free to reuse and build your own with attribution to FaB Bazaar and its community contributors. See [`DATA-LICENSE.md`](./DATA-LICENSE.md). Card IP belongs to Legend Story Studios.

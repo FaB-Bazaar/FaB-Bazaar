@@ -284,8 +284,32 @@ export default function TermsOfService() {
 
         <h3 className="text-xl font-medium mt-4 mb-2">10.3 User-Generated Content</h3>
         <p>
-          By uploading or submitting content to the Platform, you grant us a worldwide, non-exclusive, 
-          royalty-free license to use, display, and distribute such content in connection with the Platform's operation.
+          You retain ownership of any content you submit. By uploading or submitting content to the Platform,
+          you grant us a worldwide, non-exclusive, royalty-free license to use, display, and distribute such
+          content solely to operate and provide the Platform. This license does not permit us to sell or
+          sublicense your content, and we will not use community-contributed content to train proprietary or
+          closed-source machine-learning models.
+        </p>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">10.4 Card Tags: Private vs. Public</h3>
+        <p>
+          When you tag a card, you choose whether that tag is <strong>private</strong> or <strong>public</strong>.
+          A private tag is visible only to you and affects only your own searches; we do not publish it or
+          attribute it to you. A public tag is submitted for curator review, and once approved it may become
+          visible to all users and be attributed to your account as a community contribution. You may change a
+          tag from public back to private, or retract it entirely, at any time; because tags are served live
+          from the Platform, such changes take effect going forward.
+        </p>
+
+        <h3 className="text-xl font-medium mt-4 mb-2">10.5 Open Source and Open Data Commitment</h3>
+        <p>
+          FaB Bazaar's source code is released under the GNU Affero General Public License v3.0 (AGPL-3.0),
+          which requires that any modified version operated as a network service also make its complete source
+          code available to that service's users. Community-contributed structured data — the card classification
+          tags that have been made public — is additionally released under the Creative Commons
+          Attribution-ShareAlike 4.0 license (CC-BY-SA 4.0). This means such data remains freely available to
+          the community, with attribution, regardless of any future change in the Platform's ownership or
+          operation. Private tags are never included in this data.
         </p>
 
         <h2 className="text-2xl font-semibold mt-6 mb-4">11. Privacy and Data Protection</h2>

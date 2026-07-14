@@ -2,6 +2,7 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "overrides": {
     "fast-xml-parser": "^4.5.4"
   },

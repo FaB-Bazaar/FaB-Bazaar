@@ -39,10 +39,12 @@ export interface UpdateFacetTagInput {
 /** A community-voted facet tag on a card, with its confidence count. */
 export interface CardCommunityTag {
   tag: string;
-  /** Distinct users who voted this tag onto the card. */
+  /** Distinct users who voted this tag onto the card — PUBLIC (approved) votes only. */
   votes: number;
-  /** Whether the querying user is one of those voters. */
+  /** Whether the querying user is one of those voters (any visibility). */
   votedByMe: boolean;
+  /** The querying user's OWN vote visibility on this tag, or null if they haven't voted it. */
+  myStatus: 'private' | 'pending' | 'public' | null;
 }
 
 /** One tag on a card in the batch summary: community votes + whether it's live in search. */
@@ -136,10 +138,37 @@ export interface IFacetService {
    * searchable projection only at >= 2 distinct voters. Logs an audit row.
    * Returns the resulting distinct-voter count and variants affected.
    */
-  voteCardFacetTag(cardUniqueId: string, tag: string, userId: string): AsyncResult<{ votes: number; applied: number }>;
+  voteCardFacetTag(
+    cardUniqueId: string,
+    tag: string,
+    userId: string,
+    visibility?: 'private' | 'public',
+  ): AsyncResult<{ votes: number; applied: number }>;
 
   /** Retract the calling user's community vote (fans out); re-projects; logs an audit row. */
   unvoteCardFacetTag(cardUniqueId: string, tag: string, userId: string): AsyncResult<{ votes: number; applied: number }>;
+
+  /**
+   * Change the visibility of the caller's OWN existing vote (fans out). 'public'
+   * re-enters the approval queue (status -> 'pending'); 'private' is immediate.
+   */
+  setFacetVoteVisibility(
+    cardUniqueId: string,
+    tag: string,
+    userId: string,
+    visibility: 'private' | 'public',
+  ): AsyncResult<Record<string, never>>;
+
+  /** Curator: approve a pending public request (status -> 'public'; now counts toward the threshold). */
+  approveFacetVote(cardUniqueId: string, tag: string, userId: string, reviewerId: string): AsyncResult<Record<string, never>>;
+
+  /** Curator: reject a pending public request (status -> 'private'; stays the voter's personal tag). */
+  rejectFacetVote(cardUniqueId: string, tag: string, userId: string, reviewerId: string): AsyncResult<Record<string, never>>;
+
+  /** The curator approval queue: pending public requests, one row per (card name, tag, requester). */
+  listPendingFacetVotes(): AsyncResult<
+    { cardUniqueId: string; tag: string; userId: string; username: string; cardName: string }[]
+  >;
 
   /** Community-voted tags on a card with per-tag counts and whether `userId` voted each. */
   getCardCommunityTags(cardUniqueId: string, userId?: string): AsyncResult<CardCommunityTag[]>;

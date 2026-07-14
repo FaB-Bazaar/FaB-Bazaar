@@ -61,9 +61,13 @@ beforeAll(async () => {
     await service.createTagDefinition({ id, dim: 'mechanical', label: id });
   }
   await service.addCardFacetTag(cardId, T_CURATOR); // curator: live, 0 votes
-  await service.voteCardFacetTag(cardId, T_PENDING, userA); // 1 vote: pending
-  await service.voteCardFacetTag(cardId, T_LIVE, userA); // 2 votes: live
-  await service.voteCardFacetTag(cardId, T_LIVE, userB);
+  // Visibility model (0083): only approved public votes count. userA reviews (test-only).
+  await service.voteCardFacetTag(cardId, T_PENDING, userA, 'public'); // 1 approved public vote: below threshold
+  await service.approveFacetVote(cardId, T_PENDING, userA, userA);
+  await service.voteCardFacetTag(cardId, T_LIVE, userA, 'public'); // 2 approved public votes: live
+  await service.approveFacetVote(cardId, T_LIVE, userA, userA);
+  await service.voteCardFacetTag(cardId, T_LIVE, userB, 'public');
+  await service.approveFacetVote(cardId, T_LIVE, userB, userA);
 });
 
 afterAll(async () => {

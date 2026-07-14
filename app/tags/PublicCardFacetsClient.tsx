@@ -13,7 +13,9 @@ import { optStateToChips } from '@/lib/search/opt-state-describe'
 
 type Dim = 'mechanical' | 'strategic' | 'synergy'
 interface TagDef extends FacetDef { dim: Dim; draft: boolean; cardCount: number }
-interface CommunityTag { tag: string; votes: number; votedByMe: boolean }
+type Visibility = 'private' | 'public'
+type MyStatus = 'private' | 'pending' | 'public' | null
+interface CommunityTag { tag: string; votes: number; votedByMe: boolean; myStatus?: MyStatus }
 interface SummaryTag { tag: string; votes: number; live: boolean; mine: boolean }
 
 const DIM_ORDER: Dim[] = ['mechanical', 'strategic', 'synergy']
@@ -425,6 +427,10 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
   const [byTag, setByTag] = useState<Record<string, CommunityTag>>({})
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState<string | null>(null)
+  // The visibility a NEW vote on this card is cast with. 'public' enters the
+  // curator approval queue; 'private' is personal-only (still counts in the
+  // voter's OWN searches). Existing tags are re-toggled via their status pill.
+  const [mode, setMode] = useState<Visibility>('private')
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/card-facets?cardUniqueId=${encodeURIComponent(card.card_unique_id)}`)
@@ -447,22 +453,47 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
 
   const toggle = async (tag: string) => {
     if (!isSignedIn) return // buttons are disabled; belt-and-suspenders
-    const cur = byTag[tag] ?? { tag, votes: 0, votedByMe: false }
+    const cur = byTag[tag] ?? { tag, votes: 0, votedByMe: false, myStatus: null }
     const add = !cur.votedByMe
+    // A new PUBLIC vote lands as 'pending' (awaiting approval); private is immediate.
+    const nextStatus: MyStatus = add ? (mode === 'public' ? 'pending' : 'private') : null
     setPending(tag)
-    setByTag((prev) => ({ ...prev, [tag]: { tag, votes: cur.votes + (add ? 1 : -1), votedByMe: add } }))
+    setByTag((prev) => ({ ...prev, [tag]: { tag, votes: cur.votes, votedByMe: add, myStatus: nextStatus } }))
     const res = await fetch('/api/card-facets/assign', {
       method: add ? 'POST' : 'DELETE', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cardUniqueId: card.card_unique_id, tag }),
+      body: JSON.stringify({ cardUniqueId: card.card_unique_id, tag, ...(add ? { visibility: mode } : {}) }),
     })
     const json = await res.json().catch(() => ({}))
     setPending(null)
     if (res.ok && json.success) {
-      setByTag((prev) => ({ ...prev, [tag]: { tag, votes: json.data.votes, votedByMe: add } }))
+      setByTag((prev) => ({ ...prev, [tag]: { tag, votes: json.data.votes, votedByMe: add, myStatus: nextStatus } }))
       onChanged()
     } else {
       setByTag((prev) => ({ ...prev, [tag]: cur }))
       toast({ title: 'Vote failed', description: json.error ?? `HTTP ${res.status}`, variant: 'destructive' })
+    }
+  }
+
+  // Flip an EXISTING vote's visibility. private -> public re-enters the approval
+  // queue (pending); public/pending -> private is immediate.
+  const setVisibility = async (tag: string) => {
+    const cur = byTag[tag]
+    if (!isSignedIn || !cur?.votedByMe) return
+    const target: Visibility = cur.myStatus === 'private' ? 'public' : 'private'
+    const optimistic: MyStatus = target === 'public' ? 'pending' : 'private'
+    setPending(tag)
+    setByTag((prev) => ({ ...prev, [tag]: { ...cur, myStatus: optimistic } }))
+    const res = await fetch('/api/card-facets/assign', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardUniqueId: card.card_unique_id, tag, visibility: target }),
+    })
+    const json = await res.json().catch(() => ({}))
+    setPending(null)
+    if (res.ok && json.success) {
+      onChanged()
+    } else {
+      setByTag((prev) => ({ ...prev, [tag]: cur }))
+      toast({ title: 'Update failed', description: json.error ?? `HTTP ${res.status}`, variant: 'destructive' })
     }
   }
 
@@ -503,8 +534,9 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
               <p className="italic text-gray-500 dark:text-gray-400">{card.flavor_text}</p>
             )}
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Votes apply to every printing of this card. A tag goes live for everyone at {VOTE_THRESHOLD}+ votes —
-              but your own tags always count in <em>your</em> searches immediately.
+              Votes apply to every printing of this card. <strong>Private</strong> tags count only in <em>your</em>
+              {' '}searches. <strong>Public</strong> tags are reviewed by a curator, then go live for everyone at
+              {' '}{VOTE_THRESHOLD}+ approved votes.
             </p>
           </div>
         </div>
@@ -513,6 +545,28 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
           <p className="mb-4 px-3 py-2 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
             <Link href={SIGN_IN_HREF} className="font-semibold underline">Sign in</Link> to vote on this card&rsquo;s tags.
           </p>
+        )}
+
+        {isSignedIn && (
+          <div className="mb-4 flex items-center gap-2 text-sm" role="group" aria-label="Visibility for new tags">
+            <span className="text-gray-600 dark:text-gray-300">New tags:</span>
+            {(['private', 'public'] as Visibility[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                aria-pressed={mode === m}
+                className={cn(
+                  'px-3 py-1 rounded-full border text-sm focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none',
+                  mode === m
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
+                )}
+              >
+                {m === 'private' ? 'Private (only me)' : 'Public (needs approval)'}
+              </button>
+            ))}
+          </div>
         )}
 
         {loading ? (
@@ -531,17 +585,12 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
                     const mine = ct?.votedByMe ?? false
                     const isCurated = curated.has(d.id)
                     const live = isCurated || votes >= VOTE_THRESHOLD
+                    const myStatus = ct?.myStatus ?? null
                     return (
-                      <button
+                      <span
                         key={d.id}
-                        type="button"
-                        title={isSignedIn ? d.def : `${d.def ? d.def + ' — ' : ''}Sign in to vote`}
-                        disabled={!isSignedIn || pending === d.id}
-                        onClick={() => toggle(d.id)}
-                        aria-pressed={mine}
                         className={cn(
-                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none',
-                          !isSignedIn && 'cursor-default',
+                          'inline-flex items-center rounded-full text-sm border',
                           pending === d.id && 'opacity-50',
                           mine
                             ? 'bg-green-100 text-green-800 border-green-500 dark:bg-green-900/60 dark:text-green-200'
@@ -550,24 +599,53 @@ function CardVoteEditor({ card, defs, isSignedIn, summary, onClose, onChanged, t
                               : 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600',
                         )}
                       >
-                        {mine ? '✓ ' : ''}{d.label}
-                        {isCurated && (
-                          <span title="Curator-assigned — always live in search" className="ml-0.5 px-1.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
-                            curated
-                          </span>
-                        )}
-                        {votes > 0 && (
-                          <span
-                            title={live ? 'Live in search' : `Needs ${VOTE_THRESHOLD - votes} more to go live`}
-                            className={cn(
-                              'ml-0.5 px-1.5 rounded-full text-xs font-semibold',
-                              live ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100',
-                            )}
+                        <button
+                          type="button"
+                          title={isSignedIn ? d.def : `${d.def ? d.def + ' — ' : ''}Sign in to vote`}
+                          disabled={!isSignedIn || pending === d.id}
+                          onClick={() => toggle(d.id)}
+                          aria-pressed={mine}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none',
+                            !isSignedIn && 'cursor-default',
+                          )}
+                        >
+                          {mine ? '✓ ' : ''}{d.label}
+                          {isCurated && (
+                            <span title="Curator-assigned — always live in search" className="ml-0.5 px-1.5 rounded-full text-xs font-semibold bg-blue-600 text-white">
+                              curated
+                            </span>
+                          )}
+                          {votes > 0 && (
+                            <span
+                              title={live ? 'Live in search' : `Needs ${VOTE_THRESHOLD - votes} more to go live`}
+                              className={cn(
+                                'ml-0.5 px-1.5 rounded-full text-xs font-semibold',
+                                live ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-100',
+                              )}
+                            >
+                              {votes}
+                            </span>
+                          )}
+                        </button>
+                        {mine && myStatus && (
+                          <button
+                            type="button"
+                            disabled={pending === d.id}
+                            onClick={() => setVisibility(d.id)}
+                            title={
+                              myStatus === 'private'
+                                ? 'Private to you — click to request making it public'
+                                : myStatus === 'pending'
+                                  ? 'Awaiting curator approval — click to make private again'
+                                  : 'Public — click to make it private'
+                            }
+                            className="mr-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-semibold border border-current/30 hover:opacity-80 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
                           >
-                            {votes}
-                          </span>
+                            {myStatus === 'private' ? 'private' : myStatus === 'pending' ? 'pending' : 'public'}
+                          </button>
                         )}
-                      </button>
+                      </span>
                     )
                   })}
                 </div>
