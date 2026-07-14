@@ -28,6 +28,20 @@ describe('describeSearchDescriptor', () => {
     })).toBe('legal for Oscilio, Constella Intelligence');
   });
 
+  it('describes a facetTags search instead of "no filters"', () => {
+    expect(describeSearchDescriptor({ filters: { facetTags: ['disruption'] } })).toBe('tagged disruption');
+    expect(describeSearchDescriptor({ filters: { facetTags: ['disruption', 'combo-enabler'] } }))
+      .toBe('tagged disruption/combo-enabler');
+    // ALL mode joins with + to signal "must have every tag"
+    expect(describeSearchDescriptor({ filters: { facetTags: ['disruption', 'combo-enabler'], facetTagsMode: 'all' } }))
+      .toBe('tagged disruption+combo-enabler');
+  });
+
+  it('combines tags with other constraints', () => {
+    expect(describeSearchDescriptor({ filters: { facetTags: ['disruption'], classes: ['ninja'] } }))
+      .toBe('ninja · tagged disruption');
+  });
+
   it('flags a completely unconstrained search', () => {
     expect(describeSearchDescriptor({ filters: {} })).toBe('no filters — the entire card pool');
   });

@@ -378,6 +378,8 @@ export function describeSearchDescriptor(card: { query?: string; filters?: Recor
   if (Array.isArray(f.sets) && f.sets.length) parts.push(`sets ${f.sets.join(',')}`);
   if (Array.isArray(f.rarities) && f.rarities.length) parts.push(`rarity ${f.rarities.join(',')}`);
   if (Array.isArray(f.keywords) && f.keywords.length) parts.push(`keyword ${f.keywords.join(',')}`);
+  // Function tags: '+' join = must have ALL (facetTagsMode 'all'); '/' = ANY.
+  if (Array.isArray(f.facetTags) && f.facetTags.length) parts.push(`tagged ${f.facetTags.join(f.facetTagsMode === 'all' ? '+' : '/')}`);
   if (typeof f.arcaneMin === 'number' && typeof f.arcaneMax === 'number') parts.push(`arcane ${f.arcaneMin}–${f.arcaneMax}`);
   else if (typeof f.arcaneMin === 'number') parts.push(`arcane ≥ ${f.arcaneMin}`);
   else if (typeof f.arcaneMax === 'number') parts.push(`arcane ≤ ${f.arcaneMax}`);
