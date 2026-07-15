@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -626,78 +626,108 @@ function DashLabel({ icon: Icon, children }: { icon: React.ElementType; children
   );
 }
 
+/** Interleaves a muted "·" between a row's value spans. */
+function dotJoin(parts: React.ReactNode[]) {
+  return parts.flatMap((part, i) => (i === 0 ? [part] : [
+    <span key={`dot-${i}`} aria-hidden="true" className="text-gray-400 dark:text-gray-500">·</span>,
+    part,
+  ]));
+}
+
 /**
- * Deck drill stat chips — maindeck color pips + type-bucket / cost-curve
- * chips. Replaces the old 🎨/📊 run-on text lines (which stay AI-context-only).
+ * Deck snapshot — a compact definition list (Pitch / Block / Reactions /
+ * Types / Cost) using the card column's full width. Replaced the wrapping
+ * pill row (user: "could look neater — use the markdown area", 2026-07-15);
+ * before that, the old 🎨/📊 run-on text lines (still AI-context-only).
  * Pip color + count double-encode per SC 1.4.1 (aria carries the color name),
  * matching the markdown pitch pips.
  */
 function DeckStatsChips({ stats }: { stats: DeckStats }) {
-  const chip = 'rounded-full bg-muted px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200 whitespace-nowrap';
+  const rowLabel = 'text-xs font-medium uppercase tracking-wide text-gray-600 dark:text-gray-300';
+  const rowValue = 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-gray-700 dark:text-gray-200';
+  const rows: Array<{ label: string; value: React.ReactNode }> = [];
+
+  if (stats.colors) {
+    rows.push({
+      label: 'Pitch',
+      value: ([
+        ['red', 'bg-red-600', stats.colors.red],
+        ['yellow', 'bg-yellow-400', stats.colors.yellow],
+        ['blue', 'bg-blue-600', stats.colors.blue],
+      ] as const).map(([name, cls, n]) => (
+        <span
+          key={name}
+          role="img"
+          aria-label={`${n} ${name} maindeck cards`}
+          title={`${n} ${name} maindeck cards`}
+          className="inline-flex items-center gap-1 font-medium tabular-nums"
+        >
+          <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${cls}`} />
+          {n}
+        </span>
+      )),
+    });
+  }
+  if (stats.blocks) {
+    rows.push({
+      label: 'Block',
+      value: stats.blocks.map((b) => (
+        <span
+          key={b.label}
+          role="img"
+          aria-label={`${b.qty} cards block ${b.label}`}
+          title={`${b.qty} cards block ${b.label}`}
+          className="inline-flex items-center gap-1 tabular-nums"
+        >
+          <span aria-hidden="true" className="rounded bg-muted px-1 text-xs font-semibold">{b.label}</span>
+          {b.qty}
+        </span>
+      )),
+    });
+  }
+  if (stats.reactions) {
+    rows.push({
+      label: 'Reactions',
+      value: dotJoin(([
+        ['attack', stats.reactions.attack],
+        ['defense', stats.reactions.defense],
+      ] as const).map(([kind, n]) => (
+        <span key={kind} aria-label={`${n} ${kind} reactions`} title={`${n} ${kind} reactions`} className="tabular-nums">
+          {n} {kind}
+        </span>
+      ))),
+    });
+  }
+  if (stats.buckets.length) {
+    rows.push({
+      label: 'Types',
+      value: dotJoin([
+        ...stats.buckets.map((b) => (
+          <span key={b.label} className="whitespace-nowrap tabular-nums">{b.qty} {b.label}</span>
+        )),
+        ...(stats.moreBuckets ? [<span key="more" className="text-gray-600 dark:text-gray-300">+{stats.moreBuckets} more</span>] : []),
+      ]),
+    });
+  }
+  if (typeof stats.avgCost === 'number') {
+    rows.push({
+      label: 'Cost',
+      value: dotJoin([
+        <span key="avg" className="tabular-nums">avg {stats.avgCost.toFixed(1)}</span>,
+        ...(stats.zeroCost ? [<span key="zero" className="tabular-nums">{stats.zeroCost} zero-cost</span>] : []),
+      ]),
+    });
+  }
+
+  if (rows.length === 0) return null;
   return (
-    <div data-testid="deck-stats" className="mb-1.5 flex flex-wrap items-center gap-1.5">
-      {stats.colors && (
-        <span className="inline-flex items-center gap-2 rounded-full border border-border px-2 py-0.5">
-          {([
-            ['red', 'bg-red-600', stats.colors.red],
-            ['yellow', 'bg-yellow-400', stats.colors.yellow],
-            ['blue', 'bg-blue-600', stats.colors.blue],
-          ] as const).map(([name, cls, n]) => (
-            <span
-              key={name}
-              role="img"
-              aria-label={`${n} ${name} maindeck cards`}
-              title={`${n} ${name} maindeck cards`}
-              className="inline-flex items-center gap-1 text-xs font-medium tabular-nums text-gray-700 dark:text-gray-200"
-            >
-              <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${cls}`} />
-              {n}
-            </span>
-          ))}
-        </span>
-      )}
-      {stats.blocks && (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5">
-          <Shield className="h-3 w-3 text-gray-600 dark:text-gray-300" aria-hidden="true" />
-          {stats.blocks.map((b) => (
-            <span
-              key={b.label}
-              role="img"
-              aria-label={`${b.qty} cards block ${b.label}`}
-              title={`${b.qty} cards block ${b.label}`}
-              className="inline-flex items-center gap-0.5 text-xs tabular-nums text-gray-700 dark:text-gray-200"
-            >
-              <span aria-hidden="true" className="rounded bg-muted px-1 font-semibold">{b.label}</span>
-              {b.qty}
-            </span>
-          ))}
-        </span>
-      )}
-      {stats.reactions && (
-        <span className="inline-flex items-center gap-2 rounded-full border border-border px-2 py-0.5">
-          {([
-            ['AR', 'attack reactions', stats.reactions.attack],
-            ['DR', 'defense reactions', stats.reactions.defense],
-          ] as const).map(([abbr, full, n]) => (
-            <span
-              key={abbr}
-              role="img"
-              aria-label={`${n} ${full}`}
-              title={`${n} ${full}`}
-              className="inline-flex items-center gap-1 text-xs tabular-nums text-gray-700 dark:text-gray-200"
-            >
-              <span aria-hidden="true" className="font-semibold">{abbr}</span>
-              {n}
-            </span>
-          ))}
-        </span>
-      )}
-      {stats.buckets.map((b) => (
-        <span key={b.label} className={chip}>{b.qty} {b.label}</span>
+    <div data-testid="deck-stats" className="mb-1.5 grid grid-cols-[max-content_1fr] items-baseline gap-x-3 gap-y-1">
+      {rows.map((r) => (
+        <Fragment key={r.label}>
+          <span className={rowLabel}>{r.label}</span>
+          <span className={rowValue}>{r.value}</span>
+        </Fragment>
       ))}
-      {stats.moreBuckets ? <span className="text-xs text-gray-600 dark:text-gray-300">+{stats.moreBuckets} more</span> : null}
-      {typeof stats.avgCost === 'number' && <span className={chip}>avg cost {stats.avgCost.toFixed(1)}</span>}
-      {stats.zeroCost ? <span className={chip}>{stats.zeroCost} zero-cost</span> : null}
     </div>
   );
 }
