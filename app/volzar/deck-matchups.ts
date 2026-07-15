@@ -95,6 +95,55 @@ export function buildSwapLookup(
   return lookup;
 }
 
+/**
+ * The post-siding INVENTORY PILE for a matchup — the absolute "am I sided
+ * correctly?" check. Coming off a previous round the deck's physical state is
+ * unknown, so a bare in/out delta can't be applied safely; instead this lists
+ * exactly what the inventory pile must hold after siding (count your pile
+ * against it — anything missing is still shuffled in your deck). Starts from
+ * the Inventory section rows, removes side-ins (they go into the deck), adds
+ * side-outs. Counts clamp at zero; entries keep the row's display name.
+ */
+export function inventoryAfterSiding(
+  sections: Array<{ title: string; count?: number; rows: Array<SwapRowLike & { qty?: number }> }>,
+  sideboard: { in: string[]; out: string[] },
+): SwapEntry[] {
+  const pile = new Map<string, SwapEntry>();
+  for (const section of sections) {
+    if (!section.title.startsWith('Inventory')) continue;
+    for (const r of section.rows) {
+      const base = toTalisharIdentifier(r.name);
+      if (!base) continue;
+      const pitch: SwapPitch = r.pitch === 1 || r.pitch === 2 || r.pitch === 3 ? r.pitch : null;
+      const id = pitch ? `${base}_${PITCH_ID_SUFFIX[pitch]}` : base;
+      const existing = pile.get(id);
+      if (existing) existing.count += r.qty ?? 1;
+      else pile.set(id, { id, name: r.name, pitch, count: r.qty ?? 1 });
+    }
+  }
+  for (const id of sideboard.in) {
+    const e = pile.get(id);
+    if (e) e.count -= 1;
+  }
+  for (const id of sideboard.out) {
+    const e = pile.get(id);
+    if (e) {
+      e.count += 1;
+      continue;
+    }
+    const { name, pitch } = parseSwapId(id);
+    pile.set(id, { id, name, pitch, count: 1 });
+  }
+  return [...pile.values()]
+    .filter((e) => e.count > 0)
+    .sort((a, b) => {
+      const pa = a.pitch ?? 99;
+      const pb = b.pitch ?? 99;
+      if (pa !== pb) return pa - pb;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 interface MatchupLike {
   heroId: string;
   preferredTurnOrder: 'First' | 'Second' | 'NoPreference' | null;

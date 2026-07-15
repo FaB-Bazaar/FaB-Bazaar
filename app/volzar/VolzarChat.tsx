@@ -57,7 +57,7 @@ import { parseInstantActionParam } from './instant-link';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
 import { RULE_TOKEN_ICON } from './rule-glyphs';
-import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, buildSwapLookup, type SwapEntry, type SwapCardInfo } from './deck-matchups';
+import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, buildSwapLookup, inventoryAfterSiding, type SwapEntry, type SwapCardInfo } from './deck-matchups';
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid, Lightbulb } from 'lucide-react';
@@ -189,6 +189,54 @@ function SwapColumn({ kind, entries, lookup, onHover }: {
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * The matchup panel's absolute "am I sided right?" check (community ask,
+ * 2026-07-15): the physical inventory pile after siding, so a player coming
+ * off a previous round can count their pile against it — a bare in/out delta
+ * can't be applied when the deck's current state is unknown. Compact chip
+ * rows; hover/focus previews ride the same lookup as the swap columns.
+ */
+function InventoryCheck({ entries, lookup, onHover }: {
+  entries: SwapEntry[];
+  lookup?: Map<string, SwapCardInfo>;
+  onHover?: (preview: CardPreview) => void;
+}) {
+  if (entries.length === 0) return null;
+  const total = entries.reduce((s, e) => s + e.count, 0);
+  return (
+    <div data-testid="inventory-check" className="mt-2 rounded-md border border-border p-2">
+      <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-border text-gray-700 dark:text-gray-200">
+        <Package className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="text-xs font-bold uppercase tracking-wider">Inventory check</span>
+        <span className="ml-auto text-xs font-semibold tabular-nums">{total} {total === 1 ? 'card' : 'cards'}</span>
+      </div>
+      <p className="mb-1.5 text-xs text-gray-600 dark:text-gray-400">
+        After siding, your inventory pile should hold exactly these — anything missing is still in your deck.
+      </p>
+      <ul className="flex flex-wrap gap-x-3 gap-y-1">
+        {entries.map((e) => {
+          const preview = lookup?.get(e.id)?.preview as CardPreview | undefined;
+          const show = preview && onHover ? () => onHover(preview) : undefined;
+          return (
+            <li
+              key={e.id}
+              onMouseEnter={show}
+              onFocus={show}
+              onClick={show}
+              tabIndex={show ? 0 : undefined}
+              className={`inline-flex items-center gap-1 text-sm text-foreground ${show ? `cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}` : ''}`}
+            >
+              <PitchGem pitch={e.pitch ?? undefined} />
+              <span className="break-words">{e.name}</span>
+              <span className="tabular-nums text-gray-600 dark:text-gray-300">×{e.count}</span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -3326,15 +3374,31 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                             {openMatchup.notes && (
                               <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap mb-2">{openMatchup.notes}</p>
                             )}
-                            {openMatchup.sideboard.in.length === 0 && openMatchup.sideboard.out.length === 0 ? (
-                              <p className="text-sm text-gray-600 dark:text-gray-300 italic">No sideboard swaps — play the list as-is.</p>
-                            ) : (() => {
+                            {(() => {
+                              const noSwaps = openMatchup.sideboard.in.length === 0 && openMatchup.sideboard.out.length === 0;
                               const swapLookup = buildSwapLookup(item.tableSections ?? []);
                               return (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  <SwapColumn kind="in" entries={aggregateSwaps(openMatchup.sideboard.in)} lookup={swapLookup} onHover={showPreview} />
-                                  <SwapColumn kind="out" entries={aggregateSwaps(openMatchup.sideboard.out)} lookup={swapLookup} onHover={showPreview} />
-                                </div>
+                                <>
+                                  {noSwaps ? (
+                                    <p className="text-sm text-gray-600 dark:text-gray-300 italic">No sideboard swaps — play the list as-is.</p>
+                                  ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <SwapColumn kind="in" entries={aggregateSwaps(openMatchup.sideboard.in)} lookup={swapLookup} onHover={showPreview} />
+                                      <SwapColumn kind="out" entries={aggregateSwaps(openMatchup.sideboard.out)} lookup={swapLookup} onHover={showPreview} />
+                                    </div>
+                                  )}
+                                  {/* Absolute pile check — the in/out DELTA
+                                      assumes a reset deck, but coming off a
+                                      previous round you don't know the deck's
+                                      state. Count your physical inventory pile
+                                      against this list instead — anything
+                                      missing is still shuffled in the deck. */}
+                                  <InventoryCheck
+                                    entries={inventoryAfterSiding(item.tableSections ?? [], openMatchup.sideboard)}
+                                    lookup={swapLookup}
+                                    onHover={showPreview}
+                                  />
+                                </>
                               );
                             })()}
                           </div>

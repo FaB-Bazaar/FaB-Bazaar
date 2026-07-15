@@ -11,6 +11,7 @@ import {
   turnOrderLabel,
   matchupsToContext,
   buildSwapLookup,
+  inventoryAfterSiding,
 } from './deck-matchups';
 
 describe('matchupDisplayName', () => {
@@ -111,6 +112,63 @@ describe('matchupsToContext', () => {
     expect(ctx).toContain('Configured matchups for deck "Briar CC" (2)');
     expect(ctx).toContain('vs Kano — Go second; in: 2x Unmovable (blue); out: 1x Sink Below (red); notes: Hold arcane barrier up.');
     expect(ctx).toContain('vs Core Plan — no swaps');
+  });
+});
+
+describe('inventoryAfterSiding', () => {
+  // The absolute "am I sided correctly?" check: coming from a previous round
+  // the deck's physical state is unknown, so the panel lists what the
+  // INVENTORY PILE must hold after siding — count your pile against it.
+  const sections = [
+    { title: 'Maindeck', count: 5, rows: [{ name: 'Sink Below', pitch: 1, qty: 3 }, { name: 'Command and Conquer', pitch: 1, qty: 2 }] },
+    {
+      title: 'Inventory',
+      count: 4,
+      rows: [
+        { name: "Fiddler's Green", pitch: 1, qty: 1 },
+        { name: 'Cognition Nodes', pitch: 3, qty: 1 },
+        { name: 'Adaptive Alpha Mold', qty: 2 },
+      ],
+    },
+  ];
+
+  it('no swaps → the pile is the inventory section as-is', () => {
+    expect(inventoryAfterSiding(sections, { in: [], out: [] })).toEqual([
+      { id: 'fiddlers_green_red', name: "Fiddler's Green", pitch: 1, count: 1 },
+      { id: 'cognition_nodes_blue', name: 'Cognition Nodes', pitch: 3, count: 1 },
+      { id: 'adaptive_alpha_mold', name: 'Adaptive Alpha Mold', pitch: null, count: 2 },
+    ]);
+  });
+
+  it('side-ins leave the pile, side-outs join it', () => {
+    expect(
+      inventoryAfterSiding(sections, {
+        in: ['fiddlers_green_red', 'cognition_nodes_blue'],
+        out: ['sink_below_red', 'sink_below_red'],
+      }),
+    ).toEqual([
+      { id: 'sink_below_red', name: 'Sink Below', pitch: 1, count: 2 },
+      { id: 'adaptive_alpha_mold', name: 'Adaptive Alpha Mold', pitch: null, count: 2 },
+    ]);
+  });
+
+  it('side-outs stack onto copies already in inventory and unknown ids fall back to parsed names', () => {
+    const result = inventoryAfterSiding(sections, {
+      in: [],
+      out: ['fiddlers_green_red', 'mystery_card_blue'],
+    });
+    expect(result).toContainEqual({ id: 'fiddlers_green_red', name: "Fiddler's Green", pitch: 1, count: 2 });
+    expect(result).toContainEqual({ id: 'mystery_card_blue', name: 'Mystery Card', pitch: 3, count: 1 });
+  });
+
+  it('clamps over-sided-in cards at zero and returns [] for an empty pile', () => {
+    expect(
+      inventoryAfterSiding(sections, {
+        in: ['fiddlers_green_red', 'fiddlers_green_red', 'cognition_nodes_blue', 'adaptive_alpha_mold', 'adaptive_alpha_mold'],
+        out: [],
+      }),
+    ).toEqual([]);
+    expect(inventoryAfterSiding([{ title: 'Maindeck', count: 1, rows: [{ name: 'Slash', pitch: 1, qty: 1 }] }], { in: [], out: [] })).toEqual([]);
   });
 });
 
