@@ -656,6 +656,42 @@ function DeckStatsChips({ stats }: { stats: DeckStats }) {
           ))}
         </span>
       )}
+      {stats.blocks && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5">
+          <Shield className="h-3 w-3 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+          {stats.blocks.map((b) => (
+            <span
+              key={b.label}
+              role="img"
+              aria-label={`${b.qty} cards block ${b.label}`}
+              title={`${b.qty} cards block ${b.label}`}
+              className="inline-flex items-center gap-0.5 text-xs tabular-nums text-gray-700 dark:text-gray-200"
+            >
+              <span aria-hidden="true" className="rounded bg-muted px-1 font-semibold">{b.label}</span>
+              {b.qty}
+            </span>
+          ))}
+        </span>
+      )}
+      {stats.reactions && (
+        <span className="inline-flex items-center gap-2 rounded-full border border-border px-2 py-0.5">
+          {([
+            ['AR', 'attack reactions', stats.reactions.attack],
+            ['DR', 'defense reactions', stats.reactions.defense],
+          ] as const).map(([abbr, full, n]) => (
+            <span
+              key={abbr}
+              role="img"
+              aria-label={`${n} ${full}`}
+              title={`${n} ${full}`}
+              className="inline-flex items-center gap-1 text-xs tabular-nums text-gray-700 dark:text-gray-200"
+            >
+              <span aria-hidden="true" className="font-semibold">{abbr}</span>
+              {n}
+            </span>
+          ))}
+        </span>
+      )}
       {stats.buckets.map((b) => (
         <span key={b.label} className={chip}>{b.qty} {b.label}</span>
       ))}

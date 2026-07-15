@@ -552,6 +552,9 @@ export function deckShapeSummary(maindeck: DeckCard[]): string {
   if (!stats) return '';
   const parts: string[] = stats.buckets.map((b) => `${b.qty}× ${b.label}`);
   if (stats.moreBuckets) parts.push(`+ ${stats.moreBuckets} more`);
+  if (stats.reactions?.attack) parts.push(`${stats.reactions.attack} attack reaction`);
+  if (stats.reactions?.defense) parts.push(`${stats.reactions.defense} defense reaction`);
+  if (stats.blocks?.length) parts.push(`blocks ${stats.blocks.map((b) => `${b.label}:${b.qty}`).join(' · ')}`);
   if (typeof stats.avgCost === 'number') {
     parts.push(`avg cost ${stats.avgCost.toFixed(1)}`);
     if (stats.zeroCost) parts.push(`${stats.zeroCost} zero-cost`);
@@ -564,6 +567,12 @@ export interface DeckStats {
   colors?: { red: number; yellow: number; blue: number };
   buckets: Array<{ label: string; qty: number }>;
   moreBuckets?: number;
+  /** Maindeck block-value histogram, 0/1/2/3 with 4+ folding the tail.
+   *  Only values actually present in the deck; no-defense cards are skipped. */
+  blocks?: Array<{ label: string; qty: number }>;
+  /** Attack vs defense reactions, split out of `buckets` — they serve very
+   *  different purposes (community feedback 2026-07-15). One combined pill. */
+  reactions?: { attack: number; defense: number };
   avgCost?: number;
   zeroCost?: number;
   /** Armory cut-count math: playable library size vs the format's deck size. */
@@ -624,16 +633,30 @@ function deckTableSetup(deck: {
 export function deckShapeStats(maindeck: DeckCard[]): Omit<DeckStats, 'colors'> | null {
   if (maindeck.length === 0) return null;
   const buckets = new Map<string, number>();
-  let costQty = 0, costSum = 0, zeroCost = 0;
+  const blockCounts = new Map<string, number>();
+  let costQty = 0, costSum = 0, zeroCost = 0, arQty = 0, drQty = 0;
   for (const c of maindeck) {
     const qty = c.quantity ?? 1;
     const pd = c.printingDetails as Record<string, unknown> | undefined;
     const typeText = typeof pd?.type_text_display === 'string' ? pd.type_text_display : '';
-    // "Mechanologist Action - Attack" → "Attack"; "Generic Instant" → "Instant"
-    const tail = typeText.includes(' - ')
-      ? typeText.split(' - ').pop()!.trim()
-      : typeText.split(' ').pop()?.trim() || '';
-    if (tail) buckets.set(tail, (buckets.get(tail) ?? 0) + qty);
+    // Reactions get their own AR/DR stat ("Assassin Defense Reaction - Trap"
+    // must not bucket as "Trap"); every Evo type line ("… Equipment - Evo Base
+    // Arms" / "- Evo Chest") folds into one Evo bucket instead of one per zone.
+    if (/\battack reaction\b/i.test(typeText)) arQty += qty;
+    else if (/\bdefense reaction\b/i.test(typeText)) drQty += qty;
+    else if (/\bevo\b/i.test(typeText)) buckets.set('Evo', (buckets.get('Evo') ?? 0) + qty);
+    else {
+      // "Mechanologist Action - Attack" → "Attack"; "Generic Instant" → "Instant"
+      const tail = typeText.includes(' - ')
+        ? typeText.split(' - ').pop()!.trim()
+        : typeText.split(' ').pop()?.trim() || '';
+      if (tail) buckets.set(tail, (buckets.get(tail) ?? 0) + qty);
+    }
+    const defense = pd?.defense;
+    if (typeof defense === 'number') {
+      const label = defense >= 4 ? '4+' : String(defense);
+      blockCounts.set(label, (blockCounts.get(label) ?? 0) + qty);
+    }
     const cost = pd?.cost;
     if (typeof cost === 'number') {
       costQty += qty;
@@ -642,11 +665,16 @@ export function deckShapeStats(maindeck: DeckCard[]): Omit<DeckStats, 'colors'> 
     }
   }
   const sorted = [...buckets.entries()].sort((a, b) => b[1] - a[1]);
+  const blocks = ['0', '1', '2', '3', '4+']
+    .filter((label) => blockCounts.has(label))
+    .map((label) => ({ label, qty: blockCounts.get(label)! }));
   const MAX_BUCKETS = 6;
-  if (sorted.length === 0 && costQty === 0) return null;
+  if (sorted.length === 0 && costQty === 0 && blocks.length === 0 && arQty + drQty === 0) return null;
   return {
     buckets: sorted.slice(0, MAX_BUCKETS).map(([label, qty]) => ({ label, qty })),
     ...(sorted.length > MAX_BUCKETS ? { moreBuckets: sorted.length - MAX_BUCKETS } : {}),
+    ...(blocks.length ? { blocks } : {}),
+    ...(arQty + drQty > 0 ? { reactions: { attack: arQty, defense: drQty } } : {}),
     ...(costQty > 0 ? { avgCost: costSum / costQty } : {}),
     ...(costQty > 0 && zeroCost > 0 ? { zeroCost } : {}),
   };

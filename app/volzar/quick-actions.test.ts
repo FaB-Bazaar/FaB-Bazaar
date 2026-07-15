@@ -268,16 +268,90 @@ describe('summarizeDeckContents', () => {
       avgCost: 1,
       zeroCost: 3,
     });
+    // Attack Reactions live in the dedicated AR/DR pill, not the type buckets.
     expect(result.deckStats?.buckets).toEqual([
       { label: 'Attack', qty: 3 },
-      { label: 'Attack Reaction', qty: 3 },
       { label: 'Instant', qty: 3 },
     ]);
+    expect(result.deckStats?.reactions).toEqual({ attack: 3, defense: 0 });
     // The old 🎨/📊 emoji text lines are gone — the UI renders chips instead.
     expect(result.lines.some((l) => typeof l === 'string' && (l.includes('🎨') || l.includes('📊')))).toBe(false);
     // …but the AI context still carries both summaries verbatim.
     expect(result.context).toContain('3 red');
     expect(result.context).toContain('avg cost 1.0');
+  });
+
+  // Community feedback on the deck-dashboard chips (2026-07-15): block-value
+  // histogram pill, one merged Evo metric, AR/DR split into their own pill.
+  describe('deck stat chips: blocks / Evo / AR·DR (community feedback)', () => {
+    const typed = (name: string, quantity: number, type: string, extra: Record<string, unknown> = {}) => ({
+      quantity,
+      printingDetails: { display_name: name, pitch: 1, type_text_display: type, image_url: `https://img/${name}`, ...extra },
+    });
+
+    it('splits Attack Reaction and Defense Reaction out of the buckets into a reactions stat', () => {
+      const result = summarizeDeckContents({
+        name: 'V',
+        maindeck: [
+          typed('Pummel', 3, 'Brute Action - Attack Reaction'),
+          typed('Fate Foreseen', 4, 'Generic Defense Reaction'),
+          typed('Ambush Trap', 2, 'Assassin Defense Reaction - Trap'),
+          typed('Cranial Crush', 3, 'Brute Action - Attack'),
+        ],
+      });
+      expect(result.deckStats?.reactions).toEqual({ attack: 3, defense: 6 });
+      // Neither reaction flavor leaks into the generic type buckets — not even
+      // via a "- Trap" tail or the bare "Reaction" last word.
+      expect(result.deckStats?.buckets).toEqual([{ label: 'Attack', qty: 3 }]);
+      // The AI context carries the same split so answers match the chips.
+      expect(result.context).toContain('3 attack reaction');
+      expect(result.context).toContain('6 defense reaction');
+    });
+
+    it('merges every Evo type line into a single Evo bucket', () => {
+      const result = summarizeDeckContents({
+        name: 'Teklo',
+        maindeck: [
+          typed('Evo Heartdrive', 6, 'Mechanologist Action Equipment - Evo Base Arms'),
+          typed('Evo Sparkchase', 5, 'Mechanologist Instant Equipment - Evo Chest'),
+          typed('Gearbolt', 3, 'Mechanologist Action - Attack'),
+        ],
+      });
+      expect(result.deckStats?.buckets).toEqual([
+        { label: 'Evo', qty: 11 },
+        { label: 'Attack', qty: 3 },
+      ]);
+    });
+
+    it('exposes a maindeck block-value histogram (0/1/2/3/4+), skipping no-defense cards', () => {
+      const result = summarizeDeckContents({
+        name: 'V',
+        maindeck: [
+          typed('Wall', 4, 'Guardian Action - Attack', { defense: 0 }),
+          typed('Bulwark', 10, 'Guardian Action - Attack', { defense: 2 }),
+          typed('Stalwart', 28, 'Guardian Action - Attack', { defense: 3 }),
+          typed('Tower', 2, 'Guardian Action - Attack', { defense: 5 }),
+          typed('Cintari Saber', 1, 'Warrior Weapon - Sword (1H)'),
+        ],
+      });
+      expect(result.deckStats?.blocks).toEqual([
+        { label: '0', qty: 4 },
+        { label: '2', qty: 10 },
+        { label: '3', qty: 28 },
+        { label: '4+', qty: 2 },
+      ]);
+      // The AI context carries the histogram so block-math answers match the pill.
+      expect(result.context).toContain('blocks 0:4 · 2:10 · 3:28 · 4+:2');
+    });
+
+    it('omits blocks and reactions when the maindeck has neither', () => {
+      const result = summarizeDeckContents({
+        name: 'V',
+        maindeck: [typed('Gearbolt', 3, 'Mechanologist Action - Attack')],
+      });
+      expect(result.deckStats?.blocks).toBeUndefined();
+      expect(result.deckStats?.reactions).toBeUndefined();
+    });
   });
 
   it('deckStats survives a refreshDataItem re-drill', () => {
