@@ -686,16 +686,26 @@ function DeckStatsChips({ stats }: { stats: DeckStats }) {
     });
   }
   if (stats.reactions) {
+    // FaB's printed power/defense symbols ({p}/{d}, same glyphs as chat
+    // markdown) — marker + count, mirroring the Pitch row's pips.
     rows.push({
       label: 'Reactions',
-      value: dotJoin(([
-        ['attack', stats.reactions.attack],
-        ['defense', stats.reactions.defense],
-      ] as const).map(([kind, n]) => (
-        <span key={kind} aria-label={`${n} ${kind} reactions`} title={`${n} ${kind} reactions`} className="tabular-nums">
-          {n} {kind}
+      value: ([
+        ['attack', RULE_TOKEN_ICON.p, stats.reactions.attack],
+        ['defense', RULE_TOKEN_ICON.d, stats.reactions.defense],
+      ] as const).map(([kind, icon, n]) => (
+        <span
+          key={kind}
+          role="img"
+          aria-label={`${n} ${kind} reactions`}
+          title={`${n} ${kind} reactions`}
+          className="inline-flex items-center gap-1 font-medium tabular-nums"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={icon.src} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
+          {n}
         </span>
-      ))),
+      )),
     });
   }
   if (stats.buckets.length) {
