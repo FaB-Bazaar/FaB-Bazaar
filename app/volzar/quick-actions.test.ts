@@ -289,6 +289,84 @@ describe('summarizeDeckContents', () => {
     expect((next as any).deckStats).toEqual(fresh.deckStats);
   });
 
+  describe('library cut count ("For 60, −12")', () => {
+    const typed = (name: string, quantity: number, type: string) => ({
+      quantity,
+      printingDetails: { display_name: name, pitch: 1, type_text_display: type, image_url: `https://img/${name}` },
+    });
+
+    it('counts maindeck + inventory, excluding equipment/weapon rows wherever they live', () => {
+      // 62 maindeck + 13 inventory, but 3 of the inventory cards are gear
+      // (1 weapon + 2 equipment) that sit outside the library → 72 in library.
+      const result = summarizeDeckContents({
+        name: 'Teklosaucen',
+        format: 'Classic Constructed',
+        hero: [typed('Teklovossen', 1, 'Mechanologist Hero')],
+        equipment: [typed('Teklo Foundry Heart', 1, 'Mechanologist Equipment - Chest')],
+        maindeck: [
+          typed('Gearbolt Alpha', 30, 'Mechanologist Action - Attack'),
+          typed('Gearbolt Beta', 32, 'Mechanologist Action - Attack'),
+        ],
+        inventory: [
+          typed('Sideboard Action', 9, 'Mechanologist Action - Attack'),
+          typed('Backup Instant', 1, 'Generic Instant'),
+          typed('Teklo Plasma Pistol', 1, 'Mechanologist Weapon - Pistol (1H)'),
+          typed('Spare Arms', 2, 'Mechanologist Equipment - Arms'),
+        ],
+      });
+      expect(result.deckStats?.library).toEqual({ count: 72, target: 60 });
+      // The AI context carries the same math so Volzar can answer "how many do I cut?"
+      expect(result.context).toContain('72 in library');
+      expect(result.context).toContain('cut 12');
+    });
+
+    it('Action/Instant Equipment (Teklovossen Evos) ARE library cards — only plain gear is excluded', () => {
+      const result = summarizeDeckContents({
+        name: 'Teklosaucen',
+        format: 'Classic Constructed',
+        maindeck: [
+          typed('Evo Base Arms', 6, 'Mechanologist Action Equipment - Evo Base Arms'),
+          typed('Evo Head', 1, 'Mechanologist Instant Equipment - Evo Head'),
+          typed('Gearbolt', 53, 'Mechanologist Action - Attack'),
+        ],
+        inventory: [
+          typed('Spare Base', 3, 'Mechanologist Equipment - Base'),
+          typed('Teklo Plasma Pistol', 1, 'Mechanologist Weapon - Pistol (1H)'),
+        ],
+      });
+      // 6 + 1 + 53 = 60 library cards; the plain Equipment + Weapon stay out.
+      expect(result.deckStats?.library).toEqual({ count: 60, target: 60 });
+    });
+
+    it('Blitz targets 40', () => {
+      const result = summarizeDeckContents({
+        name: 'Blitzy',
+        format: 'Blitz',
+        maindeck: [typed('Pummel', 44, 'Brute Action - Attack Reaction')],
+      });
+      expect(result.deckStats?.library).toEqual({ count: 44, target: 40 });
+    });
+
+    it('unknown format defaults to 60; empty deck has no library stat', () => {
+      const result = summarizeDeckContents({
+        name: 'NoFormat',
+        maindeck: [typed('Pummel', 58, 'Brute Action - Attack Reaction')],
+      });
+      expect(result.deckStats?.library).toEqual({ count: 58, target: 60 });
+      expect(summarizeDeckContents({ name: 'Empty' }).deckStats).toBeUndefined();
+    });
+
+    it('library stat survives a refreshDataItem re-drill', () => {
+      const fresh = summarizeDeckContents({
+        name: 'T',
+        format: 'Classic Constructed',
+        maindeck: [typed('Pummel', 70, 'Brute Action - Attack Reaction')],
+      });
+      const next = refreshDataItem({ kind: 'data', uid: 'd1' } as any, fresh);
+      expect((next as any).deckStats?.library).toEqual({ count: 70, target: 60 });
+    });
+  });
+
   it('marks the result editable only when the API says canEdit — gates the "Add card" button to owned decks', () => {
     const base = { name: 'Victor', publicId: 'pub-1', maindeck: [card('Pummel', 3, 1)] };
 

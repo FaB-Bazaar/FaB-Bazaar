@@ -566,6 +566,34 @@ export interface DeckStats {
   moreBuckets?: number;
   avgCost?: number;
   zeroCost?: number;
+  /** Armory cut-count math: playable library size vs the format's deck size. */
+  library?: { count: number; target: number };
+}
+
+/**
+ * "For 60, −12" — the library is maindeck + inventory MINUS gear (weapons /
+ * equipment can sit in Inventory as sideboard but never shuffle into the
+ * played deck). Gear that is ALSO an Action/Instant (Teklovossen Evos:
+ * "Mechanologist Action Equipment - …") is played from hand and DOES count.
+ * Hero rows are excluded defensively too. Returns null for an empty library.
+ */
+function deckLibraryStats(deck: {
+  format?: string;
+  maindeck?: DeckCard[];
+  inventory?: DeckCard[];
+}): { count: number; target: number } | null {
+  const GEAR = /\b(equipment|weapon|hero)\b/i;
+  const PLAYED_FROM_HAND = /\b(action|instant)\b/i;
+  let count = 0;
+  for (const c of [...(deck.maindeck ?? []), ...(deck.inventory ?? [])]) {
+    const pd = c.printingDetails as Record<string, unknown> | undefined;
+    const typeText = typeof pd?.type_text_display === 'string' ? pd.type_text_display : '';
+    if (GEAR.test(typeText) && !PLAYED_FROM_HAND.test(typeText)) continue;
+    count += c.quantity ?? 1;
+  }
+  if (count === 0) return null;
+  const target = /blitz|commoner|clash/i.test(deck.format ?? '') ? 40 : 60;
+  return { count, target };
 }
 
 /** The numbers behind deckShapeSummary, for the UI's chip renderer. */
@@ -672,9 +700,22 @@ export function summarizeDeckContents(deck: {
   // the run-on text lines read badly in the card).
   const shapeStats = deckShapeStats(deck.maindeck ?? []);
   const hasColors = colors.red + colors.yellow + colors.blue > 0;
-  const deckStats: DeckStats | undefined = hasColors || shapeStats
-    ? { ...(hasColors ? { colors } : {}), buckets: [], ...shapeStats }
+  const library = deckLibraryStats(deck);
+  const deckStats: DeckStats | undefined = hasColors || shapeStats || library
+    ? { ...(hasColors ? { colors } : {}), buckets: [], ...shapeStats, ...(library ? { library } : {}) }
     : undefined;
+
+  // Armory math for the AI context: "how many do I cut for 60?" answers from
+  // data, not the model guessing which inventory rows are gear.
+  const librarySummary = library
+    ? `Library (maindeck + inventory, excluding equipment/weapons): ${library.count} in library${
+        library.count > library.target
+          ? `, cut ${library.count - library.target} to reach ${library.target}`
+          : library.count < library.target
+            ? `, ${library.target - library.count} short of ${library.target}`
+            : ` — exactly ${library.target}`
+      }. `
+    : '';
 
   const viewCards = [...(deck.hero ?? []), ...(deck.equipment ?? []), ...(deck.maindeck ?? [])].map(toDeckViewCard);
 
@@ -692,7 +733,7 @@ export function summarizeDeckContents(deck: {
   return {
     title: `Deck: ${deck.name}${deck.format ? ` (${deck.format})` : ''}`,
     lines,
-    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${shapeSummary ? `Maindeck shape: ${shapeSummary.replace('📊 ', '')}. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
+    context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${shapeSummary ? `Maindeck shape: ${shapeSummary.replace('📊 ', '')}. ` : ''}${librarySummary}${contextParts.join('. ') || 'Empty deck.'}`,
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(tableSections.length ? { tableSections } : {}),
     ...(deckStats ? { deckStats } : {}),
