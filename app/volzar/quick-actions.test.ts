@@ -250,15 +250,43 @@ describe('summarizeDeckContents', () => {
     expect(result.context).toContain('Maindeck: 3x Overcrowded (p3)');
   });
 
-  it('leads with a maindeck color breakdown (the instant "how many blue cards" answer)', () => {
+  it('exposes structured deckStats (colors + shape chips) and drops the emoji text lines', () => {
+    const typed = (name: string, quantity: number, pitch: number, type: string, cost: number) => ({
+      quantity,
+      printingDetails: { display_name: name, pitch, type_text_display: type, cost, image_url: `https://img/${name}` },
+    });
     const result = summarizeDeckContents({
       name: 'Victor',
-      maindeck: [card('Cranial Crush', 3, 3), card('Pummel', 3, 1), card('Remembrance', 3, 2)],
+      maindeck: [
+        typed('Cranial Crush', 3, 3, 'Brute Action - Attack', 2),
+        typed('Pummel', 3, 1, 'Brute Action - Attack Reaction', 1),
+        typed('Remembrance', 3, 2, 'Generic Instant', 0),
+      ],
     });
-    // First line summarizes the color curve, weighted by quantity.
-    expect(result.lines[0]).toBe('🎨 Maindeck colors: 3 red · 3 yellow · 3 blue');
-    // …and it's queued into the AI context too.
+    expect(result.deckStats).toMatchObject({
+      colors: { red: 3, yellow: 3, blue: 3 },
+      avgCost: 1,
+      zeroCost: 3,
+    });
+    expect(result.deckStats?.buckets).toEqual([
+      { label: 'Attack', qty: 3 },
+      { label: 'Attack Reaction', qty: 3 },
+      { label: 'Instant', qty: 3 },
+    ]);
+    // The old 🎨/📊 emoji text lines are gone — the UI renders chips instead.
+    expect(result.lines.some((l) => typeof l === 'string' && (l.includes('🎨') || l.includes('📊')))).toBe(false);
+    // …but the AI context still carries both summaries verbatim.
     expect(result.context).toContain('3 red');
+    expect(result.context).toContain('avg cost 1.0');
+  });
+
+  it('deckStats survives a refreshDataItem re-drill', () => {
+    const fresh = summarizeDeckContents({
+      name: 'Victor',
+      maindeck: [card('Cranial Crush', 3, 3)],
+    });
+    const next = refreshDataItem({ kind: 'data', uid: 'd1' } as any, fresh);
+    expect((next as any).deckStats).toEqual(fresh.deckStats);
   });
 
   it('marks the result editable only when the API says canEdit — gates the "Add card" button to owned decks', () => {

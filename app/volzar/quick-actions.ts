@@ -354,6 +354,8 @@ export interface QuickActionResult {
   tableNoteHeader?: string;
   /** Copy header line (e.g. "Wants:" / binder name) for the Discord copy. */
   copyHeader?: string;
+  /** Deck drill stat chips (maindeck colors + type buckets + cost curve). */
+  deckStats?: DeckStats;
   /** Public id of the deck this card represents — enables the deterministic
    *  "Add to my decks" button (a session-auth copy, no AI). Deck drills only. */
   publicId?: string;
@@ -544,7 +546,29 @@ function toDeckViewCard(c: DeckCard): DeckViewCard {
  * Returns '' when there's nothing to summarize.
  */
 export function deckShapeSummary(maindeck: DeckCard[]): string {
-  if (maindeck.length === 0) return '';
+  const stats = deckShapeStats(maindeck);
+  if (!stats) return '';
+  const parts: string[] = stats.buckets.map((b) => `${b.qty}× ${b.label}`);
+  if (stats.moreBuckets) parts.push(`+ ${stats.moreBuckets} more`);
+  if (typeof stats.avgCost === 'number') {
+    parts.push(`avg cost ${stats.avgCost.toFixed(1)}`);
+    if (stats.zeroCost) parts.push(`${stats.zeroCost} zero-cost`);
+  }
+  return parts.length ? `📊 ${parts.join(' · ')}` : '';
+}
+
+/** Deck drill stat chips — the structured twin of deckShapeSummary (+ colors). */
+export interface DeckStats {
+  colors?: { red: number; yellow: number; blue: number };
+  buckets: Array<{ label: string; qty: number }>;
+  moreBuckets?: number;
+  avgCost?: number;
+  zeroCost?: number;
+}
+
+/** The numbers behind deckShapeSummary, for the UI's chip renderer. */
+export function deckShapeStats(maindeck: DeckCard[]): Omit<DeckStats, 'colors'> | null {
+  if (maindeck.length === 0) return null;
   const buckets = new Map<string, number>();
   let costQty = 0, costSum = 0, zeroCost = 0;
   for (const c of maindeck) {
@@ -563,18 +587,15 @@ export function deckShapeSummary(maindeck: DeckCard[]): string {
       if (cost === 0) zeroCost += qty;
     }
   }
-  const parts: string[] = [];
   const sorted = [...buckets.entries()].sort((a, b) => b[1] - a[1]);
   const MAX_BUCKETS = 6;
-  parts.push(...sorted.slice(0, MAX_BUCKETS).map(([t, n]) => `${n}× ${t}`));
-  if (sorted.length > MAX_BUCKETS) {
-    parts.push(`+ ${sorted.length - MAX_BUCKETS} more`);
-  }
-  if (costQty > 0) {
-    parts.push(`avg cost ${(costSum / costQty).toFixed(1)}`);
-    if (zeroCost > 0) parts.push(`${zeroCost} zero-cost`);
-  }
-  return parts.length ? `📊 ${parts.join(' · ')}` : '';
+  if (sorted.length === 0 && costQty === 0) return null;
+  return {
+    buckets: sorted.slice(0, MAX_BUCKETS).map(([label, qty]) => ({ label, qty })),
+    ...(sorted.length > MAX_BUCKETS ? { moreBuckets: sorted.length - MAX_BUCKETS } : {}),
+    ...(costQty > 0 ? { avgCost: costSum / costQty } : {}),
+    ...(costQty > 0 && zeroCost > 0 ? { zeroCost } : {}),
+  };
 }
 
 export function summarizeDeckContents(deck: {
@@ -644,16 +665,20 @@ export function summarizeDeckContents(deck: {
   const shapeSummary = deckShapeSummary(deck.maindeck ?? []);
 
   if (lines.length === 0) lines.push('This deck is empty.');
-  else {
-    if (deck.publicId) {
-      lines.unshift({
-        text: '✓ Check what I own vs. this deck',
-        drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
-      });
-    }
-    if (shapeSummary) lines.unshift(shapeSummary);
-    if (colorSummary) lines.unshift(colorSummary);
+  else if (deck.publicId) {
+    lines.unshift({
+      text: '✓ Check what I own vs. this deck',
+      drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
+    });
   }
+
+  // Structured chips for the UI (the emoji strings above stay context-only —
+  // the run-on text lines read badly in the card).
+  const shapeStats = deckShapeStats(deck.maindeck ?? []);
+  const hasColors = colors.red + colors.yellow + colors.blue > 0;
+  const deckStats: DeckStats | undefined = hasColors || shapeStats
+    ? { ...(hasColors ? { colors } : {}), buckets: [], ...shapeStats }
+    : undefined;
 
   const viewCards = [...(deck.hero ?? []), ...(deck.equipment ?? []), ...(deck.maindeck ?? [])].map(toDeckViewCard);
 
@@ -674,6 +699,7 @@ export function summarizeDeckContents(deck: {
     context: `The user's deck "${deck.name}"${deck.heroName ? `, hero ${deck.heroName}` : ''}${deck.format ? `, format ${deck.format}` : ''}. ${colorSummary ? `Maindeck colors: ${colors.red} red / ${colors.yellow} yellow / ${colors.blue} blue. ` : ''}${shapeSummary ? `Maindeck shape: ${shapeSummary.replace('📊 ', '')}. ` : ''}${contextParts.join('. ') || 'Empty deck.'}`,
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(tableSections.length ? { tableSections } : {}),
+    ...(deckStats ? { deckStats } : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),
     ...(deck.publicId && deck.canEdit
       ? { deckEditable: true, mutate: { kind: 'deck' as const, publicId: deck.publicId } }
@@ -1363,6 +1389,7 @@ export function refreshDataItem<T extends { kind: string; uid?: string }>(
     tableSections: fresh.tableSections,
     tableNoteHeader: fresh.tableNoteHeader,
     copyHeader: fresh.copyHeader,
+    deckStats: fresh.deckStats,
     deckPublicId: fresh.publicId,
     deckEditable: fresh.deckEditable,
     mutate: fresh.mutate,

@@ -43,7 +43,7 @@ import {
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, harvestCardsFromDataItem, type StripSection,
   moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck,
   type DeckOwnership, type DeckSectionCategory,
-  type RowMutation, type QuickActionResult,
+  type RowMutation, type QuickActionResult, type DeckStats,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { hasPreviewableContent } from './empty-state';
@@ -641,6 +641,46 @@ function renderRulesText(text: string) {
 }
 
 /**
+ * Deck drill stat chips — maindeck color pips + type-bucket / cost-curve
+ * chips. Replaces the old 🎨/📊 run-on text lines (which stay AI-context-only).
+ * Pip color + count double-encode per SC 1.4.1 (aria carries the color name),
+ * matching the markdown pitch pips.
+ */
+function DeckStatsChips({ stats }: { stats: DeckStats }) {
+  const chip = 'rounded-full bg-muted px-2 py-0.5 text-xs text-gray-700 dark:text-gray-200 whitespace-nowrap';
+  return (
+    <div data-testid="deck-stats" className="mb-1.5 flex flex-wrap items-center gap-1.5">
+      {stats.colors && (
+        <span className="inline-flex items-center gap-2 rounded-full border border-border px-2 py-0.5">
+          {([
+            ['red', 'bg-red-600', stats.colors.red],
+            ['yellow', 'bg-yellow-400', stats.colors.yellow],
+            ['blue', 'bg-blue-600', stats.colors.blue],
+          ] as const).map(([name, cls, n]) => (
+            <span
+              key={name}
+              role="img"
+              aria-label={`${n} ${name} maindeck cards`}
+              title={`${n} ${name} maindeck cards`}
+              className="inline-flex items-center gap-1 text-xs font-medium tabular-nums text-gray-700 dark:text-gray-200"
+            >
+              <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 rounded-full ${cls}`} />
+              {n}
+            </span>
+          ))}
+        </span>
+      )}
+      {stats.buckets.map((b) => (
+        <span key={b.label} className={chip}>{b.qty} {b.label}</span>
+      ))}
+      {stats.moreBuckets ? <span className="text-xs text-gray-600 dark:text-gray-300">+{stats.moreBuckets} more</span> : null}
+      {typeof stats.avgCost === 'number' && <span className={chip}>avg cost {stats.avgCost.toFixed(1)}</span>}
+      {stats.zeroCost ? <span className={chip}>{stats.zeroCost} zero-cost</span> : null}
+    </div>
+  );
+}
+
+/**
  * Renders a data card's lines (notes, section headers, drill links, hoverable
  * card rows). Shared by the transcript chips and the workspace panel's list
  * view (binder/deck pickers).
@@ -655,8 +695,14 @@ function CardLinesList({ lines, hideTableLines, onDrill, drillDisabled, onPrevie
   /** Two-column layout for long lists; the workspace panel uses one column. */
   columns?: boolean;
 }) {
+  // Column count must follow what actually RENDERS: with hideTableLines the
+  // card rows/headers drop out, and 3 leftover note lines split into two ugly
+  // columns if the raw length decides ("deck chip two-column confetti").
+  const visibleCount = hideTableLines
+    ? lines.filter((l) => (typeof l === 'string' ? !l.startsWith('—') : !l.preview)).length
+    : lines.length;
   return (
-    <ul className={`text-sm space-y-0.5 ${columns && lines.length > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
+    <ul className={`text-sm space-y-0.5 ${columns && visibleCount > 12 ? 'sm:columns-2 sm:gap-x-6' : ''}`}>
       {lines.map((line, lineIndex) => {
         // When a section table renders the cards (deck drills), drop the
         // now-redundant card rows + section-header strings here, keeping only
@@ -749,7 +795,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
+  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; deckStats?: DeckStats; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
@@ -1421,7 +1467,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           : undefined;
       // uid: stable identity across optimistic row-qty updates (each update
       // replaces the item object in both the transcript and workspace stack).
-      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, deckStats: result.deckStats, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
       setItems((prev) => [...prev, dataItem]);
       // Tables and listings take over the workspace panel on desktop; drills
       // (actionId with ':') push so Back returns to the list they came from.
@@ -2896,8 +2942,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               // (user request, 2026-07-14) — wants/comparisons keep the table.
               const binderTiles = (item.mutate?.kind === 'binder' || item.title.startsWith('Binder: '))
                 && !!item.tableRows?.length && item.tableRows.some((r) => r.image);
+              // Sectioned results (deck drills, kits) tile too — but only the
+              // mobile body renders them in-chat (desktop uses the workspace),
+              // and comparisons stay tables (their quick-add lives there).
+              const deckTiles = !binderTiles && !item.compareRefresh
+                && !!item.tableSections?.length && item.tableSections.some((s) => s.rows.some((r) => r.image));
               const chatViewKey = item.uid ?? `i${index}`;
-              const chatView = binderTiles ? (chatCardView[chatViewKey] ?? 'tiles') : 'table';
+              const chatView = binderTiles || deckTiles ? (chatCardView[chatViewKey] ?? 'tiles') : 'table';
               return (
                 <div key={index} className={`self-start w-full max-w-2xl rounded-lg border border-border bg-card px-3 py-2.5 sm:px-3.5`}>
                   {/* Actions live in the bottom row only — in the header they
@@ -2908,13 +2959,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                     <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span data-testid="data-card-title" className="font-semibold min-w-0 truncate">{item.title}</span>
                     <span className="hidden sm:inline text-sm text-gray-600 dark:text-gray-300 shrink-0">· instant, no AI</span>
-                    {binderTiles && (
+                    {(binderTiles || deckTiles) && (
+                      // Deck bodies only render in-chat below lg (the desktop
+                      // workspace has its own toggle) — hide the no-op button.
                       <button
                         type="button"
                         onClick={() => setChatCardView((v) => ({ ...v, [chatViewKey]: chatView === 'tiles' ? 'table' : 'tiles' }))}
                         aria-label={chatView === 'tiles' ? 'Show table' : 'Show tiles'}
-                        title={chatView === 'tiles' ? 'Show table (details, prices, edit)' : 'Show tiles (binder card view)'}
-                        className={`ml-auto shrink-0 rounded-md border border-border p-1 hover:bg-muted ${focusRing}`}
+                        title={chatView === 'tiles' ? 'Show table (details, prices, edit)' : 'Show tiles (compact card view)'}
+                        className={`ml-auto shrink-0 rounded-md border border-border p-1 hover:bg-muted ${focusRing} ${deckTiles ? 'lg:hidden' : ''}`}
                       >
                         {chatView === 'tiles'
                           ? <Table2 className="h-4 w-4" aria-hidden="true" />
@@ -2922,6 +2975,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       </button>
                     )}
                   </div>
+                  {item.deckStats && <DeckStatsChips stats={item.deckStats} />}
                   {/* Flat card lists (wants/binders) render HERE in the wide
                       chat column at every breakpoint, zero AI. Binders default
                       to a 2-per-row grid of binder-page style tiles (image +
@@ -2986,11 +3040,24 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                   )}
                   {item.tableSections && item.tableSections.length > 0 && (
                     <div className="lg:hidden">
-                      <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
-                        onQuickAdd={item.compareRefresh ? (row, dest) => void quickAddRow(item, row, dest) : undefined} quickAddStatus={quickAddStatus}
-                        onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
-                        onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
-                        onImageClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
+                      {deckTiles && chatView === 'tiles' ? (
+                        // Deck-page style pitch-split tiles — far more scannable
+                        // on a phone than the cramped table (which stays one
+                        // header toggle away for ± editing).
+                        <div data-testid="chat-deck-tiles" className="mt-1 max-h-[32rem] overflow-y-auto">
+                          <WorkspaceStrips
+                            sections={splitSectionsByPitch(item.tableSections)}
+                            onPreview={showPreview}
+                            onTileClick={item.mutate ? (row, sourceTitle, e) => setTileMenu({ item, row, sourceTitle, x: e.clientX, y: e.clientY }) : undefined}
+                          />
+                        </div>
+                      ) : (
+                        <CardTable sections={item.tableSections} onPreview={showPreview} noteHeader={item.tableNoteHeader} maxHeightClass="max-h-[32rem]" className="mt-1"
+                          onQuickAdd={item.compareRefresh ? (row, dest) => void quickAddRow(item, row, dest) : undefined} quickAddStatus={quickAddStatus}
+                          onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
+                          onSwapRow={item.mutate ? (row, s) => void openRowSwap(item, row, s) : undefined}
+                          onImageClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s, x: e.clientX, y: e.clientY }) : undefined} />
+                      )}
                     </div>
                   )}
                   {item.resultRows && item.resultRows.length > 0 && (
@@ -3538,6 +3605,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
+          {/* Deck stat chips sit right above the card grid — the dense
+              "context toolbar" treatment (2026-07-14 feedback). */}
+          {workspace.deckStats && <div className="px-0.5 pt-0.5"><DeckStatsChips stats={workspace.deckStats} /></div>}
           {workspaceView === 'strips' && workspaceStripSections ? (
             <WorkspaceStrips
               sections={workspaceStripSections}
