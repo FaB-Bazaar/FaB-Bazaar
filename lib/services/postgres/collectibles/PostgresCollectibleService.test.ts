@@ -156,9 +156,11 @@ describe('PostgresCollectibleService', () => {
       expect(after.data?.haveCount).toBe(0);
     });
 
-    it('setMark on a nonexistent collectible returns an error, not a throw', async () => {
+    it('setMark on a nonexistent collectible returns a clean not-found error, not a raw pg message', async () => {
       const result = await service.setMark(userA, crypto.randomUUID(), 'have');
       expect(result.success).toBe(false);
+      if (result.success) return;
+      expect(result.error).toBe('Collectible not found');
     });
   });
 

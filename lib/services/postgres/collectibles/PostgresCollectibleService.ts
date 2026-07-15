@@ -129,6 +129,14 @@ export class PostgresCollectibleService implements ICollectibleService {
 
       return { success: true, data: { status } };
     } catch (error) {
+      // FK violation (23503) means the collectible (or user) row doesn't exist.
+      // Drizzle wraps the pg error, so the code may live on error.cause.
+      const pgCode =
+        (error as { code?: string })?.code ??
+        ((error as { cause?: { code?: string } })?.cause?.code);
+      if (pgCode === '23503') {
+        return { success: false, error: 'Collectible not found' };
+      }
       return { success: false, error: error instanceof Error ? error.message : 'Failed to set mark' };
     }
   }
