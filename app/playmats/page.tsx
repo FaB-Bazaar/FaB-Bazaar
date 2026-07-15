@@ -14,6 +14,10 @@ import type {
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 
+// Tiles rendered per page — keeps image requests bounded until the user
+// actually scrolls/pages through the catalog.
+const PAGE_SIZE = 24;
+
 export default function PlaymatsPage() {
   const { status: sessionStatus } = useSession();
   const signedIn = sessionStatus === "authenticated";
@@ -23,6 +27,7 @@ export default function PlaymatsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState<string>("all");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   // ids with an in-flight mark request, so double-clicks don't race
   const [pending, setPending] = useState<Set<string>>(new Set());
 
@@ -120,7 +125,10 @@ export default function PlaymatsPage() {
           <input
             type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setLimit(PAGE_SIZE);
+            }}
             placeholder="Search by name, artist, or event…"
             aria-label="Search playmats"
             className={`w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-base dark:border-gray-700 dark:bg-gray-900 ${FOCUS_RING}`}
@@ -128,7 +136,10 @@ export default function PlaymatsPage() {
         </div>
         <select
           value={yearFilter}
-          onChange={(e) => setYearFilter(e.target.value)}
+          onChange={(e) => {
+            setYearFilter(e.target.value);
+            setLimit(PAGE_SIZE);
+          }}
           aria-label="Filter by year"
           className={`rounded-md border border-gray-300 bg-white px-3 py-2 text-base dark:border-gray-700 dark:bg-gray-900 ${FOCUS_RING}`}
         >
@@ -156,8 +167,9 @@ export default function PlaymatsPage() {
             : "No playmats match your search."}
         </p>
       ) : (
+        <>
         <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" data-testid="playmat-grid">
-          {visible.map((item) => (
+          {visible.slice(0, limit).map((item) => (
             <li
               key={item.id}
               className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
@@ -214,6 +226,18 @@ export default function PlaymatsPage() {
             </li>
           ))}
         </ul>
+        {visible.length > limit && (
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setLimit((l) => l + PAGE_SIZE)}
+              className={`rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 ${FOCUS_RING}`}
+            >
+              Show more ({visible.length - limit} remaining)
+            </button>
+          </div>
+        )}
+        </>
       )}
     </div>
   );
