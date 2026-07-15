@@ -568,32 +568,56 @@ export interface DeckStats {
   zeroCost?: number;
   /** Armory cut-count math: playable library size vs the format's deck size. */
   library?: { count: number; target: number };
+  /** Table-setup counts: what stays OUT of the deckbox when you say "ready". */
+  gear?: { hero: number; equipment: number; weapons: number; offhand?: number; spareGear: number };
 }
 
 /**
- * "For 60, −12" — the library is maindeck + inventory MINUS gear (weapons /
- * equipment can sit in Inventory as sideboard but never shuffle into the
- * played deck). Gear that is ALSO an Action/Instant (Teklovossen Evos:
+ * Pre-game table math ("For 60, −12"). The library is maindeck + inventory
+ * MINUS plain gear (weapons/equipment registered as sideboard never shuffle
+ * in) — but gear that is ALSO an Action/Instant (Teklovossen Evos:
  * "Mechanologist Action Equipment - …") is played from hand and DOES count.
- * Hero rows are excluded defensively too. Returns null for an empty library.
+ * `gear` splits the Equipment section into worn equipment / weapons /
+ * off-hands and counts the spare gear waiting in the deckbox.
  */
-function deckLibraryStats(deck: {
+function deckTableSetup(deck: {
   format?: string;
+  hero?: DeckCard[];
+  equipment?: DeckCard[];
   maindeck?: DeckCard[];
   inventory?: DeckCard[];
-}): { count: number; target: number } | null {
+}): { library: DeckStats['library'] | null; gear: DeckStats['gear'] | null } {
   const GEAR = /\b(equipment|weapon|hero)\b/i;
   const PLAYED_FROM_HAND = /\b(action|instant)\b/i;
-  let count = 0;
-  for (const c of [...(deck.maindeck ?? []), ...(deck.inventory ?? [])]) {
+  const typeOf = (c: DeckCard) => {
     const pd = c.printingDetails as Record<string, unknown> | undefined;
-    const typeText = typeof pd?.type_text_display === 'string' ? pd.type_text_display : '';
-    if (GEAR.test(typeText) && !PLAYED_FROM_HAND.test(typeText)) continue;
-    count += c.quantity ?? 1;
+    return typeof pd?.type_text_display === 'string' ? pd.type_text_display : '';
+  };
+  const qtyOf = (c: DeckCard) => c.quantity ?? 1;
+
+  let count = 0, spareGear = 0;
+  for (const c of [...(deck.maindeck ?? []), ...(deck.inventory ?? [])]) {
+    const t = typeOf(c);
+    if (GEAR.test(t) && !PLAYED_FROM_HAND.test(t)) spareGear += qtyOf(c);
+    else count += qtyOf(c);
   }
-  if (count === 0) return null;
+
+  let equipment = 0, weapons = 0, offhand = 0;
+  for (const c of deck.equipment ?? []) {
+    const t = typeOf(c);
+    if (/\boff-hand\b/i.test(t)) offhand += qtyOf(c);
+    else if (/\bweapon\b/i.test(t)) weapons += qtyOf(c);
+    else equipment += qtyOf(c);
+  }
+  const hero = (deck.hero ?? []).reduce((sum, c) => sum + qtyOf(c), 0);
+
   const target = /blitz|commoner|clash/i.test(deck.format ?? '') ? 40 : 60;
-  return { count, target };
+  return {
+    library: count > 0 ? { count, target } : null,
+    gear: hero + equipment + weapons + offhand + spareGear > 0
+      ? { hero, equipment, weapons, ...(offhand > 0 ? { offhand } : {}), spareGear }
+      : null,
+  };
 }
 
 /** The numbers behind deckShapeSummary, for the UI's chip renderer. */
@@ -700,22 +724,46 @@ export function summarizeDeckContents(deck: {
   // the run-on text lines read badly in the card).
   const shapeStats = deckShapeStats(deck.maindeck ?? []);
   const hasColors = colors.red + colors.yellow + colors.blue > 0;
-  const library = deckLibraryStats(deck);
-  const deckStats: DeckStats | undefined = hasColors || shapeStats || library
-    ? { ...(hasColors ? { colors } : {}), buckets: [], ...shapeStats, ...(library ? { library } : {}) }
+  const { library, gear } = deckTableSetup(deck);
+  const deckStats: DeckStats | undefined = hasColors || shapeStats || library || gear
+    ? {
+        ...(hasColors ? { colors } : {}),
+        buckets: [],
+        ...shapeStats,
+        ...(library ? { library } : {}),
+        ...(gear ? { gear } : {}),
+      }
     : undefined;
 
-  // Armory math for the AI context: "how many do I cut for 60?" answers from
-  // data, not the model guessing which inventory rows are gear.
-  const librarySummary = library
-    ? `Library (maindeck + inventory, excluding equipment/weapons): ${library.count} in library${
-        library.count > library.target
-          ? `, cut ${library.count - library.target} to reach ${library.target}`
-          : library.count < library.target
-            ? `, ${library.target - library.count} short of ${library.target}`
-            : ` — exactly ${library.target}`
-      }. `
-    : '';
+  // Table-setup math for the AI context: "what stays out of the deckbox?" and
+  // "how many do I cut for 60?" answer from data, not the model guessing
+  // which rows are gear.
+  const setupParts: string[] = [];
+  if (gear && gear.hero + gear.equipment + gear.weapons + (gear.offhand ?? 0) > 0) {
+    const onTable = [
+      gear.hero > 0 ? 'hero' : null,
+      `${gear.equipment} equipment`,
+      gear.weapons > 0 ? `${gear.weapons} weapon${gear.weapons > 1 ? 's' : ''}` : null,
+      gear.offhand ? `${gear.offhand} off-hand` : null,
+    ].filter(Boolean).join(' + ');
+    setupParts.push(`${onTable} stay on the table`);
+  }
+  if (library) {
+    const diff = library.count - library.target;
+    setupParts.push(
+      diff > 0
+        ? `shuffle ${library.target} (${library.count} in library, cut ${diff} to reach ${library.target})`
+        : diff < 0
+          ? `${library.count} in library, ${-diff} short of ${library.target}`
+          : `shuffle all ${library.count} — exactly ${library.target}`,
+    );
+  }
+  const boxParts = [
+    library && library.count > library.target ? `${library.count - library.target} cuts` : null,
+    gear?.spareGear ? `${gear.spareGear} spare gear` : null,
+  ].filter(Boolean);
+  if (boxParts.length) setupParts.push(`deckbox keeps ${boxParts.join(' + ')}`);
+  const librarySummary = setupParts.length ? `Table setup: ${setupParts.join('; ')}. ` : '';
 
   const viewCards = [...(deck.hero ?? []), ...(deck.equipment ?? []), ...(deck.maindeck ?? [])].map(toDeckViewCard);
 

@@ -320,6 +320,46 @@ describe('summarizeDeckContents', () => {
       expect(result.context).toContain('cut 12');
     });
 
+    it('exposes gear counts for the table-setup lines: worn equipment vs weapons vs spare gear', () => {
+      const result = summarizeDeckContents({
+        name: 'Teklosaucen',
+        format: 'Classic Constructed',
+        hero: [typed('Teklovossen', 1, 'Mechanologist Hero')],
+        equipment: [
+          typed('Adaptive Alpha Mold', 1, 'Mechanologist Equipment - Base'),
+          typed('Synapse Sparkcap', 1, 'Mechanologist Equipment - Head'),
+          typed('Teklo Leveler', 1, 'Mechanologist Weapon - Gun (2H)'),
+        ],
+        maindeck: [typed('Gearbolt', 66, 'Mechanologist Action - Attack')],
+        inventory: [
+          typed('Spare Base', 3, 'Mechanologist Equipment - Base'),
+          typed('Backup Action', 4, 'Generic Action - Attack'),
+        ],
+      });
+      // Equipment section: 2 worn equipment + 1 weapon. Plain gear registered
+      // in maindeck/inventory (3 spare bases) waits in the deckbox.
+      expect(result.deckStats?.gear).toEqual({ hero: 1, equipment: 2, weapons: 1, spareGear: 3 });
+      expect(result.deckStats?.library).toEqual({ count: 70, target: 60 });
+      // The AI context can answer "what stays out of the deckbox?"
+      expect(result.context).toContain('hero + 2 equipment + 1 weapon');
+      expect(result.context).toContain('cut 10');
+    });
+
+    it('counts off-hands separately and survives a re-drill', () => {
+      const fresh = summarizeDeckContents({
+        name: 'T',
+        hero: [typed('Hero', 1, 'Warrior Hero')],
+        equipment: [
+          typed('Sword', 1, 'Warrior Weapon - Sword (1H)'),
+          typed('Shield', 1, 'Generic Weapon - Shield (Off-Hand)'),
+        ],
+        maindeck: [typed('Slash', 60, 'Warrior Action - Attack')],
+      });
+      expect(fresh.deckStats?.gear).toEqual({ hero: 1, equipment: 0, weapons: 1, offhand: 1, spareGear: 0 });
+      const next = refreshDataItem({ kind: 'data', uid: 'd1' } as any, fresh);
+      expect((next as any).deckStats?.gear).toEqual(fresh.deckStats?.gear);
+    });
+
     it('Action/Instant Equipment (Teklovossen Evos) ARE library cards — only plain gear is excluded', () => {
       const result = summarizeDeckContents({
         name: 'Teklosaucen',

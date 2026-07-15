@@ -687,30 +687,60 @@ function DeckStatsChips({ stats }: { stats: DeckStats }) {
       {stats.moreBuckets ? <span className="text-xs text-gray-600 dark:text-gray-300">+{stats.moreBuckets} more</span> : null}
       {typeof stats.avgCost === 'number' && <span className={chip}>avg cost {stats.avgCost.toFixed(1)}</span>}
       {stats.zeroCost ? <span className={chip}>{stats.zeroCost} zero-cost</span> : null}
-      {stats.library && <LibraryCutChip library={stats.library} />}
     </div>
   );
 }
 
 /**
- * Armory cut-count chip — "72 in library · cut 12 for 60". Library = maindeck
- * + inventory minus gear (weapons/equipment never shuffle in), target from the
- * format (CC 60, Blitz 40). State is carried by the text, not color alone.
+ * Pre-game "I'm ready" breakdown (community ask, 2026-07-15): what physically
+ * stays on the table when you present, what shuffles into the deck, and what
+ * goes back in the deckbox. Replaced the single library-cut chip, which read
+ * as a riddle at the table. Library math: maindeck + inventory minus plain
+ * gear; Action/Instant Equipment (Teklovossen Evos) shuffles in.
  */
-function LibraryCutChip({ library }: { library: NonNullable<DeckStats['library']> }) {
-  const diff = library.count - library.target;
-  const text = diff > 0
-    ? `${library.count} in library · cut ${diff} for ${library.target}`
-    : diff < 0
-      ? `${library.count} in library · ${-diff} short of ${library.target}`
-      : `${library.count} in library ✓`;
-  const tone = diff === 0
-    ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300'
-    : 'border-border bg-muted text-gray-700 dark:text-gray-200';
+function TableSetup({ stats }: { stats: DeckStats }) {
+  const { library, gear } = stats;
+  const rows: Array<{ icon: React.ElementType; label: string; text: string }> = [];
+
+  if (gear && gear.hero + gear.equipment + gear.weapons + (gear.offhand ?? 0) > 0) {
+    const parts = [
+      gear.hero > 0 ? 'hero' : null,
+      gear.equipment > 0 ? `${gear.equipment} equipment` : null,
+      gear.weapons > 0 ? `${gear.weapons} weapon${gear.weapons > 1 ? 's' : ''}` : null,
+      gear.offhand ? `${gear.offhand} off-hand` : null,
+    ].filter(Boolean) as string[];
+    rows.push({ icon: Shield, label: 'On the table', text: parts.join(' + ') });
+  }
+  if (library) {
+    const diff = library.count - library.target;
+    rows.push({
+      icon: Layers,
+      label: 'Shuffle up',
+      text: diff > 0
+        ? `${library.target} of your ${library.count} library cards`
+        : diff < 0
+          ? `${library.count} library cards — ${-diff} short of ${library.target}`
+          : `all ${library.count} library cards ✓`,
+    });
+  }
+  const boxParts = [
+    library && library.count > library.target ? `${library.count - library.target} cuts` : null,
+    gear?.spareGear ? `${gear.spareGear} spare gear` : null,
+  ].filter(Boolean) as string[];
+  if (boxParts.length) rows.push({ icon: Package, label: 'Back in the box', text: boxParts.join(' + ') });
+
+  if (rows.length === 0) return null;
   return (
-    <span data-testid="library-cut-chip" className={`rounded-full border px-2 py-0.5 text-xs tabular-nums whitespace-nowrap ${tone}`}>
-      {text}
-    </span>
+    <div data-testid="table-setup" className="space-y-1 text-sm">
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-start gap-2">
+          <r.icon className="mt-0.5 h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+          <span className="min-w-0 break-words text-gray-700 dark:text-gray-200">
+            <span className="font-medium text-gray-900 dark:text-gray-100">{r.label}:</span> {r.text}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -3105,6 +3135,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                         {workspace?.uid === item.uid ? 'Viewing' : 'View'}
                       </button>
                     </div>
+                  )}
+                  {item.deckPublicId && item.deckStats && (item.deckStats.library || item.deckStats.gear) && (
+                    <>
+                      <DashLabel icon={Swords}>Table setup</DashLabel>
+                      <TableSetup stats={item.deckStats} />
+                    </>
                   )}
                   {item.deckPublicId && (
                     <>
