@@ -1144,6 +1144,12 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // everything still renders inline as before.
   const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
   const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
+  // The workspace item's TRANSCRIPT index — the deck toolbar's matchup toggle
+  // (and the panel it opens) keys on the chat card's index, not the copy in
+  // the stack. uid is preserved by every refresh path.
+  const workspaceItemIndex = workspace
+    ? items.findIndex((i) => i.kind === 'data' && i.uid === workspace.uid)
+    : -1;
   // Which rail launcher "owns" the open workspace: drills PUSH onto the
   // stack, so the ROOT item keeps the launcher's provenance (sourceAction).
   const activeActionId = workspaceStack[0]?.sourceAction ?? null;
@@ -1855,6 +1861,91 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [matchupPanels]);
+
+  // The deck-scoped action cluster (View as cards / Add to my decks / View
+  // matchups / AI chips / Review latest game). Rendered in TWO places: the
+  // desktop WORKSPACE TOOLBAR above the card grid ("Idea 2", 2026-07-14 —
+  // buttons live next to the cards; outputs still flow into the chat), and
+  // the chat card's lg:hidden bottom row for phones (no workspace there).
+  // `index` is the item's TRANSCRIPT index — matchupPanels and the panel
+  // itself key on it, so the workspace copy must pass the chat card's index.
+  const renderDeckActions = (item: Extract<UiItem, { kind: 'data' }>, index: number) => {
+    if (!item.deckPublicId) return null;
+    return (
+      <>
+        {item.cards && item.cards.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
+            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted ${focusRing}`}
+            title="View these cards as a grid"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+            View as cards
+          </button>
+        )}
+        {/* Copying a deck you already own makes no sense — this is for
+            Decks to Beat / other people's decks. */}
+        {!item.deckEditable && (
+          <button
+            type="button"
+            onClick={() => addDeckToMine(item.deckPublicId!)}
+            disabled={addingDeckId === item.deckPublicId}
+            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
+            title="Copy this deck into your account"
+          >
+            {addingDeckId === item.deckPublicId
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
+            Add to my decks
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => toggleMatchups(index, item.deckPublicId!, item.title)}
+          aria-expanded={!!matchupPanels[index]}
+          className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted ${focusRing}`}
+          title="Show this deck's configured matchup sideboard plans — instant, no AI"
+        >
+          {matchupPanels[index]?.status === 'loading'
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            : <Swords className="h-3.5 w-3.5" aria-hidden="true" />}
+          {matchupPanels[index] ? 'Hide matchups' : 'View matchups'}
+        </button>
+        {/* Deck-scoped AI launchers — deck contents already ride the
+            pending-context queue, so each is a one-message question. */}
+        {DECK_AI_PROMPTS.map(({ label, build }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => void sendTurn(label, build(item.title.replace(/^Deck: /, '').replace(/ \([^)]*\)$/, '')))}
+            disabled={busy || runningAction !== null}
+            title={`${label} — uses AI (1 message)`}
+            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
+            {label}
+          </button>
+        ))}
+        {/* Own decks: one-click review of the newest recorded game
+            (instant lookup → one AI message via analyzeGame). */}
+        {item.deckEditable && (
+          <button
+            type="button"
+            onClick={() => void reviewLatestGame(item)}
+            disabled={busy || runningAction !== null}
+            title="Volzar reviews your most recent Talishar game with this deck — uses AI (1 message)"
+            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
+            Review latest Talishar game
+          </button>
+        )}
+      </>
+    );
+  };
 
   // "Add missing to wants" — deterministic, no AI. Bulk-adds the deck's curated
   // printings for every card the comparison says you still need (missing +
@@ -2844,7 +2935,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       )}
                     </>
                   )}
-                  {item.cards && item.cards.length > 0 && (
+                  {item.cards && item.cards.length > 0 && !item.deckPublicId && (
                     <button
                       type="button"
                       onClick={() => setDeckView({ title: item.title, subtitle: item.cardsSubtitle, cards: item.cards! })}
@@ -2870,74 +2961,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       {wantsAddStatus[index] === 'done' ? 'Added to wants' : `Add missing to wants (${item.wantsAdd.length})`}
                     </button>
                   )}
-                  {/* Copying a deck you already own makes no sense — this is
-                      for Decks to Beat / other people's decks. ("Add card"
-                      moved to the workspace panel header.) */}
-                  {item.deckPublicId && !item.deckEditable && (
-                    <button
-                      type="button"
-                      onClick={() => addDeckToMine(item.deckPublicId!)}
-                      disabled={addingDeckId === item.deckPublicId}
-                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-muted disabled:opacity-60 ${focusRing}`}
-                      title="Copy this deck into your account"
-                    >
-                      {addingDeckId === item.deckPublicId
-                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                        : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
-                      Add to my decks
-                    </button>
-                  )}
-                  {item.deckPublicId && (
-                    <button
-                      type="button"
-                      onClick={() => toggleMatchups(index, item.deckPublicId!, item.title)}
-                      aria-expanded={!!matchupPanels[index]}
-                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted ${focusRing}`}
-                      title="Show this deck's configured matchup sideboard plans — instant, no AI"
-                    >
-                      {matchupPanels[index]?.status === 'loading'
-                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                        : <Swords className="h-3.5 w-3.5" aria-hidden="true" />}
-                      {matchupPanels[index] ? 'Hide matchups' : 'View matchups'}
-                    </button>
-                  )}
-                  {/* Deck-scoped AI launchers — deck contents already ride the
-                      pending-context queue, so each is a one-message question. */}
-                  {item.deckPublicId && DECK_AI_PROMPTS.map(({ label, build }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => void sendTurn(label, build(item.title.replace(/^Deck: /, '').replace(/ \([^)]*\)$/, '')))}
-                      disabled={busy || runningAction !== null}
-                      title={`${label} — uses AI (1 message)`}
-                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
-                      {label}
-                    </button>
-                  ))}
-                  {/* Own decks: one-click review of the newest recorded game
-                      (instant lookup → one AI message via analyzeGame). */}
-                  {item.deckPublicId && item.deckEditable && (
-                    <button
-                      type="button"
-                      onClick={() => void reviewLatestGame(item)}
-                      disabled={busy || runningAction !== null}
-                      title="Volzar reviews your most recent Talishar game with this deck — uses AI (1 message)"
-                      className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-violet-700 dark:text-violet-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-3.5 w-3.5 rounded-full object-cover" />
-                      Review latest Talishar game
-                    </button>
-                  )}
                 </>
               );
-              const hasActions = (item.tableRows?.length ?? 0) > 0
-                || (item.cards?.length ?? 0) > 0
-                || (item.wantsAdd?.length ?? 0) > 0
-                || !!item.deckPublicId;
+              // Deck actions render here only below lg (desktop shows them in
+              // the workspace toolbar) — when they're ALL the row has, hide
+              // the whole row (and its border) on desktop too.
+              const hasGeneralActions = (item.tableRows?.length ?? 0) > 0
+                || (!item.deckPublicId && (item.cards?.length ?? 0) > 0)
+                || (item.wantsAdd?.length ?? 0) > 0;
+              const hasActions = hasGeneralActions || !!item.deckPublicId;
               // Binder drills get the tile grid as the primary chat view
               // (user request, 2026-07-14) — wants/comparisons keep the table.
               const binderTiles = (item.mutate?.kind === 'binder' || item.title.startsWith('Binder: '))
@@ -3191,8 +3223,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                     );
                   })()}
                   {hasActions && (
-                    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2">
+                    <div className={`mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2 ${hasGeneralActions ? '' : 'lg:hidden'}`}>
                       {cardActions}
+                      {item.deckPublicId && (
+                        <div className="contents lg:hidden">
+                          {renderDeckActions(item, index)}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3604,6 +3641,15 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </button>
           </div>
         </div>
+        {/* The deck's action cluster docks HERE, next to the cards it acts on
+            ("Idea 2", 2026-07-14) — the chat card keeps only a slim summary.
+            Non-scrolling so the buttons stay reachable on long decks;
+            AI outputs still stream into the chat column. */}
+        {workspace.deckPublicId && workspaceItemIndex >= 0 && (
+          <div data-testid="workspace-deck-toolbar" className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
+            {renderDeckActions(workspace, workspaceItemIndex)}
+          </div>
+        )}
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {/* Deck stat chips sit right above the card grid — the dense
               "context toolbar" treatment (2026-07-14 feedback). */}
