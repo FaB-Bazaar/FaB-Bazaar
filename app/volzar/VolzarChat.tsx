@@ -38,6 +38,7 @@ import {
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
   setItemRowForTrade, setRowForTrade, removeRowEntirely,
+  ownershipSummary, deckInsightLines, type DeckPerfRow,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, harvestCardsFromDataItem, type StripSection,
@@ -59,7 +60,7 @@ import { RULE_TOKEN_ICON } from './rule-glyphs';
 import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, buildSwapLookup, type SwapEntry, type SwapCardInfo } from './deck-matchups';
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Lightbulb } from 'lucide-react';
 import { CardSpotlightOverlay, type SpotlightCard } from './CardSpotlightOverlay';
 import { BinderTileGrid } from './BinderTileGrid';
 
@@ -640,6 +641,16 @@ function renderRulesText(text: string) {
   });
 }
 
+/** Deck dashboard section divider — "Snapshot" / "Actions" / "Insights". */
+function DashLabel({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div className="mb-1.5 mt-2.5 flex items-center gap-1.5 border-t border-border pt-2 text-[11px] font-bold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {children}
+    </div>
+  );
+}
+
 /**
  * Deck drill stat chips — maindeck color pips + type-bucket / cost-curve
  * chips. Replaces the old 🎨/📊 run-on text lines (which stay AI-context-only).
@@ -795,7 +806,7 @@ type UiItem =
   // arrives without a tool_start). `submitting` disables the buttons while the
   // decision POST is in flight.
   | { kind: 'confirm'; id: string; name: string; args: unknown; status: 'pending' | 'confirmed' | 'denied'; submitting?: boolean }
-  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; deckStats?: DeckStats; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
+  | { kind: 'data'; uid?: string; sourceAction?: string; title: string; lines: CardLine[]; cards?: DeckViewCard[]; cardsSubtitle?: string; tableRows?: CardRow[]; tableSections?: Array<{ title: string; count: number; rows: CardRow[] }>; tableNoteHeader?: string; copyHeader?: string; deckStats?: DeckStats; compareDrill?: DrillTarget; sourceUrl?: string; deckPublicId?: string; deckEditable?: boolean; mutate?: RowMutation; resultRows?: GameResultRow[]; wantsAdd?: Array<{ printingId: string; quantity: number; priority: 'high' | 'medium' | 'low' }>; compareRefresh?: CompareRefresh };
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 
@@ -1144,12 +1155,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // everything still renders inline as before.
   const [workspaceStack, setWorkspaceStack] = useState<Array<Extract<UiItem, { kind: 'data' }>>>([]);
   const workspace = workspaceStack.length > 0 ? workspaceStack[workspaceStack.length - 1] : null;
-  // The workspace item's TRANSCRIPT index — the deck toolbar's matchup toggle
-  // (and the panel it opens) keys on the chat card's index, not the copy in
-  // the stack. uid is preserved by every refresh path.
-  const workspaceItemIndex = workspace
-    ? items.findIndex((i) => i.kind === 'data' && i.uid === workspace.uid)
-    : -1;
+  // Talishar performance per deck (from the rail's one /api/results/performance
+  // fetch) — feeds the deck dashboard's Insights bullets.
+  const [deckPerf, setDeckPerf] = useState<Map<string, DeckPerfRow>>(new Map());
   // Which rail launcher "owns" the open workspace: drills PUSH onto the
   // stack, so the ROOT item keeps the launcher's provenance (sourceAction).
   const activeActionId = workspaceStack[0]?.sourceAction ?? null;
@@ -1166,6 +1174,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       decksClient.getUserDecks(),
       fetch('/api/results/performance', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
     ]).then(([decksRes, perf]) => {
+      // The performance rows also fuel the deck dashboard's Insights bullets
+      // (Talishar record, strong/weak matchups) — keep them keyed by deck.
+      if (perf?.success) {
+        setDeckPerf(new Map((perf.data ?? [])
+          .filter((r: DeckPerfRow) => r.deckPublicId)
+          .map((r: DeckPerfRow) => [r.deckPublicId!, r])));
+      }
       if (!decksRes.success) return;
       const all: any[] = (decksRes.data as any)?.decks ?? [];
       const personal = all.filter((d) => !d.isSystemDeck && !d.featured);
@@ -1473,7 +1488,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           : undefined;
       // uid: stable identity across optimistic row-qty updates (each update
       // replaces the item object in both the transcript and workspace stack).
-      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, deckStats: result.deckStats, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
+      const dataItem: Extract<UiItem, { kind: 'data' }> = { kind: 'data', uid: `d${++dataUidRef.current}`, sourceAction: actionId.includes(':') ? undefined : actionId, title: result.title, lines: result.lines, cards: result.cards, cardsSubtitle: result.cardsSubtitle, tableRows: result.tableRows, tableSections: result.tableSections, tableNoteHeader: result.tableNoteHeader, copyHeader: result.copyHeader, deckStats: result.deckStats, compareDrill: result.compareDrill, sourceUrl, deckPublicId: result.publicId, deckEditable: result.deckEditable, mutate: result.mutate, resultRows: result.resultRows, wantsAdd: result.wantsAdd, compareRefresh: result.compareRefresh };
       setItems((prev) => [...prev, dataItem]);
       // Tables and listings take over the workspace panel on desktop; drills
       // (actionId with ':') push so Back returns to the list they came from.
@@ -1862,17 +1877,27 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [matchupPanels]);
 
-  // The deck-scoped action cluster (View as cards / Add to my decks / View
-  // matchups / AI chips / Review latest game). Rendered in TWO places: the
-  // desktop WORKSPACE TOOLBAR above the card grid ("Idea 2", 2026-07-14 —
-  // buttons live next to the cards; outputs still flow into the chat), and
-  // the chat card's lg:hidden bottom row for phones (no workspace there).
-  // `index` is the item's TRANSCRIPT index — matchupPanels and the panel
-  // itself key on it, so the workspace copy must pass the chat card's index.
+  // The deck-scoped action cluster (Check what I own / View as cards / Add to
+  // my decks / View matchups / AI chips / Review latest game) — the deck
+  // dashboard's ⚡ Actions section (2026-07-14). `index` is the item's
+  // TRANSCRIPT index; matchupPanels keys on it.
   const renderDeckActions = (item: Extract<UiItem, { kind: 'data' }>, index: number) => {
     if (!item.deckPublicId) return null;
     return (
       <>
+        {item.compareDrill && (
+          <button
+            type="button"
+            data-drill
+            onClick={() => drill(item.compareDrill!)}
+            disabled={busy || runningAction !== null}
+            className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-blue-700 dark:text-blue-400 hover:bg-muted disabled:opacity-50 ${focusRing}`}
+            title="Compare this deck against your whole collection — instant, no AI"
+          >
+            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            Check what I own
+          </button>
+        )}
         {item.cards && item.cards.length > 0 && (
           <button
             type="button"
@@ -2963,13 +2988,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                   )}
                 </>
               );
-              // Deck actions render here only below lg (desktop shows them in
-              // the workspace toolbar) — when they're ALL the row has, hide
-              // the whole row (and its border) on desktop too.
-              const hasGeneralActions = (item.tableRows?.length ?? 0) > 0
+              // Deck actions live in the dashboard's ⚡ Actions section — the
+              // bottom row keeps only the generic cluster (copy/open/wants).
+              const hasActions = (item.tableRows?.length ?? 0) > 0
                 || (!item.deckPublicId && (item.cards?.length ?? 0) > 0)
                 || (item.wantsAdd?.length ?? 0) > 0;
-              const hasActions = hasGeneralActions || !!item.deckPublicId;
               // Binder drills get the tile grid as the primary chat view
               // (user request, 2026-07-14) — wants/comparisons keep the table.
               const binderTiles = (item.mutate?.kind === 'binder' || item.title.startsWith('Binder: '))
@@ -3007,6 +3030,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                       </button>
                     )}
                   </div>
+                  {/* Deck drills render as a contextual DASHBOARD (2026-07-14):
+                      Snapshot (chips + counts) → Actions → Insights; the card
+                      list itself lives in the workspace (desktop) / the tile
+                      body below (mobile). */}
+                  {item.deckPublicId && <DashLabel icon={BarChart3}>Snapshot</DashLabel>}
                   {item.deckStats && <DeckStatsChips stats={item.deckStats} />}
                   {/* Flat card lists (wants/binders) render HERE in the wide
                       chat column at every breakpoint, zero AI. Binders default
@@ -3054,6 +3082,39 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                         {workspace?.uid === item.uid ? 'Viewing' : 'View'}
                       </button>
                     </div>
+                  )}
+                  {item.deckPublicId && (
+                    <>
+                      <DashLabel icon={Zap}>Actions</DashLabel>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {renderDeckActions(item, index)}
+                      </div>
+                      {(() => {
+                        // Instant, zero-extra-fetch insights: ownership coverage
+                        // (from the docked deck's tile-dot comparison) + the
+                        // Talishar record (from the rail's performance fetch).
+                        const insights = deckInsightLines({
+                          ownership: workspace?.deckPublicId === item.deckPublicId && deckOwnership && deckOwnership.size > 0
+                            ? ownershipSummary(deckOwnership)
+                            : null,
+                          perf: deckPerf.get(item.deckPublicId) ?? null,
+                        });
+                        if (insights.length === 0) return null;
+                        return (
+                          <>
+                            <DashLabel icon={Lightbulb}>Insights</DashLabel>
+                            <ul data-testid="deck-insights" className="space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                              {insights.map((t) => (
+                                <li key={t} className="flex items-start gap-2">
+                                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                                  <span className="min-w-0 break-words">{t}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        );
+                      })()}
+                    </>
                   )}
                   {/* Non-table results render as wrapping lines. Pure listings
                       (binder/deck pickers) live in the workspace on lg — the
@@ -3223,13 +3284,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                     );
                   })()}
                   {hasActions && (
-                    <div className={`mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2 ${hasGeneralActions ? '' : 'lg:hidden'}`}>
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-border pt-2">
                       {cardActions}
-                      {item.deckPublicId && (
-                        <div className="contents lg:hidden">
-                          {renderDeckActions(item, index)}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -3641,15 +3697,8 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
             </button>
           </div>
         </div>
-        {/* The deck's action cluster docks HERE, next to the cards it acts on
-            ("Idea 2", 2026-07-14) — the chat card keeps only a slim summary.
-            Non-scrolling so the buttons stay reachable on long decks;
-            AI outputs still stream into the chat column. */}
-        {workspace.deckPublicId && workspaceItemIndex >= 0 && (
-          <div data-testid="workspace-deck-toolbar" className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
-            {renderDeckActions(workspace, workspaceItemIndex)}
-          </div>
-        )}
+        {/* The workspace stays pure card list (dashboard iteration,
+            2026-07-14): deck actions + insights live on the CHAT card. */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2 [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
           {/* Deck stat chips sit right above the card grid — the dense
               "context toolbar" treatment (2026-07-14 feedback). */}

@@ -34,7 +34,7 @@ import {
   shouldOpenInWorkspace,
   advanceWorkspace,
   adjustItemRowQty, swapItemRowPrinting, refreshDataItem, collectMutationTargets, WRITE_TOOLS,
-  setItemRowForTrade,
+  setItemRowForTrade, ownershipSummary, deckInsightLines,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -308,17 +308,24 @@ describe('summarizeDeckContents', () => {
     expect(result.cards?.find((c) => c.name === 'Aurum Aegis')).toMatchObject({ printingId: 'pid_aa', quantity: 1 });
   });
 
-  it('prepends a collection-compare drill and exposes publicId when the deck has one', () => {
+  it('exposes the collection-compare drill as a structured action (dashboard button, not a line)', () => {
     const result = summarizeDeckContents({
       publicId: 'pub1',
       name: 'Teklosaucen',
       maindeck: [card('Overcrowded', 3, 3)],
     });
-    expect(result.lines).toContainEqual(expect.objectContaining({
+    expect(result.compareDrill).toEqual({ kind: 'deck-compare', id: 'pub1', name: 'Teklosaucen' });
+    expect(result.lines).not.toContainEqual(expect.objectContaining({
       drill: { kind: 'deck-compare', id: 'pub1', name: 'Teklosaucen' },
     }));
     // publicId rides the result so the UI can render "Add to my decks".
     expect(result.publicId).toBe('pub1');
+  });
+
+  it('compareDrill survives a refreshDataItem re-drill', () => {
+    const fresh = summarizeDeckContents({ publicId: 'pub1', name: 'T', maindeck: [card('Overcrowded', 3, 3)] });
+    const next = refreshDataItem({ kind: 'data', uid: 'd1' } as any, fresh);
+    expect((next as any).compareDrill).toEqual(fresh.compareDrill);
   });
 
   it('omits publicId for a deck without one (no Add-to-my-decks button)', () => {
@@ -441,6 +448,42 @@ describe('summarizeComparison', () => {
   it('omits wantsAdd when nothing is needed (fully owned deck)', () => {
     const result = summarizeComparison('Deck', { owned: [{ printingId: 'a', cardName: 'X', needed: 1, owned: 1 }] });
     expect(result.wantsAdd).toBeUndefined();
+  });
+});
+
+describe('deck dashboard insights', () => {
+  it('ownershipSummary totals needed vs owned (capped per card) from the ownership map', () => {
+    const map = new Map([
+      ['p1', { owned: 3, needed: 3 }],
+      ['p2', { owned: 1, needed: 2 }],
+      ['p3', { owned: 0, needed: 3 }],
+      ['p4', { owned: 5, needed: 2 }], // extra copies must not inflate coverage
+    ]);
+    expect(ownershipSummary(map)).toEqual({ owned: 6, needed: 10 });
+  });
+
+  it('deckInsightLines formats ownership + Talishar record + matchup extremes', () => {
+    const lines = deckInsightLines({
+      ownership: { owned: 4, needed: 8 },
+      perf: {
+        games: 21, wins: 12, losses: 9, winRatePct: 57,
+        bestMatchup: { opponentHero: 'dash i/o', games: 5, wins: 4 },
+        worstMatchup: { opponentHero: 'enigma', games: 6, wins: 1 },
+      },
+    });
+    expect(lines).toEqual([
+      'You own 4 of 8 cards — 4 missing',
+      'Talishar record 12–9 (57% win rate)',
+      'Strong vs Dash I/o (4–1)',
+      'Weak into Enigma (1–5)',
+    ]);
+  });
+
+  it('deckInsightLines: full ownership reads as complete; no data → no lines', () => {
+    expect(deckInsightLines({ ownership: { owned: 8, needed: 8 }, perf: null }))
+      .toEqual(['You own all 8 cards in this deck']);
+    expect(deckInsightLines({ ownership: null, perf: { games: 0 } })).toEqual([]);
+    expect(deckInsightLines({})).toEqual([]);
   });
 });
 

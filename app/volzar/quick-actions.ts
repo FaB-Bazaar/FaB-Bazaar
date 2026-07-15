@@ -356,6 +356,8 @@ export interface QuickActionResult {
   copyHeader?: string;
   /** Deck drill stat chips (maindeck colors + type buckets + cost curve). */
   deckStats?: DeckStats;
+  /** Deck dashboard: the collection-compare drill behind "Check what I own". */
+  compareDrill?: DrillTarget;
   /** Public id of the deck this card represents — enables the deterministic
    *  "Add to my decks" button (a session-auth copy, no AI). Deck drills only. */
   publicId?: string;
@@ -665,12 +667,6 @@ export function summarizeDeckContents(deck: {
   const shapeSummary = deckShapeSummary(deck.maindeck ?? []);
 
   if (lines.length === 0) lines.push('This deck is empty.');
-  else if (deck.publicId) {
-    lines.unshift({
-      text: '✓ Check what I own vs. this deck',
-      drill: { kind: 'deck-compare', id: deck.publicId, name: deck.name },
-    });
-  }
 
   // Structured chips for the UI (the emoji strings above stay context-only —
   // the run-on text lines read badly in the card).
@@ -700,6 +696,10 @@ export function summarizeDeckContents(deck: {
     ...(viewCards.length ? { cards: viewCards, cardsSubtitle: 'Full decklist' } : {}),
     ...(tableSections.length ? { tableSections } : {}),
     ...(deckStats ? { deckStats } : {}),
+    // Dashboard "Check what I own" action (was a lines drill-link).
+    ...(deck.publicId && lines.length && tableSections.length
+      ? { compareDrill: { kind: 'deck-compare' as const, id: deck.publicId, name: deck.name } }
+      : {}),
     ...(deck.publicId ? { publicId: deck.publicId } : {}),
     ...(deck.publicId && deck.canEdit
       ? { deckEditable: true, mutate: { kind: 'deck' as const, publicId: deck.publicId } }
@@ -1390,6 +1390,7 @@ export function refreshDataItem<T extends { kind: string; uid?: string }>(
     tableNoteHeader: fresh.tableNoteHeader,
     copyHeader: fresh.copyHeader,
     deckStats: fresh.deckStats,
+    compareDrill: fresh.compareDrill,
     deckPublicId: fresh.publicId,
     deckEditable: fresh.deckEditable,
     mutate: fresh.mutate,
@@ -1604,6 +1605,62 @@ export async function fetchDeckOwnership(publicId: string): Promise<DeckOwnershi
   } catch {
     return null;
   }
+}
+
+/** One row of GET /api/results/performance — the deck dashboard's fuel. */
+export interface DeckPerfRow {
+  deckPublicId?: string;
+  games?: number;
+  wins?: number;
+  losses?: number;
+  winRatePct?: number;
+  lastPlayedAt?: string;
+  bestMatchup?: { opponentHero: string; games: number; wins: number } | null;
+  worstMatchup?: { opponentHero: string; games: number; wins: number } | null;
+}
+
+/** Collapse a DeckOwnership map to coverage totals (extra copies don't count). */
+export function ownershipSummary(map: DeckOwnership): { owned: number; needed: number } {
+  let owned = 0, needed = 0;
+  for (const v of map.values()) {
+    needed += v.needed;
+    owned += Math.min(v.owned, v.needed);
+  }
+  return { owned, needed };
+}
+
+const titleCaseHero = (name: string) =>
+  name.split(' ').map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+
+/**
+ * The deck dashboard's 💡 Insights bullets — instant, no AI, built only from
+ * data already fetched (ownership comparison + the performance endpoint).
+ * Returns [] when there's nothing worth saying; the section hides itself.
+ */
+export function deckInsightLines(input: {
+  ownership?: { owned: number; needed: number } | null;
+  perf?: DeckPerfRow | null;
+}): string[] {
+  const out: string[] = [];
+  const o = input.ownership;
+  if (o && o.needed > 0) {
+    const missing = Math.max(0, o.needed - o.owned);
+    out.push(missing === 0
+      ? `You own all ${o.needed} cards in this deck`
+      : `You own ${o.owned} of ${o.needed} cards — ${missing} missing`);
+  }
+  const p = input.perf;
+  if (p && (p.games ?? 0) > 0) {
+    out.push(`Talishar record ${p.wins ?? 0}–${p.losses ?? 0}${
+      typeof p.winRatePct === 'number' ? ` (${p.winRatePct}% win rate)` : ''}`);
+    if (p.bestMatchup && p.bestMatchup.games > 0) {
+      out.push(`Strong vs ${titleCaseHero(p.bestMatchup.opponentHero)} (${p.bestMatchup.wins}–${p.bestMatchup.games - p.bestMatchup.wins})`);
+    }
+    if (p.worstMatchup && p.worstMatchup.games > 0) {
+      out.push(`Weak into ${titleCaseHero(p.worstMatchup.opponentHero)} (${p.worstMatchup.wins}–${p.worstMatchup.games - p.worstMatchup.wins})`);
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
