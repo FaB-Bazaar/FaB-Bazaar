@@ -37,8 +37,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - `metadataService` — use `@/lib/fab-constants` instead
 - `heroService` — removed; use `printingsService` + `@/lib/fab-constants/heroes` + `articleService`
 - `binderStatsService` — removed; use `binderService.getUserBindersWithStats()`
-- `denormalizationService` — removed (was MongoDB-only)
-- `tradeMatchingService`, `tradeAnalysisService`, `matchingService` — deprecated
+- `denormalizationService` removed (MongoDB-only); `tradeMatchingService`, `tradeAnalysisService`, `matchingService` deprecated — their `lib/trade-analysis` tests are known-red, don't chase them
 
 ## Known Gotchas
 
@@ -57,6 +56,8 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - **Two shorthand parsers, edit BOTH** — `lib/fab-shorthand-parser.ts` (MCP) and `lib/search/fab-shorthand-parser.ts` (/opt) drift; shared tests in `lib/fab-shorthand-parser.test.ts` pin them. A pattern's parser may `return false` to DECLINE a match (token stays in the text for the name search) — without it the token is blanked even when unapplied (the "red alert boots" → "alert boots" bug).
 - **`search_printings` is language-aware** — `options.language` ('fr'/'de'/'it'/'es'/'ja') swaps results to that language's printing when one exists (join: `card_unique_id` + `printings.language`, closest foiling/edition/set) + `name_local` from `card_translations`; the English printing is the guaranteed fallback. Name queries are English-only, BUT a zero-result name falls back to translated-name lookup (`getCardIdsByTranslatedName`), so native-language names resolve. Volzar chat UI notes live in `app/volzar/CLAUDE.md`.
 - **`/api/search/core` POST body is `{ filters, options }`** — `limit`/`sortBy`/`sortOrder` must go under `options`; at the top level they're silently ignored (defaults to limit 50). The legacy `PrintingSelector` passes them top-level.
+- **Collectible (playmat) images live in Cloudflare Images** with deterministic ids `playmat-<name-slug>-<year>` — duplicate-id uploads are rejected, so mirroring is idempotent. Bulk catalog load: `scripts/ingest-playmats-csv.ts` (dry-run default; target prod with `COLLECTIBLES_BASE_URL` + `COLLECTIBLES_BEARER`). Image-map snapshots: `~/Documents/FaB-Bazaar-Notes/playmats/`.
+- **Cloudflare Images API needs multipart/form-data even for URL-based ingest** (urlencoded body → error 5415); list everything via `/images/v2?per_page=10000`. Also: prod's WAF 403s python-urllib's default User-Agent — set a UA in scripts that hit fabbazaar.app.
 - **Representative-printing lookups must prefer English** — `DISTINCT ON` picks ordered only by set/edition started surfacing JA/FR card faces after the i18n backfill. Order by `(image_url IS NOT NULL) DESC, (language='en') DESC, set, edition` (see `/api/cards/by-talishar-id` + gameResults `resolveImageUrls`); integration-test fixtures must mirror the same ORDER BY or they drift.
 
 ## API Route Pattern
