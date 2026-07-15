@@ -33,6 +33,7 @@ import type { ICustomTokenCardService } from './contracts/ICustomTokenCardServic
 import type { IBannedCardsService } from './contracts/IBannedCardsService';
 import type { IDailyMoversService } from './contracts/IDailyMoversService';
 import type { ILeagueService } from './contracts/ILeagueService';
+import type { ICollectibleService } from './contracts/ICollectibleService';
 
 // Deprecated contracts (kept only because other files import their DTO types)
 import type { IBinderStatsService } from './contracts/IBinderStatsService';
@@ -65,6 +66,7 @@ import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
 import { PostgresBannedCardsService } from './postgres/banned-cards/PostgresBannedCardsService';
 import { PostgresDailyMoversService } from './postgres/daily-movers/PostgresDailyMoversService';
 import { PostgresLeagueService } from './postgres/league/PostgresLeagueService';
+import { PostgresCollectibleService } from './postgres/collectibles/PostgresCollectibleService';
 
 
 /**
@@ -109,6 +111,7 @@ class ServiceFactory {
   private static _bannedCardsService: IBannedCardsService | null = null;
   private static _dailyMoversService: IDailyMoversService | null = null;
   private static _leagueService: ILeagueService | null = null;
+  private static _collectibleService: ICollectibleService | null = null;
 
   /**
    * Get the User Service instance
@@ -531,6 +534,17 @@ class ServiceFactory {
   static setLeagueService(service: ILeagueService): void {
     this._leagueService = service;
   }
+
+  static get collectibleService(): ICollectibleService {
+    if (!this._collectibleService) {
+      this._collectibleService = new PostgresCollectibleService();
+    }
+    return this._collectibleService;
+  }
+
+  static setCollectibleService(service: ICollectibleService): void {
+    this._collectibleService = service;
+  }
 }
 
 /**
@@ -577,6 +591,7 @@ export const setsService = new PostgresSetsService();
 export const bannedCardsService = ServiceFactory.bannedCardsService;
 export const dailyMoversService = ServiceFactory.dailyMoversService;
 export const leagueService = ServiceFactory.leagueService;
+export const collectibleService = ServiceFactory.collectibleService;
 
 
 /**

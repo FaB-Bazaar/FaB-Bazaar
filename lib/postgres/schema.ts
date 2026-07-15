@@ -1671,3 +1671,68 @@ export const dailyMovers = pgTable('daily_movers', {
   printingIdx: index('idx_daily_movers_printing').on(table.printingId, table.asOfDate.desc()),
   recentIdx: index('idx_daily_movers_recent').on(table.asOfDate.desc(), table.signalType),
 }));
+
+// ============================================================================
+// COLLECTIBLES (non-card collectible catalog: playmats first, extensible via kind)
+// ============================================================================
+//
+// Global admin-curated catalog — NOT user-owned and NOT binder inventory.
+// Users interact through user_collectible_marks (one have/want mark per
+// user+collectible). See migration 0085.
+
+export const collectibleKindEnum = pgEnum('collectible_kind', [
+  'playmat',
+]);
+
+export const collectibleMarkStatusEnum = pgEnum('collectible_mark_status', [
+  'have',
+  'want',
+]);
+
+export const collectibles = pgTable('collectibles', {
+  id: text('id').primaryKey(),
+  kind: collectibleKindEnum('kind').default('playmat').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  artist: text('artist'),
+  // Where it was made available (e.g. "Calling Sydney 2024 Top 8 prize",
+  // "Armory Deck Kit", "GEM Store"). Free text — no official registry exists.
+  source: text('source'),
+  year: integer('year'),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  kindIdx: index('idx_collectibles_kind').on(table.kind),
+  yearIdx: index('idx_collectibles_year').on(table.year),
+  uniqueKindNameYear: uniqueIndex('unique_collectibles_kind_name_year').on(table.kind, table.name, table.year),
+}));
+
+export const userCollectibleMarks = pgTable('user_collectible_marks', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  collectibleId: text('collectible_id').notNull().references(() => collectibles.id, { onDelete: 'cascade' }),
+  status: collectibleMarkStatusEnum('status').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserCollectible: uniqueIndex('unique_user_collectible_mark').on(table.userId, table.collectibleId),
+  collectibleIdx: index('idx_collectible_marks_collectible').on(table.collectibleId),
+  userIdx: index('idx_collectible_marks_user').on(table.userId),
+}));
+
+export const collectiblesRelations = relations(collectibles, ({ many }) => ({
+  marks: many(userCollectibleMarks),
+}));
+
+export const userCollectibleMarksRelations = relations(userCollectibleMarks, ({ one }) => ({
+  user: one(users, {
+    fields: [userCollectibleMarks.userId],
+    references: [users.id],
+  }),
+  collectible: one(collectibles, {
+    fields: [userCollectibleMarks.collectibleId],
+    references: [collectibles.id],
+  }),
+}));
