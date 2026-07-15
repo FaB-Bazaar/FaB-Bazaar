@@ -93,6 +93,14 @@ export interface CardRow {
   text?: string;      // card rules text (functional text)
   image?: string;     // thumbnail image url
   price?: number;
+  /** Binder-tile price spread (TCGplayer low/mid/high/market) + printing
+   *  metadata for the binder-page style tile view. */
+  priceLow?: number;
+  priceMid?: number;
+  priceHigh?: number;
+  priceMarket?: number;
+  rarity?: string;    // code: c/r/m/l/f/v…
+  edition?: string;   // code: a/f/u/n
   extendedArt?: boolean;
   marvel?: boolean;   // rarity 'v'
   forTrade?: boolean;
@@ -237,8 +245,8 @@ export function splitSectionsByPitch(
 function toCardRow(c: any): CardRow {
   const d = c.printingDetails ?? {};
   const name = c.display_name || d.display_name || c.name || 'Unknown card';
-  const rawPrice = d.tcg_low ?? d.tcg_market ?? c.tcg_low ?? c.tcg_market ?? c.value;
-  const price = typeof rawPrice === 'number' ? rawPrice : typeof rawPrice === 'string' ? parseFloat(rawPrice) || undefined : undefined;
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) || undefined : undefined);
+  const price = num(d.tcg_low ?? d.tcg_market ?? c.tcg_low ?? c.tcg_market ?? c.value);
   return {
     qty: c.quantity ?? 1,
     name,
@@ -249,6 +257,12 @@ function toCardRow(c: any): CardRow {
     text: prettifyCardText(c.card_text ?? d.card_text ?? c.text ?? d.text, name),
     image: c.image_url ?? d.image_url ?? c.image ?? d.image ?? undefined,
     price,
+    priceLow: num(c.tcg_low ?? d.tcg_low),
+    priceMid: num(c.tcg_mid ?? d.tcg_mid),
+    priceHigh: num(c.tcg_high ?? d.tcg_high),
+    priceMarket: num(c.tcg_market ?? d.tcg_market),
+    rarity: c.rarity ?? d.rarity ?? undefined,
+    edition: c.edition ?? d.edition ?? undefined,
     extendedArt: !!(c.is_extended_art ?? d.is_extended_art),
     marvel: (c.rarity ?? d.rarity) === 'v',
     forTrade: c.forTrade ?? undefined,
@@ -1216,6 +1230,46 @@ export function adjustItemRowQty<T extends {
   }
   if (item.tableRows) return { ...item, tableRows: adjustRows(item.tableRows) };
   return item;
+}
+
+/**
+ * Pure optimistic update: returns a copy of a data item with one row's
+ * for-trade flag set (same row matching rules as adjustItemRowQty).
+ */
+export function setItemRowForTrade<T extends { tableRows?: CardRow[] }>(
+  item: T,
+  key: { printingId?: string; itemId?: string },
+  forTrade: boolean,
+): T {
+  if (!item.tableRows) return item;
+  const matches = (r: CardRow) =>
+    key.itemId && r.itemId ? r.itemId === key.itemId : r.preview.printingId === key.printingId;
+  return { ...item, tableRows: item.tableRows.map((r) => (matches(r) ? { ...r, forTrade } : r)) };
+}
+
+/** Persist a binder row's For Trade toggle (the binder-tile switch). */
+export async function setRowForTrade(
+  mutation: RowMutation,
+  row: CardRow,
+  forTrade: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (mutation.kind !== 'binder') return { ok: false, error: 'Only binder cards carry a for-trade flag.' };
+  if (!row.itemId) return { ok: false, error: 'This row is missing its inventory id — reopen the binder.' };
+  const result = await bindersClient.updateBinderCard(mutation.binderId, row.itemId, { forTrade });
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true };
+}
+
+/** Delete a binder row outright (the binder-tile trash — all copies at once). */
+export async function removeRowEntirely(
+  mutation: RowMutation,
+  row: CardRow,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (mutation.kind !== 'binder') return { ok: false, error: 'Only binder rows can be deleted this way.' };
+  if (!row.itemId) return { ok: false, error: 'This row is missing its inventory id — reopen the binder.' };
+  const result = await bindersClient.deleteBinderCard(mutation.binderId, row.itemId);
+  if (!result.success) return { ok: false, error: result.error };
+  return { ok: true };
 }
 
 /**

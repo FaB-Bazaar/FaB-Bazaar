@@ -34,6 +34,7 @@ import {
   shouldOpenInWorkspace,
   advanceWorkspace,
   adjustItemRowQty, swapItemRowPrinting, refreshDataItem, collectMutationTargets, WRITE_TOOLS,
+  setItemRowForTrade,
 } from './quick-actions';
 
 describe('printingToSwapOption', () => {
@@ -415,6 +416,27 @@ describe('summarizeComparison', () => {
   });
 });
 
+describe('setItemRowForTrade', () => {
+  const row = (itemId: string, forTrade: boolean) => ({
+    qty: 1, name: itemId, forTrade, preview: { imageUrl: '', name: itemId, printingId: `p-${itemId}` },
+  }) as any;
+
+  it('flips one row by itemId, leaving siblings untouched', () => {
+    const item = { tableRows: [{ ...row('a', false), itemId: 'a' }, { ...row('b', true), itemId: 'b' }] };
+    const next = setItemRowForTrade(item, { itemId: 'a' }, true);
+    expect(next.tableRows?.[0].forTrade).toBe(true);
+    expect(next.tableRows?.[1].forTrade).toBe(true);
+    expect(item.tableRows[0].forTrade).toBe(false); // non-mutating
+  });
+
+  it('falls back to printingId matching and no-ops without tableRows', () => {
+    const item = { tableRows: [row('a', true)] };
+    const next = setItemRowForTrade(item, { printingId: 'p-a' }, false);
+    expect(next.tableRows?.[0].forTrade).toBe(false);
+    expect(setItemRowForTrade({} as any, { itemId: 'x' }, true)).toEqual({});
+  });
+});
+
 describe('summarizeBinderCards', () => {
   it('formats contents with for-trade markers, previews, and a total line', () => {
     const result = summarizeBinderCards('Pirate', [
@@ -455,6 +477,30 @@ describe('summarizeBinderCards', () => {
     const r = result.tableRows?.[0] as any;
     expect(r).toMatchObject({ qty: 1, name: 'Teklo Pounder', foiling: 'c', collector: 'ARC110', forTrade: true });
     expect(toShorthand(r)).toBe('CF Teklo Pounder');
+  });
+
+  it('carries the binder-page tile fields (rarity, edition, price spread, TCG link)', () => {
+    const result = summarizeBinderCards('Pirate', [
+      {
+        display_name: 'Master Cog', quantity: 1, rarity: 'l', edition: 'u', collector_number: 'EV0000',
+        tcg_low: 92.89, tcg_mid: 102, tcg_high: 199.94, tcg_market: 99.69,
+        tcgplayer_url: 'https://www.tcgplayer.com/product/e2e', printingId: 'p1',
+      } as any,
+    ], 1, 'binder-1');
+    const r = result.tableRows?.[0] as any;
+    expect(r).toMatchObject({
+      rarity: 'l', edition: 'u',
+      priceLow: 92.89, priceMid: 102, priceHigh: 199.94, priceMarket: 99.69,
+    });
+    expect(r.preview.tcgplayerUrl).toBe('https://www.tcgplayer.com/product/e2e');
+  });
+
+  it('reads the tile price spread from nested printingDetails too', () => {
+    const result = summarizeBinderCards('Pirate', [
+      { display_name: 'Adaptive Plating', quantity: 1, printingDetails: { tcg_mid: 70.29, tcg_high: 111.22, tcg_market: 67.74, rarity: 'c', edition: 'f' } } as any,
+    ], 1, 'binder-1');
+    const r = result.tableRows?.[0] as any;
+    expect(r).toMatchObject({ rarity: 'c', edition: 'f', priceMid: 70.29, priceHigh: 111.22, priceMarket: 67.74 });
   });
 
   it('surfaces card type on table rows (from type_text_display, flat or nested)', () => {

@@ -37,6 +37,7 @@ import {
   fetchKitHeroes, runHeroKit,
   addSearchSelectionToBinder, addSearchSelectionToWants, addSearchSelectionToDeck,
   shouldOpenInWorkspace, advanceWorkspace, adjustRowQuantity, adjustItemRowQty, createBinderTarget,
+  setItemRowForTrade, setRowForTrade, removeRowEntirely,
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, harvestCardsFromDataItem, type StripSection,
@@ -60,6 +61,7 @@ import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid } from 'lucide-react';
 import { CardSpotlightOverlay, type SpotlightCard } from './CardSpotlightOverlay';
+import { BinderTileGrid } from './BinderTileGrid';
 
 // First-run launcher prompts arrive personalized from the server
 // (lib/ai/volzar-suggestions via page.tsx); this static set is the fallback
@@ -525,17 +527,13 @@ const STRIP_ACCENT_DOT: Record<NonNullable<StripSection['accent']>, string> = {
  * — under deck-page style sections (maindeck split by pitch color).
  * Hover/focus a tile → the LARGE left-rail preview updates (via onPreview);
  */
-function WorkspaceStrips({ sections, onPreview, ownership, onTileClick, full, gridClass }: {
+function WorkspaceStrips({ sections, onPreview, ownership, onTileClick }: {
   sections: StripSection[];
   onPreview: (preview: CardPreview) => void;
   /** printingId → owned/needed; renders the deck-page green/amber/red dot. */
   ownership?: DeckOwnership | null;
   /** Editable decks: click opens the tile action menu (hero tiles excluded). */
   onTileClick?: (row: CardRow, sourceTitle: string | undefined, e: React.MouseEvent) => void;
-  /** Full-card tiles (binder-page style) instead of the stacked 63/53 crop. */
-  full?: boolean;
-  /** Grid column override — e.g. the chat binder view's fixed 2-per-row. */
-  gridClass?: string;
 }) {
   return (
     <div
@@ -550,7 +548,7 @@ function WorkspaceStrips({ sections, onPreview, ownership, onTileClick, full, gr
               {sec.title} <span className={sec.accent ? '' : 'text-gray-400 dark:text-gray-500'}>· {sec.count}</span>
             </h3>
           )}
-          <ul className={`grid gap-1 ${gridClass ?? 'grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))]'}`}>
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
             {sec.rows.map((r, ri) => {
               const show = () => onPreview(r.preview);
               const clickable = onTileClick && sec.sourceTitle !== 'Hero';
@@ -567,17 +565,7 @@ function WorkspaceStrips({ sections, onPreview, ownership, onTileClick, full, gr
                     title={`${r.qty ? `${r.qty}× ` : ''}${r.name}${clickable ? ' — click for actions' : ''}`}
                     className={`relative block w-full overflow-hidden rounded ring-[1.5px] ring-gray-400 dark:ring-gray-500 hover:ring-blue-400 ${focusRing}`}
                   >
-                    {r.image && full ? (
-                      // Binder-page style: the whole card, text box included.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={r.image}
-                        alt={r.name}
-                        loading="lazy"
-                        className="block w-full max-w-none"
-                        style={{ aspectRatio: '63/88', objectFit: 'cover' }}
-                      />
-                    ) : r.image ? (
+                    {r.image ? (
                       // Deck-page stacked crop: top 81% = name bar + art,
                       // bottom sliver = the card's stats bar (text box cut out).
                       <span className="flex w-full flex-col gap-px bg-gray-900" style={{ aspectRatio: '63/53' }}>
@@ -600,7 +588,7 @@ function WorkspaceStrips({ sections, onPreview, ownership, onTileClick, full, gr
                         />
                       </span>
                     ) : (
-                      <span className="flex w-full items-center justify-center bg-muted p-1 text-center text-xs text-gray-600 dark:text-gray-300" style={{ aspectRatio: full ? '63/88' : '63/53' }}>
+                      <span className="flex w-full items-center justify-center bg-muted p-1 text-center text-xs text-gray-600 dark:text-gray-300" style={{ aspectRatio: '63/53' }}>
                         {r.name}
                       </span>
                     )}
@@ -1925,6 +1913,66 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     }
   }, []);
 
+  // Binder-tile For Trade switch: optimistic flip in transcript + workspace,
+  // persisted via the binder card PUT; reverted (with an error banner) on
+  // failure.
+  const toggleRowForTrade = useCallback(async (item: Extract<UiItem, { kind: 'data' }>, row: CardRow, forTrade: boolean) => {
+    const mutation = item.mutate;
+    if (!mutation || !item.uid) return;
+    const key = qtyRowKey(row);
+    const rowKey = { printingId: row.preview.printingId, itemId: row.itemId };
+    const apply = (value: boolean) => <T extends UiItem>(i: T): T =>
+      (i.kind === 'data' && i.uid === item.uid ? (setItemRowForTrade(i as any, rowKey, value) as T) : i);
+    setQtyBusyKeys((prev) => new Set(prev).add(key));
+    setItems((prev) => prev.map(apply(forTrade)));
+    setWorkspaceStack((prev) => prev.map(apply(forTrade)));
+    try {
+      const res = await setRowForTrade(mutation, row, forTrade);
+      if (!res.ok) {
+        setItems((prev) => prev.map(apply(!forTrade)));
+        setWorkspaceStack((prev) => prev.map(apply(!forTrade)));
+        setErrorBanner(res.error);
+      }
+    } finally {
+      setQtyBusyKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, []);
+
+  // Binder-tile trash: delete the whole inventory row (all copies) and arm
+  // the same 10s Undo bar the − removal uses — undoRowRemoval re-adds the
+  // full row.qty with its for-trade flag.
+  const removeRowAll = useCallback(async (item: Extract<UiItem, { kind: 'data' }>, row: CardRow) => {
+    const mutation = item.mutate;
+    if (!mutation || !item.uid) return;
+    const key = qtyRowKey(row);
+    setQtyBusyKeys((prev) => new Set(prev).add(key));
+    try {
+      const res = await removeRowEntirely(mutation, row);
+      if (!res.ok) {
+        setErrorBanner(res.error);
+        return;
+      }
+      const rowKey = { printingId: row.preview.printingId, itemId: row.itemId };
+      const apply = <T extends UiItem>(i: T): T =>
+        (i.kind === 'data' && i.uid === item.uid ? (adjustItemRowQty(i as any, rowKey, -(row.qty ?? 1)) as T) : i);
+      setItems((prev) => prev.map(apply));
+      setWorkspaceStack((prev) => prev.map(apply));
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setUndoRemoval({ mutation, row, fromTitle: item.title });
+      undoTimerRef.current = setTimeout(() => setUndoRemoval(null), 10000);
+    } finally {
+      setQtyBusyKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, []);
+
   // Row swap-printing: resolve the row's card_unique_id (the printing picker is
   // scoped per card), open ViewPrintingsDialog, and on pick persist via the
   // source-specific swap (binder endpoint / wants add+remove / deck swap).
@@ -2876,20 +2924,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                   </div>
                   {/* Flat card lists (wants/binders) render HERE in the wide
                       chat column at every breakpoint, zero AI. Binders default
-                      to a 2-per-row full-card tile grid (the mobile binder
-                      page look, user request 2026-07-14); the table — with ±
-                      editing and prices — stays one header toggle away. Wants
+                      to a 2-per-row grid of binder-page style tiles (image +
+                      the BinderCard info/edit panel, user request 2026-07-14);
+                      the compact table stays one header toggle away. Wants
                       keep the table (user request, 2026-07-12). */}
                   {item.tableRows && item.tableRows.length > 0 && (binderTiles && chatView === 'tiles' ? (
-                    <div data-testid="chat-binder-tiles" className="mt-1">
-                      <WorkspaceStrips
-                        sections={[{ title: '', count: item.tableRows.length, rows: item.tableRows, sourceTitle: '' }]}
-                        onPreview={showPreview}
-                        full
-                        gridClass="grid-cols-2"
-                        onTileClick={item.mutate ? (row, s, e) => setTileMenu({ item, row, sourceTitle: s || undefined, x: e.clientX, y: e.clientY }) : undefined}
-                      />
-                    </div>
+                    <BinderTileGrid
+                      rows={item.tableRows}
+                      editable={!!item.mutate}
+                      onPreview={showPreview}
+                      onImageClick={item.mutate ? (row, e) => setTileMenu({ item, row, x: e.clientX, y: e.clientY }) : undefined}
+                      onAdjustQty={item.mutate ? (row, delta) => adjustQty(item, row, delta) : undefined}
+                      onToggleForTrade={item.mutate ? (row, checked) => void toggleRowForTrade(item, row, checked) : undefined}
+                      onRemoveAll={item.mutate ? (row) => void removeRowAll(item, row) : undefined}
+                      onSwapPrinting={item.mutate ? (row) => void openRowSwap(item, row) : undefined}
+                      isRowBusy={(row) => qtyBusyKeys.has(qtyRowKey(row))}
+                    />
                   ) : (
                     <CardTable rows={item.tableRows} onPreview={showPreview} noteHeader={item.tableNoteHeader}
                       onAdjustQty={item.mutate ? (row, delta, s) => adjustQty(item, row, delta, s) : undefined} adjustBusyKeys={qtyBusyKeys}
