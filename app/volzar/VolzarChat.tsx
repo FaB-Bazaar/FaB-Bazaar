@@ -15,7 +15,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import {
   Loader2, CheckCircle2, XCircle, AlertTriangle, Send, Square, RotateCcw, Zap, ExternalLink,
-  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowUp, ArrowDown, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
+  Heart, FolderPlus, Copy, Check, Repeat, Swords, ArrowLeft, ChevronDown, Plus, Minus, X, PanelRightOpen, Trash2, Undo2,
   BookOpen, Layers, Trophy, BarChart3, GitCompare, Package, TrendingUp, Search, Sparkles, Shield, Table2, Globe2,
   Maximize2,
   type LucideIcon,
@@ -57,7 +57,7 @@ import { parseInstantActionParam } from './instant-link';
 import { buildCardNameIndex } from './card-linkify';
 import { DeckCardsOverlay } from './DeckCardsOverlay';
 import { RULE_TOKEN_ICON } from './rule-glyphs';
-import { matchupDisplayName, aggregateSwaps, turnOrderLabel, matchupsToContext, buildSwapLookup, inventoryAfterSiding, type SwapEntry, type SwapCardInfo } from './deck-matchups';
+import { matchupDisplayName, turnOrderLabel, matchupsToContext, buildSwapLookup, inventoryAfterSiding, type SwapEntry, type SwapCardInfo } from './deck-matchups';
 import type { DeckMatchup } from '@/types/deck';
 import type { DeckViewCard } from '@/lib/deck/analytics';
 import { LayoutGrid, Lightbulb } from 'lucide-react';
@@ -117,79 +117,6 @@ function PitchGem({ pitch }: { pitch?: number }) {
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
       )}
     </span>
-  );
-}
-
-/**
- * One side of a matchup's sideboard plan ("Side in" / "Side out") — aggregated
- * swap ids with pitch gems and counts, mirroring the deck page's delta view.
- * `lookup` (built from the deck card's table rows) supplies each card's
- * thumbnail, type line, and hover preview; unknown ids fall back to text-only.
- */
-function SwapColumn({ kind, entries, lookup, onHover }: {
-  kind: 'in' | 'out';
-  entries: SwapEntry[];
-  lookup?: Map<string, SwapCardInfo>;
-  onHover?: (preview: CardPreview) => void;
-}) {
-  const isIn = kind === 'in';
-  const Icon = isIn ? ArrowUp : ArrowDown;
-  const accent = isIn
-    ? 'text-emerald-700 dark:text-emerald-400 border-emerald-600/40'
-    : 'text-rose-700 dark:text-rose-400 border-rose-600/40';
-  const total = entries.reduce((s, e) => s + e.count, 0);
-  return (
-    <div className={`rounded-md border p-2 ${accent}`}>
-      <div className="flex items-center gap-1.5 pb-1 mb-1 border-b border-border">
-        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="text-xs font-bold uppercase tracking-wider">{isIn ? 'Side in' : 'Side out'}</span>
-        <span className="ml-auto text-xs font-semibold text-gray-600 dark:text-gray-300 tabular-nums">{isIn ? '+' : '−'}{total}</span>
-      </div>
-      {entries.length === 0 ? (
-        <p className="text-sm text-gray-600 dark:text-gray-300 italic">No {isIn ? 'additions' : 'removals'}.</p>
-      ) : (
-        <ul className="space-y-1">
-          {entries.map((e) => {
-            const info = lookup?.get(e.id);
-            const preview = info?.preview as CardPreview | undefined;
-            const show = preview && onHover ? () => onHover(preview) : undefined;
-            return (
-              <li key={e.id} onMouseEnter={show} className="flex items-center gap-1.5 text-sm text-foreground">
-                {info?.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={info.image}
-                    alt=""
-                    loading="lazy"
-                    className="h-11 w-8 shrink-0 rounded-sm object-cover object-top ring-1 ring-black/10 dark:ring-white/15 bg-muted"
-                  />
-                ) : (
-                  <span className="h-11 w-8 shrink-0 rounded-sm bg-muted ring-1 ring-black/10 dark:ring-white/15" aria-hidden="true" />
-                )}
-                <PitchGem pitch={e.pitch ?? undefined} />
-                <span className="min-w-0 flex-1">
-                  <span
-                    tabIndex={show ? 0 : undefined}
-                    onFocus={show}
-                    onClick={show}
-                    className={`block break-words ${show ? `cursor-default rounded-sm hover:text-blue-700 dark:hover:text-blue-400 ${focusRing}` : ''}`}
-                  >
-                    {e.name}
-                  </span>
-                  {info?.type && <span className="block text-xs text-gray-600 dark:text-gray-400">{info.type}</span>}
-                  {info?.text && (
-                    <span className="block text-xs leading-snug text-gray-500 dark:text-gray-400 line-clamp-2">
-                      {renderRulesText(info.text.length > 180 ? `${info.text.slice(0, 180).trimEnd()}…` : info.text)}
-                    </span>
-                  )}
-                </span>
-                <span className="ml-auto shrink-0 tabular-nums text-gray-600 dark:text-gray-300">×{e.count}</span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
   );
 }
 
@@ -3374,33 +3301,20 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
                             {openMatchup.notes && (
                               <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap mb-2">{openMatchup.notes}</p>
                             )}
-                            {(() => {
-                              const noSwaps = openMatchup.sideboard.in.length === 0 && openMatchup.sideboard.out.length === 0;
-                              const swapLookup = buildSwapLookup(item.tableSections ?? []);
-                              return (
-                                <>
-                                  {noSwaps ? (
-                                    <p className="text-sm text-gray-600 dark:text-gray-300 italic">No sideboard swaps — play the list as-is.</p>
-                                  ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      <SwapColumn kind="in" entries={aggregateSwaps(openMatchup.sideboard.in)} lookup={swapLookup} onHover={showPreview} />
-                                      <SwapColumn kind="out" entries={aggregateSwaps(openMatchup.sideboard.out)} lookup={swapLookup} onHover={showPreview} />
-                                    </div>
-                                  )}
-                                  {/* Absolute pile check — the in/out DELTA
-                                      assumes a reset deck, but coming off a
-                                      previous round you don't know the deck's
-                                      state. Count your physical inventory pile
-                                      against this list instead — anything
-                                      missing is still shuffled in the deck. */}
-                                  <InventoryCheck
-                                    entries={inventoryAfterSiding(item.tableSections ?? [], openMatchup.sideboard)}
-                                    lookup={swapLookup}
-                                    onHover={showPreview}
-                                  />
-                                </>
-                              );
-                            })()}
+                            {/* NO side in/out delta columns (removed
+                                2026-07-15): Talishar auto-sides from the plan,
+                                so this panel's job is the physical-table pile
+                                check — count your inventory pile against it;
+                                anything missing is still shuffled in the deck.
+                                Mobile-first: one compact box, no 2-col grid. */}
+                            {openMatchup.sideboard.in.length === 0 && openMatchup.sideboard.out.length === 0 && (
+                              <p className="text-sm text-gray-600 dark:text-gray-300 italic">No sideboard swaps — play the list as-is.</p>
+                            )}
+                            <InventoryCheck
+                              entries={inventoryAfterSiding(item.tableSections ?? [], openMatchup.sideboard)}
+                              lookup={buildSwapLookup(item.tableSections ?? [])}
+                              onHover={showPreview}
+                            />
                           </div>
                         )}
                       </div>
