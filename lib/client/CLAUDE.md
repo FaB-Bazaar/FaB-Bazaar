@@ -19,6 +19,7 @@ Component → Client Service → fetch() → API Route → Server Service → Da
 | `usersClient` | `users-client.ts` | User profiles, trade analysis |
 | `articlesClient` | `articles-client.ts` | Article CRUD, publishing |
 | `locationsClient` | `locations-client.ts` | Stores, events, geo |
+| `collectiblesClient` | `collectibles-client.ts` | Playmat/collectible catalog + have/want marks |
 
 All methods return `ApiResponse<T>` (defined in `types.ts`): `{ success: true, data }` or `{ success: false, error }`. Types are imported from server-side contracts (`lib/services/contracts/`).
 
