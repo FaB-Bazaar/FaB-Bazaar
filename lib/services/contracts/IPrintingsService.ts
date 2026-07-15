@@ -35,6 +35,8 @@ export interface PrintingDTO {
   abilities: string[];
   text_keywords: string[];
   searchable_text: string;
+  /** Curated facet tags projected from cards.facet_tags (card→tags visibility). */
+  facet_tags: string[];
 
   // Classes & Talents
   classes: string[];

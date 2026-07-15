@@ -164,6 +164,36 @@ describe('PostgresFacetService — add/remove fan-out + safe projection', () => 
     const res = await service.addCardFacetTag(variantIds[0], 'zzz-nonexistent-tag');
     expect(res.success).toBe(false);
   });
+
+  it("scope 'card' adds the tag to only that pitch variant", async () => {
+    expect(variantIds.length).toBeGreaterThan(1);
+    const res = await service.addCardFacetTag(variantIds[0], TAG_A, 'card');
+    expect(res.success && res.data.applied).toBe(1);
+
+    const rows = await db
+      .select({ id: cards.cardUniqueId, ft: cards.facetTags })
+      .from(cards)
+      .where(eq(cards.displayName, displayName));
+    for (const r of rows) {
+      if (r.id === variantIds[0]) expect(r.ft).toContain(TAG_A);
+      else expect(r.ft).not.toContain(TAG_A);
+    }
+  });
+
+  it("scope 'card' removes the tag from only that pitch variant, leaving siblings tagged", async () => {
+    await service.addCardFacetTag(variantIds[0], TAG_A); // default scope: all variants
+    const res = await service.removeCardFacetTag(variantIds[0], TAG_A, 'card');
+    expect(res.success && res.data.applied).toBe(1);
+
+    const rows = await db
+      .select({ id: cards.cardUniqueId, ft: cards.facetTags })
+      .from(cards)
+      .where(eq(cards.displayName, displayName));
+    for (const r of rows) {
+      if (r.id === variantIds[0]) expect(r.ft).not.toContain(TAG_A);
+      else expect(r.ft).toContain(TAG_A);
+    }
+  });
 });
 
 describe('PostgresFacetService — strategy notes', () => {

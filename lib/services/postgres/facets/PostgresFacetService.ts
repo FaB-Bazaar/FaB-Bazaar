@@ -23,6 +23,7 @@ import type {
   ApproveSuggestionOverrides,
   SuggestionStatus,
   FacetDimension,
+  FacetAssignScope,
 } from '@/lib/services/contracts/IFacetService';
 import type { AsyncResult } from '@/lib/services/contracts/common';
 
@@ -163,8 +164,8 @@ export class PostgresFacetService implements IFacetService {
     }
   }
 
-  async addCardFacetTag(cardUniqueId: string, tag: string): AsyncResult<{ applied: number }> {
-    return this.mutate(cardUniqueId, tag, 'add');
+  async addCardFacetTag(cardUniqueId: string, tag: string, scope: FacetAssignScope = 'name'): AsyncResult<{ applied: number }> {
+    return this.mutate(cardUniqueId, tag, 'add', scope);
   }
 
   async setStrategyNotes(cardUniqueId: string, notes: string | null): AsyncResult<{ updated: true }> {
@@ -196,16 +197,17 @@ export class PostgresFacetService implements IFacetService {
     }
   }
 
-  async removeCardFacetTag(cardUniqueId: string, tag: string): AsyncResult<{ applied: number }> {
-    return this.mutate(cardUniqueId, tag, 'remove');
+  async removeCardFacetTag(cardUniqueId: string, tag: string, scope: FacetAssignScope = 'name'): AsyncResult<{ applied: number }> {
+    return this.mutate(cardUniqueId, tag, 'remove', scope);
   }
 
   /**
-   * Add/remove one tag across every same-display_name variant, then re-project
-   * cards.facet_tags from the surviving card_facet_tags rows. Only ever writes
-   * the facet_tags column; the whole fan-out runs in one transaction.
+   * Add/remove one tag, then re-project cards.facet_tags from the surviving
+   * card_facet_tags rows. scope 'name' spans every same-display_name variant;
+   * scope 'card' touches only the given card. Only ever writes the facet_tags
+   * column; the whole mutation runs in one transaction.
    */
-  private async mutate(cardUniqueId: string, tag: string, op: 'add' | 'remove'): AsyncResult<{ applied: number }> {
+  private async mutate(cardUniqueId: string, tag: string, op: 'add' | 'remove', scope: FacetAssignScope = 'name'): AsyncResult<{ applied: number }> {
     try {
       if (op === 'add') {
         const [def] = await db
@@ -223,10 +225,13 @@ export class PostgresFacetService implements IFacetService {
         .limit(1);
       if (!card) return { success: false, error: 'Card not found' };
 
-      const variants = await db
-        .select({ id: cards.cardUniqueId })
-        .from(cards)
-        .where(eq(cards.displayName, card.name));
+      const variants =
+        scope === 'card'
+          ? [{ id: cardUniqueId }]
+          : await db
+              .select({ id: cards.cardUniqueId })
+              .from(cards)
+              .where(eq(cards.displayName, card.name));
 
       await db.transaction(async (tx) => {
         for (const { id } of variants) {

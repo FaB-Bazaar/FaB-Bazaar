@@ -3,6 +3,9 @@ import type { AsyncResult } from './common';
 /** The three fixed facet dimensions. */
 export type FacetDimension = 'mechanical' | 'strategic' | 'synergy';
 
+/** Curator-assign scope: 'name' fans out to all same-name pitch variants (default); 'card' targets one card_unique_id. */
+export type FacetAssignScope = 'name' | 'card';
+
 export interface FacetTagDefinitionDTO {
   id: string;
   dim: FacetDimension;
@@ -126,11 +129,16 @@ export interface IFacetService {
   /** Delete a tag definition — fails if it is assigned to any card. */
   deleteTagDefinition(id: string): AsyncResult<{ deleted: true }>;
 
-  /** Add one tag to a card (and all same-name pitch variants) as a CURATOR — authoritative, always projected. */
-  addCardFacetTag(cardUniqueId: string, tag: string): AsyncResult<{ applied: number }>;
+  /**
+   * Add one tag to a card as a CURATOR — authoritative, always projected.
+   * scope 'name' (default) fans out to all same-name pitch variants;
+   * scope 'card' targets only the given card_unique_id (per-pitch rulings,
+   * e.g. a tag that applies to the red but not the blue of a name).
+   */
+  addCardFacetTag(cardUniqueId: string, tag: string, scope?: FacetAssignScope): AsyncResult<{ applied: number }>;
 
-  /** Remove a curator tag from a card (and all same-name pitch variants); re-projects facet_tags. */
-  removeCardFacetTag(cardUniqueId: string, tag: string): AsyncResult<{ applied: number }>;
+  /** Remove a curator tag from a card; same scope semantics as addCardFacetTag. Re-projects facet_tags. */
+  removeCardFacetTag(cardUniqueId: string, tag: string, scope?: FacetAssignScope): AsyncResult<{ applied: number }>;
 
   /**
    * Cast the calling user's community vote for a tag on a card (fans out to all

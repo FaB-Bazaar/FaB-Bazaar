@@ -82,3 +82,35 @@ describe('search_printings LLM-facing schema', () => {
     expect(searchPrintingsTool.description).toMatch(/one descriptor per/i);
   });
 });
+
+describe('search_printings includeFacets projection (card→tags visibility)', () => {
+  const P = {
+    printing_id: 'p1', card_unique_id: 'c1', collector_number: 'EVO001', name: 'Test Card',
+    set: 'evo', edition: 'n', foiling: 's', rarity: 'm', pitch: 1, color: 'red',
+    types: ['mechanologist'], facet_tags: ['boost', 'tekloboost-staple'], tcg_low: 1,
+  };
+  const ONE_RESULT = { success: true as const, data: { printings: [P], total: 1, page: 1, pages: 1 } };
+
+  it('carries facet_tags per printing when options.includeFacets is true', async () => {
+    mockSearch.mockResolvedValue(ONE_RESULT as any);
+    const result = await searchPrintingsTool.handler({
+      cards: [{ filters: { facetTags: ['boost'] } }],
+      options: { includeFacets: true },
+    });
+    expect(result.success).toBe(true);
+    expect((result as any).results[0].printings[0].facet_tags).toEqual(['boost', 'tekloboost-staple']);
+  });
+
+  it('omits facet_tags by default (token thrift)', async () => {
+    mockSearch.mockResolvedValue(ONE_RESULT as any);
+    const result = await searchPrintingsTool.handler({ cards: [{ filters: { facetTags: ['boost'] } }] });
+    expect(result.success).toBe(true);
+    expect((result as any).results[0].printings[0].facet_tags).toBeUndefined();
+  });
+
+  it('declares includeFacets in the LLM-facing options schema', () => {
+    const optionProps = (searchPrintingsTool.parameters as any).properties.options.properties;
+    expect(optionProps.includeFacets).toBeDefined();
+    expect(optionProps.includeFacets.type).toBe('boolean');
+  });
+});

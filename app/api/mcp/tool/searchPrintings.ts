@@ -27,7 +27,7 @@ const COLOR_TO_PITCH: Record<string, number> = { red: 1, yellow: 2, blue: 3 };
 type PriceField = 'tcg_low' | 'tcg_mid' | 'tcg_high' | 'tcg_market';
 const VALID_PRICE_FIELDS = new Set<string>(['tcg_low', 'tcg_mid', 'tcg_high', 'tcg_market']);
 function resolvePriceField(f?: string): PriceField { return f && VALID_PRICE_FIELDS.has(f) ? f as PriceField : 'tcg_low'; }
-type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean; priceField?: PriceField; language?: string };
+type ProjectOptions = { includeImage?: boolean; includeArtists?: boolean; includeText?: boolean; includeFacets?: boolean; priceField?: PriceField; language?: string };
 
 function formatPrinting(p: any, opts: ProjectOptions = {}): string {
   // Localized results (options.language) lead with the translated name; the
@@ -66,6 +66,9 @@ function formatPrinting(p: any, opts: ProjectOptions = {}): string {
   if (opts.includeText && p.text) {
     const text = String(p.text).replace(/\s+/g, ' ').trim();
     lines.push(`    Text: ${text}`);
+  }
+  if (opts.includeFacets && Array.isArray(p.facet_tags) && p.facet_tags.length > 0) {
+    lines.push(`    Facets: ${p.facet_tags.join(', ')}`);
   }
   return lines.join('\n');
 }
@@ -222,6 +225,8 @@ export function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   if (opts.includeImage && p.image_url) out.image_url = p.image_url;
   if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) out.artists = p.artists;
   if (opts.includeText && p.text) out.text = p.text;
+  // Curated facet tags (card→tags visibility — e.g. drift checks vs a recorded batch).
+  if (opts.includeFacets && Array.isArray(p.facet_tags)) out.facet_tags = p.facet_tags;
   return out;
 }
 
@@ -418,7 +423,7 @@ export const searchPrintingsTool = {
 Use this for ANY card lookup: by name, by set, by rarity, by price, by hero legality, by keyword, by type.
 This is the tool for queries like: "find Command and Conquer red", "look up Pummel printings", "what equipment does Dash play", "show me cheap Majestics", "search for Enlightened Strike", "any blue attacks under $5".
 
-Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText to opt into extra fields.
+Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText/includeFacets to opt into extra fields (includeFacets returns each card's curated facet_tags — use it to see what a card is tagged with).
 
 ⚠️ CARDS vs PRINTINGS (default = grouped): by default this returns ONE representative printing per card, plus a printing_count of how many printings were folded in — so a broad search gives you distinct CARDS, not every set × edition × foiling × language × price. This is what you want for "what cards…" / discovery / list-building queries. The representative is NOT necessarily the user's copy — do NOT assume it's WTR/the oldest set. When you need every individual printing (harvesting a specific printing_id, comparing prices/versions of one card), either pin it with sets[] / foilings[] / editions[] (e.g. foilings:["r"] for Rainbow Foil, sets:["1hp"] for the History Pack reprint), or pass options.groupByCard:false to get the full per-printing list.
 
@@ -512,6 +517,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           includeImage:   { type: 'boolean', description: 'Include image_url per printing. Default false.' },
           includeArtists: { type: 'boolean', description: 'Include artists[] per printing. Default false.' },
           includeText:    { type: 'boolean', description: 'Include card text per printing. Default false.' },
+          includeFacets:  { type: 'boolean', description: 'Include facet_tags[] (curated function tags) per printing — shows what a card is currently tagged with. Default false.' },
         },
       },
     },
@@ -716,6 +722,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
       includeImage: !!options.includeImage,
       includeArtists: !!options.includeArtists,
       includeText: !!options.includeText,
+      includeFacets: !!options.includeFacets,
       priceField: firstPriceField,
       language: responseLanguage ?? undefined,
     };

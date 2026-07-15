@@ -1063,6 +1063,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       keywords: cards.keywords,
       keywordsDisplay: cards.keywordsDisplay,
       abilities: cards.abilities,
+      facetTags: cards.facetTags,
       classes: cards.classes,
       talents: cards.talents,
       power: cards.power,
@@ -1981,6 +1982,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       abilities: row.abilities || [],
       text_keywords: [], // Not stored separately in PostgreSQL
       searchable_text: row.searchableText || '',
+      facet_tags: row.facetTags || [],
       classes: row.classes || [],
       talents: row.talents || [],
       power: row.power ?? null,

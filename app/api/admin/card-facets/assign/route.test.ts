@@ -42,6 +42,15 @@ describe('POST /assign (add)', () => {
     mockAdd.mockResolvedValue({ success: false, error: 'Unknown facet tag: x' } as any);
     expect((await POST(req('POST', { cardUniqueId: 'c1', tag: 'x' }))).status).toBe(400);
   });
+  it("passes scope 'card' through for per-pitch assigns", async () => {
+    const res = await POST(req('POST', { cardUniqueId: 'c1', tag: 'tutor', scope: 'card' }));
+    expect(res.status).toBe(200);
+    expect(mockAdd).toHaveBeenCalledWith('c1', 'tutor', 'card');
+  });
+  it('400 on an invalid scope value', async () => {
+    expect((await POST(req('POST', { cardUniqueId: 'c1', tag: 'tutor', scope: 'pitch' }))).status).toBe(400);
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
   it('403 when not superadmin or curator', async () => {
     mockHasRole.mockResolvedValue({ success: true, data: false } as any);
     expect((await POST(req('POST', { cardUniqueId: 'c1', tag: 'tutor' }))).status).toBe(403);
@@ -57,5 +66,10 @@ describe('DELETE /assign (remove)', () => {
   it('400 on missing fields', async () => {
     expect((await DELETE(req('DELETE', { tag: 'tutor' }))).status).toBe(400);
     expect(mockRemove).not.toHaveBeenCalled();
+  });
+  it("passes scope 'card' through for per-pitch removals", async () => {
+    const res = await DELETE(req('DELETE', { cardUniqueId: 'c1', tag: 'tutor', scope: 'card' }));
+    expect(res.status).toBe(200);
+    expect(mockRemove).toHaveBeenCalledWith('c1', 'tutor', 'card');
   });
 });

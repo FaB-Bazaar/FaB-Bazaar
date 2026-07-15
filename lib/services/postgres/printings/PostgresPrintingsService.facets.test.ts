@@ -32,6 +32,13 @@ describe('PostgresPrintingsService — facetTags filter', () => {
     expect(res.data.printings.length).toBeGreaterThan(0);
     expect(res.data.printings.every((p) => p.card_unique_id === cardId)).toBe(true);
   });
+
+  it('returns the card facet_tags in the search projection (card→tags visibility)', async () => {
+    const res = await service.searchPrintings({ facetTags: [SENTINEL] }, { limit: 5 });
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data.printings[0].facet_tags).toContain(SENTINEL);
+  });
 });
 
 describe('PostgresPrintingsService — facetTags Any/All match mode', () => {
