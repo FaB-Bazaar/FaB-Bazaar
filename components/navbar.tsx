@@ -431,6 +431,12 @@ export default function Navbar() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
+            <Link href="/playmats" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Layers className="h-4 w-4 mr-2" />
+              Collectibles
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
             <Link href="/wants" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <FileText className="h-4 w-4 mr-2" />
               Wants List
@@ -1033,6 +1039,9 @@ export default function Navbar() {
                     <div className="bg-gray-50 dark:bg-gray-700/50 py-1">
                       <Link href="/collection" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">View All Binders</div>
+                      </Link>
+                      <Link href="/playmats" onClick={() => setIsMenuOpen(false)}>
+                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Collectibles</div>
                       </Link>
                       <Link href="/wants" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Wants List</div>

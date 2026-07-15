@@ -50,6 +50,63 @@ export async function setMark(
   }
 }
 
+// ── Admin (superadmin-gated routes) ─────────────────────────────────────────
+
+import type {
+  CreateCollectibleDTO,
+  UpdateCollectibleDTO,
+} from '@/lib/services/contracts/ICollectibleService';
+
+/** Create a catalog entry (superadmin). */
+export async function adminCreate(
+  data: CreateCollectibleDTO,
+): Promise<ApiResponse<CollectibleDTO>> {
+  try {
+    const response = await fetch('/api/admin/collectibles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return handleResponse<CollectibleDTO>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/** Update a catalog entry (superadmin). */
+export async function adminUpdate(
+  collectibleId: string,
+  data: UpdateCollectibleDTO,
+): Promise<ApiResponse<CollectibleDTO>> {
+  try {
+    const response = await fetch(`/api/admin/collectibles/${collectibleId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return handleResponse<CollectibleDTO>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/** Delete a catalog entry (superadmin). Marks cascade. */
+export async function adminDelete(
+  collectibleId: string,
+): Promise<ApiResponse<{ deleted: boolean }>> {
+  try {
+    const response = await fetch(`/api/admin/collectibles/${collectibleId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return handleResponse<{ deleted: boolean }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 /** Clear the caller's mark on a collectible. */
 export async function clearMark(
   collectibleId: string,
