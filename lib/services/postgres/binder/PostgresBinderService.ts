@@ -13,7 +13,7 @@
 
 import { eq, and, or, sql, inArray, desc, asc, like, ilike } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { binders, inventoryItems, users, printings, cards } from '@/lib/postgres/schema';
+import { binders, inventoryItems, users, printings, cards, siteSettings } from '@/lib/postgres/schema';
 import type {
   IBinderService,
   BinderDTO,
@@ -1878,7 +1878,7 @@ export class PostgresBinderService implements IBinderService {
       ]);
 
       // Get counts, quantity stats, and price totals in parallel
-      const [forTradeCount, notForTradeCount, quantityAndPriceStats, priceRow, rarityRows] = await Promise.all([
+      const [forTradeCount, notForTradeCount, quantityAndPriceStats, priceRow, priceRunRow, rarityRows] = await Promise.all([
         db.select({ count: sql<number>`count(*)::int` })
           .from(inventoryItems)
           .where(and(eq(inventoryItems.binderId, binderId), eq(inventoryItems.forTrade, true))),
@@ -1902,6 +1902,14 @@ export class PostgresBinderService implements IBinderService {
           .from(inventoryItems)
           .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
           .where(eq(inventoryItems.binderId, binderId)),
+        // Nightly price sync completion time (written by pipeline step 006).
+        // Preferred over MAX(price_updated_at): the per-row stamp only moves
+        // when a price CHANGES, so one repriced card reads "today" for the
+        // whole binder while unchanged-but-checked prices read stale.
+        db.select({ value: siteSettings.value })
+          .from(siteSettings)
+          .where(eq(siteSettings.key, 'prices_last_run_at'))
+          .limit(1),
         db.select({
           rarity: printings.rarity,
           count: sql<number>`COALESCE(SUM(${inventoryItems.quantity}), 0)::int`,
@@ -1916,6 +1924,26 @@ export class PostgresBinderService implements IBinderService {
       const rarityCounts: Record<string, number> = {};
       for (const r of rarityRows) {
         if (r.rarity) rarityCounts[r.rarity] = r.count;
+      }
+
+      // Prefer the recorded pipeline run; fall back to the per-row MAX when
+      // the key is absent (pipeline hasn't run since this shipped) or bogus.
+      // Coerce both to Date — the raw MAX comes back as a string.
+      let priceUpdatedAt: Date | null = null;
+      const runValue = priceRunRow[0]?.value;
+      if (typeof runValue === 'string') {
+        const parsed = new Date(runValue);
+        if (!isNaN(parsed.getTime())) priceUpdatedAt = parsed;
+      }
+      if (!priceUpdatedAt && priceRow[0]?.priceUpdatedAt) {
+        const raw = priceRow[0].priceUpdatedAt as unknown;
+        // Raw MAX() bypasses drizzle's column mapping and arrives as a
+        // tz-naive string ('2026-07-12 23:02:39.449191'); the column stores
+        // UTC wall-clock, so pin the parse to UTC rather than server-local.
+        const parsed = raw instanceof Date
+          ? raw
+          : new Date(`${String(raw).replace(' ', 'T')}Z`);
+        if (!isNaN(parsed.getTime())) priceUpdatedAt = parsed;
       }
 
       return {
@@ -1942,7 +1970,7 @@ export class PostgresBinderService implements IBinderService {
           valueNotForTrade: { tcg_low: row?.notForTradeValueLow || 0 },
           rarityCounts,
         },
-        priceUpdatedAt: priceRow[0]?.priceUpdatedAt || null,
+        priceUpdatedAt,
       };
     } catch (error) {
       // Return empty metadata on error

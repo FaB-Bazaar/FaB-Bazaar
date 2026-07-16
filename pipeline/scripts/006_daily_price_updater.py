@@ -47,6 +47,17 @@ PRICE_CATEGORY_FLAGS = (
 # All fields we UPDATE when a price change is detected
 PRICE_UPDATE_FIELDS = PRICE_FLOAT_FIELDS + PRICE_CATEGORY_FLAGS
 
+# Sync-completion marker read by the app (binder "Prices updated X" label via
+# PostgresBinderService). Written on EVERY successful run — including runs with
+# zero price changes — because per-row price_updated_at only moves on change.
+PRICES_LAST_RUN_KEY = 'prices_last_run_at'
+RECORD_RUN_SQL = """
+    INSERT INTO site_settings (key, value, updated_at)
+    VALUES (%(key)s, to_jsonb(NOW()), NOW())
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+"""
+
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -256,15 +267,34 @@ class DailyPriceUpdater:
 
         if not updates:
             print("\n✅ No price changes detected. All printings are up-to-date.")
+            self._record_run_timestamp()
             self._print_summary(time.time() - start_time)
             return
 
         print(f"   {len(updates):,} printings need price updates.")
         self._execute_price_updates(updates)
+        self._record_run_timestamp()
         self._print_summary(time.time() - start_time)
 
         if self.conn and not self.conn.closed:
             self.conn.close()
+
+    def _record_run_timestamp(self):
+        """Upsert site_settings.prices_last_run_at = NOW().
+
+        Cosmetic metadata for the UI freshness label — a failure here must
+        never fail the run, and the app falls back to MAX(price_updated_at).
+        """
+        if self.dry_run:
+            return
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(RECORD_RUN_SQL, {'key': PRICES_LAST_RUN_KEY})
+            self.conn.commit()
+            print(f"🕒 Recorded sync completion in site_settings ('{PRICES_LAST_RUN_KEY}').")
+        except Exception as e:
+            print(f"⚠️  Failed to record run timestamp (non-fatal): {e}")
+            self.conn.rollback()
 
     def _print_summary(self, duration: float):
         title = "DAILY PRICE DRY RUN SUMMARY" if self.dry_run else "DAILY PRICE UPDATE SUMMARY"
