@@ -17,9 +17,9 @@ import {
 } from './sets';
 
 describe('promo & standalone-product filter sets', () => {
-  it('lists the nine individually-selectable promo sets', () => {
+  it('lists the individually-selectable promo sets', () => {
     expect(PROMO_FILTER_SETS).toEqual([
-      'lgs', 'fab', 'her', 'gem', 'jdg', 'win', 'lss', 'tnp', 'oxo',
+      'lgs', 'fab', 'her', 'gem', 'jdg', 'win', 'lss', 'tnp', 'oxo', 'con',
     ]);
   });
 
@@ -48,7 +48,11 @@ describe('SET_FILTER_GROUPS — derived deck-product groups', () => {
     const byToken = Object.fromEntries(SET_FILTER_GROUPS.map(g => [g.token, g.codes]));
     expect(byToken['grp:blitz']).toEqual(expect.arrayContaining(['bol', 'fai', '1hb', 'wod']));
     expect(byToken['grp:armory']).toEqual(expect.arrayContaining(['ako', 'aaz', 'apr']));
-    expect(byToken['grp:silver-age']).toEqual(expect.arrayContaining(['sar', 'svi']));
+    // Chapter 3 decks (sba/sbl/sbz/sgb/sly) join via the sets rows added in
+    // migration 0086 + regenerated constants.
+    expect(byToken['grp:silver-age']).toEqual(
+      expect.arrayContaining(['sar', 'svi', 'sba', 'sbl', 'sbz', 'sgb', 'sly']),
+    );
     expect(byToken['grp:hero-decks']).toEqual(['bvo', 'ksu', 'rnr', 'tea']);
   });
 

@@ -77,7 +77,7 @@ export interface SetMetadata {
  * prefix is always identical to the code, so no finer mapping is needed).
  */
 export const PROMO_FILTER_SETS: string[] = [
-  'lgs', 'fab', 'her', 'gem', 'jdg', 'win', 'lss', 'tnp', 'oxo',
+  'lgs', 'fab', 'her', 'gem', 'jdg', 'win', 'lss', 'tnp', 'oxo', 'con',
 ];
 
 /**
@@ -153,7 +153,7 @@ export function expandSetSelections(selected: string[]): string[] {
 // Explicit ordering for non-standard sets on the /sets page
 const NON_STANDARD_ORDER = [
   'tcc', 'smp', 'mpw', 'gem', 'dvr', 'aur',
-  'her', 'jdg', 'lgs', 'lss', 'win', 'tnp', 'oxo', 'fab',
+  'her', 'jdg', 'lgs', 'lss', 'win', 'tnp', 'oxo', 'fab', 'con',
 ];
 
 /**

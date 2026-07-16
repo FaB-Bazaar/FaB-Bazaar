@@ -125,6 +125,12 @@ export const SET_MAP = {
   "aol": "Armory Deck: Olympia",
   "2hp": "History Pack Vol.2",
   "rap": "Archive Pack - Rosetta",
+  "sba": "Silver Age Deck: Briar",
+  "sbl": "Silver Age Deck: Boltyn",
+  "sbz": "Silver Age Deck: Blaze",
+  "sgb": "Silver Age Deck: Gravy Bones",
+  "sly": "Silver Age Deck: Lyath Goldmane",
+  "con": "Convention Promos",
 } as const;
 
 export const SET_METADATA: Record<string, SetMetadata> = {
@@ -242,4 +248,10 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   "aol": { code: "AOL", name: "Armory Deck: Olympia", releaseDate: "2026-08-07", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1120, unlimitedBeforeFirst: false },
   "2hp": { code: "2HP", name: "History Pack Vol.2", releaseDate: "", hasFirstEdition: false, category: "standard", tier: 2, displayOrder: 1121, unlimitedBeforeFirst: false },
   "rap": { code: "RAP", name: "Archive Pack - Rosetta", releaseDate: "", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 1122, unlimitedBeforeFirst: false },
+  "sba": { code: "SBA", name: "Silver Age Deck: Briar", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1123, unlimitedBeforeFirst: false },
+  "sbl": { code: "SBL", name: "Silver Age Deck: Boltyn", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1124, unlimitedBeforeFirst: false },
+  "sbz": { code: "SBZ", name: "Silver Age Deck: Blaze", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1125, unlimitedBeforeFirst: false },
+  "sgb": { code: "SGB", name: "Silver Age Deck: Gravy Bones", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1126, unlimitedBeforeFirst: false },
+  "sly": { code: "SLY", name: "Silver Age Deck: Lyath Goldmane", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1127, unlimitedBeforeFirst: false },
+  "con": { code: "CON", name: "Convention Promos", releaseDate: "", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 1128, unlimitedBeforeFirst: false },
 };
