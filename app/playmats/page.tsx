@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Check, Heart, ImageOff, Lightbulb, Pencil, Search } from "lucide-react";
 import { collectiblesClient } from "@/lib/client";
+import { PLAYMAT_SUBMISSIONS_CHANNEL_URL } from "@/lib/discord/links";
 import type {
   CollectibleDTO,
   CollectibleMarkStatus,
@@ -358,7 +359,17 @@ function SuggestionPanel({
       >
         <p className="font-medium">Thanks — your suggestion is in!</p>
         <p className="mt-1 text-sm">
-          It&apos;s waiting for review and will show up in the catalog once approved.
+          It&apos;s waiting for review and will show up in the catalog once approved. Have a
+          photo? Post it in{" "}
+          <a
+            href={PLAYMAT_SUBMISSIONS_CHANNEL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`font-medium underline ${FOCUS_RING}`}
+          >
+            our Discord&apos;s playmat channel
+          </a>{" "}
+          with the playmat&apos;s name and year.
         </p>
         <button
           type="button"
@@ -470,11 +481,24 @@ function SuggestionPanel({
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Anything else — links to photos or sources are very welcome."
+            placeholder="Anything else — links to sources are very welcome."
             className={INPUT_CLASSES}
           />
         </div>
       </div>
+
+      <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+        Got a photo of it? Post it in{" "}
+        <a
+          href={PLAYMAT_SUBMISSIONS_CHANNEL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`font-medium text-blue-600 underline dark:text-blue-400 ${FOCUS_RING}`}
+        >
+          our Discord&apos;s playmat channel
+        </a>{" "}
+        with the playmat&apos;s name and year so we can match it to your suggestion.
+      </p>
 
       {error && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
