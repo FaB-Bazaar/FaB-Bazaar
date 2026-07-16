@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Check, Heart, ImageOff, Search } from "lucide-react";
+import { Check, Heart, ImageOff, Lightbulb, Pencil, Search } from "lucide-react";
 import { collectiblesClient } from "@/lib/client";
 import type {
   CollectibleDTO,
@@ -30,6 +30,16 @@ export default function PlaymatsPage() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   // ids with an in-flight mark request, so double-clicks don't race
   const [pending, setPending] = useState<Set<string>>(new Set());
+  // Suggestion panel target: null = closed, target.collectible null = new-playmat
+  // proposal, set = edit suggestion for that catalog entry.
+  const [suggestTarget, setSuggestTarget] = useState<
+    { collectible: CollectibleDTO | null } | null
+  >(null);
+
+  const openSuggest = useCallback((collectible: CollectibleDTO | null) => {
+    setSuggestTarget({ collectible });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,10 +121,29 @@ export default function PlaymatsPage() {
             >
               Sign in
             </Link>{" "}
-            to mark playmats as have or want.
+            to mark playmats as have or want, or to suggest one we&apos;re missing.
           </p>
         )}
+        {signedIn && !suggestTarget && (
+          <button
+            type="button"
+            onClick={() => openSuggest(null)}
+            className={`mt-3 inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 ${FOCUS_RING}`}
+          >
+            <Lightbulb className="h-4 w-4" aria-hidden="true" />
+            Suggest a playmat
+          </button>
+        )}
       </header>
+
+      {suggestTarget && (
+        <SuggestionPanel
+          // remount when the target changes so stale form state doesn't leak
+          key={suggestTarget.collectible?.id ?? "new"}
+          collectible={suggestTarget.collectible}
+          onClose={() => setSuggestTarget(null)}
+        />
+      )}
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -205,6 +234,17 @@ export default function PlaymatsPage() {
                   · {item.wantCount} want it
                 </p>
 
+                {signedIn && (
+                  <button
+                    type="button"
+                    onClick={() => openSuggest(item)}
+                    className={`mt-1 inline-flex items-center gap-1 self-start text-sm text-gray-600 underline decoration-dotted hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 ${FOCUS_RING}`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                    Suggest an edit
+                  </button>
+                )}
+
                 <div className="mt-3 flex gap-2">
                   <MarkButton
                     label="Have"
@@ -240,6 +280,226 @@ export default function PlaymatsPage() {
         </>
       )}
     </div>
+  );
+}
+
+const INPUT_CLASSES = `w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-base dark:border-gray-700 dark:bg-gray-900 ${FOCUS_RING}`;
+
+/**
+ * Crowdsourcing form: suggest a new playmat (collectible null) or a correction
+ * to an existing one. Submissions go to a pending queue that admins review —
+ * nothing changes on the page immediately, so on success we just confirm.
+ */
+function SuggestionPanel({
+  collectible,
+  onClose,
+}: {
+  collectible: CollectibleDTO | null;
+  onClose: () => void;
+}) {
+  const isEdit = collectible !== null;
+  const [name, setName] = useState("");
+  const [year, setYear] = useState("");
+  const [artist, setArtist] = useState("");
+  const [source, setSource] = useState("");
+  const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!isEdit && !name.trim()) {
+      setError("Give the playmat a name.");
+      return;
+    }
+    const trimmedYear = year.trim();
+    const parsedYear = trimmedYear ? Number(trimmedYear) : undefined;
+    if (trimmedYear && (!Number.isInteger(parsedYear) || String(parsedYear) !== trimmedYear)) {
+      setError("Year must be a whole number, e.g. 2024.");
+      return;
+    }
+    if (
+      isEdit &&
+      ![name, artist, source, description, notes].some((f) => f.trim()) &&
+      !trimmedYear
+    ) {
+      setError("Fill in at least one correction or a note.");
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await collectiblesClient.submitSuggestion({
+      collectibleId: collectible?.id,
+      name: name.trim() || undefined,
+      year: parsedYear,
+      artist: artist.trim() || undefined,
+      source: source.trim() || undefined,
+      description: description.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
+    setSubmitting(false);
+
+    if (result.success) {
+      setSubmitted(true);
+    } else {
+      setError(result.error);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div
+        role="status"
+        className="mb-6 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-base text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+      >
+        <p className="font-medium">Thanks — your suggestion is in!</p>
+        <p className="mt-1 text-sm">
+          It&apos;s waiting for review and will show up in the catalog once approved.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className={`mt-3 rounded-md border border-emerald-400 px-3 py-1.5 text-sm font-medium hover:bg-emerald-100 dark:border-emerald-700 dark:hover:bg-emerald-900 ${FOCUS_RING}`}
+        >
+          Close
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      data-testid="suggestion-panel"
+      className="mb-6 space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+    >
+      <div>
+        <h2 className="text-lg font-semibold">
+          {isEdit ? `Suggest an edit: ${collectible.name}` : "Suggest a playmat"}
+        </h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          {isEdit
+            ? "Only fill in what should change — leave the rest blank."
+            : "Know a playmat we're missing? Tell us what you know and we'll add it after review."}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="suggest-name" className="mb-1 block text-sm font-medium">
+            Name{isEdit ? "" : " (required)"}
+          </label>
+          <input
+            id="suggest-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={isEdit ? collectible.name : "e.g. Calling Melbourne 2026 Top 8"}
+            className={INPUT_CLASSES}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="suggest-year" className="mb-1 block text-sm font-medium">
+              Year
+            </label>
+            <input
+              id="suggest-year"
+              type="text"
+              inputMode="numeric"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              placeholder={isEdit && collectible.year != null ? String(collectible.year) : "2026"}
+              className={INPUT_CLASSES}
+            />
+          </div>
+          <div>
+            <label htmlFor="suggest-artist" className="mb-1 block text-sm font-medium">
+              Artist
+            </label>
+            <input
+              id="suggest-artist"
+              type="text"
+              value={artist}
+              onChange={(e) => setArtist(e.target.value)}
+              placeholder={isEdit ? (collectible.artist ?? "") : ""}
+              className={INPUT_CLASSES}
+            />
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="suggest-source" className="mb-1 block text-sm font-medium">
+            Where it&apos;s from
+          </label>
+          <input
+            id="suggest-source"
+            type="text"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder={
+              isEdit && collectible.source
+                ? collectible.source
+                : "e.g. Calling Sydney 2026 Top 8 prize, Armory Deck Kit…"
+            }
+            className={INPUT_CLASSES}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="suggest-description" className="mb-1 block text-sm font-medium">
+            Description
+          </label>
+          <textarea
+            id="suggest-description"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Provenance, print run, how it was distributed…"
+            className={INPUT_CLASSES}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="suggest-notes" className="mb-1 block text-sm font-medium">
+            Notes for the reviewer
+          </label>
+          <textarea
+            id="suggest-notes"
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anything else — links to photos or sources are very welcome."
+            className={INPUT_CLASSES}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className={`rounded-md border border-blue-600 bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS_RING}`}
+        >
+          {submitting ? "Submitting…" : "Submit suggestion"}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={submitting}
+          className={`rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 ${FOCUS_RING}`}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 

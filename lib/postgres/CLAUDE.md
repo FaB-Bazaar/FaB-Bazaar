@@ -40,6 +40,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | `facet_tag_audit` | Append-only facet add/remove log. **NO FKs by design** — survives user/card deletion (accountability) | — |
 | `collectibles` | Global admin-curated non-card catalog (playmats first; `kind` enum is extensible). NOT binder inventory — deliberately no printing/condition/pricing. Unique `(kind, name, year)`. Migration 0085 | `users.id` SET NULL (`created_by`) |
 | `user_collectible_marks` | One have/want mark per (user, collectible) — `status` enum, upserted. Powers /playmats toggles + counts | `users.id`, `collectibles.id` CASCADE |
+| `collectible_submissions` | Crowdsourced catalog suggestions: `collectible_id` NULL = new-entry proposal, set = edit suggestion (proposed fields nullable = "no change"). Superadmin approve applies to catalog; reviewed rows kept for audit. Migration 0087 | `users.id` CASCADE, `collectibles.id` CASCADE |
 
 ## Relationship Map
 

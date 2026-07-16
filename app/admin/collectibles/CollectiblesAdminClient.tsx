@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collectiblesClient } from '@/lib/client';
-import type { CollectibleDTO } from '@/lib/services/contracts/ICollectibleService';
+import type {
+  CollectibleDTO,
+  CollectibleSubmissionDTO,
+} from '@/lib/services/contracts/ICollectibleService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +36,99 @@ const EMPTY_EDITOR: EditorState = {
   imageUrl: '',
 };
 
+/**
+ * One pending community submission. For edit suggestions, each proposed field
+ * is shown as "current → proposed" so the diff is reviewable at a glance;
+ * new-entry proposals just list the submitted fields.
+ */
+function SubmissionCard({
+  submission,
+  current,
+  busy,
+  onApprove,
+  onReject,
+}: {
+  submission: CollectibleSubmissionDTO;
+  current: CollectibleDTO | null;
+  busy: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const isEdit = submission.collectibleId !== null;
+  const fields: Array<{ label: string; proposed: string | number | null; existing: string | number | null }> = [
+    { label: 'Name', proposed: submission.name, existing: current?.name ?? null },
+    { label: 'Year', proposed: submission.year, existing: current?.year ?? null },
+    { label: 'Artist', proposed: submission.artist, existing: current?.artist ?? null },
+    { label: 'Source', proposed: submission.source, existing: current?.source ?? null },
+    { label: 'Description', proposed: submission.description, existing: current?.description ?? null },
+  ];
+  const proposed = fields.filter((f) => f.proposed != null);
+
+  return (
+    <li
+      data-testid="submission-card"
+      className="rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-2"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`text-xs font-medium rounded-full px-2 py-0.5 ${
+            isEdit
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300'
+              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
+          }`}
+        >
+          {isEdit ? 'Edit suggestion' : 'New playmat'}
+        </span>
+        {isEdit && (
+          <span className="font-medium">{submission.collectibleName ?? 'Unknown entry'}</span>
+        )}
+        <span className="text-sm text-gray-600 dark:text-gray-300">
+          by {submission.username ?? 'deleted user'} ·{' '}
+          {new Date(submission.createdAt).toLocaleDateString()}
+        </span>
+      </div>
+
+      {proposed.length > 0 ? (
+        <dl className="text-sm space-y-1">
+          {proposed.map((field) => (
+            <div key={field.label} className="flex flex-wrap gap-x-2">
+              <dt className="font-medium text-gray-700 dark:text-gray-200">{field.label}:</dt>
+              <dd className="text-gray-900 dark:text-gray-100">
+                {isEdit && field.existing != null && field.existing !== field.proposed ? (
+                  <>
+                    <s className="text-gray-500 dark:text-gray-400">{field.existing}</s>{' '}
+                    {field.proposed}
+                  </>
+                ) : (
+                  field.proposed
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm text-gray-600 dark:text-gray-300">No field changes proposed.</p>
+      )}
+
+      {submission.notes && (
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          <span className="font-medium text-gray-700 dark:text-gray-200">Notes:</span>{' '}
+          {submission.notes}
+        </p>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <Button size="sm" onClick={onApprove} disabled={busy}>
+          Approve{isEdit ? ' & apply' : ' & add'}
+        </Button>
+        <Button size="sm" variant="outline" onClick={onReject} disabled={busy}>
+          Reject
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 export function CollectiblesAdminClient() {
   const { toast } = useToast();
   const [items, setItems] = useState<CollectibleDTO[]>([]);
@@ -41,18 +137,44 @@ export function CollectiblesAdminClient() {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [submissions, setSubmissions] = useState<CollectibleSubmissionDTO[]>([]);
+  // submission ids with an in-flight review call, so double-clicks don't race
+  const [reviewing, setReviewing] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
-    const result = await collectiblesClient.listCollectibles();
-    if (result.success) setItems(result.data);
-    else toast({ title: 'Load failed', description: result.error, variant: 'destructive' });
+    const [catalog, queue] = await Promise.all([
+      collectiblesClient.listCollectibles(),
+      collectiblesClient.adminListSubmissions('pending'),
+    ]);
+    if (catalog.success) setItems(catalog.data);
+    else toast({ title: 'Load failed', description: catalog.error, variant: 'destructive' });
+    if (queue.success) setSubmissions(queue.data);
+    else toast({ title: 'Submissions load failed', description: queue.error, variant: 'destructive' });
     setLoading(false);
   }, [toast]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const review = async (submission: CollectibleSubmissionDTO, action: 'approve' | 'reject') => {
+    if (reviewing.has(submission.id)) return;
+    setReviewing((prev) => new Set(prev).add(submission.id));
+    const result = await collectiblesClient.adminReviewSubmission(submission.id, action);
+    if (result.success) {
+      setSubmissions((prev) => prev.filter((s) => s.id !== submission.id));
+      toast({ title: action === 'approve' ? 'Approved — applied to catalog' : 'Rejected' });
+      if (action === 'approve') void load();
+    } else {
+      toast({ title: 'Review failed', description: result.error, variant: 'destructive' });
+    }
+    setReviewing((prev) => {
+      const next = new Set(prev);
+      next.delete(submission.id);
+      return next;
+    });
+  };
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -142,6 +264,34 @@ export function CollectiblesAdminClient() {
 
   return (
     <div className="space-y-6">
+      {/* Crowdsourced submission review queue */}
+      {submissions.length > 0 && (
+        <section
+          data-testid="submission-queue"
+          className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 p-4 md:p-6 space-y-4"
+        >
+          <h2 className="text-lg font-semibold">
+            Community submissions ({submissions.length} pending)
+          </h2>
+          <ul className="space-y-3">
+            {submissions.map((submission) => (
+              <SubmissionCard
+                key={submission.id}
+                submission={submission}
+                current={
+                  submission.collectibleId
+                    ? items.find((item) => item.id === submission.collectibleId) ?? null
+                    : null
+                }
+                busy={reviewing.has(submission.id)}
+                onApprove={() => review(submission, 'approve')}
+                onReject={() => review(submission, 'reject')}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Editor panel */}
       {editor ? (
         <div

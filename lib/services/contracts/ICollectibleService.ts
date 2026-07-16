@@ -58,6 +58,58 @@ export interface CollectibleFilters {
   search?: string;
 }
 
+// ── Crowdsourced submissions ─────────────────────────────────────────────────
+// Any signed-in user can propose a NEW catalog entry (collectibleId null) or a
+// CORRECTION to an existing one (collectibleId set). Superadmins review:
+// approve applies the proposed fields to the catalog; reject just closes the
+// row. Reviewed rows are kept for provenance.
+
+export type CollectibleSubmissionStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CollectibleSubmissionDTO {
+  id: string;
+  /** null = new-entry proposal; set = edit suggestion for that catalog entry. */
+  collectibleId: string | null;
+  /** Current catalog name of the target entry (joined; null for new-entry proposals). */
+  collectibleName: string | null;
+  userId: string;
+  /** Submitter's username (joined; null if the account was deleted). */
+  username: string | null;
+  kind: CollectibleKind;
+  /** Proposed fields — null means "no change proposed" on edit suggestions. */
+  name: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  artist: string | null;
+  source: string | null;
+  year: number | null;
+  /** Free-text message to the reviewer; never copied to the catalog. */
+  notes: string | null;
+  status: CollectibleSubmissionStatus;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface CreateCollectibleSubmissionDTO {
+  /** Set to suggest an edit to an existing entry; omit to propose a new one. */
+  collectibleId?: string;
+  kind?: CollectibleKind;
+  /** Required for new-entry proposals. */
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  artist?: string;
+  source?: string;
+  year?: number;
+  notes?: string;
+}
+
+export interface CollectibleSubmissionFilters {
+  status?: CollectibleSubmissionStatus;
+  userId?: string;
+}
+
 export interface ICollectibleService {
   listCollectibles(filters?: CollectibleFilters, viewerId?: string | null): AsyncResult<CollectibleDTO[]>;
   getCollectible(id: string, viewerId?: string | null): AsyncResult<CollectibleDTO | null>;
@@ -70,4 +122,11 @@ export interface ICollectibleService {
   // User marks — at most one mark per (user, collectible); setMark upserts.
   setMark(userId: string, collectibleId: string, status: CollectibleMarkStatus): AsyncResult<{ status: CollectibleMarkStatus }>;
   clearMark(userId: string, collectibleId: string): AsyncResult<{ cleared: boolean }>;
+
+  // Crowdsourced submissions — create is any signed-in user; list/review is admin.
+  createSubmission(userId: string, data: CreateCollectibleSubmissionDTO): AsyncResult<CollectibleSubmissionDTO>;
+  listSubmissions(filters?: CollectibleSubmissionFilters): AsyncResult<CollectibleSubmissionDTO[]>;
+  /** Applies proposed fields to the catalog (create or update) and closes the submission. */
+  approveSubmission(submissionId: string, reviewerId: string): AsyncResult<{ collectible: CollectibleDTO }>;
+  rejectSubmission(submissionId: string, reviewerId: string): AsyncResult<{ rejected: boolean }>;
 }

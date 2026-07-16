@@ -1722,6 +1722,40 @@ export const userCollectibleMarks = pgTable('user_collectible_marks', {
   userIdx: index('idx_collectible_marks_user').on(table.userId),
 }));
 
+// Crowdsourced submissions: collectible_id NULL = new-entry proposal, set =
+// edit suggestion for an existing entry. Proposed fields are all nullable —
+// NULL means "no change proposed" on edits. Reviewed rows are kept for audit.
+// See migration 0087.
+export const collectibleSubmissionStatusEnum = pgEnum('collectible_submission_status', [
+  'pending',
+  'approved',
+  'rejected',
+]);
+
+export const collectibleSubmissions = pgTable('collectible_submissions', {
+  id: text('id').primaryKey(),
+  collectibleId: text('collectible_id').references(() => collectibles.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: collectibleKindEnum('kind').default('playmat').notNull(),
+  name: text('name'),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  artist: text('artist'),
+  source: text('source'),
+  year: integer('year'),
+  // Free-text message to the reviewer; never copied to the catalog.
+  notes: text('notes'),
+  status: collectibleSubmissionStatusEnum('status').default('pending').notNull(),
+  reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  statusIdx: index('idx_collectible_submissions_status').on(table.status),
+  userIdx: index('idx_collectible_submissions_user').on(table.userId),
+  collectibleIdx: index('idx_collectible_submissions_collectible').on(table.collectibleId),
+}));
+
 export const collectiblesRelations = relations(collectibles, ({ many }) => ({
   marks: many(userCollectibleMarks),
 }));
