@@ -17,7 +17,9 @@ import { cn } from '@/lib/utils';
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetImageOrFallback } from '@/lib/set-images';
 import { SET_MAP } from '@/lib/fab-constants';
-import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
+import {
+  CARD_FILTER_SETS, PROMO_FILTER_SETS, OTHER_PRODUCT_FILTER_SETS, SET_FILTER_GROUPS,
+} from '@/lib/fab-constants/sets';
 import {
   TYPE_CHIPS, CLASS_ICONS, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
   KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
@@ -30,10 +32,10 @@ import type { OptAction } from '@/lib/search/opt-search-reducer';
 
 export const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
 
-// Sets selectable in the set grid: the shared curated list plus GEM. GEM is a
-// promo set kept out of CARD_FILTER_SETS (and thus the deck builder's filters),
-// but it's offered here so its per-pack filter facet is reachable.
-export const OPT_FILTER_SETS: string[] = [...CARD_FILTER_SETS, 'gem'];
+// Sets selectable in the main set grid: the shared curated booster-set list.
+// GEM (and the other promo sets) render in the dedicated Promos section below,
+// so it no longer needs appending here; its per-pack facet stays reachable.
+export const OPT_FILTER_SETS: string[] = [...CARD_FILTER_SETS];
 
 // ─── Popover (filter dropdown) ────────────────────────────────────────────────
 // Self-contained: closes on outside-click and Escape. No extra deps.
@@ -170,6 +172,39 @@ export function Pill({ active, onClick, children }: { active: boolean; onClick: 
     >
       {children}
       {active && <Check className="w-3.5 h-3.5 shrink-0" aria-hidden />}
+    </button>
+  );
+}
+
+// Logo + code tile used by every set section (main sets, promos, other
+// products) in the "More" popover's set picker.
+function SetGridButton({ setCode, selected, onToggle }: { setCode: string; selected: boolean; onToggle: () => void }) {
+  // Promo/product sets without a mapped logo get a text-only tile — an
+  // <img src=""> renders a broken-image glyph, so skip the img entirely.
+  const imageUrl = getSetImageOrFallback(setCode, setCode.toUpperCase());
+  return (
+    <button
+      type="button"
+      title={SET_MAP[setCode as keyof typeof SET_MAP]}
+      aria-pressed={selected}
+      onClick={onToggle}
+      className={cn(
+        'flex flex-col items-center justify-end p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+        selected
+          ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
+          : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
+      )}
+    >
+      {imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          className="w-7 h-7 object-contain"
+          alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
+      )}
+      <span className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
     </button>
   );
 }
@@ -566,7 +601,9 @@ export function buildFilterFacets({
       ),
     },
     {
-      key: 'more', label: 'More', count: selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80',
+      // max-h + scroll: the panel gained three set sections (Promos / Deck
+      // products / Other products) and otherwise overflows short viewports.
+      key: 'more', label: 'More', count: selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80 max-h-[min(70vh,640px)] overflow-y-auto',
       body: (
         <div className="space-y-3">
           <div>
@@ -594,28 +631,52 @@ export function buildFilterFacets({
             <p className={SECTION}>Set</p>
             <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
               {OPT_FILTER_SETS.map(setCode => (
-                <button
+                <SetGridButton
                   key={setCode}
-                  type="button"
-                  title={SET_MAP[setCode as keyof typeof SET_MAP]}
-                  aria-pressed={selectedSets.includes(setCode)}
-                  onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: setCode })}
-                  className={cn(
-                    'flex flex-col items-center p-1 rounded border transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                    selectedSets.includes(setCode)
-                      ? 'border-gray-800 dark:border-gray-100 ring-1 ring-gray-600 dark:ring-gray-100'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-500',
-                  )}
+                  setCode={setCode}
+                  selected={selectedSets.includes(setCode)}
+                  onToggle={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: setCode })}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={SECTION}>Promos</p>
+            <div className="grid grid-cols-5 gap-1">
+              {PROMO_FILTER_SETS.map(setCode => (
+                <SetGridButton
+                  key={setCode}
+                  setCode={setCode}
+                  selected={selectedSets.includes(setCode)}
+                  onToggle={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: setCode })}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={SECTION}>Deck products</p>
+            <div className="flex flex-wrap gap-1">
+              {SET_FILTER_GROUPS.map(g => (
+                <Pill
+                  key={g.token}
+                  active={selectedSets.includes(g.token)}
+                  onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: g.token })}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
-                    className="w-7 h-7 object-contain"
-                    alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  <span className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{setCode.toUpperCase()}</span>
-                </button>
+                  {g.label}
+                </Pill>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={SECTION}>Other products</p>
+            <div className="grid grid-cols-5 gap-1">
+              {OTHER_PRODUCT_FILTER_SETS.map(setCode => (
+                <SetGridButton
+                  key={setCode}
+                  setCode={setCode}
+                  selected={selectedSets.includes(setCode)}
+                  onToggle={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedSets', value: setCode })}
+                />
               ))}
             </div>
           </div>

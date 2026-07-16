@@ -18,6 +18,7 @@ import { useOptSearchState } from '@/hooks/search/useOptSearchState';
 import { optStateToChips } from '@/lib/search/opt-state-describe';
 import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { canUseVolzar } from '@/lib/ai/volzar-access';
+import { isSetGroupToken } from '@/lib/fab-constants/sets';
 import { trackSearch } from '@/lib/gtag';
 
 // Clickable example queries shown in the empty state. Either a plain card name
@@ -90,14 +91,17 @@ export default function OptSearchPage() {
     // pre-hydration selectedSets=[] and its PRUNE_PACKS dispatch would wipe a
     // pack just restored from the URL (StrictMode double-mount race).
     if (!urlReady) return;
-    if (selectedSets.length === 0) {
+    // Deck-product group tokens (grp:blitz, …) aren't set codes and have no
+    // packs endpoint — only query packs for the plain codes.
+    const setCodes = selectedSets.filter(s => !isSetGroupToken(s));
+    if (setCodes.length === 0) {
       setAvailablePacks([]);
       dispatch({ type: 'PRUNE_PACKS', valid: [] });
       return;
     }
     let cancelled = false;
     Promise.all(
-      selectedSets.map(s =>
+      setCodes.map(s =>
         fetch(`/api/sets/${s.toLowerCase()}/packs`)
           .then(r => (r.ok ? r.json() : null))
           .then(d => (d?.success ? d.data as { groupId: number; name: string }[] : []))

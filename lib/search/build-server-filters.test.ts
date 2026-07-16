@@ -36,6 +36,17 @@ describe('buildServerFilters — facets', () => {
   });
 });
 
+describe('buildServerFilters — set groups', () => {
+  it('expands group tokens in selectedSets into their member set codes', () => {
+    const f = buildServerFilters({ ...baseState, selectedSets: ['wtr', 'grp:hero-decks'] });
+    expect(f.sets).toEqual(['wtr', 'bvo', 'ksu', 'rnr', 'tea']);
+  });
+
+  it('leaves plain set codes untouched', () => {
+    expect(buildServerFilters({ ...baseState, selectedSets: ['lgs', 'gem'] }).sets).toEqual(['lgs', 'gem']);
+  });
+});
+
 describe('buildServerFilters — pitch (multi-select OR)', () => {
   it('maps selected pitches to an array filter (server ORs via inArray)', () => {
     expect(buildServerFilters({ ...baseState, selectedPitch: [1, 3] }).pitch).toEqual([1, 3]);

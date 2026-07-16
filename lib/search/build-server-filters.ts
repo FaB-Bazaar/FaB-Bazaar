@@ -5,6 +5,7 @@
  */
 
 import { TYPE_CHIPS, GENERIC_CHIP } from '@/lib/search/card-filter-chips';
+import { expandSetSelections } from '@/lib/fab-constants/sets';
 import { FABShorthandParser } from '@/lib/search/fab-shorthand-parser';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 
@@ -109,7 +110,9 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   if (s.selectedRarities.length) f.rarities = s.selectedRarities;
   if (s.selectedFoilings.length) f.foilings = s.selectedFoilings;
   if (s.selectedEditions.length) f.editions = s.selectedEditions;
-  if (s.selectedSets.length) f.sets = s.selectedSets;
+  // selectedSets holds plain codes plus grp: deck-product tokens — flatten to
+  // the exact code list the service's inArray filter expects.
+  if (s.selectedSets.length) f.sets = expandSetSelections(s.selectedSets);
   if (s.selectedFacets?.length) {
     f.facetTags = s.selectedFacets;
     if (s.facetsMatchAll) f.facetTagsMode = 'all';

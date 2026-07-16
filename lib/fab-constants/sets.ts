@@ -71,6 +71,85 @@ export interface SetMetadata {
 }
 
 
+/**
+ * Promo sets selectable individually in the /opt & /tags set filter, in the
+ * order the buttons render. Each is one DB set code (the collector-number
+ * prefix is always identical to the code, so no finer mapping is needed).
+ */
+export const PROMO_FILTER_SETS: string[] = [
+  'lgs', 'fab', 'her', 'gem', 'jdg', 'win', 'lss', 'tnp', 'oxo',
+];
+
+/**
+ * Standalone non-booster products (Classic Battles, 1st Strike, Round the
+ * Table, Smash Palace) selectable individually in the /opt & /tags set filter.
+ */
+export const OTHER_PRODUCT_FILTER_SETS: string[] = [
+  'dvr', 'rvd', 'aur', 'ter', 'tcc', 'smp',
+];
+
+/**
+ * Deck-product groups offered as single filter buttons. A selected group is
+ * stored in OptUiState.selectedSets as its `grp:` token and expanded to member
+ * set codes only at the server-filter boundary (expandSetSelections), so URLs
+ * and chips stay one-entry-per-selection.
+ *
+ * Membership is DERIVED from SET_METADATA (armory via `category`, the rest via
+ * the rigid name prefixes LSS uses) — a new deck added to the `sets` table
+ * joins its group when the snapshot is regenerated, with no code edit here.
+ */
+export interface SetFilterGroup {
+  token: string;
+  label: string;
+  codes: string[];
+}
+
+const SET_GROUP_TOKEN_PREFIX = 'grp:';
+
+function codesWhere(pred: (m: SetMetadata) => boolean): string[] {
+  return Object.entries(SET_METADATA)
+    .filter(([, m]) => pred(m))
+    .map(([code]) => code);
+}
+
+export const SET_FILTER_GROUPS: SetFilterGroup[] = [
+  { token: 'grp:blitz', label: 'Blitz Decks', codes: codesWhere(m => m.name.includes('Blitz Deck:')) },
+  { token: 'grp:armory', label: 'Armory Decks', codes: codesWhere(m => m.category === 'armory') },
+  { token: 'grp:silver-age', label: 'Silver Age Decks', codes: codesWhere(m => m.name.startsWith('Silver Age Deck:')) },
+  { token: 'grp:hero-decks', label: 'Hero Decks', codes: codesWhere(m => m.name.startsWith('Hero Deck:')) },
+];
+
+const SET_GROUPS_BY_TOKEN = new Map(SET_FILTER_GROUPS.map(g => [g.token, g]));
+
+/** True for `grp:` group tokens stored alongside plain codes in selectedSets. */
+export function isSetGroupToken(value: string): boolean {
+  return value.startsWith(SET_GROUP_TOKEN_PREFIX);
+}
+
+/** Display label for a group token, or undefined for plain codes / unknown tokens. */
+export function setGroupLabel(token: string): string | undefined {
+  return SET_GROUPS_BY_TOKEN.get(token)?.label;
+}
+
+/**
+ * Expand a selectedSets list (plain codes + `grp:` tokens) into the flat,
+ * deduped set-code list the search service filters on. Unknown group tokens
+ * are dropped rather than sent to the server as bogus codes.
+ */
+export function expandSetSelections(selected: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of selected) {
+    const codes = isSetGroupToken(value)
+      ? SET_GROUPS_BY_TOKEN.get(value)?.codes ?? []
+      : [value];
+    for (const code of codes) {
+      if (!seen.has(code)) { seen.add(code); out.push(code); }
+    }
+  }
+  return out;
+}
+
 // Explicit ordering for non-standard sets on the /sets page
 const NON_STANDARD_ORDER = [
   'tcc', 'smp', 'mpw', 'gem', 'dvr', 'aur',

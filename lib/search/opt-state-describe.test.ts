@@ -50,6 +50,14 @@ describe('optStateToChips', () => {
     expect(chips.find(c => c.key === 'facet:tutor')?.label).toBe('Tag: tutor');
   });
 
+  it('labels a set-group token with the group name and removes it via TOGGLE_IN', () => {
+    const s = state({ selectedSets: ['grp:blitz'] });
+    const chip = optStateToChips(s).find(c => c.key === 'set:grp:blitz');
+    expect(chip?.label).toBe('Blitz Decks');
+    const next = optSearchReducer(s, chip!.removeAction);
+    expect(next.selectedSets).toEqual([]);
+  });
+
   it('labels hero ages, talentless, ranges, price, and non-default language', () => {
     const s = state({
       selectedHeroAges: ['young'],

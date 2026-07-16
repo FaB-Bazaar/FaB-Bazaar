@@ -13,6 +13,7 @@
  */
 
 import { SET_MAP } from '@/lib/fab-constants';
+import { setGroupLabel } from '@/lib/fab-constants/sets';
 import {
   TYPE_CHIPS, PITCH_CHIPS, KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS,
   EDITION_OPTIONS, FORMAT_OPTIONS, HERO_AGE_CHIPS,
@@ -88,7 +89,7 @@ export function optStateToChips(s: OptUiState, meta?: OptDescribeMeta): OptChip[
     chips.push({ key: 'format', label: `Format: ${def?.label ?? s.selectedFormat}`, removeAction: { type: 'PATCH', patch: { selectedFormat: null } } });
   }
   s.selectedSets.forEach(set => {
-    chips.push({ key: `set:${set}`, label: SET_MAP[set.toLowerCase() as keyof typeof SET_MAP] ?? set, removeAction: { type: 'TOGGLE_IN', key: 'selectedSets', value: set } });
+    chips.push({ key: `set:${set}`, label: setGroupLabel(set) ?? SET_MAP[set.toLowerCase() as keyof typeof SET_MAP] ?? set, removeAction: { type: 'TOGGLE_IN', key: 'selectedSets', value: set } });
   });
   s.selectedPacks.forEach(g => {
     const pack = meta?.availablePacks?.find(p => p.groupId === g);
