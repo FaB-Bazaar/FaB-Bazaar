@@ -285,6 +285,12 @@ export const cards = pgTable('cards', {
   // by scripts/import-i18n.ts; NULL for cards never seen in the LSS feed.
   lssCardId: text('lss_card_id'),
 
+  // fab-cube card unique_id anchor (migration 0088). card_unique_id is OUR
+  // immutable internal PK; this records which fab-cube card the row is
+  // reconciled to. NULL = provisional (created from CardVault before fab-cube
+  // published the card).
+  fabCubeCardId: text('fab_cube_card_id'),
+
   // Card text & abilities
   text: text('text'),
   searchableText: text('searchable_text'),
@@ -411,6 +417,9 @@ export const cards = pgTable('cards', {
   nameIdx: index('idx_cards_name').on(table.name),
   typeTextIdx: index('idx_cards_type_text').on(table.typeText),
   lssCardIdIdx: index('idx_cards_lss_card_id').on(table.lssCardId),
+  fabCubeCardIdUx: uniqueIndex('ux_cards_fab_cube_card_id')
+    .on(table.fabCubeCardId)
+    .where(sql`${table.fabCubeCardId} IS NOT NULL`),
 }));
 
 // Curated facet vocabulary (runtime source of truth). Created/edited via the
@@ -505,6 +514,17 @@ export const printings = pgTable('printings', {
   // Printing identity
   setPrintingUniqueId: text('set_printing_unique_id'),
   collectorNumber: text('collector_number'),
+
+  // Source anchors (migration 0088). printing_id is OUR immutable internal
+  // PK (user FKs + Cloudflare image ids key on it, forever); these record
+  // which upstream row this printing is reconciled to.
+  // NULL fab_cube_printing_id = provisional: not (yet) in the fab-cube feed —
+  // the pipeline's stale-delete must never prune such rows.
+  fabCubePrintingId: text('fab_cube_printing_id'),
+  // CardVault print UUID (their DB PK) — CardVault-ingest idempotency key.
+  lssPrintId: text('lss_print_id'),
+  // CardVault human print code (e.g. 'U-ARC029-RF') — debug convenience.
+  lssPrintCode: text('lss_print_code'),
 
   // Lowercase ISO 639-1 code ('en', 'fr', 'de', ...). Drives image selection
   // for the physical printing. Distinct from inventory_items.language which
@@ -606,6 +626,12 @@ export const printings = pgTable('printings', {
   foilingIdx: index('idx_printings_foiling').on(table.foiling),
   setRarityIdx: index('idx_printings_set_rarity').on(table.set, table.rarity),
   languageIdx: index('idx_printings_language').on(table.language),
+  fabCubePrintingIdUx: uniqueIndex('ux_printings_fab_cube_printing_id')
+    .on(table.fabCubePrintingId)
+    .where(sql`${table.fabCubePrintingId} IS NOT NULL`),
+  lssPrintIdUx: uniqueIndex('ux_printings_lss_print_id')
+    .on(table.lssPrintId)
+    .where(sql`${table.lssPrintId} IS NOT NULL`),
 }));
 
 // ============================================================================
