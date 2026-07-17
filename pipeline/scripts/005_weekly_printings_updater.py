@@ -265,6 +265,26 @@ def _to_row(record: Dict, fields: List[str]) -> tuple:
     return tuple(record.get(f) for f in fields) + (now,)  # appends created_at placeholder
 
 
+def _stale_printing_guard_sql() -> str:
+    """Boolean fragment: TRUE when a printing is still referenced somewhere.
+
+    Every table/column that points at printings.printing_id must appear here,
+    including the ones WITHOUT a FK constraint (curated_list_cards,
+    other_face_printing_id) — those would dangle silently if pruned. The DFC
+    partner guard means a stale double-faced pair is never auto-deleted (each
+    face protects the other); that's deliberate — an undeleted pair beats a
+    dangling other_face_printing_id pointer.
+    """
+    return """(
+        printing_id IN (SELECT printing_id FROM inventory_items)
+        OR printing_id IN (SELECT printing_id FROM wants_items)
+        OR printing_id IN (SELECT printing_id FROM deck_cards)
+        OR printing_id IN (SELECT printing_id FROM curated_list_cards)
+        OR printing_id IN (SELECT other_face_printing_id FROM printings
+                           WHERE other_face_printing_id IS NOT NULL)
+    )"""
+
+
 # ─── Main class ───────────────────────────────────────────────────────────────
 
 class WeeklyPrintingsUpdater:
@@ -425,47 +445,41 @@ class WeeklyPrintingsUpdater:
     def _delete_stale_printings(self, source_ids: set, dry_run: bool):
         """Delete printings no longer in the source, unless a user still holds them."""
         print("\n🧹 Checking for stale printings to remove...")
+        guard = _stale_printing_guard_sql()
         try:
             with self.conn.cursor() as cur:
-                # Count stale English printings referenced by user data (keep these).
-                # The `language = 'en'` filter scopes pruning to rows this pipeline
-                # owns; non-English printings (managed by scripts/import-i18n.ts)
-                # are always preserved regardless of source_ids.
-                cur.execute("""
+                # Count stale English printings still referenced somewhere (keep
+                # these). The `language = 'en'` filter scopes pruning to rows this
+                # pipeline owns; non-English printings (managed by
+                # scripts/import-i18n.ts) are always preserved regardless of
+                # source_ids.
+                cur.execute(f"""
                     SELECT COUNT(*) FROM printings
                     WHERE language = 'en'
                       AND printing_id != ALL(%s)
-                      AND (
-                        printing_id IN (SELECT printing_id FROM inventory_items)
-                        OR printing_id IN (SELECT printing_id FROM wants_items)
-                        OR printing_id IN (SELECT printing_id FROM deck_cards)
-                      )
+                      AND {guard}
                 """, (list(source_ids),))
                 skipped = cur.fetchone()[0]
                 self.stats['printings_skipped_user_ref'] = skipped
 
                 if dry_run:
-                    cur.execute("""
+                    cur.execute(f"""
                         SELECT COUNT(*) FROM printings
                         WHERE language = 'en'
                           AND printing_id != ALL(%s)
-                          AND printing_id NOT IN (SELECT printing_id FROM inventory_items)
-                          AND printing_id NOT IN (SELECT printing_id FROM wants_items)
-                          AND printing_id NOT IN (SELECT printing_id FROM deck_cards)
+                          AND NOT {guard}
                     """, (list(source_ids),))
                     would_delete = cur.fetchone()[0]
                     print(f"   Would delete {would_delete:,} stale English printings "
-                          f"({skipped:,} skipped — referenced by user data)")
+                          f"({skipped:,} skipped — still referenced)")
                     self.stats['printings_deleted'] = would_delete
                     return
 
-                cur.execute("""
+                cur.execute(f"""
                     DELETE FROM printings
                     WHERE language = 'en'
                       AND printing_id != ALL(%s)
-                      AND printing_id NOT IN (SELECT printing_id FROM inventory_items)
-                      AND printing_id NOT IN (SELECT printing_id FROM wants_items)
-                      AND printing_id NOT IN (SELECT printing_id FROM deck_cards)
+                      AND NOT {guard}
                 """, (list(source_ids),))
                 deleted = cur.rowcount
             self.conn.commit()
