@@ -242,7 +242,7 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   "aha": { code: "AHA", name: "Armory Deck Origins: Hala", releaseDate: "2026-04-17", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1100, unlimitedBeforeFirst: false },
   "azs": { code: "AZS", name: "Armory Deck: Zyggy", releaseDate: "2026-05-29", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1110, unlimitedBeforeFirst: false },
   "omn": { code: "OMN", name: "Omens of the Third Age", releaseDate: "2026-06-05", hasFirstEdition: false, category: "standard", tier: 1, displayOrder: 190, unlimitedBeforeFirst: false },
-  "iar": { code: "IAR", name: "Usurp the Shadow Throne", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 390, unlimitedBeforeFirst: false },
+  "iar": { code: "IAR", name: "Usurp the Shadow Throne", releaseDate: "2026-06-05", hasFirstEdition: false, category: "standard", tier: 1, displayOrder: 195, unlimitedBeforeFirst: false },
   "mpw": { code: "MPW", name: "Mastery Pack Warrior", releaseDate: "2026-07-08", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 400, unlimitedBeforeFirst: false },
   "ddd": { code: "DDD", name: "Dorinthea Demo Deck", releaseDate: "2026-08-07", hasFirstEdition: false, category: "excluded", tier: 3, displayOrder: 950, unlimitedBeforeFirst: false },
   "aol": { code: "AOL", name: "Armory Deck: Olympia", releaseDate: "2026-08-07", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1120, unlimitedBeforeFirst: false },
