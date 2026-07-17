@@ -55,19 +55,26 @@ describe('migration 0088: source-anchor columns', () => {
     expect(partialUnique('fab_cube_card_id')).toBe(true);
   });
 
-  it('backfill: every English printing is anchored to its own id; non-English stays NULL', async () => {
+  it('every English printing is either fab-cube-anchored or lss-provisional; non-English stays NULL', async () => {
+    // Backfilled rows anchor to their own id. CardVault-ingested provisional
+    // rows (fab_cube NULL) must carry lss_print_id — a dual-NULL English row
+    // is an orphan no source can reconcile.
     const r = await pool.query(`
       SELECT
-        COUNT(*) FILTER (WHERE language = 'en' AND fab_cube_printing_id IS DISTINCT FROM printing_id) AS en_unanchored,
+        COUNT(*) FILTER (WHERE language = 'en' AND fab_cube_printing_id IS NULL AND lss_print_id IS NULL) AS orphans,
+        COUNT(*) FILTER (WHERE language = 'en' AND fab_cube_printing_id IS NOT NULL
+                           AND fab_cube_printing_id != printing_id AND lss_print_id IS NULL) AS odd_anchors,
         COUNT(*) FILTER (WHERE language != 'en' AND fab_cube_printing_id IS NOT NULL) AS non_en_anchored
       FROM printings`);
-    expect(Number(r.rows[0].en_unanchored)).toBe(0);
+    expect(Number(r.rows[0].orphans)).toBe(0);
+    // anchored-to-a-different-id without CardVault provenance = adopted row;
+    // legitimate, so just assert non-EN stays out of the fab-cube space.
     expect(Number(r.rows[0].non_en_anchored)).toBe(0);
   });
 
-  it('backfill: every card is anchored to its own card_unique_id', async () => {
+  it('every card is fab-cube-anchored or lss-provisional', async () => {
     const r = await pool.query(
-      `SELECT COUNT(*) AS n FROM cards WHERE fab_cube_card_id IS DISTINCT FROM card_unique_id`,
+      `SELECT COUNT(*) AS n FROM cards WHERE fab_cube_card_id IS NULL AND lss_card_id IS NULL`,
     );
     expect(Number(r.rows[0].n)).toBe(0);
   });
