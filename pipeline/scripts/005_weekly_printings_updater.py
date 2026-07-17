@@ -18,10 +18,13 @@ i18n invariants (intentional non-touches):
 - `cards.lss_card_id`: populated by scripts/import-i18n.ts from the LSS feed.
   Not in CARD_FIELDS, so this script never INSERTs or UPDATEs it. Existing
   values are preserved across pipeline runs.
-- `printings.language`: the seed always represents English data, so this
-  script only manages `language = 'en'` rows. Non-English printings (created
-  by scripts/import-i18n.ts) are excluded from the stale-row DELETE via an
-  explicit `language = 'en'` filter and stay untouched.
+- `printings.language`: the seed always represents English data. Ownership for
+  the stale-row DELETE is `fab_cube_printing_id IS NOT NULL` (rows this
+  pipeline anchored to the fab-cube feed) — non-English printings (created by
+  scripts/import-i18n.ts) and provisional CardVault-ingested rows both have a
+  NULL anchor and stay untouched. See _reconcile_anchors for how provisional
+  rows get adopted (anchored in place, internal ids preserved) when fab-cube
+  first publishes them.
 - `card_translations` table: not referenced anywhere in this script.
 - `cards.facet_tags`: curated interpretive search facets, managed via
   /admin/card-facets + the card_facet_tags registry. Not in CARD_FIELDS, so this
@@ -77,15 +80,25 @@ CARD_FIELDS: List[str] = [
     'blitz_banned', 'cc_banned', 'commoner_banned', 'll_banned',
     'blitz_suspended', 'cc_suspended', 'commoner_suspended', 'll_restricted',
     'silver_age_banned', 'silver_age_suspended',
+    # Source anchor (migration 0088) — set by _reconcile_anchors, INSERT-only
+    # (see SOURCE_ANCHOR_COLS): adoption owns stamping, upserts never clobber.
+    'fab_cube_card_id',
 ]
+
+# Anchor columns ride INSERT (new pipeline rows anchor to their fab-cube id)
+# but are excluded from ON CONFLICT UPDATE: adoption (_reconcile_anchors) is
+# the only writer on existing rows. lss_print_id / lss_print_code are owned by
+# the CardVault ingest and are not in the field lists at all.
+SOURCE_ANCHOR_COLS: frozenset = frozenset(['fab_cube_card_id', 'fab_cube_printing_id'])
 
 PRINTING_FIELDS: List[str] = [
     'printing_id', 'card_unique_id', 'set_printing_unique_id', 'collector_number',
     'set', 'edition', 'foiling', 'rarity',
     # Language: pipeline only emits English. Explicit so re-runs never relax
     # this back to the column default (avoids confusion if the default ever
-    # changes). Non-English rows are managed by scripts/import-i18n.ts and
-    # excluded from the stale DELETE — see _delete_stale_printings.
+    # changes). Non-English rows are managed by scripts/import-i18n.ts and,
+    # like all NULL-anchor rows, excluded from the stale DELETE — see
+    # _delete_stale_printings ownership predicate.
     'language',
     # Edition flags
     'is_first_edition', 'is_unlimited', 'is_normal_edition',
@@ -107,6 +120,8 @@ PRINTING_FIELDS: List[str] = [
     'expansion_slot', 'content_hash',
     # Double-faced card linking
     'other_face_printing_id', 'is_front_face',
+    # Source anchor (migration 0088) — see SOURCE_ANCHOR_COLS.
+    'fab_cube_printing_id',
 ]
 
 # Fields from the JSON that do not exist in PostgreSQL (MongoDB-only)
@@ -185,6 +200,7 @@ def _build_card_upsert_sql() -> str:
     update_cols = [
         c for c in CARD_FIELDS
         if c != 'card_unique_id' and c not in CARD_ADMIN_OWNED_COLS
+        and c not in SOURCE_ANCHOR_COLS
     ]
     update_set = ',\n            '.join(f'"{c}" = EXCLUDED."{c}"' for c in update_cols)
     return f"""
@@ -198,7 +214,10 @@ def _build_card_upsert_sql() -> str:
 
 def _build_printing_upsert_sql() -> str:
     col_names = ', '.join(f'"{c}"' for c in PRINTING_FIELDS)
-    update_cols = [c for c in PRINTING_FIELDS if c != 'printing_id']
+    update_cols = [
+        c for c in PRINTING_FIELDS
+        if c != 'printing_id' and c not in SOURCE_ANCHOR_COLS
+    ]
     update_set = ',\n            '.join(f'"{c}" = EXCLUDED."{c}"' for c in update_cols)
     return f"""
         INSERT INTO printings ({col_names}, created_at, updated_at)
@@ -440,6 +459,177 @@ class WeeklyPrintingsUpdater:
                 print(f"   ❌ Printings batch {batch_num} failed: {e}")
                 self.stats['failed_batches'] += 1
 
+    # ── Anchor reconciliation (dual-source ID model, migration 0088) ─────────
+
+    def _reconcile_anchors(self, cards_map: Dict[str, Dict], printings_map: Dict[str, Dict],
+                           dry_run: bool) -> Tuple[Dict[str, Dict], Dict[str, Dict]]:
+        """Align feed docs with the internal ID space before upserting.
+
+        The feed keys everything by fab-cube ids. Internally those are anchor
+        VALUES (fab_cube_card_id / fab_cube_printing_id), not necessarily row
+        ids: rows created from CardVault during spoiler season have minted
+        internal ids. Two passes:
+
+        1. REMAP (steady state): a feed doc whose fab-cube id is already
+           anchored to a row with a different internal id is rewritten to that
+           internal id, so the upsert updates the adopted row in place instead
+           of inserting a duplicate.
+        2. ADOPT (first sight): a feed printing whose fab-cube id is anchored
+           nowhere tries to claim a provisional row (fab_cube_printing_id IS
+           NULL) by natural key (set, collector_number, edition, foiling,
+           language) — art_variations and rarity deliberately excluded (proven
+           divergence points). Tier 2 retries leftovers on (set, collector)
+           buckets with exactly one candidate on each side. Anything still
+           ambiguous is reported and left alone: the feed doc inserts as a new
+           anchored row and the provisional twin shows up in the merge report.
+           Cards adopt via talishar_card_id (deterministic name+pitch).
+
+        Rewrites ids embedded in doc fields too: card_unique_id references,
+        other_face_printing_id (feed ids of partner faces), and image_url
+        (003 builds it from the printing_id).
+
+        In dry_run the anchor UPDATEs are skipped but the in-memory remapping
+        still happens, so downstream dry-run counts match a real run.
+        Returns rekeyed (cards_map, printings_map).
+        """
+        stats_zero = ['cards_remapped', 'cards_adopted', 'cards_adoption_ambiguous',
+                      'printings_remapped', 'printings_adopted', 'printings_adoption_ambiguous']
+        for k in stats_zero:
+            self.stats.setdefault(k, 0)
+
+        with self.conn.cursor() as cur:
+            # ── cards: existing anchors ──
+            cur.execute(
+                "SELECT fab_cube_card_id, card_unique_id FROM cards WHERE fab_cube_card_id = ANY(%s)",
+                (list(cards_map.keys()),))
+            card_anchor = {fc: internal for fc, internal in cur.fetchall()}
+
+            # ── cards: adoption via talishar_card_id ──
+            unanchored_cards = [fid for fid in cards_map if fid not in card_anchor]
+            if unanchored_cards:
+                tal_by_feed = {fid: cards_map[fid].get('talishar_card_id')
+                               for fid in unanchored_cards if cards_map[fid].get('talishar_card_id')}
+                if tal_by_feed:
+                    cur.execute(
+                        """SELECT talishar_card_id, card_unique_id FROM cards
+                            WHERE fab_cube_card_id IS NULL AND talishar_card_id = ANY(%s)""",
+                        (list(set(tal_by_feed.values())),))
+                    prov_by_tal: Dict[str, List[str]] = {}
+                    for tal, internal in cur.fetchall():
+                        prov_by_tal.setdefault(tal, []).append(internal)
+                    feeds_by_tal: Dict[str, List[str]] = {}
+                    for fid, tal in tal_by_feed.items():
+                        feeds_by_tal.setdefault(tal, []).append(fid)
+                    for tal, feeds in feeds_by_tal.items():
+                        rows = prov_by_tal.get(tal, [])
+                        if len(feeds) == 1 and len(rows) == 1:
+                            card_anchor[feeds[0]] = rows[0]
+                            self.stats['cards_adopted'] += 1
+                            if not dry_run:
+                                cur.execute(
+                                    "UPDATE cards SET fab_cube_card_id = %s WHERE card_unique_id = %s",
+                                    (feeds[0], rows[0]))
+                        elif rows:
+                            self.stats['cards_adoption_ambiguous'] += 1
+                            print(f"   ⚠ card adoption ambiguous for talishar_id {tal}: "
+                                  f"{len(feeds)} feed cards vs {len(rows)} provisional rows")
+
+            # ── printings: existing anchors ──
+            cur.execute(
+                "SELECT fab_cube_printing_id, printing_id FROM printings WHERE fab_cube_printing_id = ANY(%s)",
+                (list(printings_map.keys()),))
+            print_anchor = {fc: internal for fc, internal in cur.fetchall()}
+
+            # ── printings: adoption via natural key ──
+            unanchored = {fid: d for fid, d in printings_map.items() if fid not in print_anchor}
+            if unanchored:
+                sets_in_play = sorted({d.get('set') for d in unanchored.values() if d.get('set')})
+                cur.execute(
+                    """SELECT printing_id, set, collector_number, edition, foiling, language
+                         FROM printings
+                        WHERE fab_cube_printing_id IS NULL AND set = ANY(%s)""",
+                    (sets_in_play,))
+                prov_rows = cur.fetchall()
+                if prov_rows:
+                    def nk(set_, coll, ed, foil, lang):
+                        return (set_, coll, ed, foil, lang)
+
+                    prov_by_nk: Dict[tuple, List[str]] = {}
+                    for pid, s, coll, ed, foil, lang in prov_rows:
+                        prov_by_nk.setdefault(nk(s, coll, ed, foil, lang), []).append(pid)
+                    feed_by_nk: Dict[tuple, List[str]] = {}
+                    for fid, d in unanchored.items():
+                        feed_by_nk.setdefault(
+                            nk(d.get('set'), d.get('collector_number'), d.get('edition'),
+                               d.get('foiling'), d.get('language')), []).append(fid)
+
+                    def adopt(fid: str, pid: str):
+                        print_anchor[fid] = pid
+                        self.stats['printings_adopted'] += 1
+                        if not dry_run:
+                            cur.execute(
+                                "UPDATE printings SET fab_cube_printing_id = %s WHERE printing_id = %s",
+                                (fid, pid))
+
+                    # tier 1: exact natural key, one candidate each side
+                    t2_feed: Dict[tuple, List[str]] = {}
+                    t2_prov: Dict[tuple, List[str]] = {}
+                    for key, feeds in feed_by_nk.items():
+                        rows = prov_by_nk.get(key, [])
+                        if len(feeds) == 1 and len(rows) == 1:
+                            adopt(feeds[0], rows[0])
+                        else:
+                            bucket = (key[0], key[1])  # (set, collector_number)
+                            t2_feed.setdefault(bucket, []).extend(feeds)
+                            if rows:
+                                t2_prov.setdefault(bucket, []).extend(rows)
+                    # tier 2: (set, collector) bucket with one leftover each side
+                    for bucket, feeds in t2_feed.items():
+                        rows = t2_prov.get(bucket, [])
+                        if len(feeds) == 1 and len(rows) == 1:
+                            adopt(feeds[0], rows[0])
+                            print(f"   ↳ tier-2 adoption in {bucket}: attributes corrected from feed")
+                        elif rows:
+                            self.stats['printings_adoption_ambiguous'] += 1
+                            print(f"   ⚠ printing adoption ambiguous in {bucket}: "
+                                  f"{len(feeds)} feed prints vs {len(rows)} provisional rows")
+
+        # ── rewrite the feed docs to internal ids ──
+        new_cards: Dict[str, Dict] = {}
+        for fid, doc in cards_map.items():
+            internal = card_anchor.get(fid, fid)
+            doc['fab_cube_card_id'] = fid
+            doc['card_unique_id'] = internal
+            if internal != fid:
+                self.stats['cards_remapped'] += 1
+            new_cards[internal] = doc
+
+        new_printings: Dict[str, Dict] = {}
+        for fid, doc in printings_map.items():
+            internal = print_anchor.get(fid, fid)
+            doc['fab_cube_printing_id'] = fid
+            doc['printing_id'] = internal
+            doc['card_unique_id'] = card_anchor.get(doc.get('card_unique_id'), doc.get('card_unique_id'))
+            other = doc.get('other_face_printing_id')
+            if other:
+                doc['other_face_printing_id'] = print_anchor.get(other, other)
+            if internal != fid:
+                self.stats['printings_remapped'] += 1
+                # 003 builds image_url from the printing_id — keep it pointing
+                # at the internal id the Cloudflare image actually lives under.
+                if doc.get('image_url'):
+                    doc['image_url'] = doc['image_url'].replace(fid, internal)
+            new_printings[internal] = doc
+
+        if not dry_run:
+            self.conn.commit()
+
+        adopted = self.stats['printings_adopted'] + self.stats['cards_adopted']
+        remapped = self.stats['printings_remapped'] + self.stats['cards_remapped']
+        ambiguous = self.stats['printings_adoption_ambiguous'] + self.stats['cards_adoption_ambiguous']
+        print(f"   Anchor reconcile: {adopted} adopted, {remapped} remapped, {ambiguous} ambiguous")
+        return new_cards, new_printings
+
     # ── Deletion of stale rows ────────────────────────────────────────────────
 
     def _delete_stale_printings(self, source_ids: set, dry_run: bool):
@@ -448,14 +638,13 @@ class WeeklyPrintingsUpdater:
         guard = _stale_printing_guard_sql()
         try:
             with self.conn.cursor() as cur:
-                # Count stale English printings still referenced somewhere (keep
-                # these). The `language = 'en'` filter scopes pruning to rows this
-                # pipeline owns; non-English printings (managed by
-                # scripts/import-i18n.ts) are always preserved regardless of
-                # source_ids.
+                # Ownership scope: the pipeline only prunes rows it ANCHORED
+                # (fab_cube_printing_id IS NOT NULL). NULL-anchor rows are not
+                # ours to delete: non-English printings (import-i18n nanoids)
+                # and provisional CardVault-ingested rows awaiting adoption.
                 cur.execute(f"""
                     SELECT COUNT(*) FROM printings
-                    WHERE language = 'en'
+                    WHERE fab_cube_printing_id IS NOT NULL
                       AND printing_id != ALL(%s)
                       AND {guard}
                 """, (list(source_ids),))
@@ -465,19 +654,19 @@ class WeeklyPrintingsUpdater:
                 if dry_run:
                     cur.execute(f"""
                         SELECT COUNT(*) FROM printings
-                        WHERE language = 'en'
+                        WHERE fab_cube_printing_id IS NOT NULL
                           AND printing_id != ALL(%s)
                           AND NOT {guard}
                     """, (list(source_ids),))
                     would_delete = cur.fetchone()[0]
-                    print(f"   Would delete {would_delete:,} stale English printings "
+                    print(f"   Would delete {would_delete:,} stale anchored printings "
                           f"({skipped:,} skipped — still referenced)")
                     self.stats['printings_deleted'] = would_delete
                     return
 
                 cur.execute(f"""
                     DELETE FROM printings
-                    WHERE language = 'en'
+                    WHERE fab_cube_printing_id IS NOT NULL
                       AND printing_id != ALL(%s)
                       AND NOT {guard}
                 """, (list(source_ids),))
@@ -505,7 +694,8 @@ class WeeklyPrintingsUpdater:
                 if dry_run:
                     cur.execute("""
                         SELECT COUNT(*) FROM cards
-                        WHERE card_unique_id != ALL(%s)
+                        WHERE fab_cube_card_id IS NOT NULL
+                          AND card_unique_id != ALL(%s)
                           AND card_unique_id NOT IN (
                             SELECT DISTINCT card_unique_id FROM printings
                           )
@@ -517,7 +707,8 @@ class WeeklyPrintingsUpdater:
 
                 cur.execute("""
                     DELETE FROM cards
-                    WHERE card_unique_id != ALL(%s)
+                    WHERE fab_cube_card_id IS NOT NULL
+                      AND card_unique_id != ALL(%s)
                       AND card_unique_id NOT IN (
                         SELECT DISTINCT card_unique_id FROM printings
                       )
@@ -551,6 +742,11 @@ class WeeklyPrintingsUpdater:
             f"   Current DB: {self.stats['cards_before']:,} cards, "
             f"{self.stats['printings_before']:,} printings"
         )
+
+        # Align feed ids with the internal ID space (adopt provisional rows,
+        # remap already-adopted ones) BEFORE upserting — otherwise a feed doc
+        # for an adopted row would insert a duplicate under the fab-cube id.
+        cards_map, printings_map = self._reconcile_anchors(cards_map, printings_map, dry_run)
 
         card_list = list(cards_map.values())
         printing_list = list(printings_map.values())
