@@ -33,3 +33,14 @@ Runs in the `fabbazaar-pipeline` container. See root CLAUDE.md "Data Architectur
 - **Pipeline Python tests** — `python3 pipeline/scripts/test_*.py` (unittest).
   `010_compute_movers` reads `POSTGRES_URL` at import; set a dummy to import it for
   SQL-only tests. Filenames start with digits → load via importlib.
+
+- **005 anchor reconcile** — `_reconcile_anchors` remaps feed docs to internal ids and
+  adopts provisional rows BEFORE upserting; stale-delete ownership is
+  `fab_cube_printing_id IS NOT NULL` (NULL-anchor rows — i18n + CardVault-provisional —
+  are never pruned). Anchors are INSERT-only (`SOURCE_ANCHOR_COLS`); ambiguous adoption
+  is reported in the log ("Anchor reconcile:"), never guessed.
+
+- **Old pipeline image after 0088** — if the RAM-gated rebuild skip leaves the
+  pre-anchor 005 running after the migration, that night's new rows insert unanchored
+  (dual-NULL en rows). Fix: confirm the rebuild, then re-run 0088's backfill UPDATE
+  (idempotent).
