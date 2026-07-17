@@ -64,10 +64,13 @@ const RARITY_TO_CODE: Record<string, string> = {
   legendary: 'l',
   fabled: 'f',
   marvel: 'v',
-  // CardVault tags premium Marvel hero reprints (e.g. HER cold/rainbow foils)
-  // as "promo-marvel"; they're still Marvel rarity ('v'), not plain promo.
-  'promo-marvel': 'v',
+  // CardVault tags premium promo reprints (HER154, GEM141, TNP028-030) as
+  // "promo-marvel"; fab-cube stores every one of those as plain promo ('p').
+  // Only CardVault rarity "marvel" (true marvels, e.g. HER160/HER167) is 'v'.
+  'promo-marvel': 'p',
   promo: 'p',
+  // fab-cube stores ANQ gold reprints (e.g. ANQ009) as legendary.
+  gold: 'l',
   token: 't',
   basic: 'b',
 };

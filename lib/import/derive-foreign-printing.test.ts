@@ -97,19 +97,41 @@ describe('deriveForeignPrinting', () => {
     expect(d.is_fabled).toBe(true);
   });
 
-  it('maps a promo-marvel cold-foil hero to v / c (HER Marvel reprints)', () => {
+  it('maps a promo-marvel cold-foil hero to p / c (premium promo reprints)', () => {
+    // Calibrated against fab-cube's stored rows: every printing CardVault tags
+    // "promo-marvel" (HER154, GEM141, TNP028-030) is rarity 'p' in the feed.
+    // True marvels (CardVault rarity "marvel", e.g. HER160/HER167) stay 'v'.
     const d = deriveForeignPrinting(
       { print_language: 'en', rarity: 'promo-marvel', print_set: { set_code: 'HER' } },
       { printed_code: 'HER154', finish_type: 'cold-foil', art_type: 'regular' },
     );
     expect(d.set).toBe('her');
     expect(d.collector_number).toBe('HER154');
-    expect(d.rarity).toBe('v');
+    expect(d.rarity).toBe('p');
     expect(d.foiling).toBe('c');
     expect(d.is_cold_foil).toBe(true);
-    // Marvel is identified by rarity='v'; none of the boolean rarity flags apply.
-    expect(d.is_promo).toBe(false);
+    expect(d.is_promo).toBe(true);
     expect(d.is_majestic).toBe(false);
+  });
+
+  it('keeps true marvel rarity as v', () => {
+    const d = deriveForeignPrinting(
+      { print_language: 'en', rarity: 'marvel', print_set: { set_code: 'HER' } },
+      { printed_code: 'HER160', finish_type: 'cold-foil', art_type: 'extended-art' },
+    );
+    expect(d.rarity).toBe('v');
+    expect(d.is_promo).toBe(false);
+  });
+
+  it('maps gold rarity to l (ANQ gold reprints)', () => {
+    // fab-cube stores ANQ golds (e.g. ANQ009 Command and Conquer) as legendary.
+    const d = deriveForeignPrinting(
+      { print_language: 'ja', rarity: 'gold', print_set: { set_code: 'ANQ' } },
+      { printed_code: 'ANQ009', finish_type: 'rainbow-foil', art_type: 'regular' },
+    );
+    expect(d.rarity).toBe('l');
+    expect(d.is_legendary).toBe(true);
+    expect(d.foiling).toBe('r');
   });
 
   it('throws on an unknown rarity rather than guessing', () => {
