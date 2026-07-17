@@ -35,6 +35,7 @@ import { join } from 'node:path';
 import {
   pickSetPrints,
   buildProvisionalPrinting,
+  buildProvisionalCard,
   naturalKeyOf,
   type LssApiPrint,
   type ProvisionalPrintingRow,
@@ -167,7 +168,7 @@ async function politeFetch(url: string): Promise<any> {
   }
   const lssCardIds = cardsInPlay.map((c) => c.card.id);
   const cardRows = await pool.query(
-    `SELECT card_unique_id, lss_card_id, talishar_card_id FROM cards
+    `SELECT card_unique_id, lss_card_id, talishar_card_id, fab_cube_card_id FROM cards
       WHERE lss_card_id = ANY($1) OR talishar_card_id = ANY($2)`,
     [lssCardIds, cardsInPlay.map(({ card }) => {
       const en = (card.card_prints ?? []).flatMap((p: any) => p.faces ?? []).find((f: any) => f.face_language === 'en' && f.printed_name);
@@ -176,14 +177,15 @@ async function politeFetch(url: string): Promise<any> {
     }).filter(Boolean)]);
   const cardByLss = new Map(cardRows.rows.filter((r) => r.lss_card_id).map((r) => [r.lss_card_id, r.card_unique_id]));
   const cardByTal = new Map(cardRows.rows.filter((r) => r.talishar_card_id).map((r) => [r.talishar_card_id, r.card_unique_id]));
+  const provisionalCardIds = new Set(cardRows.rows.filter((r) => !r.fab_cube_card_id).map((r) => r.card_unique_id));
 
   // 4. build the plan
-  interface NewCard {
-    card_unique_id: string; name: string; display_name: string; talishar_card_id: string;
-    text: string | null; searchable_text: string | null; type_text: string | null;
-    types: string[]; pitch: number | null; lss_card_id: string;
-  }
-  const newCards: NewCard[] = [];
+  type CardRow = ReturnType<typeof buildProvisionalCard> & { talishar_card_id: string };
+  const newCards: CardRow[] = [];
+  // Existing PROVISIONAL cards get their derived fields refreshed (they may
+  // predate the flag/stat derivation, or CardVault may have corrected text).
+  // fab-cube-anchored cards are never touched — fab-cube owns their fields.
+  const enrichCards: CardRow[] = [];
   const newPrintings: ProvisionalPrintingRow[] = [];
   let skippedLss = 0, skippedNaturalKey = 0;
 
@@ -201,20 +203,11 @@ async function politeFetch(url: string): Promise<any> {
     let resolvedVia = cardByLss.get(card.id) ? 'lss' : cardUniqueId ? 'talishar' : null;
     if (!cardUniqueId) {
       cardUniqueId = nanoid();
-      const rules = (face?.printed_rules_text ?? '').replace(/\{br\}/g, ' ').replace(/\*\*/g, '').trim();
-      newCards.push({
-        card_unique_id: cardUniqueId,
-        name: displayName.toLowerCase(),
-        display_name: displayName,
-        talishar_card_id: tal,
-        text: rules ? rules.toLowerCase() : null,
-        searchable_text: rules ? rules.toLowerCase() : null,
-        type_text: face?.printed_typebox?.toLowerCase() ?? null,
-        types: (face?.printed_typebox ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
-        pitch,
-        lss_card_id: card.id,
-      });
+      newCards.push({ ...buildProvisionalCard(face!, { cardUniqueId, lssCardId: card.id }), talishar_card_id: tal });
       resolvedVia = 'NEW';
+    } else if (provisionalCardIds.has(cardUniqueId)) {
+      enrichCards.push({ ...buildProvisionalCard(face!, { cardUniqueId, lssCardId: card.id }), talishar_card_id: tal });
+      resolvedVia = `${resolvedVia}+enrich`;
     }
 
     for (const print of prints) {
@@ -227,7 +220,8 @@ async function politeFetch(url: string): Promise<any> {
     console.log(`  ${displayName}${pitch != null ? ` [p${pitch}]` : ''} (${resolvedVia}) — ${prints.length} en prints`);
   }
 
-  console.log(`\nplan: ${newCards.length} new cards, ${newPrintings.length} new printings; ` +
+  console.log(`\nplan: ${newCards.length} new cards, ${newPrintings.length} new printings, ` +
+    `${enrichCards.length} provisional cards to enrich; ` +
     `skipped ${skippedLss} already-ingested (lss), ${skippedNaturalKey} already-present (natural key)`);
 
   if (!COMMIT) {
@@ -241,12 +235,18 @@ async function politeFetch(url: string): Promise<any> {
   try {
     await client.query('BEGIN');
     for (const c of newCards) {
+      const cols = Object.keys(c);
       await client.query(
-        `INSERT INTO cards (card_unique_id, name, display_name, talishar_card_id, text,
-                            searchable_text, type_text, types, pitch, lss_card_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [c.card_unique_id, c.name, c.display_name, c.talishar_card_id, c.text,
-         c.searchable_text, c.type_text, c.types, c.pitch, c.lss_card_id]);
+        `INSERT INTO cards (${cols.map((k) => `"${k}"`).join(',')})
+         VALUES (${cols.map((_, i) => `$${i + 1}`).join(',')})`,
+        cols.map((k) => (c as any)[k]));
+    }
+    for (const c of enrichCards) {
+      const cols = Object.keys(c).filter((k) => k !== 'card_unique_id');
+      await client.query(
+        `UPDATE cards SET ${cols.map((k, i) => `"${k}" = $${i + 2}`).join(', ')}
+          WHERE card_unique_id = $1 AND fab_cube_card_id IS NULL`,
+        [c.card_unique_id, ...cols.map((k) => (c as any)[k])]);
     }
     for (const p of newPrintings) {
       const cols = Object.keys(p);
@@ -256,7 +256,7 @@ async function politeFetch(url: string): Promise<any> {
         cols.map((c) => (p as any)[c]));
     }
     await client.query('COMMIT');
-    console.log(`✓ committed ${newCards.length} cards + ${newPrintings.length} printings`);
+    console.log(`✓ committed ${newCards.length} cards + ${newPrintings.length} printings, enriched ${enrichCards.length}`);
   } catch (e) {
     await client.query('ROLLBACK');
     throw e;

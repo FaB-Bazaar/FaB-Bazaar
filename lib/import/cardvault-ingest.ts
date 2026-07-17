@@ -180,6 +180,74 @@ export function buildProvisionalPrinting(
   };
 }
 
+// Typebox-token → cards boolean-flag derivation. The deck builder and search
+// filter on these flags (hero pickers require is_hero; card pools exclude it),
+// so provisional cards must carry them or heroes are unpickable and leak into
+// card pools. Tokens come from the lowercased typebox split on non-alphanumerics.
+const CLASS_FLAGS = [
+  'generic', 'brute', 'guardian', 'mechanologist', 'ranger', 'runeblade',
+  'assassin', 'warrior', 'ninja', 'wizard', 'merchant', 'bard', 'adjudicator',
+  'illusionist', 'thief', 'shapeshifter', 'necromancer',
+] as const;
+const TALENT_FLAGS = [
+  'chaos', 'light', 'royal', 'draconic', 'lightning', 'shadow', 'earth',
+  'mystic', 'revered', 'ice', 'reviled', 'pirate', 'elemental',
+] as const;
+const TYPE_FLAGS = ['action', 'attack', 'instant', 'equipment', 'weapon', 'hero', 'mentor', 'token'] as const;
+
+function toInt(v: string | null | undefined): number | null {
+  if (v == null || String(v).trim() === '') return null;
+  const n = parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+export interface ProvisionalCardIds {
+  cardUniqueId: string;
+  lssCardId: string;
+}
+
+/**
+ * Build a full provisional `cards` row from a CardVault English face: derived
+ * type/class/talent booleans + numeric stats, so spoiler cards behave in the
+ * deck builder and filters, not just in name search. Legality flags are NOT
+ * set — spoiler cards genuinely aren't tournament-legal until release
+ * (adoption overwrites card fields with fab-cube truth then).
+ */
+export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds) {
+  const displayName = (faceIn.printed_name ?? '').trim();
+  const typebox = (faceIn.printed_typebox ?? '').trim();
+  const typeTokens = typebox.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const rules = (faceIn.printed_rules_text ?? '').replace(/\{br\}/g, ' ').replace(/\*\*/g, '')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+  const pitch = toInt(faceIn.printed_pitch as any);
+
+  const flags: Record<string, boolean> = {};
+  for (const t of TYPE_FLAGS) flags[`is_${t}`] = typeTokens.includes(t);
+  for (const c of CLASS_FLAGS) flags[`is_${c}`] = typeTokens.includes(c);
+  for (const t of TALENT_FLAGS) flags[`has_${t}`] = typeTokens.includes(t);
+  flags.is_defense_reaction = /defense reaction/i.test(typebox);
+
+  return {
+    card_unique_id: ids.cardUniqueId,
+    lss_card_id: ids.lssCardId,
+    name: displayName.toLowerCase(),
+    display_name: displayName,
+    text: rules || null,
+    searchable_text: rules || null,
+    type_text: typebox.toLowerCase() || null,
+    types: typeTokens,
+    classes: typeTokens.filter((t) => (CLASS_FLAGS as readonly string[]).includes(t)),
+    talents: typeTokens.filter((t) => (TALENT_FLAGS as readonly string[]).includes(t)),
+    pitch,
+    cost: toInt((faceIn as any).printed_cost),
+    power: toInt((faceIn as any).printed_power),
+    defense: toInt((faceIn as any).printed_defense),
+    intelligence: toInt((faceIn as any).printed_intellect),
+    health: toInt((faceIn as any).printed_life),
+    ...flags,
+  };
+}
+
 /** The 005 tier-1 adoption key — art_variations and rarity deliberately absent. */
 export function naturalKeyOf(row: {
   set: string; collector_number: string; edition: string; foiling: string; language: string;
