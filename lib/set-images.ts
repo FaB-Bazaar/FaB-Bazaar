@@ -31,6 +31,7 @@ export const SET_IMAGES: Record<string, string> = {
   'fab': '733780de-03aa-4a4a-c754-e0d5771cf300', // Promos
   'pen': '1b879518-bef3-4abc-5b89-a4fb27ff7500', // Compendium of Rathe
   'anq': '1b879518-bef3-4abc-5b89-a4fb27ff7500', // Antiquities of Rathe
+  'iar': 'set-iar-logo', // Usurp the Shadow Throne
 };
 
 // Helper function to get set image URL
