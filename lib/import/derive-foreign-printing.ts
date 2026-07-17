@@ -48,7 +48,7 @@ export interface DerivedPrinting {
 }
 
 // LSS finish_type -> our foiling code (matches import-i18n.ts FINISH_TO_FOILING).
-const FINISH_TO_FOILING: Record<string, string> = {
+export const FINISH_TO_FOILING: Record<string, string> = {
   regular: 's',
   'rainbow-foil': 'r',
   'cold-foil': 'c',
@@ -56,7 +56,7 @@ const FINISH_TO_FOILING: Record<string, string> = {
 };
 
 // LSS rarity string -> our single-letter rarity code (see RARITY_OPTIONS).
-const RARITY_TO_CODE: Record<string, string> = {
+export const RARITY_TO_CODE: Record<string, string> = {
   common: 'c',
   rare: 'r',
   'super-rare': 's',
