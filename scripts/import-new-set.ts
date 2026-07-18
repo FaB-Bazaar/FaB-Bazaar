@@ -113,7 +113,10 @@ async function politeFetch(url: string): Promise<any> {
   // 1. sweep
   const search: any[] = [];
   for (let page = 1; ; page++) {
-    const d = await politeFetch(`${API}/advanced-search/?set_code=${SET}&page_size=60&page=${page}`);
+    // Server honors large page sizes (tested: 240-row set in one page at 500);
+    // the loop still follows `next`, so correctness never depends on this —
+    // it only minimizes sweep requests for big sets.
+    const d = await politeFetch(`${API}/advanced-search/?set_code=${SET}&page_size=250&page=${page}`);
     search.push(...d.results);
     if (!d.next) break;
   }
