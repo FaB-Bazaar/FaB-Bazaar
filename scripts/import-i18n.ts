@@ -43,6 +43,7 @@ import { Pool } from "pg";
 import { nanoid } from "nanoid";
 import { readFileSync } from "node:fs";
 import { deriveForeignPrinting, foilingFlags } from "@/lib/import/derive-foreign-printing";
+import { linkForeignFaces } from "@/lib/import/link-foreign-faces";
 import { selectPrintsForImport } from "@/lib/import/select-prints";
 
 const argv = process.argv.slice(2);
@@ -596,10 +597,20 @@ async function main() {
     }
   }
 
+  // DFC face linkage can't be finalized per-insert (the partner face's row
+  // may not exist yet), so mirror the English rows' linkage in one pass at
+  // the end. Idempotent — also heals rows from earlier runs.
+  let faceLink = { facesFlagged: 0, pairsLinked: 0 };
+  if (!DRY_RUN) {
+    faceLink = await linkForeignFaces(pool);
+  }
+
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
 
   console.log("\n" + "=".repeat(70));
   console.log(`Done in ${elapsed}s${DRY_RUN ? " (dry run — no DB writes, no CF uploads)" : ""}`);
+  console.log(`  DFC faces flagged:         ${faceLink.facesFlagged}`);
+  console.log(`  DFC face pairs linked:     ${faceLink.pairsLinked}`);
   console.log(`  Cards processed:           ${cards.length}`);
   console.log(`  Cards resolved in DB:      ${cards.length - unresolved.length - failed.length}`);
   console.log(`  Cards unresolved:          ${unresolved.length}`);
