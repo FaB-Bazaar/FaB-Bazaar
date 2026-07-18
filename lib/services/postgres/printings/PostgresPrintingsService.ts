@@ -1048,6 +1048,21 @@ export class PostgresPrintingsService implements IPrintingsService {
       isPremium: printings.isPremium,
       expansionSlot: printings.expansionSlot,
       printingCreatedAt: printings.createdAt,
+      // DFC face linkage — correlated subqueries (≤ page-size rows, and only
+      // ~2‰ of printings have a back face) so the grouped subquery aliasing
+      // stays untouched. other_face_name comes from the OTHER face's card
+      // (named backs are their own card; art backs return the same name).
+      otherFacePrintingId: printings.otherFacePrintingId,
+      isFrontFace: printings.isFrontFace,
+      otherFaceImageUrl: sql<string | null>`(
+        SELECT p2.image_url FROM printings p2
+         WHERE p2.printing_id = ${printings.otherFacePrintingId}
+      )`.as('other_face_image_url'),
+      otherFaceName: sql<string | null>`(
+        SELECT c2.display_name FROM printings p2
+          JOIN cards c2 ON c2.card_unique_id = p2.card_unique_id
+         WHERE p2.printing_id = ${printings.otherFacePrintingId}
+      )`.as('other_face_name'),
       // Card fields via JOIN
       name: cards.name,
       displayName: cards.displayName,
@@ -2099,6 +2114,8 @@ export class PostgresPrintingsService implements IPrintingsService {
       expansion_slot: row.expansionSlot || false,
       other_face_printing_id: row.otherFacePrintingId ?? null,
       is_front_face: row.isFrontFace ?? true,
+      other_face_image_url: row.otherFaceImageUrl ?? null,
+      other_face_name: row.otherFaceName ?? null,
       flavor_text: row.flavorText || '',
       image_url: row.imageUrl || '',
       tcgplayer_product_id: row.tcgplayerProductId,

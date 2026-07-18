@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { TcgAffiliateLink } from '@/components/tracking';
 import { FOILING_STYLES, EDITION_MAP, SET_MAP } from '@/lib/fab-constants';
 import { getSetImageOrFallback } from '@/lib/set-images';
-import { Minus, Plus, Check, Expand, X } from 'lucide-react';
+import { Minus, Plus, Check, Expand, X, RefreshCw } from 'lucide-react';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
 import { languageFlag } from '@/lib/utils/printing-language';
@@ -61,6 +61,27 @@ export function ImagesView({
 
   // Calm preview modal (replaces the old click-to-flip popover on search)
   const [previewPrinting, setPreviewPrinting] = useState<any | null>(null);
+
+  // DFC flip state — printing_ids currently showing their other face.
+  // other_face_image_url/other_face_name ride the search payload, so flipping
+  // is purely client-side.
+  const [flippedIds, setFlippedIds] = useState<Set<string>>(new Set());
+  const toggleFlip = (printingId: string) =>
+    setFlippedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(printingId)) next.delete(printingId); else next.add(printingId);
+      return next;
+    });
+  const faceOf = (printing: any) => {
+    const flipped = flippedIds.has(printing.printing_id) && printing.other_face_image_url;
+    return {
+      src: flipped ? printing.other_face_image_url : printing.image_url,
+      name: flipped
+        ? (printing.other_face_name || printing.display_name || printing.name)
+        : (printing.display_name || printing.name),
+      flipped: !!flipped,
+    };
+  };
 
   useEffect(() => {
     if (!previewPrinting) return;
@@ -174,8 +195,8 @@ export function ImagesView({
                       foiling={printing.foiling}
                       artStyle={artStylesFromPrinting(printing.art_variations, printing.is_extended_art)}
                       foilInset={foilInsetFromValues(printing.foil_inset_top, printing.foil_inset_right, printing.foil_inset_bottom, printing.foil_inset_left, printing.foil_inset_round)}
-                      src={printing.image_url}
-                      alt={printing.display_name || printing.name}
+                      src={faceOf(printing).src}
+                      alt={faceOf(printing).name}
                       className="w-full h-full"
                       imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
@@ -210,6 +231,33 @@ export function ImagesView({
               >
                 <Expand className="w-4 h-4" aria-hidden="true" />
               </button>
+
+              {/* Flip - double-faced cards only. Sits left of the magnifier;
+                  always shown (not hover-gated) so the other face is
+                  discoverable — the button IS the "this card has a back" cue. */}
+              {printing.other_face_image_url && (
+                <button
+                  type="button"
+                  aria-label={faceOf(printing).flipped
+                    ? `Flip back to ${printing.display_name || printing.name}`
+                    : `Flip to ${printing.other_face_name || 'other face'}`}
+                  title={faceOf(printing).flipped
+                    ? `Show ${printing.display_name || printing.name}`
+                    : `Show ${printing.other_face_name || 'other face'}`}
+                  aria-pressed={faceOf(printing).flipped}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFlip(printing.printing_id);
+                  }}
+                  className={`absolute top-2 right-10 z-10 w-7 h-7 rounded-md flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    faceOf(printing).flipped
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-black/50 text-white/90 hover:bg-black/70 hover:text-white'
+                  }`}
+                >
+                  <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
 
               {/* Quantity selector - bottom-center pill, only shown if card is selected */}
               {selectionEnabled && isSelected && (
@@ -304,6 +352,29 @@ export function ImagesView({
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
+          {previewPrinting.other_face_image_url ? (
+            // Double-faced: both faces side by side (same pattern as the deck
+            // editor lightbox).
+            <div className="flex gap-3 items-center">
+              <div className="w-[min(44vw,340px)] aspect-[2.5/3.5]">
+                <FoilCardImage
+                  foiling={previewPrinting.foiling}
+                  artStyle={artStylesFromPrinting(previewPrinting.art_variations, previewPrinting.is_extended_art)}
+                  foilInset={foilInsetFromValues(previewPrinting.foil_inset_top, previewPrinting.foil_inset_right, previewPrinting.foil_inset_bottom, previewPrinting.foil_inset_left, previewPrinting.foil_inset_round)}
+                  src={previewPrinting.image_url}
+                  alt={previewPrinting.display_name || previewPrinting.name}
+                  className="w-full h-full"
+                  imgClassName="w-full h-full object-contain rounded-xl"
+                />
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewPrinting.other_face_image_url}
+                alt={previewPrinting.other_face_name || `${previewPrinting.display_name || previewPrinting.name} (other face)`}
+                className="w-[min(44vw,340px)] rounded-xl"
+              />
+            </div>
+          ) : (
           <div className="h-[min(85vh,126vw)] aspect-[2.5/3.5]">
             {previewPrinting.image_url ? (
               <FoilCardImage
@@ -323,6 +394,7 @@ export function ImagesView({
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     )}

@@ -190,6 +190,9 @@ export interface PrintingDTO {
   expansion_slot: boolean;
   other_face_printing_id?: string | null;
   is_front_face: boolean;
+  /** Other face's image/name (DFC flip affordance) — null for single-faced. */
+  other_face_image_url?: string | null;
+  other_face_name?: string | null;
   flavor_text: string;
   image_url: string;
   tcgplayer_product_id?: string;
