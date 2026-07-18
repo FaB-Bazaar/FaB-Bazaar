@@ -187,9 +187,11 @@ export function ImagesView({
                       // No selection flow (signed out / read-only): clicking the
                       // card opens the centered preview — for double-sided cards
                       // that's the both-faces overlay, from either face's tile.
+                      // Label distinct from the magnifier's "Preview X" so the
+                      // two paths are distinguishable to assistive tech.
                       role: 'button',
                       tabIndex: 0,
-                      'aria-label': `Preview ${printing.display_name || printing.name}`,
+                      'aria-label': `View ${printing.display_name || printing.name}`,
                       onClick: () => setPreviewPrinting(printing),
                       onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
                         if (e.target !== e.currentTarget) return;
