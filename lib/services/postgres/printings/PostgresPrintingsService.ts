@@ -2127,6 +2127,16 @@ export class PostgresPrintingsService implements IPrintingsService {
       };
 
       const whereConditions = [sql`'hero' = ANY(${cards.types})`];
+      // Starting heroes only: transform-hero BACK faces (e.g. 'Viserai,
+      // Usurper') are hero cards but entered mid-game by flipping — a card
+      // whose every printing is a back face is not pickable. Cards with no
+      // printings at all are kept (pre-ingest placeholders).
+      whereConditions.push(sql`(NOT EXISTS (
+        SELECT 1 FROM ${printings} p WHERE p.card_unique_id = ${cards.cardUniqueId}
+      ) OR EXISTS (
+        SELECT 1 FROM ${printings} p
+         WHERE p.card_unique_id = ${cards.cardUniqueId} AND p.is_front_face = true
+      ))`);
       if (opts?.legalIn) {
         whereConditions.push(eq(FORMAT_TO_COLUMN[opts.legalIn], true));
       }

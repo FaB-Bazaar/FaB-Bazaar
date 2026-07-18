@@ -16,6 +16,8 @@
 import { FINISH_TO_FOILING, RARITY_TO_CODE, foilingFlags } from './derive-foreign-printing';
 
 export interface LssApiFace {
+  id?: string; // CardVault face UUID
+  face_id?: string; // human face code, e.g. 'IAR106-MV', 'IAR106-MV_BACK'
   face_language?: string;
   printed_code?: string;
   printed_name?: string;
@@ -246,6 +248,74 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
     health: toInt((faceIn as any).printed_life),
     ...flags,
   };
+}
+
+// ── Double-sided prints ─────────────────────────────────────────────────────
+// CardVault: one print with layout 'double-sided' and BOTH faces in faces[]
+// (front first; the back's face_id carries a '_BACK' suffix and its
+// printed_code is blank). Two kinds of back:
+//   named back  — different printed_name (e.g. 'Viserai, Usurper'): a real
+//                 game object → its own card row + linked back printing row.
+//   art back    — same printed_name (e.g. Baalghor marvel): back art only →
+//                 linked back printing row under the same card.
+// Our canonical model mirrors fab-cube: one printing row per face, mutually
+// linked via other_face_printing_id, is_front_face marking the default face.
+
+export interface SplitFacesResult {
+  front: LssApiFace | null;
+  back: LssApiFace | null;
+  /** true when the back is a distinct game object (different printed_name) */
+  namedBack: boolean;
+}
+
+export function splitFaces(print: LssApiPrint, language: string): SplitFacesResult {
+  const faces = (print.faces ?? []).filter((f) => (f.face_language ?? 'en') === language);
+  const back = faces.find((f) => (f.face_id ?? '').endsWith('_BACK')) ?? null;
+  const front = faces.find((f) => f !== back) ?? null;
+  const namedBack = !!(back && front && back.printed_name && back.printed_name !== front.printed_name);
+  return { front, back, namedBack };
+}
+
+export interface FaceRowIds {
+  frontPrintingId: string;
+  frontCardId: string;
+  backPrintingId?: string;
+  backCardId?: string;
+}
+
+/**
+ * Build the printing row(s) for one physical print: always a front row; for
+ * double-sided prints also a back row, mutually linked. lss identity: the
+ * front row keeps the PRINT UUID (idempotency key, back-compat with rows
+ * ingested before face support); the back row uses the back FACE UUID (both
+ * satisfy the partial unique index).
+ */
+export function buildFaceRows(
+  print: LssApiPrint,
+  ids: FaceRowIds,
+  opts: { setHasFirstEdition?: boolean } = {},
+): { front: ProvisionalPrintingRow & { is_front_face: boolean; other_face_printing_id: string | null };
+     back: (ProvisionalPrintingRow & { is_front_face: boolean; other_face_printing_id: string | null }) | null } {
+  const { front: frontFace, back: backFace } = splitFaces(print, parseLssPrintCode(print.print_id, opts).language);
+  const front = {
+    ...buildProvisionalPrinting(print, { printingId: ids.frontPrintingId, cardUniqueId: ids.frontCardId }, opts),
+    is_front_face: true,
+    other_face_printing_id: backFace && ids.backPrintingId ? ids.backPrintingId : null,
+  };
+  if (frontFace?.image?.large || frontFace?.image?.normal) {
+    front.image_url = frontFace.image.large ?? frontFace.image.normal ?? front.image_url;
+  }
+  if (!backFace || !ids.backPrintingId || !ids.backCardId) return { front, back: null };
+
+  const back = {
+    ...buildProvisionalPrinting(print, { printingId: ids.backPrintingId, cardUniqueId: ids.backCardId }, opts),
+    is_front_face: false,
+    other_face_printing_id: ids.frontPrintingId,
+    lss_print_id: backFace.id ?? `${print.id}#back`,
+    lss_print_code: backFace.face_id ?? `${print.print_id}_BACK`,
+    image_url: backFace.image?.large ?? backFace.image?.normal ?? null,
+  };
+  return { front, back };
 }
 
 /** The 005 tier-1 adoption key — art_variations and rarity deliberately absent. */

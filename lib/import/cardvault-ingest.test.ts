@@ -5,6 +5,8 @@ import {
   pickSetPrints,
   buildProvisionalPrinting,
   buildProvisionalCard,
+  splitFaces,
+  buildFaceRows,
   naturalKeyOf,
 } from './cardvault-ingest';
 
@@ -162,6 +164,80 @@ describe('buildProvisionalCard', () => {
     expect(c.cost).toBeNull();
     expect(c.power).toBeNull();
     expect(c.text).toBe('go again draw a card.');
+  });
+});
+
+describe('splitFaces', () => {
+  const dfcPrint = {
+    id: 'print-uuid', print_id: 'IAR106-MV', print_language: 'en', rarity: 'marvel',
+    is_published: true, print_set: { set_code: 'IAR' }, layout: 'double-sided',
+    faces: [
+      { id: 'face-front-uuid', face_id: 'IAR106-MV', face_language: 'en', printed_name: 'Viserai, the Forsaken', printed_typebox: 'Shadow Runeblade Hero', finish_type: 'cold-foil', art_type: 'extended-art', printed_code: 'IAR106', image: { large: 'https://cv/IAR106-MV.webp' } },
+      { id: 'face-back-uuid', face_id: 'IAR106-MV_BACK', face_language: 'en', printed_name: 'Viserai, Usurper', printed_typebox: 'Shadow Runeblade Hero - Demon', finish_type: 'cold-foil', art_type: 'extended-art', printed_code: '', image: { large: 'https://cv/IAR106-MV_BACK.webp' } },
+      { id: 'face-fr-uuid', face_id: 'FR_IAR106-MV', face_language: 'fr', printed_name: 'Viserai', printed_typebox: '', finish_type: 'cold-foil', art_type: 'regular' },
+    ],
+  };
+
+  it('splits front and named back for the requested language', () => {
+    const s = splitFaces(dfcPrint as any, 'en');
+    expect(s.front?.face_id).toBe('IAR106-MV');
+    expect(s.back?.face_id).toBe('IAR106-MV_BACK');
+    expect(s.namedBack).toBe(true);
+  });
+
+  it('art backs (same name) are backs but not named', () => {
+    const artBack = { ...dfcPrint, faces: dfcPrint.faces.map((f) => ({ ...f, printed_name: 'Baalghor, Omen of the End' })) };
+    const s = splitFaces(artBack as any, 'en');
+    expect(s.back).toBeTruthy();
+    expect(s.namedBack).toBe(false);
+  });
+
+  it('single-faced prints have no back', () => {
+    const single = { ...dfcPrint, layout: 'standard', faces: [dfcPrint.faces[0]] };
+    const s = splitFaces(single as any, 'en');
+    expect(s.front?.face_id).toBe('IAR106-MV');
+    expect(s.back).toBeNull();
+  });
+});
+
+describe('buildFaceRows', () => {
+  const dfcPrint = {
+    id: 'print-uuid', print_id: 'IAR106-MV', print_language: 'en', rarity: 'marvel',
+    is_published: true, print_set: { set_code: 'IAR' }, layout: 'double-sided',
+    faces: [
+      { id: 'face-front-uuid', face_id: 'IAR106-MV', face_language: 'en', printed_name: 'Viserai, the Forsaken', finish_type: 'cold-foil', art_type: 'extended-art', printed_code: 'IAR106', image: { large: 'https://cv/IAR106-MV.webp' } },
+      { id: 'face-back-uuid', face_id: 'IAR106-MV_BACK', face_language: 'en', printed_name: 'Viserai, Usurper', finish_type: 'cold-foil', art_type: 'extended-art', printed_code: '', image: { large: 'https://cv/IAR106-MV_BACK.webp' } },
+    ],
+  };
+
+  it('builds two mutually-linked rows with face-level lss identity', () => {
+    const { front, back } = buildFaceRows(dfcPrint as any, {
+      frontPrintingId: 'pFront', backPrintingId: 'pBack',
+      frontCardId: 'cFront', backCardId: 'cBack',
+    });
+    expect(front).toMatchObject({
+      printing_id: 'pFront', card_unique_id: 'cFront',
+      is_front_face: true, other_face_printing_id: 'pBack',
+      lss_print_id: 'print-uuid', lss_print_code: 'IAR106-MV',
+      collector_number: 'IAR106', foiling: 'c',
+      image_url: 'https://cv/IAR106-MV.webp',
+    });
+    expect(back).toMatchObject({
+      printing_id: 'pBack', card_unique_id: 'cBack',
+      is_front_face: false, other_face_printing_id: 'pFront',
+      lss_print_id: 'face-back-uuid', lss_print_code: 'IAR106-MV_BACK',
+      collector_number: 'IAR106',
+      image_url: 'https://cv/IAR106-MV_BACK.webp',
+    });
+  });
+
+  it('single-faced prints return a front with no back and no link', () => {
+    const single = { ...dfcPrint, layout: 'standard', faces: [dfcPrint.faces[0]] };
+    const { front, back } = buildFaceRows(single as any, {
+      frontPrintingId: 'pOnly', frontCardId: 'cOnly',
+    });
+    expect(back).toBeNull();
+    expect(front).toMatchObject({ is_front_face: true, other_face_printing_id: null });
   });
 });
 

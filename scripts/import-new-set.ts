@@ -34,9 +34,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   pickSetPrints,
-  buildProvisionalPrinting,
   buildProvisionalCard,
+  splitFaces,
+  buildFaceRows,
   naturalKeyOf,
+  type LssApiFace,
   type LssApiPrint,
   type ProvisionalPrintingRow,
 } from '@/lib/import/cardvault-ingest';
@@ -152,9 +154,10 @@ async function politeFetch(url: string): Promise<any> {
 
   // 3. DB preload for skip/resolve decisions
   const existing = await pool.query(
-    `SELECT printing_id, lss_print_id, set, collector_number, edition, foiling, language
+    `SELECT printing_id, lss_print_id, other_face_printing_id, set, collector_number, edition, foiling, language
        FROM printings WHERE set = $1`, [setLower]);
-  const knownLssPrintIds = new Set(existing.rows.map((r) => r.lss_print_id).filter(Boolean));
+  const byLssPrint = new Map<string, { printing_id: string; other_face_printing_id: string | null }>(
+    existing.rows.filter((r) => r.lss_print_id).map((r) => [r.lss_print_id, r]));
   const knownNaturalKeys = new Set(existing.rows.map((r) => naturalKeyOf(r)));
 
   const searchCardIds = new Set(familySlugs);
@@ -186,41 +189,92 @@ async function politeFetch(url: string): Promise<any> {
   // predate the flag/stat derivation, or CardVault may have corrected text).
   // fab-cube-anchored cards are never touched — fab-cube owns their fields.
   const enrichCards: CardRow[] = [];
-  const newPrintings: ProvisionalPrintingRow[] = [];
-  let skippedLss = 0, skippedNaturalKey = 0;
+  const newPrintings: Array<ProvisionalPrintingRow & { is_front_face?: boolean; other_face_printing_id?: string | null }> = [];
+  // Backs discovered for fronts ingested BEFORE face support: link in place.
+  const retroLinks: Array<{ frontId: string; backId: string }> = [];
+  let skippedLss = 0, skippedNaturalKey = 0, backRows = 0;
+
+  // Resolve (or create/enrich) one card row; shared by front and named-back faces.
+  const resolveCard = (face: LssApiFace, lssCardId: string): { id: string; via: string } => {
+    const displayName = (face.printed_name ?? '').trim();
+    const pitchNum = face.printed_pitch ? parseInt(face.printed_pitch, 10) : null;
+    const pitch = Number.isFinite(pitchNum) ? pitchNum : null;
+    const tal = toTalisharCardId(displayName, pitch);
+    // Named backs share the CardVault card UUID with their front (documented
+    // lss_card_id non-uniqueness), so resolution is talishar-first for them.
+    let id = cardByTal.get(tal);
+    let via = id ? 'talishar' : null;
+    if (!id) {
+      id = nanoid();
+      cardByTal.set(tal, id);
+      newCards.push({ ...buildProvisionalCard(face, { cardUniqueId: id, lssCardId }), talishar_card_id: tal });
+      via = 'NEW';
+    } else if (provisionalCardIds.has(id)) {
+      enrichCards.push({ ...buildProvisionalCard(face, { cardUniqueId: id, lssCardId }), talishar_card_id: tal });
+      via = `${via}+enrich`;
+    }
+    return { id, via: via! };
+  };
 
   for (const { card } of cardsInPlay) {
     const prints = pickSetPrints(card.card_prints ?? [], SET, 'en') as LssApiPrint[];
     if (!prints.length) continue;
-    const face = prints[0].faces?.find((f) => f.face_language === 'en') ?? prints[0].faces?.[0];
-    const displayName = face?.printed_name?.trim();
-    if (!displayName) { console.warn(`   ⚠ no EN name for ${card.card_id} — skipped`); continue; }
-    const pitchNum = face?.printed_pitch ? parseInt(face.printed_pitch, 10) : null;
-    const pitch = Number.isFinite(pitchNum) ? pitchNum : null;
-    const tal = toTalisharCardId(displayName, pitch);
+    const s0 = splitFaces(prints[0], 'en');
+    const frontFace = s0.front ?? prints[0].faces?.[0];
+    if (!frontFace?.printed_name?.trim()) { console.warn(`   ⚠ no EN name for ${card.card_id} — skipped`); continue; }
 
-    let cardUniqueId = cardByLss.get(card.id) ?? cardByTal.get(tal);
-    let resolvedVia = cardByLss.get(card.id) ? 'lss' : cardUniqueId ? 'talishar' : null;
-    if (!cardUniqueId) {
-      cardUniqueId = nanoid();
-      newCards.push({ ...buildProvisionalCard(face!, { cardUniqueId, lssCardId: card.id }), talishar_card_id: tal });
-      resolvedVia = 'NEW';
-    } else if (provisionalCardIds.has(cardUniqueId)) {
-      enrichCards.push({ ...buildProvisionalCard(face!, { cardUniqueId, lssCardId: card.id }), talishar_card_id: tal });
-      resolvedVia = `${resolvedVia}+enrich`;
+    // lss-first resolution applies only to the FRONT card (the shared UUID's owner).
+    let frontCardId = cardByLss.get(card.id);
+    let frontVia = frontCardId ? 'lss' : '';
+    if (frontCardId && provisionalCardIds.has(frontCardId)) {
+      const tal = toTalisharCardId(frontFace.printed_name.trim(),
+        frontFace.printed_pitch ? parseInt(frontFace.printed_pitch, 10) || null : null);
+      enrichCards.push({ ...buildProvisionalCard(frontFace, { cardUniqueId: frontCardId, lssCardId: card.id }), talishar_card_id: tal });
+      frontVia = 'lss+enrich';
     }
+    if (!frontCardId) {
+      const r = resolveCard(frontFace, card.id);
+      frontCardId = r.id; frontVia = r.via;
+    }
+
+    // Named back = its own card (e.g. 'Viserai, Usurper'), resolved once per family.
+    const namedBackFace = prints.map((p) => splitFaces(p, 'en')).find((s) => s.namedBack)?.back ?? null;
+    const backCard = namedBackFace ? resolveCard(namedBackFace, card.id) : null;
 
     for (const print of prints) {
-      if (knownLssPrintIds.has(print.id)) { skippedLss++; continue; }
-      const row = buildProvisionalPrinting(print, { printingId: nanoid(), cardUniqueId }, { setHasFirstEdition });
-      if (knownNaturalKeys.has(naturalKeyOf(row))) { skippedNaturalKey++; continue; }
-      knownNaturalKeys.add(naturalKeyOf(row));
-      newPrintings.push(row);
+      const sf = splitFaces(print, 'en');
+      const frontExisting = byLssPrint.get(print.id);
+      const backLssId = sf.back?.id ?? `${print.id}#back`;
+      const backExisting = sf.back ? byLssPrint.get(backLssId) : undefined;
+
+      if (frontExisting && (!sf.back || backExisting)) { skippedLss++; continue; }
+
+      const frontId = frontExisting?.printing_id ?? nanoid();
+      const backId = sf.back ? (backExisting?.printing_id ?? nanoid()) : undefined;
+      const { front, back } = buildFaceRows(print, {
+        frontPrintingId: frontId, frontCardId,
+        backPrintingId: backId, backCardId: sf.namedBack ? backCard?.id : frontCardId,
+      }, { setHasFirstEdition });
+
+      if (!frontExisting) {
+        // Whole pair presumed present when the natural key already exists
+        // (fab-cube-first rows, e.g. the preview marvels' two face rows).
+        if (knownNaturalKeys.has(naturalKeyOf(front))) { skippedNaturalKey++; continue; }
+        knownNaturalKeys.add(naturalKeyOf(front));
+        newPrintings.push(front);
+      }
+      if (back && !backExisting) {
+        newPrintings.push(back);
+        backRows++;
+        if (frontExisting) retroLinks.push({ frontId, backId: backId! });
+      }
     }
-    console.log(`  ${displayName}${pitch != null ? ` [p${pitch}]` : ''} (${resolvedVia}) — ${prints.length} en prints`);
+    const backNote = namedBackFace ? ` // ${namedBackFace.printed_name} (${backCard?.via})` : '';
+    console.log(`  ${frontFace.printed_name.trim()} (${frontVia})${backNote} — ${prints.length} en prints`);
   }
 
-  console.log(`\nplan: ${newCards.length} new cards, ${newPrintings.length} new printings, ` +
+  console.log(`\nplan: ${newCards.length} new cards, ${newPrintings.length} new printings ` +
+    `(${backRows} back faces, ${retroLinks.length} retro-links onto existing fronts), ` +
     `${enrichCards.length} provisional cards to enrich; ` +
     `skipped ${skippedLss} already-ingested (lss), ${skippedNaturalKey} already-present (natural key)`);
 
@@ -247,6 +301,12 @@ async function politeFetch(url: string): Promise<any> {
         `UPDATE cards SET ${cols.map((k, i) => `"${k}" = $${i + 2}`).join(', ')}
           WHERE card_unique_id = $1 AND fab_cube_card_id IS NULL`,
         [c.card_unique_id, ...cols.map((k) => (c as any)[k])]);
+    }
+    for (const l of retroLinks) {
+      await client.query(
+        `UPDATE printings SET other_face_printing_id = $2
+          WHERE printing_id = $1 AND other_face_printing_id IS NULL`,
+        [l.frontId, l.backId]);
     }
     for (const p of newPrintings) {
       const cols = Object.keys(p);
