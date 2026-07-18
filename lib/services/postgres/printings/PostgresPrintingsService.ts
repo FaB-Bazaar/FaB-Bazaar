@@ -95,7 +95,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       return {
         success: true,
         data: {
-          printings: results.map((row) => this.mapToPrintingDTO(row)),
+          printings: await this.enrichOtherFaces(results.map((row) => this.mapToPrintingDTO(row))),
           total,
           page,
           pages,
@@ -200,7 +200,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       return {
         success: true,
         data: {
-          printings: results.map((row) => this.mapToPrintingDTO(row)),
+          printings: await this.enrichOtherFaces(results.map((row) => this.mapToPrintingDTO(row))),
           total,
           page,
           pages,
@@ -213,6 +213,69 @@ export class PostgresPrintingsService implements IPrintingsService {
         error: error instanceof Error ? error.message : 'Failed to search printings (grouped)',
       };
     }
+  }
+
+  /**
+   * Fill other_face_image_url / other_face_name on a PAGE of search DTOs
+   * (never in the row select — per-candidate-row subqueries time out broad
+   * searches). Two batched lookups:
+   *   1. rows with a direct link → their exact partner printing
+   *   2. rows still bare → card-level sibling fallback: fab-cube's linkage is
+   *      patchy across foiling variants, so any linked sibling printing of
+   *      the same card donates the back face. The flip affordance is
+   *      card-level knowledge, not row luck.
+   */
+  private async enrichOtherFaces(dtos: PrintingDTO[]): Promise<PrintingDTO[]> {
+    const partnerIds = [...new Set(dtos.map((d) => d.other_face_printing_id).filter(Boolean))] as string[];
+    if (partnerIds.length > 0) {
+      const partners = await db
+        .select({
+          printingId: printings.printingId,
+          imageUrl: printings.imageUrl,
+          displayName: cards.displayName,
+        })
+        .from(printings)
+        .innerJoin(cards, eq(cards.cardUniqueId, printings.cardUniqueId))
+        .where(inArray(printings.printingId, partnerIds));
+      const byId = new Map(partners.map((p) => [p.printingId, p]));
+      for (const d of dtos) {
+        const p = d.other_face_printing_id ? byId.get(d.other_face_printing_id) : undefined;
+        if (p) {
+          d.other_face_image_url = p.imageUrl || null;
+          d.other_face_name = p.displayName || null;
+        }
+      }
+    }
+
+    const bareCardIds = [...new Set(
+      dtos.filter((d) => !d.other_face_image_url).map((d) => d.card_unique_id).filter(Boolean),
+    )] as string[];
+    if (bareCardIds.length > 0) {
+      const fallback = await db.execute(sql`
+        SELECT DISTINCT ON (sib.card_unique_id)
+               sib.card_unique_id AS card_unique_id,
+               p3.image_url AS image_url,
+               c3.display_name AS display_name
+          FROM ${printings} sib
+          JOIN ${printings} p3 ON p3.printing_id = sib.other_face_printing_id
+          JOIN ${cards} c3 ON c3.card_unique_id = p3.card_unique_id
+         WHERE sib.card_unique_id IN (${sql.join(bareCardIds.map((id) => sql`${id}`), sql`, `)})
+           AND sib.other_face_printing_id IS NOT NULL
+           AND p3.image_url IS NOT NULL AND p3.image_url <> ''
+         ORDER BY sib.card_unique_id, sib.is_front_face DESC, sib.printing_id`);
+      const byCard = new Map(
+        (fallback.rows as Record<string, unknown>[]).map((r) => [r.card_unique_id as string, r]),
+      );
+      for (const d of dtos) {
+        if (d.other_face_image_url || !d.card_unique_id) continue;
+        const f = byCard.get(d.card_unique_id);
+        if (f) {
+          d.other_face_image_url = (f.image_url as string) || null;
+          d.other_face_name = (f.display_name as string) || null;
+        }
+      }
+    }
+    return dtos;
   }
 
   /**
@@ -1048,21 +1111,13 @@ export class PostgresPrintingsService implements IPrintingsService {
       isPremium: printings.isPremium,
       expansionSlot: printings.expansionSlot,
       printingCreatedAt: printings.createdAt,
-      // DFC face linkage — correlated subqueries (≤ page-size rows, and only
-      // ~2‰ of printings have a back face) so the grouped subquery aliasing
-      // stays untouched. other_face_name comes from the OTHER face's card
-      // (named backs are their own card; art backs return the same name).
+      // DFC face linkage. Only the cheap row-level columns live in the select
+      // — anything heavier is evaluated per CANDIDATE row (pre-sort/limit) and
+      // times out broad searches. The card-level sibling fallback (fab-cube's
+      // linkage is patchy across foiling variants) happens post-pagination in
+      // enrichOtherFaces() over the ≤ page-size result.
       otherFacePrintingId: printings.otherFacePrintingId,
       isFrontFace: printings.isFrontFace,
-      otherFaceImageUrl: sql<string | null>`(
-        SELECT p2.image_url FROM printings p2
-         WHERE p2.printing_id = ${printings.otherFacePrintingId}
-      )`.as('other_face_image_url'),
-      otherFaceName: sql<string | null>`(
-        SELECT c2.display_name FROM printings p2
-          JOIN cards c2 ON c2.card_unique_id = p2.card_unique_id
-         WHERE p2.printing_id = ${printings.otherFacePrintingId}
-      )`.as('other_face_name'),
       // Card fields via JOIN
       name: cards.name,
       displayName: cards.displayName,
@@ -2114,8 +2169,9 @@ export class PostgresPrintingsService implements IPrintingsService {
       expansion_slot: row.expansionSlot || false,
       other_face_printing_id: row.otherFacePrintingId ?? null,
       is_front_face: row.isFrontFace ?? true,
-      other_face_image_url: row.otherFaceImageUrl ?? null,
-      other_face_name: row.otherFaceName ?? null,
+      // filled by enrichOtherFaces() after pagination
+      other_face_image_url: null,
+      other_face_name: null,
       flavor_text: row.flavorText || '',
       image_url: row.imageUrl || '',
       tcgplayer_product_id: row.tcgplayerProductId,
