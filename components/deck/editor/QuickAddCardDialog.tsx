@@ -514,51 +514,91 @@ function CardGridTile({
   isSelected,
   inDeckCount,
   onClick,
+  onQuickAdd,
+  quickAddStatus,
 }: {
   card: CardResult;
   isSelected: boolean;
   inDeckCount: number;
   onClick: () => void;
+  onQuickAdd: () => void;
+  quickAddStatus: 'idle' | 'adding' | 'added';
 }) {
   const pitchStyle = card.pitch ? PITCH_STYLE[card.pitch] : null;
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={e => e.key === 'Enter' && onClick()}
+      data-testid="card-grid-tile"
       className={cn(
-        "relative flex flex-col rounded overflow-hidden cursor-pointer transition-all border border-l-4",
+        "relative group/tile flex flex-col rounded overflow-hidden transition-all border border-l-4",
         isSelected
           ? "border-blue-500/80 border-l-blue-400 ring-2 ring-blue-500/40"
           : cn("border-gray-700/60 hover:border-gray-500/60", pitchStyle ? pitchStyle.border : "border-l-gray-600"),
       )}
     >
-      <div className="w-full overflow-hidden" style={{ aspectRatio: '63/88' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={card.printings[0]?.image_url || '/cardback.webp'}
-          alt={card.name}
-          className="w-full h-full object-cover object-top"
-          draggable={false}
-        />
-      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex flex-col w-full text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      >
+        <div className="w-full overflow-hidden" style={{ aspectRatio: '63/88' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={card.printings[0]?.image_url || '/cardback.webp'}
+            alt={card.name}
+            className="w-full h-full object-cover object-top"
+            draggable={false}
+          />
+        </div>
+        <div className={cn("w-full px-1 py-1 text-center", isSelected ? "bg-blue-900/30" : "bg-gray-800/80")}>
+          <p className="text-[9px] font-medium text-gray-200 truncate leading-tight">{card.name}</p>
+          {/* True printing count — uses the synthesized __printingsCount from toCardResult
+              when the card came from the hero pool (where printings is just the representative). */}
+          {(() => {
+            const count = (card as any).__printingsCount ?? card.printings.length;
+            return count > 1 ? (
+              <p className="text-[8px] text-gray-600 leading-tight">{count}p</p>
+            ) : null;
+          })()}
+        </div>
+      </button>
       {/* Already-in-deck badge */}
       {inDeckCount > 0 && (
-        <div className="absolute top-1 left-1 bg-blue-600/90 text-white text-[9px] font-bold px-1 py-px rounded leading-tight">
+        <div data-testid="tile-indeck-count" className="absolute top-1 left-1 bg-blue-600/90 text-white text-[9px] font-bold px-1 py-px rounded leading-tight">
           {inDeckCount}
         </div>
       )}
-      <div className={cn("px-1 py-1 text-center", isSelected ? "bg-blue-900/30" : "bg-gray-800/80")}>
-        <p className="text-[9px] font-medium text-gray-200 truncate leading-tight">{card.name}</p>
-        {/* True printing count — uses the synthesized __printingsCount from toCardResult
-            when the card came from the hero pool (where printings is just the representative). */}
-        {(() => {
-          const count = (card as any).__printingsCount ?? card.printings.length;
-          return count > 1 ? (
-            <p className="text-[8px] text-gray-600 leading-tight">{count}p</p>
-          ) : null;
-        })()}
+      {/* Hover/focus action bar — quick add (default printing) or open the printing picker */}
+      <div
+        className={cn(
+          "absolute inset-x-1 bottom-8 flex flex-col gap-1 transition-opacity",
+          quickAddStatus === 'idle'
+            ? "opacity-0 pointer-events-none group-hover/tile:opacity-100 group-hover/tile:pointer-events-auto group-focus-within/tile:opacity-100 group-focus-within/tile:pointer-events-auto"
+            : "opacity-100",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onQuickAdd}
+          disabled={quickAddStatus !== 'idle'}
+          aria-label={`Quick add ${card.name}`}
+          title="Add 1× of the default printing"
+          className={cn(
+            "w-full rounded px-1.5 py-1 text-xs font-semibold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
+            quickAddStatus === 'added'
+              ? "bg-green-600 text-white"
+              : "bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-80",
+          )}
+        >
+          {quickAddStatus === 'added' ? '✓ Added' : quickAddStatus === 'adding' ? 'Adding…' : '+ Quick add'}
+        </button>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={`Choose printing for ${card.name}`}
+          className="w-full rounded bg-gray-900/90 px-1.5 py-1 text-xs font-medium text-gray-100 shadow-md hover:bg-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+        >
+          Choose printing
+        </button>
       </div>
     </div>
   );
@@ -923,6 +963,26 @@ export default function QuickAddCardDialog({
       setAdding(false);
     }
   }, [onAdd, selectedPrinting, quantity]);
+
+  // Quick add from a grid tile: 1× the canonical printing (English-first via
+  // sortPrintings; grouped-search and hero-pool representatives are already
+  // server-canonical). Skips the printing panel entirely.
+  const [quickAdd, setQuickAdd] = useState<{ id: string; status: 'adding' | 'added' } | null>(null);
+  const handleQuickAdd = useCallback(async (card: CardResult) => {
+    const printing = sortPrintings([...card.printings])[0];
+    if (!printing) return;
+    setQuickAdd({ id: card.unique_id, status: 'adding' });
+    try {
+      await onAdd(printing, 1);
+      setQuickAdd({ id: card.unique_id, status: 'added' });
+      setTimeout(
+        () => setQuickAdd(s => (s?.id === card.unique_id && s.status === 'added' ? null : s)),
+        1500,
+      );
+    } catch {
+      setQuickAdd(s => (s?.id === card.unique_id ? null : s));
+    }
+  }, [onAdd]);
 
   // Build a map of card_unique_id → total qty across all deck zones for "already in deck" badge
   const inDeckMap = useMemo(() => {
@@ -1339,6 +1399,8 @@ export default function QuickAddCardDialog({
                             setSelectedCard(isAlreadySelected ? null : card);
                             setShowCardZoom(!isAlreadySelected);
                           }}
+                          onQuickAdd={() => handleQuickAdd(card)}
+                          quickAddStatus={quickAdd?.id === card.unique_id ? quickAdd.status : 'idle'}
                         />
                       ))}
                     </div>

@@ -605,7 +605,10 @@ export class PostgresPrintingsService implements IPrintingsService {
 
   /**
    * Fetch the hero's full card pool as slim card-level summaries.
-   * One row per unique card; representative printing chosen by foiling priority.
+   * One row per unique card; representative printing chosen English-first
+   * (imaged rows preferred), then by foiling priority. The representative is
+   * both the tile face and QuickAdd's quick-add target, so it must be the
+   * English printing whenever one exists.
    */
   async searchCardsForHero(filters: HeroPoolFilters): AsyncResult<CardSummaryDTO[]> {
     try {
@@ -645,6 +648,8 @@ export class PostgresPrintingsService implements IPrintingsService {
         WHERE ${whereClause}
         ORDER BY
           ${cards.cardUniqueId},
+          (${printings.language} = 'en') DESC,
+          (${printings.imageUrl} IS NOT NULL) DESC,
           CASE ${printings.foiling}
             WHEN 's' THEN 0
             WHEN 'n' THEN 0
@@ -697,8 +702,9 @@ export class PostgresPrintingsService implements IPrintingsService {
         return { success: true, data: [] };
       }
 
-      // DISTINCT ON picks one representative printing per card: the EARLIEST set
-      // (the card's original art), then non-foil within that set, then printingId.
+      // DISTINCT ON picks one representative printing per card: English first
+      // (imaged rows preferred), then the EARLIEST set (the card's original
+      // art), then non-foil within that set, then printingId.
       // printings_count is a correlated subselect for the TOTAL printings of each card.
       const result = await db.execute(sql`
         SELECT DISTINCT ON (${cards.cardUniqueId})
@@ -724,6 +730,8 @@ export class PostgresPrintingsService implements IPrintingsService {
         WHERE ${inArray(cards.cardUniqueId, cardUniqueIds)}
         ORDER BY
           ${cards.cardUniqueId},
+          (${printings.language} = 'en') DESC,
+          (${printings.imageUrl} IS NOT NULL) DESC,
           COALESCE(${sets.releaseOrder}, 2147483647) ASC,
           CASE ${printings.foiling}
             WHEN 's' THEN 0

@@ -28,6 +28,7 @@ import {
 import type { DeckCategory, Deck } from "./types";
 import { CATEGORY_LABELS } from "./types";
 import { getApiFormatCode } from "@/lib/format-constants";
+import { pickDefaultPrinting } from "@/lib/deck/default-printing";
 
 interface MobileDeckSearchOverlayProps {
   isOpen: boolean;
@@ -349,9 +350,9 @@ export default function MobileDeckSearchOverlay({
     setSelectedCard(card);
     setQuantity(1);
     if (card.printings?.length > 0) {
-      setSelectedPrinting(
-        getCheapestPrinting(card.printings) || card.printings[0]
-      );
+      // English-first default — a cheap foreign printing must never be the
+      // silent preselection (users can still pick one from the list below).
+      setSelectedPrinting(pickDefaultPrinting(card.printings));
     }
   };
 
