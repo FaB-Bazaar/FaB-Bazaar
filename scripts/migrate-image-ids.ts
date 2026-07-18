@@ -44,6 +44,17 @@ async function uploadCopy(sourceUrl: string, imageId: string): Promise<"uploaded
   const apiToken = process.env.CLOUDFLARE_API_TOKEN;
   if (!accountId || !apiToken) throw new Error("Missing CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN");
 
+  // Target-first: when the deterministic image already exists (another
+  // environment migrated it — the CF account is shared), skip the copy
+  // entirely. Delivery HEADs don't count against the API rate limit, and this
+  // also rescues rows whose OLD source image is broken but whose new image
+  // was uploaded out-of-band (the LGS/HER promo repairs).
+  const base = sourceUrl.match(/^(https:\/\/imagedelivery\.net\/[^/]+)\//)?.[1];
+  if (base) {
+    const head = await fetch(`${base}/${imageId}/public`, { method: "HEAD" });
+    if (head.ok) return "exists";
+  }
+
   // Cloudflare refuses URL-ingest from imagedelivery.net itself (error 5454),
   // so fetch the bytes and re-upload them as a file.
   const src = await fetch(sourceUrl);
@@ -96,9 +107,10 @@ async function main() {
   const failures: Array<{ printing_id: string; err: string }> = [];
   const t0 = Date.now();
 
-  // Batches of BATCH concurrent uploads, one batch per ~BATCH*DELAY_MS —
-  // aggregate ≤4 req/s, inside Cloudflare's 1200-per-5-min API cap.
-  const BATCH = 4;
+  // Batches of BATCH concurrent uploads; op time (~2.5s fetch+upload) plus a
+  // small inter-batch sleep keeps the aggregate ≤4 req/s, inside Cloudflare's
+  // 1200-per-5-min API cap.
+  const BATCH = 8;
   for (let i = 0; i < uploads.length; i += BATCH) {
     const batch = uploads.slice(i, i + BATCH);
     await Promise.all(
@@ -122,7 +134,7 @@ async function main() {
       const eta = ((uploads.length - done) / Math.max(0.1, done / ((Date.now() - t0) / 1000)) / 60).toFixed(0);
       console.log(`[${done}/${uploads.length}] migrated=${migrated} existed=${existed} failed=${failed} (${rate}/s, ~${eta} min left)`);
     }
-    await new Promise((r) => setTimeout(r, BATCH * DELAY_MS));
+    await new Promise((r) => setTimeout(r, 500));
   }
 
   console.log("\n" + "=".repeat(60));
