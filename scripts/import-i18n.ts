@@ -78,6 +78,8 @@ const CF_BASE = "https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg";
 // ---------------------------------------------------------------------------
 
 interface LssFace {
+  id?: string; // CardVault face UUID (stored as lss_print_id on face rows)
+  face_id?: string; // CardVault face code, e.g. FR_IAR106-MV_BACK
   face_language: string;
   finish_type: string;
   art_type: string;
@@ -166,6 +168,7 @@ async function importFaceLanguage(
   faceIdx: number,
   cardUniqueId: string,
   lang: string,
+  deps: ImportDeps = { upload: uploadToCloudflare },
 ): Promise<LangStats> {
   const stats: LangStats = { translations: 0, printings: 0, skipped: 0, unmatched: 0, cf_uploads: 0 };
 
@@ -193,6 +196,8 @@ async function importFaceLanguage(
 
   type PrintingPlan = {
     new_printing_id: string;
+    lss_print_id: string | null;
+    lss_print_code: string | null;
     set: string;
     collector_number: string;
     edition: string;
@@ -219,6 +224,13 @@ async function importFaceLanguage(
 
   const plans: PrintingPlan[] = [];
 
+  // Same-run twin guard: CardVault lists attribute-identical duplicate prints
+  // (e.g. APS013 vs APS013-CC — same finish, same art, same scan). The DB
+  // existence check below can't catch those because plans are inserted after
+  // the loop; without this set, both twins landed as duplicate rows (the May
+  // 2026 twin cohort).
+  const plannedKeys = new Set<string>();
+
   for (const p of prints) {
     const f = p.faces[faceIdx];
     const collector = f?.printed_code;
@@ -231,6 +243,15 @@ async function importFaceLanguage(
     // AND a cold-foil/rainbow printing at the same collector+language (e.g. the
     // History Pack hero cold foils). Keying without foiling skipped/duplicated them.
     const lssFoiling = FINISH_TO_FOILING[f.finish_type] ?? "s";
+    // Art comes from the FACE, not the mirrored English row — two prints can
+    // share a foiling and differ only by art (rainbow regular vs rainbow EA).
+    const faceIsEA = f.art_type === "extended-art";
+
+    const plannedKey = `${setCode}|${collector}|${lang}|${lssFoiling}|${faceIsEA}`;
+    if (plannedKeys.has(plannedKey)) {
+      stats.skipped++;
+      continue;
+    }
 
     const existing = await pool.query<{ printing_id: string }>(
       `SELECT printing_id FROM printings
@@ -270,9 +291,9 @@ async function importFaceLanguage(
               is_common, is_rare, is_super_rare, is_majestic, is_legendary, is_fabled, is_promo
          FROM printings
         WHERE card_unique_id = $1 AND set = $2 AND collector_number = $3 AND language = 'en'
-        ORDER BY (foiling = $4) DESC
+        ORDER BY (foiling = $4) DESC, (is_extended_art = $5) DESC
         LIMIT 1`,
-      [cardUniqueId, setCode, collector, lssFoiling],
+      [cardUniqueId, setCode, collector, lssFoiling, faceIsEA],
     );
 
     if (enMatch.rows.length === 0) {
@@ -281,8 +302,11 @@ async function importFaceLanguage(
       if (ALLOW_FOREIGN_ONLY) {
         const d = deriveForeignPrinting(p, f);
         const newId = nanoid();
+        plannedKeys.add(plannedKey);
         plans.push({
           new_printing_id: newId,
+          lss_print_id: f.id ?? null,
+          lss_print_code: f.face_id ?? null,
           set: d.set,
           collector_number: d.collector_number,
           edition: d.edition,
@@ -314,8 +338,11 @@ async function importFaceLanguage(
 
     const en = enMatch.rows[0];
     const newId = nanoid();
+    plannedKeys.add(plannedKey);
     plans.push({
       new_printing_id: newId,
+      lss_print_id: f.id ?? null,
+      lss_print_code: f.face_id ?? null,
       set: setCode,
       collector_number: collector,
       edition: en.edition,
@@ -323,8 +350,12 @@ async function importFaceLanguage(
       // row — a cold-foil foreign printing must not inherit the English standard.
       foiling: lssFoiling,
       rarity: en.rarity,
-      is_extended_art: en.is_extended_art,
-      art_variations: en.art_variations,
+      // Art comes from the FACE (like foiling): two prints can share a foiling
+      // and differ only by art. The EN mirror is RANKED by art match above, so
+      // art_variations usually comes from the right variant; is_extended_art
+      // stays face-truthful even when English lacks the matching variant.
+      is_extended_art: faceIsEA,
+      art_variations: faceIsEA === en.is_extended_art ? en.art_variations : (faceIsEA ? ["EA"] : []),
       is_first_edition: en.is_first_edition,
       is_unlimited: en.is_unlimited,
       is_normal_edition: en.is_normal_edition,
@@ -348,7 +379,7 @@ async function importFaceLanguage(
   }
 
   for (const plan of plans) {
-    await uploadToCloudflare(plan.image_source_url, plan.new_printing_id);
+    await deps.upload(plan.image_source_url, plan.new_printing_id);
     stats.cf_uploads++;
   }
 
@@ -402,8 +433,9 @@ async function importFaceLanguage(
            is_first_edition, is_unlimited, is_normal_edition,
            is_normal_foil, is_rainbow_foil, is_cold_foil,
            is_common, is_rare, is_super_rare, is_majestic, is_legendary, is_fabled, is_promo,
+           lss_print_id, lss_print_code,
            created_at, updated_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24, now(), now())`,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26, now(), now())`,
         [
           plan.new_printing_id,
           cardUniqueId,
@@ -429,6 +461,8 @@ async function importFaceLanguage(
           plan.is_legendary,
           plan.is_fabled,
           plan.is_promo,
+          plan.lss_print_id,
+          plan.lss_print_code,
         ],
       );
       stats.printings++;
@@ -501,9 +535,14 @@ async function resolveFaceCardUniqueId(
   return null;
 }
 
-async function importCard(
+export interface ImportDeps {
+  upload: (sourceUrl: string, imageId: string) => Promise<void>;
+}
+
+export async function importCard(
   pool: Pool,
   card: LssResult,
+  deps: ImportDeps = { upload: uploadToCloudflare },
 ): Promise<{ stats: LangStats; cardUniqueId: string | null; name: string; faceCount: number }> {
   const name = card.cores[0]?.name?.split("---").pop() ?? "<unknown>";
   const stats: LangStats = { translations: 0, printings: 0, skipped: 0, unmatched: 0, cf_uploads: 0 };
@@ -527,7 +566,7 @@ async function importCard(
   // Iterate every (face, language) pair
   for (const [faceIdx, cardUniqueId] of Array.from(faceMap.entries())) {
     for (const lang of TARGET_LANGUAGES) {
-      const s = await importFaceLanguage(pool, card, faceIdx, cardUniqueId, lang);
+      const s = await importFaceLanguage(pool, card, faceIdx, cardUniqueId, lang, deps);
       stats.translations += s.translations;
       stats.printings += s.printings;
       stats.skipped += s.skipped;
@@ -635,7 +674,11 @@ async function main() {
   await pool.end();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Run only when executed directly — the module is also imported by tests.
+const entry = process.argv[1];
+if (entry && (entry.endsWith("import-i18n.ts") || entry.endsWith("import-i18n.js"))) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
