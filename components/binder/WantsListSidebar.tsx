@@ -68,10 +68,7 @@ const WantsCardItem: React.FC<WantsCardItemProps> = ({
           {/* Card Image */}
           <div className="flex-shrink-0">
             <img
-              src={card.printingId ? 
-                `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public` : 
-                card.printingDetails?.image_url || 
-                '/placeholder-card.png'
+              src={getCardImageUrl(card)
               }
               alt={card.name}
               className="w-12 h-16 object-cover rounded border"

@@ -454,7 +454,7 @@ export function CollectionTile({
                       {binder.showcaseCards.map((card, idx) => (
                         <div key={card.printingId} className="aspect-[2/3] rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 relative">
                           <Image
-                            src={getShowcaseImageUrl(card.printingId)}
+                            src={card.image_url || getShowcaseImageUrl(card.printingId)}
                             alt={`${card.rarity} card worth $${card.tcg_low || card.tcg_market || 0}`}
                             fill
                             className="object-cover"

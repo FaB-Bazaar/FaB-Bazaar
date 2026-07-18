@@ -111,6 +111,7 @@ export interface BinderWithStats {
   }>
   showcaseCards?: Array<{
     printingId: string
+    image_url?: string
     tcg_low: number
     rarity: string
   }>
@@ -207,7 +208,7 @@ function BinderViewCard({ binder, onDelete, onTogglePin, onAddTags, onRemoveTag 
         {showImage ? (
           <>
             <img
-              src={getShowcaseImageUrl(topCard.printingId)}
+              src={topCard.image_url || getShowcaseImageUrl(topCard.printingId)}
               alt=""
               loading="lazy"
               onError={() => setImageFailed(true)}

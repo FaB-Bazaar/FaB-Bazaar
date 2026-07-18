@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { X, Plus, Minus, Package, Copy, Check, ArrowRight, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getCardImageUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { bindersClient } from "@/lib/client";
 
@@ -16,7 +16,7 @@ const MobileSelectedCardItem = ({ card, onQuantityChange, onRemove }: any) => {
   return (
     <div className="p-2 mb-2 border rounded-lg flex items-start gap-3">
       <img
-        src={card.printingId ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public` : '/placeholder-card.png'}
+        src={getCardImageUrl(card)}
         alt={card.name}
         className="w-12 h-16 object-cover rounded"
       />

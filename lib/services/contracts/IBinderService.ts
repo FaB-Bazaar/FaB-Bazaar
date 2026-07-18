@@ -70,6 +70,7 @@ export interface BinderDTO {
   rarityCountsNotForTrade?: Record<string, number>;
   showcaseCards?: Array<{
     printingId: string;
+    image_url?: string;
     tcg_low: number;
     rarity: string;
   }>;
@@ -502,6 +503,7 @@ export interface BinderWithStatsDTO {
   updatedAt?: Date;
   showcaseCards?: Array<{
     printingId: string;
+    image_url?: string;
     tcg_low: number;
     rarity: string;
   }>;

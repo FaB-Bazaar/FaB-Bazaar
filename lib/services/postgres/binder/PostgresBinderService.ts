@@ -1508,6 +1508,7 @@ export class PostgresBinderService implements IBinderService {
       const showcaseCards = await db
         .select({
           printingId: inventoryItems.printingId,
+          imageUrl: printings.imageUrl,
           tcg_low: printings.tcgLow,
           rarity: printings.rarity,
         })
@@ -1544,6 +1545,7 @@ export class PostgresBinderService implements IBinderService {
         rarityCountsNotForTrade: rarityCountsNotForTradeObj,
         showcaseCards: showcaseCards.map((sc) => ({
           printingId: sc.printingId,
+          image_url: sc.imageUrl ?? undefined,
           tcg_low: sc.tcg_low || 0,
           rarity: sc.rarity || 'C',
         })),

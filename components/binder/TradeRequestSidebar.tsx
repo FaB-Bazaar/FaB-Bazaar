@@ -20,7 +20,7 @@ import {
   Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, getCardImageUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
@@ -79,10 +79,7 @@ const TradeCardItem: React.FC<TradeCardItemProps> = ({
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0">
             <img
-              src={card.printingId ? 
-                `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public` : 
-                card.printingDetails?.image_url || 
-                '/placeholder-card.png'
+              src={getCardImageUrl(card)
               }
               alt={card.name}
               className="w-12 h-16 object-cover rounded border"

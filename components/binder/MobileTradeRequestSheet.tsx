@@ -10,7 +10,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "
 import { X, Plus, Minus, ArrowLeftRight, Loader2, Copy, ShieldAlert, Package, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, getCardImageUrl } from "@/lib/utils";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { notifyTradeInterest } from "@/lib/client/binders-client";
@@ -23,7 +23,7 @@ const MobileTradeCardItem = ({ card, onQuantityChange, onRemove }: any) => {
     return (
         <div className={cn("p-2 mb-2 border rounded-lg flex items-start gap-3", !isForTrade && "border-amber-500/50 bg-amber-50/20")}>
             <img
-              src={card.printingId ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public` : '/placeholder-card.png'}
+              src={getCardImageUrl(card)}
               alt={card.display_name || card.name}
               className="w-12 h-16 object-cover rounded"
             />

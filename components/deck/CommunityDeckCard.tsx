@@ -78,9 +78,10 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
   const totalCards = deck.totalCards || 0;
   const estimatedValue = deck.estimatedValue || 0;
   const articleRefs = deck.articleReferences || [];
-  const heroImgUrl = deck.heroPrintingId
-    ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.heroPrintingId}/public`
-    : null;
+  const heroImgUrl = deck.heroImageUrl
+    || (deck.heroPrintingId
+      ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.heroPrintingId}/public`
+      : null);
 
   return (
     <>

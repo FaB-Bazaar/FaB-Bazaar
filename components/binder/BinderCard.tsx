@@ -8,7 +8,7 @@ import { Minus, Plus, Edit3, Trash2, ExternalLink } from "lucide-react"
 import { RarityIcon } from '@/components/shared/RarityIcon'
 import FoilCardImage from '@/components/shared/FoilCardImage'
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil'
-import { cn } from '@/lib/utils'
+import { cn, getCardImageUrl } from '@/lib/utils'
 import Link from "next/link"
 import { TcgAffiliateLink } from '@/components/tracking'
 
@@ -83,11 +83,7 @@ export default function EnhancedBinderCard({
     return foilingMap[code] || { name: 'Non-foil', className: 'bg-gray-500 text-white' }
   }
 
-  const getImageUrl = () => {
-    const printingId = card.printingId
-    if (printingId) return `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`
-    return "/cardback.webp"
-  }
+  const getImageUrl = () => getCardImageUrl(card)
 
   const handleImageClick = (e: React.MouseEvent) => {
     e.stopPropagation()

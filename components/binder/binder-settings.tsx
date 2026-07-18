@@ -259,7 +259,7 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
                           className="hover:opacity-75 transition-opacity border-2 border-transparent hover:border-primary rounded"
                         >
                           <img
-                            src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`}
+                            src={card.image_url || card.printingDetails?.image_url || `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`}
                             alt={card.name || card.display_name}
                             className="w-full h-auto rounded"
                           />

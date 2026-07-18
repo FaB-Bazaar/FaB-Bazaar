@@ -50,6 +50,7 @@ interface ProfileBinderData {
   
   showcaseCards?: Array<{
     printingId: string;
+    image_url?: string;
     tcg_low: number | { $numberDouble: string };  // Changed from tcg_market
     rarity: string;
   }>;
@@ -214,7 +215,7 @@ export function ProfileTile({ binder }: ProfileTileProps) {
                     return (
                       <div key={card.printingId} className="aspect-[2/3] rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 relative">
                         <Image
-                          src={getShowcaseImageUrl(card.printingId)}
+                          src={card.image_url || getShowcaseImageUrl(card.printingId)}
                           alt={`${card.rarity}`}
                           fill
                           className="object-cover"

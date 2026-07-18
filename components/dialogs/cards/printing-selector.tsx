@@ -221,7 +221,7 @@ export function PrintingSelector({ cardId, cardName, selectedPrintingId, onPrint
                   {printing.unique_id && (
                     <div className="mt-2 flex justify-center bg-white rounded-lg p-1">
                       <img
-                        src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printing.unique_id}/public`}
+                        src={(printing.image_url && printing.image_url.startsWith("http")) ? printing.image_url : `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printing.unique_id}/public`}
                         alt={`${cardName} (${printing.set_id})`}
                         className="h-24 rounded-lg object-contain"
                         style={{ backgroundColor: "white" }}

@@ -389,12 +389,17 @@ export default function CardDisplay({
     // If we've already determined the image source, use that
     if (imageSrc) return imageSrc
 
-    // First try: Cloudfront URL based on printing ID
+    // First try: the stored image_url (deterministic CDN id when migrated)
+    if (currentPrinting?.image_url?.startsWith("http") && !imageError) {
+      return currentPrinting.image_url
+    }
+
+    // Second try: CDN URL keyed by printing ID (legacy image id scheme)
     if (currentPrinting?.unique_id && !imageError) {
       return `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${currentPrinting.unique_id}/public`
     }
 
-    // Second try: Use the image_url from the printing if available
+    // Third try: whatever image_url remains (legacy relative paths)
     if (currentPrinting?.image_url) {
       return currentPrinting.image_url
     }
