@@ -183,12 +183,27 @@ export function ImagesView({
                         }
                       },
                     }
-                  : {})}
+                  : {
+                      // No selection flow (signed out / read-only): clicking the
+                      // card opens the centered preview — for double-sided cards
+                      // that's the both-faces overlay, from either face's tile.
+                      role: 'button',
+                      tabIndex: 0,
+                      'aria-label': `Preview ${printing.display_name || printing.name}`,
+                      onClick: () => setPreviewPrinting(printing),
+                      onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPreviewPrinting(printing);
+                        }
+                      },
+                    })}
                 className={`relative aspect-[2.5/3.5] rounded-lg overflow-hidden border transition-all ${
                   isSelected
                     ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-500 dark:ring-blue-400'
                     : 'border-gray-300 dark:border-gray-700'
-                }${selectionEnabled ? ' cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''}`}
+                }${selectionEnabled ? ' cursor-pointer' : ' cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400`}
               >
                   {printing.image_url ? (
                     <FoilCardImage
@@ -354,8 +369,9 @@ export function ImagesView({
           </button>
           {previewPrinting.other_face_image_url ? (
             // Double-faced: both faces side by side (same pattern as the deck
-            // editor lightbox).
-            <div className="flex gap-3 items-center">
+            // editor lightbox). Front always renders LEFT regardless of which
+            // face's tile opened the preview.
+            <div className={`flex gap-3 items-center ${previewPrinting.is_front_face === false ? 'flex-row-reverse' : ''}`}>
               <div className="w-[min(44vw,340px)] aspect-[2.5/3.5]">
                 <FoilCardImage
                   foiling={previewPrinting.foiling}
