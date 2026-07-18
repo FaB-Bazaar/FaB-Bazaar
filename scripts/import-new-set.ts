@@ -324,34 +324,47 @@ async function politeFetch(url: string): Promise<any> {
     client.release();
   }
 
-  // 6. images (optional; existing images are NEVER re-uploaded — new ids only,
-  //    and Cloudflare 'already exists' is treated as success)
+  // 6. images (optional). RESUMABLE: sweeps the DB for any printing in this
+  //    set still pointing at a non-Cloudflare image (not just rows created in
+  //    this run), so a partially-failed upload pass heals on the next re-run.
+  //    Existing Cloudflare images are never re-uploaded ('already exists' =
+  //    success; rows already on imagedelivery are excluded by the query).
   if (UPLOAD_IMAGES) {
-    let uploaded = 0;
-    for (const p of newPrintings) {
-      if (!p.image_url) continue;
-      const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-      const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-      if (!accountId || !apiToken) throw new Error('CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN required for --upload-images');
-      const imgRes = await fetch(p.image_url);
-      if (!imgRes.ok) { console.warn(`   ⚠ image fetch failed for ${p.lss_print_code}`); continue; }
-      const form = new FormData();
-      form.append('file', await imgRes.blob(), `${p.printing_id}.webp`);
-      form.append('id', p.printing_id);
-      const cfRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`,
-        { method: 'POST', headers: { Authorization: `Bearer ${apiToken}` }, body: form });
-      const cfJson: any = await cfRes.json();
-      const exists = (cfJson.errors ?? []).some((e: any) => e.code === 5409 || /already exists/i.test(e.message));
-      if ((cfRes.ok && cfJson.success) || exists) {
-        await pool.query('UPDATE printings SET image_url = $1 WHERE printing_id = $2',
-          [`${CF_BASE}/${p.printing_id}/public`, p.printing_id]);
-        uploaded++;
-      } else {
-        console.warn(`   ⚠ Cloudflare upload failed for ${p.lss_print_code}: ${JSON.stringify(cfJson.errors)}`);
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+    if (!accountId || !apiToken) throw new Error('CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN required for --upload-images');
+    const pending = await pool.query(
+      `SELECT printing_id, image_url, lss_print_code FROM printings
+        WHERE set = $1 AND image_url IS NOT NULL AND image_url NOT LIKE '%imagedelivery%'`,
+      [setLower]);
+    console.log(`images: ${pending.rowCount} pending upload`);
+    let uploaded = 0, failed = 0;
+    for (const p of pending.rows) {
+      try {
+        const imgRes = await fetch(p.image_url);
+        if (!imgRes.ok) { failed++; console.warn(`   ⚠ image fetch failed for ${p.lss_print_code ?? p.printing_id} (${imgRes.status})`); continue; }
+        const form = new FormData();
+        form.append('file', await imgRes.blob(), `${p.printing_id}.webp`);
+        form.append('id', p.printing_id);
+        const cfRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`,
+          { method: 'POST', headers: { Authorization: `Bearer ${apiToken}` }, body: form });
+        const cfJson: any = await cfRes.json();
+        const exists = (cfJson.errors ?? []).some((e: any) => e.code === 5409 || /already exists/i.test(e.message));
+        if ((cfRes.ok && cfJson.success) || exists) {
+          await pool.query('UPDATE printings SET image_url = $1 WHERE printing_id = $2',
+            [`${CF_BASE}/${p.printing_id}/public`, p.printing_id]);
+          uploaded++;
+        } else {
+          failed++;
+          console.warn(`   ⚠ Cloudflare upload failed for ${p.lss_print_code ?? p.printing_id}: ${JSON.stringify(cfJson.errors)}`);
+        }
+      } catch (e: any) {
+        failed++;
+        console.warn(`   ⚠ upload error for ${p.lss_print_code ?? p.printing_id}: ${e?.message?.slice(0, 80)}`);
       }
       await sleep(500);
     }
-    console.log(`images: ${uploaded} uploaded to Cloudflare`);
+    console.log(`images: ${uploaded} uploaded to Cloudflare${failed ? `, ${failed} FAILED (re-run --commit --upload-images to retry)` : ''}`);
   }
 
   console.log(`\nrequests used: ${requestsUsed}/${MAX_REQUESTS}. Idempotent — re-run anytime; ` +
