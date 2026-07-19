@@ -446,7 +446,7 @@ export default function DeckMatchupsDialog({
   };
 
   // Build grouped card arrays for the gallery (unique cards with qty + image)
-  interface GalleryCard { talisharId: string; count: number; displayName: string; printingId: string }
+  interface GalleryCard { talisharId: string; count: number; displayName: string; printingId: string; imageUrl?: string }
 
   const buildGalleryCards = useCallback((printings: any[]): GalleryCard[] => {
     const groups = new Map<string, GalleryCard>();
@@ -459,6 +459,7 @@ export default function DeckMatchupsDialog({
           count: qty,
           displayName: p.printingDetails?.display_name || p.printingDetails?.name || id,
           printingId: p.printingId,
+          imageUrl: p.printingDetails?.image_url,
         });
       } else {
         groups.get(id)!.count += qty;
@@ -1093,9 +1094,9 @@ export default function DeckMatchupsDialog({
         if (!matchup?.sideboard?.in?.length && !matchup?.sideboard?.out?.length) {
           return deckGalleryCards;
         }
-        const countMap = new Map<string, { count: number; displayName: string; printingId: string }>();
+        const countMap = new Map<string, { count: number; displayName: string; printingId: string; imageUrl?: string }>();
         for (const c of deckGalleryCards) {
-          countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId });
+          countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId, imageUrl: c.imageUrl });
         }
         for (const id of matchup?.sideboard?.out ?? []) {
           const entry = countMap.get(id);
@@ -1110,10 +1111,10 @@ export default function DeckMatchupsDialog({
             existing.count += 1;
           } else {
             const invCard = inventoryGalleryCards.find(c => c.talisharId === id);
-            countMap.set(id, { count: 1, displayName: invCard?.displayName ?? id, printingId: invCard?.printingId ?? id });
+            countMap.set(id, { count: 1, displayName: invCard?.displayName ?? id, printingId: invCard?.printingId ?? id, imageUrl: invCard?.imageUrl });
           }
         }
-        return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId }));
+        return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId, imageUrl: v.imageUrl }));
       }
       // Apply this matchup's sideboard changes to the inventory view:
       // sideboard.in  → those cards leave inventory (moving into the deck)
@@ -1122,9 +1123,9 @@ export default function DeckMatchupsDialog({
       if (!matchup?.sideboard?.in?.length && !matchup?.sideboard?.out?.length) {
         return inventoryGalleryCards;
       }
-      const countMap = new Map<string, { count: number; displayName: string; printingId: string }>();
+      const countMap = new Map<string, { count: number; displayName: string; printingId: string; imageUrl?: string }>();
       for (const c of inventoryGalleryCards) {
-        countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId });
+        countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId, imageUrl: c.imageUrl });
       }
       for (const id of matchup?.sideboard?.in ?? []) {
         const entry = countMap.get(id);
@@ -1142,7 +1143,7 @@ export default function DeckMatchupsDialog({
           countMap.set(id, { count: 1, displayName: deckCard?.displayName ?? id, printingId: deckCard?.printingId ?? id });
         }
       }
-      return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId }));
+      return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId, imageUrl: v.imageUrl }));
     })();
     const galleryHeroName = gallery ? getHeroDisplayName(gallery.heroId) : '';
     const galleryTotal = galleryCards.reduce((s, c) => s + c.count, 0);
@@ -1267,7 +1268,7 @@ export default function DeckMatchupsDialog({
                   <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                      src={card.imageUrl || `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
                       alt={card.displayName}
                       className="w-full h-full object-cover object-top"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
@@ -1483,7 +1484,7 @@ export default function DeckMatchupsDialog({
                         <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                            src={card.imageUrl || `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
                             alt={card.displayName}
                             className="w-full h-full object-cover object-top"
                             onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
