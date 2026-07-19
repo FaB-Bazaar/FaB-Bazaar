@@ -25,6 +25,10 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 - Metadata / secondary: `text-sm` (14px) acceptable
 - Never `text-xs` (12px) for anything the user needs to act on
 
+## Card Images
+
+- Always render `image_url` (or `getCardImageUrl(card)` from `@/lib/utils`) — image ids derive from printing characteristics, NOT printing_ids; constructed `<CF>/<printingId>/public` URLs 404 (old images deleted 2026-07).
+
 ## Foil Rendering
 
 - Foil **policy** lives in `lib/foil.ts` (foiling code → treatment, rainbow inset resolution, art-style derivation). Change it there, never inline — call sites use `artStylesFromPrinting()` + `foilInsetFromValues()`.

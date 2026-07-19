@@ -65,6 +65,10 @@ ServiceFactory.setUserService(mockUserService)
 - **`facet_tag_definitions.draft` is display-only** — it does NOT keep an assigned tag out of search. New-term proposals therefore live in the separate `facet_tag_suggestions` review queue (curator approval mints a definition) — never as draft defs.
 - **Route split**: `/api/card-facets/*` = any signed-in user (vote/suggest; reads public), `/api/admin/card-facets/*` = curator/superadmin only. `facetTagsMode: 'all'` = `@>` contains; default ANY = `&&` overlap.
 
+## Known Dead Paths
+
+- `binders.thumbnailPrintingId` in service code is dead — no DB column behind it (binder OG images always fall back to the site icon).
+
 ## Circular Dependency Warning
 
 Never import from `@/lib/services` in any file that `index.ts` imports transitively (e.g. service implementations, `lib/metafy/tokens.ts`). It puts `ServiceFactory` in TDZ → `ReferenceError` at runtime. Use lazy `await import('@/lib/services')` inside async function bodies instead.
