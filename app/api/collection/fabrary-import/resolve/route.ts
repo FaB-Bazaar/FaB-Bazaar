@@ -94,6 +94,14 @@ export async function POST(request: NextRequest) {
 }
 
 export function resolvePrinting(row: FabraryParsedRow, candidates: PrintingDTO[]): PrintingDTO | null {
+  // Fabrary exports carry no language column, so the ENGLISH printing is the
+  // only correct target — foreign-language siblings are attribute-identical
+  // (same foiling/edition/art) and would make every row ambiguous. Foreign-
+  // EXCLUSIVE sets (2HP/RAP) have no English row, so fall back to all
+  // candidates there.
+  const english = candidates.filter(p => (p.language ?? 'en') === 'en');
+  if (english.length > 0) candidates = english;
+
   // Filter by foiling + edition
   let filtered = candidates.filter(p => p.foiling === row.foiling && p.edition === row.edition);
 
