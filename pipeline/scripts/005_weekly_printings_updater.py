@@ -194,6 +194,10 @@ CARD_ADMIN_OWNED_COLS = {
     'strategy_notes',
 }
 
+PRINTING_APP_OWNED_COLS = {
+    'image_url',
+}
+
 
 def _build_card_upsert_sql() -> str:
     col_names = ', '.join(f'"{c}"' for c in CARD_FIELDS)
@@ -217,6 +221,7 @@ def _build_printing_upsert_sql() -> str:
     update_cols = [
         c for c in PRINTING_FIELDS
         if c != 'printing_id' and c not in SOURCE_ANCHOR_COLS
+        and c not in PRINTING_APP_OWNED_COLS
     ]
     update_set = ',\n            '.join(f'"{c}" = EXCLUDED."{c}"' for c in update_cols)
     return f"""
