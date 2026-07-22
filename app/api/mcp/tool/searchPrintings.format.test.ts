@@ -36,6 +36,32 @@ describe('projectPrintingForMcp', () => {
     const projected = projectPrintingForMcp(printing({ tcgplayer_url: null }));
     expect('tcgplayer_url' in projected).toBe(false);
   });
+
+  it('always carries image_url in the structured projection (Volzar tiles render it; no includeImage needed)', () => {
+    // The structured payload is UI-only for the hosted chat — printing_id CDN
+    // URLs can't be constructed client-side (images deleted 2026-07), so the
+    // stored image_url must always ride along.
+    const projected = projectPrintingForMcp(
+      printing({ image_url: 'https://imagedelivery.net/x/CRU007/public' }),
+      {},
+    );
+    expect(projected.image_url).toBe('https://imagedelivery.net/x/CRU007/public');
+  });
+
+  it('omits image_url when the printing has none stored', () => {
+    const projected = projectPrintingForMcp(printing({ image_url: null }), {});
+    expect('image_url' in projected).toBe(false);
+  });
+});
+
+describe('formatSearchSections image lines (model-visible text)', () => {
+  it('keeps Image: lines opt-in via includeImage (token cost control)', () => {
+    const rows = [printing({ image_url: 'https://imagedelivery.net/x/CRU007/public' })];
+    const without = formatSearchSections([{ index: 0, query: 'q', total: 1, printings: rows }], {});
+    expect(without[0]).not.toContain('Image:');
+    const withOpt = formatSearchSections([{ index: 0, query: 'q', total: 1, printings: rows }], { includeImage: true });
+    expect(withOpt[0]).toContain('Image: https://imagedelivery.net/x/CRU007/public');
+  });
 });
 
 describe('formatSearchSections', () => {

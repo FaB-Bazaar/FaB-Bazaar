@@ -222,7 +222,11 @@ export function projectPrintingForMcp(p: any, opts: ProjectOptions = {}): any {
   if (p.name_local) out.name_local = p.name_local;
   // Card-level grouping: how many printings this representative stands in for.
   if (typeof p.printing_count === 'number' && p.printing_count > 1) out.printing_count = p.printing_count;
-  if (opts.includeImage && p.image_url) out.image_url = p.image_url;
+  // Always carried in the structured projection: the UI (Volzar tiles, rail
+  // previews) renders it directly and cannot construct it from printing_id
+  // (those CDN images were deleted 2026-07). The model-visible TEXT output
+  // keeps its Image: lines gated on includeImage — see formatSearchSections.
+  if (p.image_url) out.image_url = p.image_url;
   if (opts.includeArtists && Array.isArray(p.artists) && p.artists.length > 0) out.artists = p.artists;
   if (opts.includeText && p.text) out.text = p.text;
   // Curated facet tags (card→tags visibility — e.g. drift checks vs a recorded batch).
@@ -423,7 +427,7 @@ export const searchPrintingsTool = {
 Use this for ANY card lookup: by name, by set, by rarity, by price, by hero legality, by keyword, by type.
 This is the tool for queries like: "find Command and Conquer red", "look up Pummel printings", "what equipment does Dash play", "show me cheap Majestics", "search for Enlightened Strike", "any blue attacks under $5".
 
-Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, and (when present) ea / art. Set options.includeImage/includeArtists/includeText/includeFacets to opt into extra fields (includeFacets returns each card's curated facet_tags — use it to see what a card is tagged with).
+Results are returned in a compact projection — each printing includes printing_id, card_unique_id, collector_number, name, set, edition, foiling, rarity, pitch, color, types[], price, image_url, and (when present) ea / art. Set options.includeImage/includeArtists/includeText/includeFacets to opt into extra fields in the TEXT output (includeImage adds Image: lines; includeFacets returns each card's curated facet_tags — use it to see what a card is tagged with).
 
 ⚠️ CARDS vs PRINTINGS (default = grouped): by default this returns ONE representative printing per card, plus a printing_count of how many printings were folded in — so a broad search gives you distinct CARDS, not every set × edition × foiling × language × price. This is what you want for "what cards…" / discovery / list-building queries. The representative is NOT necessarily the user's copy — do NOT assume it's WTR/the oldest set. When you need every individual printing (harvesting a specific printing_id, comparing prices/versions of one card), either pin it with sets[] / foilings[] / editions[] (e.g. foilings:["r"] for Rainbow Foil, sets:["1hp"] for the History Pack reprint), or pass options.groupByCard:false to get the full per-printing list.
 
@@ -514,7 +518,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
           sortBy:    { type: 'string', enum: ['name', 'price', 'power', 'cost', 'defense', 'set', 'rarity', 'collector_number', 'color', 'foiling', 'edition', 'relevance'] },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] },
           language:  { type: 'string', enum: ['en', 'fr', 'de', 'it', 'es', 'ja'], description: 'Localize results for a non-English conversation: each result swaps to that language\'s printing WHEN ONE EXISTS (image, set, collector number, translated rules text) and carries name_local (the translated card name). Cards without a printing in the language keep their English printing (marked "no XX printing exists"). Card-name QUERIES must still use ENGLISH names — translated names are not searchable. Default en = no localization.' },
-          includeImage:   { type: 'boolean', description: 'Include image_url per printing. Default false.' },
+          includeImage:   { type: 'boolean', description: 'Add an Image: line per printing to the TEXT output. Default false. (The structured results always carry image_url regardless.)' },
           includeArtists: { type: 'boolean', description: 'Include artists[] per printing. Default false.' },
           includeText:    { type: 'boolean', description: 'Include card text per printing. Default false.' },
           includeFacets:  { type: 'boolean', description: 'Include facet_tags[] (curated function tags) per printing — shows what a card is currently tagged with. Default false.' },
