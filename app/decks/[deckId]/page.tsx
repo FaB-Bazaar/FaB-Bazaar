@@ -947,6 +947,10 @@ export default function DeckEditorPage() {
     localStorage.setItem("starter-kits-attention-seen", "1");
     setKitsAttention(false);
   }, []);
+  // Bumped by the Explore button; tells MobileCardSearch to reset to the
+  // kit-browse view (mobile's Cards tab), since switching to an already-active
+  // tab is otherwise a visible no-op.
+  const [exploreSignal, setExploreSignal] = useState(0);
   const [heroCurators, setHeroCurators] = useState<Array<{ displayUsername: string; avatarUrl: string | null; metafyProductUrl: string | null; metafyLinkLabel: string | null }>>([]);
   const [previewBuild, setPreviewBuild] = useState<{
     name: string;
@@ -1982,11 +1986,13 @@ export default function DeckEditorPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>}
 
-                  {/* Explore button — opens QuickAddCardDialog (same as ⌘K → 9 chord).
+                  {/* Explore button — desktop opens QuickAddCardDialog (same as
+                      ⌘K → 9 chord); mobile switches to the Cards tab and resets
+                      it to the kit-browse view (exploreSignal → MobileCardSearch).
                       Sits next to "Start with a Starter Kit" so brewers see both paths. */}
                   <button
                     type="button"
-                    onClick={() => openQuickAdd({ category: 'maindeck' })}
+                    onClick={() => { openQuickAdd({ category: 'maindeck' }); setExploreSignal(s => s + 1) }}
                     aria-label={`Explore the card pool (${modKey} K, then 9)`}
                     className={cn(
                       "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
@@ -2015,6 +2021,8 @@ export default function DeckEditorPage() {
                       deck={state.deck}
                       deckId={deckId}
                       onDeckChange={handlers.refreshDeck}
+                      kitBuilds={curatedBuilds}
+                      exploreSignal={exploreSignal}
                     />
                   </div>
                 )}

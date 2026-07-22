@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Search, X, Loader2, ChevronDown } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Search, X, Loader2, ChevronDown, Sparkles } from "lucide-react";
 import { searchClient, decksClient } from "@/lib/client";
 import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
 import { useToast } from "@/hooks/use-toast";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
+import { buildKitSections, type KitBrowseBuild } from "@/lib/deck-flow/kit-browse";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
 const shorthandParser = new FABShorthandParser();
@@ -47,9 +48,15 @@ interface Props {
   deck: DeckDTO;
   deckId: string;
   onDeckChange: () => void;
+  /** Curated starter kits for this hero — when present, the grid defaults to
+      browsing their cards (grouped by kit) until the user types a search. */
+  kitBuilds?: KitBrowseBuild[];
+  /** Increment to reset back to the kit-browse view (clears the query and
+      scrolls the grid into view) — wired to the header's Explore button. */
+  exploreSignal?: number;
 }
 
-export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) {
+export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds, exploreSignal }: Props) {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -60,6 +67,59 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
   const [deltas, setDeltas] = useState<Map<string, number>>(new Map());
   // Currently selected printing per card_unique_id
   const [selectedPrintings, setSelectedPrintings] = useState<Map<string, any>>(new Map());
+
+  // ── Kit-browse mode ──────────────────────────────────────────────────────
+  // With no search query, the grid shows the starter kits' cards grouped by
+  // kit instead of an empty prompt, so builders can scroll the curated pool.
+  const { sections: kitSections, allPrintingIds: kitPrintingIds } = useMemo(
+    () => buildKitSections(kitBuilds ?? []),
+    [kitBuilds],
+  );
+  // printingId → full printing row, hydrated once per kit set
+  const [kitCards, setKitCards] = useState<Map<string, any> | null>(null);
+  const [kitLoading, setKitLoading] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const kitIdsKey = kitPrintingIds.join(",");
+
+  useEffect(() => {
+    if (kitPrintingIds.length === 0) { setKitCards(null); return; }
+    let cancelled = false;
+    setKitLoading(true);
+    (async () => {
+      const map = new Map<string, any>();
+      // /api/search/core clamps limit; hydrate in chunks
+      const CHUNK = 90;
+      for (let i = 0; i < kitPrintingIds.length; i += CHUNK) {
+        const chunk = kitPrintingIds.slice(i, i + CHUNK);
+        try {
+          const result = await searchClient.searchPrintingsPost(
+            { printingIds: chunk },
+            { limit: chunk.length, show: "all" },
+          );
+          if (result.success && result.data?.printings) {
+            for (const p of result.data.printings) map.set(p.printing_id, p);
+          }
+        } catch {
+          // Partial hydration is fine — missing rows just don't render
+        }
+        if (cancelled) return;
+      }
+      if (!cancelled) {
+        setKitCards(map);
+        setKitLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kitIdsKey]);
+
+  // Explore button: clear any search so the kit-browse view is showing, and
+  // bring the grid into view.
+  useEffect(() => {
+    if (!exploreSignal) return;
+    setQuery("");
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [exploreSignal]);
 
   // Debounce search query
   useEffect(() => {
@@ -133,9 +193,17 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
     }
   }, [heroFilter, formatCode]);
 
+  const kitMode = !debouncedQuery.trim() && kitSections.length > 0;
+
   useEffect(() => {
+    // Kit-browse mode owns the empty-query state — don't run the empty search
+    if (!debouncedQuery.trim() && kitSections.length > 0) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
     doSearch(debouncedQuery);
-  }, [debouncedQuery, doSearch]);
+  }, [debouncedQuery, doSearch, kitSections.length]);
 
   const applyDelta = (uid: string, delta: number) =>
     setDeltas(prev => { const m = new Map(prev); m.set(uid, (m.get(uid) ?? 0) + delta); return m; });
@@ -153,9 +221,10 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
     }
   };
 
-  const handleAdd = async (card: any) => {
+  const handleAdd = async (card: any, pinnedPrinting?: any) => {
     const uid = card.card_unique_id;
-    const printing = getSelectedPrinting(card);
+    // Kit tiles pin the curator's exact printing; search tiles use the picker
+    const printing = pinnedPrinting ?? getSelectedPrinting(card);
     applyDelta(uid, 1);
     try {
       const result = await decksClient.addPrintings(deckId, [{
@@ -195,8 +264,109 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
     }
   };
 
+  // Shared tile renderer for both the search grid and kit-browse sections.
+  // Kit tiles pin the curator's chosen printing (no picker) and show the
+  // kit's recommended count as a ×N badge.
+  const renderTile = (card: any, opts: { key: string; kitQty?: number; pinned?: boolean }) => {
+    const uid = card.card_unique_id;
+    const qty = getQty(uid);
+    const maxQty = getMaxCopies(card);
+    const atMax = qty >= maxQty;
+    const selectedPrinting = opts.pinned ? card : getSelectedPrinting(card);
+    const price = selectedPrinting.tcg_low ?? selectedPrinting.tcg_market;
+    const hasMultiplePrintings = !opts.pinned && (card.allPrintings?.length ?? 1) > 1;
+
+    return (
+      <div key={opts.key} className="flex flex-col">
+        {/* Card image */}
+        <div className="relative rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800" style={{ aspectRatio: "5/7" }}>
+          {selectedPrinting.image_url ? (
+            <img
+              src={selectedPrinting.image_url}
+              alt={card.display_name || card.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-xs text-gray-400 p-2 text-center">
+              {card.display_name || card.name}
+            </div>
+          )}
+          {/* Price badge */}
+          {price != null && Number(price) > 0 && (
+            <div className="absolute bottom-1.5 right-1.5 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-md font-bold leading-none">
+              ${Number(price).toFixed(2)}
+            </div>
+          )}
+          {/* Kit recommended-count badge */}
+          {(opts.kitQty ?? 0) > 1 && (
+            <div className="absolute top-1.5 right-1.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded-md font-bold leading-none">
+              ×{opts.kitQty}
+            </div>
+          )}
+          {/* In-deck qty badge */}
+          {qty > 0 && (
+            <div className={`absolute top-1.5 left-1.5 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold leading-none ${atMax ? "bg-orange-500" : "bg-blue-600"}`}>
+              {qty}
+            </div>
+          )}
+        </div>
+
+        {/* Card name */}
+        <p className="text-xs font-medium text-gray-900 dark:text-white mt-1.5 truncate leading-tight px-0.5">
+          {card.display_name || card.name}
+        </p>
+
+        {/* Printing selector */}
+        {hasMultiplePrintings ? (
+          <div className="relative mt-1 px-0.5">
+            <select
+              value={selectedPrinting.printing_id}
+              onChange={e => handlePrintingChange(card, e.target.value)}
+              className="w-full appearance-none bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[11px] rounded-md px-2 py-1 pr-5 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
+            >
+              {card.allPrintings.map((p: any) => (
+                <option key={p.printing_id} value={p.printing_id}>
+                  {printingLabel(p)}{p.tcg_low ? ` · $${Number(p.tcg_low).toFixed(2)}` : ""}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+          </div>
+        ) : (
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 px-0.5 truncate">
+            {printingLabel(selectedPrinting)}
+          </p>
+        )}
+
+        {/* +/- controls */}
+        <div className="flex items-center justify-between mt-1.5 px-0.5">
+          <button
+            onClick={() => handleRemove(card)}
+            disabled={qty === 0}
+            className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+            aria-label="Remove one"
+          >
+            <span className="text-lg font-light leading-none select-none">−</span>
+          </button>
+          <span className="text-sm font-bold text-gray-900 dark:text-white w-8 text-center tabular-nums">
+            {qty}{atMax && qty > 0 ? <span className="text-[9px] text-orange-500 block leading-none">max</span> : null}
+          </span>
+          <button
+            onClick={() => handleAdd(card, opts.pinned ? card : undefined)}
+            disabled={atMax}
+            className="w-8 h-8 rounded-full border flex items-center justify-center transition-colors active:bg-gray-100 dark:active:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+            aria-label="Add one"
+          >
+            <span className="text-lg font-light leading-none select-none">+</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="flex flex-col">
+    <div ref={rootRef} className="flex flex-col">
       {/* Sticky search bar */}
       <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-3 py-2 border-b border-gray-300 dark:border-gray-800">
         <div className="relative">
@@ -223,106 +393,55 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange }: Props) 
         )}
       </div>
 
-      {/* Card grid */}
-      <div className="grid grid-cols-2 gap-3 p-3 pb-28">
-        {results.map(card => {
-          const uid = card.card_unique_id;
-          const qty = getQty(uid);
-          const maxQty = getMaxCopies(card);
-          const atMax = qty >= maxQty;
-          const selectedPrinting = getSelectedPrinting(card);
-          const price = selectedPrinting.tcg_low ?? selectedPrinting.tcg_market;
-          const hasMultiplePrintings = (card.allPrintings?.length ?? 1) > 1;
-
-          return (
-            <div key={uid} className="flex flex-col">
-              {/* Card image */}
-              <div className="relative rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800" style={{ aspectRatio: "5/7" }}>
-                {selectedPrinting.image_url ? (
-                  <img
-                    src={selectedPrinting.image_url}
-                    alt={card.display_name || card.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-xs text-gray-400 p-2 text-center">
-                    {card.display_name || card.name}
-                  </div>
-                )}
-                {/* Price badge */}
-                {price != null && Number(price) > 0 && (
-                  <div className="absolute bottom-1.5 right-1.5 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-md font-bold leading-none">
-                    ${Number(price).toFixed(2)}
-                  </div>
-                )}
-                {/* In-deck qty badge */}
-                {qty > 0 && (
-                  <div className={`absolute top-1.5 left-1.5 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold leading-none ${atMax ? "bg-orange-500" : "bg-blue-600"}`}>
-                    {qty}
-                  </div>
-                )}
-              </div>
-
-              {/* Card name */}
-              <p className="text-xs font-medium text-gray-900 dark:text-white mt-1.5 truncate leading-tight px-0.5">
-                {card.display_name || card.name}
-              </p>
-
-              {/* Printing selector */}
-              {hasMultiplePrintings ? (
-                <div className="relative mt-1 px-0.5">
-                  <select
-                    value={selectedPrinting.printing_id}
-                    onChange={e => handlePrintingChange(card, e.target.value)}
-                    className="w-full appearance-none bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-[11px] rounded-md px-2 py-1 pr-5 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
-                  >
-                    {card.allPrintings.map((p: any) => (
-                      <option key={p.printing_id} value={p.printing_id}>
-                        {printingLabel(p)}{p.tcg_low ? ` · $${Number(p.tcg_low).toFixed(2)}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
-                </div>
-              ) : (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 px-0.5 truncate">
-                  {printingLabel(selectedPrinting)}
-                </p>
-              )}
-
-              {/* +/- controls */}
-              <div className="flex items-center justify-between mt-1.5 px-0.5">
-                <button
-                  onClick={() => handleRemove(card)}
-                  disabled={qty === 0}
-                  className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
-                  aria-label="Remove one"
-                >
-                  <span className="text-lg font-light leading-none select-none">−</span>
-                </button>
-                <span className="text-sm font-bold text-gray-900 dark:text-white w-8 text-center tabular-nums">
-                  {qty}{atMax && qty > 0 ? <span className="text-[9px] text-orange-500 block leading-none">max</span> : null}
-                </span>
-                <button
-                  onClick={() => handleAdd(card)}
-                  disabled={atMax}
-                  className="w-8 h-8 rounded-full border flex items-center justify-center transition-colors active:bg-gray-100 dark:active:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
-                  aria-label="Add one"
-                >
-                  <span className="text-lg font-light leading-none select-none">+</span>
-                </button>
-              </div>
+      {kitMode ? (
+        /* Kit-browse mode: the starter kits' cards, grouped by kit */
+        <div className="p-3 pb-28 space-y-5">
+          {kitLoading && !kitCards ? (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-400 py-12">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading starter kits…
             </div>
-          );
-        })}
+          ) : (
+            kitSections.map(section => {
+              const tiles = section.entries
+                .map(entry => ({ entry, row: kitCards?.get(entry.printingId) }))
+                .filter(t => t.row);
+              if (tiles.length === 0) return null;
+              return (
+                <section key={section.id}>
+                  <header className="flex items-baseline gap-2 mb-2 px-0.5">
+                    <Sparkles className="h-4 w-4 text-blue-500 dark:text-blue-400 shrink-0 self-center" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{section.name}</h3>
+                    <span className="text-xs text-gray-600 dark:text-gray-300 shrink-0">
+                      {section.totalCards} cards{section.curatorName ? ` · ${section.curatorName}` : ""}
+                    </span>
+                  </header>
+                  <div className="grid grid-cols-2 gap-3">
+                    {tiles.map(({ entry, row }) =>
+                      renderTile(row, { key: `${section.id}-${entry.printingId}`, kitQty: entry.qty, pinned: true })
+                    )}
+                  </div>
+                </section>
+              );
+            })
+          )}
+          {!kitLoading && kitCards && kitCards.size === 0 && (
+            <div className="text-center text-sm text-gray-400 py-12">
+              Couldn&apos;t load starter kit cards. Type above to search instead.
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Search results grid */
+        <div className="grid grid-cols-2 gap-3 p-3 pb-28">
+          {results.map(card => renderTile(card, { key: card.card_unique_id }))}
 
-        {!loading && results.length === 0 && (
-          <div className="col-span-2 text-center text-sm text-gray-400 py-12">
-            {query ? "No cards found." : "Type to search for cards."}
-          </div>
-        )}
-      </div>
+          {!loading && results.length === 0 && (
+            <div className="col-span-2 text-center text-sm text-gray-400 py-12">
+              {query ? "No cards found." : "Type to search for cards."}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
