@@ -67,7 +67,8 @@ export function generateUniqueBinderSlug(name: string, existingSlugs: string[]):
 
 /**
  * Gets the best available image URL for a card from various possible data structures.
- * Prioritizes a direct, stored `image_url` first, then falls back to building a CDN link.
+ * Only stored image URLs are used — printing_id-keyed CDN links must never be
+ * constructed (those Cloudflare images were deleted 2026-07 and always 404).
  * @param card - The card object from any source (binder, wants list, API, etc.).
  * @returns The best available image URL string, or '/cardback.webp' if none are found.
  */
@@ -78,7 +79,6 @@ export function getCardImageUrl(card: any): string {
   }
 
   // --- Priority 1: A direct, fully-qualified URL from a nested object ---
-  // Your wants list data proves this is the most reliable source.
   if (card.printingDetails?.image_url && typeof card.printingDetails.image_url === 'string' && card.printingDetails.image_url.startsWith('http')) {
     return card.printingDetails.image_url;
   }
@@ -88,17 +88,6 @@ export function getCardImageUrl(card: any): string {
     return card.image_url;
   }
 
-  // --- Priority 3: A specific printing ID to build our own CDN link ---
-  // This is now the fallback if a direct URL isn't available.
-  const printingId = 
-    card.printingId ||
-    card.id ||
-    card.printingDetails?.printing_id;
-
-  if (printingId) {
-    return `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`;
-  }
-  
   // --- Final Fallback ---
   return "/cardback.webp";
 }

@@ -1082,6 +1082,7 @@ export interface ConsensusCardDetail {
   decks: number;
   typicalQty: number;
   printingId?: string;
+  imageUrl?: string;
   typeText?: string;
   cost?: number;
   power?: number;
@@ -1125,7 +1126,7 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
     // Rail hover preview from the representative printing (like the wants/deck lists).
     ...(card.printingId
-      ? { preview: { imageUrl: getCardImageUrl({ printingId: card.printingId }), name: card.name, printingId: card.printingId } }
+      ? { preview: { imageUrl: getCardImageUrl({ image_url: card.imageUrl }), name: card.name, printingId: card.printingId } }
       : {}),
   });
 
@@ -1147,11 +1148,11 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     qty: card.typicalQty,
     name: card.name,
     pitch: card.pitch && card.pitch > 0 ? card.pitch : undefined,
-    image: card.printingId ? getCardImageUrl({ printingId: card.printingId }) : undefined,
+    image: getCardImageUrl({ image_url: card.imageUrl }),
     ...(note ? { note } : {}),
     preview: {
-      // getCardImageUrl falls back to the cardback for a missing printingId.
-      imageUrl: getCardImageUrl({ printingId: card.printingId }),
+      // getCardImageUrl falls back to the cardback for a missing image.
+      imageUrl: getCardImageUrl({ image_url: card.imageUrl }),
       name: card.name,
       printingId: card.printingId,
     },
@@ -1196,7 +1197,7 @@ export function summarizeArchetypeConsensus(data: ArchetypeConsensusData): Quick
     name: card.name,
     quantity: card.typicalQty,
     pitch: card.pitch,
-    imageUrl: card.printingId ? getCardImageUrl({ printingId: card.printingId }) : undefined,
+    imageUrl: card.imageUrl,
   }));
   return {
     title,
@@ -1923,8 +1924,8 @@ export function summarizeComparison(
   deckName: string,
   comparison: {
     owned?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number }>;
-    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number; tcgLow?: number; tcgMarket?: number; tcgplayerUrl?: string }>;
-    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number; pitch?: number; tcgLow?: number; tcgplayerUrl?: string }>;
+    partial?: Array<{ printingId: string; cardName: string; needed: number; owned: number; pitch?: number; tcgLow?: number; tcgMarket?: number; tcgplayerUrl?: string; imageUrl?: string }>;
+    missing?: Array<{ printingId: string; cardName: string; needed: number; tcgMarket?: number; pitch?: number; tcgLow?: number; tcgplayerUrl?: string; imageUrl?: string }>;
   },
 ): QuickActionResult {
   const owned = comparison.owned ?? [];
@@ -1939,7 +1940,7 @@ export function summarizeComparison(
       text: `${m.needed}× ${m.cardName}${m.tcgLow ?? m.tcgMarket ? ` · $${(m.tcgLow ?? m.tcgMarket)!.toFixed(2)}` : ''}`,
       pitch: m.pitch,
       preview: {
-        imageUrl: getCardImageUrl({ printingId: m.printingId }),
+        imageUrl: getCardImageUrl({ image_url: m.imageUrl }),
         name: m.cardName,
         printingId: m.printingId,
         priceLow: m.tcgLow,
@@ -1954,7 +1955,7 @@ export function summarizeComparison(
       text: `${p.cardName} — own ${p.owned}/${p.needed}`,
       pitch: p.pitch,
       preview: {
-        imageUrl: getCardImageUrl({ printingId: p.printingId }),
+        imageUrl: getCardImageUrl({ image_url: p.imageUrl }),
         name: p.cardName,
         printingId: p.printingId,
         priceLow: p.tcgLow,
@@ -1966,18 +1967,18 @@ export function summarizeComparison(
 
   // Section-grouped card-table rows — the same striped table the decklist
   // renders, with owned/needed riding the tail "Owned" column.
-  const toCompareRow = (c: { printingId: string; cardName: string; needed: number; pitch?: number; tcgLow?: number; tcgMarket?: number; tcgplayerUrl?: string }, ownedCount: number): CardRow => ({
+  const toCompareRow = (c: { printingId: string; cardName: string; needed: number; pitch?: number; tcgLow?: number; tcgMarket?: number; tcgplayerUrl?: string; imageUrl?: string }, ownedCount: number): CardRow => ({
     qty: c.needed,
     name: c.cardName,
     pitch: typeof c.pitch === 'number' && c.pitch > 0 ? c.pitch : undefined,
-    image: getCardImageUrl({ printingId: c.printingId }),
+    image: getCardImageUrl({ image_url: c.imageUrl }),
     price: c.tcgLow ?? c.tcgMarket,
     note: `${ownedCount}/${c.needed}`,
     // shortage = copies still unrecorded — powers the per-row quick-add
     // (heart → wants, folder → binder) so "I actually own this" is one click.
     addQty: c.needed - ownedCount,
     preview: {
-      imageUrl: getCardImageUrl({ printingId: c.printingId }),
+      imageUrl: getCardImageUrl({ image_url: c.imageUrl }),
       name: c.cardName,
       printingId: c.printingId,
       priceLow: c.tcgLow,
@@ -2004,8 +2005,8 @@ export function summarizeComparison(
   // "View as cards" overlay = the cards you still need (missing in full +
   // the shortage of partial), so you can eyeball what's left to acquire.
   const viewCards: DeckViewCard[] = [
-    ...missing.map((m) => ({ printingId: m.printingId, name: m.cardName, quantity: m.needed, pitch: m.pitch, imageUrl: getCardImageUrl({ printingId: m.printingId }) })),
-    ...partial.map((p) => ({ printingId: p.printingId, name: p.cardName, quantity: Math.max(1, p.needed - p.owned), pitch: p.pitch, imageUrl: getCardImageUrl({ printingId: p.printingId }) })),
+    ...missing.map((m) => ({ printingId: m.printingId, name: m.cardName, quantity: m.needed, pitch: m.pitch, imageUrl: m.imageUrl })),
+    ...partial.map((p) => ({ printingId: p.printingId, name: p.cardName, quantity: Math.max(1, p.needed - p.owned), pitch: p.pitch, imageUrl: p.imageUrl })),
   ];
 
   // One-click wants payload: the same cards the overlay shows you still need,

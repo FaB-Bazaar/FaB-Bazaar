@@ -1362,6 +1362,7 @@ export class PostgresDeckService implements IDeckService {
           quantity: c.quantity ?? 1,
           cardUniqueId: c.printingDetails?.card_unique_id,
           printingId: c.printingId,
+          imageUrl: c.printingDetails?.image_url,
           // Card-intrinsic attrs → the AI consensus context self-describes each
           // card (type/cost/power/defense/text) so follow-ups don't hallucinate.
           typeText: c.printingDetails?.type_text_display,
@@ -2093,6 +2094,7 @@ export class PostgresDeckService implements IDeckService {
           tcgLow: printings.tcgLow,
           tcgplayerUrl: printings.tcgplayerUrl,
           pitch: cards.pitch,
+          imageUrl: printings.imageUrl,
         })
         .from(deckCards)
         .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
@@ -2124,7 +2126,7 @@ export class PostgresDeckService implements IDeckService {
       const deckKeyOf = (row: { printingId: string; cardUniqueId: string | null }) =>
         matchByCard ? (row.cardUniqueId ?? row.printingId) : row.printingId;
 
-      const deckMatchMap = new Map<string, { printingId: string; cardName: string; needed: number; tcgMarket: number | null; tcgLow: number | null; tcgplayerUrl: string | null; pitch: number | null }>();
+      const deckMatchMap = new Map<string, { printingId: string; cardName: string; needed: number; tcgMarket: number | null; tcgLow: number | null; tcgplayerUrl: string | null; pitch: number | null; imageUrl: string | null }>();
       for (const row of deckCardRows) {
         const key = deckKeyOf(row);
         const existing = deckMatchMap.get(key);
@@ -2139,6 +2141,7 @@ export class PostgresDeckService implements IDeckService {
             tcgLow: row.tcgLow,
             tcgplayerUrl: row.tcgplayerUrl,
             pitch: row.pitch,
+            imageUrl: row.imageUrl,
           });
         }
       }
@@ -2224,7 +2227,7 @@ export class PostgresDeckService implements IDeckService {
       let totalOwned = 0;
       let estimatedMissingValue = 0;
 
-      for (const [matchKey, { printingId, cardName, needed, tcgMarket, tcgLow, tcgplayerUrl, pitch }] of deckMatchMap.entries()) {
+      for (const [matchKey, { printingId, cardName, needed, tcgMarket, tcgLow, tcgplayerUrl, pitch, imageUrl }] of deckMatchMap.entries()) {
         totalNeeded += needed;
         const inv = inventoryMap.get(matchKey);
         const rawOwned = inv?.owned ?? 0;
@@ -2238,6 +2241,7 @@ export class PostgresDeckService implements IDeckService {
           tcgLow: tcgLow ?? undefined,
           tcgMarket: tcgMarket ?? undefined,
           tcgplayerUrl: tcgplayerUrl ?? undefined,
+          imageUrl: imageUrl ?? undefined,
           needed,
           owned: effectiveOwned,
           // Extra fields expected by the collection tab UI

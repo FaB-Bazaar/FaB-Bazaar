@@ -82,7 +82,9 @@ describe('printingToSwapOption', () => {
     expect(opt.priceMarket).toBeUndefined();
     expect(opt.isExtendedArt).toBe(false);
     expect(opt.preview.tcgplayerUrl).toBeUndefined();
-    expect(opt.preview.imageUrl).toContain('PID_BETA_9876543210zyx');
+    // No stored image_url → cardback, never a constructed printing_id CDN
+    // URL (those images were deleted 2026-07 and 404).
+    expect(opt.preview.imageUrl).toBe('/cardback.webp');
   });
 });
 
@@ -945,7 +947,7 @@ describe('summarizeArchetypeConsensus', () => {
     consensus: {
       deckCount: 10,
       core: [
-        { name: 'Cranial Crush', pitch: 3, decks: 10, typicalQty: 3, printingId: 'pid_cc' },
+        { name: 'Cranial Crush', pitch: 3, decks: 10, typicalQty: 3, printingId: 'pid_cc', imageUrl: 'https://img/cc.png' },
         { name: 'Aurum Aegis', decks: 10, typicalQty: 1, printingId: 'pid_aa' },
       ],
       flex: [
@@ -1726,5 +1728,71 @@ describe('harvestCardsFromDataItem (hover previews for instant-drill cards)', ()
 
   it('returns [] for items with no card rows', () => {
     expect(harvestCardsFromDataItem({})).toEqual([]);
+  });
+});
+
+// Stored image_url pass-through: printing_id-keyed CDN URLs 404 (old images
+// deleted 2026-07), so summarizers must use the payload's imageUrl when the
+// upstream service provides it, and fall back to the cardback — never to a
+// constructed imagedelivery.net/<printingId>/public link.
+describe('summarizeComparison image pass-through', () => {
+  const comparison = {
+    partial: [{ printingId: 'b', cardName: 'Half Card', needed: 3, owned: 1, imageUrl: 'https://img/half.png' }],
+    missing: [{ printingId: 'c', cardName: 'Gone Card', needed: 2, imageUrl: 'https://img/gone.png' }],
+  };
+
+  it('uses the stored imageUrl on lines, table rows and the view-cards overlay', () => {
+    const r = summarizeComparison('Deck', comparison);
+    const goneLine = r.lines.find((l: any) => typeof l !== 'string' && l.text.includes('Gone Card')) as any;
+    expect(goneLine.preview.imageUrl).toBe('https://img/gone.png');
+    const halfLine = r.lines.find((l: any) => typeof l !== 'string' && l.text.includes('Half Card')) as any;
+    expect(halfLine.preview.imageUrl).toBe('https://img/half.png');
+
+    const goneRow = r.tableSections![0].rows[0];
+    expect(goneRow.image).toBe('https://img/gone.png');
+    expect(goneRow.preview.imageUrl).toBe('https://img/gone.png');
+
+    expect(r.cards?.find((c) => c.name === 'Gone Card')?.imageUrl).toBe('https://img/gone.png');
+    expect(r.cards?.find((c) => c.name === 'Half Card')?.imageUrl).toBe('https://img/half.png');
+  });
+
+  it('never constructs a printing_id CDN URL when imageUrl is absent (cardback instead)', () => {
+    const r = summarizeComparison('Deck', {
+      missing: [{ printingId: 'cLHGKMCjPb89zwNPmMFBp', cardName: 'No Art', needed: 1 }],
+    });
+    const row = r.tableSections![0].rows[0];
+    expect(row.image).not.toContain('imagedelivery.net');
+    expect(row.preview.imageUrl).not.toContain('imagedelivery.net');
+  });
+});
+
+describe('summarizeArchetypeConsensus image pass-through', () => {
+  const data = {
+    heroName: 'fai',
+    months: 3,
+    consensus: {
+      deckCount: 2,
+      core: [{ name: 'Lava Vein Loyalty', pitch: 1, decks: 2, typicalQty: 3, printingId: 'pid_lvl', imageUrl: 'https://img/lvl.png' }],
+      flex: [{ name: 'Art of War', pitch: 3, decks: 1, typicalQty: 1, printingId: 'pid_aow' }],
+      colorCurve: { red: 30, yellow: 0, blue: 20 },
+    },
+    decks: [],
+  };
+
+  it('uses the stored imageUrl on lines, table rows and the view-cards overlay', () => {
+    const r = summarizeArchetypeConsensus(data);
+    const line = r.lines.find((l: any) => typeof l !== 'string' && l.text.includes('Lava Vein')) as any;
+    expect(line.preview.imageUrl).toBe('https://img/lvl.png');
+    const row = r.tableSections![0].rows[0];
+    expect(row.image).toBe('https://img/lvl.png');
+    expect(row.preview.imageUrl).toBe('https://img/lvl.png');
+    expect(r.cards?.find((c) => c.name === 'Lava Vein Loyalty')?.imageUrl).toBe('https://img/lvl.png');
+  });
+
+  it('never constructs a printing_id CDN URL when imageUrl is absent (cardback instead)', () => {
+    const r = summarizeArchetypeConsensus(data);
+    const row = r.tableSections![1].rows[0]; // Art of War — no imageUrl
+    expect(row.image).not.toContain('imagedelivery.net');
+    expect(row.preview!.imageUrl).not.toContain('imagedelivery.net');
   });
 });

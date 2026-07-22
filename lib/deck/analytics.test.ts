@@ -41,6 +41,19 @@ describe('computeArchetypeConsensus', () => {
     expect(r.flex.find((x) => x.name === 'Headbutt')?.printingId).toBe('pid_Headbutt');
   });
 
+  it('carries a representative stored imageUrl per consensus card (first-seen wins)', () => {
+    // Constructed printing_id CDN URLs 404 (images deleted 2026-07) — the
+    // consensus must surface the stored image_url so previews render.
+    const withImages: ConsensusDeck[] = [
+      { name: 'Deck A', cards: [{ ...card('Disable', 3, 3, 'u_dis'), imageUrl: undefined }] },
+      { name: 'Deck B', cards: [{ ...card('Disable', 3, 3, 'u_dis'), imageUrl: 'https://img/disable-b.png' }] },
+      { name: 'Deck C', cards: [{ ...card('Disable', 3, 3, 'u_dis'), imageUrl: 'https://img/disable-c.png' }] },
+    ];
+    const r = computeArchetypeConsensus(withImages);
+    // first deck that HAS an image wins
+    expect(r.core.find((x) => x.name === 'Disable')?.imageUrl).toBe('https://img/disable-b.png');
+  });
+
   it('marks cards present in every deck as core, with adoption and typical quantity', () => {
     const r = computeArchetypeConsensus(decks);
     expect(r.deckCount).toBe(3);

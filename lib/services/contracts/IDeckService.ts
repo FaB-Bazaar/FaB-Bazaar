@@ -437,6 +437,7 @@ export interface InventoryComparisonDTO {
     tcgLow?: number;
     tcgMarket?: number;
     tcgplayerUrl?: string;
+    imageUrl?: string;
   }>;
   partial: Array<{
     printingId: string;
@@ -448,6 +449,7 @@ export interface InventoryComparisonDTO {
     tcgLow?: number;
     tcgMarket?: number;
     tcgplayerUrl?: string;
+    imageUrl?: string;
   }>;
   summary: {
     totalNeeded: number;

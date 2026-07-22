@@ -26,11 +26,12 @@ let deckPublicId: string;
 
 beforeAll(async () => {
   // A card (card_unique_id) with 2+ printings, whose representative printing
-  // has a low price AND a TCGplayer URL (so we can assert those flow through).
+  // has a low price, a TCGplayer URL AND a stored image_url (so we can assert
+  // those flow through).
   const grp = await db
     .select({ cuid: printings.cardUniqueId })
     .from(printings)
-    .where(sql`${printings.tcgLow} is not null and ${printings.tcgplayerUrl} is not null`)
+    .where(sql`${printings.tcgLow} is not null and ${printings.tcgplayerUrl} is not null and ${printings.imageUrl} is not null`)
     .groupBy(printings.cardUniqueId)
     .having(sql`count(*) >= 2`)
     .limit(1);
@@ -77,6 +78,9 @@ describe('getInventoryComparison matchBy', () => {
     // Missing entries carry low price + TCGplayer URL for the rail's buy link.
     expect(typeof miss!.tcgLow).toBe('number');
     expect(typeof miss!.tcgplayerUrl).toBe('string');
+    // ...and the printing's stored image_url — Volzar renders it directly
+    // (printing_id-keyed CDN URLs 404; images deleted 2026-07).
+    expect(miss!.imageUrl).toMatch(/^http/);
   });
 
   it("'card' mode: owning any printing of the card satisfies the slot (card is owned)", async () => {
