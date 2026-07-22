@@ -201,13 +201,16 @@ export default async function RootLayout({
                 <Suspense fallback={null}>
                   <AnalyticsListener />
                 </Suspense>
-                {/* pb-14 reserves space for the mobile bottom tab bar (sm:hidden) so
-                    it never covers the footer / page content. min-h-DVH, not
-                    -screen: 100vh is iOS's LARGE viewport (URL bar collapsed),
-                    but inner shells (Volzar) size in dvh — the mismatch used to
-                    stretch main.flex-grow into a dead band between the chat
-                    composer and the footer whenever Safari's bar was visible. */}
-                <div className="relative flex flex-col min-h-dvh pb-14 sm:pb-0">
+                {/* The mobile bottom padding clears the floating nav pill + FAB
+                    (sm:hidden): safe-area + 12px bottom offset + ~64px pill,
+                    padded to 5.5rem for breathing room. Keep in sync with the
+                    Volzar shell height (app/volzar/page.tsx) and MobileTabBar's
+                    bottom-[calc(...)]. min-h-DVH, not -screen: 100vh is iOS's
+                    LARGE viewport (URL bar collapsed), but inner shells (Volzar)
+                    size in dvh — the mismatch used to stretch main.flex-grow into
+                    a dead band between the chat composer and the footer whenever
+                    Safari's bar was visible. */}
+                <div className="relative flex flex-col min-h-dvh pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-0">
                   
                   <header className="sticky top-0 z-50">
                     <Navbar />

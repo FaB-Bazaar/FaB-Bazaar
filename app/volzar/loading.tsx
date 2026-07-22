@@ -4,7 +4,7 @@
 // jump when the real chat swaps in.
 export default function VolzarLoading() {
   return (
-    <div className="mx-auto flex h-[calc(100dvh-12.5rem)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
+    <div className="mx-auto flex h-[calc(100dvh-9.5rem-1px-env(safe-area-inset-bottom))] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
       <div className="flex flex-col gap-3 flex-1 min-h-0" aria-busy="true" aria-label="Loading Volzar">
         {/* header row: avatar + title */}
         <div className="flex items-center gap-2">

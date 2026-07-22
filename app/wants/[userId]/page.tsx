@@ -824,7 +824,7 @@ export default function SharedWantsListPage({
       </div>
       {selectedCards.length > 0 && !sidebarOpen && (
         <button
-          className="fixed bottom-4 right-4 bg-red-600 text-white p-3 rounded-full shadow-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors z-40"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-4 right-4 bg-red-600 text-white p-3 rounded-full shadow-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors z-40"
           onClick={() => setSidebarOpen(true)}
         >
           <ShoppingCart className="h-6 w-6" />

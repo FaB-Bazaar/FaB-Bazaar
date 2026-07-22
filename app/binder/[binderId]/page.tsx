@@ -1250,7 +1250,7 @@ const SuperSlamDisclosure = () => {
             <>
               <Button
                 onClick={() => setSidebarOpen(true)}
-                className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
+                className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
               >
                 <Package className="h-6 w-6" />
                 <span className="text-xs font-bold mt-1">{selectedCards.length}</span>
@@ -1278,7 +1278,7 @@ const SuperSlamDisclosure = () => {
             <>
               <Button
                 onClick={() => setIsMobileTradeSheetOpen(true)}
-                className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
+                className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
               >
                 <ArrowLeftRight className="h-6 w-6" />
                 <span className="text-xs font-bold mt-1">{selectedCards.length}</span>
@@ -1308,7 +1308,7 @@ const SuperSlamDisclosure = () => {
       {/* ── Binder Tools HUD ─────────────────────────────────────────────────── */}
       {/* Dormant pill — always visible when no chord mode is active */}
       {!chordMode && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
           <button
             type="button"
             onClick={() => setChordMode('select')}

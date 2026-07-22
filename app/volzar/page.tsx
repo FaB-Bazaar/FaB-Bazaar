@@ -103,12 +103,13 @@ export default async function VolzarPage({ searchParams }: {
     // is ~112.3px. Reserving less (the old 6.75rem) left the page 4px taller
     // than the viewport → a permanent window scrollbar on OSes with
     // non-overlay scrollbars ("4 scrollbars" report).
-    // Mobile reserves ONLY navbar + tab bar (4rem + 1px + 3.5rem): the legal
-    // footer is deliberately a soft floor BELOW the fold — the chat fills the
-    // screen and scrolling past the thread reveals the footer (chat-app norm;
-    // the old 12.5rem reservation left a dead band above the footer, worst on
-    // iOS where 100vh ≠ 100dvh). e2e/volzar-ux-fixes pins the invariant.
-    <div className="mx-auto flex h-[calc(100dvh-7.5rem-1px)] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
+    // Mobile reserves ONLY navbar + floating nav clearance (4rem + 1px +
+    // 5.5rem + safe-area, matching the root layout spacer): the legal footer
+    // is deliberately a soft floor BELOW the fold — the chat fills the screen
+    // and scrolling past the thread reveals the footer (chat-app norm; the old
+    // 12.5rem reservation left a dead band above the footer, worst on iOS
+    // where 100vh ≠ 100dvh). e2e/volzar-ux-fixes pins the invariant.
+    <div className="mx-auto flex h-[calc(100dvh-9.5rem-1px-env(safe-area-inset-bottom))] min-h-[24rem] w-full max-w-[1800px] flex-col px-2 pb-1 pt-2 sm:h-[calc(100dvh-7.125rem)] sm:px-4">
       <VolzarChat
         username={user.name || 'collector'}
         userId={user.id}

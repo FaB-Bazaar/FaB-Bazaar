@@ -20,7 +20,7 @@ export default function StagedFAB({ count, onClick, className }: StagedFABProps)
     <Button
       onClick={onClick}
       className={cn(
-        "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-30",
+        "fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-30",
         "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600",
         "transition-all duration-200 ease-in-out",
         "lg:hidden", // Only show on mobile/tablet

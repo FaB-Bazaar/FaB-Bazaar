@@ -1,17 +1,26 @@
 "use client"
 
 /**
- * Mobile-only bottom tab bar (sm:hidden). Three tabs:
- *   • Search     → navigates straight to /opt
+ * Mobile-only bottom nav (sm:hidden): a floating rounded pill of tabs plus a
+ * detached circular Search FAB (→ /opt) beside it, Slack-mobile style.
  *   • Collection → opens a bottom sheet of quick links + pinned/recent binders
+ *   • Instant    → (signed-in) opens a sheet of Volzar + zero-token deep links
  *   • Decks      → opens a bottom sheet of quick links + pinned/recent decks
+ * Signed-out users get a two-tab pill (Collection · Decks) — the FAB owns search.
  *
  * Collection/Decks mirror the desktop navbar dropdowns. The binder/deck data
  * and the on-demand loaders live in <Navbar>; they're passed in as props so this
  * component stays presentational and the fetch logic isn't duplicated.
  *
  * The hamburger menu is intentionally left intact (it still lists everything) —
- * this bar is an additive quick-access layer for the three primary destinations.
+ * this bar is an additive quick-access layer for the primary destinations.
+ *
+ * Hidden entirely on the deck editor (/decks/[deckId]) — that page renders its
+ * own floating tab pill (Cards/Deck/Matchups/…) and must not fight the FAB.
+ *
+ * Content clearance: the app shell reserves bottom padding for this bar
+ * (app/layout.tsx spacer) and the Volzar mobile shell hardcodes the matching
+ * height — change geometry here and both must move in lockstep.
  */
 
 import Link from "next/link"
@@ -43,7 +52,7 @@ interface MobileTabBarProps {
   setNavDeckSort: (v: DeckSort) => void
 }
 
-const TAB = "flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+const TAB = "flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full px-3 py-1.5 min-h-12 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
 
 export default function MobileTabBar({
   user,
@@ -62,12 +71,13 @@ export default function MobileTabBar({
   const hasVolzar = canUseVolzar(user as VolzarAccessFlags | null)
 
   const searchActive = pathname.startsWith("/opt")
-  const instantActive = pathname.startsWith("/opt") || pathname.startsWith("/volzar")
+  const instantActive = pathname.startsWith("/volzar")
   const collectionActive = pathname.startsWith("/collection") || pathname.startsWith("/binder/") || pathname.startsWith("/wants") || pathname.startsWith("/daily")
   const decksActive = pathname.startsWith("/decks")
 
+  // Filled active state (shape cue, not color-only) — matches the FAB.
   const tone = (active: boolean) =>
-    active ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-300"
+    active ? "bg-primary text-primary-foreground" : "text-muted-foreground"
 
   // A quick link inside a sheet; closes the sheet on tap.
   const SheetLink = ({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) => (
@@ -88,68 +98,88 @@ export default function MobileTabBar({
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   })
 
+  // The deck editor page renders its own floating tab pill (Cards/Deck/…);
+  // hide the site nav there — unlike the old full-width bars, a floating pill
+  // can't simply cover the detached FAB with a higher z-index.
+  // /decks/community and /decks/to-beat are listing pages, not the editor.
+  const deckSeg = /^\/decks\/([^/]+)\/?$/.exec(pathname)?.[1]
+  if (deckSeg && deckSeg !== "community" && deckSeg !== "to-beat") return null
+
   return (
     <>
-      <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-gray-300 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-gray-900/80 pb-[env(safe-area-inset-bottom)]"
-        aria-label="Primary"
-      >
-        {/* Order: Collection · Instant · Decks — the ⚡ hub sits in the
-            middle (thumb-reach primary), flanked by the two libraries. */}
-        {user ? (
-          <button
-            type="button"
-            onClick={() => { loadBindersOnDemand(); setCollectionOpen(true) }}
-            aria-haspopup="dialog"
-            aria-expanded={collectionOpen}
-            className={cn(TAB, tone(collectionActive))}
-          >
-            <BookOpen className="h-5 w-5" />
-            Collection
-          </button>
-        ) : (
-          <Link href="/collection" aria-current={collectionActive ? "page" : undefined} className={cn(TAB, tone(collectionActive))}>
-            <BookOpen className="h-5 w-5" />
-            Collection
-          </Link>
-        )}
+      {/* pointer-events-none wrapper: only the pill + FAB capture taps, the
+          gap between them stays tappable-through to page content. */}
+      <div className="sm:hidden fixed z-40 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] inset-x-3 flex items-center justify-center gap-3 pointer-events-none">
+        <nav
+          className="pointer-events-auto flex flex-1 max-w-sm items-stretch gap-1 rounded-full border border-border bg-card/90 supports-[backdrop-filter]:bg-card/75 backdrop-blur-md shadow-lg p-1.5"
+          aria-label="Primary"
+        >
+          {/* Order: Collection · Instant · Decks — the ⚡ hub sits in the
+              middle (thumb-reach primary), flanked by the two libraries.
+              Signed-out: just the two library links (the FAB owns search). */}
+          {user ? (
+            <button
+              type="button"
+              onClick={() => { loadBindersOnDemand(); setCollectionOpen(true) }}
+              aria-haspopup="dialog"
+              aria-expanded={collectionOpen}
+              className={cn(TAB, tone(collectionActive))}
+            >
+              <BookOpen className="h-5 w-5" />
+              Collection
+            </button>
+          ) : (
+            <Link href="/collection" aria-current={collectionActive ? "page" : undefined} className={cn(TAB, tone(collectionActive))}>
+              <BookOpen className="h-5 w-5" />
+              Collection
+            </Link>
+          )}
 
-        {hasVolzar ? (
-          <button
-            type="button"
-            onClick={() => setInstantOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={instantOpen}
-            className={cn(TAB, tone(instantActive))}
-          >
-            <Zap className="h-5 w-5" />
-            Instant
-          </button>
-        ) : (
-          <Link href="/opt" aria-current={searchActive ? "page" : undefined} className={cn(TAB, tone(searchActive))}>
-            <Search className="h-5 w-5" />
-            Search
-          </Link>
-        )}
+          {hasVolzar && (
+            <button
+              type="button"
+              onClick={() => setInstantOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={instantOpen}
+              className={cn(TAB, tone(instantActive))}
+            >
+              <Zap className="h-5 w-5" />
+              Instant
+            </button>
+          )}
 
-        {user ? (
-          <button
-            type="button"
-            onClick={() => { loadDecksOnDemand(); setDecksOpen(true) }}
-            aria-haspopup="dialog"
-            aria-expanded={decksOpen}
-            className={cn(TAB, tone(decksActive))}
-          >
-            <Layers className="h-5 w-5" />
-            Decks
-          </button>
-        ) : (
-          <Link href="/decks" aria-current={decksActive ? "page" : undefined} className={cn(TAB, tone(decksActive))}>
-            <Layers className="h-5 w-5" />
-            Decks
-          </Link>
-        )}
-      </nav>
+          {user ? (
+            <button
+              type="button"
+              onClick={() => { loadDecksOnDemand(); setDecksOpen(true) }}
+              aria-haspopup="dialog"
+              aria-expanded={decksOpen}
+              className={cn(TAB, tone(decksActive))}
+            >
+              <Layers className="h-5 w-5" />
+              Decks
+            </button>
+          ) : (
+            <Link href="/decks" aria-current={decksActive ? "page" : undefined} className={cn(TAB, tone(decksActive))}>
+              <Layers className="h-5 w-5" />
+              Decks
+            </Link>
+          )}
+        </nav>
+
+        {/* Detached Search FAB — Slack-style circular action beside the pill */}
+        <Link
+          href="/opt"
+          aria-label="Search cards"
+          aria-current={searchActive ? "page" : undefined}
+          className={cn(
+            "pointer-events-auto h-14 w-14 shrink-0 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+            searchActive && "ring-2 ring-blue-400",
+          )}
+        >
+          <Search className="h-6 w-6" />
+        </Link>
+      </div>
 
       {/* ⚡ Instant sheet (Volzar-access users) — search + Volzar deep links.
           The instant items land on /volzar and auto-run with zero AI tokens
@@ -162,7 +192,7 @@ export default function MobileTabBar({
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-            <SheetLink href="/opt" icon={Search}>Search cards</SheetLink>
+            {/* No "Search cards" row — the detached FAB owns search now */}
             <DrawerClose asChild>
               <Link
                 href="/volzar"

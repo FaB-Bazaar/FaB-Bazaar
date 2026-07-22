@@ -1115,7 +1115,7 @@ export default function DeckEditorPage() {
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-clip">
       {/* Dormant HUD trigger */}
       {!chordMode && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
           <button
             type="button"
             onClick={() => setChordMode('select')}
@@ -1415,7 +1415,7 @@ export default function DeckEditorPage() {
 
             {/* Main HUD bar */}
             <div
-              className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-sm transition-all duration-200"
+              className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-sm transition-all duration-200"
               style={{ width: chordMode === 'select' ? 'min(880px, 96vw)' : undefined }}
             >
               {chordMode === 'select' ? (
@@ -2292,78 +2292,84 @@ export default function DeckEditorPage() {
         onSelectPrinting={handleSwapDeckPrinting}
       />
 
-      {/* Mobile bottom tab bar — z-50 so it sits above the site-wide MobileTabBar
-          (Search/Collection/Decks, z-40). On a deck-editor page the deck-context
-          tabs (incl. "Deck" to return from the Cards view) are what the user needs. */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex sm:hidden border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
-        {canEdit && (
-          <button
-            onClick={() => setActiveTab("search")}
-            className={cn(
-              "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
-              activeTab === "search"
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-gray-500 dark:text-gray-400"
-            )}
-          >
-            <LayoutGrid className="h-5 w-5" />
-            Cards
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab("deck")}
-          className={cn(
-            "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors relative",
-            activeTab === "deck"
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-500 dark:text-gray-400"
+      {/* Mobile bottom tab pill — floating, matching the site-wide MobileTabBar's
+          geometry (which hides itself on this route). Deck-context tabs (incl.
+          "Deck" to return from the Cards view) are what the user needs here.
+          Active tab = filled bg (shape cue, not color-only). */}
+      <div className="fixed z-50 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] inset-x-3 flex justify-center sm:hidden">
+        <nav
+          aria-label="Deck sections"
+          className="flex w-full max-w-md items-stretch gap-1 rounded-full border border-border bg-card/90 supports-[backdrop-filter]:bg-card/75 backdrop-blur-md shadow-lg p-1.5"
+        >
+          {canEdit && (
+            <button
+              onClick={() => setActiveTab("search")}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 min-h-12 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                activeTab === "search"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground"
+              )}
+            >
+              <LayoutGrid className="h-5 w-5" />
+              Cards
+            </button>
           )}
-        >
-          <div className="relative">
-            <List className="h-5 w-5" />
-            {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 bg-blue-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold leading-none">
-                {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}
-              </span>
-            )}
-          </div>
-          Deck
-        </button>
-        <Link
-          href={`/decks/${deckId}/matchups`}
-          className="flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
-        >
-          <Swords className="h-5 w-5" />
-          Matchups
-        </Link>
-        {canEdit && (
           <button
-            onClick={() => setActiveTab("results")}
+            onClick={() => setActiveTab("deck")}
             className={cn(
-              "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
-              activeTab === "results"
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-gray-500 dark:text-gray-400"
+              "flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 min-h-12 text-xs font-medium transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+              activeTab === "deck"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground"
             )}
           >
-            <Trophy className="h-5 w-5" />
-            Results
+            <div className="relative">
+              <List className="h-5 w-5" />
+              {(state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory) > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 bg-blue-600 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold leading-none">
+                  {state.deckCounts.equipment + state.deckCounts.maindeck + state.deckCounts.inventory}
+                </span>
+              )}
+            </div>
+            Deck
           </button>
-        )}
-        {canEdit && (
-          <button
-            onClick={() => setActiveTab("notes")}
-            className={cn(
-              "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
-              activeTab === "notes"
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-gray-500 dark:text-gray-400"
-            )}
+          <Link
+            href={`/decks/${deckId}/matchups`}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 min-h-12 text-xs font-medium text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
           >
-            <FileText className="h-5 w-5" />
-            Notes
-          </button>
-        )}
+            <Swords className="h-5 w-5" />
+            Matchups
+          </Link>
+          {canEdit && (
+            <button
+              onClick={() => setActiveTab("results")}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 min-h-12 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                activeTab === "results"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground"
+              )}
+            >
+              <Trophy className="h-5 w-5" />
+              Results
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setActiveTab("notes")}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1.5 min-h-12 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
+                activeTab === "notes"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground"
+              )}
+            >
+              <FileText className="h-5 w-5" />
+              Notes
+            </button>
+          )}
+        </nav>
       </div>
 
       {/* Dialog: quick-add a single card to a specific zone (desktop only;

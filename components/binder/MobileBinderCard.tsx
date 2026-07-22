@@ -805,7 +805,7 @@ export default function MobileOptimizedBinderPage() {
 
       {/* Floating Action Button for quick actions */}
       {editable && activeTab === "cards" && (
-        <div className="fixed bottom-4 right-4 z-50">
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-4 right-4 z-50">
           <Button
             size="lg"
             className="rounded-full h-14 w-14 shadow-lg bg-blue-600 hover:bg-blue-700"
