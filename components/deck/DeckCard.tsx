@@ -149,9 +149,11 @@ export default function DeckCard({
           {/* Hero image with hover expand */}
           {(() => {
             // Support both summary DTOs (heroImageUrl) and full DTOs (hero[0].printingDetails)
+            // Only stored image_urls render — printing_id-keyed CDN URLs 404
+            // (old images deleted 2026-07), so no constructed fallback.
             const heroImgUrl = deck.heroImageUrl
               || deck.hero?.[0]?.printingDetails?.image_url
-              || (deck.hero?.[0]?.printingId ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.hero[0].printingId}/public` : null);
+              || null;
             const heroDisplayName = deck.heroDisplayName
               || deck.hero?.[0]?.printingDetails?.display_name
               || deck.hero?.[0]?.printingDetails?.name
