@@ -54,3 +54,35 @@ describe('GET /api/decks/community date window', () => {
     expect(filters).not.toHaveProperty('dateTo');
   });
 });
+
+describe('GET /api/decks/community deck payload', () => {
+  it('passes heroImageUrl from the service through to the response body', async () => {
+    // Tiles render the stored image_url; constructed printing_id CDN URLs 404
+    // (old images deleted 2026-07), so this field must survive the route.
+    mockList.mockResolvedValue({
+      success: true,
+      data: {
+        decks: [
+          {
+            _id: 'deck-1',
+            publicId: 'pub-1',
+            name: 'Featured deck',
+            format: 'Silver Age',
+            heroName: 'Fai',
+            heroPrintingId: 'printing-1',
+            heroImageUrl: 'https://imagedelivery.net/hash/UPR045/public',
+          },
+        ],
+        total: 1,
+      },
+    } as any);
+
+    const res = await GET(makeRequest('?featured=true'));
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.decks[0].heroImageUrl).toBe(
+      'https://imagedelivery.net/hash/UPR045/public',
+    );
+    expect(body.data.decks[0].heroPrintingId).toBe('printing-1');
+  });
+});

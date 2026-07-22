@@ -78,10 +78,9 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
   const totalCards = deck.totalCards || 0;
   const estimatedValue = deck.estimatedValue || 0;
   const articleRefs = deck.articleReferences || [];
-  const heroImgUrl = deck.heroImageUrl
-    || (deck.heroPrintingId
-      ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${deck.heroPrintingId}/public`
-      : null);
+  // Only the stored image_url renders — printing_id-keyed CDN URLs 404
+  // (old images deleted 2026-07), so no constructed fallback.
+  const heroImgUrl = deck.heroImageUrl || null;
 
   return (
     <>

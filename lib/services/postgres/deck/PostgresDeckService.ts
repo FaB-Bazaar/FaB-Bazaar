@@ -1212,6 +1212,27 @@ export class PostgresDeckService implements IDeckService {
         .limit(limit)
         .offset(offset);
 
+      // Hero card images, same pattern as listUserDecksBasic: tiles must render
+      // the stored image_url — printing_id-keyed CDN URLs 404 (deleted 2026-07).
+      const pageDeckIds = rows.map((r) => r.id);
+      const heroByDeckId = new Map<string, string>();
+      if (pageDeckIds.length > 0) {
+        const heroCards = await db
+          .select({
+            deckId: deckCards.deckId,
+            imageUrl: printings.imageUrl,
+          })
+          .from(deckCards)
+          .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
+          .where(and(
+            inArray(deckCards.deckId, pageDeckIds),
+            eq(deckCards.category, 'hero')
+          ));
+        for (const h of heroCards) {
+          if (h.imageUrl && !heroByDeckId.has(h.deckId)) heroByDeckId.set(h.deckId, h.imageUrl);
+        }
+      }
+
       const summaries: PublicDeckSummaryDTO[] = rows.map((row) => ({
         _id: row.id,
         publicId: row.publicId,
@@ -1232,6 +1253,7 @@ export class PostgresDeckService implements IDeckService {
         creatorUsername: row.creatorUsername ?? undefined,
         creatorDisplayUsername: row.creatorDisplayUsername ?? undefined,
         heroPrintingId: row.heroPrintingId ?? undefined,
+        heroImageUrl: heroByDeckId.get(row.id),
         matchupCount: row.matchupCount ?? 0,
       }));
 
