@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText } from "lucide-react";
@@ -936,6 +936,17 @@ export default function DeckEditorPage() {
 
   const [buildsExpanded, setBuildsExpanded] = useState(true);
   const [buildsLoading, setBuildsLoading] = useState(false);
+  // Breathing-glow attention treatment on the Starter Kits chip, shown until
+  // the user opens the dropdown once (per browser). Initialized true and
+  // downgraded in an effect so SSR/hydration markup stays deterministic.
+  const [kitsAttention, setKitsAttention] = useState(true);
+  useEffect(() => {
+    if (localStorage.getItem("starter-kits-attention-seen") === "1") setKitsAttention(false);
+  }, []);
+  const dismissKitsAttention = useCallback(() => {
+    localStorage.setItem("starter-kits-attention-seen", "1");
+    setKitsAttention(false);
+  }, []);
   const [heroCurators, setHeroCurators] = useState<Array<{ displayUsername: string; avatarUrl: string | null; metafyProductUrl: string | null; metafyLinkLabel: string | null }>>([]);
   const [previewBuild, setPreviewBuild] = useState<{
     name: string;
@@ -1910,7 +1921,7 @@ export default function DeckEditorPage() {
               const hasKits = buildsLoading || curatedBuilds.length > 0 || curatorsWithMetafy.length > 0;
               return (
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  {hasKits && <DropdownMenu>
+                  {hasKits && <DropdownMenu onOpenChange={(open) => { if (open) dismissKitsAttention() }}>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
@@ -1919,10 +1930,11 @@ export default function DeckEditorPage() {
                           "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60",
                           isEmptyDeck
                             ? "border-blue-400/70 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25 shadow-[0_0_12px_rgba(59,130,246,0.25)] font-semibold"
-                            : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            : "bg-white dark:bg-gray-900/40 text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 border-blue-400/50 dark:border-blue-500/40",
+                          kitsAttention && "animate-attention-glow"
                         )}
                       >
-                        <Sparkles className={cn("h-3.5 w-3.5", isEmptyDeck ? "text-blue-300" : "text-gray-500 dark:text-gray-400")} aria-hidden="true" />
+                        <Sparkles className={cn("h-3.5 w-3.5", isEmptyDeck ? "text-blue-300" : "text-blue-500 dark:text-blue-400")} aria-hidden="true" />
                         <span className={isEmptyDeck ? "font-semibold" : "font-medium"}>
                           {isEmptyDeck ? "Start with a Starter Kit" : "Starter Kits"}
                         </span>

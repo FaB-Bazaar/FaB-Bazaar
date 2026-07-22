@@ -173,6 +173,30 @@
   animation: chord-chip-out 0.13s ease-in forwards;
 }
 
+/* Attention "breathing" border for discovery CTAs (e.g. the Starter Kits chip).
+   Border + soft glow fade in and out until the user engages once; JS swaps the
+   class off after first open. Static accent fallback under reduced motion. */
+@keyframes attention-glow {
+  0%, 100% {
+    border-color: rgb(96 165 250 / 0.35);
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0);
+  }
+  50% {
+    border-color: rgb(96 165 250 / 0.95);
+    box-shadow: 0 0 14px 2px rgb(59 130 246 / 0.4);
+  }
+}
+.animate-attention-glow {
+  animation: attention-glow 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-attention-glow {
+    animation: none;
+    border-color: rgb(96 165 250 / 0.8);
+    box-shadow: 0 0 10px 1px rgb(59 130 246 / 0.3);
+  }
+}
+
 /* iOS Safari auto-zooms the page when focusing a text control whose computed
    font-size is under 16px — and never zooms back out, leaving the layout
    clipped on the right and the fixed bottom tab bar outside the visual
