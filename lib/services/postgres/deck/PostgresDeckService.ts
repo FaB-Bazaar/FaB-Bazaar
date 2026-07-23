@@ -1159,12 +1159,16 @@ export class PostgresDeckService implements IDeckService {
       if (filters?.featured !== undefined) {
         conditions.push(eq(decks.featured, filters.featured));
       }
-      // Community listings exclude the system "Decks to Beat" rows — they have
-      // their own section. featured: true IS the Decks-to-Beat ask (the to-beat
-      // page, Volzar picker, and archetype consensus all use it), so it opts in
-      // implicitly; includeSystemDecks: true opts in explicitly.
+      // Community listings exclude the "Decks to Beat" rows — they have their
+      // own section. featured is what PUTS a deck on that page, so the default
+      // listing excludes BOTH flags (a featured deck whose isSystemDeck was
+      // never set must not leak either). featured: true IS the Decks-to-Beat
+      // ask (the to-beat page, Volzar picker, and archetype consensus all use
+      // it), so it opts in implicitly; includeSystemDecks: true opts in
+      // explicitly.
       if (filters?.featured !== true && filters?.includeSystemDecks !== true) {
         conditions.push(eq(decks.isSystemDeck, false));
+        conditions.push(eq(decks.featured, false));
       }
       if (filters?.month !== undefined && filters?.year !== undefined) {
         const mm = String(filters.month).padStart(2, '0');
