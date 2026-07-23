@@ -1186,14 +1186,27 @@ export class PostgresDeckService implements IDeckService {
       }
 
       const whereClause = and(...conditions);
-      const needsUserJoin = !!filters?.username;
 
-      // Get total count
-      const countQuery = db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(decks);
-      if (needsUserJoin) countQuery.leftJoin(users, eq(decks.userId, users.id));
-      const [{ count }] = await countQuery.where(whereClause);
+      // Plausible-card-count gate, shared by the rows query AND the count —
+      // a gated-out deck that still counted produced "1 deck found" over an
+      // empty listing on the Community page.
+      const plausibleCountGate = sql`NOT (
+        (${decks.format} = 'Classic Constructed' AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 60 AND 80) OR
+        (${decks.format} = 'Silver Age'           AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 55) OR
+        (${decks.format} = 'Blitz'                AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 52)
+      )`;
+
+      // Total = count of the SAME grouped+gated set the rows query pages over.
+      const gatedIds = db
+        .select({ id: decks.id })
+        .from(decks)
+        .leftJoin(users, eq(decks.userId, users.id))
+        .leftJoin(deckCards, eq(decks.id, deckCards.deckId))
+        .where(whereClause)
+        .groupBy(decks.id)
+        .having(plausibleCountGate)
+        .as('gated');
+      const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(gatedIds);
 
       // Get decks with creator info and card stats in a single query
       const limit = pagination?.limit || 20;
@@ -1227,13 +1240,7 @@ export class PostgresDeckService implements IDeckService {
         .leftJoin(printings, eq(deckCards.printingId, printings.printingId))
         .where(whereClause)
         .groupBy(decks.id, users.username, users.displayUsername)
-        .having(
-          sql`NOT (
-            (${decks.format} = 'Classic Constructed' AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 60 AND 80) OR
-            (${decks.format} = 'Silver Age'           AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 55) OR
-            (${decks.format} = 'Blitz'                AND COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0) NOT BETWEEN 40 AND 52)
-          )`
-        )
+        .having(plausibleCountGate)
         .orderBy(desc(decks.updatedAt))
         .limit(limit)
         .offset(offset);
