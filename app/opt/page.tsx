@@ -15,6 +15,7 @@ import { AppShellAttribution } from '@/components/search/AppShellAttribution';
 import { useSearchSelection } from '@/hooks/search/useSearchSelection';
 import { useCardSearch } from '@/hooks/search/useCardSearch';
 import { useOptSearchState } from '@/hooks/search/useOptSearchState';
+import { nextHeaderHidden } from '@/lib/search/collapse-header-on-scroll';
 import { optStateToChips } from '@/lib/search/opt-state-describe';
 import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { canUseVolzar } from '@/lib/ai/volzar-access';
@@ -51,6 +52,20 @@ export default function OptSearchPage() {
   // The pack facet only renders when a selected set actually has packs (e.g.
   // GEM), so it stays invisible for normal sets.
   const [availablePacks, setAvailablePacks] = useState<{ groupId: number; name: string }[]>([]);
+  // Mobile: collapse the command bar while scrolling down through results —
+  // tile view otherwise loses most of the small viewport to chrome. Scrolling
+  // up (or being near the top) brings it back. Desktop keeps it visible.
+  const [headerHidden, setHeaderHidden] = useState(false);
+  const lastResultsScrollTop = useRef(0);
+  const onResultsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.scrollTop;
+    // Capture BEFORE scheduling: the state updater runs after this handler
+    // returns, and reading the ref there would see the already-updated value
+    // (delta 0 → the header would never toggle).
+    const prevTop = lastResultsScrollTop.current;
+    lastResultsScrollTop.current = top;
+    setHeaderHidden((hidden) => nextHeaderHidden({ prevTop, top, hidden }));
+  };
   // Curated facet vocabulary (public read). Dynamic, unlike the hardcoded chip
   // constants, so it's fetched once; drafts are curator-internal and hidden.
   const [facetDefs, setFacetDefs] = useState<FacetDef[]>([]);
@@ -251,8 +266,14 @@ export default function OptSearchPage() {
       {/* ── COMMAND BAR ── */}
       {/* sticky top-16 (navbar height): the footer + tab-bar padding still make
           the BODY scrollable by ~100px, which used to slide the search bar off
-          screen on mobile — pin it below the navbar instead. */}
-      <div className="sticky top-16 z-30 shrink-0 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+          screen on mobile — pin it below the navbar instead. On mobile the bar
+          also collapses while scrolling down through results (headerHidden) so
+          tile view gets the viewport back; scrolling up restores it. */}
+      <div className={cn(
+        'sticky top-16 z-30 shrink-0 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900',
+        'overflow-hidden transition-all duration-200 sm:max-h-none sm:overflow-visible',
+        headerHidden ? 'max-h-0 border-b-0' : 'max-h-[60vh]',
+      )}>
         <div className="px-3 sm:px-4 pt-3 pb-2 flex flex-col gap-2.5">
 
           {/* Row 1: search + result count + view/sort controls */}
@@ -436,7 +457,7 @@ export default function OptSearchPage() {
       {/* ── RESULTS ── */}
       {/* overscroll-contain: keep wheel/touch momentum inside this pane so it
           can't chain to the window when the next page is still loading. */}
-      <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
+      <div onScroll={onResultsScroll} className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
         {!hasAnyFilter ? (
           // Empty state — surfaces the search syntax with clickable examples.
           <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center px-4">
