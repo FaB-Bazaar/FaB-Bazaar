@@ -15,7 +15,7 @@ describe('buildFilterFacets', () => {
   it('returns every facet key in the canonical order', () => {
     expect(build(state()).map((f) => f.key)).toEqual([
       'pitch', 'type', 'class', 'talent', 'keywords', 'facets', 'format',
-      'rarity', 'stats', 'price', 'more', 'language',
+      'rarity', 'stats', 'price', 'sets', 'more', 'language',
     ]);
   });
 
@@ -26,12 +26,15 @@ describe('buildFilterFacets', () => {
       selectedFacets: ['tutor', 'evasive'],
       costMin: '2',
       selectedSets: ['wtr'],
+      selectedFoilings: ['r'],
     }));
     const count = (key: string) => facets.find((f) => f.key === key)!.count;
     expect(count('pitch')).toBe(2);
     expect(count('class')).toBe(1);
     expect(count('facets')).toBe(2);
     expect(count('stats')).toBe(1);
+    // Sets live in their own facet now — More only counts foiling/edition.
+    expect(count('sets')).toBe(1);
     expect(count('more')).toBe(1);
     expect(count('keywords')).toBe(0);
   });

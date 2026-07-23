@@ -602,32 +602,11 @@ export function buildFilterFacets({
       ),
     },
     {
-      // max-h + scroll: the panel gained three set sections (Promos / Deck
-      // products / Other products) and otherwise overflows short viewports.
-      key: 'more', label: 'More', count: selectedFoilings.length + selectedEditions.length + selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80 max-h-[min(70vh,640px)] overflow-y-auto',
+      // max-h + scroll: three set sections (Promos / Deck products / Other
+      // products) plus packs otherwise overflow short viewports.
+      key: 'sets', label: 'Sets', count: selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80 max-h-[min(70vh,640px)] overflow-y-auto',
       body: (
         <div className="space-y-3">
-          <div>
-            <p className={SECTION}>Foiling</p>
-            <div className="flex flex-wrap gap-1">
-              {FOILING_OPTIONS.map(f => (
-                <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedFoilings', value: f.value })}>
-                  <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', f.swatch)} />
-                  {f.label}
-                </Pill>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className={SECTION}>Edition</p>
-            <div className="flex flex-wrap gap-1">
-              {EDITION_OPTIONS.map(e => (
-                <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedEditions', value: e.value })}>
-                  {e.label}
-                </Pill>
-              ))}
-            </div>
-          </div>
           <div>
             <p className={SECTION}>Set</p>
             <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
@@ -697,6 +676,34 @@ export function buildFilterFacets({
               </div>
             </div>
           )}
+        </div>
+      ),
+    },
+    {
+      key: 'more', label: 'More', count: selectedFoilings.length + selectedEditions.length, align: 'right', panelClassName: 'w-80',
+      body: (
+        <div className="space-y-3">
+          <div>
+            <p className={SECTION}>Foiling</p>
+            <div className="flex flex-wrap gap-1">
+              {FOILING_OPTIONS.map(f => (
+                <Pill key={f.value} active={selectedFoilings.includes(f.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedFoilings', value: f.value })}>
+                  <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', f.swatch)} />
+                  {f.label}
+                </Pill>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={SECTION}>Edition</p>
+            <div className="flex flex-wrap gap-1">
+              {EDITION_OPTIONS.map(e => (
+                <Pill key={e.value} active={selectedEditions.includes(e.value)} onClick={() => dispatch({ type: 'TOGGLE_IN', key: 'selectedEditions', value: e.value })}>
+                  {e.label}
+                </Pill>
+              ))}
+            </div>
+          </div>
         </div>
       ),
     },

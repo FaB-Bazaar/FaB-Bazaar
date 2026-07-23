@@ -244,10 +244,15 @@ export default function OptSearchPage() {
 
   // ── Render ──
   return (
-    <div className="flex flex-col h-[calc(100vh-64px-3.5rem)] sm:h-[calc(100vh-64px)] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+    // dvh, not vh: iOS Safari's 100vh is the LARGE viewport, so vh oversizes the
+    // shell and lets the page scroll the command bar under the sticky navbar.
+    <div className="flex flex-col h-[calc(100dvh-64px-3.5rem)] sm:h-[calc(100dvh-64px)] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
 
       {/* ── COMMAND BAR ── */}
-      <div className="shrink-0 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+      {/* sticky top-16 (navbar height): the footer + tab-bar padding still make
+          the BODY scrollable by ~100px, which used to slide the search bar off
+          screen on mobile — pin it below the navbar instead. */}
+      <div className="sticky top-16 z-30 shrink-0 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="px-3 sm:px-4 pt-3 pb-2 flex flex-col gap-2.5">
 
           {/* Row 1: search + result count + view/sort controls */}

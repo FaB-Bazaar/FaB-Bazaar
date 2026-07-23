@@ -31,7 +31,7 @@ export const LANGUAGES: { code: string; label: string }[] = [
 ];
 
 // Detects whether the query string uses shorthand syntax (t:, p:<5, cost:, …).
-export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|k|text|format|p):/;
+export const SHORTHAND_RE = /\b(cost|power|pow|defense|def|type|t|talent|tal|rarity|r|foil|f|set|edition|color|class|c|hero|h|keyword|k|text|format|p|arcane|health|life):/;
 
 export interface SearchUiState {
   query: string;
@@ -131,6 +131,13 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   if (s.arcaneMax)  f.arcaneMax  = parseFloat(s.arcaneMax);
   if (s.healthMin)  f.healthMin  = parseFloat(s.healthMin);
   if (s.healthMax)  f.healthMax  = parseFloat(s.healthMax);
+  // Health targets allies/creatures by default — hero life totals (20/40)
+  // would swamp every range. Heroes stay excluded unless the user opts in via
+  // the hero-age chips or an explicit hero token in the query (t:hero, heroes).
+  const hasHealthFilter = f.health !== undefined || f.healthMin !== undefined || f.healthMax !== undefined;
+  const heroOptIn = (s.selectedHeroAges?.length ?? 0) > 0 || (f.heroAges?.length ?? 0) > 0
+    || f.isHero === true || (f.types ?? []).some((t) => t.includes('hero'));
+  if (hasHealthFilter && !heroOptIn) f.isHero = false;
   if (s.priceMin)   { f.priceMin = parseFloat(s.priceMin); f.priceField = 'tcg_low'; }
   if (s.priceMax)   { f.priceMax = parseFloat(s.priceMax); f.priceField = 'tcg_low'; }
 

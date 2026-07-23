@@ -266,3 +266,37 @@ describe('health range', () => {
     expect(f.healthMax).toBe(20);
   });
 });
+
+describe('health range hero exclusion', () => {
+  it('excludes heroes when a health range is set without a hero-age selection', () => {
+    const f = buildServerFilters({ ...baseState, healthMin: '2' });
+    expect(f.healthMin).toBe(2);
+    expect(f.isHero).toBe(false);
+  });
+
+  it('healthMax alone also excludes heroes', () => {
+    expect(buildServerFilters({ ...baseState, healthMax: '6' }).isHero).toBe(false);
+  });
+
+  it('keeps heroes when a hero age is selected', () => {
+    const f = buildServerFilters({ ...baseState, healthMin: '2', selectedHeroAges: ['adult'] });
+    expect(f.isHero).toBeUndefined();
+    expect(f.heroAges).toEqual(['adult']);
+  });
+
+  it('keeps heroes when the query explicitly asks for them (t:hero)', () => {
+    const f = buildServerFilters({ ...baseState, query: 'health>1 t:hero' });
+    expect(f.isHero).not.toBe(false);
+  });
+
+  it('shorthand health tokens exclude heroes too (life:3 without hero opt-in)', () => {
+    const f = buildServerFilters({ ...baseState, query: 'life:3' });
+    expect(f.health).toBe(3);
+    expect(f.isHero).toBe(false);
+  });
+
+  it('does not touch isHero when no health filter is active', () => {
+    expect(buildServerFilters({ ...baseState }).isHero).toBeUndefined();
+    expect(buildServerFilters({ ...baseState, powerMin: '4' }).isHero).toBeUndefined();
+  });
+});
