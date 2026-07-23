@@ -4,7 +4,7 @@
  * Mobile-only bottom nav (sm:hidden): a floating rounded pill of tabs plus a
  * detached circular Search FAB (→ /opt) beside it, Slack-mobile style.
  *   • Collection → opens a bottom sheet of quick links + pinned/recent binders
- *   • Instant    → (signed-in) opens a sheet of Volzar + zero-token deep links
+ *   • Volzar     → (signed-in) opens a sheet of Volzar + zero-token deep links
  *   • Decks      → opens a bottom sheet of quick links + pinned/recent decks
  * Signed-out users get a two-tab pill (Collection · Decks) — the FAB owns search.
  *
@@ -114,7 +114,7 @@ export default function MobileTabBar({
           className="pointer-events-auto flex flex-1 max-w-sm items-stretch gap-1 rounded-full border border-border bg-card/90 supports-[backdrop-filter]:bg-card/75 backdrop-blur-md shadow-lg p-1.5"
           aria-label="Primary"
         >
-          {/* Order: Collection · Instant · Decks — the ⚡ hub sits in the
+          {/* Order: Collection · Volzar · Decks — the Volzar hub sits in the
               middle (thumb-reach primary), flanked by the two libraries.
               Signed-out: just the two library links (the FAB owns search). */}
           {user ? (
@@ -143,8 +143,10 @@ export default function MobileTabBar({
               aria-expanded={instantOpen}
               className={cn(TAB, tone(instantActive))}
             >
-              <Zap className="h-5 w-5" />
-              Instant
+              {/* Volzar, the Lightning Rod card art — same mark as the navbar link */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-5 w-5 shrink-0 rounded-full object-cover" />
+              Volzar
             </button>
           )}
 
@@ -181,14 +183,15 @@ export default function MobileTabBar({
         </Link>
       </div>
 
-      {/* ⚡ Instant sheet (Volzar-access users) — search + Volzar deep links.
+      {/* Volzar sheet (Volzar-access users) — chat + zero-token deep links.
           The instant items land on /volzar and auto-run with zero AI tokens
           (?action= is consumed one-shot by VolzarChat). */}
       <Drawer open={instantOpen} onOpenChange={setInstantOpen}>
         <DrawerContent className="max-h-[80vh]">
           <DrawerHeader className="py-3">
             <DrawerTitle className="flex items-center gap-1.5">
-              <Zap className="h-4 w-4" aria-hidden="true" /> Instant
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/volzar-icon.png" alt="" aria-hidden="true" className="h-4 w-4 shrink-0 rounded-full object-cover" /> Volzar
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
