@@ -332,6 +332,9 @@ export interface PublicDeckFilters {
   search?: string;
   username?: string;
   featured?: boolean;
+  /** System "Decks to Beat" rows are EXCLUDED by default (they have their own
+   * section). featured: true implies them; set this to include them anyway. */
+  includeSystemDecks?: boolean;
   /** Filter by event_date month (1–12) and year (e.g. 2026) — only matches decks with an explicit event_date set */
   month?: number;
   year?: number;
