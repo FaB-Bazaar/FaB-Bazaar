@@ -315,17 +315,31 @@ export default function MobileTabBar({
               <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No decks yet</div>
             ) : (
               sortedDecks.map((deck) => {
-                const heroName = Array.isArray(deck.hero) && deck.hero.length > 0
-                  ? deck.hero[0]?.printingDetails?.display_name || deck.hero[0]?.printingId
-                  : null
+                // Summary DTOs (this fetch) carry heroImageUrl/heroDisplayName;
+                // full DTOs embed hero[0].printingDetails. Only stored image_urls
+                // render — constructed printing_id CDN URLs 404 (deleted 2026-07).
+                const heroImgUrl = deck.heroImageUrl || deck.hero?.[0]?.printingDetails?.image_url || null
+                const heroName = deck.heroDisplayName
+                  || (Array.isArray(deck.hero) && deck.hero.length > 0
+                    ? deck.hero[0]?.printingDetails?.display_name || deck.hero[0]?.printingId
+                    : null)
                 return (
                   <DrawerClose asChild key={deck._id || deck.publicId}>
                     <Link
                       href={`/decks/${deck.publicId}`}
-                      className="flex flex-col px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
-                      <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{deck.name}</span>
-                      {heroName && <span className="text-xs text-gray-500 dark:text-gray-400">{heroName}</span>}
+                      {heroImgUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={heroImgUrl} alt="" aria-hidden="true" className="w-8 h-11 shrink-0 rounded object-cover" />
+                      ) : (
+                        // Placeholder keeps hero-less rows aligned with the rest.
+                        <div aria-hidden="true" className="w-8 h-11 shrink-0 rounded border border-dashed border-gray-300 dark:border-gray-700" />
+                      )}
+                      <span className="flex flex-col min-w-0">
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{deck.name}</span>
+                        {heroName && <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{heroName}</span>}
+                      </span>
                     </Link>
                   </DrawerClose>
                 )
