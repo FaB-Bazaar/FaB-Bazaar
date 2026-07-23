@@ -1203,6 +1203,19 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // Decks-to-beat picker — the unscoped list is too long, so scope by hero
   // (rolling window) or by event before fetching.
   const [toBeatOpen, setToBeatOpen] = useState(false);
+  // Gate for the picker POPOVERS (desktop anchor). Below lg the pickers render
+  // as inline panels and the popover content is CSS-hidden — but a mounted-open
+  // Radix popover still installs a document-wide dismiss layer, so the first
+  // tap on the INLINE panel registered as an outside interaction and closed
+  // the picker mid-tap (the "Decks to Beat menu disappears" phone bug).
+  const [isLgViewport, setIsLgViewport] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setIsLgViewport(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
   const [toBeatMode, setToBeatMode] = useState<'hero' | 'event'>('hero');
   const [toBeatHero, setToBeatHero] = useState('');
   const [toBeatEvents, setToBeatEvents] = useState<ToBeatEvent[]>([]);
@@ -2812,7 +2825,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               </span>
             );
           })}
-          <Popover open={toBeatOpen} onOpenChange={(o) => { if (o) { if (!toBeatOpen) toggleToBeat(); } else setToBeatOpen(false); }}>
+          <Popover open={toBeatOpen && isLgViewport} onOpenChange={(o) => { if (o) { if (!toBeatOpen) toggleToBeat(); } else setToBeatOpen(false); }}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -2831,7 +2844,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               {renderToBeatPicker()}
             </PopoverContent>
           </Popover>
-          <Popover open={archetypeOpen} onOpenChange={(o) => { if (o) { if (!archetypeOpen) toggleArchetype(); } else setArchetypeOpen(false); }}>
+          <Popover open={archetypeOpen && isLgViewport} onOpenChange={(o) => { if (o) { if (!archetypeOpen) toggleArchetype(); } else setArchetypeOpen(false); }}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
@@ -2850,7 +2863,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               {renderArchetypePicker()}
             </PopoverContent>
           </Popover>
-          <Popover open={kitOpen} onOpenChange={(o) => { if (o) { if (!kitOpen) toggleKit(); } else setKitOpen(false); }}>
+          <Popover open={kitOpen && isLgViewport} onOpenChange={(o) => { if (o) { if (!kitOpen) toggleKit(); } else setKitOpen(false); }}>
             <PopoverTrigger asChild>
               <Button
                 variant="secondary"
