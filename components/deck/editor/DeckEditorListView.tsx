@@ -1523,6 +1523,8 @@ interface DeckEditorListViewProps {
   /** Called when the user clicks "+ Add" on a tile zone — receives the target category and optional pitch filter */
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   canEdit?: boolean;
+  /** Initial view mode. Undefined while auth is still resolving; applied once when it arrives, never over a manual choice. */
+  defaultViewMode?: 'list' | 'tile' | 'game';
   /** Binder list for the selector */
   binders?: Array<{ _id: string; name: string }>;
   /** Currently selected binder ID */
@@ -1539,7 +1541,7 @@ interface DeckEditorListViewProps {
   onCardHover?: (preview: ({ url: string; name: string } & Partial<HoverExtras>) | null) => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
   const { ownedCount, totalCount } = useMemo(() => {
     let owned = 0, total = 0;
@@ -1564,7 +1566,16 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   // mismatch (server → false, touch client → true) that alters tile-view markup.
   const isTouchDevice = useIsTouchDevice();
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string; otherFaceUrl?: string } | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>('tile');
+  const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>(defaultViewMode ?? 'tile');
+  // defaultViewMode depends on canEdit, which can resolve after mount (auth
+  // often loads slower than the deck). Apply it exactly once when it arrives;
+  // a manual view choice (viewModeLocked) always wins.
+  const viewModeLocked = useRef(defaultViewMode != null);
+  useEffect(() => {
+    if (defaultViewMode == null || viewModeLocked.current) return;
+    viewModeLocked.current = true;
+    setViewMode(defaultViewMode);
+  }, [defaultViewMode]);
   const TILE_SIZES = [
     { key: 'compact', label: 'Compact', width: 108 },
     { key: 'normal',  label: 'Normal',  width: 150 },
@@ -2251,7 +2262,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             <button
               key={m.key}
               type="button"
-              onClick={() => setViewMode(m.key)}
+              onClick={() => { viewModeLocked.current = true; setViewMode(m.key); }}
               aria-pressed={viewMode === m.key}
               className={cn(
                 "px-3 py-1.5 flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400",
@@ -2567,7 +2578,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             };
             const gameAccent = gameZoneAccent[section.key] ?? gameZoneAccent.unpitched;
             return (
-              <div key={section.key} className={cn("mb-3 p-1 transition-all", gameAccent.bg, gameAccent.border)}>
+              // Same deck-section-* anchors as tile view so the HUD's jump-to-color buttons work here too
+              <div key={section.key} id={`deck-section-${section.key}`} className={cn("mb-3 p-1 transition-all scroll-mt-16", gameAccent.bg, gameAccent.border)}>
                 <button
                   type="button"
                   onClick={() => toggleSection(sectionCollapseKey)}

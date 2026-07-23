@@ -31,6 +31,16 @@ describe('MobileBuildToolsPanel', () => {
     expect(screen.getByRole('button', { name: /add to bench/i })).toBeInTheDocument();
   });
 
+  it('hides the Add Cards group when the viewer cannot edit the deck', () => {
+    render(<MobileBuildToolsPanel {...baseProps} canAddCards={false} />);
+    expect(screen.queryByText(/add cards/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add to maindeck/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add to inventory/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add to bench/i })).not.toBeInTheDocument();
+    // Navigation still available for read-only viewers
+    expect(screen.getByRole('button', { name: /jump to red/i })).toBeInTheDocument();
+  });
+
   it('renders Jump To buttons for top, red, yellow, blue', () => {
     render(<MobileBuildToolsPanel {...baseProps} />);
     expect(screen.getByRole('button', { name: /scroll to top/i })).toBeInTheDocument();

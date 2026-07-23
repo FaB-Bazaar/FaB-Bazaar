@@ -34,6 +34,7 @@ import { useBuildProgress } from "@/hooks/deck/useBuildProgress";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { useIsMac } from "@/components/ui/use-client-env";
 import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck-flow/quickAddRouting";
+import { resolveDefaultDeckViewMode } from "@/lib/deck-flow/deckViewMode";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -212,12 +213,17 @@ export default function DeckEditorPage() {
   // Quick-add dialog state
   const [quickAddTarget, setQuickAddTarget] = useState<{ category: DeckCategory; pitch?: 1 | 2 | 3 } | null>(null);
 
+  const isOwner = !!(user && state.deck && state.deck.userId === user.id);
+  const isCoOwner = !!(user && state.deck && !isOwner && (state.deck.coOwners ?? []).includes(user.id));
+  const canEdit = isOwner || isCoOwner;
+
   // Mobile users get the inline Cards tab (MobileCardSearch) instead of the
   // desktop QuickAddCardDialog, whose 390px filter sidebar stacks above the
   // results on narrow viewports.
   const isMobile = useIsMobile();
   const openQuickAdd = (target: QuickAddTarget) => {
-    const action = resolveQuickAddAction(isMobile, target);
+    const action = resolveQuickAddAction(isMobile, target, canEdit);
+    if (action.kind === "blocked") return;
     if (action.kind === "switchTab") setActiveTab(action.tab);
     else setQuickAddTarget(action.target);
   };
@@ -320,10 +326,6 @@ export default function DeckEditorPage() {
 
   // Dialog state: for deck card printing swap
   const [deckSwapTarget, setDeckSwapTarget] = useState<SwapTarget | null>(null);
-
-  const isOwner = !!(user && state.deck && state.deck.userId === user.id);
-  const isCoOwner = !!(user && state.deck && !isOwner && (state.deck.coOwners ?? []).includes(user.id));
-  const canEdit = isOwner || isCoOwner;
 
   // Deep-link support: /decks/[id]?tab=notes (and ?tab=results) opens that tab
   // directly once we know the viewer can edit. /decks/[id]/notes redirects here.
@@ -753,6 +755,19 @@ export default function DeckEditorPage() {
     document.addEventListener('keydown', handleKeyDown);
     return () => { document.removeEventListener('keydown', handleKeyDown); clearTimeout(timeout); };
   }, [chordMode, activeTab, keywordBuffer]);
+
+  // Clicking / tapping outside the Deck Tools HUD closes it (parity with Esc and ✕).
+  // Containers are tagged data-deck-hud; anything else on the page dismisses.
+  useEffect(() => {
+    if (!chordMode) return;
+    const handler = (e: PointerEvent) => {
+      if ((e.target as HTMLElement | null)?.closest('[data-deck-hud]')) return;
+      setChordMode(null);
+      setKeywordBuffer('');
+    };
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
+  }, [chordMode]);
 
   // Sync tile size label from DeckEditorListView broadcasts
   useEffect(() => {
@@ -1241,6 +1256,7 @@ export default function DeckEditorPage() {
             {/* Sub-mode chip overlay (type / attack / cost / defense / arcane) */}
             {isOverlayMode && !keywordBuffer.startsWith('-') && (
               <div
+                data-deck-hud
                 className="fixed left-1/2 -translate-x-1/2 z-50"
                 style={{ bottom: '76px', width: chordMode === 'type' ? 'min(820px, 96vw)' : 'min(620px, 96vw)' }}
               >
@@ -1431,6 +1447,7 @@ export default function DeckEditorPage() {
 
             {/* Main HUD bar */}
             <div
+              data-deck-hud
               className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-sm transition-all duration-200"
               style={{ width: chordMode === 'select' ? 'min(880px, 96vw)' : undefined }}
             >
@@ -1461,6 +1478,7 @@ export default function DeckEditorPage() {
                       }}
                       onAddCards={(category) => { openQuickAdd({ category: category as DeckCategory }); setChordMode(null); }}
                       onOwnershipFilter={(filter) => dispatchOwnershipFilter(filter, true)}
+                      canAddCards={canEdit}
                     />
                   </div>
                 {/* ── Grouped select mode panel — desktop ── */}
@@ -1476,8 +1494,8 @@ export default function DeckEditorPage() {
                       <span className="sm:hidden">✕ Close</span>
                     </button>
                   </div>
-                  {/* Four-column group layout */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-0 divide-x divide-gray-700/40">
+                  {/* Four-column group layout (three columns for read-only viewers — no Add Cards) */}
+                  <div className={cn("grid grid-cols-2 gap-x-6 gap-y-0 divide-x divide-gray-700/40", canEdit ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
                     {/* Navigate */}
                     <div className="pr-4">
                       <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Navigate to</div>
@@ -1514,20 +1532,22 @@ export default function DeckEditorPage() {
                         </button>
                       ))}
                     </div>
-                    {/* Add Cards */}
-                    <div className="px-4">
-                      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Add cards to</div>
-                      {[
-                        { key: '9', label: 'Maindeck' },
-                        { key: '8', label: 'Inventory' },
-                        { key: '7', label: 'Bench' },
-                      ].map(({ key, label }) => (
-                        <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
-                          <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
-                          <span className="text-sm text-gray-300">+ {label}</span>
-                        </button>
-                      ))}
-                    </div>
+                    {/* Add Cards — editors only; the actions no-op on decks the viewer can't change */}
+                    {canEdit && (
+                      <div className="px-4">
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Add cards to</div>
+                        {[
+                          { key: '9', label: 'Maindeck' },
+                          { key: '8', label: 'Inventory' },
+                          { key: '7', label: 'Bench' },
+                        ].map(({ key, label }) => (
+                          <button key={key} type="button" className={`${hudBtn} w-full mb-1`} onClick={() => SELECT_ACTIONS[key]?.()}>
+                            <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                            <span className="text-sm text-gray-300">+ {label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {/* View */}
                     <div className="pl-4">
                       <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Switch view</div>
@@ -2215,6 +2235,7 @@ export default function DeckEditorPage() {
                     }
                     onAddCard={(category, pitch) => openQuickAdd({ category, pitch })}
                     canEdit={canEdit}
+                    defaultViewMode={authLoading ? undefined : resolveDefaultDeckViewMode(canEdit)}
                     binders={binders}
                     selectedBinderId={selectedBinderId}
                     onBinderChange={handleBinderChange}

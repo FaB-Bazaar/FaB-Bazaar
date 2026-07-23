@@ -22,4 +22,21 @@ describe('resolveQuickAddAction', () => {
       target: { category: 'inventory' },
     });
   });
+
+  // Viewers of someone else's deck must never be routed anywhere: on mobile the
+  // 'search' tab is canEdit-gated, so switching to it blanks the page.
+  it('blocks quick-add on mobile when the viewer cannot edit', () => {
+    const action = resolveQuickAddAction(true, { category: 'maindeck' }, false);
+    expect(action).toEqual({ kind: 'blocked' });
+  });
+
+  it('blocks quick-add on desktop when the viewer cannot edit', () => {
+    const action = resolveQuickAddAction(false, { category: 'maindeck', pitch: 1 }, false);
+    expect(action).toEqual({ kind: 'blocked' });
+  });
+
+  it('treats omitted canEdit as editable (back-compat)', () => {
+    const action = resolveQuickAddAction(true, { category: 'inventory' });
+    expect(action).toEqual({ kind: 'switchTab', tab: 'search' });
+  });
 });

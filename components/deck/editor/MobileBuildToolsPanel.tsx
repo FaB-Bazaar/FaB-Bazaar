@@ -14,6 +14,8 @@ export interface MobileBuildToolsPanelProps {
   onScrollToSection: (color: PitchColor) => void;
   onAddCards: (category: AddCategory) => void;
   onOwnershipFilter: (filter: OwnershipFilter) => void;
+  /** Hide the Add Cards group for viewers who can't edit the deck (default true) */
+  canAddCards?: boolean;
 }
 
 const focusRing =
@@ -36,6 +38,7 @@ export default function MobileBuildToolsPanel({
   onScrollToSection,
   onAddCards,
   onOwnershipFilter,
+  canAddCards = true,
 }: MobileBuildToolsPanelProps) {
   const segActive = (active: boolean) =>
     active
@@ -64,8 +67,8 @@ export default function MobileBuildToolsPanel({
         </button>
       </div>
 
-      {/* Add Cards */}
-      <div className="mb-4">
+      {/* Add Cards — hidden on decks the viewer can't edit */}
+      {canAddCards && <div className="mb-4">
         <div className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
           Add Cards
         </div>
@@ -95,7 +98,7 @@ export default function MobileBuildToolsPanel({
             + Bench
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Jump To */}
       <div className="mb-4">
