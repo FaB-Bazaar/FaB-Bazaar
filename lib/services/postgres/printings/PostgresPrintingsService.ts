@@ -1527,6 +1527,28 @@ export class PostgresPrintingsService implements IPrintingsService {
       conditions.push(or(isNull(cards.arcane), notInArray(cards.arcane, filters.arcaneNot))!);
     }
 
+    if (filters.health !== undefined) {
+      if (Array.isArray(filters.health)) {
+        conditions.push(inArray(cards.health, filters.health));
+      } else if (filters.health === null) {
+        conditions.push(sql`${cards.health} IS NULL`);
+      } else {
+        conditions.push(eq(cards.health, filters.health));
+      }
+    }
+
+    if (filters.healthMin !== undefined) {
+      conditions.push(gte(cards.health, filters.healthMin));
+    }
+
+    if (filters.healthMax !== undefined) {
+      conditions.push(lte(cards.health, filters.healthMax));
+    }
+
+    if (filters.healthNot && filters.healthNot.length > 0) {
+      conditions.push(or(isNull(cards.health), notInArray(cards.health, filters.healthNot))!);
+    }
+
     if (filters.pitch !== undefined) {
       if (Array.isArray(filters.pitch)) {
         conditions.push(inArray(cards.pitch, filters.pitch));

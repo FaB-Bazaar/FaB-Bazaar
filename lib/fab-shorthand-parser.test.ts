@@ -163,3 +163,46 @@ describe.each([
     expect(parser.parseQuery('set:arc').filters.sets).toContain('arc');
   });
 });
+
+// Health stat (cards.health — ally/hero life totals) — same operator grammar
+// as power on BOTH parsers. `life` is an alias: players say "20 life", the
+// card frame says life, the DB column says health.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser health stat — %s', (_label, parser) => {
+  it('parses health:4 and bare health4 as exact matches', () => {
+    expect(parser.parseQuery('health:4').filters.health).toBe(4);
+    expect(parser.parseQuery('health4').filters.health).toBe(4);
+  });
+
+  it('parses the life alias (life:20, life20)', () => {
+    expect(parser.parseQuery('life:20').filters.health).toBe(20);
+    expect(parser.parseQuery('life20').filters.health).toBe(20);
+  });
+
+  it('parses health>3 as healthMin 4', () => {
+    expect(parser.parseQuery('health>3').filters.healthMin).toBe(4);
+  });
+
+  it('parses life<20 as healthMax 19', () => {
+    expect(parser.parseQuery('life<20').filters.healthMax).toBe(19);
+  });
+
+  it('parses health!1,2 as healthNot', () => {
+    expect(parser.parseQuery('health!1,2').filters.healthNot).toEqual([1, 2]);
+  });
+
+  it('combines with other tokens and consumes the token from the name', () => {
+    const f = parser.parseQuery('health>3 t:ally').filters;
+    expect(f.healthMin).toBe(4);
+    expect(f.types).toContain('ally');
+    expect(f.name ?? '').not.toMatch(/health/);
+  });
+
+  it('does NOT hijack card names that merely contain the word life', () => {
+    const f = parser.parseQuery('tree of life').filters;
+    expect(f.health).toBeUndefined();
+    expect(f.name).toBe('tree of life');
+  });
+});

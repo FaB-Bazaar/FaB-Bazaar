@@ -71,6 +71,8 @@ describe('searchable://card/fields payload', () => {
     expect(data.filter_reference?.stat_filters).toBeTruthy();
     // Arcane damage stat is documented ("what deals 3+ arcane damage")
     expect(data.filter_reference.stat_filters.arcane).toContain('arcaneMin');
+    // Health stat is documented ("allies with 4+ health")
+    expect(data.filter_reference.stat_filters.health).toContain('healthMin');
     expect(text).toContain('searchAllVersions');
     // Negation convention
     expect(text).toContain('raritiesNot');

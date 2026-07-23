@@ -276,6 +276,11 @@ export interface PrintingsSearchFilters {
   arcaneMin?: number;
   arcaneMax?: number;
   arcaneNot?: number[];
+  /** Ally/hero life total (cards.health). NULL = card has no life value. */
+  health?: number | number[] | null;
+  healthMin?: number;
+  healthMax?: number;
+  healthNot?: number[];
   pitch?: number | number[] | null;
 
   // Printing attributes

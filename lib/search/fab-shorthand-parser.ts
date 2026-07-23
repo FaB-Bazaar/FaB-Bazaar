@@ -120,6 +120,42 @@ export class FABShorthandParser {
       examples: ["arcane>2", "arcane<4", "arcane!1,2", "arcane:3", "arcane3"]
     },
 
+    // Health stat (cards.health — ally/hero life totals) — same grammar as
+    // power. `life` is an alias (players say "20 life"); trailing digits are
+    // required, so card names containing the bare word (Tree of Life) are
+    // never consumed.
+    {
+      pattern: /\b(?:health|life)([!<>:]?)(\d+(?:,\d+)*)/gi,
+      parser: (match, filters) => {
+        const operator = match[1] || ':';
+        const values = match[2].split(',').map(v => parseInt(v.trim()));
+
+        switch (operator) {
+          case '>':
+            // health>3 means health >= 4
+            filters.healthMin = values[0] + 1;
+            break;
+
+          case '<':
+            // health<20 means health <= 19
+            filters.healthMax = values[0] - 1;
+            break;
+
+          case '!':
+            if (!filters.healthNot) filters.healthNot = [];
+            filters.healthNot.push(...values);
+            break;
+
+          case ':':
+          default:
+            filters.health = values.length === 1 ? values[0] : values;
+            break;
+        }
+      },
+      description: "Health (ally/hero life total) with flexible operators and multiple values",
+      examples: ["health>3", "life:20", "health!1,2", "health:4", "life20"]
+    },
+
     // Cost searches - high priority to avoid conflicts
     {
       pattern: /\bcost([!<>:]?)(\d+(?:,\d+)*)/gi,

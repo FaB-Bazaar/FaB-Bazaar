@@ -86,6 +86,7 @@ export const searchCapabilitiesResource = {
         cost: 'Exact match: cost: 0  |  Multiple: costs: [0,1,2]  |  Range: costMin/costMax  |  Exclude: costNot: [5,6]',
         defense: 'Exact match: defense: 3  |  Range: defenseMin/defenseMax  |  Exclude: defenseNot: [0]',
         arcane: 'Arcane damage dealt when played. Exact: arcane: 3  |  Range: arcaneMin/arcaneMax ("deals 3+ arcane damage" → arcaneMin: 3)  |  Exclude: arcaneNot: [1]. NULL for cards with no (or variable "X") arcane damage — never matched by ranges.',
+        health: 'Ally/hero life total. Exact: health: 20  |  Range: healthMin/healthMax ("allies with 4+ health" → healthMin: 4)  |  Exclude: healthNot: [1]. NULL for cards with no life value — never matched by ranges. Shorthand alias: life ("life:20", "life>19").',
         pitch: 'pitch: 1 (red)  |  pitch: 2 (yellow)  |  pitch: 3 (blue)'
       },
       talent_filters: {
