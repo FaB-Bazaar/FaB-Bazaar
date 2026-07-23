@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, X, Loader2, ChevronDown, Sparkles, LayoutGrid, List } from "lucide-react";
+import { Search, X, Loader2, ChevronDown, Sparkles, LayoutGrid, List, Coins, Swords, Shield, Heart } from "lucide-react";
 import { searchClient, decksClient } from "@/lib/client";
 import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
@@ -281,9 +281,24 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     }
   };
 
+  // Pitch 1/2/3 → red/yellow/blue. Count + color double-encode (SC 1.4.1).
+  const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
+  const PITCH_NAME: Record<number, string> = { 1: "red", 2: "yellow", 3: "blue" };
+  const statChip = (Icon: any, value: number, label: string, iconClass: string) => (
+    <span
+      className="inline-flex items-center gap-0.5 rounded bg-gray-100 dark:bg-gray-800 px-1 py-px text-[11px] font-semibold tabular-nums text-gray-800 dark:text-gray-200"
+      role="img"
+      aria-label={`${label} ${value}`}
+      title={`${label} ${value}`}
+    >
+      <Icon className={`h-3 w-3 ${iconClass}`} aria-hidden="true" />
+      {value}
+    </span>
+  );
+
   // Compact list row — same add/remove semantics as the tile, one card per
-  // line: thumb · name + printing/price · − qty +. Printing swaps stay a
-  // grid-view affordance; the list is for fast scanning and quick adds.
+  // line: thumb · name + stats + printing/price · − qty +. Printing swaps stay
+  // a grid-view affordance; the list is for fast scanning and quick adds.
   const renderRow = (card: any, opts: { key: string; kitQty?: number; pinned?: boolean }) => {
     const uid = card.card_unique_id;
     const qty = getQty(uid);
@@ -291,10 +306,11 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     const atMax = qty >= maxQty;
     const selectedPrinting = opts.pinned ? card : getSelectedPrinting(card);
     const price = selectedPrinting.tcg_low ?? selectedPrinting.tcg_market;
+    const pitch: number | null = typeof card.pitch === "number" && card.pitch >= 1 && card.pitch <= 3 ? card.pitch : null;
 
     return (
       <div key={opts.key} className="flex items-center gap-2.5 py-1.5">
-        <div className="relative w-9 h-[50px] shrink-0 rounded overflow-hidden bg-gray-200 dark:bg-gray-800">
+        <div className="relative w-10 h-14 shrink-0 rounded overflow-hidden bg-gray-200 dark:bg-gray-800">
           {selectedPrinting.image_url ? (
             <img src={selectedPrinting.image_url} alt="" aria-hidden="true" className="w-full h-full object-cover" loading="lazy" />
           ) : null}
@@ -304,7 +320,26 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
             {card.display_name || card.name}
             {(opts.kitQty ?? 0) > 1 && <span className="ml-1.5 text-xs font-bold text-gray-500 dark:text-gray-400">×{opts.kitQty}</span>}
           </p>
-          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+          {/* Stats: pitch pips (count = pitch), cost, attack, then defense OR
+              health — a card never has both (weapons attack; other equipment
+              is defense-or-nothing). Zero is a real value — print it. */}
+          <p className="flex items-center gap-1.5 mt-0.5">
+            {pitch != null && (
+              <span className="flex items-center gap-0.5" role="img" aria-label={`Pitch ${pitch} (${PITCH_NAME[pitch]})`} title={`Pitch ${pitch} (${PITCH_NAME[pitch]})`}>
+                {Array.from({ length: pitch }).map((_, i) => (
+                  <span key={i} className={`h-2 w-2 rounded-full ${PITCH_DOT[pitch]}`} />
+                ))}
+              </span>
+            )}
+            {card.cost != null && statChip(Coins, card.cost, "Cost", "text-yellow-700 dark:text-yellow-400")}
+            {card.power != null && statChip(Swords, card.power, "Attack", "text-red-600 dark:text-red-400")}
+            {card.defense != null
+              ? statChip(Shield, card.defense, "Defense", "text-gray-500 dark:text-gray-300")
+              : card.health != null
+                ? statChip(Heart, card.health, "Health", "text-green-700 dark:text-green-400")
+                : null}
+          </p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
             {printingLabel(selectedPrinting)}
             {price != null && Number(price) > 0 ? ` · $${Number(price).toFixed(2)}` : ""}
           </p>
