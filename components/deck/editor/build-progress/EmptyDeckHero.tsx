@@ -147,7 +147,8 @@ export default function EmptyDeckHero<K extends KitLike>({
             <Search className="h-4 w-4" aria-hidden="true" />
             Search for cards
           </button>
-          <span className="text-xs text-gray-600 dark:text-gray-400">
+          {/* Keyboard hint is desktop-only chrome — meaningless on touch. */}
+          <span className="hidden sm:inline text-xs text-gray-600 dark:text-gray-400">
             (or press <kbd className="rounded border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 font-sans text-[10px] font-bold text-gray-700 dark:text-gray-300">⌘K</kbd>)
           </span>
         </div>
