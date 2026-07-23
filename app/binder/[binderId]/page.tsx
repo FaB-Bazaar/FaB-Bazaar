@@ -1314,7 +1314,8 @@ const SuperSlamDisclosure = () => {
             onClick={() => setChordMode('select')}
             className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
+            {/* Keyboard hints are desktop-only chrome — meaningless on touch. */}
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
             <span>Binder Tools</span>
             <span className="text-blue-400/70 group-hover:text-blue-300 transition-colors">▸</span>
           </button>
@@ -1434,17 +1435,21 @@ const SuperSlamDisclosure = () => {
       {/* Select panel + clear confirmation */}
       {(chordMode === 'select' || chordMode === 'clear') && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-950 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm" style={{ width: 'min(780px, 96vw)' }}>
-          <div className="px-6 py-5">
+          <div className="px-4 py-4 sm:px-6 sm:py-5 max-h-[75vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{modKey}K · Binder Tools</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                <span className="hidden sm:inline">{modKey}K · </span>Binder Tools
+              </span>
               {chordMode === 'clear'
-                ? <span className="text-base font-semibold text-amber-300">Press 0 again to confirm</span>
-                : <span className="text-xs text-gray-500">press a key or click an action</span>}
-              <button type="button" className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2 py-0.5 rounded hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" onClick={() => setChordMode(null)}>✕ Esc</button>
+                ? <span className="text-base font-semibold text-amber-300"><span className="hidden sm:inline">Press 0 again to confirm</span><span className="sm:hidden">Confirm below</span></span>
+                : <span className="text-xs text-gray-500"><span className="hidden sm:inline">press a key or click an action</span><span className="sm:hidden">tap an action</span></span>}
+              <button type="button" className="text-xs text-gray-500 hover:text-gray-200 transition-colors px-2 py-0.5 rounded hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" onClick={() => setChordMode(null)}>✕<span className="hidden sm:inline"> Esc</span></button>
             </div>
-            <div className="grid grid-cols-3 gap-x-6 divide-x divide-gray-700/40">
+            {/* Mobile: one stacked column (keyboard chords don't exist on touch);
+                desktop keeps the 3-column chord layout. */}
+            <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-3 sm:gap-y-0 sm:gap-x-6 sm:divide-x divide-gray-700/40">
               {/* Filter by */}
-              <div className="pr-4">
+              <div className="sm:pr-4">
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Filter by</div>
                 {([
                   { key: '1', label: 'Rarity',  mode: 'rarity'  as const, active: activeFilters.rarity },
@@ -1455,16 +1460,37 @@ const SuperSlamDisclosure = () => {
                   <button key={key} type="button"
                     className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     onClick={() => { setChordMode(mode); setSetBuffer(''); }}>
-                    <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
+                    <kbd className="hidden sm:block px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">{key}</kbd>
                     <span className="text-sm text-gray-300">{label}</span>
                     {active && <span className="ml-auto text-xs text-amber-400 font-medium truncate max-w-[80px]">{active}</span>}
                   </button>
                 ))}
               </div>
               {/* Jump to letter */}
-              <div className="px-4">
+              <div className="sm:px-4">
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Jump to letter</div>
-                <p className="text-sm text-gray-400 leading-snug">Type any letter key (A–Z) while this menu is open.</p>
+                <p className="hidden sm:block text-sm text-gray-400 leading-snug">Type any letter key (A–Z) while this menu is open.</p>
+                {/* Touch has no keys — tappable A–Z, mirroring the keyboard path
+                    (switch to the cards tab, toggle the filter, close the HUD). */}
+                <div className="sm:hidden flex flex-wrap gap-1">
+                  {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => {
+                    const isActive = activeFilters.startsWith === letter;
+                    return (
+                      <button key={letter} type="button"
+                        onClick={() => {
+                          setActiveTab('cards');
+                          isActive ? clearFilter('startsWith') : setFilter('startsWith', letter);
+                          setChordMode(null);
+                        }}
+                        aria-pressed={isActive}
+                        className={`w-8 h-8 text-sm font-semibold rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                          isActive ? 'bg-amber-400 text-gray-900' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
+                        }`}>
+                        {isActive ? `✓${letter}` : letter}
+                      </button>
+                    );
+                  })}
+                </div>
                 {activeFilters.startsWith && (
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-sm text-amber-300 font-medium">Active: {activeFilters.startsWith}</span>
@@ -1473,20 +1499,20 @@ const SuperSlamDisclosure = () => {
                 )}
               </div>
               {/* Actions */}
-              <div className="pl-4">
+              <div className="sm:pl-4">
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2.5">Actions</div>
                 {editable && (
                   <button type="button"
                     className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     onClick={() => { setCardSearchInitialQuery(""); setIsCardSearchOpen(true); setChordMode(null); }}>
-                    <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">9</kbd>
+                    <kbd className="hidden sm:block px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">9</kbd>
                     <span className="text-sm text-gray-300">Add Card</span>
                   </button>
                 )}
                 <button type="button"
                   className="flex items-center gap-2 cursor-pointer rounded px-1.5 py-1 -mx-1.5 hover:bg-gray-700/60 transition-colors w-full mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   onClick={() => setChordMode('clear')}>
-                  <kbd className="px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">0</kbd>
+                  <kbd className="hidden sm:block px-2 py-0.5 rounded bg-gray-800 text-gray-200 font-mono text-xs border border-gray-600 min-w-[24px] text-center flex-shrink-0">0</kbd>
                   <span className="text-sm text-gray-300">Clear filters</span>
                 </button>
                 {chordMode === 'clear' && (
