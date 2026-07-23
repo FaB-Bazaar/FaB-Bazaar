@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, X, Loader2, ChevronDown, Sparkles } from "lucide-react";
+import { Search, X, Loader2, ChevronDown, Sparkles, LayoutGrid, List } from "lucide-react";
 import { searchClient, decksClient } from "@/lib/client";
 import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
@@ -75,6 +75,8 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   // Filter row state — the curated kits are the default SOURCE filter when
   // kits exist; pitch/type chips apply to both sources.
   const [filterState, setFilterState] = useState<MobileSearchFilterState>({ source: "kits", pitches: [], type: null });
+  // Results presentation — image tiles (default) or a compact list.
+  const [view, setView] = useState<"grid" | "list">("grid");
 
   // ── Kit-browse mode ──────────────────────────────────────────────────────
   // With no search query, the grid shows the starter kits' cards grouped by
@@ -279,6 +281,59 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     }
   };
 
+  // Compact list row — same add/remove semantics as the tile, one card per
+  // line: thumb · name + printing/price · − qty +. Printing swaps stay a
+  // grid-view affordance; the list is for fast scanning and quick adds.
+  const renderRow = (card: any, opts: { key: string; kitQty?: number; pinned?: boolean }) => {
+    const uid = card.card_unique_id;
+    const qty = getQty(uid);
+    const maxQty = getMaxCopies(card);
+    const atMax = qty >= maxQty;
+    const selectedPrinting = opts.pinned ? card : getSelectedPrinting(card);
+    const price = selectedPrinting.tcg_low ?? selectedPrinting.tcg_market;
+
+    return (
+      <div key={opts.key} className="flex items-center gap-2.5 py-1.5">
+        <div className="relative w-9 h-[50px] shrink-0 rounded overflow-hidden bg-gray-200 dark:bg-gray-800">
+          {selectedPrinting.image_url ? (
+            <img src={selectedPrinting.image_url} alt="" aria-hidden="true" className="w-full h-full object-cover" loading="lazy" />
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900 dark:text-white truncate leading-tight">
+            {card.display_name || card.name}
+            {(opts.kitQty ?? 0) > 1 && <span className="ml-1.5 text-xs font-bold text-gray-500 dark:text-gray-400">×{opts.kitQty}</span>}
+          </p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+            {printingLabel(selectedPrinting)}
+            {price != null && Number(price) > 0 ? ` · $${Number(price).toFixed(2)}` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => handleRemove(card)}
+            disabled={qty === 0}
+            className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+            aria-label="Remove one"
+          >
+            <span className="text-lg font-light leading-none select-none">−</span>
+          </button>
+          <span className={`text-sm font-bold w-6 text-center tabular-nums ${qty > 0 ? (atMax ? "text-orange-500" : "text-gray-900 dark:text-white") : "text-gray-400 dark:text-gray-500"}`}>
+            {qty}
+          </span>
+          <button
+            onClick={() => handleAdd(card, opts.pinned ? card : undefined)}
+            disabled={atMax}
+            className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
+            aria-label="Add one"
+          >
+            <span className="text-lg font-light leading-none select-none">+</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Shared tile renderer for both the search grid and kit-browse sections.
   // Kit tiles pin the curator's chosen printing (no picker) and show the
   // kit's recommended count as a ×N badge.
@@ -408,8 +463,9 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
         )}
 
         {/* Filter row — the curated kits are just the default SOURCE filter;
-            pitch/type chips narrow either source. */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 -mx-1 px-1">
+            pitch/type chips narrow either source. Wraps (never h-scrolls) so
+            every control stays on screen at phone widths. */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2">
           {hasKits && (
             <div className="flex shrink-0 overflow-hidden rounded-full border border-gray-300 dark:border-gray-700" role="group" aria-label="Card source">
               {([["kits", "Kits"], ["all", "All cards"]] as const).map(([value, label]) => (
@@ -467,6 +523,25 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
               <option key={chip.value} value={chip.value}>{chip.label.replace(/­/g, "")}</option>
             ))}
           </select>
+          {/* Grid / list results toggle */}
+          <div className="flex shrink-0 overflow-hidden rounded-full border border-gray-300 dark:border-gray-700" role="group" aria-label="Results view">
+            {([["grid", LayoutGrid, "Tile view"], ["list", List, "List view"]] as const).map(([value, Icon, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setView(value)}
+                aria-pressed={view === value}
+                aria-label={label}
+                className={`px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  view === value
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
           {(hasChipFilters(filterState) || (hasKits && filterState.source !== "kits")) && (
             <button
               type="button"
@@ -501,11 +576,19 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
                       {section.totalCards} cards{section.curatorName ? ` · ${section.curatorName}` : ""}
                     </span>
                   </header>
-                  <div className="grid grid-cols-2 gap-3">
-                    {tiles.map(({ entry, row }) =>
-                      renderTile(row, { key: `${section.id}-${entry.printingId}`, kitQty: entry.qty, pinned: true })
-                    )}
-                  </div>
+                  {view === "grid" ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {tiles.map(({ entry, row }) =>
+                        renderTile(row, { key: `${section.id}-${entry.printingId}`, kitQty: entry.qty, pinned: true })
+                      )}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-800">
+                      {tiles.map(({ entry, row }) =>
+                        renderRow(row, { key: `${section.id}-${entry.printingId}`, kitQty: entry.qty, pinned: true })
+                      )}
+                    </div>
+                  )}
                 </section>
               );
             })
@@ -517,9 +600,13 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
           )}
         </div>
       ) : (
-        /* Search results grid */
-        <div className="grid grid-cols-2 gap-3 p-3 pb-28">
-          {results.map(card => renderTile(card, { key: card.card_unique_id }))}
+        /* Search results — tiles or compact list */
+        <div className={view === "grid" ? "grid grid-cols-2 gap-3 p-3 pb-28" : "p-3 pb-28 divide-y divide-gray-200 dark:divide-gray-800"}>
+          {results.map(card =>
+            view === "grid"
+              ? renderTile(card, { key: card.card_unique_id })
+              : renderRow(card, { key: card.card_unique_id })
+          )}
 
           {!loading && results.length === 0 && (
             <div className="col-span-2 text-center text-sm text-gray-400 py-12">
