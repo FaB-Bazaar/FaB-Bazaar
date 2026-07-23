@@ -9,12 +9,17 @@ import { RarityIcon } from '@/components/shared/RarityIcon';
 import { getSetImageOrFallback } from '@/lib/set-images';
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from '@/lib/fab-constants';
 import { HERO_CLASSES } from '@/lib/fab-constants/classes';
+import { OFFICIAL_TALENTS } from '@/lib/talent-constants';
 import { CARD_FILTER_SETS } from '@/lib/fab-constants/sets';
 
 const CLASS_LIST = [
   { key: 'generic', label: 'Generic' },
   ...HERO_CLASSES.map(c => ({ key: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))
 ];
+
+const TALENT_LIST = [...OFFICIAL_TALENTS]
+  .sort()
+  .map(t => ({ key: t, label: t.charAt(0).toUpperCase() + t.slice(1) }));
 
 interface BinderSearchAndFiltersProps {
   searchQuery: string;
@@ -296,6 +301,29 @@ export const BinderSearchAndFilters: React.FC<BinderSearchAndFiltersProps> = ({
                     <button
                       key={key}
                       onClick={() => isActive ? clearFilter('class') : setFilter('class', key)}
+                      className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
+                        isActive
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/50 ring-1 ring-blue-500'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <span className="text-gray-900 dark:text-gray-100">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Talent Filter */}
+            <div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Talent:</span>
+              <div className="flex gap-2 flex-wrap">
+                {TALENT_LIST.map(({ key, label }) => {
+                  const isActive = activeFilters.talent === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => isActive ? clearFilter('talent') : setFilter('talent', key)}
                       className={`px-3 py-2 rounded-lg border text-sm transition-colors ${
                         isActive
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/50 ring-1 ring-blue-500'

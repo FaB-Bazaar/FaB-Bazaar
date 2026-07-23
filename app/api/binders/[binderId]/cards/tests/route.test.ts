@@ -98,7 +98,7 @@ describe('GET /api/binders/[binderId]/cards', () => {
   it('passes filters through to binderService.getBinderCards', async () => {
     mockGetBinderCards.mockResolvedValueOnce(cardsResult());
 
-    await getCards('?foiling=r&set=wtr&search=beast&forTrade=true&class=warrior&startsWith=B');
+    await getCards('?foiling=r&set=wtr&search=beast&forTrade=true&class=warrior&talent=ice&startsWith=B');
 
     expect(mockGetBinderCards).toHaveBeenCalledWith(
       BINDER_ID,
@@ -108,6 +108,7 @@ describe('GET /api/binders/[binderId]/cards', () => {
         search: 'beast',
         forTrade: true,
         class: 'warrior',
+        talent: 'ice',
         startsWith: 'B',
       }),
       expect.any(Object)

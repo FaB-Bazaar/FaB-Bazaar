@@ -450,6 +450,10 @@ export class PostgresBinderService implements IBinderService {
         }
       }
 
+      if (filters.talent) {
+        conditions.push(sql`${cards.talents} @> ARRAY[${filters.talent.toLowerCase()}]::text[]`);
+      }
+
       if (filters.startsWith) {
         conditions.push(sql`${cards.displayName} ILIKE ${filters.startsWith + '%'}`);
       }

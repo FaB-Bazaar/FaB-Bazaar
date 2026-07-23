@@ -30,6 +30,7 @@ export async function GET(
         ? url.searchParams.get('forTrade') === 'true'
         : undefined,
       class: url.searchParams.get('class') || undefined,
+      talent: url.searchParams.get('talent') || undefined,
       startsWith: url.searchParams.get('startsWith') || undefined,
     };
 
