@@ -374,12 +374,12 @@ export function buildFilterFacets({
     selectedType, selectedHeroAges, selectedClasses, selectedTalents,
     selectedTalentless, selectedPitch, selectedKeywords, selectedRarities, selectedFoilings,
     selectedEditions, selectedSets, selectedPacks, selectedFacets, facetsMatchAll, selectedFormat,
-    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, priceMin, priceMax,
+    costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, healthMin, healthMax, priceMin, priceMax,
     selectedLanguages,
   } = state;
   const patch = (p: Partial<OptUiState>) => dispatch({ type: 'PATCH', patch: p });
 
-  const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax, arcaneMin || arcaneMax].filter(Boolean).length;
+  const statsCount = [costMin || costMax, powerMin || powerMax, defenseMin || defenseMax, arcaneMin || arcaneMax, healthMin || healthMax].filter(Boolean).length;
   const isDefaultLang = selectedLanguages.length === 1 && selectedLanguages[0] === 'en';
 
   const facets: FilterFacet[] = [
@@ -567,6 +567,7 @@ export function buildFilterFacets({
             <RangeRow label="Power"   min={powerMin}   setMin={v => dispatch({ type: 'SET_RANGE', range: 'power', min: v })}   max={powerMax}   setMax={v => dispatch({ type: 'SET_RANGE', range: 'power', max: v })} />
             <RangeRow label="Defense" min={defenseMin} setMin={v => dispatch({ type: 'SET_RANGE', range: 'defense', min: v })} max={defenseMax} setMax={v => dispatch({ type: 'SET_RANGE', range: 'defense', max: v })} />
             <RangeRow label="Arcane"  min={arcaneMin}  setMin={v => dispatch({ type: 'SET_RANGE', range: 'arcane', min: v })}  max={arcaneMax}  setMax={v => dispatch({ type: 'SET_RANGE', range: 'arcane', max: v })} />
+            <RangeRow label="Health"  min={healthMin}  setMin={v => dispatch({ type: 'SET_RANGE', range: 'health', min: v })}  max={healthMax}  setMax={v => dispatch({ type: 'SET_RANGE', range: 'health', max: v })} />
           </div>
         </>
       ),

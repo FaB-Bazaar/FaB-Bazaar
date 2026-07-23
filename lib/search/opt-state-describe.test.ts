@@ -157,3 +157,12 @@ describe('arcane chip', () => {
     expect(chip?.removeAction).toEqual({ type: 'CLEAR_RANGE', range: 'arcane' });
   });
 });
+
+describe('health chip', () => {
+  it('renders a Health range chip with a CLEAR_RANGE remove action', () => {
+    const chips = optStateToChips({ ...DEFAULT_OPT_STATE, healthMin: '4' });
+    const chip = chips.find((c) => c.key === 'health');
+    expect(chip?.label).toBe('Health ≥ 4');
+    expect(chip?.removeAction).toEqual({ type: 'CLEAR_RANGE', range: 'health' });
+  });
+});

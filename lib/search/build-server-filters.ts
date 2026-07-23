@@ -62,6 +62,7 @@ export interface SearchUiState {
   powerMin: string; powerMax: string;
   defenseMin: string; defenseMax: string;
   arcaneMin?: string; arcaneMax?: string;
+  healthMin?: string; healthMax?: string;
   priceMin?: string; priceMax: string;
 }
 
@@ -128,6 +129,8 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   if (s.defenseMax) f.defenseMax = parseFloat(s.defenseMax);
   if (s.arcaneMin)  f.arcaneMin  = parseFloat(s.arcaneMin);
   if (s.arcaneMax)  f.arcaneMax  = parseFloat(s.arcaneMax);
+  if (s.healthMin)  f.healthMin  = parseFloat(s.healthMin);
+  if (s.healthMax)  f.healthMax  = parseFloat(s.healthMax);
   if (s.priceMin)   { f.priceMin = parseFloat(s.priceMin); f.priceField = 'tcg_low'; }
   if (s.priceMax)   { f.priceMax = parseFloat(s.priceMax); f.priceField = 'tcg_low'; }
 

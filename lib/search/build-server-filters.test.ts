@@ -258,3 +258,11 @@ describe('arcane range', () => {
     expect(f.arcaneMax).toBe(5);
   });
 });
+
+describe('health range', () => {
+  it('maps healthMin/healthMax state to numeric service filters', () => {
+    const f = buildServerFilters({ ...baseState, healthMin: '4', healthMax: '20' });
+    expect(f.healthMin).toBe(4);
+    expect(f.healthMax).toBe(20);
+  });
+});

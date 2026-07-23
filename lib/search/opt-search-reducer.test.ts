@@ -204,3 +204,13 @@ describe('arcane range actions', () => {
     expect(s.arcaneMax).toBe('');
   });
 });
+
+describe('health range actions', () => {
+  it('SET_RANGE and CLEAR_RANGE work for the health range', () => {
+    let s = optSearchReducer(DEFAULT_OPT_STATE, { type: 'SET_RANGE', range: 'health', min: '4' });
+    expect(s.healthMin).toBe('4');
+    s = optSearchReducer(s, { type: 'CLEAR_RANGE', range: 'health' });
+    expect(s.healthMin).toBe('');
+    expect(s.healthMax).toBe('');
+  });
+});

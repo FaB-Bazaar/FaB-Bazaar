@@ -118,3 +118,17 @@ describe('arcane range params', () => {
     expect(s.arcaneMax).toBe('5');
   });
 });
+
+describe('health range params', () => {
+  it('serializes healthMin/healthMax verbatim', () => {
+    const p = uiStateToParams({ ...DEFAULT_OPT_STATE, healthMin: '4', healthMax: '20' });
+    expect(p.get('healthMin')).toBe('4');
+    expect(p.get('healthMax')).toBe('20');
+  });
+
+  it('hydrates healthMin/healthMax back into state', () => {
+    const s = paramsToUiState(new URLSearchParams('healthMin=4&healthMax=20'));
+    expect(s.healthMin).toBe('4');
+    expect(s.healthMax).toBe('20');
+  });
+});

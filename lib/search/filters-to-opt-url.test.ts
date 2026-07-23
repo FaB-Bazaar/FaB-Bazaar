@@ -134,3 +134,16 @@ describe('arcane deep-link params', () => {
       .toBe('https://fabbazaar.app/opt?arcMin=3');
   });
 });
+
+describe('health deep-link params', () => {
+  it('maps healthMin/healthMax to healthMin/healthMax', () => {
+    const p = filtersToOptParams({ types: ['ally'], healthMin: 4 });
+    expect(p.get('healthMin')).toBe('4');
+    expect(p.get('type')).toBe('ally');
+  });
+
+  it('a health-only search does not produce a bare /opt link', () => {
+    expect(buildOptSearchUrl({ healthMin: 4 }, 'https://fabbazaar.app'))
+      .toBe('https://fabbazaar.app/opt?healthMin=4');
+  });
+});
