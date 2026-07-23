@@ -167,6 +167,9 @@ export interface DeckSummaryDTO {
   eventName?: string | null;
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;
+  /** Game record from game_results (Talishar sync). 0/0 = no games logged. */
+  wins?: number;
+  losses?: number;
 }
 
 /**

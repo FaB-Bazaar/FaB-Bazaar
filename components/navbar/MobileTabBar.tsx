@@ -340,6 +340,14 @@ export default function MobileTabBar({
                         <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{deck.name}</span>
                         {heroName && <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{heroName}</span>}
                       </span>
+                      {(deck.wins ?? 0) + (deck.losses ?? 0) > 0 && (
+                        <span
+                          className="ml-auto shrink-0 pl-3 text-sm tabular-nums text-gray-600 dark:text-gray-300"
+                          aria-label={`${deck.wins} wins, ${deck.losses} losses`}
+                        >
+                          {deck.wins}–{deck.losses}
+                        </span>
+                      )}
                     </Link>
                   </DrawerClose>
                 )

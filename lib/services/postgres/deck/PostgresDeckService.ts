@@ -8,7 +8,7 @@
  */
 
 import { db } from '@/lib/postgres/db';
-import { decks, deckCards, printings, cards, inventoryItems, binders, users, articles, bannedCards } from '@/lib/postgres/schema';
+import { decks, deckCards, printings, cards, inventoryItems, binders, users, articles, bannedCards, gameResults } from '@/lib/postgres/schema';
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
@@ -1063,6 +1063,19 @@ export class PostgresDeckService implements IDeckService {
         if (!heroByDeckId.has(h.deckId)) heroByDeckId.set(h.deckId, h);
       }
 
+      // Game record per deck (Talishar-synced game_results) so nav surfaces
+      // can show a W–L without a second fetch.
+      const records = await db
+        .select({
+          deckId: gameResults.deckId,
+          wins: sql<number>`COUNT(*) FILTER (WHERE ${gameResults.result} = 'win')::int`,
+          losses: sql<number>`COUNT(*) FILTER (WHERE ${gameResults.result} = 'loss')::int`,
+        })
+        .from(gameResults)
+        .where(inArray(gameResults.deckId, deckIds))
+        .groupBy(gameResults.deckId);
+      const recordByDeckId = new Map(records.map(r => [r.deckId, r]));
+
       const summaries: DeckSummaryDTO[] = deckRows.map(row => {
         const agg = aggByDeckId.get(row.id);
         const hero = heroByDeckId.get(row.id);
@@ -1085,6 +1098,8 @@ export class PostgresDeckService implements IDeckService {
           uniqueCardCount: agg?.uniqueCardCount ?? 0,
           heroImageUrl: hero?.imageUrl ?? undefined,
           heroDisplayName: hero?.displayName ?? hero?.cardName ?? undefined,
+          wins: recordByDeckId.get(row.id)?.wins ?? 0,
+          losses: recordByDeckId.get(row.id)?.losses ?? 0,
         };
       });
 
