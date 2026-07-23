@@ -8,6 +8,11 @@ import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
 import { useToast } from "@/hooks/use-toast";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import { buildKitSections, type KitBrowseBuild } from "@/lib/deck-flow/kit-browse";
+import {
+  buildMobileSearchFilters, isKitBrowse, hasChipFilters,
+  type MobileSearchFilterState,
+} from "@/lib/deck-flow/mobile-search-filters";
+import { TYPE_CHIPS, GENERIC_CHIP } from "@/lib/search/card-filter-chips";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
 const shorthandParser = new FABShorthandParser();
@@ -67,6 +72,9 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   const [deltas, setDeltas] = useState<Map<string, number>>(new Map());
   // Currently selected printing per card_unique_id
   const [selectedPrintings, setSelectedPrintings] = useState<Map<string, any>>(new Map());
+  // Filter row state — the curated kits are the default SOURCE filter when
+  // kits exist; pitch/type chips apply to both sources.
+  const [filterState, setFilterState] = useState<MobileSearchFilterState>({ source: "kits", pitches: [], type: null });
 
   // ── Kit-browse mode ──────────────────────────────────────────────────────
   // With no search query, the grid shows the starter kits' cards grouped by
@@ -113,11 +121,12 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kitIdsKey]);
 
-  // Explore button: clear any search so the kit-browse view is showing, and
-  // bring the grid into view.
+  // Explore button: clear the search AND the filter chips so the kit-browse
+  // view is showing, and bring the grid into view.
   useEffect(() => {
     if (!exploreSignal) return;
     setQuery("");
+    setFilterState({ source: "kits", pitches: [], type: null });
     rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [exploreSignal]);
 
@@ -153,18 +162,23 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   const heroFilter = useMemo(() => resolveHeroFilter(deck), [deck]);
   const formatCode = deck.format ? FORMAT_TO_SEARCH[deck.format] : undefined;
 
+  // Kits only count as a source when the hero actually has curated kits.
+  const hasKits = kitSections.length > 0;
+  const effectiveFilters: MobileSearchFilterState = useMemo(
+    () => (hasKits ? filterState : { ...filterState, source: "all" }),
+    [hasKits, filterState],
+  );
+
   const doSearch = useCallback(async (q: string) => {
     setLoading(true);
     const parsed = shorthandParser.parseQuery(q.trim());
-    const filters: any = { ...parsed.filters };
-    if (parsed.remainingText.trim()) filters.name = parsed.remainingText.trim();
-    if (heroFilter) {
-      filters.heroClasses = heroFilter.heroClasses;
-      filters.heroTalents = heroFilter.heroTalents;
-      if (heroFilter.heroEssences.length > 0) filters.heroEssences = heroFilter.heroEssences;
-    }
-    if (formatCode) filters.format = formatCode;
-    filters.isHero = false;
+    const filters: any = buildMobileSearchFilters({
+      state: effectiveFilters,
+      parsed: { filters: parsed.filters, nameText: parsed.remainingText ?? "" },
+      kitPrintingIds,
+      heroFilter,
+      formatCode,
+    });
 
     try {
       const result = await searchClient.searchPrintingsPost(filters, { limit: 96, show: "all" });
@@ -191,19 +205,20 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     } finally {
       setLoading(false);
     }
-  }, [heroFilter, formatCode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroFilter, formatCode, effectiveFilters.source, effectiveFilters.pitches, effectiveFilters.type, kitIdsKey]);
 
-  const kitMode = !debouncedQuery.trim() && kitSections.length > 0;
+  const kitMode = isKitBrowse(effectiveFilters, debouncedQuery, hasKits);
 
   useEffect(() => {
-    // Kit-browse mode owns the empty-query state — don't run the empty search
-    if (!debouncedQuery.trim() && kitSections.length > 0) {
+    // Kit-browse mode owns the untouched default state — don't run a search
+    if (kitMode) {
       setResults([]);
       setLoading(false);
       return;
     }
     doSearch(debouncedQuery);
-  }, [debouncedQuery, doSearch, kitSections.length]);
+  }, [debouncedQuery, doSearch, kitMode]);
 
   const applyDelta = (uid: string, delta: number) =>
     setDeltas(prev => { const m = new Map(prev); m.set(uid, (m.get(uid) ?? 0) + delta); return m; });
@@ -391,6 +406,77 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
             No hero set — add your hero first to filter by class.
           </p>
         )}
+
+        {/* Filter row — the curated kits are just the default SOURCE filter;
+            pitch/type chips narrow either source. */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 -mx-1 px-1">
+          {hasKits && (
+            <div className="flex shrink-0 overflow-hidden rounded-full border border-gray-300 dark:border-gray-700" role="group" aria-label="Card source">
+              {([["kits", "Kits"], ["all", "All cards"]] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFilterState(s => ({ ...s, source: value }))}
+                  aria-pressed={filterState.source === value}
+                  className={`px-2.5 py-1 text-xs whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    filterState.source === value
+                      ? "bg-blue-600 font-semibold text-white"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {filterState.source === value ? "✓ " : ""}{label}
+                </button>
+              ))}
+            </div>
+          )}
+          {([[1, "R", "bg-red-500"], [2, "Y", "bg-yellow-400"], [3, "B", "bg-blue-500"]] as const).map(([pitch, label, dot]) => {
+            const active = filterState.pitches.includes(pitch);
+            return (
+              <button
+                key={pitch}
+                type="button"
+                onClick={() => setFilterState(s => ({
+                  ...s,
+                  pitches: active ? s.pitches.filter(p => p !== pitch) : [...s.pitches, pitch],
+                }))}
+                aria-pressed={active}
+                aria-label={`Pitch ${pitch}`}
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  active
+                    ? "border-blue-500 bg-blue-600/10 font-semibold text-gray-900 dark:text-gray-100"
+                    : "border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                <span className={`h-2.5 w-2.5 rounded-full ${dot}`} aria-hidden="true" />
+                {active ? "✓ " : ""}{label}
+              </button>
+            );
+          })}
+          <select
+            value={filterState.type ?? ""}
+            onChange={e => setFilterState(s => ({ ...s, type: e.target.value || null }))}
+            aria-label="Card type filter"
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              filterState.type
+                ? "border-blue-500 bg-blue-600/10 font-semibold text-gray-900 dark:text-gray-100"
+                : "border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+            }`}
+          >
+            <option value="">Any type</option>
+            {[...TYPE_CHIPS, GENERIC_CHIP].map(chip => (
+              <option key={chip.value} value={chip.value}>{chip.label.replace(/­/g, "")}</option>
+            ))}
+          </select>
+          {(hasChipFilters(filterState) || (hasKits && filterState.source !== "kits")) && (
+            <button
+              type="button"
+              onClick={() => setFilterState({ source: "kits", pitches: [], type: null })}
+              className="shrink-0 rounded-full px-2 py-1 text-xs text-gray-600 dark:text-gray-400 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {kitMode ? (
@@ -437,7 +523,20 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
 
           {!loading && results.length === 0 && (
             <div className="col-span-2 text-center text-sm text-gray-400 py-12">
-              {query ? "No cards found." : "Type to search for cards."}
+              {query || hasChipFilters(effectiveFilters) ? (
+                <>
+                  No cards found{effectiveFilters.source === "kits" ? " in the starter kits" : ""}.
+                  {effectiveFilters.source === "kits" && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterState(s => ({ ...s, source: "all" }))}
+                      className="mt-2 block mx-auto text-blue-500 dark:text-blue-400 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                    >
+                      Search all cards instead
+                    </button>
+                  )}
+                </>
+              ) : "Type to search for cards."}
             </div>
           )}
         </div>
