@@ -8,7 +8,7 @@ export const metadata = {
 }
 
 const METAFY_URL = 'https://metafy.gg/@fabbazaar'
-const HERO_IMAGE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/RJQHgR66BPnpbtrjQdDCh/public'
+const HERO_IMAGE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/HER028-CF/public'
 
 export default function MetafyPage() {
   return (
