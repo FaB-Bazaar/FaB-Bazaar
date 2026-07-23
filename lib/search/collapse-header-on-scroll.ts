@@ -1,26 +1,18 @@
 /**
- * Scroll-direction state for the /opt mobile command-bar collapse. Pure so the
- * page can wire it to the results pane's onScroll with a ref for prevTop.
+ * Scroll-position state for the /opt mobile command-bar collapse. Pure so the
+ * page can wire it straight to the results pane's onScroll. The header shows
+ * only near the top of the list — matching the binder page, where filters sit
+ * at the top and scroll away. Scrolling up mid-list does NOT reveal it; only
+ * returning to the top does.
  */
 export interface CollapseScrollInput {
-  /** scrollTop at the previous scroll event. */
-  prevTop: number;
   /** scrollTop now. */
   top: number;
-  /** Current hidden state (returned unchanged for sub-jitter deltas). */
-  hidden: boolean;
-  /** Offset below which the header is always shown. */
+  /** Offset at or below which the header is shown. */
   revealZone?: number;
-  /** Minimum delta before toggling — ignores momentum-settle noise. */
-  jitter?: number;
 }
 
-export function nextHeaderHidden({
-  prevTop, top, hidden, revealZone = 80, jitter = 4,
-}: CollapseScrollInput): boolean {
-  // Near the top (including iOS rubber-band negatives) the header always shows.
-  if (top <= revealZone) return false;
-  const delta = top - prevTop;
-  if (Math.abs(delta) < jitter) return hidden;
-  return delta > 0;
+export function nextHeaderHidden({ top, revealZone = 80 }: CollapseScrollInput): boolean {
+  // <= keeps iOS rubber-band negatives (and 0) in the "shown" state.
+  return top > revealZone;
 }

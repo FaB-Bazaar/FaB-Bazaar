@@ -52,19 +52,13 @@ export default function OptSearchPage() {
   // The pack facet only renders when a selected set actually has packs (e.g.
   // GEM), so it stays invisible for normal sets.
   const [availablePacks, setAvailablePacks] = useState<{ groupId: number; name: string }[]>([]);
-  // Mobile: collapse the command bar while scrolling down through results —
-  // tile view otherwise loses most of the small viewport to chrome. Scrolling
-  // up (or being near the top) brings it back. Desktop keeps it visible.
+  // Mobile: collapse the command bar once scrolled into the results — tile
+  // view otherwise loses most of the small viewport to chrome. Like the binder
+  // page, it stays put: only returning to the top of the list brings it back
+  // (no reveal on upward scroll mid-list). Desktop keeps it visible.
   const [headerHidden, setHeaderHidden] = useState(false);
-  const lastResultsScrollTop = useRef(0);
   const onResultsScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const top = e.currentTarget.scrollTop;
-    // Capture BEFORE scheduling: the state updater runs after this handler
-    // returns, and reading the ref there would see the already-updated value
-    // (delta 0 → the header would never toggle).
-    const prevTop = lastResultsScrollTop.current;
-    lastResultsScrollTop.current = top;
-    setHeaderHidden((hidden) => nextHeaderHidden({ prevTop, top, hidden }));
+    setHeaderHidden(nextHeaderHidden({ top: e.currentTarget.scrollTop }));
   };
   // Curated facet vocabulary (public read). Dynamic, unlike the hardcoded chip
   // constants, so it's fetched once; drafts are curator-internal and hidden.
@@ -267,8 +261,8 @@ export default function OptSearchPage() {
       {/* sticky top-16 (navbar height): the footer + tab-bar padding still make
           the BODY scrollable by ~100px, which used to slide the search bar off
           screen on mobile — pin it below the navbar instead. On mobile the bar
-          also collapses while scrolling down through results (headerHidden) so
-          tile view gets the viewport back; scrolling up restores it. */}
+          also collapses once scrolled into the results (headerHidden) so tile
+          view gets the viewport back; scrolling back to the top restores it. */}
       <div className={cn(
         'sticky top-16 z-30 shrink-0 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900',
         'overflow-hidden transition-all duration-200 sm:max-h-none sm:overflow-visible',
