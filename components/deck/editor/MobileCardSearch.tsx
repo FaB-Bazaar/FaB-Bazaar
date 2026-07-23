@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, X, Loader2, ChevronDown, Sparkles, LayoutGrid, List, Coins, Swords, Shield, Heart } from "lucide-react";
+import { Search, X, Loader2, ChevronDown, Sparkles, LayoutGrid, List } from "lucide-react";
 import { searchClient, decksClient } from "@/lib/client";
 import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
@@ -282,16 +282,20 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   };
 
   // Pitch 1/2/3 → red/yellow/blue. Count + color double-encode (SC 1.4.1).
+  // CSS dots, deliberately NOT /fab/symbols/pitchN.png — the card-frame pips
+  // are red at every pitch and unreadable at text size (see app/volzar).
   const PITCH_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-yellow-400", 3: "bg-blue-500" };
   const PITCH_NAME: Record<number, string> = { 1: "red", 2: "yellow", 3: "blue" };
-  const statChip = (Icon: any, value: number, label: string, iconClass: string) => (
+  // Official card-frame glyphs (same set app/volzar/rule-glyphs.ts uses).
+  const statChip = (iconSrc: string, value: number, label: string) => (
     <span
       className="inline-flex items-center gap-0.5 rounded bg-gray-100 dark:bg-gray-800 px-1 py-px text-[11px] font-semibold tabular-nums text-gray-800 dark:text-gray-200"
       role="img"
       aria-label={`${label} ${value}`}
       title={`${label} ${value}`}
     >
-      <Icon className={`h-3 w-3 ${iconClass}`} aria-hidden="true" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={iconSrc} alt="" aria-hidden="true" className="h-3 w-3 object-contain" />
       {value}
     </span>
   );
@@ -331,12 +335,12 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
                 ))}
               </span>
             )}
-            {card.cost != null && statChip(Coins, card.cost, "Cost", "text-yellow-700 dark:text-yellow-400")}
-            {card.power != null && statChip(Swords, card.power, "Attack", "text-red-600 dark:text-red-400")}
+            {card.cost != null && statChip("/fab/symbols/cost.png", card.cost, "Cost")}
+            {card.power != null && statChip("/fab/symbols/power.png", card.power, "Attack")}
             {card.defense != null
-              ? statChip(Shield, card.defense, "Defense", "text-gray-500 dark:text-gray-300")
+              ? statChip("/fab/symbols/block.png", card.defense, "Defense")
               : card.health != null
-                ? statChip(Heart, card.health, "Health", "text-green-700 dark:text-green-400")
+                ? statChip("/fab/symbols/health.png", card.health, "Health")
                 : null}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
