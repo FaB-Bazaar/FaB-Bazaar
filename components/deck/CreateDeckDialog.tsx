@@ -1,7 +1,7 @@
 // components/deck/CreateDeckDialog.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import type { HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
 import { useExcludedHeroes } from "@/hooks/banned-cards/useExcludedHeroes";
+import { useIsTouchDevice } from "@/components/ui/use-client-env";
 import { deriveFormatFromHero, heroRestrictions, restrictionChipLabel, type HeroRestrictionsByFormat } from "./hero-format-utils";
 
 // Chip color per hero restriction status (pairs color with text — not color alone).
@@ -62,6 +63,10 @@ export default function CreateDeckDialog({
   const [heroes, setHeroes] = useState<HeroLegalityRow[]>([]);
   const [ageFilter, setAgeFilter] = useState<'all' | 'young' | 'adult'>('all');
   const [previewHero, setPreviewHero] = useState<HeroLegalityRow | null>(null);
+  // On touch devices, focusing the hero search summons the on-screen keyboard
+  // over the list the user came to scroll — so never focus it for them there.
+  const isTouch = useIsTouchDevice();
+  const heroSearchRef = useRef<HTMLInputElement>(null);
 
   // Close zoom overlay on Esc
   useEffect(() => {
@@ -183,6 +188,7 @@ export default function CreateDeckDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="sm:max-w-md max-h-[85vh] flex flex-col px-7 sm:px-8"
+        onOpenAutoFocus={(e) => { if (isTouch) e.preventDefault(); }}
         onPointerDownOutside={(e) => { if (previewHero) e.preventDefault(); }}
         onInteractOutside={(e) => { if (previewHero) e.preventDefault(); }}
         onEscapeKeyDown={(e) => { if (previewHero) e.preventDefault(); }}
@@ -232,8 +238,15 @@ export default function CreateDeckDialog({
         {step === 1 && (
           <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             <Command className="flex-1 overflow-hidden flex flex-col border border-gray-300 dark:border-gray-700 rounded-lg">
-              <CommandInput placeholder="Search by name, class, or talent..." autoFocus />
-              <CommandList className="flex-1 overflow-y-auto">
+              <CommandInput
+                ref={heroSearchRef}
+                placeholder="Search by name, class, or talent..."
+                autoFocus={!isTouch}
+              />
+              <CommandList
+                className="flex-1 overflow-y-auto"
+                onTouchMove={() => heroSearchRef.current?.blur()}
+              >
                 <CommandEmpty>{heroes.length === 0 ? 'Loading heroes…' : 'No heroes found.'}</CommandEmpty>
                 {Object.entries(heroesByClass).sort(([a], [b]) => a.localeCompare(b)).map(([className, classHeroes]) => (
                   <CommandGroup key={className} heading={className.charAt(0).toUpperCase() + className.slice(1)}>
