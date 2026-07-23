@@ -396,30 +396,36 @@ export default function OptSearchPage() {
       </div>
 
       {/* Selection action bar — always present (shows "0 cards selected" when
-          empty) so selecting the first card doesn't shift the layout. */}
+          empty) so selecting the first card doesn't shift the layout. Mobile is
+          a SINGLE compact row (icon-only action buttons, binder select flexes
+          to fill); labels return at sm+. flex-nowrap on mobile is what keeps it
+          one row — everything is width-bounded so nothing overflows. */}
       {(() => {
         const none = selection.selectedCount === 0;
         return (
-        <div className={cn('shrink-0 flex-wrap items-center gap-3 px-4 py-2 border-b transition-colors', none ? 'hidden sm:flex bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-800' : 'flex bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800/40')}>
-          <span className={cn('text-sm font-medium', none ? 'text-gray-600 dark:text-gray-400' : 'text-blue-700 dark:text-blue-200')}>
-            {selection.selectedCount} card{selection.selectedCount !== 1 ? 's' : ''} selected
+        <div className={cn('shrink-0 flex-nowrap sm:flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b transition-colors', none ? 'hidden sm:flex bg-gray-100 dark:bg-gray-900 border-gray-300 dark:border-gray-800' : 'flex bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800/40')}>
+          <span className={cn('text-sm font-medium whitespace-nowrap', none ? 'text-gray-600 dark:text-gray-400' : 'text-blue-700 dark:text-blue-200')}>
+            {selection.selectedCount}<span className="hidden sm:inline"> card{selection.selectedCount !== 1 ? 's' : ''}</span> selected
           </span>
           {!none && (
             <button
               onClick={selection.clearSelection}
-              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+              aria-label="Clear selection"
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded p-1 sm:p-0"
             >
-              <X className="w-3 h-3" /> Clear
+              <X className="w-3.5 h-3.5 sm:w-3 sm:h-3" /> <span className="hidden sm:inline">Clear</span>
             </button>
           )}
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 min-w-0">
+          <div className="ml-auto flex flex-1 sm:flex-none sm:flex-wrap items-center justify-end gap-2 min-w-0">
             <button
               onClick={selection.handleAddToWants}
               disabled={selection.isImporting || none}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              aria-label="Add selected to Wants"
+              title="Add selected to Wants"
+              className="flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              <Heart className="w-3.5 h-3.5" />
-              {selection.isImporting ? 'Adding…' : 'To Wants'}
+              <Heart className={cn('w-3.5 h-3.5', selection.isImporting && 'animate-pulse')} />
+              <span className="hidden sm:inline">{selection.isImporting ? 'Adding…' : 'To Wants'}</span>
             </button>
             {selection.binders.length > 0 && (
               <>
@@ -427,7 +433,8 @@ export default function OptSearchPage() {
                   value={selection.selectedBinderSlug}
                   onChange={e => selection.setSelectedBinderSlug(e.target.value)}
                   disabled={none}
-                  className="min-w-0 max-w-[40vw] sm:max-w-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Destination binder"
+                  className="min-w-0 flex-1 sm:flex-none sm:max-w-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {selection.binders.map((b: any) => (
                     <option key={b._id || b.slug} value={b.slug}>{b.name}</option>
@@ -436,10 +443,12 @@ export default function OptSearchPage() {
                 <button
                   onClick={selection.handleAddToBinder}
                   disabled={selection.isImporting || !selection.selectedBinderSlug || none}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-sm text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label="Add selected to binder"
+                  title="Add selected to binder"
+                  className="flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-sm text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
-                  <UploadCloud className="w-3.5 h-3.5" />
-                  {selection.isImporting ? 'Importing…' : 'To Binder'}
+                  <UploadCloud className={cn('w-3.5 h-3.5', selection.isImporting && 'animate-pulse')} />
+                  <span className="hidden sm:inline">{selection.isImporting ? 'Importing…' : 'To Binder'}</span>
                 </button>
               </>
             )}
