@@ -23,6 +23,7 @@ import {
   LIVING_LEGEND_POINTS_UPDATED_AT,
   LIVING_LEGEND_POINTS_SOURCE_LABEL,
   KITS_NEW_HERO_KEYS,
+  KITS_HERO_PORTRAIT_OVERRIDES,
 } from '@/lib/fab-constants/heroes';
 import { FORMAT_SLUG_TO_NAME, heroNameToSlug, formatToSlug } from '@/lib/utils/kit-slugs';
 import KitsFormatTabs from '@/components/kits/KitsFormatTabs';
@@ -160,6 +161,13 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
           }
         }
       }
+    }
+
+    // Manual portrait overrides win over the DB-derived image — used while a
+    // printing's own CDN image is missing (e.g. a just-ingested set).
+    for (const summary of byHero.values()) {
+      const override = KITS_HERO_PORTRAIT_OVERRIDES[summary.heroName.toLowerCase()];
+      if (override) summary.imageUrl = override;
     }
   }
 

@@ -355,6 +355,16 @@ export const KITS_NEW_HERO_KEYS: string[] = [
   'viserai, the forsaken',
 ];
 
+// Manual portrait-URL overrides for /kits hero tiles — for when the
+// representative printing's deterministic image id is missing from Cloudflare
+// (e.g. a just-ingested set whose images haven't been migrated). Values are
+// full imagedelivery.net URLs. Delete an entry once the printing's own
+// image id is uploaded (scripts/migrate-image-ids.ts --live).
+export const KITS_HERO_PORTRAIT_OVERRIDES: Record<string, string> = {
+  // Front-face id IAR106-EA was never uploaded; the art lives under IAR107-EA.
+  'viserai, the forsaken': 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/IAR107-EA/public',
+};
+
 export function getLivingLegendPoints(heroName: string): number | null {
   const key = heroName.toLowerCase();
   return LIVING_LEGEND_POINTS[key] ?? null;

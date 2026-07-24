@@ -34,6 +34,7 @@ import {
   getLivingLegendPoints,
   isLivingLegendGraduated,
   KITS_NEW_HERO_KEYS,
+  KITS_HERO_PORTRAIT_OVERRIDES,
 } from './heroes';
 
 describe('heroes.ts — export presence (from ./heroes)', () => {
@@ -270,6 +271,22 @@ describe('KITS_NEW_HERO_KEYS (brand-new heroes surfaced on /kits before any kit 
       expect(getHeroInfo(key), `roster entry missing for ${key}`).toBeTruthy();
       expect(isLivingLegendGraduated(key)).toBe(false);
     }
+  });
+});
+
+describe('KITS_HERO_PORTRAIT_OVERRIDES', () => {
+  it('every key is a lowercase roster-resolvable hero and every value a CDN image URL', () => {
+    for (const [key, url] of Object.entries(KITS_HERO_PORTRAIT_OVERRIDES)) {
+      expect(key).toBe(key.toLowerCase());
+      expect(getHeroInfo(key), `roster entry missing for ${key}`).toBeTruthy();
+      expect(url).toMatch(/^https:\/\/imagedelivery\.net\/.+\/public$/);
+    }
+  });
+
+  it('covers Viserai, the Forsaken while his IAR106-EA image is missing from CF', () => {
+    expect(KITS_HERO_PORTRAIT_OVERRIDES['viserai, the forsaken']).toBe(
+      'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/IAR107-EA/public'
+    );
   });
 });
 
