@@ -282,12 +282,11 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
 
 // Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.
 // Keys must match HERO_INFO / YOUNG_HERO_INFO keys (lowercase). Omit heroes with 0 points.
-export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-06-29';
+export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-07-24';
 export const LIVING_LEGEND_POINTS_SOURCE_LABEL = '2026 National Championships';
 
 export const LIVING_LEGEND_POINTS: Record<string, number> = {
   // Active Classic Constructed heroes (LL points < 1000)
-  'victor goldmane, high and mighty': 951,
   'kassai of the golden sand': 892,
   'dash i/o': 875,
   'fai, rising rebellion': 856,
@@ -343,6 +342,7 @@ export const LIVING_LEGEND_POINTS: Record<string, number> = {
   'prism, awakener of sol': 1010,
   'nuu, alluring desire': 1004,
   'zen, tamer of purpose': 1000,
+  'victor goldmane, high and mighty': 1000, // crossed threshold post-Nationals; exact points TBD from leaderboard
 };
 
 export const LIVING_LEGEND_THRESHOLD = 1000;

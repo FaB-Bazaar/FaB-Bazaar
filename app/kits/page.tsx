@@ -24,7 +24,6 @@ import {
   LIVING_LEGEND_POINTS_SOURCE_LABEL,
 } from '@/lib/fab-constants/heroes';
 import { FORMAT_SLUG_TO_NAME, heroNameToSlug, formatToSlug } from '@/lib/utils/kit-slugs';
-import { resolveMarvelPortraitUrls } from '@/lib/kits/marvel-portraits';
 import KitsFormatTabs from '@/components/kits/KitsFormatTabs';
 import KitsViewToggle from '@/components/kits/KitsViewToggle';
 import KitPoolView from '@/components/kits/KitPoolView';
@@ -71,6 +70,9 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
     facetDefs = buildFacetDisplayMap(facetDefsResult.success ? facetDefsResult.data : []);
   }
 
+  // Living Legend graduation only affects Classic Constructed legality.
+  const isCC = selectedFormat === 'Classic Constructed';
+
   const byHero = new Map<string, HeroSummary>();
   let generalCount = 0;
   if (view === 'heroes') {
@@ -81,6 +83,7 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
         continue;
       }
       const info = getHeroInfo(row.heroName);
+      const llPoints = getLivingLegendPoints(row.heroName);
       byHero.set(row.heroName, {
         heroName: row.heroName,
         displayName: toHeroDisplayName(row.heroName, info?.shortName),
@@ -88,13 +91,14 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
         talents: info?.talents ?? [],
         kitCount: row.kitCount,
         totalTcgLow: row.totalTcgLow,
-        livingLegendPoints: getLivingLegendPoints(row.heroName) ?? undefined,
+        livingLegendPoints: llPoints ?? undefined,
+        // Heroes with published kits still graduate out of the active CC grid.
+        graduated: isCC && llPoints !== null && llPoints >= LIVING_LEGEND_THRESHOLD,
       });
     }
   }
 
   // For CC format, also surface graduated Living Legends (>= 1000 pts) as a separate section.
-  const isCC = selectedFormat === 'Classic Constructed';
   if (isCC && view === 'heroes') {
     for (const [heroKey, pts] of Object.entries(LIVING_LEGEND_POINTS)) {
       if (pts < LIVING_LEGEND_THRESHOLD) continue;
@@ -138,17 +142,6 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
           }
         }
       }
-    }
-
-    // Prefer the Marvel (cold foil) artwork when available — the kits page has no
-    // printing-legality constraint, so we can surface the more striking Marvel art.
-    const marvelUrls = await resolveMarvelPortraitUrls(
-      Array.from(byHero.keys()),
-      printingsService
-    );
-    for (const [heroName, marvelUrl] of marvelUrls) {
-      const summary = byHero.get(heroName);
-      if (summary) summary.imageUrl = marvelUrl;
     }
   }
 
