@@ -4,14 +4,16 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, SlidersHorizontal, Filter, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Search, SlidersHorizontal, Filter, ChevronDown, ChevronUp, X, PackageCheck } from "lucide-react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
-import { WantsCard } from '@/components/wants';
+import { WantsCard, MarkAcquiredDialog } from '@/components/wants';
+import type { AcquiredCard } from '@/components/wants/MarkAcquiredDialog';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import { WantsHeader } from "@/components/wants/WantsHeader";
 import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar";
+import { useCookieBannerInset } from "@/hooks/useCookieBannerInset";
 
 // Client service for API calls
 import { wantsClient } from "@/lib/client";
@@ -51,6 +53,9 @@ export default function NewWantsPage() {
   const [isExportCopied, setIsExportCopied] = useState(false);
   const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
+  const [selectedForAcquire, setSelectedForAcquire] = useState<any[]>([]);
+  const [acquireDialogOpen, setAcquireDialogOpen] = useState(false);
+  const cookieBannerInset = useCookieBannerInset();
 
   useEffect(() => {
     fetchWantsList();
@@ -164,6 +169,34 @@ export default function NewWantsPage() {
       console.error('Failed to remove card:', err);
       setCards(originalCards);
     }
+  };
+
+  // Tap on a card image toggles it in/out of the acquire selection. Selected
+  // quantity defaults to the full wanted quantity — fine-tuning happens in the
+  // MarkAcquiredDialog's per-card quantity controls.
+  const handleAcquireToggle = (card: any) => {
+    setSelectedForAcquire(prev => {
+      if (prev.some(c => c.id === card.id)) {
+        return prev.filter(c => c.id !== card.id);
+      }
+      return [...prev, { ...card, quantity: card.quantity || 1, maxQuantity: card.quantity || 1 }];
+    });
+  };
+
+  // Sync local state after cards were acquired into a binder: drop fully
+  // acquired cards, reduce quantities on partial acquisitions, and clear the
+  // acquired cards from the selection.
+  const handleAcquireComplete = (acquiredCards: AcquiredCard[]) => {
+    const acquiredById = new Map(acquiredCards.map(a => [a.printingId, a]));
+    setCards(prev => prev
+      .map(card => {
+        const acquired = acquiredById.get(card.id);
+        if (!acquired) return card;
+        if (acquired.remainingWanted <= 0) return null;
+        return { ...card, quantity: acquired.remainingWanted };
+      })
+      .filter(Boolean));
+    setSelectedForAcquire(prev => prev.filter(card => !acquiredById.has(card.id)));
   };
 
   const handlePrintingSwap = (cardId: string, oldPrintingId: string, newPrinting: any) => {
@@ -550,6 +583,9 @@ export default function NewWantsPage() {
             {/* Count row */}
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Showing {sortedCards.length} of {cards.length}
+              {cards.length > 0 && (
+                <span className="text-gray-500 dark:text-gray-400"> — tap a card image to mark it as acquired</span>
+              )}
             </p>
 
             {/* Cards grid */}
@@ -576,6 +612,8 @@ export default function NewWantsPage() {
                       onPriorityChange={handlePriorityChange}
                       onRemove={handleRemove}
                       onPrintingSwap={handlePrintingSwap}
+                      onAcquireToggle={handleAcquireToggle}
+                      isSelected={selectedForAcquire.some(c => c.id === card.id)}
                     />
                   ))}
                 </div>
@@ -584,6 +622,40 @@ export default function NewWantsPage() {
           </div>
         </div>
       </div>
+
+      {/* Floating acquire bar — appears when cards are selected. While the
+          cookie banner (z-50) is up it would cover this bar and swallow taps,
+          so shift the bar above it. */}
+      {selectedForAcquire.length > 0 && (
+        <div
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-4 right-4 z-40 flex items-center gap-2"
+          style={cookieBannerInset > 0 ? { bottom: `calc(env(safe-area-inset-bottom) + ${cookieBannerInset + 16}px)` } : undefined}
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Clear acquired selection"
+            onClick={() => setSelectedForAcquire([])}
+            className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={() => setAcquireDialogOpen(true)}
+            className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-500 text-white shadow-lg"
+          >
+            <PackageCheck className="h-4 w-4 mr-2" />
+            Mark as Acquired ({selectedForAcquire.length})
+          </Button>
+        </div>
+      )}
+
+      <MarkAcquiredDialog
+        open={acquireDialogOpen}
+        onOpenChange={setAcquireDialogOpen}
+        selectedCards={selectedForAcquire}
+        onAcquireComplete={handleAcquireComplete}
+      />
 
     </div>
   );

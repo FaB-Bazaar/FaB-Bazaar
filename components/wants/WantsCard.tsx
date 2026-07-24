@@ -3,12 +3,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Minus, Trash2 } from "lucide-react";
+import { Plus, Minus, Trash2, Check } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 import WhoHasDropdown from '@/components/shared/WhoHasDropdown';
 import PrintingSwapDialog from '@/components/dialogs/cards/printing-swap-dialog';
-import { getCardImageUrl } from '@/lib/utils';
+import { getCardImageUrl, cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSession } from 'next-auth/react';
 import { wantsClient } from '@/lib/client';
@@ -45,6 +45,9 @@ interface WantsCardProps {
   onPriorityChange: (id: string, newPriority: string) => void;
   onRemove: (id: string) => void;
   onPrintingSwap: (cardId: string, oldPrintingId: string, newPrinting: any) => void;
+  /** When provided, tapping the card image toggles acquire-selection */
+  onAcquireToggle?: (card: any) => void;
+  isSelected?: boolean;
 }
 
 const WantsCard: React.FC<WantsCardProps> = ({
@@ -52,7 +55,9 @@ const WantsCard: React.FC<WantsCardProps> = ({
   onQuantityChange,
   onPriorityChange,
   onRemove,
-  onPrintingSwap
+  onPrintingSwap,
+  onAcquireToggle,
+  isSelected = false
 }) => {
   const { printingDetails } = card;
   const [isPrintingSwapOpen, setIsPrintingSwapOpen] = useState(false);
@@ -61,10 +66,27 @@ const WantsCard: React.FC<WantsCardProps> = ({
   const foilingInfo = getFoilingInfo(printingDetails?.foiling);
 
   return (
-    <div className="w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:shadow-gray-300/60 dark:hover:shadow-2xl hover:-translate-y-1 flex-shrink-0 flex flex-col shadow-md shadow-gray-300/50 dark:shadow-lg">
+    <div className={cn(
+      "w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:shadow-gray-300/60 dark:hover:shadow-2xl hover:-translate-y-1 flex-shrink-0 flex flex-col shadow-md shadow-gray-300/50 dark:shadow-lg",
+      isSelected && "ring-2 ring-green-700 dark:ring-green-500"
+    )}>
 
-      {/* Image Section */}
-      <div data-testid="wants-card-image-slot" className="relative w-full aspect-[63/88] bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2">
+      {/* Image Section — tappable acquire-selection target when onAcquireToggle is wired */}
+      <div
+        data-testid="wants-card-image-slot"
+        role={onAcquireToggle ? "button" : undefined}
+        tabIndex={onAcquireToggle ? 0 : undefined}
+        aria-pressed={onAcquireToggle ? isSelected : undefined}
+        aria-label={onAcquireToggle ? `${isSelected ? 'Deselect' : 'Select'} ${card.name} as acquired` : undefined}
+        onClick={onAcquireToggle ? () => onAcquireToggle(card) : undefined}
+        onKeyDown={onAcquireToggle ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAcquireToggle(card); }
+        } : undefined}
+        className={cn(
+          "relative w-full aspect-[63/88] bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center p-2",
+          onAcquireToggle && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        )}
+      >
         <FoilCardImage
           foiling={printingDetails?.foiling}
           foilInset={null}
@@ -74,7 +96,13 @@ const WantsCard: React.FC<WantsCardProps> = ({
           imgClassName="max-w-full max-h-full object-contain rounded"
           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/cardback.webp" }}
         />
-        {card.quantity > 1 && <div className="absolute top-2 right-2 bg-blue-600 dark:bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">{card.quantity}x</div>}
+        {isSelected ? (
+          <div className="absolute top-2 right-2 bg-green-700 dark:bg-green-600 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
+            <Check className="w-3 h-3" aria-hidden="true" /> {card.quantity}x
+          </div>
+        ) : (
+          card.quantity > 1 && <div className="absolute top-2 right-2 bg-blue-600 dark:bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">{card.quantity}x</div>
+        )}
         <div className="absolute bottom-2 left-2">
           <Tooltip>
             <TooltipTrigger asChild>

@@ -38,6 +38,7 @@ import { WantsFilterSidebar } from "@/components/wants/WantsFilterSidebar"
 import { SlidersHorizontal } from "lucide-react"
 import { notifyWantsInterest } from "@/lib/client/wants-client"
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links"
+import { useCookieBannerInset } from "@/hooks/useCookieBannerInset"
 
 
 const useWindowWidth = () => {
@@ -102,6 +103,7 @@ export default function SharedWantsListPage({
   const [copied, setCopied] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const windowWidth = useWindowWidth();
+  const cookieBannerInset = useCookieBannerInset();
 
   const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
@@ -679,7 +681,9 @@ export default function SharedWantsListPage({
         )}
         style={{ maxWidth: "100vw" }}
       >
-        <div className="flex flex-col h-full">
+        {/* Bottom padding keeps the cart footer above the cookie banner (z-50)
+            while it is visible — otherwise the banner swallows footer taps */}
+        <div className="flex flex-col h-full" style={{ paddingBottom: cookieBannerInset }}>
           <div className="p-4 border-b border-gray-300 dark:border-gray-700 flex justify-between items-center">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
               Selected Cards
@@ -877,6 +881,7 @@ export default function SharedWantsListPage({
       {selectedCards.length > 0 && !sidebarOpen && (
         <button
           className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-4 right-4 bg-red-600 text-white p-3 rounded-full shadow-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors z-40"
+          style={cookieBannerInset > 0 ? { bottom: `calc(env(safe-area-inset-bottom) + ${cookieBannerInset + 16}px)` } : undefined}
           onClick={() => setSidebarOpen(true)}
         >
           <ShoppingCart className="h-6 w-6" />

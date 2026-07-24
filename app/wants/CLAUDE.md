@@ -46,7 +46,7 @@ Both pages compose:
 - `components/wants/WantsFilterSidebar` — desktop left rail (priority/rarity/foiling/set chips)
 - `components/wants/WantsCard` — owner card (editable: qty, priority, printing swap, remove)
 - `components/wants/SharedWantsCard` — shared card (selectable up to owner's available qty)
-- `components/wants/MarkAcquiredDialog` — owner-only on the shared page: moves selected cards into a binder (see below)
+- `components/wants/MarkAcquiredDialog` — moves selected cards into a binder (both pages, see below)
 - `lib/fab-constants` — `SET_MAP`, `FOILING_MAP`, `RARITY_MAP` for chip labels and exports
 
 The mobile filter UI is **inlined** in each page (not extracted into the sidebar component). It duplicates the desktop sidebar's chip logic — keep the two in sync when adding a filter axis.
@@ -56,17 +56,25 @@ The mobile filter UI is **inlined** in each page (not extracted into the sidebar
 | Concern | `/wants` (owner) | `/wants/[userId]` (shared) |
 |---------|------------------|----------------------------|
 | Default sort | `default` | `price-high` |
-| Card actions | qty / priority / printing swap / remove | click-to-select with max = owner's qty |
+| Card actions | qty / priority / printing swap / remove; image tap = acquire-select | click-to-select with max = owner's qty |
 | Right rail | none | "Selected Cards" cart with copy-as-text; owners also get "Mark as Acquired" |
 | Add to list | `CardSearchDialog` | not available |
 | Stats header | yes (`WantsHeader`) | inline page header with profile link |
 | Export | `Nx Name (SET, Rarity, Foiling)` to clipboard | `Copy List` of selected cart contents |
 
-## Mark as Acquired (owner viewing their own shared page)
+## Mark as Acquired
 
-When `isOwnWantsList`, the selection cart gains a "Mark as Acquired" button that opens
-`MarkAcquiredDialog` (modeled on `components/binder/TransferCardsDialog`): pick a destination
-binder, adjust per-card quantities (max = wanted qty), confirm. The dialog calls
+Available on both pages, with different selection gestures:
+
+- **Owner page (`/wants`)**: tapping the card IMAGE toggles the card in/out of the acquire
+  selection (green ring + ✓ badge; qty defaults to the full wanted quantity). A floating
+  "Mark as Acquired (n)" bar (bottom-right) opens the dialog. `WantsCard`'s selection props
+  (`onAcquireToggle`, `isSelected`) are optional — omitted, the image is inert as before.
+- **Shared page (`/wants/[userId]`) when `isOwnWantsList`**: the selection cart gains a
+  "Mark as Acquired" button (tap-to-increment selection, same as the buyer cart).
+
+Both open `MarkAcquiredDialog` (modeled on `components/binder/TransferCardsDialog`): pick a
+destination binder, adjust per-card quantities (max = wanted qty), confirm. The dialog calls
 `wantsClient.acquireWantsItems` → `POST /api/wants/acquire` →
 `wantsService.acquireWantsToBinder`, which runs in ONE transaction per request: each card is
 added to the binder (merged into an existing NM/EN row for the same printing when present,
