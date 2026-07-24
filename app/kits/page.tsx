@@ -16,13 +16,13 @@ import {
   getHeroInfo,
   toHeroDisplayName,
   getLivingLegendPoints,
-  getHeroMarvelImageUrl,
   LIVING_LEGEND_POINTS,
   LIVING_LEGEND_THRESHOLD,
   LIVING_LEGEND_POINTS_UPDATED_AT,
   LIVING_LEGEND_POINTS_SOURCE_LABEL,
 } from '@/lib/fab-constants/heroes';
 import { FORMAT_SLUG_TO_NAME, heroNameToSlug, formatToSlug } from '@/lib/utils/kit-slugs';
+import { resolveMarvelPortraitUrls } from '@/lib/kits/marvel-portraits';
 import KitsFormatTabs from '@/components/kits/KitsFormatTabs';
 import KitsViewToggle from '@/components/kits/KitsViewToggle';
 import KitPoolView from '@/components/kits/KitPoolView';
@@ -135,9 +135,13 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
 
     // Prefer the Marvel (cold foil) artwork when available — the kits page has no
     // printing-legality constraint, so we can surface the more striking Marvel art.
-    for (const summary of byHero.values()) {
-      const marvelUrl = getHeroMarvelImageUrl(summary.heroName);
-      if (marvelUrl) summary.imageUrl = marvelUrl;
+    const marvelUrls = await resolveMarvelPortraitUrls(
+      Array.from(byHero.keys()),
+      printingsService
+    );
+    for (const [heroName, marvelUrl] of marvelUrls) {
+      const summary = byHero.get(heroName);
+      if (summary) summary.imageUrl = marvelUrl;
     }
   }
 

@@ -362,6 +362,10 @@ export function isLivingLegendGraduated(heroName: string): boolean {
 // constraint, so we can surface the dramatic Marvel artwork. Adult hero cards only
 // (types do NOT include 'young'). Heroes without an adult Marvel fall back to their
 // regular printing in consumers.
+//
+// These are printing SELECTORS only — resolve the image via the printing row's
+// image_url (see lib/kits/marvel-portraits.ts). Image ids derive from printing
+// characteristics; a URL constructed from a printing_id 404s.
 export const HERO_MARVEL_PRINTING_IDS: Record<string, string> = {
   // Assassins
   'arakni, huntsman': 'GkTQBCJzmJHgMTrKNd6qH',
@@ -412,12 +416,3 @@ export const HERO_MARVEL_PRINTING_IDS: Record<string, string> = {
   'oscilio, forked continuum': 'bWBMqq7qHpDhwwg6gbBpf',
   'verdance, thorn of the rose': 'qKHDTdmJkCKnCj6WWT7Tf',
 };
-
-const MARVEL_IMAGE_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
-
-export function getHeroMarvelImageUrl(heroName: string): string | null {
-  const key = heroName.toLowerCase();
-  const printingId = HERO_MARVEL_PRINTING_IDS[key];
-  if (!printingId) return null;
-  return `${MARVEL_IMAGE_BASE}/${printingId}/public`;
-}

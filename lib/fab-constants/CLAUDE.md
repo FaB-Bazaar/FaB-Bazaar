@@ -18,7 +18,7 @@ Imports only from `heroes-rosters`.
 
 - `TALISHAR_HERO_IDS` — lowercase card `display_name` → Talishar hero code. Values are Talishar's canonical printing (its original set), NOT our earliest `collector_number` — Heralds "HER" reprints differ (Brevant = `TCC027`, not `HER102`). Sync from Talishar-FE `src/routes/index/components/filter/constants.ts`. Consumers (`/api/talishar/decks`, deck export, the `/decks` Talishar toggle) resolve the hero from the deck's hero CARD's canonical name, NOT `decks.hero_name` — a young nickname (`victor goldmane`) collides with the adult printing (`HVY048` vs `HVY047`).
 - `LIVING_LEGEND_POINTS` + `LIVING_LEGEND_THRESHOLD` + `LIVING_LEGEND_POINTS_UPDATED_AT` + `LIVING_LEGEND_POINTS_SOURCE_LABEL` + `getLivingLegendPoints` / `isLivingLegendGraduated` — leaderboard snapshot updated manually from fabtcg.com. Consumed only by `/kits` today.
-- `HERO_MARVEL_PRINTING_IDS` + `getHeroMarvelImageUrl` — cold-foil showcase art for hero portraits on the Starter Kits pages. Keys are adult hero names (never young).
+- `HERO_MARVEL_PRINTING_IDS` — cold-foil showcase printings for hero portraits on the Starter Kits pages. Keys are adult hero names (never young). Printing SELECTORS only — the image URL must be read from the printing row's `image_url` via `lib/kits/marvel-portraits.ts` (a URL constructed from a printing_id 404s; those Cloudflare images were deleted).
 
 ### `heroes.ts` — public entry point
 Re-exports everything from `heroes-rosters` and `heroes-meta`, plus owns the lookup/display helpers that depend on both rosters and nicknames.

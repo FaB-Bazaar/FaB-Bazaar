@@ -33,7 +33,6 @@ import {
   validateHeroFormatLegality,
   getLivingLegendPoints,
   isLivingLegendGraduated,
-  getHeroMarvelImageUrl,
 } from './heroes';
 
 describe('heroes.ts — export presence (from ./heroes)', () => {
@@ -61,7 +60,6 @@ describe('heroes.ts — export presence (from ./heroes)', () => {
     'getHeroesByFormatDetailed',
     'getLivingLegendPoints',
     'isLivingLegendGraduated',
-    'getHeroMarvelImageUrl',
   ];
 
   it.each(expectedNames)('exports %s', (name) => {
@@ -70,9 +68,9 @@ describe('heroes.ts — export presence (from ./heroes)', () => {
 });
 
 describe('heroes.ts — export presence (via @/lib/fab-constants barrel)', () => {
-  // Barrel historically re-exports the canonical public set. LIVING_LEGEND_*,
-  // HERO_MARVEL_PRINTING_IDS, and getHeroMarvelImageUrl are intentionally NOT
-  // re-exported through the barrel (consumers import them directly).
+  // Barrel historically re-exports the canonical public set. LIVING_LEGEND_*
+  // and HERO_MARVEL_PRINTING_IDS are intentionally NOT re-exported through
+  // the barrel (consumers import them directly).
   const barrelExports = [
     'HERO_NICKNAMES',
     'HERO_INFO',
@@ -437,15 +435,12 @@ describe('getLivingLegendPoints / isLivingLegendGraduated', () => {
   });
 });
 
-describe('getHeroMarvelImageUrl', () => {
-  it('returns a cloudflare images URL for heroes with a marvel printing', () => {
-    const url = getHeroMarvelImageUrl('Arakni, Huntsman');
-    expect(url).toMatch(/^https:\/\/imagedelivery\.net\//);
-    expect(url).toMatch(/\/public$/);
-  });
-
-  it('returns null for heroes without a marvel printing', () => {
-    expect(getHeroMarvelImageUrl('not-a-real-hero-xyz')).toBeNull();
+describe('marvel portrait URL construction is gone', () => {
+  // The printing_id-keyed Cloudflare images were deleted — a helper that
+  // constructs <CF_BASE>/<printing_id>/public can only emit dead URLs.
+  // Marvel portraits resolve through lib/kits/marvel-portraits.ts instead.
+  it('does not export getHeroMarvelImageUrl', () => {
+    expect(HeroesModule).not.toHaveProperty('getHeroMarvelImageUrl');
   });
 });
 
@@ -506,7 +501,6 @@ describe('heroes-meta.ts — owns integrations + competitive meta + showcase art
       'getLivingLegendPoints',
       'isLivingLegendGraduated',
       'HERO_MARVEL_PRINTING_IDS',
-      'getHeroMarvelImageUrl',
     ];
     for (const name of expected) {
       expect(meta).toHaveProperty(name);
