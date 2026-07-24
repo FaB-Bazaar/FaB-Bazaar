@@ -26,6 +26,7 @@ import { useExcludedHeroIds } from '@/hooks/banned-cards/useExcludedHeroIds';
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
 import { getStrategyPortraitUrl } from "@/lib/fab-constants/strategyPortraits";
 import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
+import { applySideboardToDeck, applySideboardToInventory } from "@/lib/utils/matchup-gallery";
 import { findExistingMatchupToEdit } from "@/lib/utils/matchup-edit-mode";
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
 
@@ -1085,65 +1086,14 @@ export default function DeckMatchupsDialog({
   );
 
   // Gallery overlay — shared by both inline and dialog renderings.
+  // Deck view: sideboard.out leaves the deck, sideboard.in enters from inventory.
+  // Inventory view: sideboard.in leaves inventory, sideboard.out enters from the deck.
   const galleryCards = (() => {
-      if (gallery?.section === 'deck') {
-        // Apply this matchup's sideboard changes to the deck view:
-        // sideboard.out → those cards leave the deck (moving to inventory)
-        // sideboard.in  → those cards enter the deck (coming from inventory)
-        const matchup = matchups.find(m => m.heroId === gallery?.heroId);
-        if (!matchup?.sideboard?.in?.length && !matchup?.sideboard?.out?.length) {
-          return deckGalleryCards;
-        }
-        const countMap = new Map<string, { count: number; displayName: string; printingId: string; imageUrl?: string }>();
-        for (const c of deckGalleryCards) {
-          countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId, imageUrl: c.imageUrl });
-        }
-        for (const id of matchup?.sideboard?.out ?? []) {
-          const entry = countMap.get(id);
-          if (entry) {
-            entry.count -= 1;
-            if (entry.count <= 0) countMap.delete(id);
-          }
-        }
-        for (const id of matchup?.sideboard?.in ?? []) {
-          const existing = countMap.get(id);
-          if (existing) {
-            existing.count += 1;
-          } else {
-            const invCard = inventoryGalleryCards.find(c => c.talisharId === id);
-            countMap.set(id, { count: 1, displayName: invCard?.displayName ?? id, printingId: invCard?.printingId ?? id, imageUrl: invCard?.imageUrl });
-          }
-        }
-        return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId, imageUrl: v.imageUrl }));
-      }
-      // Apply this matchup's sideboard changes to the inventory view:
-      // sideboard.in  → those cards leave inventory (moving into the deck)
-      // sideboard.out → those cards enter inventory (coming out of the deck)
       const matchup = matchups.find(m => m.heroId === gallery?.heroId);
-      if (!matchup?.sideboard?.in?.length && !matchup?.sideboard?.out?.length) {
-        return inventoryGalleryCards;
+      if (gallery?.section === 'deck') {
+        return applySideboardToDeck(deckGalleryCards, inventoryGalleryCards, matchup?.sideboard);
       }
-      const countMap = new Map<string, { count: number; displayName: string; printingId: string; imageUrl?: string }>();
-      for (const c of inventoryGalleryCards) {
-        countMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId, imageUrl: c.imageUrl });
-      }
-      for (const id of matchup?.sideboard?.in ?? []) {
-        const entry = countMap.get(id);
-        if (entry) {
-          entry.count -= 1;
-          if (entry.count <= 0) countMap.delete(id);
-        }
-      }
-      for (const id of matchup?.sideboard?.out ?? []) {
-        const existing = countMap.get(id);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          const deckCard = deckGalleryCards.find(c => c.talisharId === id);
-          countMap.set(id, { count: 1, displayName: deckCard?.displayName ?? id, printingId: deckCard?.printingId ?? id });
-        }
-      }
-      return Array.from(countMap.entries()).map(([talisharId, v]) => ({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId, imageUrl: v.imageUrl }));
+      return applySideboardToInventory(inventoryGalleryCards, deckGalleryCards, matchup?.sideboard);
     })();
     const galleryHeroName = gallery ? getHeroDisplayName(gallery.heroId) : '';
     const galleryTotal = galleryCards.reduce((s, c) => s + c.count, 0);
@@ -1268,7 +1218,7 @@ export default function DeckMatchupsDialog({
                   <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={card.imageUrl || `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                      src={card.imageUrl || '/cardback.webp'}
                       alt={card.displayName}
                       className="w-full h-full object-cover object-top"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
@@ -1318,35 +1268,13 @@ export default function DeckMatchupsDialog({
                 </div>
               );
 
-              // fullDeck view — compute the complete post-sideboard deck grouped by section
+              // fullDeck view — complete post-sideboard deck grouped by section
+              const fullDeckCards = applySideboardToDeck(deckGalleryCards, inventoryGalleryCards, currentMatchup?.sideboard);
               const fullDeckBySection = new Map<string, GalleryCard[]>();
               for (const s of SECTION_CONFIG) fullDeckBySection.set(s.key, []);
-              // Build post-sideboard deck: start with base deck, apply out/in
-              const fullDeckMap = new Map<string, { count: number; displayName: string; printingId: string }>();
-              for (const c of deckGalleryCards) {
-                fullDeckMap.set(c.talisharId, { count: c.count, displayName: c.displayName, printingId: c.printingId });
+              for (const card of fullDeckCards) {
+                fullDeckBySection.get(getCardSection(card.talisharId))!.push(card);
               }
-              for (const id of currentMatchup?.sideboard?.out ?? []) {
-                const entry = fullDeckMap.get(id);
-                if (entry) {
-                  entry.count -= 1;
-                  if (entry.count <= 0) fullDeckMap.delete(id);
-                }
-              }
-              for (const id of currentMatchup?.sideboard?.in ?? []) {
-                const existing = fullDeckMap.get(id);
-                if (existing) {
-                  existing.count += 1;
-                } else {
-                  const invCard = inventoryGalleryCards.find(c => c.talisharId === id);
-                  fullDeckMap.set(id, { count: 1, displayName: invCard?.displayName ?? id, printingId: invCard?.printingId ?? id });
-                }
-              }
-              for (const [talisharId, v] of fullDeckMap) {
-                const section = getCardSection(talisharId);
-                fullDeckBySection.get(section)!.push({ talisharId, count: v.count, displayName: v.displayName, printingId: v.printingId });
-              }
-              const fullDeckTotal = Array.from(fullDeckMap.values()).reduce((s, v) => s + v.count, 0);
 
               return (
                 <div className="flex-1 overflow-y-scroll overscroll-contain p-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -1441,7 +1369,7 @@ export default function DeckMatchupsDialog({
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Full Deck</p>
                         <SummaryBar counts={computeSummaryCounts(
-                          Array.from(fullDeckMap.entries()).map(([id, v]) => ({ talisharId: id, count: v.count }))
+                          fullDeckCards.map(c => ({ talisharId: c.talisharId, count: c.count }))
                         )} />
                       </div>
                       {SECTION_CONFIG.map(s => {
@@ -1484,7 +1412,7 @@ export default function DeckMatchupsDialog({
                         <div className="relative aspect-[5/7] rounded-lg overflow-hidden shadow-xl">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={card.imageUrl || `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${card.printingId}/public`}
+                            src={card.imageUrl || '/cardback.webp'}
                             alt={card.displayName}
                             className="w-full h-full object-cover object-top"
                             onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
