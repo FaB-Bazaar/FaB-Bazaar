@@ -15,7 +15,23 @@ import { getRedisClient } from '@/lib/redis';
 import type { FacetDimension, FacetTagDefinitionWithCount } from '@/lib/services/contracts/IFacetService';
 
 const CACHE_KEY = 'mcp:facet-tags:v1';
-const CACHE_TTL_SECONDS = 3600; // 1h — curation sessions should surface same-day
+const CACHE_TTL_SECONDS = 300; // 5min — a mid-session curation pass must surface quickly
+
+/**
+ * Drop the cached vocabulary so the next fab://facet-tags read rebuilds from
+ * the DB. Called by the curator MCP write tools (create_tag, add_card_tag,
+ * remove_card_tag) — a client that just created a tag must see it without
+ * waiting out the TTL. Best-effort: cache cleanup never fails the write.
+ */
+export async function invalidateFacetTagsCache(): Promise<void> {
+  const redis = getRedisClient();
+  if (!redis) return;
+  try {
+    await redis.del(CACHE_KEY);
+  } catch (err) {
+    console.error('[facet-tags] Redis invalidate error:', err);
+  }
+}
 
 interface FacetTagEntry {
   id: string; // pass to search_printings facetTags[]

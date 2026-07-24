@@ -14,7 +14,7 @@ vi.mock('@/lib/services', () => ({
 }));
 vi.mock('@/lib/redis', () => ({ getRedisClient: vi.fn() }));
 
-import { groupFacetTagsByDim, facetTagsResource } from './facetTags';
+import { groupFacetTagsByDim, facetTagsResource, invalidateFacetTagsCache } from './facetTags';
 import { facetService } from '@/lib/services';
 import { getRedisClient } from '@/lib/redis';
 
@@ -82,5 +82,36 @@ describe('facetTagsResource', () => {
     mockGetCounts.mockResolvedValue({ success: false, error: 'db down' } as any);
     const payload = await facetTagsResource.handler();
     expect(payload.tags).toEqual({ mechanical: [], strategic: [], synergy: [] });
+  });
+});
+
+describe('facet-tags Redis cache', () => {
+  const redis = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
+
+  beforeEach(() => {
+    redis.get.mockResolvedValue(null);
+    redis.set.mockResolvedValue('OK');
+    redis.del.mockResolvedValue(1);
+    mockGetRedis.mockReturnValue(redis as any);
+  });
+
+  it('caches for 5 minutes — a mid-session curation pass must surface quickly', async () => {
+    await facetTagsResource.handler();
+    expect(redis.set).toHaveBeenCalledWith('mcp:facet-tags:v1', expect.any(String), 'EX', 300);
+  });
+
+  it('invalidateFacetTagsCache drops the cached payload so a new tag is visible immediately', async () => {
+    await invalidateFacetTagsCache();
+    expect(redis.del).toHaveBeenCalledWith('mcp:facet-tags:v1');
+  });
+
+  it('invalidateFacetTagsCache is a no-op without Redis', async () => {
+    mockGetRedis.mockReturnValue(null as any);
+    await expect(invalidateFacetTagsCache()).resolves.toBeUndefined();
+  });
+
+  it('invalidateFacetTagsCache swallows Redis errors — cache cleanup must not fail the write', async () => {
+    redis.del.mockRejectedValue(new Error('redis down'));
+    await expect(invalidateFacetTagsCache()).resolves.toBeUndefined();
   });
 });

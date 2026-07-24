@@ -34,6 +34,12 @@ import { deleteCuratedListTool } from '../tool/curation/deleteCuratedList';
 import { addCardToListTool } from '../tool/curation/addCardToList';
 import { removeCardFromListTool } from '../tool/curation/removeCardFromList';
 
+// Import facet-tag tools (curator/admin only): create_tag = vocabulary
+// definition; add/remove_card_tag = curator assignment on a card
+import { createTagTool } from '../tool/facets/createTag';
+import { addCardTagTool } from '../tool/facets/addCardTag';
+import { removeCardTagTool } from '../tool/facets/removeCardTag';
+
 // Import banned-cards registry tools (superadmin only)
 import { manageCardRestrictionTool } from '../tool/bannedCards/manageCardRestriction';
 import { listCardRestrictionsTool } from '../tool/bannedCards/listCardRestrictions';
@@ -467,6 +473,21 @@ async function handleMcpPost(req: Request) {
             name: removeCardFromListTool.name,
             description: removeCardFromListTool.description,
             inputSchema: removeCardFromListTool.parameters
+          },
+          {
+            name: createTagTool.name,
+            description: createTagTool.description,
+            inputSchema: createTagTool.parameters
+          },
+          {
+            name: addCardTagTool.name,
+            description: addCardTagTool.description,
+            inputSchema: addCardTagTool.parameters
+          },
+          {
+            name: removeCardTagTool.name,
+            description: removeCardTagTool.description,
+            inputSchema: removeCardTagTool.parameters
           }
         ] : [];
 
@@ -504,7 +525,11 @@ ID GLOSSARY — which ID goes where (do not mix shapes):
                             add_cards_to_deck, remove_cards_from_deck, add_card_to_list, remove_card_from_list,
                             who_has (as printingIds).
   • card_unique_id        21-char nanoid. One card at one pitch, across all printings.
-                          → Used by: who_has (as cardUniqueIds) — for "does anyone own X?" queries.
+                          → Used by: who_has (as cardUniqueIds) — for "does anyone own X?" queries;
+                            add_card_tag / remove_card_tag (as cardUniqueId) — curator facet tagging.
+  • Facet tag id          kebab-case slug (e.g. "fatigue-answer") from fab://facet-tags. NOT a nanoid.
+                          → Used by: search_printings filters.facetTags[]; add_card_tag / remove_card_tag (as tag).
+                            Minted by create_tag (vocabulary definition — creating one does NOT tag any card).
   • collector_number      "SET###" e.g. "WTR171". Human-readable reference. Shown to users.
                           → Not a primary key for any write tool. Filter via search_printings filters.collectorNumber.
   • set_printing_unique_id   Internal DB field — not accepted by any MCP tool. Ignore.
@@ -529,7 +554,14 @@ CURATED LISTS:
 
 CURATOR/ADMIN TOOLS:
   Curated-list management tools (list/create/update/delete_curated_list, add/remove_card_from_list)
-  are only visible to curator/admin accounts. If you don't see them in tools/list, you don't have access.
+  and facet-tag tools (create_tag, add_card_tag, remove_card_tag) are only visible to curator/admin
+  accounts. If you don't see them in tools/list, you don't have access.
+
+FACET TAGS — three different things share the word "tag":
+  • create_tag       → defines a NEW vocabulary term (facet_tag_definitions). Does NOT tag any card.
+  • add_card_tag     → assigns an EXISTING vocabulary tag to a card (curator-authoritative, live immediately).
+  • add_card_to_list → unrelated: puts a PRINTING on a curated deck list, not a tag on a card.
+  Read fab://facet-tags before creating (avoid near-duplicate terms) and before assigning (defs are load-bearing).
 
 ⚡ Takes 30 seconds, saves hours of debugging.
 ✅ Always run the first two in any session.`,
@@ -1828,7 +1860,8 @@ The new tool provides the same functionality with better guidance for proper wor
         if (toolName === 'list_curated_lists' || toolName === 'get_curated_list' ||
             toolName === 'create_curated_list' || toolName === 'update_curated_list' ||
             toolName === 'delete_curated_list' || toolName === 'add_card_to_list' ||
-            toolName === 'remove_card_from_list') {
+            toolName === 'remove_card_from_list' || toolName === 'create_tag' ||
+            toolName === 'add_card_tag' || toolName === 'remove_card_tag') {
           if (DEBUG_MCP) console.log(`📋 Executing curation tool: ${toolName}`);
           try {
             const tokenToPass = bearerToken;
@@ -1842,6 +1875,9 @@ The new tool provides the same functionality with better guidance for proper wor
               delete_curated_list: deleteCuratedListTool,
               add_card_to_list: addCardToListTool,
               remove_card_from_list: removeCardFromListTool,
+              create_tag: createTagTool,
+              add_card_tag: addCardTagTool,
+              remove_card_tag: removeCardTagTool,
             };
             const result = await toolMap[toolName].handler(toolInput, userWithToken, tokenToPass);
 
@@ -1929,6 +1965,7 @@ The new tool provides the same functionality with better guidance for proper wor
       - get_decks_to_beat
       - list_curated_lists / get_curated_list (public — published lists; 🎯 preferred entry point for deck recommendations)
       - Curator-only tools: create_curated_list, update_curated_list, delete_curated_list, add_card_to_list, remove_card_from_list
+      - Curator-only facet tools: create_tag (new vocabulary term), add_card_tag / remove_card_tag (assign existing tag to a card by card_unique_id)
 
       💡 Start with read_mandatory_constants_first({"uri": "fab://constants"}) to load set/foiling/edition/rarity codes and the hero roster.`
         }
