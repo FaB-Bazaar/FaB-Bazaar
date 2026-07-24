@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal, Filter, ChevronDown, ChevronUp, X, PackageCheck } from "lucide-react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
-import { WantsCard, MarkAcquiredDialog } from '@/components/wants';
+import { WantsCard, AcquireSelectedCardsSheet } from '@/components/wants';
 import type { AcquiredCard } from '@/components/wants/MarkAcquiredDialog';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
@@ -54,8 +54,14 @@ export default function NewWantsPage() {
   const [filterSidebarVisible, setFilterSidebarVisible] = useState(true);
   const [mobileFiltersExpanded, setMobileFiltersExpanded] = useState(false);
   const [selectedForAcquire, setSelectedForAcquire] = useState<any[]>([]);
-  const [acquireDialogOpen, setAcquireDialogOpen] = useState(false);
+  const [acquireSheetOpen, setAcquireSheetOpen] = useState(false);
   const cookieBannerInset = useCookieBannerInset();
+
+  // Match the binder page: the sheet opens whenever cards are selected and
+  // closes when the selection empties.
+  useEffect(() => {
+    setAcquireSheetOpen(selectedForAcquire.length > 0);
+  }, [selectedForAcquire.length]);
 
   useEffect(() => {
     fetchWantsList();
@@ -171,16 +177,24 @@ export default function NewWantsPage() {
     }
   };
 
-  // Tap on a card image toggles it in/out of the acquire selection. Selected
-  // quantity defaults to the full wanted quantity — fine-tuning happens in the
-  // MarkAcquiredDialog's per-card quantity controls.
+  // Tap on a card image toggles it in/out of the acquire selection (binder
+  // page semantics): selected quantity starts at 1, adjusted in the sheet's
+  // per-card steppers up to the wanted quantity.
   const handleAcquireToggle = (card: any) => {
     setSelectedForAcquire(prev => {
       if (prev.some(c => c.id === card.id)) {
         return prev.filter(c => c.id !== card.id);
       }
-      return [...prev, { ...card, quantity: card.quantity || 1, maxQuantity: card.quantity || 1 }];
+      return [...prev, { ...card, quantity: 1, maxQuantity: card.quantity || 1 }];
     });
+  };
+
+  const handleSelectedQtyChange = (cardId: string, newQuantity: number) => {
+    setSelectedForAcquire(prev => prev.map(c =>
+      c.id === cardId
+        ? { ...c, quantity: Math.max(1, Math.min(newQuantity, c.maxQuantity)) }
+        : c
+    ));
   };
 
   // Sync local state after cards were acquired into a binder: drop fully
@@ -614,6 +628,7 @@ export default function NewWantsPage() {
                       onPrintingSwap={handlePrintingSwap}
                       onAcquireToggle={handleAcquireToggle}
                       isSelected={selectedForAcquire.some(c => c.id === card.id)}
+                      selectedQty={selectedForAcquire.find(c => c.id === card.id)?.quantity || 1}
                     />
                   ))}
                 </div>
@@ -623,37 +638,31 @@ export default function NewWantsPage() {
         </div>
       </div>
 
-      {/* Floating acquire bar — appears when cards are selected. While the
-          cookie banner (z-50) is up it would cover this bar and swallow taps,
-          so shift the bar above it. */}
+      {/* Floating count button reopens the sheet (binder-page pattern).
+          Shifted above the cookie banner while it is visible so it stays
+          tappable. */}
       {selectedForAcquire.length > 0 && (
-        <div
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-4 right-4 z-40 flex items-center gap-2"
+        <Button
+          onClick={() => setAcquireSheetOpen(true)}
+          aria-label={`Open acquired cards sheet (${selectedForAcquire.length} selected)`}
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-[60] flex flex-col items-center justify-center"
           style={cookieBannerInset > 0 ? { bottom: `calc(env(safe-area-inset-bottom) + ${cookieBannerInset + 16}px)` } : undefined}
         >
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Clear acquired selection"
-            onClick={() => setSelectedForAcquire([])}
-            className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-          <Button
-            onClick={() => setAcquireDialogOpen(true)}
-            className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-500 text-white shadow-lg"
-          >
-            <PackageCheck className="h-4 w-4 mr-2" />
-            Mark as Acquired ({selectedForAcquire.length})
-          </Button>
-        </div>
+          <PackageCheck className="h-6 w-6" />
+          <span className="text-xs font-bold mt-1">{selectedForAcquire.length}</span>
+        </Button>
       )}
 
-      <MarkAcquiredDialog
-        open={acquireDialogOpen}
-        onOpenChange={setAcquireDialogOpen}
+      <AcquireSelectedCardsSheet
         selectedCards={selectedForAcquire}
+        isOpen={acquireSheetOpen}
+        onOpenChange={setAcquireSheetOpen}
+        onQuantityChange={handleSelectedQtyChange}
+        onRemoveSelected={(index: number) => {
+          const cardToRemove = selectedForAcquire[index];
+          if (cardToRemove) handleAcquireToggle(cardToRemove);
+        }}
+        onClearSelected={() => setSelectedForAcquire([])}
         onAcquireComplete={handleAcquireComplete}
       />
 

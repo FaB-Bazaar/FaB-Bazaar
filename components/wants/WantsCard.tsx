@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Minus, Trash2, Check } from "lucide-react";
+import { Plus, Minus, Trash2 } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import FoilCardImage from '@/components/shared/FoilCardImage';
 import WhoHasDropdown from '@/components/shared/WhoHasDropdown';
@@ -48,6 +48,8 @@ interface WantsCardProps {
   /** When provided, tapping the card image toggles acquire-selection */
   onAcquireToggle?: (card: any) => void;
   isSelected?: boolean;
+  /** Quantity currently selected for acquisition (shown in the tile overlay) */
+  selectedQty?: number;
 }
 
 const WantsCard: React.FC<WantsCardProps> = ({
@@ -57,7 +59,8 @@ const WantsCard: React.FC<WantsCardProps> = ({
   onRemove,
   onPrintingSwap,
   onAcquireToggle,
-  isSelected = false
+  isSelected = false,
+  selectedQty
 }) => {
   const { printingDetails } = card;
   const [isPrintingSwapOpen, setIsPrintingSwapOpen] = useState(false);
@@ -68,7 +71,7 @@ const WantsCard: React.FC<WantsCardProps> = ({
   return (
     <div className={cn(
       "w-full rounded-lg overflow-hidden bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 transition-all hover:shadow-xl hover:shadow-gray-300/60 dark:hover:shadow-2xl hover:-translate-y-1 flex-shrink-0 flex flex-col shadow-md shadow-gray-300/50 dark:shadow-lg",
-      isSelected && "ring-2 ring-green-700 dark:ring-green-500"
+      isSelected && "shadow-lg bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500"
     )}>
 
       {/* Image Section — tappable acquire-selection target when onAcquireToggle is wired */}
@@ -96,12 +99,16 @@ const WantsCard: React.FC<WantsCardProps> = ({
           imgClassName="max-w-full max-h-full object-contain rounded"
           onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/cardback.webp" }}
         />
-        {isSelected ? (
-          <div className="absolute top-2 right-2 bg-green-700 dark:bg-green-600 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
-            <Check className="w-3 h-3" aria-hidden="true" /> {card.quantity}x
+        {card.quantity > 1 && <div className="absolute top-2 right-2 bg-blue-600 dark:bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">{card.quantity}x</div>}
+        {isSelected && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 10 }}>
+            <div className="bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-lg border-2 border-white shadow-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{selectedQty || 1}</div>
+                <div className="text-sm font-medium opacity-90">Selected</div>
+              </div>
+            </div>
           </div>
-        ) : (
-          card.quantity > 1 && <div className="absolute top-2 right-2 bg-blue-600 dark:bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">{card.quantity}x</div>
         )}
         <div className="absolute bottom-2 left-2">
           <Tooltip>
