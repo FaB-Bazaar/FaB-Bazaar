@@ -169,6 +169,16 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
 
   const editable = canEditDeck(deck ?? { userId: null }, user?.id);
 
+  // Deck owners land straight in the Manage editor — it's the primary
+  // interface; closing it reveals the arena view underneath. Fires once per
+  // mount so a deliberate close isn't fought by a re-open.
+  const autoOpenedEditorRef = React.useRef(false);
+  useEffect(() => {
+    if (!editable || autoOpenedEditorRef.current) return;
+    autoOpenedEditorRef.current = true;
+    setEditorOpen(true);
+  }, [editable]);
+
   // Load results only when caller can see records (server enforces too)
   useEffect(() => {
     if (!editable) {

@@ -791,9 +791,11 @@ export default function DeckMatchupsDialog({
     }
   };
 
-  // Main content component (used both in dialog and inline)
+  // Main content component (used both in dialog and inline).
+  // Dialog mode on phones hides the header + tab bar, so the tile grid needs
+  // its own top margin to clear the dialog's close button.
   const matchupsContent = (
-    <div className={inline ? "w-full" : ""}>
+    <div className={inline ? "w-full" : "max-sm:pt-4"}>
       {inline && !compact && (
         <div className="mb-2">
           <h2 className="text-xl font-bold flex items-center gap-2">
