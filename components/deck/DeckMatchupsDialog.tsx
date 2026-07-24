@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark, Copy, Pencil, MoreVertical } from "lucide-react";
+import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark, Copy, Pencil, MoreVertical, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
@@ -793,9 +793,9 @@ export default function DeckMatchupsDialog({
 
   // Main content component (used both in dialog and inline).
   // Dialog mode on phones hides the header + tab bar, so the tile grid needs
-  // its own top margin to clear the dialog's close button.
+  // its own top margin to clear the (44px, top-6) close button.
   const matchupsContent = (
-    <div className={inline ? "w-full" : "max-sm:pt-4"}>
+    <div className={inline ? "w-full" : "max-sm:pt-12"}>
       {inline && !compact && (
         <div className="mb-2">
           <h2 className="text-xl font-bold flex items-center gap-2">
@@ -825,7 +825,9 @@ export default function DeckMatchupsDialog({
           </TabsList>
 
           {/* Existing Matchups List */}
-          <TabsContent value="matchups" className="space-y-3">
+          {/* Auto-open focuses the panel itself (tab bar hidden on mobile) —
+              suppress the container ring; buttons inside keep their own */}
+          <TabsContent value="matchups" className="space-y-3 focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex justify-end max-sm:hidden">
               <Button
                 size="sm"
@@ -836,7 +838,10 @@ export default function DeckMatchupsDialog({
               </Button>
             </div>
             {loading && matchups.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
+              <div className="flex flex-col items-center justify-center gap-2 py-10" role="status">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-400" aria-hidden="true" />
+                <span className="text-sm text-gray-300">Loading matchups…</span>
+              </div>
             ) : (
               (() => {
                 // Flat grid — sorted: Core first, then strategy presets, then heroes by class then name.
@@ -1082,7 +1087,7 @@ export default function DeckMatchupsDialog({
           </TabsContent>
 
           {/* Add/Edit Form — sidebar layout on desktop, collapsible on mobile */}
-          <TabsContent value="add" className="space-y-1.5 mt-2">
+          <TabsContent value="add" className="space-y-1.5 mt-2 focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex flex-col gap-1.5">
               {/* Config panel — full-width collapsible bar */}
               <ConfigPanel
@@ -1555,7 +1560,14 @@ export default function DeckMatchupsDialog({
         className={
           gallery
             ? 'fixed inset-0 z-50 !max-w-none !w-auto !max-h-none !translate-x-0 !translate-y-0 !top-0 !left-0 border-0 bg-transparent p-0 shadow-none [&>button:last-child]:hidden'
-            : 'max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto'
+            : // Built-in close: 44px tap target with a larger icon, pulled
+              // down from the edge on phones where the header is hidden.
+              'max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto ' +
+              '[&>button:last-child]:h-11 [&>button:last-child]:w-11 ' +
+              '[&>button:last-child]:inline-flex [&>button:last-child]:items-center [&>button:last-child]:justify-center ' +
+              '[&>button:last-child]:opacity-100 [&>button:last-child]:text-gray-300 ' +
+              '[&>button:last-child_svg]:h-6 [&>button:last-child_svg]:w-6 ' +
+              'max-sm:[&>button:last-child]:top-6 max-sm:[&>button:last-child]:right-5'
         }
       >
         {/* Phones get straight to the tiles — header stays for screen readers */}
