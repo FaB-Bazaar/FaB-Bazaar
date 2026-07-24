@@ -1,7 +1,7 @@
 // app/api/mcp/tool/facets/createTag.ts
 //
 // create_tag — mints a facet VOCABULARY DEFINITION (facet_tag_definitions).
-// It never tags a card; add_card_tag does that. Proxies the curator/superadmin
+// It never tags a card; assign_card_tag does that. Proxies the curator/superadmin
 // admin route, which enforces the role.
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { invalidateFacetTagsCache } from '../../resource/facetTags';
@@ -16,13 +16,13 @@ export const createTagTool = {
 
 ⚠️ WHAT THIS IS vs IS NOT — three different things share the word "tag":
   • create_tag    → defines a new VOCABULARY term. It does NOT tag any card.
-  • add_card_tag  → assigns an EXISTING vocabulary tag to a card (curator-authoritative).
+  • assign_card_tag  → assigns an EXISTING vocabulary tag to a card (curator-authoritative).
   • Community votes on the /tags page are a separate layer — not reachable from these tools.
 
 WORKFLOW:
 1. read_mandatory_constants_first({"uri": "fab://facet-tags"}) FIRST — check the concept isn't already covered (avoid near-duplicates like "go-again" vs "grants-go-again").
 2. create_tag({ id, dim, label, def })
-3. add_card_tag({ cardUniqueId, tag: "<id>" }) ×N — until cards carry it, searching by this tag returns 0 results.
+3. assign_card_tag({ cardUniqueId, tag: "<id>" }) ×N — until cards carry it, searching by this tag returns 0 results.
 
 FIELDS:
   id    — IMMUTABLE kebab-case slug; becomes the value clients pass to search_printings filters.facetTags[] (e.g. "fatigue-answer").
@@ -117,7 +117,7 @@ The fab://facet-tags cache is invalidated on success, so the new tag is visible 
       const message =
         `✅ Created tag definition **${created.id}** (${created.dim}${created.draft ? ', draft' : ''}): ${created.label}\n\n` +
         `No cards carry it yet — searching by it returns 0 results until you assign it.\n` +
-        `Next: add_card_tag({ cardUniqueId: "<from search_printings>", tag: "${created.id}" })`;
+        `Next: assign_card_tag({ cardUniqueId: "<from search_printings>", tag: "${created.id}" })`;
 
       return { success: true, data: created, message };
     } catch (err) {

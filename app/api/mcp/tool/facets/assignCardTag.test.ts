@@ -1,5 +1,5 @@
 /**
- * Unit tests for the add_card_tag / remove_card_tag MCP handlers
+ * Unit tests for the assign_card_tag / remove_card_tag MCP handlers
  * (curator/superadmin).
  *
  * Thin orchestrators over /api/admin/card-facets/assign (POST / DELETE), which
@@ -19,7 +19,7 @@ vi.mock('../../resource/facetTags', () => ({
   invalidateFacetTagsCache: vi.fn(),
 }));
 
-import { addCardTagTool } from './addCardTag';
+import { assignCardTagTool } from './assignCardTag';
 import { removeCardTagTool } from './removeCardTag';
 import { mcpFetch } from '@/lib/mcp-fetch';
 import { invalidateFacetTagsCache } from '../../resource/facetTags';
@@ -37,27 +37,27 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('addCardTagTool contract', () => {
-  it('is named add_card_tag and requires cardUniqueId and tag', () => {
-    expect(addCardTagTool.name).toBe('add_card_tag');
-    expect(addCardTagTool.parameters.required).toEqual(['cardUniqueId', 'tag']);
+describe('assignCardTagTool contract', () => {
+  it('is named assign_card_tag and requires cardUniqueId and tag', () => {
+    expect(assignCardTagTool.name).toBe('assign_card_tag');
+    expect(assignCardTagTool.parameters.required).toEqual(['cardUniqueId', 'tag']);
   });
 
   it('description pins the id contract: card_unique_id, explicitly NOT printing_id', () => {
-    expect(addCardTagTool.description).toContain('card_unique_id');
-    expect(addCardTagTool.description).toMatch(/NOT (a )?printing_id/i);
+    expect(assignCardTagTool.description).toContain('card_unique_id');
+    expect(assignCardTagTool.description).toMatch(/NOT (a )?printing_id/i);
   });
 
   it('description disambiguates assignment from vocabulary creation (names create_tag)', () => {
-    expect(addCardTagTool.description).toContain('create_tag');
+    expect(assignCardTagTool.description).toContain('create_tag');
   });
 });
 
-describe('addCardTagTool.handler', () => {
+describe('assignCardTagTool.handler', () => {
   it('POSTs to the admin assign route with the caller bearer', async () => {
     mockFetch.mockResolvedValue(ok({ applied: 3 }) as any);
 
-    const res = await addCardTagTool.handler(params, auth, 'tok');
+    const res = await assignCardTagTool.handler(params, auth, 'tok');
 
     expect(res.success).toBe(true);
     const [url, opts] = mockFetch.mock.calls[0];
@@ -70,7 +70,7 @@ describe('addCardTagTool.handler', () => {
   it('reports how many variants the tag fanned out to and invalidates the vocabulary cache', async () => {
     mockFetch.mockResolvedValue(ok({ applied: 3 }) as any);
 
-    const res = await addCardTagTool.handler(params, auth, 'tok');
+    const res = await assignCardTagTool.handler(params, auth, 'tok');
 
     expect(res.message).toContain('3');
     expect(mockInvalidate).toHaveBeenCalledTimes(1);
@@ -79,13 +79,13 @@ describe('addCardTagTool.handler', () => {
   it("passes scope 'card' through for per-pitch assignments", async () => {
     mockFetch.mockResolvedValue(ok({ applied: 1 }) as any);
 
-    await addCardTagTool.handler({ ...params, scope: 'card' }, auth, 'tok');
+    await assignCardTagTool.handler({ ...params, scope: 'card' }, auth, 'tok');
 
     expect(JSON.parse(String(mockFetch.mock.calls[0][1]!.body))).toEqual({ ...params, scope: 'card' });
   });
 
   it('errors without fetching on an invalid scope', async () => {
-    const res = await addCardTagTool.handler({ ...params, scope: 'everything' }, auth, 'tok');
+    const res = await assignCardTagTool.handler({ ...params, scope: 'everything' }, auth, 'tok');
 
     expect(res.success).toBe(false);
     expect(res.error).toContain('name');
@@ -94,7 +94,7 @@ describe('addCardTagTool.handler', () => {
   });
 
   it('errors without fetching when cardUniqueId or tag is missing', async () => {
-    const res = await addCardTagTool.handler({ tag: 'fatigue-answer' }, auth, 'tok');
+    const res = await assignCardTagTool.handler({ tag: 'fatigue-answer' }, auth, 'tok');
 
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/cardUniqueId/);
@@ -104,7 +104,7 @@ describe('addCardTagTool.handler', () => {
   it('surfaces a role error on 403 and does not invalidate', async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 403, text: async () => 'Forbidden' } as any);
 
-    const res = await addCardTagTool.handler(params, auth, 'tok');
+    const res = await assignCardTagTool.handler(params, auth, 'tok');
 
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/curator|admin/i);
@@ -118,7 +118,7 @@ describe('addCardTagTool.handler', () => {
       text: async () => JSON.stringify({ error: 'unknown tag: fatigue-answer' }),
     } as any);
 
-    const res = await addCardTagTool.handler(params, auth, 'tok');
+    const res = await assignCardTagTool.handler(params, auth, 'tok');
 
     expect(res.success).toBe(false);
     expect(res.error).toContain('unknown tag');

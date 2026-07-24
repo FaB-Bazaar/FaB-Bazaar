@@ -3,7 +3,7 @@
  *
  * Thin orchestrator over POST /api/admin/card-facets/tags (which enforces the
  * role). Creates a facet VOCABULARY DEFINITION only — it never tags a card;
- * that split (create_tag vs add_card_tag) is load-bearing for MCP clients and
+ * that split (create_tag vs assign_card_tag) is load-bearing for MCP clients and
  * pinned here via the descriptions.
  */
 
@@ -45,8 +45,8 @@ describe('createTagTool contract', () => {
     expect(createTagTool.parameters.required).toEqual(['id', 'dim', 'label']);
   });
 
-  it('description disambiguates definition-creation from card-tagging (names add_card_tag)', () => {
-    expect(createTagTool.description).toContain('add_card_tag');
+  it('description disambiguates definition-creation from card-tagging (names assign_card_tag)', () => {
+    expect(createTagTool.description).toContain('assign_card_tag');
     expect(createTagTool.description).toMatch(/does not tag any card/i);
   });
 });
@@ -75,13 +75,13 @@ describe('createTagTool.handler', () => {
     expect(mockInvalidate).toHaveBeenCalledTimes(1);
   });
 
-  it('mentions the created tag id and the add_card_tag next step in the message', async () => {
+  it('mentions the created tag id and the assign_card_tag next step in the message', async () => {
     mockFetch.mockResolvedValue(ok({ ...params, draft: false }) as any);
 
     const res = await createTagTool.handler(params, auth, 'tok');
 
     expect(res.message).toContain('fatigue-answer');
-    expect(res.message).toContain('add_card_tag');
+    expect(res.message).toContain('assign_card_tag');
   });
 
   it('errors without fetching when id is not a kebab-case slug', async () => {

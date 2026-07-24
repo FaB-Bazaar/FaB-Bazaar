@@ -1,6 +1,6 @@
-// app/api/mcp/tool/facets/addCardTag.ts
+// app/api/mcp/tool/facets/assignCardTag.ts
 //
-// add_card_tag — assigns an EXISTING vocabulary tag to a card as a curator
+// assign_card_tag — assigns an EXISTING vocabulary tag to a card as a curator
 // (authoritative layer, live in search immediately). Proxies the admin assign
 // route, which enforces the curator/superadmin role.
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
@@ -22,7 +22,7 @@ export function validateCardTagParams(params: any): string | null {
 }
 
 const SHARED_DESCRIPTION = `⚠️ WHAT THIS IS vs IS NOT:
-  • add_card_tag / remove_card_tag → put an EXISTING vocabulary tag on / off a card. Curator-authoritative: live in search immediately, no votes needed.
+  • assign_card_tag / remove_card_tag → put an EXISTING vocabulary tag on / off a card. Curator-authoritative: live in search immediately, no votes needed.
   • create_tag → defines a NEW vocabulary term (does not touch any card). Use it first if the tag doesn't exist in fab://facet-tags.
   • Community votes on the /tags page are a separate layer these tools do not touch.
 
@@ -93,18 +93,18 @@ async function callAssignRoute(
 
     return { success: true, data: result.data, message };
   } catch (err) {
-    console.error(`[${verb === 'tag' ? 'AddCardTag' : 'RemoveCardTag'}] Error:`, err);
+    console.error(`[${verb === 'tag' ? 'AssignCardTag' : 'RemoveCardTag'}] Error:`, err);
     return { success: false, error: err instanceof Error ? err.message : `Failed to ${verb} card.` };
   }
 }
 
-export const addCardTagTool = {
-  name: 'add_card_tag',
+export const assignCardTagTool = {
+  name: 'assign_card_tag',
   description: `🏷️ TAG A CARD (curator/admin only): Assign an existing facet tag to a card.
 
 ${SHARED_DESCRIPTION}
 
-WORKFLOW: search_printings → copy card_unique_id from the result row → add_card_tag({ cardUniqueId, tag }). If the API answers "unknown tag", the tag isn't in the vocabulary yet — create_tag first.`,
+WORKFLOW: search_printings → copy card_unique_id from the result row → assign_card_tag({ cardUniqueId, tag }). If the API answers "unknown tag", the tag isn't in the vocabulary yet — create_tag first.`,
 
   parameters: {
     type: 'object',

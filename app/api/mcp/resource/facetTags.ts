@@ -19,7 +19,7 @@ const CACHE_TTL_SECONDS = 300; // 5min — a mid-session curation pass must surf
 
 /**
  * Drop the cached vocabulary so the next fab://facet-tags read rebuilds from
- * the DB. Called by the curator MCP write tools (create_tag, add_card_tag,
+ * the DB. Called by the curator MCP write tools (create_tag, assign_card_tag,
  * remove_card_tag) — a client that just created a tag must see it without
  * waiting out the TTL. Best-effort: cache cleanup never fails the write.
  */
