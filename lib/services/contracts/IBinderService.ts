@@ -193,6 +193,8 @@ export interface BinderCardSearchOptions {
     | 'tcg-market-asc'
     | 'tcg-low-desc'
     | 'tcg-low-asc'
+    | 'collector-release'
+    | 'collector-absolute'
     | 'default';
 }
 

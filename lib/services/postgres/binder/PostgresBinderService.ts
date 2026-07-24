@@ -1856,6 +1856,21 @@ export class PostgresBinderService implements IBinderService {
         return [sql`${printings.tcgLow} DESC NULLS LAST`, asc(cards.displayName)];
       case 'tcg-low-asc':
         return [asc(printings.tcgLow), asc(cards.displayName)];
+      // 'collector-release' = set release chronology first (sets.release_order),
+      // then collector number within the set; sets missing from the sets table
+      // sort last. 'collector-absolute' ignores chronology entirely (ARC001
+      // before WTR001 even though WTR released first).
+      case 'collector-release':
+        return [
+          sql`(SELECT s.release_order FROM sets s WHERE s.code = ${printings.set}) ASC NULLS LAST`,
+          sql`${printings.collectorNumber} ASC NULLS LAST`,
+          asc(cards.displayName),
+        ];
+      case 'collector-absolute':
+        return [
+          sql`${printings.collectorNumber} ASC NULLS LAST`,
+          asc(cards.displayName),
+        ];
       case 'name':
       default:
         return [asc(cards.name)];
