@@ -104,6 +104,28 @@ describe('PostgresPrintingsService.getCardSummariesByUniqueIds', () => {
     expect(p.data.printings[0].set).toBe('agb');
   });
 
+  it('never picks a promo-set representative when a standard printing exists (Kassai → HVY)', async () => {
+    // Kassai of the Golden Sand has Hero Card Promos (her) and Worlds prize
+    // (win) printings whose SETS date to 2019 — years before her actual debut
+    // in Heavy Hitters (hvy, 2024). The earliest-set preference alone made a
+    // promo the face of the card, and promo images are not reliably present
+    // in Cloudflare (broken portrait on /kits). Rarity p/v must rank below
+    // regular printings regardless of set age.
+    const KASSAI = 'ffKGNQcWnLkfQD7w66MRL';
+    const res = await service.getCardSummariesByUniqueIds([KASSAI]);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect(res.data).toHaveLength(1);
+    const p = await service.searchPrintings(
+      { printingIds: [res.data[0].representativePrintingId] },
+      { limit: 1 },
+    );
+    expect(p.success).toBe(true);
+    if (!p.success) return;
+    expect(p.data.printings[0].set).toBe('hvy');
+    expect(p.data.printings[0].rarity).not.toBe('p');
+  });
+
   it('includes card-level health and intelligence (for hero tiles)', async () => {
     const RHINAR = 'wr9wBtTWwRrPrdhCRHCdN';
     const res = await service.getCardSummariesByUniqueIds([RHINAR]);

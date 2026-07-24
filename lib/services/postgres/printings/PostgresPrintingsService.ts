@@ -703,8 +703,11 @@ export class PostgresPrintingsService implements IPrintingsService {
       }
 
       // DISTINCT ON picks one representative printing per card: English first
-      // (imaged rows preferred), then the EARLIEST set (the card's original
-      // art), then non-foil within that set, then printingId.
+      // (imaged rows preferred), then regular rarities before promo/Marvel
+      // (promo SETS like her/win carry 2019 release dates that otherwise beat
+      // the card's real debut set, and promo images are unreliable in CF),
+      // then the EARLIEST set (the card's original art), then non-foil within
+      // that set, then printingId.
       // printings_count is a correlated subselect for the TOTAL printings of each card.
       const result = await db.execute(sql`
         SELECT DISTINCT ON (${cards.cardUniqueId})
@@ -732,6 +735,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           ${cards.cardUniqueId},
           (${printings.language} = 'en') DESC,
           (${printings.imageUrl} IS NOT NULL) DESC,
+          (COALESCE(${printings.rarity}, '') NOT IN ('p', 'v')) DESC,
           COALESCE(${sets.releaseOrder}, 2147483647) ASC,
           CASE ${printings.foiling}
             WHEN 's' THEN 0
