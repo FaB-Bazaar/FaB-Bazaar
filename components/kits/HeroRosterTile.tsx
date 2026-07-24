@@ -83,8 +83,6 @@ export default function HeroRosterTile({ hero, href }: Props) {
             </span>
           )}
         </div>
-
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/90 dark:from-black via-black/60 dark:via-black/80 to-transparent pointer-events-none" />
       </div>
 
       <div className="relative bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-black border-t border-gray-300 dark:border-gray-800 p-3 space-y-2">
