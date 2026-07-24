@@ -22,6 +22,8 @@ import type {
   PublicWantsResultDTO,
   ImportCardDTO,
   ImportResultDTO,
+  AcquireCardInputDTO,
+  AcquireWantsResultDTO,
 } from '@/lib/services/contracts/IWantsService';
 
 // ====================================
@@ -199,6 +201,42 @@ export async function removeWantsItem(
       body: JSON.stringify({ printingId, removeAll, quantity }),
     });
     return await handleResponse<RemoveWantsResultDTO>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Mark wants cards as acquired into a binder
+ *
+ * Adds the cards to the target binder and reduces/removes the corresponding
+ * wants items in a single transactional operation.
+ *
+ * @param targetBinderId - Binder to add the acquired cards to
+ * @param cards - Printings and quantities to acquire
+ * @returns Per-card results and a summary
+ *
+ * @example
+ * ```typescript
+ * const result = await acquireWantsItems('binderId123', [
+ *   { printingId: 'abc', quantity: 2 },
+ * ]);
+ * if (result.success) {
+ *   console.log(`Acquired ${result.data.summary.totalQuantityAcquired} cards`);
+ * }
+ * ```
+ */
+export async function acquireWantsItems(
+  targetBinderId: string,
+  cards: AcquireCardInputDTO[]
+): Promise<ApiResponse<AcquireWantsResultDTO>> {
+  try {
+    const response = await fetch('/api/wants/acquire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetBinderId, cards }),
+    });
+    return await handleResponse<AcquireWantsResultDTO>(response);
   } catch (error) {
     return handleError(error);
   }

@@ -10,7 +10,7 @@
 
 import { eq, and, sql, inArray, desc, asc } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { wantsItems, users, printings, cards } from '@/lib/postgres/schema';
+import { wantsItems, users, printings, cards, binders, inventoryItems } from '@/lib/postgres/schema';
 import type {
   IWantsService,
   WantsItemDTO,
@@ -33,6 +33,8 @@ import type {
   WantedCardDTO,
   WhoWantsSummaryDTO,
   WantsExportDTO,
+  AcquireCardInputDTO,
+  AcquireWantsResultDTO,
 } from '@/lib/services/contracts/IWantsService';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 import { v4 as uuidv4 } from 'uuid';
@@ -213,6 +215,190 @@ export class PostgresWantsService implements IWantsService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to remove wants item',
+      };
+    }
+  }
+
+  /**
+   * Mark wants cards as acquired into a binder
+   *
+   * Runs in a single transaction: each card is added to the target binder
+   * (merged into an existing NM/EN row for the same printing when present)
+   * and its wants item is reduced or removed. Acquire quantities are clamped
+   * to the currently wanted quantity.
+   */
+  async acquireWantsToBinder(
+    userId: string,
+    targetBinderId: string,
+    cardsToAcquire: AcquireCardInputDTO[]
+  ): AsyncResult<AcquireWantsResultDTO> {
+    try {
+      return await db.transaction(async (tx) => {
+        // Verify binder ownership
+        const targetBinder = await tx.query.binders.findFirst({
+          where: and(eq(binders.id, targetBinderId), eq(binders.userId, userId)),
+        });
+
+        if (!targetBinder) {
+          return {
+            success: false,
+            error: 'Target binder not found or access denied',
+          } as AsyncResult<AcquireWantsResultDTO>;
+        }
+
+        const results: AcquireWantsResultDTO['results'] = [];
+        let successful = 0;
+        let failed = 0;
+        let fullyAcquired = 0;
+        let partiallyAcquired = 0;
+        let mergedInBinder = 0;
+        let totalQuantityAcquired = 0;
+
+        for (const acquire of cardsToAcquire) {
+          try {
+            // Lock the wants row
+            const [wantsRow] = await tx
+              .select()
+              .from(wantsItems)
+              .where(and(eq(wantsItems.userId, userId), eq(wantsItems.printingId, acquire.printingId)))
+              .for('update');
+
+            if (!wantsRow) {
+              failed++;
+              results.push({
+                success: false,
+                printingId: acquire.printingId,
+                name: '',
+                action: 'acquired',
+                quantity: 0,
+                remainingWanted: 0,
+                error: 'Card not found in wants list',
+              });
+              continue;
+            }
+
+            const quantityToAcquire = Math.min(acquire.quantity, wantsRow.quantity);
+            const remainingWanted = wantsRow.quantity - quantityToAcquire;
+
+            // Card name for the result payload
+            const [printingInfo] = await tx
+              .select({ displayName: cards.displayName })
+              .from(printings)
+              .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+              .where(eq(printings.printingId, acquire.printingId))
+              .limit(1);
+
+            const cardName = printingInfo?.displayName || 'Unknown';
+
+            // Merge into an existing binder row with default condition/language
+            const [existingItem] = await tx
+              .select()
+              .from(inventoryItems)
+              .where(
+                and(
+                  eq(inventoryItems.binderId, targetBinderId),
+                  eq(inventoryItems.printingId, acquire.printingId),
+                  eq(inventoryItems.condition, 'NM'),
+                  eq(inventoryItems.language, 'EN')
+                )
+              )
+              .for('update');
+
+            if (existingItem) {
+              await tx
+                .update(inventoryItems)
+                .set({ quantity: existingItem.quantity + quantityToAcquire, updatedAt: new Date() })
+                .where(eq(inventoryItems.id, existingItem.id));
+
+              mergedInBinder++;
+            } else {
+              await tx.insert(inventoryItems).values({
+                id: uuidv4(),
+                userId,
+                binderId: targetBinderId,
+                printingId: acquire.printingId,
+                quantity: quantityToAcquire,
+                condition: 'NM',
+                language: 'EN',
+                forTrade: false,
+                forSale: false,
+                acquisitionDate: new Date(),
+                addedAt: new Date(),
+                updatedAt: new Date(),
+              });
+            }
+
+            // Reduce or remove the wants row
+            if (remainingWanted > 0) {
+              await tx
+                .update(wantsItems)
+                .set({ quantity: remainingWanted, updatedAt: new Date() })
+                .where(eq(wantsItems.id, wantsRow.id));
+
+              partiallyAcquired++;
+            } else {
+              await tx.delete(wantsItems).where(eq(wantsItems.id, wantsRow.id));
+              fullyAcquired++;
+            }
+
+            successful++;
+            totalQuantityAcquired += quantityToAcquire;
+
+            results.push({
+              success: true,
+              printingId: acquire.printingId,
+              name: cardName,
+              action: remainingWanted > 0 ? 'partial_acquire' : 'acquired',
+              quantity: quantityToAcquire,
+              remainingWanted,
+              mergedInBinder: !!existingItem,
+              binderQuantity: existingItem
+                ? existingItem.quantity + quantityToAcquire
+                : quantityToAcquire,
+            });
+          } catch (error) {
+            failed++;
+            results.push({
+              success: false,
+              printingId: acquire.printingId,
+              name: '',
+              action: 'acquired',
+              quantity: 0,
+              remainingWanted: 0,
+              error: error instanceof Error ? error.message : 'Acquire failed',
+            });
+          }
+        }
+
+        if (successful > 0) {
+          await tx
+            .update(binders)
+            .set({ statsNeedUpdate: true, lastActivityAt: new Date() })
+            .where(eq(binders.id, targetBinderId));
+        }
+
+        return {
+          success: true,
+          data: {
+            success: true,
+            summary: {
+              totalRequested: cardsToAcquire.length,
+              successful,
+              failed,
+              fullyAcquired,
+              partiallyAcquired,
+              mergedInBinder,
+              totalQuantityAcquired,
+            },
+            results,
+            message: `Acquired ${totalQuantityAcquired} cards (${successful} operations successful, ${failed} failed)`,
+          },
+        } as AsyncResult<AcquireWantsResultDTO>;
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to acquire wants cards',
       };
     }
   }

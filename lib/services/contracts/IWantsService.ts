@@ -153,6 +153,47 @@ export interface RemoveWantsResultDTO {
 }
 
 /**
+ * Input for acquiring a wants card into a binder
+ */
+export interface AcquireCardInputDTO {
+  printingId: string;
+  quantity: number;
+}
+
+/**
+ * Result of acquiring wants cards into a binder
+ */
+export interface AcquireWantsResultDTO {
+  success: boolean;
+  summary: {
+    totalRequested: number;
+    successful: number;
+    failed: number;
+    /** Wants row fully consumed and removed */
+    fullyAcquired: number;
+    /** Wants row quantity reduced but still wanted */
+    partiallyAcquired: number;
+    /** Quantity merged into an existing binder row */
+    mergedInBinder: number;
+    totalQuantityAcquired: number;
+  };
+  results: Array<{
+    success: boolean;
+    printingId: string;
+    name: string;
+    action: 'acquired' | 'partial_acquire';
+    quantity: number;
+    /** Quantity still wanted after the acquisition */
+    remainingWanted: number;
+    mergedInBinder?: boolean;
+    /** Quantity now in the target binder for this printing */
+    binderQuantity?: number;
+    error?: string;
+  }>;
+  message: string;
+}
+
+/**
  * DTO for importing cards (bulk import with name lookup)
  */
 export interface ImportCardDTO {
@@ -420,6 +461,24 @@ export interface IWantsService {
     printingId: string,
     quantity?: number
   ): AsyncResult<RemoveWantsResultDTO>;
+
+  /**
+   * Mark wants cards as acquired into a binder
+   *
+   * Atomically adds each card to the target binder (merging with an existing
+   * row for the same printing where possible) and reduces or removes the
+   * corresponding wants item. Quantities are clamped to the wanted quantity.
+   *
+   * @param userId - User's ID (must own the target binder)
+   * @param targetBinderId - Binder to add the acquired cards to
+   * @param cards - Printings and quantities to acquire
+   * @returns Per-card results and a summary
+   */
+  acquireWantsToBinder(
+    userId: string,
+    targetBinderId: string,
+    cards: AcquireCardInputDTO[]
+  ): AsyncResult<AcquireWantsResultDTO>;
 
   // ====================================
   // List Operations

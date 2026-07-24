@@ -46,6 +46,7 @@ Both pages compose:
 - `components/wants/WantsFilterSidebar` — desktop left rail (priority/rarity/foiling/set chips)
 - `components/wants/WantsCard` — owner card (editable: qty, priority, printing swap, remove)
 - `components/wants/SharedWantsCard` — shared card (selectable up to owner's available qty)
+- `components/wants/MarkAcquiredDialog` — owner-only on the shared page: moves selected cards into a binder (see below)
 - `lib/fab-constants` — `SET_MAP`, `FOILING_MAP`, `RARITY_MAP` for chip labels and exports
 
 The mobile filter UI is **inlined** in each page (not extracted into the sidebar component). It duplicates the desktop sidebar's chip logic — keep the two in sync when adding a filter axis.
@@ -56,10 +57,23 @@ The mobile filter UI is **inlined** in each page (not extracted into the sidebar
 |---------|------------------|----------------------------|
 | Default sort | `default` | `price-high` |
 | Card actions | qty / priority / printing swap / remove | click-to-select with max = owner's qty |
-| Right rail | none | "Selected Cards" cart with copy-as-text |
+| Right rail | none | "Selected Cards" cart with copy-as-text; owners also get "Mark as Acquired" |
 | Add to list | `CardSearchDialog` | not available |
 | Stats header | yes (`WantsHeader`) | inline page header with profile link |
 | Export | `Nx Name (SET, Rarity, Foiling)` to clipboard | `Copy List` of selected cart contents |
+
+## Mark as Acquired (owner viewing their own shared page)
+
+When `isOwnWantsList`, the selection cart gains a "Mark as Acquired" button that opens
+`MarkAcquiredDialog` (modeled on `components/binder/TransferCardsDialog`): pick a destination
+binder, adjust per-card quantities (max = wanted qty), confirm. The dialog calls
+`wantsClient.acquireWantsItems` → `POST /api/wants/acquire` →
+`wantsService.acquireWantsToBinder`, which runs in ONE transaction per request: each card is
+added to the binder (merged into an existing NM/EN row for the same printing when present,
+otherwise inserted with NM/EN defaults + `acquisitionDate`) and the wants row is reduced or
+removed. Quantities are clamped server-side to the wanted quantity. On success the page's
+`handleAcquireComplete` drops fully-acquired cards from local state, reduces partials, and
+clears the acquired cards from the cart — no refetch.
 
 ## Filter / sort model
 

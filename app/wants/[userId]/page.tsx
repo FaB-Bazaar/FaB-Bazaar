@@ -22,13 +22,15 @@ import {
   Check,
   ChevronRight,
   UserCircle,
+  PackageCheck,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
-import { SharedWantsCard } from '@/components/wants';
+import { SharedWantsCard, MarkAcquiredDialog } from '@/components/wants';
+import type { AcquiredCard } from '@/components/wants/MarkAcquiredDialog';
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure"
 import { profileHref, displayUsername } from "@/lib/utils/display-username"
@@ -96,6 +98,7 @@ export default function SharedWantsListPage({
   const isOwnWantsList = session?.user?.id === userId;
   const [selectedCards, setSelectedCards] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [acquireDialogOpen, setAcquireDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const windowWidth = useWindowWidth();
@@ -280,6 +283,33 @@ export default function SharedWantsListPage({
     setSelectedCards([]);
     setSidebarOpen(false);
   };
+  // Sync local state after cards were acquired into a binder: drop fully
+  // acquired cards from the list, reduce quantities on partial acquisitions,
+  // and clear the acquired cards from the selection cart.
+  const handleAcquireComplete = (acquiredCards: AcquiredCard[]) => {
+    const acquiredById = new Map(acquiredCards.map((a) => [a.printingId, a]));
+    setWantsList((prev: any) => {
+      if (!prev?.cards) return prev;
+      return {
+        ...prev,
+        cards: prev.cards
+          .map((card: any) => {
+            const acquired = acquiredById.get(card.id);
+            if (!acquired) return card;
+            if (acquired.remainingWanted <= 0) return null;
+            return { ...card, quantity: acquired.remainingWanted };
+          })
+          .filter(Boolean),
+      };
+    });
+    setSelectedCards((prev) => {
+      const next = prev.filter((card) => !acquiredById.has(card.id));
+      if (next.length === 0) {
+        setSidebarOpen(false);
+      }
+      return next;
+    });
+  };
   const getFormattedList = () =>
     selectedCards
       .map(
@@ -437,7 +467,11 @@ export default function SharedWantsListPage({
             </div>
           </div>
 
-          {!isOwnWantsList && (
+          {isOwnWantsList ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Click cards you&apos;ve acquired to select them, then add them to a binder
+            </p>
+          ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Click on cards you&apos;re interested in
             </p>
@@ -778,6 +812,16 @@ export default function SharedWantsListPage({
                 )}
               </span>
             </div>
+            {isOwnWantsList && (
+              <Button
+                className="w-full mb-2 bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-500 text-white"
+                onClick={() => setAcquireDialogOpen(true)}
+                disabled={selectedCards.length === 0}
+              >
+                <PackageCheck className="h-4 w-4 mr-2" />
+                Mark as Acquired
+              </Button>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
@@ -822,6 +866,14 @@ export default function SharedWantsListPage({
           </div>
         </div>
       </div>
+      {isOwnWantsList && (
+        <MarkAcquiredDialog
+          open={acquireDialogOpen}
+          onOpenChange={setAcquireDialogOpen}
+          selectedCards={selectedCards}
+          onAcquireComplete={handleAcquireComplete}
+        />
+      )}
       {selectedCards.length > 0 && !sidebarOpen && (
         <button
           className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-4 right-4 bg-red-600 text-white p-3 rounded-full shadow-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors z-40"
