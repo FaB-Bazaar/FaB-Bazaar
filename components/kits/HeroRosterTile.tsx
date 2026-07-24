@@ -39,33 +39,12 @@ const TALENT_COLOR: Record<string, string> = {
   shapeshifter: 'text-indigo-700 border-indigo-400 dark:text-indigo-300 dark:border-indigo-400/50',
 };
 
-const CLASS_ACCENT: Record<string, string> = {
-  assassin: 'from-red-600/70 dark:from-red-900/80',
-  brute: 'from-orange-600/70 dark:from-orange-900/80',
-  guardian: 'from-slate-500/70 dark:from-slate-700/80',
-  mechanologist: 'from-amber-600/70 dark:from-amber-900/80',
-  ranger: 'from-green-600/70 dark:from-green-900/80',
-  runeblade: 'from-purple-600/70 dark:from-purple-900/80',
-  warrior: 'from-rose-600/70 dark:from-rose-900/80',
-  ninja: 'from-blue-600/70 dark:from-blue-900/80',
-  wizard: 'from-sky-600/70 dark:from-sky-900/80',
-  merchant: 'from-yellow-600/70 dark:from-yellow-900/80',
-  bard: 'from-pink-600/70 dark:from-pink-900/80',
-  adjudicator: 'from-amber-600/70 dark:from-amber-700/80',
-  necromancer: 'from-zinc-600/70 dark:from-zinc-800/80',
-  illusionist: 'from-indigo-600/70 dark:from-indigo-900/80',
-  shapeshifter: 'from-violet-600/70 dark:from-violet-900/80',
-  pirate: 'from-teal-600/70 dark:from-teal-900/80',
-};
-
 interface Props {
   hero: HeroTileData;
   href: string;
 }
 
 export default function HeroRosterTile({ hero, href }: Props) {
-  const accent = CLASS_ACCENT[hero.className.toLowerCase()] ?? 'from-gray-800/80';
-
   return (
     <Link
       href={href}
@@ -91,13 +70,6 @@ export default function HeroRosterTile({ hero, href }: Props) {
             {hero.className}
           </div>
         )}
-
-        <div
-          className={cn(
-            'absolute inset-x-0 top-0 h-16 bg-gradient-to-b to-transparent pointer-events-none',
-            accent
-          )}
-        />
 
         <div className="absolute top-2 right-2">
           {hero.graduated ? (
