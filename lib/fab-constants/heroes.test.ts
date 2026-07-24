@@ -33,6 +33,7 @@ import {
   validateHeroFormatLegality,
   getLivingLegendPoints,
   isLivingLegendGraduated,
+  KITS_NEW_HERO_KEYS,
 } from './heroes';
 
 describe('heroes.ts — export presence (from ./heroes)', () => {
@@ -255,6 +256,45 @@ describe('HERO_MARVEL_PRINTING_IDS', () => {
     const huntsman = HERO_MARVEL_PRINTING_IDS['arakni, huntsman'];
     expect(typeof huntsman).toBe('string');
     expect(huntsman.length).toBeGreaterThan(0);
+  });
+});
+
+describe('KITS_NEW_HERO_KEYS (brand-new heroes surfaced on /kits before any kit exists)', () => {
+  it('lists the IAR debut heroes', () => {
+    expect(KITS_NEW_HERO_KEYS).toContain('viserai, the forsaken');
+    expect(KITS_NEW_HERO_KEYS).toContain('malice, domina of the dead');
+  });
+
+  it('every key resolves in the roster and is not graduated', () => {
+    for (const key of KITS_NEW_HERO_KEYS) {
+      expect(getHeroInfo(key), `roster entry missing for ${key}`).toBeTruthy();
+      expect(isLivingLegendGraduated(key)).toBe(false);
+    }
+  });
+});
+
+describe('IAR debut heroes roster data', () => {
+  it('Viserai, the Forsaken is a shadow runeblade with a portrait card id', () => {
+    const info = getHeroInfo('Viserai, the Forsaken');
+    expect(info?.classes).toEqual(['runeblade']);
+    expect(info?.talents).toEqual(['shadow']);
+    expect(info?.cardUniqueId).toBe('gdmOiOhZTn2i5G2Bh3YVt');
+  });
+
+  it('Malice, Domina of the Dead is a shadow necromancer with a portrait card id', () => {
+    const info = getHeroInfo('Malice, Domina of the Dead');
+    expect(info?.classes).toEqual(['necromancer']);
+    expect(info?.talents).toEqual(['shadow']);
+    expect(info?.cardUniqueId).toBe('rBbRqEjWSWEdE1qSSfTau');
+  });
+
+  it('display names fall back with correct connective casing', () => {
+    expect(
+      toHeroDisplayName('viserai, the forsaken', getHeroInfo('viserai, the forsaken')?.shortName)
+    ).toBe('Viserai, the Forsaken');
+    expect(
+      toHeroDisplayName('malice, domina of the dead', getHeroInfo('malice, domina of the dead')?.shortName)
+    ).toBe('Malice, Domina of the Dead');
   });
 });
 

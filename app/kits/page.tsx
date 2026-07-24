@@ -22,6 +22,7 @@ import {
   LIVING_LEGEND_THRESHOLD,
   LIVING_LEGEND_POINTS_UPDATED_AT,
   LIVING_LEGEND_POINTS_SOURCE_LABEL,
+  KITS_NEW_HERO_KEYS,
 } from '@/lib/fab-constants/heroes';
 import { FORMAT_SLUG_TO_NAME, heroNameToSlug, formatToSlug } from '@/lib/utils/kit-slugs';
 import KitsFormatTabs from '@/components/kits/KitsFormatTabs';
@@ -94,6 +95,23 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
         livingLegendPoints: llPoints ?? undefined,
         // Heroes with published kits still graduate out of the active CC grid.
         graduated: isCC && llPoints !== null && llPoints >= LIVING_LEGEND_THRESHOLD,
+      });
+    }
+  }
+
+  // Surface brand-new CC heroes that have no published kits (and no LL points) yet.
+  if (isCC && view === 'heroes') {
+    const presentKeys = new Set(Array.from(byHero.keys()).map(k => k.toLowerCase()));
+    for (const heroKey of KITS_NEW_HERO_KEYS) {
+      if (presentKeys.has(heroKey)) continue;
+      const info = getHeroInfo(heroKey);
+      byHero.set(heroKey, {
+        heroName: heroKey,
+        displayName: toHeroDisplayName(heroKey, info?.shortName),
+        className: info?.classes?.[0] ?? 'other',
+        talents: info?.talents ?? [],
+        kitCount: 0,
+        livingLegendPoints: getLivingLegendPoints(heroKey) ?? undefined,
       });
     }
   }

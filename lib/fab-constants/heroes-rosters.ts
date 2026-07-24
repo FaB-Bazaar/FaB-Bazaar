@@ -213,6 +213,12 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     talents: ['pirate'],
     shortName: 'gravy'
   },
+  'malice, domina of the dead': {
+    cardUniqueId: 'rBbRqEjWSWEdE1qSSfTau',
+    classes: ['necromancer'],
+    talents: ['shadow'],
+    shortName: 'malice'
+  },
 
   // Ninjas
   'cindra, dracai of retribution': {
@@ -313,6 +319,12 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     classes: ['runeblade'],
     talents: [],
     shortName: 'viserai'
+  },
+  'viserai, the forsaken': {
+    cardUniqueId: 'gdmOiOhZTn2i5G2Bh3YVt',
+    classes: ['runeblade'],
+    talents: ['shadow'],
+    shortName: 'forsaken'
   },
   'vynnset, iron maiden': {
     cardUniqueId: '9CwWmnzhhfLbJgc6q7Hm7',

@@ -347,6 +347,14 @@ export const LIVING_LEGEND_POINTS: Record<string, number> = {
 
 export const LIVING_LEGEND_THRESHOLD = 1000;
 
+// Brand-new CC heroes surfaced on /kits before any kit is published for them
+// (and before they earn LL points). Remove a hero once its first kit ships —
+// the kit summaries take over from there. Keys must match HERO_INFO keys.
+export const KITS_NEW_HERO_KEYS: string[] = [
+  'malice, domina of the dead',
+  'viserai, the forsaken',
+];
+
 export function getLivingLegendPoints(heroName: string): number | null {
   const key = heroName.toLowerCase();
   return LIVING_LEGEND_POINTS[key] ?? null;
