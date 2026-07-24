@@ -136,6 +136,17 @@ describe('PostgresCuratedListService.getAllPublished', () => {
       expect(card.typeTextDisplay).toBe(realCard.typeTextDisplay);
     }
   });
+
+  it('plumbs facetTags from cards.facet_tags (kit pages show why a card is included)', async () => {
+    // Read-only assertion against the fixture card's projected tags — never
+    // writes facet_tags (that column races with the facet test files).
+    const result = await service.getAllPublished({ includeCards: true });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const card = result.data.find(l => l.id === testListId)!.cards![0] as any;
+    expect(card.facetTags).toEqual(realCard.facetTags);
+  });
 });
 
 describe('getListById — card text for deck-recommendation grounding', () => {

@@ -74,6 +74,28 @@ describe('computeCardPool', () => {
     expect(pool.cards[0].rawCount).toBe(3);
   });
 
+  it('carries facetTags from the card DTO onto the pool card', () => {
+    const lists = [
+      list('l1', 'Core', [
+        card({
+          cardUniqueId: 'cu1',
+          displayName: 'Surging Strike',
+          rarity: 'r',
+          types: ['action', 'attack'],
+          facetTags: ['combo-enabler', 'tempo'],
+        }),
+      ]),
+      list('l2', 'Upgrades', [
+        card({ cardUniqueId: 'cu2', displayName: 'Plain Card', rarity: 'c', types: ['action'] }),
+      ]),
+    ];
+    const pool = computeCardPool(lists);
+    const tagged = pool.cards.find(c => c.cardUniqueId === 'cu1');
+    const untagged = pool.cards.find(c => c.cardUniqueId === 'cu2');
+    expect(tagged?.facetTags).toEqual(['combo-enabler', 'tempo']);
+    expect(untagged?.facetTags).toEqual([]);
+  });
+
   it('applies cap: raw 4 copies of a regular action → capped at 3', () => {
     const lists = [
       list('l1', 'A', [

@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
-import { curatedListService, curatorHeroAssignmentService } from '@/lib/services';
+import { curatedListService, curatorHeroAssignmentService, facetService } from '@/lib/services';
+import { buildFacetDisplayMap } from '@/lib/kits/facet-defs';
 import { getHeroInfo, toHeroDisplayName } from '@/lib/fab-constants/heroes';
 import { slugToFormat, slugToHeroName, formatToSlug } from '@/lib/utils/kit-slugs';
 import KitPoolView from '@/components/kits/KitPoolView';
@@ -19,10 +20,12 @@ export default async function KitHeroPage({ params }: PageProps) {
   const heroInfo = getHeroInfo(heroName);
   const displayName = toHeroDisplayName(heroName, heroInfo?.shortName);
 
-  const [listsResult, curatorsResult] = await Promise.all([
+  const [listsResult, curatorsResult, facetDefsResult] = await Promise.all([
     curatedListService.getPublishedListsForHero(heroName),
     curatorHeroAssignmentService.getAssignmentsForHero(heroName),
+    facetService.listTagDefinitions(),
   ]);
+  const facetDefs = buildFacetDisplayMap(facetDefsResult.success ? facetDefsResult.data : []);
 
   const lists = listsResult.success
     ? listsResult.data.filter(l => (l.format ?? '').toLowerCase() === format.toLowerCase())
@@ -80,7 +83,7 @@ export default async function KitHeroPage({ params }: PageProps) {
           <p className="text-sm mt-1">Check back soon or browse other heroes.</p>
         </div>
       ) : (
-        <KitPoolView lists={lists} />
+        <KitPoolView lists={lists} formatSlug={formatToSlug(format) ?? formatSlug} facetDefs={facetDefs} />
       )}
     </div>
   );

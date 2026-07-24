@@ -23,6 +23,8 @@ export interface CuratedListCardDTO {
   pitch?: number;
   /** Rules text — lets AI clients quote real effects when recommending. */
   text?: string;
+  /** Curated facet tag slugs (cards.facet_tags projection) — why the card matters functionally. */
+  facetTags?: string[];
   tcgLow?: number;
   tcgMarket?: number;
   tcgMid?: number;

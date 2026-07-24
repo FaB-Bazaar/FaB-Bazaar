@@ -28,6 +28,7 @@ export interface PoolCard {
   rarityCode: string;
   types: string[];
   keywords: string[];
+  facetTags: string[];
   imageUrl?: string;
   setCode?: string;
   collectorNumber?: string;
@@ -163,6 +164,7 @@ export function computeCardPool(lists: CuratedListDTO[], options: ComputeOptions
           rarityCode,
           types: card.types ?? [],
           keywords: card.keywords ?? [],
+          facetTags: card.facetTags ?? [],
           imageUrl: card.imageUrl,
           setCode: card.setCode,
           collectorNumber: card.collectorNumber,

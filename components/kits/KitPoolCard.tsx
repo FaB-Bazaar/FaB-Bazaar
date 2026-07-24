@@ -40,12 +40,29 @@ function dedupeSourcesByHero(sources: PoolCard['sources']): DedupedSource[] {
   return [...byHero.values(), ...orphans];
 }
 
+export interface FacetTagDisplay {
+  label: string;
+  def: string;
+  dim: string;
+}
+
 interface Props {
   card: PoolCard;
   formatSlug: string;
   ownedCount?: number;
   onHover?: (card: PoolCard | null) => void;
+  /** Facet vocabulary (id → label/def/dim) for the tag chips; ids render raw without it. */
+  facetDefs?: Record<string, FacetTagDisplay>;
 }
+
+// Muted per-dimension tints (mechanical/strategic/synergy) — paired with the
+// label text itself, so color is never the only differentiator.
+const FACET_DIM_CLASSES: Record<string, string> = {
+  mechanical: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800',
+  strategic: 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800',
+  synergy: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800',
+};
+const FACET_DIM_FALLBACK = 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/60 dark:text-gray-300 dark:border-gray-600';
 
 const FOILING_MAP: Record<string, { name: string; className: string }> = {
   R: { name: 'Rainbow Foil', className: 'bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 text-white' },
@@ -78,7 +95,7 @@ function PriceLine({ label, price, isLow = false }: { label: string; price: numb
   );
 }
 
-export default function KitPoolCard({ card, formatSlug, ownedCount, onHover }: Props) {
+export default function KitPoolCard({ card, formatSlug, ownedCount, onHover, facetDefs }: Props) {
   const foilingInfo = getFoilingInfo(card.foiling);
   const editionDisplay = getEditionDisplayName(card.edition);
   const capped = card.cappedCount < card.rawCount;
@@ -212,6 +229,26 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover }: P
 
           {card.typeTextDisplay && (
             <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{card.typeTextDisplay}</div>
+          )}
+
+          {card.facetTags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {card.facetTags.map(tag => {
+                const def = facetDefs?.[tag];
+                return (
+                  <span
+                    key={tag}
+                    title={def?.def || undefined}
+                    className={cn(
+                      'text-xs px-1.5 py-0.5 rounded-full border cursor-help',
+                      FACET_DIM_CLASSES[def?.dim ?? ''] ?? FACET_DIM_FALLBACK,
+                    )}
+                  >
+                    {def?.label ?? tag}
+                  </span>
+                );
+              })}
+            </div>
           )}
 
           <div className="space-y-1">

@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import type { CuratedListDTO } from '@/lib/services/contracts/ICuratedListService';
 import { computeCardPool, buildKitOptions, sortPoolCards, type PoolSortMode, type PoolCard } from '@/lib/utils/card-pool';
-import KitPoolCard from './KitPoolCard';
+import KitPoolCard, { type FacetTagDisplay } from './KitPoolCard';
 
 interface Props {
   lists: CuratedListDTO[];
   formatSlug: string;
+  facetDefs?: Record<string, FacetTagDisplay>;
 }
 
-export default function KitPoolView({ lists, formatSlug }: Props) {
+export default function KitPoolView({ lists, formatSlug, facetDefs }: Props) {
   const [listFilter, setListFilter] = useState<string>('');
   const [sortMode, setSortMode] = useState<PoolSortMode>('alpha');
 
@@ -109,6 +110,7 @@ export default function KitPoolView({ lists, formatSlug }: Props) {
                   formatSlug={formatSlug}
                   ownedCount={ownedCounts[card.cardUniqueId]}
                   onHover={setHovered}
+                  facetDefs={facetDefs}
                 />
               ))}
             </div>

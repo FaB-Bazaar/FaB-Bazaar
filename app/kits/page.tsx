@@ -1,6 +1,8 @@
 import { unstable_cache } from 'next/cache';
-import { curatedListService, printingsService } from '@/lib/services';
+import { curatedListService, printingsService, facetService } from '@/lib/services';
 import type { CuratedListDTO, HeroKitSummaryDTO } from '@/lib/services/contracts/ICuratedListService';
+import { buildFacetDisplayMap } from '@/lib/kits/facet-defs';
+import type { FacetTagDisplay } from '@/components/kits/KitPoolCard';
 
 // Prices refresh nightly; aggregate is invalidated via `revalidateTag('kits-summary')`
 // from the nightly price-refresh webhook and from admin kit CRUD routes.
@@ -56,12 +58,17 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
 
   // Pool view needs full card data; heroes view uses a fast SQL aggregate.
   let formatLists: CuratedListDTO[] = [];
+  let facetDefs: Record<string, FacetTagDisplay> = {};
   if (view === 'pool') {
-    const poolResult = await curatedListService.getAllPublished({ includeCards: true });
+    const [poolResult, facetDefsResult] = await Promise.all([
+      curatedListService.getAllPublished({ includeCards: true }),
+      facetService.listTagDefinitions(),
+    ]);
     const lists = poolResult.success ? poolResult.data : [];
     formatLists = lists.filter(
       l => (l.format ?? '').toLowerCase() === selectedFormat.toLowerCase()
     );
+    facetDefs = buildFacetDisplayMap(facetDefsResult.success ? facetDefsResult.data : []);
   }
 
   const byHero = new Map<string, HeroSummary>();
@@ -175,7 +182,7 @@ export default async function KitsIndexPage({ searchParams }: SearchParams) {
             <p className="text-lg">No starter kits published for {selectedFormat} yet.</p>
           </div>
         ) : (
-          <KitPoolView lists={formatLists} formatSlug={selectedSlug} />
+          <KitPoolView lists={formatLists} formatSlug={selectedSlug} facetDefs={facetDefs} />
         )
       ) : (
         <>
