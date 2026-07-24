@@ -121,17 +121,22 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover, fac
       onMouseEnter={() => onHover?.(card)}
       onMouseLeave={() => onHover?.(null)}
     >
-      <div className="relative w-full h-[200px] sm:h-[280px] bg-gray-50 dark:bg-gray-800 overflow-hidden flex items-center justify-center p-2">
-        <FoilCardImage
-          foiling={card.foiling}
-          artStyle={artStyle}
-          foilInset={foilInset}
-          src={card.imageUrl ?? '/cardback.webp'}
-          alt={card.displayName}
-          className="w-full h-full"
-          imgClassName="max-w-full max-h-full object-contain"
-          onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
-        />
+      <div className="relative w-full bg-gray-50 dark:bg-gray-800 overflow-hidden flex items-center justify-center p-2">
+        {/* Explicit 63/88 box: percentage max-heights resolve inconsistently in
+            the foil renderer's preserve-3d grid on iOS Safari (foil cards drew
+            cropped full-width, non-foil letterboxed). */}
+        <div className="h-[200px] sm:h-[280px] aspect-[63/88]">
+          <FoilCardImage
+            foiling={card.foiling}
+            artStyle={artStyle}
+            foilInset={foilInset}
+            src={card.imageUrl ?? '/cardback.webp'}
+            alt={card.displayName}
+            className="w-full h-full"
+            imgClassName="w-full h-full object-contain"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/cardback.webp'; }}
+          />
+        </div>
 
         {ownedStyle && (
           <div
@@ -252,10 +257,7 @@ export default function KitPoolCard({ card, formatSlug, ownedCount, onHover, fac
           )}
 
           <div className="space-y-1">
-            <PriceLine label="Market" price={card.tcgMarket} />
-            <PriceLine label="High" price={card.tcgHigh} />
-            <PriceLine label="Mid" price={card.tcgMid} />
-            <PriceLine label="Low" price={card.tcgLow} isLow />
+            <PriceLine label="TCG Low" price={card.tcgLow} isLow />
             {card.tcgplayerUrl && (
               <div className="text-xs mt-2 pt-2 border-t border-gray-100 dark:border-gray-600">
                 <TcgAffiliateLink

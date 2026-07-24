@@ -73,3 +73,38 @@ describe('KitPoolCard facet tags', () => {
     expect(screen.getByText('combo-enabler')).toBeInTheDocument();
   });
 });
+
+describe('KitPoolCard pricing', () => {
+  const priced = () =>
+    poolCard({ tcgMarket: 107.18, tcgHigh: 209.0, tcgMid: 129.99, tcgLow: 108.68 });
+
+  it('shows only the TCG Low price', () => {
+    render(<KitPoolCard card={priced()} formatSlug="cc" />);
+    expect(screen.getByText('TCG Low:')).toBeInTheDocument();
+    expect(screen.getByText('$108.68')).toBeInTheDocument();
+    expect(screen.queryByText('Market:')).not.toBeInTheDocument();
+    expect(screen.queryByText('High:')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mid:')).not.toBeInTheDocument();
+  });
+
+  it('renders no price line when tcgLow is missing', () => {
+    render(<KitPoolCard card={poolCard()} formatSlug="cc" />);
+    expect(screen.queryByText('TCG Low:')).not.toBeInTheDocument();
+  });
+});
+
+describe('KitPoolCard image sizing', () => {
+  // The image gets an explicit card-aspect box (63/88) filled with w/h-full.
+  // Relying on max-h percentage resolution rendered foil and non-foil cards
+  // differently on iOS Safari (foil path: cropped full-width; non-foil:
+  // letterboxed) — explicit box dimensions behave identically in both paths.
+  it('constrains the card image to an explicit 63/88 aspect box', () => {
+    render(<KitPoolCard card={poolCard()} formatSlug="cc" />);
+    const img = screen.getByAltText('Surging Strike');
+    expect(img.className).toContain('object-contain');
+    expect(img.className).toContain('w-full');
+    expect(img.className).toContain('h-full');
+    const aspectBox = img.closest('[class*="aspect-[63/88]"]');
+    expect(aspectBox).not.toBeNull();
+  });
+});
