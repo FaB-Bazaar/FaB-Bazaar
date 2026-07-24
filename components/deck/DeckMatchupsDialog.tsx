@@ -27,6 +27,7 @@ import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
 import { getStrategyPortraitUrl } from "@/lib/fab-constants/strategyPortraits";
 import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
 import { applySideboardToDeck, applySideboardToInventory } from "@/lib/utils/matchup-gallery";
+import { getUnconfiguredMatchupTiles } from "@/lib/utils/matchup-tiles";
 import { findExistingMatchupToEdit } from "@/lib/utils/matchup-edit-mode";
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
 
@@ -183,8 +184,8 @@ function ConfigPanel({
               <Save className="h-3 w-3" />{editingHeroId ? 'Update' : 'Save'}
             </span>
           )}
-          {/* Cancel link in collapsed bar when editing */}
-          {collapsed && editingHeroId && onCancel && (
+          {/* Cancel link in collapsed bar — always exits back to the tile grid */}
+          {collapsed && onCancel && (
             <span
               onClick={(e) => { e.stopPropagation(); onCancel(); }}
               className="text-[10px] font-medium text-gray-400 hover:text-gray-200 flex items-center gap-0.5"
@@ -594,6 +595,26 @@ export default function DeckMatchupsDialog({
     setEditingHeroId(matchup.heroId);
   };
 
+  // Jump into the editor pre-filled for a hero with no matchup yet
+  const startNewMatchup = (heroId: string) => {
+    setFormHeroId(heroId);
+    setFormTurnOrder(null);
+    setFormNotes("");
+    setFormSideboardIn([]);
+    setFormSideboardOut([]);
+    setEditingHeroId(null);
+    setActiveTab("add");
+  };
+
+  // Portrait resolution shared by configured + unconfigured tiles: stylized
+  // portrait first, hero card art as fallback (needs zoom to fill the tile).
+  const resolveTilePortrait = (heroId: string): { portrait: string | null; cardArt: string | null } => {
+    if (heroId === CORE_HERO_ID) return { portrait: null, cardArt: null };
+    const stylized = getHeroPortraitUrl(heroId) || getStrategyPortraitUrl(heroId);
+    const cardArt = !stylized ? heroCardImages?.get(heroId) ?? null : null;
+    return { portrait: stylized || cardArt, cardArt };
+  };
+
   const handleSave = async () => {
     // Validation
     if (!formHeroId) {
@@ -790,7 +811,9 @@ export default function DeckMatchupsDialog({
           if (val === "matchups" && editingHeroId) resetForm();
           setActiveTab(val);
         }} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          {/* Mobile: the tile grid IS the interface — tiles open the editor,
+              and the editor's Cancel returns here, so the tab bar only renders sm+ */}
+          <TabsList className="w-full grid-cols-2 hidden sm:grid">
             <TabsTrigger value="matchups">
               Matchups ({matchups.length})
             </TabsTrigger>
@@ -801,7 +824,7 @@ export default function DeckMatchupsDialog({
 
           {/* Existing Matchups List */}
           <TabsContent value="matchups" className="space-y-3">
-            <div className="flex justify-end">
+            <div className="flex justify-end max-sm:hidden">
               <Button
                 size="sm"
                 variant="outline"
@@ -812,10 +835,6 @@ export default function DeckMatchupsDialog({
             </div>
             {loading && matchups.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
-            ) : matchups.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">
-                No matchups configured yet.
-              </p>
             ) : (
               (() => {
                 // Flat grid — sorted: Core first, then strategy presets, then heroes by class then name.
@@ -838,18 +857,23 @@ export default function DeckMatchupsDialog({
                   return getHeroDisplayName(a.heroId).localeCompare(getHeroDisplayName(b.heroId));
                 });
 
+                // Every other legal opponent in this format gets a tile too —
+                // tap the pencil to start a plan without going through Add New.
+                const unconfigured = getUnconfiguredMatchupTiles(matchups, HERO_OPTIONS, {
+                  coreId: CORE_HERO_ID,
+                  strategyIds: Object.keys(STRATEGY_MATCHUP_IDS),
+                });
+
+                const tileGridCls = "grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1";
+
                 return (
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-1">
+                  <>
+                  {sorted.length > 0 && (
+                  <div className={tileGridCls}>
                     {sorted.map((matchup) => {
                         const isCore = matchup.heroId === CORE_HERO_ID;
                         const isStrategy = !!STRATEGY_MATCHUP_IDS[matchup.heroId];
-                        const stylizedPortrait = !isCore
-                          ? (getHeroPortraitUrl(matchup.heroId) || getStrategyPortraitUrl(matchup.heroId))
-                          : null;
-                        const cardArt = !isCore && !stylizedPortrait
-                          ? heroCardImages?.get(matchup.heroId) ?? null
-                          : null;
-                        const portrait = stylizedPortrait || cardArt;
+                        const { portrait, cardArt } = resolveTilePortrait(matchup.heroId);
                         const hasSideboard =
                           matchup.sideboard.out.length > 0 || matchup.sideboard.in.length > 0;
                         const heroName = getHeroDisplayName(matchup.heroId);
@@ -967,6 +991,89 @@ export default function DeckMatchupsDialog({
                         );
                       })}
                   </div>
+                  )}
+
+                  {unconfigured.length > 0 && (
+                    <div className={sorted.length > 0 ? "mt-4" : undefined}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                          No plan yet
+                        </p>
+                        <span className="flex-1 border-t border-gray-300 dark:border-gray-800" aria-hidden="true" />
+                      </div>
+                      <div className={tileGridCls}>
+                        {unconfigured.map((heroId) => {
+                          const isCore = heroId === CORE_HERO_ID;
+                          const isStrategy = !!STRATEGY_MATCHUP_IDS[heroId];
+                          const { portrait, cardArt } = resolveTilePortrait(heroId);
+                          const heroName = getHeroDisplayName(heroId);
+                          const shortName = heroName.split(",")[0];
+                          return (
+                            <div key={heroId} className="flex flex-col gap-1.5">
+                              {/* Tile — dashed border + grayscale portrait mark "no plan yet" */}
+                              <div className="relative aspect-[3/4] rounded overflow-hidden border-2 border-dashed border-gray-700 bg-gray-900">
+                                {portrait ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={portrait}
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                    className={
+                                      "w-full h-full object-cover object-top grayscale " +
+                                      (cardArt ? "scale-[1.45] origin-top" : "")
+                                    }
+                                  />
+                                ) : isCore ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-blue-950/40">
+                                    <Bookmark className="h-8 w-8 text-blue-400" aria-hidden="true" />
+                                  </div>
+                                ) : isStrategy ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-purple-950/40">
+                                    <Swords className="h-8 w-8 text-purple-400" aria-hidden="true" />
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-800 text-xs text-gray-300 px-1 text-center">
+                                    {shortName}
+                                  </div>
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-1 pt-2 pb-0.5">
+                                  <p className="text-xs font-bold text-white truncate text-left leading-tight">
+                                    {isCore ? "Core" : shortName}
+                                  </p>
+                                  <p className="text-[10px] text-gray-300 leading-tight truncate">No plan</p>
+                                </div>
+                              </div>
+                              {/* Action row mirrors configured tiles: fight (disabled) + edit */}
+                              <div className="grid grid-cols-2 gap-0.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled
+                                  aria-label={`No sideboard plan for ${heroName} yet`}
+                                  title="No sideboard plan yet"
+                                  className="h-7 w-full p-0 border-amber-500/50 text-amber-400 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                >
+                                  <Swords className="h-3.5 w-3.5" aria-hidden="true" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => startNewMatchup(heroId)}
+                                  aria-label={`Create matchup plan for ${heroName}`}
+                                  title="Create matchup plan"
+                                  className="h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  </>
                 );
               })()
             )}
@@ -988,7 +1095,7 @@ export default function DeckMatchupsDialog({
                 deckFormat={deck?.format}
                 loading={loading}
                 onSave={handleSave}
-                onCancel={editingHeroId ? resetForm : undefined}
+                onCancel={resetForm}
               />
 
               {/* Sideboard editor — takes majority of space */}
@@ -1449,7 +1556,8 @@ export default function DeckMatchupsDialog({
             : 'max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto'
         }
       >
-        <DialogHeader className={gallery ? 'sr-only' : undefined}>
+        {/* Phones get straight to the tiles — header stays for screen readers */}
+        <DialogHeader className={gallery ? 'sr-only' : 'max-sm:sr-only'}>
           <DialogTitle className="flex items-center gap-2">
             <Swords className="h-5 w-5" />
             Matchup Sideboards
