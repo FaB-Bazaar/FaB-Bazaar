@@ -262,8 +262,9 @@ run_script "01" "API-Only Enhancer - Download and enhance cards from GitHub" \
 # Step 02: TCG Price Enhancer
 ################################################################################
 
+# DB_FLAG so feed_overrides are read from the same DB the run targets.
 run_script "02" "TCG Price Enhancer - Add price data from TCGPlayer API" \
-    "python3 002_tcg_price_enhancer.py ${CARDS_ENHANCED} --output ${CARDS_WITH_PRICES}"
+    "python3 002_tcg_price_enhancer.py ${CARDS_ENHANCED} --output ${CARDS_WITH_PRICES} ${DB_FLAG}"
 
 ################################################################################
 # Step 03: Cards to Printings Transformer

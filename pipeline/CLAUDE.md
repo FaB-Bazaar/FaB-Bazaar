@@ -5,6 +5,18 @@ Runs in the `fabbazaar-pipeline` container. See root CLAUDE.md "Data Architectur
 
 ## Gotchas
 
+- **feed_overrides patch the feed BEFORE pricing** — step 02 reads the
+  `feed_overrides` Postgres table (migration 0095; managed at `/admin/feed-overrides`)
+  at run start and patches matching feed printings (whitelisted `tcgplayer_*` fields
+  only) before the tcgcsv price lookup. This is THE mechanism for correcting bad
+  upstream fab-cube data (e.g. a wrong product id): never hand-edit `printings` —
+  005/006 clobber it nightly, and prices are computed from the FEED's product id in
+  JSON-land, so a DB-only fix never reprices. Step 02 now takes `${DB_FLAG}`
+  (`--production`) so overrides come from the DB the run targets; a failed overrides
+  fetch warns and continues (one uncorrected night beats killing the run). 02 also
+  warns on any printing whose product id ≠ the id in its own `tcgplayer_url` — those
+  are override candidates (this signature mispriced SEA015-017 at $100+/1st Strike).
+
 - **Card source branch gets deleted on set release** — `001_api_only_enhancer.py`
   `cards_url` should track the-fab-cube's `develop` branch. Upcoming-set branches
   (e.g. `omens-of-the-third-age`) are temporary; fab-cube deletes them at launch,

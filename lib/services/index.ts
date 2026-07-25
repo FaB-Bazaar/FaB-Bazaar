@@ -60,6 +60,7 @@ import { PostgresCuratorHeroAssignmentService } from './postgres/curator-heroes/
 import { PostgresCustomTokenCardService } from './postgres/custom-token-cards/PostgresCustomTokenCardService';
 import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameResultsService';
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
+import { PostgresFeedOverridesService } from './postgres/feed-overrides/PostgresFeedOverridesService';
 import { PostgresMcpUsageService } from './postgres/mcp-usage/PostgresMcpUsageService';
 import { PostgresLlmUsageService } from './postgres/llm-usage/PostgresLlmUsageService';
 import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
@@ -592,6 +593,7 @@ export const bannedCardsService = ServiceFactory.bannedCardsService;
 export const dailyMoversService = ServiceFactory.dailyMoversService;
 export const leagueService = ServiceFactory.leagueService;
 export const collectibleService = ServiceFactory.collectibleService;
+export const feedOverridesService = new PostgresFeedOverridesService();
 
 
 /**

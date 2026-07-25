@@ -1796,3 +1796,26 @@ export const userCollectibleMarksRelations = relations(userCollectibleMarks, ({ 
     references: [collectibles.id],
   }),
 }));
+
+// Manual corrections to the fab-cube upstream feed. Applied by pipeline step
+// 002 to the feed BEFORE price lookup, so corrected tcgplayer ids flow through
+// pricing, snapshots, and the 005 upsert with no locked-column special-casing.
+// edition/foiling NULL = match any; comparisons are case-insensitive.
+// set_fields keys are whitelisted by the service layer AND the pipeline
+// (tcgplayer_product_id / tcgplayer_url / tcgplayer_subtype_name).
+// See migration 0095.
+export const feedOverrides = pgTable('feed_overrides', {
+  id: text('id').primaryKey(),
+  collectorNumber: text('collector_number').notNull(),
+  edition: text('edition'),
+  foiling: text('foiling'),
+  language: text('language').default('en').notNull(),
+  setFields: jsonb('set_fields').notNull(),
+  reason: text('reason').notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  activeIdx: index('idx_feed_overrides_active').on(table.active),
+}));

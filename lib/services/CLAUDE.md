@@ -47,6 +47,7 @@ import { userService, binderService, printingsService } from "@/lib/services"
 | `gameResultsService` | Game result tracking |
 | `siteSettingsService` | Site-wide key-value config. Generic `get<T>(key)` / `set(key, value)` |
 | `collectibleService` | Non-card collectible catalog (playmats) + per-user have/want marks |
+| `feedOverridesService` | Manual fab-cube feed corrections (`feed_overrides` table) consumed by pipeline step 02. `setFields` whitelist: `tcgplayer_product_id`/`url`/`subtype_name` — keep in sync with `ALLOWED_OVERRIDE_FIELDS` in `pipeline/scripts/002_tcg_price_enhancer.py` |
 | `setsService` | Set metadata reference data (`sets` table = source of truth: names, release dates/order, category/tier, core-set flag). After editing the table, regenerate the client snapshot: `npx tsx --env-file=.env.local scripts/generate-set-constants.ts` |
 
 ## Testing

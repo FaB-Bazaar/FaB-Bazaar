@@ -8,6 +8,8 @@ FIXED: Now handles sets like GEM that have multiple group IDs (GEM Pack 1 & GEM 
 
 import json
 import csv
+import os
+import re
 import requests
 from datetime import datetime
 import time
@@ -21,9 +23,156 @@ TCGCSV_HEADERS = {
     "Accept": "application/json",
 }
 
+# ─── feed_overrides: manual corrections to the fab-cube feed (migration 0095) ──
+#
+# The upstream feed occasionally ships a wrong tcgplayer_product_id (e.g. the
+# SEA015-017 Cloud City Steamboat cycle pointed at 1st Strike products, so a
+# bulk rare displayed a $128.70 single-listing ask). Overrides patch the feed
+# HERE, before price lookup, so corrected ids flow through pricing, snapshots,
+# and the 005 upsert with no downstream special-casing.
+
+# Only feed-identity fields may be overridden. Prices are computed from the
+# (corrected) product id — never overridden directly.
+ALLOWED_OVERRIDE_FIELDS = (
+    'tcgplayer_product_id',
+    'tcgplayer_url',
+    'tcgplayer_subtype_name',
+)
+
+_PRODUCT_URL_RE = re.compile(r'/product/(\d+)')
+
+
+def _extract_cards(cards_data):
+    """Return the list of card dicts from any of the JSON shapes 002 accepts."""
+    if isinstance(cards_data, list):
+        return cards_data
+    if isinstance(cards_data, dict):
+        if 'cards' in cards_data:
+            return cards_data['cards']
+        if 'data' in cards_data:
+            return cards_data['data']
+        return list(cards_data.values())
+    return None
+
+
+def resolve_overrides_db_url(use_production):
+    """Same env selection as 005/006 (POSTGRES_URL_PROD / POSTGRES_URL_STAGING),
+    with a POSTGRES_URL fallback for ad-hoc local runs."""
+    from dotenv import load_dotenv
+    load_dotenv()
+    if use_production:
+        return os.getenv('POSTGRES_URL_PROD')
+    return os.getenv('POSTGRES_URL_STAGING') or os.getenv('POSTGRES_URL')
+
+
+def fetch_feed_overrides(db_url):
+    """Fetch active feed_overrides rows. Raises on connection/query failure —
+    callers decide whether that's fatal (the pipeline warns and continues)."""
+    import psycopg2
+    import psycopg2.extras
+
+    conn = psycopg2.connect(db_url)
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT collector_number, edition, foiling, language, set_fields "
+                "FROM feed_overrides WHERE active = true"
+            )
+            return [dict(row) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def apply_feed_overrides(cards, overrides):
+    """Patch feed printings in place from override rows.
+
+    Matching: collector_number vs printing['id'], case-insensitive;
+    edition/foiling None = match any. The feed is English-only, so non-'en'
+    overrides are skipped. Only ALLOWED_OVERRIDE_FIELDS keys are applied.
+    """
+    stats = {
+        'applied': 0,
+        'applied_details': [],
+        'unmatched': [],
+        'skipped_non_english': 0,
+        'ignored_fields': [],
+    }
+    for override in overrides:
+        if (override.get('language') or 'en').lower() != 'en':
+            stats['skipped_non_english'] += 1
+            continue
+
+        collector = str(override.get('collector_number') or '').upper()
+        edition = override.get('edition')
+        foiling = override.get('foiling')
+        requested = override.get('set_fields') or {}
+        fields = {k: v for k, v in requested.items() if k in ALLOWED_OVERRIDE_FIELDS}
+        for key in requested:
+            if key not in ALLOWED_OVERRIDE_FIELDS and key not in stats['ignored_fields']:
+                stats['ignored_fields'].append(key)
+
+        matched = False
+        for card in cards:
+            for printing in card.get('printings', []):
+                if str(printing.get('id') or '').upper() != collector:
+                    continue
+                if edition is not None and str(printing.get('edition') or '').upper() != edition.upper():
+                    continue
+                if foiling is not None and str(printing.get('foiling') or '').upper() != foiling.upper():
+                    continue
+                printing.update(fields)
+                matched = True
+                stats['applied'] += 1
+                stats['applied_details'].append({
+                    'card_name': card.get('name'),
+                    'printing_id': printing.get('id'),
+                    'edition': printing.get('edition'),
+                    'foiling': printing.get('foiling'),
+                    'fields': fields,
+                })
+        if not matched:
+            stats['unmatched'].append({
+                'collector_number': override.get('collector_number'),
+                'edition': edition,
+                'foiling': foiling,
+            })
+    return stats
+
+
+def collect_product_url_mismatches(cards):
+    """Flag printings whose tcgplayer_product_id disagrees with the product id
+    embedded in their own tcgplayer_url — the signature of the upstream feed
+    bug that mispriced SEA015-017. Report-only: a human decides which side is
+    right and records a feed_overrides row."""
+    mismatches = []
+    for card in cards:
+        for printing in card.get('printings', []):
+            product_id = printing.get('tcgplayer_product_id')
+            url = printing.get('tcgplayer_url') or ''
+            if not product_id:
+                continue
+            match = _PRODUCT_URL_RE.search(url)
+            if not match:
+                continue
+            if str(product_id) != match.group(1):
+                mismatches.append({
+                    'card_name': card.get('name'),
+                    'printing_id': printing.get('id'),
+                    'edition': printing.get('edition'),
+                    'foiling': printing.get('foiling'),
+                    'product_id': str(product_id),
+                    'url_product_id': match.group(1),
+                })
+    return mismatches
+
+
 class TCGPriceEnhancer:
-    def __init__(self):
+    def __init__(self, use_production=False, apply_overrides=True):
         self.group_csv_file = "fab_set_with_db.csv"
+        self.use_production = use_production
+        self.apply_overrides = apply_overrides
+        self.override_stats = None
+        self.product_url_mismatches = []
         
         # Statistics tracking
         self.stats = {
@@ -244,17 +393,8 @@ class TCGPriceEnhancer:
         """Add price data to printings that have tcgplayer_product_id"""
         print("💰 Enhancing cards with price data...")
         
-        # Handle different JSON structures
-        if isinstance(cards_data, list):
-            cards = cards_data
-        elif isinstance(cards_data, dict):
-            if 'cards' in cards_data:
-                cards = cards_data['cards']
-            elif 'data' in cards_data:
-                cards = cards_data['data']
-            else:
-                cards = list(cards_data.values())
-        else:
+        cards = _extract_cards(cards_data)
+        if cards is None:
             print(f"❌ Unexpected JSON structure")
             return False
         
@@ -386,6 +526,8 @@ class TCGPriceEnhancer:
             'timestamp': datetime.now().isoformat(),
             'enhancement_type': 'tcg_price_data',
             'statistics': self.stats,
+            'feed_overrides': self.override_stats,
+            'product_url_mismatches': self.product_url_mismatches,
             'changes_made': self.changes_made,
             'missing_items': self.missing_items,
             'price_fields_added': [
@@ -468,9 +610,56 @@ class TCGPriceEnhancer:
         if cards_data is None:
             print("❌ Failed to load enhanced cards")
             return False
-        
+
         print()
-        
+
+        # Step 2b: Apply feed_overrides (manual feed corrections) BEFORE price
+        # lookup, so corrected tcgplayer ids drive pricing. A failed fetch
+        # warns and continues — one night of uncorrected feed beats killing
+        # the run before images/snapshots (and step 08 fails anyway if the DB
+        # is truly down).
+        cards = _extract_cards(cards_data)
+        if cards is None:
+            print("❌ Unexpected JSON structure")
+            return False
+        if self.apply_overrides:
+            db_url = resolve_overrides_db_url(self.use_production)
+            if not db_url:
+                print("⚠️  feed_overrides: no database URL configured — skipping overrides")
+            else:
+                try:
+                    overrides = fetch_feed_overrides(db_url)
+                    self.override_stats = apply_feed_overrides(cards, overrides)
+                    s = self.override_stats
+                    print(f"🔧 feed_overrides: {len(overrides)} active row(s), "
+                          f"{s['applied']} printing(s) patched")
+                    for detail in s['applied_details']:
+                        print(f"   ✏️  {detail['printing_id']} {detail['foiling']}: {detail['fields']}")
+                    if s['unmatched']:
+                        print(f"   ⚠️  {len(s['unmatched'])} override(s) matched nothing: "
+                              f"{[u['collector_number'] for u in s['unmatched']]}")
+                    if s['ignored_fields']:
+                        print(f"   ⚠️  ignored non-whitelisted field(s): {s['ignored_fields']}")
+                except Exception as e:
+                    print(f"⚠️  feed_overrides: fetch failed ({e}) — continuing WITHOUT overrides")
+        else:
+            print("⏭️  feed_overrides: disabled (--no-overrides)")
+
+        # Step 2c: Warn on feed rows whose product id disagrees with their own
+        # URL — the upstream bug signature that mispriced SEA015-017. Runs
+        # AFTER overrides so corrected rows no longer flag.
+        self.product_url_mismatches = collect_product_url_mismatches(cards)
+        if self.product_url_mismatches:
+            print(f"⚠️  {len(self.product_url_mismatches)} printing(s) have "
+                  f"tcgplayer_product_id ≠ id in tcgplayer_url (candidates for feed_overrides):")
+            for m in self.product_url_mismatches[:20]:
+                print(f"   ❓ {m['printing_id']} {m['foiling']} {m['card_name']}: "
+                      f"product_id={m['product_id']} url={m['url_product_id']}")
+            if len(self.product_url_mismatches) > 20:
+                print(f"   … and {len(self.product_url_mismatches) - 20} more (see price report)")
+
+        print()
+
         # Step 3: Fetch price data
         price_data = self.fetch_price_data_for_groups(group_mappings)
         if not price_data:
@@ -512,7 +701,11 @@ def main():
     parser = argparse.ArgumentParser(description='TCG Price Enhancer - Add price data to enhanced FAB cards (Fixed for multiple groups)')
     parser.add_argument('input', help='Input enhanced cards JSON file')
     parser.add_argument('--output', '-o', help='Output filename (default: input_with_tcg_prices.json)')
-    
+    parser.add_argument('--production', action='store_true',
+                        help='Read feed_overrides from the production DB (default: staging)')
+    parser.add_argument('--no-overrides', action='store_true',
+                        help='Skip applying feed_overrides from the database')
+
     args = parser.parse_args()
     
     # Generate default output filename if not provided
@@ -522,7 +715,8 @@ def main():
         else:
             args.output = args.input + '_with_tcg_prices.json'
     
-    enhancer = TCGPriceEnhancer()
+    enhancer = TCGPriceEnhancer(use_production=args.production,
+                                apply_overrides=not args.no_overrides)
     success = enhancer.run(args.input, args.output)
     
     exit(0 if success else 1)
