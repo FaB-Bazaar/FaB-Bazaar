@@ -12,6 +12,7 @@ import {
   buildMobileSearchFilters, isKitBrowse, hasChipFilters,
   type MobileSearchFilterState,
 } from "@/lib/deck-flow/mobile-search-filters";
+import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck-flow/search-pagination";
 import { TYPE_CHIPS, GENERIC_CHIP } from "@/lib/search/card-filter-chips";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
@@ -68,6 +69,13 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   // Each result is the card's first printing, augmented with allPrintings[]
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // Raw (ungrouped) printings accumulated across pages — regrouped after each
+  // fetch so a card whose printings straddle a page boundary stays one row.
+  const rawResultsRef = useRef<any[]>([]);
+  const lastSearchFiltersRef = useRef<any>(null);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchPages, setSearchPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   // Optimistic deltas while API call is in-flight
   const [deltas, setDeltas] = useState<Map<string, number>>(new Map());
   // Currently selected printing per card_unique_id
@@ -185,30 +193,48 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
     try {
       const result = await searchClient.searchPrintingsPost(filters, { limit: 96, show: "all" });
       if (result.success && result.data?.printings) {
-        // Group all printings by card_unique_id; keep one row per card with allPrintings[]
-        const groups = new Map<string, { base: any; all: any[] }>();
-        for (const p of result.data.printings) {
-          const uid = p.card_unique_id;
-          if (!groups.has(uid)) groups.set(uid, { base: p, all: [] });
-          groups.get(uid)!.all.push(p);
-        }
-        const grouped = Array.from(groups.values()).map(g => ({
-          ...g.base,
-          allPrintings: sortPrintings(g.all),
-        }));
-        setResults(grouped);
+        lastSearchFiltersRef.current = filters;
+        rawResultsRef.current = result.data.printings;
+        setSearchPage(result.data.page ?? 1);
+        setSearchPages(result.data.pages ?? 1);
+        setResults(groupSearchPrintings(rawResultsRef.current));
         // Reset selected printings to defaults on new search
         setSelectedPrintings(new Map());
       } else {
+        rawResultsRef.current = [];
         setResults([]);
+        setSearchPages(1);
       }
     } catch {
+      rawResultsRef.current = [];
       setResults([]);
+      setSearchPages(1);
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heroFilter, formatCode, effectiveFilters.source, effectiveFilters.pitches, effectiveFilters.type, kitIdsKey]);
+
+  // Fetch the next page with the same filters and merge into the grid.
+  // Selected printings and optimistic deltas survive — only a NEW search resets them.
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !lastSearchFiltersRef.current) return;
+    setLoadingMore(true);
+    try {
+      const result = await searchClient.searchPrintingsPost(
+        lastSearchFiltersRef.current,
+        { limit: 96, page: searchPage + 1, show: "all" },
+      );
+      if (result.success && result.data?.printings) {
+        rawResultsRef.current = [...rawResultsRef.current, ...result.data.printings];
+        setSearchPage(result.data.page ?? searchPage + 1);
+        setSearchPages(result.data.pages ?? searchPages);
+        setResults(groupSearchPrintings(rawResultsRef.current));
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, searchPage, searchPages]);
 
   const kitMode = isKitBrowse(effectiveFilters, debouncedQuery, hasKits);
 
@@ -645,6 +671,25 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
             view === "grid"
               ? renderTile(card, { key: card.card_unique_id })
               : renderRow(card, { key: card.card_unique_id })
+          )}
+
+          {!loading && results.length > 0 && hasMoreSearchPages(searchPage, searchPages) && (
+            <div className="col-span-2 py-3">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-base text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading…
+                  </>
+                ) : (
+                  <>Load more <span className="text-gray-500 dark:text-gray-400">(page {searchPage} of {searchPages})</span></>
+                )}
+              </button>
+            </div>
           )}
 
           {!loading && results.length === 0 && (
