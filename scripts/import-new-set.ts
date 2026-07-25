@@ -43,6 +43,7 @@ import {
   type ProvisionalPrintingRow,
 } from '@/lib/import/cardvault-ingest';
 import { toTalisharCardId } from '@/lib/talishar/cardId';
+import { planIngestImageIds } from '@/lib/images/ingest-image-ids';
 
 const argv = process.argv.slice(2);
 const arg = (f: string, d?: string) => argv.find((a) => a.startsWith(`${f}=`))?.split('=').slice(1).join('=') ?? d;
@@ -332,38 +333,53 @@ async function politeFetch(url: string): Promise<any> {
   //    this run), so a partially-failed upload pass heals on the next re-run.
   //    Existing Cloudflare images are never re-uploaded ('already exists' =
   //    success; rows already on imagedelivery are excluded by the query).
+  //    Ids are the DETERMINISTIC LSS-style keys (lib/images/ingest-image-ids),
+  //    so no migrate-image-ids.ts pass is needed after a fresh ingest.
   if (UPLOAD_IMAGES) {
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
     const apiToken = process.env.CLOUDFLARE_API_TOKEN;
     if (!accountId || !apiToken) throw new Error('CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN required for --upload-images');
+    const KEY_COLS = `printing_id, image_url, lss_print_code, language, collector_number,
+                      foiling, edition, is_extended_art, is_front_face, art_variations`;
     const pending = await pool.query(
-      `SELECT printing_id, image_url, lss_print_code FROM printings
+      `SELECT ${KEY_COLS} FROM printings
         WHERE set = $1 AND image_url IS NOT NULL AND image_url NOT LIKE '%imagedelivery%'`,
       [setLower]);
-    console.log(`images: ${pending.rowCount} pending upload`);
+    // Collision domain = every row sharing a pending collector number (the
+    // deterministic key is collector_number + suffixes), including rows
+    // already on Cloudflare — they own their key and veto a new claim.
+    const universe = pending.rowCount
+      ? (await pool.query(
+          `SELECT ${KEY_COLS} FROM printings WHERE collector_number = ANY($1::text[])`,
+          [[...new Set(pending.rows.map((r: any) => r.collector_number))]])).rows
+      : [];
+    const plan = planIngestImageIds(pending.rows, universe);
+    const fellBack = plan.filter((p) => p.fallback);
+    console.log(`images: ${plan.length} pending upload` +
+      (fellBack.length ? ` (${fellBack.length} keeping printing_id ids: ${fellBack[0].reason})` : ''));
     let uploaded = 0, failed = 0;
-    for (const p of pending.rows) {
+    for (const p of plan) {
       try {
-        const imgRes = await fetch(p.image_url);
-        if (!imgRes.ok) { failed++; console.warn(`   ⚠ image fetch failed for ${p.lss_print_code ?? p.printing_id} (${imgRes.status})`); continue; }
+        const imgRes = await fetch(p.source_url);
+        if (!imgRes.ok) { failed++; console.warn(`   ⚠ image fetch failed for ${p.image_id} (${imgRes.status})`); continue; }
         const form = new FormData();
-        form.append('file', await imgRes.blob(), `${p.printing_id}.webp`);
-        form.append('id', p.printing_id);
+        form.append('file', await imgRes.blob(), `${p.image_id}.webp`);
+        form.append('id', p.image_id);
         const cfRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`,
           { method: 'POST', headers: { Authorization: `Bearer ${apiToken}` }, body: form });
         const cfJson: any = await cfRes.json();
         const exists = (cfJson.errors ?? []).some((e: any) => e.code === 5409 || /already exists/i.test(e.message));
         if ((cfRes.ok && cfJson.success) || exists) {
           await pool.query('UPDATE printings SET image_url = $1 WHERE printing_id = $2',
-            [`${CF_BASE}/${p.printing_id}/public`, p.printing_id]);
+            [`${CF_BASE}/${p.image_id}/public`, p.printing_id]);
           uploaded++;
         } else {
           failed++;
-          console.warn(`   ⚠ Cloudflare upload failed for ${p.lss_print_code ?? p.printing_id}: ${JSON.stringify(cfJson.errors)}`);
+          console.warn(`   ⚠ Cloudflare upload failed for ${p.image_id}: ${JSON.stringify(cfJson.errors)}`);
         }
       } catch (e: any) {
         failed++;
-        console.warn(`   ⚠ upload error for ${p.lss_print_code ?? p.printing_id}: ${e?.message?.slice(0, 80)}`);
+        console.warn(`   ⚠ upload error for ${p.image_id}: ${e?.message?.slice(0, 80)}`);
       }
       await sleep(500);
     }
