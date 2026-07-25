@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useIsTouchDevice } from "@/components/ui/use-client-env";
 import { useToast } from "@/hooks/use-toast";
 import { filterSectionsByOwnership, countUnownedTiles, collectorModeToast } from "./collector-mode";
+import { classifyDeckZone } from "./deck-section-counts";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
 
@@ -598,13 +599,9 @@ interface DeckTileSectionData {
 }
 
 function classifyTileCard(printing: DeckPrintingDTO, category: DeckCategory): TileSectionKey {
-  const types = ((printing.printingDetails?.types as string[] | undefined) || []).map(t => t.toLowerCase());
-  // Detect hero by DB category or by card type (guards against hero stored under maindeck)
-  if (category === 'hero' || types.includes('hero')) return 'hero';
-  if (category === 'inventory') return 'inventory';
-  if (category === 'benched') return 'bench';
-  const isEvo = types.some(t => t === 'evo');
-  if (types.some(t => t === 'weapon') || (!isEvo && (types.some(t => t === 'equipment') || category === 'equipment'))) return 'equipment';
+  const zone = classifyDeckZone(printing, category);
+  if (zone === 'weapon' || zone === 'equipment') return 'equipment';
+  if (zone !== 'maindeck') return zone;
   const pitch = (printing.printingDetails?.pitch as number | undefined) ?? null;
   if (pitch === 1) return 'red';
   if (pitch === 2) return 'yellow';

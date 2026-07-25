@@ -17,6 +17,7 @@ import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrin
 import DeckLanguageConversionDialog from "@/components/deck/editor/DeckLanguageConversionDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
+import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
 import MobileBuildToolsPanel from "@/components/deck/editor/MobileBuildToolsPanel";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
@@ -386,7 +387,10 @@ export default function DeckEditorPage() {
       }
     }
     const averageCost = costCount > 0 ? costSum / costCount : null;
-    return { pitchCounts: { red, yellow, blue, none }, averageCost, ownedCount: owned, totalCount: total };
+    // Zone counts mirror the tiles-view classification (weapons split from
+    // equipment, hero excluded) — see deck-section-counts.ts.
+    const sectionCounts = computeDeckSectionCounts(d);
+    return { pitchCounts: { red, yellow, blue, none }, averageCost, ownedCount: owned, totalCount: total, sectionCounts };
   }, [state.deck, state.ownershipMap]);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -2217,6 +2221,21 @@ export default function DeckEditorPage() {
                           <span className="font-semibold tabular-nums">{railStats.averageCost.toFixed(1)}</span>
                         </span>
                       )}
+                      {[
+                        { label: 'Weapons', count: railStats.sectionCounts.weapon },
+                        { label: 'Equipment', count: railStats.sectionCounts.equipment },
+                        { label: 'Maindeck', count: railStats.sectionCounts.maindeck },
+                        { label: 'Inventory', count: railStats.sectionCounts.inventory },
+                        { label: 'Bench', count: railStats.sectionCounts.bench },
+                      ].filter(z => z.count > 0).map(z => (
+                        <span
+                          key={z.label}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200"
+                        >
+                          <span className="font-semibold tabular-nums">{z.count}</span>
+                          <span className="text-gray-600 dark:text-gray-400">{z.label}</span>
+                        </span>
+                      ))}
                     </div>
                     );
                   })()}
