@@ -2193,7 +2193,8 @@ export default function DeckEditorPage() {
                   {railStats && (() => {
                     const totalPitched = railStats.pitchCounts.red + railStats.pitchCounts.yellow + railStats.pitchCounts.blue + (railStats.pitchCounts.none ?? 0);
                     return (
-                    <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+                    <div className="mb-3 space-y-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
                       {totalPitched > 0 && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
                           <span className="font-semibold tabular-nums">{totalPitched}</span>
@@ -2221,21 +2222,31 @@ export default function DeckEditorPage() {
                           <span className="font-semibold tabular-nums">{railStats.averageCost.toFixed(1)}</span>
                         </span>
                       )}
-                      {[
+                    </div>
+                    {/* Zone counts on their own row so they read as a distinct group
+                        under the pitch/cost chips instead of one long line. */}
+                    {(() => {
+                      const zones = [
                         { label: 'Weapons', count: railStats.sectionCounts.weapon },
                         { label: 'Equipment', count: railStats.sectionCounts.equipment },
                         { label: 'Maindeck', count: railStats.sectionCounts.maindeck },
                         { label: 'Inventory', count: railStats.sectionCounts.inventory },
                         { label: 'Bench', count: railStats.sectionCounts.bench },
-                      ].filter(z => z.count > 0).map(z => (
-                        <span
-                          key={z.label}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200"
-                        >
-                          <span className="font-semibold tabular-nums">{z.count}</span>
-                          <span className="text-gray-600 dark:text-gray-400">{z.label}</span>
-                        </span>
-                      ))}
+                      ].filter(z => z.count > 0);
+                      return zones.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {zones.map(z => (
+                            <span
+                              key={z.label}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200"
+                            >
+                              <span className="font-semibold tabular-nums">{z.count}</span>
+                              <span className="text-gray-600 dark:text-gray-400">{z.label}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
                     </div>
                     );
                   })()}
