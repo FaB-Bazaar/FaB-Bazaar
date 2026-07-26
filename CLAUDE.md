@@ -31,6 +31,7 @@ Next.js 15 (App Router) trading card platform for Flesh and Blood TCG. PostgreSQ
 - **Service layer for all DB access** — never query the database directly; use services from `@/lib/services`
 - **Use `@/lib/fab-constants`** for card metadata (SET_MAP, FOILING_MAP, RARITY_MAP) — do NOT use metadataService
 - **Use `@/lib/utils/display-username`** for rendered usernames — `displayUsername()` strips internal `dc_`/`gh_` prefixes (OAuth-provisional usernames; the prefix marks "never chose a name" and prevents collisions), `profileHref()` URL-encodes profile links. Discord bot commands still need raw usernames. MCP tools: stripped names in message text, raw `username` + `display_username` in structured data (see who_has).
+- **`tcg_low` is THE price** — every displayed price, valuation total and "cheapest" comparison uses `tcg_low` (`tcgLow`). Never render `tcg_market` as an unlabeled price, and never sum it into a total. The two diverge hard (median low/market is 0.42 under $1, 0.99 above $100; low can also exceed market on a spiking card), so mixing fields across surfaces makes the same card look ~2× different depending on the page — the bug this rule exists to prevent. `tcg_market` is legitimate ONLY when the UI names it: the binder low/market/mid/high breakdown, `tcg-market-*` sort options, an export column, or an explicit `Market:` label. As a fallback write `tcg_low ?? tcg_market`, never the reverse. Applies to service aggregates too — deck `estimatedValue` and binder `totalValue` sum `tcgLow`.
 
 ## Deprecated/Removed Services
 
