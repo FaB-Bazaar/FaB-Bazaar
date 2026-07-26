@@ -541,15 +541,15 @@ function GroupedCardRow({
               </div>
               <div className="py-1">
                 {onEnlarge && group.imageUrl && (
-                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlarge(group.imageUrl!, group.displayName, primary.printingDetails?.other_face_image_url as string | undefined); dismiss(); }}>
+                  <button type="button" className="w-full text-left px-5 py-3 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlarge(group.imageUrl!, group.displayName, primary.printingDetails?.other_face_image_url as string | undefined); dismiss(); }}>
                     View card
                   </button>
                 )}
-                <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: primary.printingId, cardUniqueId: primary.printingDetails?.card_unique_id || '', cardName: group.displayName, category }); dismiss(); }}>
+                <button type="button" className="w-full text-left px-5 py-3 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: primary.printingId, cardUniqueId: primary.printingDetails?.card_unique_id || '', cardName: group.displayName, category }); dismiss(); }}>
                   Swap printing
                 </button>
                 {onMove && moveDests.map(({ to, label }) => (
-                  <button key={to} type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onMove(primary.printingId, category, to, qty); dismiss(); }}>
+                  <button key={to} type="button" className="w-full text-left px-5 py-3 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onMove(primary.printingId, category, to, qty); dismiss(); }}>
                     {label}
                   </button>
                 ))}
@@ -809,6 +809,9 @@ function DeckTileSection({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ tile: DeckTileCard; x: number; y: number } | null>(null);
   const [bottomSheet, setBottomSheet] = useState<{ tile: DeckTileCard } | null>(null);
+  /** Which face the sheet's art is showing — reset every time a sheet opens. */
+  const [sheetFaceFlipped, setSheetFaceFlipped] = useState(false);
+  useEffect(() => { setSheetFaceFlipped(false); }, [bottomSheet]);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHeroSection = section.key === 'hero';
   const isCollapsible = !!heroPortrait; // only the equipment section (which hosts the hero portrait)
@@ -1247,30 +1250,71 @@ function DeckTileSection({
         const dismiss = () => setBottomSheet(null);
         return (
           <>
-            <div className="fixed inset-0 z-50 bg-black/50" onClick={dismiss} />
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl">
+            <div className="fixed inset-0 z-[60] bg-black/50" onClick={dismiss} />
+            <div
+              data-testid="tile-sheet"
+              className="fixed bottom-0 left-0 right-0 z-[60] max-h-[92vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl"
+            >
               {/* Drag handle */}
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
               </div>
-              {/* Card header */}
-              <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+              {/* Card header — the art is big enough to read, so there is no
+                  "Enlarge image" row. Double-faced cards flip in place. */}
+              <div className="flex flex-col items-center gap-2 px-5 pt-2 pb-3 border-b border-gray-100 dark:border-gray-800">
                 {tile.imageUrl && (
-                  <img
-                    src={tile.imageUrl}
-                    alt={tile.name}
-                    className="w-10 rounded-lg border border-gray-300 dark:border-gray-700 flex-shrink-0"
-                    style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => tile.otherFaceImageUrl && setSheetFaceFlipped(f => !f)}
+                    className={cn(
+                      "relative rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      !tile.otherFaceImageUrl && "cursor-default",
+                    )}
+                    aria-label={tile.otherFaceImageUrl ? `Flip ${tile.name}` : tile.name}
+                  >
+                    <img
+                      data-testid="tile-sheet-art"
+                      src={sheetFaceFlipped && tile.otherFaceImageUrl ? tile.otherFaceImageUrl : tile.imageUrl}
+                      alt={tile.name}
+                      // Sized off the viewport so the whole sheet — art, counts,
+                      // actions, Cancel — fits without scrolling on a phone.
+                      className="h-[30vh] max-h-[260px] w-auto max-w-[56vw] rounded-xl border border-gray-300 dark:border-gray-700"
+                      style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
+                    />
+                    {tile.otherFaceImageUrl && (
+                      <span className="absolute bottom-1.5 right-1.5 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white">
+                        Flip
+                      </span>
+                    )}
+                  </button>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{tile.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{tile.category}</p>
+                <div className="flex items-center justify-center gap-2 max-w-full">
+                  <p data-testid="tile-sheet-name" className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                    {tile.name}
+                  </p>
+                  {tile.tcgplayerUrl && (
+                    <TcgAffiliateLink
+                      tcgplayerUrl={tile.tcgplayerUrl}
+                      feature="DeckTileBottomSheet"
+                      title={`Buy ${tile.name} on TCGplayer`}
+                      className="shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/tcgplayer-mono.png"
+                        alt=""
+                        aria-hidden="true"
+                        className="h-3 w-auto max-w-none shrink-0 invert dark:invert-0 opacity-70"
+                      />
+                      {tile.tcgLow != null && <span className="tabular-nums">${tile.tcgLow.toFixed(2)}</span>}
+                    </TcgAffiliateLink>
+                  )}
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{tile.category}</p>
               </div>
               {/* Qty controls */}
               {!isSpecial && (onRemoveTile || onAddTile) && (
-                <div className="flex items-center justify-center gap-6 px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-center gap-6 px-5 py-2.5 border-b border-gray-100 dark:border-gray-800">
                   <button
                     type="button"
                     disabled={!onRemoveTile}
@@ -1288,43 +1332,50 @@ function DeckTileSection({
                   >+</button>
                 </div>
               )}
-              {/* Action rows */}
+              {/* Collection actions — icons, one row. They add the card elsewhere
+                  rather than changing this deck, so they read differently from
+                  the rows below. */}
+              {(onAddToBinder || onAddToWants) && (
+                <div className="flex items-center justify-center gap-3 px-5 py-2 border-b border-gray-100 dark:border-gray-800">
+                  {onAddToBinder && (
+                    <button
+                      type="button"
+                      data-testid="tile-sheet-binder"
+                      aria-label={`Add ${tile.name} to a binder`}
+                      title="Add to binder"
+                      onClick={() => { onAddToBinder(tile.printingId, tile.name); dismiss(); }}
+                      className="flex h-11 w-16 items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      <BookOpen className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  )}
+                  {onAddToWants && (
+                    <button
+                      type="button"
+                      data-testid="tile-sheet-wants"
+                      aria-label={`Add ${tile.name} to wants`}
+                      title="Add to wants"
+                      onClick={() => { onAddToWants(tile.printingId, tile.name); dismiss(); }}
+                      className="flex h-11 w-16 items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    >
+                      <Heart className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Action rows — the things that change this deck */}
               <div className="py-1">
                 {!isSpecial && onSwap && (
-                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category }); dismiss(); }}>
+                  <button type="button" className="w-full text-left px-5 py-3 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category }); dismiss(); }}>
                     Swap printing
                   </button>
                 )}
                 {moveDests.map(({ to, label }) => (
-                  <button key={to} type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onMoveTo!(tile, to); dismiss(); }}>
+                  <button key={to} type="button" className="w-full text-left px-5 py-3 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onMoveTo!(tile, to); dismiss(); }}>
                     {label}
                   </button>
                 ))}
-                {onEnlargeImage && tile.imageUrl && (
-                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlargeImage(tile.imageUrl!, tile.name, tile.otherFaceImageUrl); dismiss(); }}>
-                    Enlarge image
-                  </button>
-                )}
-                {onAddToBinder && (
-                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onAddToBinder(tile.printingId, tile.name); dismiss(); }}>
-                    Add to binder
-                  </button>
-                )}
-                {onAddToWants && (
-                  <button type="button" className="w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onAddToWants(tile.printingId, tile.name); dismiss(); }}>
-                    Add to wants
-                  </button>
-                )}
-                {tile.tcgplayerUrl && (
-                  <TcgAffiliateLink
-                    tcgplayerUrl={tile.tcgplayerUrl}
-                    feature="DeckTileBottomSheet"
-                    onClick={dismiss}
-                    className="block w-full text-left px-5 py-3.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors"
-                  >
-                    View on TCGPlayer{tile.tcgLow != null ? ` · $${tile.tcgLow.toFixed(2)}` : ''}
-                  </TcgAffiliateLink>
-                )}
               </div>
               <div className="border-t border-gray-100 dark:border-gray-800">
                 <button type="button" className="w-full py-4 text-sm font-semibold text-gray-500 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={dismiss}>
@@ -1332,7 +1383,7 @@ function DeckTileSection({
                 </button>
               </div>
               {/* Safe area */}
-              <div className="h-safe-bottom" style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+              <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
             </div>
           </>
         );
