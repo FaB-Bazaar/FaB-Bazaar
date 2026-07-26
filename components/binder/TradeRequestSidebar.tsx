@@ -201,12 +201,12 @@ const TradeCardItem: React.FC<TradeCardItemProps> = ({
               )}
             </div>
             
-            {card.printingDetails?.tcg_market && (
+            {card.printingDetails?.tcg_low && (
               <div className="mt-2 text-xs text-muted-foreground">
-                Est. ${(card.printingDetails.tcg_market * card.quantity).toFixed(2)}
+                Est. ${(card.printingDetails.tcg_low * card.quantity).toFixed(2)}
                 {card.quantity > 1 && (
                   <span className="ml-1">
-                    (${card.printingDetails.tcg_market.toFixed(2)} each)
+                    (${card.printingDetails.tcg_low.toFixed(2)} each)
                   </span>
                 )}
               </div>
@@ -395,7 +395,7 @@ const handleCopyToClipboard = async () => {
         const notifyCards = validCardsToSend.map(card => ({
           name: card.display_name || card.name,
           quantity: card.quantity,
-          value: card.tcg_market ?? card.printingDetails?.tcg_market ?? 0,
+          value: card.tcg_low ?? card.printingDetails?.tcg_low ?? 0,
         }));
         notifyTradeInterest(binderId, {
           cards: notifyCards,
@@ -427,7 +427,7 @@ const handleCopyToClipboard = async () => {
 };
 
   const totalEstimatedValue = cardsWithPriority.reduce((total, card) => {
-    const price = card.printingDetails?.tcg_market || 0;
+    const price = card.printingDetails?.tcg_low || 0;
     return total + (price * card.quantity);
   }, 0);
 

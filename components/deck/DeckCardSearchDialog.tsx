@@ -453,8 +453,8 @@ export default function DeckCardSearchDialog({
   // Find the cheapest printing
   function getCheapestPrinting(printings: any[]) {
     return printings
-      .filter((p) => p.tcgMarket && !isNaN(Number(p.tcgMarket)))
-      .reduce((min, p) => (min === null || Number(p.tcgMarket) < Number(min.tcgMarket) ? p : min), null)
+      .filter((p) => p.tcgLow && !isNaN(Number(p.tcgLow)))
+      .reduce((min, p) => (min === null || Number(p.tcgLow) < Number(min.tcgLow) ? p : min), null)
   }
 
   // Get printing display name
@@ -789,9 +789,9 @@ export default function DeckCardSearchDialog({
                                   {card.printings.length} printings • 
                                   {(() => {
                                     const cheapest = getCheapestPrinting(card.printings);
-                                    if (cheapest?.tcgMarket) {
+                                    if (cheapest?.tcgLow) {
                                       const displayName = getPrintingShortDisplay(cheapest);
-                                      return ` Cheapest: ${displayName} ($${Number(cheapest.tcgMarket).toFixed(2)})`;
+                                      return ` Cheapest: ${displayName} ($${Number(cheapest.tcgLow).toFixed(2)})`;
                                     }
                                     return '';
                                   })()}
@@ -927,11 +927,11 @@ export default function DeckCardSearchDialog({
                       <SelectItem value="cheapest">
                         Cheapest option {(() => {
                           const cheapest = getCheapestPrinting(selectedCard.printings || []);
-                          return cheapest?.tcgMarket ? `($${Number(cheapest.tcgMarket).toFixed(2)})` : '';
+                          return cheapest?.tcgLow ? `($${Number(cheapest.tcgLow).toFixed(2)})` : '';
                         })()}
                       </SelectItem>
                       {(selectedCard.printings || []).map((printing: any) => {
-                        const price = printing.tcgMarket ? `$${Number(printing.tcgMarket).toFixed(2)}` : '';
+                        const price = printing.tcgLow ? `$${Number(printing.tcgLow).toFixed(2)}` : '';
                         const displayName = getPrintingShortDisplay(printing);
                         const rarityDisplay = getRarityDisplayName(printing.rarity);
                         const ownership = ownershipData.get(printing.printing_id);

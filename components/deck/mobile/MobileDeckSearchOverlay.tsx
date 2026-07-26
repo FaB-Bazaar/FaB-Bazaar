@@ -260,10 +260,10 @@ export default function MobileDeckSearchOverlay({
 
   const getCheapestPrinting = (printings: any[]) => {
     return printings
-      .filter((p) => p.tcgMarket && !isNaN(Number(p.tcgMarket)))
+      .filter((p) => p.tcgLow && !isNaN(Number(p.tcgLow)))
       .reduce(
         (min, p) =>
-          min === null || Number(p.tcgMarket) < Number(min.tcgMarket) ? p : min,
+          min === null || Number(p.tcgLow) < Number(min.tcgLow) ? p : min,
         null
       );
   };
@@ -518,9 +518,9 @@ export default function MobileDeckSearchOverlay({
                       <div className="text-xs text-gray-500">
                         {card.printings?.length || 0} prints
                       </div>
-                      {cheapest?.tcgMarket && (
+                      {cheapest?.tcgLow && (
                         <div className="text-xs text-green-600 font-semibold">
-                          ${Number(cheapest.tcgMarket).toFixed(2)}
+                          ${Number(cheapest.tcgLow).toFixed(2)}
                         </div>
                       )}
                       {ownedTotal > 0 && (
@@ -652,8 +652,8 @@ export default function MobileDeckSearchOverlay({
                       );
                       const edition = getEditionDisplayName(printing.edition);
                       const foiling = getFoilingDisplayName(printing.foiling);
-                      const price = printing.tcgMarket
-                        ? `$${Number(printing.tcgMarket).toFixed(2)}`
+                      const price = printing.tcgLow
+                        ? `$${Number(printing.tcgLow).toFixed(2)}`
                         : "";
                       const ownership = ownershipData.get(printing.printing_id);
                       const isSelected =

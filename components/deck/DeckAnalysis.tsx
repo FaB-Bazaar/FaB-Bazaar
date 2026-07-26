@@ -35,6 +35,7 @@ interface DeckAnalysisProps {
         cost?: number;
         pitch?: number;
         tcg_market?: number;
+        tcg_low?: number;
         rarity?: string;
       };
     }>;
@@ -51,6 +52,7 @@ interface DeckAnalysisProps {
         cost?: number;
         pitch?: number;
         tcg_market?: number;
+        tcg_low?: number;
         rarity?: string;
       };
     }>;
@@ -67,6 +69,7 @@ interface DeckAnalysisProps {
         cost?: number;
         pitch?: number;
         tcg_market?: number;
+        tcg_low?: number;
         rarity?: string;
       };
     }>;
@@ -83,6 +86,7 @@ interface DeckAnalysisProps {
         cost?: number;
         pitch?: number;
         tcg_market?: number;
+        tcg_low?: number;
         rarity?: string;
       };
     }>;
@@ -99,6 +103,7 @@ interface DeckAnalysisProps {
         cost?: number;
         pitch?: number;
         tcg_market?: number;
+        tcg_low?: number;
         rarity?: string;
       };
     }>;
@@ -115,6 +120,7 @@ interface DeckAnalysisProps {
         cost?: number;
         pitch?: number;
         tcg_market?: number;
+        tcg_low?: number;
         rarity?: string;
       };
     }>;
@@ -252,11 +258,11 @@ export default function DeckAnalysis({ deck, stats, loading = false }: DeckAnaly
 
   // Get most expensive cards
   const expensiveCards = allPrintings
-    .filter(card => card.printingDetails?.tcg_market)
+    .filter(card => card.printingDetails?.tcg_low)
     .map(card => ({
       ...card,
       id: card.printingId, // Add id for key prop
-      totalValue: (card.printingDetails?.tcg_market || 0) * card.quantity
+      totalValue: (card.printingDetails?.tcg_low || 0) * card.quantity
     }))
     .sort((a, b) => b.totalValue - a.totalValue)
     .slice(0, 5);
@@ -542,7 +548,7 @@ export default function DeckAnalysis({ deck, stats, loading = false }: DeckAnaly
                     <div>
                       <div className="font-medium">{card.name}</div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {card.quantity}x @ ${(card.printingDetails?.tcg_market || 0).toFixed(2)}
+                        {card.quantity}x @ ${(card.printingDetails?.tcg_low || 0).toFixed(2)}
                       </div>
                     </div>
                   </div>

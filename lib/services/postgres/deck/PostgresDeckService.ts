@@ -205,7 +205,7 @@ export class PostgresDeckService implements IDeckService {
     const totalCards = allCards
       .filter(dc => dc.category !== 'hero' && dc.category !== 'benched')
       .reduce((sum, dc) => sum + (dc.quantity || 0), 0);
-    const estimatedValue = allCards.reduce((sum, dc) => sum + (dc.tcgMarket || 0) * (dc.quantity || 0), 0);
+    const estimatedValue = allCards.reduce((sum, dc) => sum + (dc.tcgLow || 0) * (dc.quantity || 0), 0);
 
     return {
       _id: deckRow.id,
@@ -1026,7 +1026,7 @@ export class PostgresDeckService implements IDeckService {
         .select({
           deckId: deckCards.deckId,
           totalCards: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} NOT IN ('hero','benched') THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
-          estimatedValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * COALESCE(${printings.tcgMarket}, 0)), 0)::real`,
+          estimatedValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * COALESCE(${printings.tcgLow}, 0)), 0)::real`,
           heroCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           equipmentCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'equipment' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           maindeckCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'maindeck' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
@@ -1230,7 +1230,7 @@ export class PostgresDeckService implements IDeckService {
           creatorUsername: users.username,
           creatorDisplayUsername: users.displayUsername,
           cardCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} != 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
-          totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
+          totalValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgLow}), 0)::real`,
           heroPrintingId: sql<string>`MIN(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.printingId} END)`,
           matchupCount: sql<number>`COALESCE(jsonb_array_length(${decks.metadata}->'matchups'), 0)::int`,
         })
@@ -2294,10 +2294,11 @@ export class PostgresDeckService implements IDeckService {
         } else if (rawOwned > 0) {
           const shortage = needed - rawOwned;
           partialItems.push({ ...baseItem, shortage });
-          estimatedMissingValue += shortage * (tcgMarket ?? 0);
+          // Price gaps at tcgLow (market as fallback) to match missingCost below.
+          estimatedMissingValue += shortage * (tcgLow ?? tcgMarket ?? 0);
         } else {
           missingItems.push({ ...baseItem, tcgMarket: tcgMarket ?? undefined });
-          estimatedMissingValue += needed * (tcgMarket ?? 0);
+          estimatedMissingValue += needed * (tcgLow ?? tcgMarket ?? 0);
         }
       }
 
@@ -2421,7 +2422,7 @@ export class PostgresDeckService implements IDeckService {
         .select({
           totalCards: sql<number>`COALESCE(SUM(${deckCards.quantity}), 0)::int`,
           uniqueCards: sql<number>`COUNT(DISTINCT ${deckCards.printingId})::int`,
-          estimatedValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgMarket}), 0)::real`,
+          estimatedValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * ${printings.tcgLow}), 0)::real`,
           heroCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'hero' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           equipmentCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'equipment' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,
           maindeckCount: sql<number>`COALESCE(SUM(CASE WHEN ${deckCards.category} = 'maindeck' THEN ${deckCards.quantity} ELSE 0 END), 0)::int`,

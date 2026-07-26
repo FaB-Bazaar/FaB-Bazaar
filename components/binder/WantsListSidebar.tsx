@@ -190,12 +190,12 @@ const WantsCardItem: React.FC<WantsCardItemProps> = ({
             </div>
             
             {/* Price Display */}
-            {card.printingDetails?.tcg_market && (
+            {card.printingDetails?.tcg_low && (
               <div className="mt-2 text-xs text-muted-foreground">
-                Est. ${(card.printingDetails.tcg_market * card.quantity).toFixed(2)}
+                Est. ${(card.printingDetails.tcg_low * card.quantity).toFixed(2)}
                 {card.quantity > 1 && (
                   <span className="ml-1">
-                    (${card.printingDetails.tcg_market.toFixed(2)} each)
+                    (${card.printingDetails.tcg_low.toFixed(2)} each)
                   </span>
                 )}
               </div>
@@ -301,7 +301,7 @@ export const WantsListSidebar: React.FC<WantsListSidebarProps> = ({
   };
 
   const totalEstimatedValue = cardsWithPriority.reduce((total, card) => {
-    const price = card.printingDetails?.tcg_market || 0;
+    const price = card.printingDetails?.tcg_low || 0;
     return total + (price * card.quantity);
   }, 0);
 

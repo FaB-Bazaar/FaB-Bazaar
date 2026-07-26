@@ -26,6 +26,7 @@ interface CardDetails {
   foiling: string;
   edition: string;
   tcg_market?: number;
+  tcg_low?: number;
   image_url?: string;
 }
 
@@ -52,7 +53,7 @@ export function CarouselSectionEditor({ cards, onChange }: CarouselSectionEditor
     const foiling = foilingMap[card.foiling] || card.foiling?.toUpperCase() || 'Unknown';
     const edition = editionMap[card.edition] || card.edition?.toUpperCase() || 'Unknown';
     const setCode = card.collector_number || 'Unknown';
-    const price = card.tcg_market ? `$${Number(card.tcg_market).toFixed(2)}` : 'No price';
+    const price = card.tcg_low ? `$${Number(card.tcg_low).toFixed(2)}` : 'No price';
     
     return {
       foiling,

@@ -130,7 +130,7 @@ export const MobileTradeRequestSheet = ({
         const notifyCards = validCardsToSend.map((card: any) => ({
           name: card.display_name || card.name,
           quantity: card.quantity,
-          value: card.tcg_market ?? card.printingDetails?.tcg_market ?? 0,
+          value: card.tcg_low ?? card.printingDetails?.tcg_low ?? 0,
         }));
         notifyTradeInterest(binderId, {
           cards: notifyCards,

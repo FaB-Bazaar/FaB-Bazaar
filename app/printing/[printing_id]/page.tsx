@@ -451,7 +451,7 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                               const isCurrent = pid === resolvedParams.printing_id
                               const setName = SET_MAP[p.set as keyof typeof SET_MAP] || p.set?.toUpperCase() || 'Unknown'
                               const foilingName = FOILING_MAP[p.foiling as keyof typeof FOILING_MAP] || p.foiling || ''
-                              const priceLabel = (p.tcg_market != null && p.tcg_market > 0) ? formatPrice(p.tcg_market) : null
+                              const priceLabel = (p.tcg_low != null && p.tcg_low > 0) ? formatPrice(p.tcg_low) : null
                               // Short edition labels — always shown when non-normal so 1st vs Unl is visible at a glance
                               const editionShort: string | null = (() => {
                                 const e = (p.edition || '').toLowerCase()
@@ -623,9 +623,9 @@ export default function PrintingDetailPage({ params }: PrintingDetailPageProps) 
                     title={`Buy ${rail.display_name || rail.name} on TCGplayer`}
                   >
                     <span>Buy on TCGplayer</span>
-                    {rail.tcg_market != null && rail.tcg_market > 0 && (
+                    {rail.tcg_low != null && rail.tcg_low > 0 && (
                       <span className="ml-auto tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {formatPrice(rail.tcg_market)}
+                        {formatPrice(rail.tcg_low)}
                       </span>
                     )}
                   </TcgAffiliateLink>

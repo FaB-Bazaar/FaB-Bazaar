@@ -37,7 +37,7 @@ export function MdxEditor({ value, onChange, rows = 15 }: MdxEditorProps) {
     const foiling = foilingMap[printing.foiling] || printing.foiling?.toUpperCase() || 'Unknown';
     const edition = editionMap[printing.edition] || printing.edition?.toUpperCase() || 'Unknown';
     const setCode = printing.collector_number || printing.set?.toUpperCase() || 'Unknown';
-    const price = printing.tcg_market ? `${Number(printing.tcg_market).toFixed(2)}` : 'No price';
+    const price = printing.tcg_low ? `${Number(printing.tcg_low).toFixed(2)}` : 'No price';
     
     return {
       foiling,
