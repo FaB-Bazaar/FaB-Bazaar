@@ -526,7 +526,7 @@ function GroupedCardRow({
           <>
             <div className="fixed inset-0 z-50 bg-black/50" onClick={dismiss} />
             <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl">
-              <div className="flex justify-center pt-3 pb-1">
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
                 <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
               </div>
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-800">
@@ -557,12 +557,12 @@ function GroupedCardRow({
                   Remove from deck
                 </button>
               </div>
-              <div className="border-t border-gray-100 dark:border-gray-800">
+              <div className="shrink-0 border-t border-gray-100 dark:border-gray-800">
                 <button type="button" className="w-full py-3 text-sm font-semibold text-gray-500 dark:text-gray-400 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={dismiss}>
                   Cancel
                 </button>
               </div>
-              <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+              <div className="shrink-0" style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
             </div>
           </>
         );
@@ -1253,7 +1253,11 @@ function DeckTileSection({
             <div className="fixed inset-0 z-[60] bg-black/50" onClick={dismiss} />
             <div
               data-testid="tile-sheet"
-              className="fixed bottom-0 left-0 right-0 z-[60] max-h-[92vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl"
+              // svh, not vh: on iOS Safari vh measures the toolbar-hidden height, so a
+              // vh-sized sheet runs past the bottom of what is actually on screen.
+              // Flex column + a shrinkable art band keeps every action reachable no
+              // matter how short the viewport is.
+              className="fixed bottom-0 left-0 right-0 z-[60] flex flex-col max-h-[92svh] overflow-y-auto bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl"
             >
               {/* Drag handle */}
               <div className="flex justify-center pt-3 pb-1">
@@ -1261,13 +1265,13 @@ function DeckTileSection({
               </div>
               {/* Card header — the art is big enough to read, so there is no
                   "Enlarge image" row. Double-faced cards flip in place. */}
-              <div className="flex flex-col items-center gap-1.5 px-5 pt-1 pb-2 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex shrink-0 flex-col items-center gap-1.5 px-5 pt-1 pb-2 border-b border-gray-100 dark:border-gray-800">
                 {tile.imageUrl && (
                   <button
                     type="button"
                     onClick={() => tile.otherFaceImageUrl && setSheetFaceFlipped(f => !f)}
                     className={cn(
-                      "relative rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                      "relative flex items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                       !tile.otherFaceImageUrl && "cursor-default",
                     )}
                     aria-label={tile.otherFaceImageUrl ? `Flip ${tile.name}` : tile.name}
@@ -1276,9 +1280,11 @@ function DeckTileSection({
                       data-testid="tile-sheet-art"
                       src={sheetFaceFlipped && tile.otherFaceImageUrl ? tile.otherFaceImageUrl : tile.imageUrl}
                       alt={tile.name}
-                      // Sized off the viewport so the whole sheet — art, counts,
-                      // actions, Cancel — fits without scrolling on a phone.
-                      className="h-[45vh] max-h-[420px] w-auto max-w-[72vw] rounded-xl border border-gray-300 dark:border-gray-700"
+                      // Whatever the viewport has left after the fixed bands (~330px
+                      // of counts, actions and Cancel). svh, not vh: iOS Safari's vh
+                      // measures the toolbar-hidden height, which overshoots the screen
+                      // and pushes the actions out of reach.
+                      className="h-[calc(92svh-330px)] min-h-[170px] max-h-[420px] w-auto max-w-[72vw] rounded-xl border border-gray-300 dark:border-gray-700"
                       style={{ aspectRatio: '63/88', objectFit: 'cover', objectPosition: 'top' }}
                     />
                     {tile.otherFaceImageUrl && (
@@ -1288,7 +1294,7 @@ function DeckTileSection({
                     )}
                   </button>
                 )}
-                <div className="flex items-center justify-center gap-2 max-w-full">
+                <div className="flex shrink-0 items-center justify-center gap-2 max-w-full">
                   <p data-testid="tile-sheet-name" className="text-base font-semibold text-gray-900 dark:text-white truncate">
                     {tile.name}
                   </p>
@@ -1310,13 +1316,13 @@ function DeckTileSection({
                     </TcgAffiliateLink>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{tile.category}</p>
+                <p className="shrink-0 text-xs text-gray-500 dark:text-gray-400 capitalize">{tile.category}</p>
               </div>
               {/* One control band: copies in this deck on the left, "put it
                   somewhere else" on the right. Sharing a row is what buys the
                   card art its height — two bands cost 57px each. */}
               {(!isSpecial && (onRemoveTile || onAddTile) || onAddToBinder || onAddToWants) && (
-                <div className="flex items-center justify-center gap-4 px-5 py-2 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex shrink-0 items-center justify-center gap-4 px-5 py-2 border-b border-gray-100 dark:border-gray-800">
                   {!isSpecial && (onRemoveTile || onAddTile) && (
                     <div className="flex items-center gap-4">
                       <button
@@ -1371,7 +1377,7 @@ function DeckTileSection({
               )}
 
               {/* Action rows — the things that change this deck */}
-              <div className="py-1">
+              <div className="shrink-0 py-1">
                 {!isSpecial && onSwap && (
                   <button type="button" className="w-full text-left px-5 py-2.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onSwap({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category }); dismiss(); }}>
                     Swap printing
