@@ -5,7 +5,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { RotateCcw, AlertCircle, List, LayoutGrid } from "lucide-react";
 import { toTalisharIdentifier } from "@/lib/utils";
-import { BreakdownChip, type Breakdown } from "./MatchupBreakdownChip";
+import { BreakdownChip, EMPTY_BREAKDOWN, type Breakdown } from "./MatchupBreakdownChip";
+import { bumpBreakdown } from "@/lib/utils/matchup-breakdown";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -592,33 +593,31 @@ export default function MatchupSideboardEditor({
     const dc = deckCounts.get(c.talisharId) ?? c.originalDeckCount;
     return sum + Math.max(0, dc - c.originalDeckCount);
   }, 0);
-  const mainTotal = allCards.reduce((s, c) => s + c.originalDeckCount, 0);
+  // The hero is excluded: it can't be swapped (its tiles are non-interactive), so
+  // counting it only made this headline disagree with the Main chip beside it.
+  const mainTotal = allCards.reduce((s, c) => s + (c.section === 'hero' ? 0 : c.originalDeckCount), 0);
   const postSwap = mainTotal - totalOut + totalIn;
   const maxSize = format === 'Silver Age' ? 40 : null;
-  const isOverLimit = maxSize !== null && postSwap > maxSize;
   const hasChanges = totalOut > 0 || totalIn > 0;
 
-  // Per-section breakdown for live counts (post-swap deck + remaining inventory)
-  const computeBreakdown = (getCount: (c: GroupedCard) => number) => {
-    let red = 0, yellow = 0, blue = 0, equipment = 0, hero = 0, other = 0;
+  // Per-section breakdown for live counts (post-swap deck + remaining inventory).
+  // Shares bumpBreakdown with the summary view so the two can't drift on what
+  // `total` and `library` mean.
+  const computeBreakdown = (getCount: (c: GroupedCard) => number): Breakdown => {
+    const bd: Breakdown = { ...EMPTY_BREAKDOWN };
     for (const c of allCards) {
       const n = getCount(c);
       if (n <= 0) continue;
-      switch (c.section) {
-        case 'red':       red += n; break;
-        case 'yellow':    yellow += n; break;
-        case 'blue':      blue += n; break;
-        case 'equipment':
-        case 'weapon':    equipment += n; break;
-        case 'hero':      hero += n; break;
-        default:          other += n;
-      }
+      bumpBreakdown(bd, c.section === 'weapon' ? 'equipment' : c.section, n);
     }
-    const library = red + yellow + blue + other;
-    return { red, yellow, blue, equipment, hero, other, library, total: library + equipment + hero };
+    return bd;
   };
   const mainBd = computeBreakdown(c => deckCounts.get(c.talisharId) ?? c.originalDeckCount);
   const invBd  = computeBreakdown(c => c.available - (deckCounts.get(c.talisharId) ?? c.originalDeckCount));
+
+  // The deck-size limit governs the library (main deck), not equipment or the
+  // hero — same rule DeckEditorSidebar enforces with its 60-card minimum.
+  const isOverLimit = maxSize !== null && mainBd.library > maxSize;
 
   const handleHover = (card: GroupedCard, e: React.MouseEvent) => {
     if (card.imageUrl) setHovered({ imageUrl: card.imageUrl, x: e.clientX, y: e.clientY });

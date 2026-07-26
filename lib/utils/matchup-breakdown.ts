@@ -54,20 +54,32 @@ function getSection(p: AnyPrinting, defaultCat: "hero" | "equipment" | "maindeck
   return "unpitched";
 }
 
-function bump(bd: Breakdown, section: Section, n: number) {
+/**
+ * Add `n` cards of `section` to a breakdown.
+ *
+ * `total` is what the chip prints before the pips, so it must equal the sum of
+ * the pips: red + yellow + blue + other + equipment. The hero is tracked but
+ * excluded — it is never rendered and never sideboardable (hero tiles are
+ * non-interactive), so counting it made the chip read "66 · 25 12 23 ⛊5".
+ *
+ * `library` is main-deck cards only (no equipment, no hero) — the number the
+ * 60+ / Silver Age 40 deck-size limit governs. See DeckEditorSidebar, which
+ * defines library as maindeck + inventory with equipment capped separately.
+ */
+export function bumpBreakdown(bd: Breakdown, section: Section, n: number) {
   switch (section) {
     case "red":       bd.red += n; break;
     case "yellow":    bd.yellow += n; break;
     case "blue":      bd.blue += n; break;
     case "equipment": bd.equipment += n; break;
-    case "hero":      bd.hero += n; break;
+    case "hero":      bd.hero += n; return;   // counted, but outside total/library
     default:          bd.other += n;
   }
   bd.total += n;
-  if (section === "red" || section === "yellow" || section === "blue" || section === "unpitched") {
-    bd.library += n;
-  }
+  if (section !== "equipment") bd.library += n;
 }
+
+const bump = bumpBreakdown;
 
 interface DeckLike {
   hero?: AnyPrinting[];
