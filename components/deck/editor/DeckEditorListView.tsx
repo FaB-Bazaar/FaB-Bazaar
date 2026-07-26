@@ -7,7 +7,7 @@ import { RarityIcon } from "@/components/shared/RarityIcon";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check, Sword, Swords, Shield, Zap, Hourglass, Package, HardHat, Axe, Gem, Crown, Circle } from "lucide-react";
+import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
@@ -17,14 +17,7 @@ import { filterSectionsByOwnership, countUnownedTiles, collectorModeToast } from
 import { classifyDeckZone } from "./deck-section-counts";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
-import {
-  NON_CLASS_TYPE_KEYWORDS,
-  deriveCardType,
-  mobileTypeKey,
-  mobileTypeLabel,
-  ownershipStatus,
-  type MobileTypeKey,
-} from "./mobile-list-row";
+import { NON_CLASS_TYPE_KEYWORDS, deriveCardType, ownershipStatus } from "./mobile-list-row";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -183,36 +176,6 @@ function getPrintingLabel(p: any): string {
   return parts.join(" ");
 }
 
-// ─── Mobile type icon ─────────────────────────────────────────────────────────
-// Single sword = attack, crossed swords = attack reaction (a clash), shield =
-// defense reaction/block, bolt = action, hourglass = instant.
-const TYPE_ICON: Record<MobileTypeKey, React.ComponentType<{ className?: string }>> = {
-  'attack': Sword,
-  'attack-reaction': Swords,
-  'defense-reaction': Shield,
-  'action': Zap,
-  'instant': Hourglass,
-  'item': Package,
-  'equipment': HardHat,
-  'weapon': Axe,
-  'resource': Gem,
-  'hero': Crown,
-  'token': Circle,
-};
-
-function MobileTypeIcon({ displayType }: { displayType: string }) {
-  const key = mobileTypeKey(displayType);
-  if (!key) return <span className="w-4 flex-shrink-0" aria-hidden="true" />;
-  const Icon = TYPE_ICON[key];
-  const label = mobileTypeLabel(key);
-  return (
-    <span className="w-4 flex-shrink-0 flex justify-center" title={label}>
-      <Icon className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-      <span className="sr-only">{label}</span>
-    </span>
-  );
-}
-
 // ─── Hover image preview ──────────────────────────────────────────────────────
 
 function HoverImagePreview({ imageUrl, cardName, onDismiss }: { imageUrl: string; cardName: string; onDismiss?: () => void }) {
@@ -369,12 +332,6 @@ function GroupedCardRow({
           )}
         </div>
 
-        {/* Type icon — mobile only; sm+ gets the text column below.
-            Cost, P/D, class, rarity and keywords live in the tap-through sheet. */}
-        <span className="sm:hidden flex-shrink-0" data-testid="list-row-mobile-type">
-          <MobileTypeIcon displayType={summary.type} />
-        </span>
-
         {/* Type */}
         <span className="hidden md:block text-xs text-gray-500 dark:text-gray-400 w-24 truncate flex-shrink-0" title={summary.type || 'Type'}>
           {summary.type || '—'}
@@ -406,7 +363,7 @@ function GroupedCardRow({
         <span className="hidden sm:block text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
 
         {/* Ownership */}
-        <span className="w-4 text-center flex-shrink-0">
+        <span className="w-4 text-center flex-shrink-0" data-testid="list-row-own">
           {ownership === 'full' && <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90" title="Owned">✓</span>}
           {ownership === 'partial' && <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>}
         </span>

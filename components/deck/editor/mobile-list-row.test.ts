@@ -1,10 +1,13 @@
 // components/deck/editor/mobile-list-row.test.ts
 //
-// Pure helpers behind the concise mobile deck-list row (qty · pitch · name · type icon · owned).
+// Pure helpers behind the concise mobile deck-list row (qty · pitch · name · owned).
 // Type arrays below are real values from the `cards.types` column.
+//
+// deriveCardType feeds the DESKTOP Type column — the mobile row shows no type cue
+// (the icon set was pulled 2026-07 pending a better one).
 
 import { describe, it, expect } from 'vitest';
-import { deriveCardType, mobileTypeKey, mobileTypeLabel, ownershipStatus } from './mobile-list-row';
+import { deriveCardType, ownershipStatus } from './mobile-list-row';
 
 describe('deriveCardType', () => {
   it('reads Attack from an "action - attack" card', () => {
@@ -45,45 +48,6 @@ describe('deriveCardType', () => {
   it('returns an empty string for an unrecognised type list', () => {
     expect(deriveCardType(['generic', 'placeholder card'])).toBe('');
     expect(deriveCardType([])).toBe('');
-  });
-});
-
-describe('mobileTypeKey', () => {
-  it('maps each derived type to its icon key', () => {
-    expect(mobileTypeKey('Attack')).toBe('attack');
-    expect(mobileTypeKey('Atk Reaction')).toBe('attack-reaction');
-    expect(mobileTypeKey('Def Reaction')).toBe('defense-reaction');
-    expect(mobileTypeKey('Block')).toBe('defense-reaction');
-    expect(mobileTypeKey('Action')).toBe('action');
-    expect(mobileTypeKey('Instant')).toBe('instant');
-    expect(mobileTypeKey('Item')).toBe('item');
-    expect(mobileTypeKey('Equipment')).toBe('equipment');
-    expect(mobileTypeKey('Weapon')).toBe('weapon');
-    expect(mobileTypeKey('Resource')).toBe('resource');
-    expect(mobileTypeKey('Hero')).toBe('hero');
-    expect(mobileTypeKey('Token')).toBe('token');
-  });
-
-  it('returns null for an unknown or empty type so the row can render nothing', () => {
-    expect(mobileTypeKey('')).toBeNull();
-    expect(mobileTypeKey('Landmark')).toBeNull();
-  });
-});
-
-describe('mobileTypeLabel', () => {
-  // The icon is the only type cue in the row, so it needs a text alternative (WCAG 1.1.1).
-  it('gives every icon key a spoken label', () => {
-    expect(mobileTypeLabel('attack')).toBe('Attack');
-    expect(mobileTypeLabel('attack-reaction')).toBe('Attack Reaction');
-    expect(mobileTypeLabel('defense-reaction')).toBe('Defense Reaction');
-    expect(mobileTypeLabel('action')).toBe('Action');
-    expect(mobileTypeLabel('instant')).toBe('Instant');
-    expect(mobileTypeLabel('item')).toBe('Item');
-    expect(mobileTypeLabel('equipment')).toBe('Equipment');
-    expect(mobileTypeLabel('weapon')).toBe('Weapon');
-    expect(mobileTypeLabel('resource')).toBe('Resource');
-    expect(mobileTypeLabel('hero')).toBe('Hero');
-    expect(mobileTypeLabel('token')).toBe('Token');
   });
 });
 

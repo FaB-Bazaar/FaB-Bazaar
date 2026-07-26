@@ -1,8 +1,11 @@
 // components/deck/editor/mobile-list-row.ts
 //
 // Pure helpers behind the concise mobile deck-list row: quantity, pitch colour,
-// name, type icon, ownership tick — and nothing else. Everything the row drops
-// (class, cost, P/D, rarity, keywords, printings) lives in the tap-through sheet.
+// name, ownership tick — and nothing else. Everything the row drops (type, class,
+// cost, P/D, rarity, keywords, printings) lives in the tap-through sheet.
+//
+// deriveCardType still feeds the DESKTOP Type column; the mobile row carries no
+// type cue since the icon set was pulled (2026-07).
 
 /** Type words that describe structure, not class/talent. Kept in sync with the desktop row. */
 const NON_CLASS_TYPE_KEYWORDS = new Set([
@@ -34,49 +37,6 @@ export function deriveCardType(types: string[] | null | undefined): string {
   if (lower.includes('resource')) return 'Resource';
   if (lower.includes('item')) return 'Item';
   return '';
-}
-
-export type MobileTypeKey =
-  | 'attack' | 'attack-reaction' | 'defense-reaction' | 'action' | 'instant'
-  | 'item' | 'equipment' | 'weapon' | 'resource' | 'hero' | 'token';
-
-const TYPE_KEY_BY_DISPLAY: Record<string, MobileTypeKey> = {
-  'Attack': 'attack',
-  'Atk Reaction': 'attack-reaction',
-  'Def Reaction': 'defense-reaction',
-  'Block': 'defense-reaction',
-  'Action': 'action',
-  'Instant': 'instant',
-  'Item': 'item',
-  'Equipment': 'equipment',
-  'Weapon': 'weapon',
-  'Resource': 'resource',
-  'Hero': 'hero',
-  'Token': 'token',
-};
-
-/** Icon key for a derived display type, or null when there's nothing worth drawing. */
-export function mobileTypeKey(displayType: string): MobileTypeKey | null {
-  return TYPE_KEY_BY_DISPLAY[displayType] ?? null;
-}
-
-const TYPE_LABELS: Record<MobileTypeKey, string> = {
-  'attack': 'Attack',
-  'attack-reaction': 'Attack Reaction',
-  'defense-reaction': 'Defense Reaction',
-  'action': 'Action',
-  'instant': 'Instant',
-  'item': 'Item',
-  'equipment': 'Equipment',
-  'weapon': 'Weapon',
-  'resource': 'Resource',
-  'hero': 'Hero',
-  'token': 'Token',
-};
-
-/** Text alternative for the icon — it is the row's only type cue (WCAG 1.1.1). */
-export function mobileTypeLabel(key: MobileTypeKey): string {
-  return TYPE_LABELS[key];
 }
 
 export type OwnershipStatus = 'untracked' | 'full' | 'partial';
