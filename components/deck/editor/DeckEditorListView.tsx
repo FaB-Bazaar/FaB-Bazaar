@@ -7,7 +7,7 @@ import { RarityIcon } from "@/components/shared/RarityIcon";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check } from "lucide-react";
+import { X, Trash2, ArrowLeftRight, Loader2, Archive, ArchiveRestore, ChevronRight, ChevronDown, List, LayoutGrid, Plus, ZoomIn, BookmarkPlus, BookOpen, Layers, Heart, Eye, Info, Check, Sword, Swords, Shield, Zap, Hourglass, Package, HardHat, Axe, Gem, Crown, Circle } from "lucide-react";
 import { TcgAffiliateLink } from "@/components/tracking";
 import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,14 @@ import { filterSectionsByOwnership, countUnownedTiles, collectorModeToast } from
 import { classifyDeckZone } from "./deck-section-counts";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
+import {
+  NON_CLASS_TYPE_KEYWORDS,
+  deriveCardType,
+  mobileTypeKey,
+  mobileTypeLabel,
+  ownershipStatus,
+  type MobileTypeKey,
+} from "./mobile-list-row";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -124,13 +132,6 @@ function extrasFromPrintingDetails(pd: any): HoverExtras {
 
 // Extract data-dense list view fields from a printing (cost, P/D, type, class).
 // Card-level fields are identical across reprints, so we read from the first printing.
-const NON_CLASS_TYPE_KEYWORDS = new Set([
-  'hero', 'young', 'adult', 'token', 'demi-hero', 'evo',
-  'equipment', 'weapon', 'arms', 'head', 'chest', 'legs', 'off-hand',
-  'one handed', 'two handed', 'one-handed', 'two-handed',
-  'action', 'attack', 'instant', 'attack reaction', 'defense reaction',
-]);
-
 function getCardSummary(printingDetails: any): {
   cost: number | null;
   power: number | null;
@@ -144,18 +145,7 @@ function getCardSummary(printingDetails: any): {
     return { cost: null, power: null, defense: null, type: '', classLabel: '', rarityCode: null, keywords: [] };
   }
   const types: string[] = printingDetails.types || [];
-  const lower = types.map(t => t.toLowerCase());
-
-  let type = '';
-  if (lower.includes('hero')) type = 'Hero';
-  else if (lower.includes('weapon')) type = 'Weapon';
-  else if (lower.includes('equipment')) type = 'Equipment';
-  else if (lower.includes('attack reaction')) type = 'Atk Reaction';
-  else if (lower.includes('defense reaction')) type = 'Def Reaction';
-  else if (lower.includes('attack')) type = 'Attack';
-  else if (lower.includes('instant')) type = 'Instant';
-  else if (lower.includes('action')) type = 'Action';
-  else if (lower.includes('token')) type = 'Token';
+  const type = deriveCardType(types);
 
   // Class/talent: any type entry that isn't a structural keyword (e.g. "Lightning", "Wizard").
   const classWords = types.filter(t => !NON_CLASS_TYPE_KEYWORDS.has(t.toLowerCase()));
@@ -191,6 +181,36 @@ function getPrintingLabel(p: any): string {
   else if (p.foiling === "r") parts.push("RF");
   else if (p.foiling === "g") parts.push("GF");
   return parts.join(" ");
+}
+
+// ─── Mobile type icon ─────────────────────────────────────────────────────────
+// Single sword = attack, crossed swords = attack reaction (a clash), shield =
+// defense reaction/block, bolt = action, hourglass = instant.
+const TYPE_ICON: Record<MobileTypeKey, React.ComponentType<{ className?: string }>> = {
+  'attack': Sword,
+  'attack-reaction': Swords,
+  'defense-reaction': Shield,
+  'action': Zap,
+  'instant': Hourglass,
+  'item': Package,
+  'equipment': HardHat,
+  'weapon': Axe,
+  'resource': Gem,
+  'hero': Crown,
+  'token': Circle,
+};
+
+function MobileTypeIcon({ displayType }: { displayType: string }) {
+  const key = mobileTypeKey(displayType);
+  if (!key) return <span className="w-4 flex-shrink-0" aria-hidden="true" />;
+  const Icon = TYPE_ICON[key];
+  const label = mobileTypeLabel(key);
+  return (
+    <span className="w-4 flex-shrink-0 flex justify-center" title={label}>
+      <Icon className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
 }
 
 // ─── Hover image preview ──────────────────────────────────────────────────────
@@ -245,7 +265,7 @@ function GroupedCardRow({
 
   const totalOwned = group.printings.reduce((s, pr) => s + (ownershipMap.get(pr.printingId)?.owned ?? 0), 0);
   const hasOwnership = group.printings.some(pr => ownershipMap.has(pr.printingId));
-  const isFullyOwned = hasOwnership && totalOwned >= group.totalQty;
+  const ownership = ownershipStatus({ hasOwnership, totalOwned, totalQty: group.totalQty });
 
   const pitchClass = group.pitch ? PITCH_DOT_CLASS[group.pitch] : "bg-gray-300 dark:bg-gray-600";
 
@@ -296,8 +316,11 @@ function GroupedCardRow({
       {/* Group header — data-dense row.
           Stats hug the name on the left; Keywords absorb the remaining row width as flex-1. */}
       <div
+        data-testid="deck-list-row"
         className={cn(
-          "flex items-center gap-3 py-1.5 px-3 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
+          // Mobile is a fixed 32px scan row (qty · pitch · name · type · owned);
+          // sm+ keeps the data-dense desktop row.
+          "flex items-center gap-2 h-8 px-3 sm:gap-3 sm:h-auto sm:py-1.5 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
           isTouchDevice && category !== 'hero' && "cursor-pointer",
         )}
         onClick={isTouchDevice && category !== 'hero' ? () => setSheetOpen(true) : undefined}
@@ -307,10 +330,14 @@ function GroupedCardRow({
         }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
-        {/* Thumbnail — tap/click opens the full-card lightbox so it can be read */}
+        {/* Quantity — leads the row on mobile, trails the stats on desktop */}
+        <span className="order-first sm:order-none sm:hidden text-sm text-gray-600 dark:text-gray-300 tabular-nums w-5 text-right flex-shrink-0">{group.totalQty}×</span>
+
+        {/* Thumbnail — tap/click opens the full-card lightbox so it can be read.
+            Hidden on mobile: it is what forces the row past 32px. */}
         <button
           type="button"
-          className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="hidden sm:block w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           title="View card"
           aria-label={`View ${group.displayName}`}
           onClick={onEnlarge && group.imageUrl
@@ -321,6 +348,9 @@ function GroupedCardRow({
             src={group.imageUrl || "/cardback.webp"}
             alt={group.displayName}
             className="w-full h-full object-cover"
+            // The thumbnail is display:none below sm — lazy loading keeps a phone from
+            // fetching one card image per row for art it never paints.
+            loading="lazy"
           />
         </button>
 
@@ -333,15 +363,17 @@ function GroupedCardRow({
         <div className="flex-1 min-w-0 sm:flex-none sm:w-64">
           <div className="text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>{group.displayName}</div>
           {summary.classLabel && (
-            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
+            <div className="hidden sm:block text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
               {summary.classLabel}
             </div>
           )}
-          {/* Compact stat line — mobile only; the real Cost/P-D/Type columns are hidden below sm */}
-          <div className="sm:hidden mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums truncate" data-testid="list-row-mobile-stats">
-            {[summary.type, summary.cost != null ? `${summary.cost} cost` : null, pdLabel].filter(Boolean).join(' · ')}
-          </div>
         </div>
+
+        {/* Type icon — mobile only; sm+ gets the text column below.
+            Cost, P/D, class, rarity and keywords live in the tap-through sheet. */}
+        <span className="sm:hidden flex-shrink-0" data-testid="list-row-mobile-type">
+          <MobileTypeIcon displayType={summary.type} />
+        </span>
 
         {/* Type */}
         <span className="hidden md:block text-xs text-gray-500 dark:text-gray-400 w-24 truncate flex-shrink-0" title={summary.type || 'Type'}>
@@ -370,22 +402,20 @@ function GroupedCardRow({
           {summary.keywords.join(', ')}
         </span>
 
-        {/* Quantity */}
-        <span className="text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
+        {/* Quantity — desktop position */}
+        <span className="hidden sm:block text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
 
         {/* Ownership */}
         <span className="w-4 text-center flex-shrink-0">
-          {hasOwnership ? (
-            isFullyOwned
-              ? <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90">✓</span>
-              : <span className="text-xs text-amber-700/70 dark:text-amber-300/70">○</span>
-          ) : null}
+          {ownership === 'full' && <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90" title="Owned">✓</span>}
+          {ownership === 'partial' && <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>}
         </span>
 
-        {/* Expand caret */}
+        {/* Expand caret — desktop only. On touch, tapping the row opens the sheet,
+            which is where printings live. */}
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+          className="hidden sm:block flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           title={expanded ? "Collapse printings" : "Expand printings"}
           aria-label={expanded ? "Collapse printings" : "Expand printings"}
           aria-expanded={expanded}
@@ -1712,7 +1742,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     return (
       <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
         {/* Column headers — must match the data row's flex layout exactly (widths, gaps, breakpoints) */}
-        <div className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
+        <div data-testid="deck-list-column-header" className="hidden sm:flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
           <span className="w-7 flex-shrink-0" />
           <span className="w-2 flex-shrink-0" />
           <span className="flex-1 min-w-0 sm:flex-none sm:w-64">Name</span>
