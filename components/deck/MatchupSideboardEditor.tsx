@@ -5,8 +5,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { RotateCcw, AlertCircle, List, LayoutGrid } from "lucide-react";
 import { toTalisharIdentifier } from "@/lib/utils";
-import { BreakdownChip, EMPTY_BREAKDOWN, type Breakdown } from "./MatchupBreakdownChip";
-import { bumpBreakdown } from "@/lib/utils/matchup-breakdown";
+import { BreakdownChip, EquipmentChip, EMPTY_BREAKDOWN, type Breakdown } from "./MatchupBreakdownChip";
+import { bumpBreakdown, computeSwapDeltas } from "@/lib/utils/matchup-breakdown";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -584,21 +584,16 @@ export default function MatchupSideboardEditor({
     setCopyMask(m);
   };
 
-  // Stats
-  const totalOut = allCards.reduce((sum, c) => {
-    const dc = deckCounts.get(c.talisharId) ?? c.originalDeckCount;
-    return sum + Math.max(0, c.originalDeckCount - dc);
-  }, 0);
-  const totalIn = allCards.reduce((sum, c) => {
-    const dc = deckCounts.get(c.talisharId) ?? c.originalDeckCount;
-    return sum + Math.max(0, dc - c.originalDeckCount);
-  }, 0);
-  // The hero is excluded: it can't be swapped (its tiles are non-interactive), so
-  // counting it only made this headline disagree with the Main chip beside it.
-  const mainTotal = allCards.reduce((s, c) => s + (c.section === 'hero' ? 0 : c.originalDeckCount), 0);
-  const postSwap = mainTotal - totalOut + totalIn;
+  // Stats. Library and equipment move on separate bases so each "before → after"
+  // reconciles with the −out/+in badges printed next to it.
+  const deltas = computeSwapDeltas(allCards.map(c => ({
+    section: c.section,
+    originalDeckCount: c.originalDeckCount,
+    deckCount: deckCounts.get(c.talisharId) ?? c.originalDeckCount,
+  })));
+  const { library: libDelta, equipment: gearDelta } = deltas;
   const maxSize = format === 'Silver Age' ? 40 : null;
-  const hasChanges = totalOut > 0 || totalIn > 0;
+  const hasChanges = libDelta.out > 0 || libDelta.in > 0;
 
   // Per-section breakdown for live counts (post-swap deck + remaining inventory).
   // Shares bumpBreakdown with the summary view so the two can't drift on what
@@ -617,7 +612,7 @@ export default function MatchupSideboardEditor({
 
   // The deck-size limit governs the library (main deck), not equipment or the
   // hero — same rule DeckEditorSidebar enforces with its 60-card minimum.
-  const isOverLimit = maxSize !== null && mainBd.library > maxSize;
+  const isOverLimit = maxSize !== null && libDelta.after > maxSize;
 
   const handleHover = (card: GroupedCard, e: React.MouseEvent) => {
     if (card.imageUrl) setHovered({ imageUrl: card.imageUrl, x: e.clientX, y: e.clientY });
@@ -628,20 +623,22 @@ export default function MatchupSideboardEditor({
       {/* Stats bar */}
       <div className="flex items-center justify-between flex-wrap gap-1">
         <div className="flex items-center gap-1.5 flex-wrap text-xs">
+          {/* Library only — the deck-size number. Gear moves on its own basis, in
+              the Gear chip, so these badges always reconcile: before − out + in. */}
           <span className="text-gray-500 dark:text-gray-400">
-            {mainTotal}{hasChanges && ' → '}
+            {libDelta.before}{hasChanges && ' → '}
             {hasChanges && (
               <span className={`font-medium ${isOverLimit ? 'text-red-600' : 'text-gray-200'}`}>
-                {postSwap}
+                {libDelta.after}
               </span>
             )}
             {maxSize && <span className="text-gray-500"> / {maxSize}</span>}
           </span>
-          {totalOut > 0 && (
-            <Badge variant="outline" className="text-[10px] font-normal h-4 px-1 text-amber-700 border-amber-300">−{totalOut}</Badge>
+          {libDelta.out > 0 && (
+            <Badge variant="outline" className="text-[10px] font-normal h-4 px-1 text-amber-700 border-amber-300">−{libDelta.out}</Badge>
           )}
-          {totalIn > 0 && (
-            <Badge className="bg-green-600 text-[10px] font-normal h-4 px-1">+{totalIn}</Badge>
+          {libDelta.in > 0 && (
+            <Badge className="bg-green-600 text-[10px] font-normal h-4 px-1">+{libDelta.in}</Badge>
           )}
           {isOverLimit && (
             <Badge variant="destructive" className="flex items-center gap-0.5 text-[10px] h-4 px-1">
@@ -649,7 +646,9 @@ export default function MatchupSideboardEditor({
             </Badge>
           )}
           <BreakdownChip label="Main"      bd={mainBd} />
+          <EquipmentChip count={gearDelta.after} was={gearDelta.before} />
           <BreakdownChip label="Inventory" bd={invBd} />
+          {invBd.equipment > 0 && <EquipmentChip count={invBd.equipment} />}
         </div>
 
         <div className="flex items-center gap-1">

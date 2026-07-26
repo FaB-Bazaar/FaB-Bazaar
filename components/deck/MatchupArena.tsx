@@ -23,7 +23,7 @@ import { computeMatchupRecords, type MatchupRecord } from "@/lib/utils/matchup-r
 import { computeMatchupBreakdown } from "@/lib/utils/matchup-breakdown";
 import MatchupDeltaView from "@/components/deck/MatchupDeltaView";
 import MatchupCompositionView from "@/components/deck/MatchupCompositionView";
-import { BreakdownChip } from "@/components/deck/MatchupBreakdownChip";
+import { BreakdownChip, EquipmentChip } from "@/components/deck/MatchupBreakdownChip";
 import { computeMatchupDelta } from "@/lib/utils/matchup-delta";
 import { Button } from "@/components/ui/button";
 
@@ -400,7 +400,9 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
                 </span>
               )}
               {breakdown && <BreakdownChip label="Main"      bd={breakdown.main} />}
+              {breakdown && breakdown.main.equipment > 0 && <EquipmentChip count={breakdown.main.equipment} />}
               {breakdown && <BreakdownChip label="Inventory" bd={breakdown.inv}  />}
+              {breakdown && breakdown.inv.equipment > 0 && <EquipmentChip count={breakdown.inv.equipment} />}
               {selected && !selectedMatchup && (
                 <span className="text-gray-300 italic">
                   No notes yet{editable ? " — Edit to add." : "."}
@@ -471,7 +473,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
               <span className="ml-auto text-xs font-normal text-gray-300 shrink-0 tabular-nums">
                 {detailView === "delta"
                   ? <>+{selectedDelta.in.length} in / −{selectedDelta.out.length} out</>
-                  : <>{breakdown ? `${breakdown.main.total} main / ${breakdown.inv.total} inv` : ""}</>}
+                  : <>{breakdown ? `${breakdown.main.library} library / ${breakdown.inv.library} inv` : ""}</>}
               </span>
             </div>
             {detailExpanded && (

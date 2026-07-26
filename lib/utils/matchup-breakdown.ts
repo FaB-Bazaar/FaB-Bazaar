@@ -57,29 +57,67 @@ function getSection(p: AnyPrinting, defaultCat: "hero" | "equipment" | "maindeck
 /**
  * Add `n` cards of `section` to a breakdown.
  *
- * `total` is what the chip prints before the pips, so it must equal the sum of
- * the pips: red + yellow + blue + other + equipment. The hero is tracked but
- * excluded — it is never rendered and never sideboardable (hero tiles are
- * non-interactive), so counting it made the chip read "66 · 25 12 23 ⛊5".
+ * `total` is the LIBRARY — the pips the chip prints (red + yellow + blue +
+ * other) and nothing else, so the number always equals the sum of its parts.
+ * It is also what the 60+ / Silver Age 40 deck-size limit governs; see
+ * DeckEditorSidebar, which caps equipment separately at 5 slots.
  *
- * `library` is main-deck cards only (no equipment, no hero) — the number the
- * 60+ / Silver Age 40 deck-size limit governs. See DeckEditorSidebar, which
- * defines library as maindeck + inventory with equipment capped separately.
+ * Equipment & weapons are counted in `equipment` and shown as their own count.
+ * The hero is tracked in `hero` alone: it is never a pip and can never be
+ * sideboarded (hero tiles are non-interactive).
  */
 export function bumpBreakdown(bd: Breakdown, section: Section, n: number) {
   switch (section) {
     case "red":       bd.red += n; break;
     case "yellow":    bd.yellow += n; break;
     case "blue":      bd.blue += n; break;
-    case "equipment": bd.equipment += n; break;
-    case "hero":      bd.hero += n; return;   // counted, but outside total/library
+    case "equipment": bd.equipment += n; return;   // its own count, never in total
+    case "hero":      bd.hero += n; return;        // counted, shown nowhere
     default:          bd.other += n;
   }
+  bd.library += n;
   bd.total += n;
-  if (section !== "equipment") bd.library += n;
 }
 
 const bump = bumpBreakdown;
+
+// ─── Swap deltas ──────────────────────────────────────────────────────────────
+
+export interface SwapDelta {
+  out: number;
+  in: number;
+  before: number;
+  after: number;
+}
+
+interface SwapCard {
+  section: Section | "weapon";
+  originalDeckCount: number;
+  deckCount: number;
+}
+
+/**
+ * Split a sideboard plan's movements by basis, so each "before → after" in the
+ * stats bar reconciles with the −out/+in badges beside it. Mixing the two bases
+ * into one pair of badges makes the arithmetic fail as soon as a plan benches
+ * equipment as well as library cards.
+ */
+export function computeSwapDeltas(cards: SwapCard[]): { library: SwapDelta; equipment: SwapDelta } {
+  const blank = (): SwapDelta => ({ out: 0, in: 0, before: 0, after: 0 });
+  const library = blank();
+  const equipment = blank();
+
+  for (const c of cards) {
+    if (c.section === "hero") continue;
+    const target = c.section === "equipment" || c.section === "weapon" ? equipment : library;
+    target.before += c.originalDeckCount;
+    target.after += c.deckCount;
+    target.out += Math.max(0, c.originalDeckCount - c.deckCount);
+    target.in += Math.max(0, c.deckCount - c.originalDeckCount);
+  }
+
+  return { library, equipment };
+}
 
 interface DeckLike {
   hero?: AnyPrinting[];
