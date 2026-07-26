@@ -18,6 +18,9 @@ import { classifyDeckZone } from "./deck-section-counts";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
 import { NON_CLASS_TYPE_KEYWORDS, deriveCardType, ownershipStatus } from "./mobile-list-row";
+import { buildLanes, type LaneCardLike, type LaneMode } from "./mobile-lanes";
+import MobileDeckLanes from "./MobileDeckLanes";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -34,6 +37,12 @@ interface CardGroup {
   totalQty: number;
   printings: DeckPrintingDTO[];
   imageUrl?: string;
+}
+
+/** A card group tagged with its deck zone, ready for the mobile lane pager. */
+interface LaneCard extends LaneCardLike {
+  group: CardGroup;
+  category: DeckCategory;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -206,6 +215,8 @@ interface GroupedCardRowProps {
   /** Open the full-card lightbox (tap the thumbnail / "View card" in the sheet). */
   onEnlarge?: (url: string, name: string, otherFaceUrl?: string) => void;
   isTouchDevice: boolean;
+  /** 'lane' is the phone row (rail · qty · name · cost · pip · owned); 'table' is the desktop columns. */
+  variant?: 'lane' | 'table';
 }
 
 function GroupedCardRow({
@@ -220,7 +231,9 @@ function GroupedCardRow({
   onClearImage,
   onEnlarge,
   isTouchDevice,
+  variant = 'table',
 }: GroupedCardRowProps) {
+  const isLane = variant === 'lane';
   const [expanded, setExpanded] = useState(false);
   // Touch devices have no hover, so the per-printing action buttons are
   // unreachable there. Tapping the row opens this sheet instead (mirrors tiles).
@@ -281,9 +294,10 @@ function GroupedCardRow({
       <div
         data-testid="deck-list-row"
         className={cn(
-          // Mobile is a fixed 32px scan row (qty · pitch · name · type · owned);
-          // sm+ keeps the data-dense desktop row.
-          "flex items-center gap-2 h-8 px-3 sm:gap-3 sm:h-auto sm:py-1.5 max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
+          "flex items-center max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
+          // Lane row (phones): a fixed 38px scan line — rail · qty · name · cost · pip · owned.
+          // Table row (sm+): the data-dense columns.
+          isLane ? "gap-2 h-[38px] px-3" : "gap-3 py-1.5 px-3",
           isTouchDevice && category !== 'hero' && "cursor-pointer",
         )}
         onClick={isTouchDevice && category !== 'hero' ? () => setSheetOpen(true) : undefined}
@@ -293,14 +307,44 @@ function GroupedCardRow({
         }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
-        {/* Quantity — leads the row on mobile, trails the stats on desktop */}
-        <span className="order-first sm:order-none sm:hidden text-sm text-gray-600 dark:text-gray-300 tabular-nums w-5 text-right flex-shrink-0">{group.totalQty}×</span>
-
-        {/* Thumbnail — tap/click opens the full-card lightbox so it can be read.
-            Hidden on mobile: it is what forces the row past 32px. */}
+        {isLane ? (
+          <>
+            {/* Pitch rail — load-bearing under type lanes, where the same card name
+                appears once per pitch (three Hyper Drivers in Actions). */}
+            <span
+              data-testid="lane-row-rail"
+              className={cn("self-stretch w-[3px] -ml-3 flex-shrink-0", pitchClass)}
+              aria-hidden="true"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-300 tabular-nums w-5 text-right flex-shrink-0">{group.totalQty}×</span>
+            <span className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>
+              {group.displayName}
+            </span>
+            {/* Blank (not "—") when the card prints no cost, as in the reference row. */}
+            {summary.cost != null && (
+              <span
+                data-testid="lane-row-cost"
+                className="flex-shrink-0 min-w-[22px] text-center rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-[11px] tabular-nums text-gray-600 dark:text-gray-300"
+              >
+                {summary.cost}
+              </span>
+            )}
+            <span
+              data-testid="lane-row-pip"
+              className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)}
+              aria-hidden="true"
+            />
+            <span className="w-4 text-center flex-shrink-0" data-testid="list-row-own">
+              {ownership === 'full' && <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90" title="Owned">✓</span>}
+              {ownership === 'partial' && <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>}
+            </span>
+          </>
+        ) : (
+        <>
+        {/* Thumbnail — tap/click opens the full-card lightbox so it can be read. */}
         <button
           type="button"
-          className="hidden sm:block w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           title="View card"
           aria-label={`View ${group.displayName}`}
           onClick={onEnlarge && group.imageUrl
@@ -311,8 +355,6 @@ function GroupedCardRow({
             src={group.imageUrl || "/cardback.webp"}
             alt={group.displayName}
             className="w-full h-full object-cover"
-            // The thumbnail is display:none below sm — lazy loading keeps a phone from
-            // fetching one card image per row for art it never paints.
             loading="lazy"
           />
         </button>
@@ -321,12 +363,11 @@ function GroupedCardRow({
         <span className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)} aria-hidden="true" />
 
         {/* Name + class as a stacked block; class is the secondary line.
-            Mobile: name flexes so the Qty/Own/caret cluster on the right can't be
-            pushed off-screen. Desktop (sm+): fixed 256px, letting Keywords take flex-1. */}
-        <div className="flex-1 min-w-0 sm:flex-none sm:w-64">
+            Fixed 256px, letting Keywords take flex-1. */}
+        <div className="w-64 flex-none min-w-0">
           <div className="text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>{group.displayName}</div>
           {summary.classLabel && (
-            <div className="hidden sm:block text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
+            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
               {summary.classLabel}
             </div>
           )}
@@ -338,19 +379,19 @@ function GroupedCardRow({
         </span>
 
         {/* Rarity — uses the shared RarityIcon component for consistent treatment across the app */}
-        <span className="hidden sm:flex w-6 items-center justify-center flex-shrink-0">
+        <span className="flex w-6 items-center justify-center flex-shrink-0">
           {summary.rarityCode
             ? <RarityIcon rarityCode={summary.rarityCode} size="sm" />
             : <span className="text-xs text-gray-400 dark:text-gray-500">—</span>}
         </span>
 
         {/* Cost */}
-        <span className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 w-8 text-right tabular-nums flex-shrink-0" title="Cost">
+        <span className="text-xs text-gray-500 dark:text-gray-400 w-8 text-right tabular-nums flex-shrink-0" title="Cost">
           {fmt(summary.cost)}
         </span>
 
         {/* Power / Defense */}
-        <span className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 w-14 text-right tabular-nums flex-shrink-0" title="Power / Defense">
+        <span className="text-xs text-gray-500 dark:text-gray-400 w-14 text-right tabular-nums flex-shrink-0" title="Power / Defense">
           {pdLabel}
         </span>
 
@@ -359,8 +400,8 @@ function GroupedCardRow({
           {summary.keywords.join(', ')}
         </span>
 
-        {/* Quantity — desktop position */}
-        <span className="hidden sm:block text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
+        {/* Quantity */}
+        <span className="text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
 
         {/* Ownership */}
         <span className="w-4 text-center flex-shrink-0" data-testid="list-row-own">
@@ -368,17 +409,19 @@ function GroupedCardRow({
           {ownership === 'partial' && <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>}
         </span>
 
-        {/* Expand caret — desktop only. On touch, tapping the row opens the sheet,
-            which is where printings live. */}
+        {/* Expand caret — the lane row has none; on touch, tapping the row opens
+            the sheet, which is where printings live. */}
         <button
           onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-          className="hidden sm:block flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+          className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
           title={expanded ? "Collapse printings" : "Expand printings"}
           aria-label={expanded ? "Collapse printings" : "Expand printings"}
           aria-expanded={expanded}
         >
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
+        </>
+        )}
       </div>
 
       {/* Expanded printing rows — left keyline makes the parent → child hierarchy explicit */}
@@ -1687,6 +1730,10 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
 
   const [highlightFilters, setHighlightFilters] = useState<Array<{ stat: string; value: number | string }>>([]);
 
+  /** Mobile lane grouping: by card type (the lane header is then the type cue) or by pitch. */
+  const [laneMode, setLaneMode] = useState<LaneMode>('type');
+  const isNarrow = useIsMobile();
+
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const toggleSection = (key: string) => setCollapsedSections(prev => {
     const next = new Set(prev);
@@ -1694,12 +1741,37 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     return next;
   });
 
+  /** One card group's row — shared by the desktop sections and the mobile lanes. */
+  const renderGroupedRow = (group: CardGroup, category: DeckCategory, variant: 'lane' | 'table' = 'table') => (
+    <GroupedCardRow
+      key={group.uid}
+      group={group}
+      category={category}
+      variant={variant}
+      ownershipMap={ownershipMap}
+      onSwap={onSwap}
+      onRemove={handleRemove}
+      removingId={removingId}
+      onMove={onMove}
+      onHoverImage={(url, name, extras) => {
+        if (hoverMode) setHoveredImage({ url, name });
+        onCardHover?.({ url, name, ...(extras ?? {}) });
+      }}
+      onClearImage={() => {
+        // Same sticky-preview rationale as tile/game views above.
+        setHoveredImage(null);
+      }}
+      onEnlarge={(url, name, otherFaceUrl) => setEnlargedImage({ url, name, otherFaceUrl })}
+      isTouchDevice={isTouchDevice}
+    />
+  );
+
   const renderCardRows = (cards: DeckPrintingDTO[], category: DeckCategory) => {
     const groups = groupByCardName(cards);
     return (
       <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
         {/* Column headers — must match the data row's flex layout exactly (widths, gaps, breakpoints) */}
-        <div data-testid="deck-list-column-header" className="hidden sm:flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
+        <div data-testid="deck-list-column-header" className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
           <span className="w-7 flex-shrink-0" />
           <span className="w-2 flex-shrink-0" />
           <span className="flex-1 min-w-0 sm:flex-none sm:w-64">Name</span>
@@ -1712,28 +1784,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <span className="w-4 text-center flex-shrink-0">Own</span>
           <span className="w-5 flex-shrink-0" />
         </div>
-        {groups.map(group => (
-          <GroupedCardRow
-            key={group.uid}
-            group={group}
-            category={category}
-            ownershipMap={ownershipMap}
-            onSwap={onSwap}
-            onRemove={handleRemove}
-            removingId={removingId}
-            onMove={onMove}
-            onHoverImage={(url, name, extras) => {
-              if (hoverMode) setHoveredImage({ url, name });
-              onCardHover?.({ url, name, ...(extras ?? {}) });
-            }}
-            onClearImage={() => {
-              // Same sticky-preview rationale as tile/game views above.
-              setHoveredImage(null);
-            }}
-            onEnlarge={(url, name, otherFaceUrl) => setEnlargedImage({ url, name, otherFaceUrl })}
-            isTouchDevice={isTouchDevice}
-          />
-        ))}
+        {groups.map(group => renderGroupedRow(group, category))}
       </div>
     );
   };
@@ -2021,6 +2072,29 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const maindeckCards = displayDeck.maindeck || [];
   const inventoryCards = displayDeck.inventory || [];
   const benchedCards = displayDeck.benched || [];
+
+  // Mobile lanes reuse the same card groups the desktop rows render, tagged with
+  // the zone they came from so buildLanes can keep Inventory/Bench/gear intact.
+  const laneCards: LaneCard[] = useMemo(() => {
+    const fromCategory = (cards: DeckPrintingDTO[], category: DeckCategory): LaneCard[] =>
+      groupByCardName(cards).map(group => ({
+        group,
+        category,
+        displayName: group.displayName,
+        totalQty: group.totalQty,
+        pitch: group.pitch ?? null,
+        types: ((group.printings[0]?.printingDetails?.types as string[] | undefined) || []),
+      }));
+    return [
+      ...fromCategory(heroCards, 'hero'),
+      ...fromCategory(equipmentCards, 'equipment'),
+      ...fromCategory(maindeckCards, 'maindeck'),
+      ...fromCategory(inventoryCards, 'inventory'),
+      ...fromCategory(benchedCards, 'benched'),
+    ];
+  }, [heroCards, equipmentCards, maindeckCards, inventoryCards, benchedCards]);
+
+  const lanes = useMemo(() => buildLanes(laneCards, laneMode), [laneCards, laneMode]);
 
   const tileSections = buildTileSections(displayDeck);
 
@@ -2522,13 +2596,25 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
       )}
 
       {viewMode === 'list' ? (
-        <div>
-          {renderSection("Hero", heroCards, "hero", "hero", "1")}
-          {renderSection("Equipment", equipmentCards, "equipment", "equipment", "5", true)}
-          {renderMaindeckSection(maindeckCards, "60+")}
-          {renderSection("Inventory", inventoryCards, "inventory", "inventory", undefined, true)}
-          {renderSection("Bench", benchedCards, "benched", "bench")}
-        </div>
+        // Phones get the swipe pager, desktop the stacked data-dense sections.
+        // Branching in JS (not CSS) keeps one row markup in the DOM instead of two.
+        isNarrow ? (
+          <MobileDeckLanes
+            lanes={lanes}
+            mode={laneMode}
+            onModeChange={setLaneMode}
+            rowKey={card => card.group.uid}
+            renderRow={card => renderGroupedRow(card.group, card.category, 'lane')}
+          />
+        ) : (
+          <div>
+            {renderSection("Hero", heroCards, "hero", "hero", "1")}
+            {renderSection("Equipment", equipmentCards, "equipment", "equipment", "5", true)}
+            {renderMaindeckSection(maindeckCards, "60+")}
+            {renderSection("Inventory", inventoryCards, "inventory", "inventory", undefined, true)}
+            {renderSection("Bench", benchedCards, "benched", "bench")}
+          </div>
+        )
       ) : viewMode === 'tile' ? (
         <div className="rounded border border-gray-300 dark:border-gray-700/50 p-2">
           {tileTopSections.map(s => (
