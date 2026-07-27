@@ -52,6 +52,10 @@ interface DeckMatchupsDialogProps {
   // and lose every mutating affordance (edit, kebab, Add, "No plan yet" tiles).
   // The server is the real gate — POST/PATCH/DELETE already 403 a non-owner.
   readOnly?: boolean;
+  // Owners get a "No plan yet" tile for every legal opponent hero, and those
+  // tiles' ⚔ is permanently disabled — on a phone they bury the handful of
+  // tappable plans. Collapse them behind a disclosure instead.
+  collapseUnplanned?: boolean;
   // When provided + the dialog opens, jump straight into editing this matchup.
   // The deep-link is consumed once: changing tabs / saving / cancelling clears it.
   initialEditHeroId?: string | null;
@@ -326,6 +330,7 @@ export default function DeckMatchupsDialog({
   inline = false,
   compact = false,
   readOnly = false,
+  collapseUnplanned = false,
   initialEditHeroId = null,
   initialGalleryHeroId = null,
   heroCardImages,
@@ -338,6 +343,7 @@ export default function DeckMatchupsDialog({
 
   // Gallery state — fullscreen card image viewer
   const [gallery, setGallery] = useState<{ heroId: string; section: 'deck' | 'inventory' } | null>(null);
+  const [showUnplanned, setShowUnplanned] = useState(false);
 
   // Sideboard-plan view mode — "vsDeck" (Side Out + Bring In), "setAside" (single pile), or "fullDeck" (complete post-sideboard deck)
   // Persisted per-user in localStorage. Only applies when viewing the inventory/sideboard gallery.
@@ -948,7 +954,10 @@ export default function DeckMatchupsDialog({
                             </div>
                             {/* Action row: View / Edit / Kebab — icon-only to fit picker-sized tiles.
                                 Read-only viewers get the View button alone, full width. */}
-                            <div className={readOnly ? "grid grid-cols-1" : "grid grid-cols-3 gap-0.5"}>
+                            {/* Phones: ⚔ gets its own full-width row (it's the
+                                primary action and 3-across on a ~93px tile is a
+                                28px target); edit + kebab share row two. */}
+                            <div className={readOnly ? "grid grid-cols-1" : "grid grid-cols-2 sm:grid-cols-3 gap-0.5"}>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -956,7 +965,7 @@ export default function DeckMatchupsDialog({
                                 onClick={() => setGallery({ heroId: matchup.heroId, section: 'inventory' })}
                                 aria-label={`View sideboard cards for ${heroName} matchup`}
                                 title={hasSideboard ? "View sideboard plan" : "No sideboard changes"}
-                                className="h-7 w-full p-0 border-amber-500/50 text-amber-400 hover:bg-amber-500/10 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                className="h-11 sm:h-7 w-full p-0 col-span-2 sm:col-span-1 border-amber-500/50 text-amber-400 hover:bg-amber-500/10 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                               >
                                 <Swords className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
@@ -967,7 +976,7 @@ export default function DeckMatchupsDialog({
                                 onClick={() => { handleEdit(matchup); setActiveTab("add"); }}
                                 aria-label={`Edit ${heroName} matchup`}
                                 title="Edit matchup"
-                                className="h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                className="h-11 sm:h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                               >
                                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
@@ -978,7 +987,7 @@ export default function DeckMatchupsDialog({
                                     variant="outline"
                                     aria-label={`More actions for ${heroName} matchup`}
                                     title="More actions"
-                                    className="h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                    className="h-11 sm:h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                                   >
                                     <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
                                   </Button>
@@ -1014,12 +1023,26 @@ export default function DeckMatchupsDialog({
                       for a read-only viewer to do with them. */}
                   {!readOnly && unconfigured.length > 0 && (
                     <div className={sorted.length > 0 ? "mt-4" : undefined}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
-                          No plan yet
-                        </p>
-                        <span className="flex-1 border-t border-gray-300 dark:border-gray-800" aria-hidden="true" />
-                      </div>
+                      {collapseUnplanned ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowUnplanned((v) => !v)}
+                          aria-expanded={showUnplanned}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-700 px-3 mb-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          style={{ minHeight: 44 }}
+                        >
+                          <span aria-hidden="true">{showUnplanned ? "▾" : "▸"}</span>
+                          {showUnplanned ? "Hide" : "Show"} {unconfigured.length} heroes without a plan
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                            No plan yet
+                          </p>
+                          <span className="flex-1 border-t border-gray-300 dark:border-gray-800" aria-hidden="true" />
+                        </div>
+                      )}
+                      {(!collapseUnplanned || showUnplanned) && (
                       <div className={tileGridCls}>
                         {unconfigured.map((heroId) => {
                           const isCore = heroId === CORE_HERO_ID;
@@ -1071,7 +1094,7 @@ export default function DeckMatchupsDialog({
                                   disabled
                                   aria-label={`No sideboard plan for ${heroName} yet`}
                                   title="No sideboard plan yet"
-                                  className="h-7 w-full p-0 border-amber-500/50 text-amber-400 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                  className="h-11 sm:h-7 w-full p-0 border-amber-500/50 text-amber-400 disabled:opacity-40 disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                                 >
                                   <Swords className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
@@ -1081,7 +1104,7 @@ export default function DeckMatchupsDialog({
                                   onClick={() => startNewMatchup(heroId)}
                                   aria-label={`Create matchup plan for ${heroName}`}
                                   title="Create matchup plan"
-                                  className="h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                  className="h-11 sm:h-7 w-full p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                                 >
                                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                                 </Button>
@@ -1090,6 +1113,7 @@ export default function DeckMatchupsDialog({
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   )}
                   </>

@@ -338,6 +338,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
             inline
             compact
             readOnly={!editable}
+            collapseUnplanned
             heroCardImages={heroCardImages}
           />
         </div>
