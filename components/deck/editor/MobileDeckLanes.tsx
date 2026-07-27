@@ -12,6 +12,9 @@ import type { Lane, LaneCardLike, LaneMode } from "./mobile-lanes";
  * swap/move/remove wiring stay in one place.
  */
 
+/** Quiet time after the last scroll event before a gesture counts as finished. */
+const SETTLE_MS = 140;
+
 interface MobileDeckLanesProps<T extends LaneCardLike> {
   lanes: Array<Lane<T>>;
   mode: LaneMode;
@@ -29,6 +32,19 @@ export default function MobileDeckLanes<T extends LaneCardLike>({
   /** Pages are siblings in a flex row, so the pager would otherwise stand as tall
       as the longest lane and leave a dead gap under short ones. */
   const [pagerHeight, setPagerHeight] = useState<number>();
+  /** iOS runs one scroll animation at a time, so anything that relayouts or
+      scrolls while the finger is still moving kills the fling and parks the
+      pager between two lanes. Everything reactive waits for the gesture to end. */
+  const scrollingRef = useRef(false);
+  const touchingRef = useRef(false);
+  const correctingRef = useRef(false);
+  const settleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [settled, setSettled] = useState(0);
+
+  const clampIdx = useCallback(
+    (idx: number) => Math.min(Math.max(idx, 0), Math.max(lanes.length - 1, 0)),
+    [lanes.length],
+  );
 
   // Lane set changes when the grouping does — start over at the first page.
   useEffect(() => {
@@ -36,30 +52,65 @@ export default function MobileDeckLanes<T extends LaneCardLike>({
     pagerRef.current?.scrollTo({ left: 0 });
   }, [mode]);
 
+  useEffect(() => () => clearTimeout(settleTimer.current), []);
+
+  function scheduleSettle(): void {
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(settle, SETTLE_MS);
+  }
+
+  function settle(): void {
+    // A finger resting mid-drag stops firing scroll events without the gesture
+    // being over — wait it out rather than relayouting under the touch.
+    if (touchingRef.current) return scheduleSettle();
+    const pager = pagerRef.current;
+    if (pager && pager.clientWidth > 0) {
+      const idx = clampIdx(Math.round(pager.scrollLeft / pager.clientWidth));
+      setActive(idx);
+      const target = idx * pager.clientWidth;
+      // CSS snap is the happy path; this lands the page when the browser dropped
+      // it. One attempt only — a second pass comes back through here to do the
+      // deferred layout work, and must not fight the user for the scroll.
+      if (!correctingRef.current && Math.abs(pager.scrollLeft - target) > 1.5) {
+        correctingRef.current = true;
+        pager.scrollTo({ left: target, behavior: 'smooth' });
+        scheduleSettle();
+        return;
+      }
+    }
+    correctingRef.current = false;
+    scrollingRef.current = false;
+    setSettled(n => n + 1);
+  }
+
   // Scroll position is the source of truth: a swipe and a tab tap both land here.
-  const syncActive = useCallback(() => {
+  // Tabs and dots track the swipe live; the layout-touching work is deferred.
+  function onPagerScroll(): void {
     const pager = pagerRef.current;
     if (!pager || pager.clientWidth === 0) return;
-    const idx = Math.round(pager.scrollLeft / pager.clientWidth);
-    setActive(prev => (prev === idx ? prev : Math.min(Math.max(idx, 0), Math.max(lanes.length - 1, 0))));
-  }, [lanes.length]);
+    scrollingRef.current = true;
+    const idx = clampIdx(Math.round(pager.scrollLeft / pager.clientWidth));
+    setActive(prev => (prev === idx ? prev : idx));
+    scheduleSettle();
+  }
 
   // Keep the active tab in view in the (scrollable) tab strip.
   useEffect(() => {
+    if (scrollingRef.current) return;
     tabsRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')
       ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
-  }, [active]);
+  }, [active, settled]);
 
   // Track the visible page's height — including row adds/removes while it's open.
   useEffect(() => {
     const page = pagerRef.current?.children[active] as HTMLElement | undefined;
     if (!page) return;
-    const apply = () => setPagerHeight(page.offsetHeight);
+    const apply = () => { if (!scrollingRef.current) setPagerHeight(page.offsetHeight); };
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(page);
     return () => ro.disconnect();
-  }, [active, lanes]);
+  }, [active, lanes, settled]);
 
   const goTo = (idx: number) => {
     const pager = pagerRef.current;
@@ -147,9 +198,12 @@ export default function MobileDeckLanes<T extends LaneCardLike>({
       <div
         ref={pagerRef}
         data-testid="lane-pager"
-        onScroll={syncActive}
+        onScroll={onPagerScroll}
+        onTouchStart={() => { touchingRef.current = true; scrollingRef.current = true; correctingRef.current = false; }}
+        onTouchEnd={() => { touchingRef.current = false; scheduleSettle(); }}
+        onTouchCancel={() => { touchingRef.current = false; scheduleSettle(); }}
         style={pagerHeight ? { height: pagerHeight } : undefined}
-        className="flex items-start overflow-x-auto overflow-y-hidden snap-x snap-mandatory transition-[height] duration-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex items-start overflow-x-auto overflow-y-hidden overscroll-x-contain snap-x snap-mandatory transition-[height] duration-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {lanes.map((lane, i) => (
           <section
@@ -161,7 +215,8 @@ export default function MobileDeckLanes<T extends LaneCardLike>({
             // Inert pages stay in the tab order's way otherwise — only the visible
             // lane should be reachable by keyboard.
             {...(i === active ? {} : { 'aria-hidden': true })}
-            className="shrink-0 basis-full snap-start pr-2"
+            // snap-always: a fast fling advances one lane, never skips past one.
+            className="shrink-0 basis-full snap-start snap-always pr-2"
           >
             <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
               <h3 className="flex items-baseline justify-between px-3 py-2 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
