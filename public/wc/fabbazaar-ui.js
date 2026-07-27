@@ -5486,11 +5486,13 @@ let FabDecklistBlock = class extends i$1 {
     this._deckData = null;
     this._viewMode = "grid";
     this._highlightFilters = [];
-    this._overlayId = null;
+    this._overlayImage = null;
     this._onKeyDown = (e2) => {
-      if (e2.key === "Escape") this._overlayId = null;
+      if (e2.key === "Escape") this._overlayImage = null;
     };
     this._lastFetchedDeckId = "";
+    this._imageUrlById = /* @__PURE__ */ new Map();
+    this._attemptedImageIds = /* @__PURE__ */ new Set();
   }
   connectedCallback() {
     super.connectedCallback();
@@ -5606,6 +5608,7 @@ let FabDecklistBlock = class extends i$1 {
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
+            imageUrl: card.printingDetails?.image_url,
             pitch: card.printingDetails?.pitch ?? null,
             cost: card.printingDetails?.cost ?? null,
             power: card.printingDetails?.power ?? null,
@@ -5656,6 +5659,8 @@ let FabDecklistBlock = class extends i$1 {
               printingId,
               quantity: qty,
               foiling: card.printingDetails?.foiling || card.foiling,
+              imageUrl: card.printingDetails?.image_url,
+              pitch: pitch ?? null,
               cost: card.printingDetails?.cost ?? null,
               power: card.printingDetails?.power ?? null,
               defense: card.printingDetails?.defense ?? null,
@@ -5690,6 +5695,7 @@ let FabDecklistBlock = class extends i$1 {
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
+            imageUrl: card.printingDetails?.image_url,
             pitch: card.printingDetails?.pitch ?? null,
             cost: card.printingDetails?.cost ?? null,
             power: card.printingDetails?.power ?? null,
@@ -5715,8 +5721,40 @@ let FabDecklistBlock = class extends i$1 {
       notes: deck.description
     };
   }
-  getCardImageUrl(printingId) {
-    return `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`;
+  /**
+   * Resolve the CDN url for a card. Images are keyed by printing characteristics,
+   * not by printing_id, so the url must come from the printing row (deck API) or
+   * from a lookup — an id-derived url 404s and falls back to the cardback.
+   */
+  getCardImageUrl(card) {
+    return card.imageUrl || this._imageUrlById.get(card.printingId) || "";
+  }
+  /**
+   * Hand-authored `sections` JSON carries printing ids without image urls.
+   * Look them up the same way fab-match-report does.
+   */
+  async _fetchMissingImages(printingIds) {
+    const missing = [...new Set(printingIds)].filter(
+      (id) => id && !this._attemptedImageIds.has(id)
+    );
+    if (missing.length === 0) return;
+    missing.forEach((id) => this._attemptedImageIds.add(id));
+    try {
+      const response = await fetch(
+        `/api/printings/search?printingIds=${encodeURIComponent(missing.join(","))}&show=all&limit=${missing.length}`
+      );
+      if (response.ok) {
+        const json = await response.json();
+        const printings = json?.data?.printings || [];
+        for (const p2 of printings) {
+          if (p2?.printing_id && p2?.image_url) {
+            this._imageUrlById.set(p2.printing_id, p2.image_url);
+          }
+        }
+        this.requestUpdate();
+      }
+    } catch {
+    }
   }
   getFoilingClass(foiling) {
     if (!foiling) return "nf";
@@ -5824,13 +5862,14 @@ let FabDecklistBlock = class extends i$1 {
         ${tiles.map((card) => {
       const matched = hasFilters && this._matchesAllFilters(card);
       const dimmed = hasFilters && !this._matchesAllFilters(card);
+      const imageUrl = this.getCardImageUrl(card);
       return b`
             <div class="card-item ${matched ? "highlighted" : ""} ${dimmed ? "dimmed" : ""}">
-              <div class="card-image-wrapper" @click="${() => card.printingId && (this._overlayId = card.printingId)}">
-                ${card.printingId ? b`
+              <div class="card-image-wrapper" @click="${() => imageUrl && (this._overlayImage = imageUrl)}">
+                ${imageUrl ? b`
                   <img
                     class="card-image-top"
-                    src="${this.getCardImageUrl(card.printingId)}"
+                    src="${imageUrl}"
                     alt="${card.cardName}"
                     loading="lazy"
                     @error=${(e2) => {
@@ -5842,7 +5881,7 @@ let FabDecklistBlock = class extends i$1 {
                   />
                   <img
                     class="card-image-bottom"
-                    src="${this.getCardImageUrl(card.printingId)}"
+                    src="${imageUrl}"
                     alt=""
                     loading="lazy"
                   />
@@ -5869,12 +5908,13 @@ let FabDecklistBlock = class extends i$1 {
         ${cards.map((card) => {
       const matched = hasFilters && this._matchesAllFilters(card);
       const dimmed = hasFilters && !this._matchesAllFilters(card);
+      const imageUrl = this.getCardImageUrl(card);
       return b`
-            <div class="list-row ${matched ? "highlighted" : ""} ${dimmed ? "dimmed" : ""}" @click="${() => card.printingId && (this._overlayId = card.printingId)}">
-              ${card.printingId ? b`
+            <div class="list-row ${matched ? "highlighted" : ""} ${dimmed ? "dimmed" : ""}" @click="${() => imageUrl && (this._overlayImage = imageUrl)}">
+              ${imageUrl ? b`
                 <img
                   class="list-card-thumb"
-                  src="${this.getCardImageUrl(card.printingId)}"
+                  src="${imageUrl}"
                   alt="${card.cardName}"
                   loading="lazy"
                   @error=${(e2) => {
@@ -5947,9 +5987,21 @@ let FabDecklistBlock = class extends i$1 {
               }
               return { cardName: card, printingId: "", quantity: 1, pitch: null, cost: null, power: null, defense: null, types: [], keywords: [] };
             }
-            return { pitch: null, cost: null, power: null, defense: null, types: [], keywords: [], ...card, quantity: card.quantity || 1 };
+            return {
+              pitch: null,
+              cost: null,
+              power: null,
+              defense: null,
+              types: [],
+              keywords: [],
+              ...card,
+              imageUrl: card.imageUrl || card.image_url || void 0,
+              quantity: card.quantity || 1
+            };
           })
         }));
+        const unresolved = sectionsData.flatMap((s2) => s2.cards).filter((c2) => c2.printingId && !c2.imageUrl).map((c2) => c2.printingId);
+        if (unresolved.length > 0) this._fetchMissingImages(unresolved);
       } catch (e2) {
         return b`<div style="color: #ef4444; padding: 1rem;">Error: Invalid sections data</div>`;
       }
@@ -6019,11 +6071,11 @@ let FabDecklistBlock = class extends i$1 {
           ` : ""}
         </div>
       </div>
-      ${this._overlayId ? b`
-        <div class="card-overlay" @click="${() => this._overlayId = null}">
+      ${this._overlayImage ? b`
+        <div class="card-overlay" @click="${() => this._overlayImage = null}">
           <img
             class="card-overlay-img"
-            src="${this.getCardImageUrl(this._overlayId)}"
+            src="${this._overlayImage}"
             alt="Card preview"
           />
         </div>
@@ -6846,7 +6898,7 @@ __decorateClass$2([
 ], FabDecklistBlock.prototype, "_highlightFilters", 2);
 __decorateClass$2([
   r()
-], FabDecklistBlock.prototype, "_overlayId", 2);
+], FabDecklistBlock.prototype, "_overlayImage", 2);
 FabDecklistBlock = __decorateClass$2([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);

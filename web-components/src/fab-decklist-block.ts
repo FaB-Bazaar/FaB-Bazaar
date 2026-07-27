@@ -8,6 +8,9 @@ interface DeckCard {
   printingId: string;
   quantity: number;
   foiling?: string;
+  // Stored CDN url from the printing row. Never construct one from printingId —
+  // the printing_id-keyed Cloudflare images were deleted (2026-07) and 404.
+  imageUrl?: string;
   // HUD filter stats
   pitch: number | null;
   cost: number | null;
@@ -818,13 +821,17 @@ export class FabDecklistBlock extends LitElement {
   } | null = null;
   @state() private _viewMode: 'grid' | 'list' = 'grid';
   @state() private _highlightFilters: HudFilter[] = [];
-  @state() private _overlayId: string | null = null;
+  @state() private _overlayImage: string | null = null;
 
   private _onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') this._overlayId = null;
+    if (e.key === 'Escape') this._overlayImage = null;
   };
 
   private _lastFetchedDeckId = '';
+  private _imageUrlById = new Map<string, string>();
+  // Ids we've already looked up (hit or miss) — never retried, so a lookup that
+  // returns nothing can't loop against the requestUpdate() below.
+  private _attemptedImageIds = new Set<string>();
 
   override connectedCallback() {
     super.connectedCallback();
@@ -965,6 +972,7 @@ export class FabDecklistBlock extends LitElement {
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
+            imageUrl: card.printingDetails?.image_url,
             pitch: card.printingDetails?.pitch ?? null,
             cost: card.printingDetails?.cost ?? null,
             power: card.printingDetails?.power ?? null,
@@ -1027,6 +1035,8 @@ export class FabDecklistBlock extends LitElement {
               printingId,
               quantity: qty,
               foiling: card.printingDetails?.foiling || card.foiling,
+              imageUrl: card.printingDetails?.image_url,
+              pitch: pitch ?? null,
               cost: card.printingDetails?.cost ?? null,
               power: card.printingDetails?.power ?? null,
               defense: card.printingDetails?.defense ?? null,
@@ -1065,6 +1075,7 @@ export class FabDecklistBlock extends LitElement {
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
+            imageUrl: card.printingDetails?.image_url,
             pitch: card.printingDetails?.pitch ?? null,
             cost: card.printingDetails?.cost ?? null,
             power: card.printingDetails?.power ?? null,
@@ -1096,8 +1107,43 @@ export class FabDecklistBlock extends LitElement {
     };
   }
 
-  private getCardImageUrl(printingId: string): string {
-    return `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${printingId}/public`;
+  /**
+   * Resolve the CDN url for a card. Images are keyed by printing characteristics,
+   * not by printing_id, so the url must come from the printing row (deck API) or
+   * from a lookup — an id-derived url 404s and falls back to the cardback.
+   */
+  private getCardImageUrl(card: Pick<DeckCard, 'printingId' | 'imageUrl'>): string {
+    return card.imageUrl || this._imageUrlById.get(card.printingId) || '';
+  }
+
+  /**
+   * Hand-authored `sections` JSON carries printing ids without image urls.
+   * Look them up the same way fab-match-report does.
+   */
+  private async _fetchMissingImages(printingIds: string[]) {
+    const missing = [...new Set(printingIds)].filter(
+      (id) => id && !this._attemptedImageIds.has(id)
+    );
+    if (missing.length === 0) return;
+
+    missing.forEach((id) => this._attemptedImageIds.add(id));
+    try {
+      const response = await fetch(
+        `/api/printings/search?printingIds=${encodeURIComponent(missing.join(','))}&show=all&limit=${missing.length}`
+      );
+      if (response.ok) {
+        const json = await response.json();
+        const printings = json?.data?.printings || [];
+        for (const p of printings) {
+          if (p?.printing_id && p?.image_url) {
+            this._imageUrlById.set(p.printing_id, p.image_url);
+          }
+        }
+        this.requestUpdate();
+      }
+    } catch {
+      // Leave the cardback fallback in place.
+    }
   }
 
   private getFoilingClass(foiling?: string): string {
@@ -1217,13 +1263,14 @@ export class FabDecklistBlock extends LitElement {
         ${tiles.map(card => {
           const matched = hasFilters && this._matchesAllFilters(card);
           const dimmed = hasFilters && !this._matchesAllFilters(card);
+          const imageUrl = this.getCardImageUrl(card);
           return html`
             <div class="card-item ${matched ? 'highlighted' : ''} ${dimmed ? 'dimmed' : ''}">
-              <div class="card-image-wrapper" @click="${() => card.printingId && (this._overlayId = card.printingId)}">
-                ${card.printingId ? html`
+              <div class="card-image-wrapper" @click="${() => imageUrl && (this._overlayImage = imageUrl)}">
+                ${imageUrl ? html`
                   <img
                     class="card-image-top"
-                    src="${this.getCardImageUrl(card.printingId)}"
+                    src="${imageUrl}"
                     alt="${card.cardName}"
                     loading="lazy"
                     @error=${(e: Event) => {
@@ -1235,7 +1282,7 @@ export class FabDecklistBlock extends LitElement {
                   />
                   <img
                     class="card-image-bottom"
-                    src="${this.getCardImageUrl(card.printingId)}"
+                    src="${imageUrl}"
                     alt=""
                     loading="lazy"
                   />
@@ -1263,12 +1310,13 @@ export class FabDecklistBlock extends LitElement {
         ${cards.map(card => {
           const matched = hasFilters && this._matchesAllFilters(card);
           const dimmed = hasFilters && !this._matchesAllFilters(card);
+          const imageUrl = this.getCardImageUrl(card);
           return html`
-            <div class="list-row ${matched ? 'highlighted' : ''} ${dimmed ? 'dimmed' : ''}" @click="${() => card.printingId && (this._overlayId = card.printingId)}">
-              ${card.printingId ? html`
+            <div class="list-row ${matched ? 'highlighted' : ''} ${dimmed ? 'dimmed' : ''}" @click="${() => imageUrl && (this._overlayImage = imageUrl)}">
+              ${imageUrl ? html`
                 <img
                   class="list-card-thumb"
-                  src="${this.getCardImageUrl(card.printingId)}"
+                  src="${imageUrl}"
                   alt="${card.cardName}"
                   loading="lazy"
                   @error=${(e: Event) => {
@@ -1345,9 +1393,20 @@ export class FabDecklistBlock extends LitElement {
               }
               return { cardName: card, printingId: '', quantity: 1, pitch: null, cost: null, power: null, defense: null, types: [], keywords: [] };
             }
-            return { pitch: null, cost: null, power: null, defense: null, types: [], keywords: [], ...card, quantity: card.quantity || 1 };
+            return {
+              pitch: null, cost: null, power: null, defense: null, types: [], keywords: [],
+              ...card,
+              imageUrl: card.imageUrl || card.image_url || undefined,
+              quantity: card.quantity || 1,
+            };
           }),
         }));
+        // Authored JSON only carries printing ids — resolve their image urls.
+        const unresolved = sectionsData
+          .flatMap(s => s.cards)
+          .filter(c => c.printingId && !c.imageUrl)
+          .map(c => c.printingId);
+        if (unresolved.length > 0) this._fetchMissingImages(unresolved);
       } catch (e) {
         return html`<div style="color: #ef4444; padding: 1rem;">Error: Invalid sections data</div>`;
       }
@@ -1423,11 +1482,11 @@ export class FabDecklistBlock extends LitElement {
           ` : ''}
         </div>
       </div>
-      ${this._overlayId ? html`
-        <div class="card-overlay" @click="${() => this._overlayId = null}">
+      ${this._overlayImage ? html`
+        <div class="card-overlay" @click="${() => this._overlayImage = null}">
           <img
             class="card-overlay-img"
-            src="${this.getCardImageUrl(this._overlayId)}"
+            src="${this._overlayImage}"
             alt="Card preview"
           />
         </div>
