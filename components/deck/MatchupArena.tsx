@@ -26,6 +26,7 @@ import MatchupCompositionView from "@/components/deck/MatchupCompositionView";
 import { BreakdownChip, EquipmentChip } from "@/components/deck/MatchupBreakdownChip";
 import { computeMatchupDelta } from "@/lib/utils/matchup-delta";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/components/ui/use-mobile";
 
 // Defer the heavy editor dialog (and its MatchupSideboardEditor child) until needed.
 const DeckMatchupsDialog = dynamic(() => import("@/components/deck/DeckMatchupsDialog"), {
@@ -96,6 +97,9 @@ interface MatchupArenaProps {
 
 export default function MatchupArena({ deckId }: MatchupArenaProps) {
   const { user } = useAuth();
+  // Phones get the tile grid → Sideboard Plan overlay and nothing else; the
+  // arena (VS strip, hero picker, Net composition / delta panel) is desktop-only.
+  const isMobile = useIsMobile();
   const [deck, setDeck] = useState<DeckDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,12 +176,14 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   // Deck owners land straight in the Manage editor — it's the primary
   // interface; closing it reveals the arena view underneath. Fires once per
   // mount so a deliberate close isn't fought by a re-open.
+  // On phones the grid is rendered inline as the page, so there is no modal to
+  // open — auto-open is a desktop-only affordance.
   const autoOpenedEditorRef = React.useRef(false);
   useEffect(() => {
-    if (!editable || autoOpenedEditorRef.current) return;
+    if (isMobile || !editable || autoOpenedEditorRef.current) return;
     autoOpenedEditorRef.current = true;
     setEditorOpen(true);
-  }, [editable]);
+  }, [editable, isMobile]);
 
   // Load results only when caller can see records (server enforces too)
   useEffect(() => {
@@ -292,6 +298,49 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
         >
           ← Back to deck
         </Link>
+      </div>
+    );
+  }
+
+  // ── Mobile web: one interface ─────────────────────────────────────────────
+  // Tile grid inline as the page; tapping a tile's ⚔ opens the Sideboard Plan
+  // overlay. Nothing to dismiss, so there's no second UI hiding underneath.
+  // Non-owners get the same grid in read-only mode — swords only, no edit or
+  // kebab. GET /matchups is public for non-private decks, so this works signed
+  // out; the write routes 403 non-owners regardless.
+  if (isMobile) {
+    return (
+      <div className="min-h-screen pb-24">
+        <div className="px-3 py-3">
+          <div className="mb-2 flex items-start gap-2">
+            <Link
+              href={`/decks/${deckId}`}
+              aria-label="Back to deck"
+              className="flex items-center justify-center rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-gray-800/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              style={{ minWidth: 44, minHeight: 44 }}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="min-w-0 flex-1 pt-2">
+              <h1 className="text-lg font-bold flex items-center gap-2">
+                <Swords className="h-5 w-5 text-gray-600 dark:text-gray-300" aria-hidden="true" />
+                <span className="truncate">Matchups</span>
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-300 truncate">{deck.name}</p>
+            </div>
+          </div>
+
+          <DeckMatchupsDialog
+            open
+            onOpenChange={() => {}}
+            deckId={deckId}
+            deck={deck as any}
+            inline
+            compact
+            readOnly={!editable}
+            heroCardImages={heroCardImages}
+          />
+        </div>
       </div>
     );
   }

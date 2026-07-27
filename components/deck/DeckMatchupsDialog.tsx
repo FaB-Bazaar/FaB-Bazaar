@@ -48,6 +48,10 @@ interface DeckMatchupsDialogProps {
   deck: any; // Full deck object with hero, equipment, maindeck, inventory arrays
   inline?: boolean; // If true, renders content directly instead of in a dialog
   compact?: boolean; // If true (with inline), suppresses the title/description header
+  // Viewer mode for non-owners: tiles keep the ⚔ "view sideboard plan" button
+  // and lose every mutating affordance (edit, kebab, Add, "No plan yet" tiles).
+  // The server is the real gate — POST/PATCH/DELETE already 403 a non-owner.
+  readOnly?: boolean;
   // When provided + the dialog opens, jump straight into editing this matchup.
   // The deep-link is consumed once: changing tabs / saving / cancelling clears it.
   initialEditHeroId?: string | null;
@@ -321,6 +325,7 @@ export default function DeckMatchupsDialog({
   deck,
   inline = false,
   compact = false,
+  readOnly = false,
   initialEditHeroId = null,
   initialGalleryHeroId = null,
   heroCardImages,
@@ -815,7 +820,7 @@ export default function DeckMatchupsDialog({
         }} className="w-full">
           {/* Mobile: the tile grid IS the interface — tiles open the editor,
               and the editor's Cancel returns here, so the tab bar only renders sm+ */}
-          <TabsList className="w-full grid-cols-2 hidden sm:grid">
+          <TabsList className={`w-full grid-cols-2 hidden ${readOnly ? '' : 'sm:grid'}`}>
             <TabsTrigger value="matchups">
               Matchups ({matchups.length})
             </TabsTrigger>
@@ -828,15 +833,17 @@ export default function DeckMatchupsDialog({
           {/* Auto-open focuses the panel itself (tab bar hidden on mobile) —
               suppress the container ring; buttons inside keep their own */}
           <TabsContent value="matchups" className="space-y-3 focus-visible:ring-0 focus-visible:ring-offset-0">
-            <div className="flex justify-end max-sm:hidden">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { resetForm(); setActiveTab("add"); }}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />Add Matchup
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex justify-end max-sm:hidden">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { resetForm(); setActiveTab("add"); }}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />Add Matchup
+                </Button>
+              </div>
+            )}
             {loading && matchups.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-10" role="status">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-400" aria-hidden="true" />
@@ -939,8 +946,9 @@ export default function DeckMatchupsDialog({
                                 </span>
                               )}
                             </div>
-                            {/* Action row: View / Edit / Kebab — icon-only to fit picker-sized tiles */}
-                            <div className="grid grid-cols-3 gap-0.5">
+                            {/* Action row: View / Edit / Kebab — icon-only to fit picker-sized tiles.
+                                Read-only viewers get the View button alone, full width. */}
+                            <div className={readOnly ? "grid grid-cols-1" : "grid grid-cols-3 gap-0.5"}>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -952,6 +960,7 @@ export default function DeckMatchupsDialog({
                               >
                                 <Swords className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
+                              {!readOnly && (<>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -993,6 +1002,7 @@ export default function DeckMatchupsDialog({
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
+                              </>)}
                             </div>
                           </div>
                         );
@@ -1000,7 +1010,9 @@ export default function DeckMatchupsDialog({
                   </div>
                   )}
 
-                  {unconfigured.length > 0 && (
+                  {/* "No plan yet" tiles exist purely to start a plan — nothing
+                      for a read-only viewer to do with them. */}
+                  {!readOnly && unconfigured.length > 0 && (
                     <div className={sorted.length > 0 ? "mt-4" : undefined}>
                       <div className="flex items-center gap-2 mb-2">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
@@ -1086,7 +1098,10 @@ export default function DeckMatchupsDialog({
             )}
           </TabsContent>
 
-          {/* Add/Edit Form — sidebar layout on desktop, collapsible on mobile */}
+          {/* Add/Edit Form — sidebar layout on desktop, collapsible on mobile.
+              Skipped entirely for read-only viewers so the heavy sideboard
+              editor never mounts for someone who can't save anything. */}
+          {!readOnly && (
           <TabsContent value="add" className="space-y-1.5 mt-2 focus-visible:ring-0 focus-visible:ring-offset-0">
             <div className="flex flex-col gap-1.5">
               {/* Config panel — full-width collapsible bar */}
@@ -1125,6 +1140,7 @@ export default function DeckMatchupsDialog({
             {/* Action buttons — shown when settings is collapsed (no buttons visible) */}
             {/* ConfigPanel has its own buttons when expanded */}
           </TabsContent>
+          )}
         </Tabs>
 
         {/* Copy-to-another-hero picker */}
@@ -1548,7 +1564,9 @@ export default function DeckMatchupsDialog({
   if (inline) {
     return (
       <>
-        {matchupsContent}
+        {/* Same as dialog mode: the overlay is only bg-black/90, so leaving the
+            tile grid mounted behind it bleeds tiles through the backdrop. */}
+        {!gallery && matchupsContent}
         {galleryOverlay}
       </>
     );
