@@ -296,15 +296,36 @@ class TCGPriceEnhancer:
     
     def find_best_price_match(self, product_prices, expected_subtype, edition, foiling):
         """
-        Find exact price match only - no fallbacks to prevent misleading data
-        Returns (price_info, match_quality) or (None, None) if no exact match
+        Exact subtype match, with one unambiguous fallback.
+
+        TCGplayer's subTypeName does not always agree with our (edition,
+        foiling): promos stored as edition='n' are frequently labelled
+        "1st Edition ..." (TEA001 -> "1st Edition Normal"), gold foils are
+        listed as Cold Foil while get_subtype_name() maps 'g' -> "Normal",
+        and some foilings simply disagree. Exact-match-only therefore left
+        280 printings with a valid product id and no price at all.
+
+        When the product offers exactly ONE priced subtype there is nothing to
+        choose between, so that price is unambiguously this product's price.
+        Products with 2+ priced subtypes still require an exact match —
+        guessing between "1st Edition Rainbow Foil" and "Unlimited Edition
+        Normal" is precisely the misleading data this rule exists to prevent.
+
+        Returns (price_info, match_quality) or (None, None).
         """
-        
-        # Only allow exact matches - no fallbacks due to large price differences
+
+        # Exact match always wins.
         if expected_subtype in product_prices:
             return product_prices[expected_subtype], "exact"
-        
-        # No exact match found
+
+        # Sole priced subtype — no alternative to be wrong about. Unlisted
+        # variants carry a null tcg_low and must not count toward the total,
+        # nor be imported as a price.
+        priced = [p for p in product_prices.values() if p.get('tcg_low') is not None]
+        if len(priced) == 1:
+            return priced[0], "sole_subtype"
+
+        # Genuinely ambiguous, or nothing listed.
         return None, None
     
     def fetch_price_data_for_groups(self, group_mappings):
