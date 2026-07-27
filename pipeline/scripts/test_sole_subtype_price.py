@@ -72,11 +72,69 @@ class SoleSubtypeFallbackTests(unittest.TestCase):
         self.assertEqual(info["tcg_low"], 10.0)
 
     def test_gold_foil_listed_as_cold_foil(self):
-        """FAB gold foils: get_subtype_name maps 'g' -> "Normal", TCGplayer says Cold Foil."""
+        """FAB gold foils: TCGplayer has no "Gold Foil" subtype and lists them as Cold Foil."""
         prices = {"1st Edition Cold Foil": _price(55000.0, "1st Edition Cold Foil")}
-        info, quality = self.enh.find_best_price_match(prices, "Normal", "n", "g")
+        info, quality = self.enh.find_best_price_match(prices, "Cold Foil", "n", "g")
         self.assertEqual(quality, "sole_subtype")
         self.assertEqual(info["tcg_low"], 55000.0)
+
+    def test_gold_foil_asks_for_cold_foil(self):
+        """
+        get_subtype_name mapped foiling='g' to "Normal" for edition='n', which
+        contradicted its own 1st-Edition branch ('G' -> "1st Edition Cold Foil")
+        and asked TCGplayer for a treatment the card doesn't have.
+        """
+        self.assertEqual(self.enh.get_subtype_name("n", "g"), "Cold Foil")
+        self.assertEqual(self.enh.get_subtype_name("f", "g"), "1st Edition Cold Foil")
+
+
+class TreatmentGuardTests(unittest.TestCase):
+    """
+    The sole-subtype fallback must never cross a foil treatment.
+
+    When a foil variant's listings sell out, the product is left with only its
+    non-foil subtype priced. Falling back onto that silently reprices the foil
+    at the non-foil price (GEM165: Rainbow Foil $21.51 -> Normal $7.42). The
+    edition prefix is safe to ignore; the treatment is not.
+    """
+
+    def setUp(self):
+        self.enh = enhancer_mod.TCGPriceEnhancer.__new__(enhancer_mod.TCGPriceEnhancer)
+
+    def test_rainbow_foil_does_not_fall_back_to_normal(self):
+        """GEM165 — the regression that motivated this guard."""
+        prices = {"Normal": _price(7.42, "Normal")}
+        info, quality = self.enh.find_best_price_match(prices, "Rainbow Foil", "n", "r")
+        self.assertIsNone(info)
+        self.assertIsNone(quality)
+
+    def test_cold_foil_does_not_fall_back_to_rainbow_foil(self):
+        """TNP-style foiling disagreements stay unpriced rather than guess."""
+        prices = {"Rainbow Foil": _price(94.99, "Rainbow Foil")}
+        info, quality = self.enh.find_best_price_match(prices, "Cold Foil", "n", "c")
+        self.assertIsNone(info)
+        self.assertIsNone(quality)
+
+    def test_normal_does_not_fall_back_to_rainbow_foil(self):
+        prices = {"Rainbow Foil": _price(19.99, "Rainbow Foil")}
+        info, quality = self.enh.find_best_price_match(prices, "Normal", "n", "s")
+        self.assertIsNone(info)
+        self.assertIsNone(quality)
+
+    def test_edition_prefix_differences_are_still_allowed(self):
+        """Same treatment, different edition label — the 172-row class."""
+        for expected, offered in (
+            ("Normal", "1st Edition Normal"),
+            ("Cold Foil", "1st Edition Cold Foil"),
+            ("Rainbow Foil", "Unlimited Edition Rainbow Foil"),
+            ("1st Edition Normal", "Normal"),
+        ):
+            with self.subTest(expected=expected, offered=offered):
+                info, quality = self.enh.find_best_price_match(
+                    {offered: _price(1.23, offered)}, expected, "n", "s"
+                )
+                self.assertEqual(quality, "sole_subtype", f"{expected} <- {offered}")
+                self.assertEqual(info["tcg_low"], 1.23)
 
     def test_multiple_priced_subtypes_still_require_exact_match(self):
         """Guessing between real alternatives is what produces misleading prices."""

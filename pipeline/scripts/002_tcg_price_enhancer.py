@@ -41,6 +41,20 @@ ALLOWED_OVERRIDE_FIELDS = (
 
 _PRODUCT_URL_RE = re.compile(r'/product/(\d+)')
 
+# TCGplayer subtype names are "<edition> <treatment>" or bare "<treatment>".
+# The edition label is the part that disagrees with our data most often, so
+# strip it to compare the treatment — which must always match exactly.
+_EDITION_PREFIXES = ("1st Edition ", "Unlimited Edition ")
+
+
+def _base_treatment(sub_type_name):
+    """"1st Edition Cold Foil" -> "Cold Foil"; "Normal" -> "Normal"."""
+    name = (sub_type_name or "").strip()
+    for prefix in _EDITION_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
 
 def _extract_cards(cards_data):
     """Return the list of card dicts from any of the JSON shapes 002 accepts."""
@@ -290,7 +304,12 @@ class TCGPriceEnhancer:
             elif foiling_upper == 'C':
                 return "Cold Foil"
             elif foiling_upper == 'G':
-                return "Normal"  # Gold treated as Normal for subtype
+                # TCGplayer has no "Gold Foil" subtype anywhere in category 62 —
+                # golden promos are listed as Cold Foil ("Fyendal's Spring Tunic
+                # (Golden) - FAB001"). Mapping them to "Normal" asked for a
+                # treatment the card doesn't have, and contradicted the
+                # 1st-Edition branch above, which already maps 'G' -> Cold Foil.
+                return "Cold Foil"
             else:
                 return "Normal"
     
@@ -323,9 +342,17 @@ class TCGPriceEnhancer:
         # nor be imported as a price.
         priced = [p for p in product_prices.values() if p.get('tcg_low') is not None]
         if len(priced) == 1:
-            return priced[0], "sole_subtype"
+            sole = priced[0]
+            # ...but never across a foil treatment. When a foil variant's
+            # listings sell out, the product is left with only its non-foil
+            # subtype priced, and falling back onto that silently reprices the
+            # foil at the non-foil price (GEM165: Rainbow Foil $21.51 ->
+            # Normal $7.42). Ignoring the edition label is safe; ignoring the
+            # treatment is not.
+            if _base_treatment(sole.get('tcgplayer_subTypeName', '')) == _base_treatment(expected_subtype):
+                return sole, "sole_subtype"
 
-        # Genuinely ambiguous, or nothing listed.
+        # Genuinely ambiguous, treatment mismatch, or nothing listed.
         return None, None
     
     def fetch_price_data_for_groups(self, group_mappings):
