@@ -12,10 +12,18 @@
 *.pyc
 
 # Playwright
-e2e/
+# e2e/ is local scratch (auth.json holds a real session, plus screenshots and
+# throwaway .mjs probes) — ignored by default. e2e/regression/ is the curated
+# exception: committed specs that guard shipped behaviour. Add a spec there
+# only if it has no secrets and no machine-specific paths.
+e2e/*
+!e2e/regression/
+# Shared fixtures the regression specs import. No secrets, no machine paths —
+# they drive the app through its own UI and API. Kept here rather than copied
+# into regression/ because 21 local specs import the same file.
+!e2e/helpers/
 /test-results/
 /playwright-report/
-playwright.config.ts
 
 # local-only docs (not for public repo)
 DEPLOYMENT.md

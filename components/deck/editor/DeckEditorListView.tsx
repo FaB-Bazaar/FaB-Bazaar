@@ -524,8 +524,15 @@ function GroupedCardRow({
         const dismiss = () => setSheetOpen(false);
         return (
           <>
-            <div className="fixed inset-0 z-50 bg-black/50" onClick={dismiss} />
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl">
+            {/* z-[60], matching the tile sheet: the deck's floating tab bar is
+                z-50 and renders later in the DOM, so at equal z it paints over
+                the bottom of the sheet — here "Remove from deck" and Cancel —
+                and swallows taps on them. */}
+            <div className="fixed inset-0 z-[60] bg-black/50" onClick={dismiss} />
+            <div
+              data-testid="list-row-sheet"
+              className="fixed bottom-0 left-0 right-0 z-[60] bg-white dark:bg-gray-900 rounded-t-2xl shadow-2xl"
+            >
               <div className="flex justify-center pt-3 pb-1 shrink-0">
                 <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
               </div>
