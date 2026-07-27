@@ -109,9 +109,9 @@ function ArticleCard({ article }: { article: EnrichedArticle }) {
       <Card className="h-full transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1 group-hover:border-primary overflow-hidden">
         {/* Image with badge overlay */}
         <div className="relative aspect-video overflow-hidden bg-slate-100 dark:bg-slate-800">
-          {article.image ? (
+          {article.imageUrl ? (
             <img
-              src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${article.image}/public`}
+              src={article.imageUrl}
               alt={article.title}
               className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
             />
@@ -579,9 +579,9 @@ export function GuidesContent({ articles }: GuidesContentProps) {
                       <div className="relative overflow-hidden rounded-2xl">
                         {/* Background */}
                         <div className="absolute inset-0">
-                          {featuredArticle.image ? (
+                          {featuredArticle.imageUrl ? (
                             <img
-                              src={`https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${featuredArticle.image}/public`}
+                              src={featuredArticle.imageUrl}
                               alt={featuredArticle.title}
                               className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                             />

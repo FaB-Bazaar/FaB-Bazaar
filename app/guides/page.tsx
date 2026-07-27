@@ -1,4 +1,5 @@
 import { articleService, userService } from '@/lib/services';
+import { resolveArticleImageUrl, resolveArticleImageUrls } from '@/lib/images/article-image';
 import { GuidesContent } from './GuidesContent';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,8 @@ export interface EnrichedArticle {
   contentType: 'hero' | 'article' | 'guide' | 'news' | 'strategy' | 'tournament';
   categories?: string[];
   image?: string;
+  /** Renderable cover url. Null when there's nothing to show — see lib/images/article-image. */
+  imageUrl: string | null;
   createdAt?: string;
   updatedAt?: string;
   heroSlug?: string;
@@ -85,6 +88,12 @@ async function getPublishedArticles(): Promise<EnrichedArticle[]> {
       }
     }
 
+    // Covers picked from a card store a printing_id — resolve those to the
+    // printing's stored image_url (the id-keyed CDN images are gone).
+    const printingImageUrls = await resolveArticleImageUrls(
+      result.data.articles.map(a => a.image)
+    );
+
     // Enrich articles with author info and read time
     return result.data.articles.map(article => ({
       _id: article._id || '',
@@ -95,6 +104,7 @@ async function getPublishedArticles(): Promise<EnrichedArticle[]> {
       contentType: article.contentType,
       categories: article.categories || [],
       image: article.image,
+      imageUrl: resolveArticleImageUrl(article.image, printingImageUrls),
       heroSlug: article.heroSlug,
       heroClass: article.heroClass,
       isUserArticle: article.isUserArticle || false,
