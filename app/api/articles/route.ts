@@ -1,6 +1,7 @@
 //app/api/articles/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { publicArticlePath } from '@/lib/articles/public-path';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { articleService, userService } from '@/lib/services';
 import type { ArticleStatus, ArticleContentType, ArticleListFilters } from '@/lib/services/contracts/IArticleService';
@@ -186,7 +187,7 @@ export async function POST(req: NextRequest) {
 
     // When content changes, we should revalidate the public paths
     revalidatePath('/guides');
-    revalidatePath(`/${contentType === 'hero' ? 'heroes' : 'articles'}/${slug}`);
+    revalidatePath(publicArticlePath(result.data.publicId, contentType));
 
     return NextResponse.json({ success: true, article: result.data }, { status: 201 });
 

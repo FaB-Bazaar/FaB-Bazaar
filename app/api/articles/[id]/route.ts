@@ -1,6 +1,7 @@
 // app/api/articles/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { publicArticlePath } from '@/lib/articles/public-path';
 import mongoose from 'mongoose';
 import { authenticateRequest as multiAuthRequest } from '@/lib/auth/multi-auth';
 import { articleService, userService } from '@/lib/services';
@@ -297,10 +298,11 @@ export async function PATCH(
 
     const updatedArticle = result.data;
 
-    // Revalidate the article's public page if published
+    // Revalidate the article's public page if published. Keyed by publicId —
+    // the public routes resolve by publicId, so a slug-keyed path revalidates
+    // a URL nothing serves and leaves the real page stale.
     if (updatedArticle.status === 'published') {
-      const path = `/${updatedArticle.contentType === 'hero' ? 'heroes' : 'articles'}/${updatedArticle.slug}`;
-      revalidatePath(path);
+      revalidatePath(publicArticlePath(updatedArticle.publicId, updatedArticle.contentType));
       revalidatePath('/guides');
     }
 
