@@ -322,6 +322,18 @@ export default async function HeroArticlePage({ params }: { params: { publicId: 
                   />
                 );
 
+              case 'buylist-block':
+                return (
+                  <div
+                    key={index}
+                    dangerouslySetInnerHTML={createSafeInnerHTML('fab-buylist-block', {
+                      tiers: JSON.stringify(section.tiers || []),
+                      title: section.title || '',
+                      note: section.note,
+                    })}
+                  />
+                );
+
               default:
                 return <div key={index} className="text-red-500 font-semibold my-4 p-4 bg-red-900/20 rounded-md">Error: Unsupported section type "{section.type}"</div>;
             }

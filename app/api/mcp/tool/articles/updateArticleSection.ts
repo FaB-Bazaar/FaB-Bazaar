@@ -64,7 +64,7 @@ Update an existing section in an article by its index. Replaces the entire secti
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card'],
+            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block'],
             description: 'Section type'
           }
         },

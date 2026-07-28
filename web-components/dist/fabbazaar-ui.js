@@ -573,14 +573,14 @@ function n2(t2) {
 function r(r2) {
   return n2({ ...r2, state: true, attribute: false });
 }
-var __defProp$a = Object.defineProperty;
-var __getOwnPropDesc$a = Object.getOwnPropertyDescriptor;
-var __decorateClass$a = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$a(target, key) : target;
+var __defProp$b = Object.defineProperty;
+var __getOwnPropDesc$b = Object.getOwnPropertyDescriptor;
+var __decorateClass$b = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$b(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$a(target, key, result);
+  if (kind && result) __defProp$b(target, key, result);
   return result;
 };
 let FabCallout = class extends i$1 {
@@ -740,29 +740,29 @@ FabCallout.styles = i$4`
       height: 1rem;
     }
   `;
-__decorateClass$a([
+__decorateClass$b([
   n2()
 ], FabCallout.prototype, "title", 2);
-__decorateClass$a([
+__decorateClass$b([
   n2()
 ], FabCallout.prototype, "text", 2);
-__decorateClass$a([
+__decorateClass$b([
   n2({ attribute: "link-href" })
 ], FabCallout.prototype, "linkHref", 2);
-__decorateClass$a([
+__decorateClass$b([
   n2({ attribute: "link-text" })
 ], FabCallout.prototype, "linkText", 2);
-FabCallout = __decorateClass$a([
+FabCallout = __decorateClass$b([
   t$1("fab-callout")
 ], FabCallout);
-var __defProp$9 = Object.defineProperty;
-var __getOwnPropDesc$9 = Object.getOwnPropertyDescriptor;
-var __decorateClass$9 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$9(target, key) : target;
+var __defProp$a = Object.defineProperty;
+var __getOwnPropDesc$a = Object.getOwnPropertyDescriptor;
+var __decorateClass$a = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$a(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$9(target, key, result);
+  if (kind && result) __defProp$a(target, key, result);
   return result;
 };
 let FabCreatorSpotlight = class extends i$1 {
@@ -1004,19 +1004,19 @@ FabCreatorSpotlight.styles = i$4`
       line-height: 1.5;
     }
   `;
-__decorateClass$9([
+__decorateClass$a([
   n2({ attribute: "image-url" })
 ], FabCreatorSpotlight.prototype, "imageUrl", 2);
-__decorateClass$9([
+__decorateClass$a([
   n2()
 ], FabCreatorSpotlight.prototype, "name", 2);
-__decorateClass$9([
+__decorateClass$a([
   n2()
 ], FabCreatorSpotlight.prototype, "bio", 2);
-__decorateClass$9([
+__decorateClass$a([
   n2()
 ], FabCreatorSpotlight.prototype, "links", 2);
-FabCreatorSpotlight = __decorateClass$9([
+FabCreatorSpotlight = __decorateClass$a([
   t$1("fab-creator-spotlight")
 ], FabCreatorSpotlight);
 /**
@@ -3261,14 +3261,14 @@ function shouldShowAffiliateLink(tcgplayerUrl) {
   if (typeof window === "undefined") return false;
   return true;
 }
-var __defProp$8 = Object.defineProperty;
-var __getOwnPropDesc$8 = Object.getOwnPropertyDescriptor;
-var __decorateClass$8 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$8(target, key) : target;
+var __defProp$9 = Object.defineProperty;
+var __getOwnPropDesc$9 = Object.getOwnPropertyDescriptor;
+var __decorateClass$9 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$9(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$8(target, key, result);
+  if (kind && result) __defProp$9(target, key, result);
   return result;
 };
 let FabSpotlightCard = class extends i$1 {
@@ -4122,50 +4122,50 @@ FabSpotlightCard.styles = i$4`
       flex-shrink: 0;
     }
   `;
-__decorateClass$8([
+__decorateClass$9([
   n2({ attribute: "printing-id" })
 ], FabSpotlightCard.prototype, "printingId", 2);
-__decorateClass$8([
+__decorateClass$9([
   n2()
 ], FabSpotlightCard.prototype, "title", 2);
-__decorateClass$8([
+__decorateClass$9([
   n2()
 ], FabSpotlightCard.prototype, "commentary", 2);
-__decorateClass$8([
+__decorateClass$9([
   n2({ attribute: "api-base" })
 ], FabSpotlightCard.prototype, "apiBase", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "card", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "loading", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "error", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "cardDataMap", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "loadingCards", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "overlayImageUrl", 2);
-__decorateClass$8([
+__decorateClass$9([
   r()
 ], FabSpotlightCard.prototype, "overlayAlt", 2);
-FabSpotlightCard = __decorateClass$8([
+FabSpotlightCard = __decorateClass$9([
   t$1("fab-spotlight-card")
 ], FabSpotlightCard);
-var __defProp$7 = Object.defineProperty;
-var __getOwnPropDesc$7 = Object.getOwnPropertyDescriptor;
-var __decorateClass$7 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$7(target, key) : target;
+var __defProp$8 = Object.defineProperty;
+var __getOwnPropDesc$8 = Object.getOwnPropertyDescriptor;
+var __decorateClass$8 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$8(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$7(target, key, result);
+  if (kind && result) __defProp$8(target, key, result);
   return result;
 };
 let FabIntro = class extends i$1 {
@@ -4254,23 +4254,23 @@ FabIntro.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$7([
+__decorateClass$8([
   n2()
 ], FabIntro.prototype, "text", 2);
-__decorateClass$7([
+__decorateClass$8([
   n2()
 ], FabIntro.prototype, "tags", 2);
-FabIntro = __decorateClass$7([
+FabIntro = __decorateClass$8([
   t$1("fab-intro")
 ], FabIntro);
-var __defProp$6 = Object.defineProperty;
-var __getOwnPropDesc$6 = Object.getOwnPropertyDescriptor;
-var __decorateClass$6 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$6(target, key) : target;
+var __defProp$7 = Object.defineProperty;
+var __getOwnPropDesc$7 = Object.getOwnPropertyDescriptor;
+var __decorateClass$7 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$7(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$6(target, key, result);
+  if (kind && result) __defProp$7(target, key, result);
   return result;
 };
 let FabByline = class extends i$1 {
@@ -4385,26 +4385,26 @@ FabByline.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$6([
+__decorateClass$7([
   n2()
 ], FabByline.prototype, "role", 2);
-__decorateClass$6([
+__decorateClass$7([
   n2()
 ], FabByline.prototype, "name", 2);
-__decorateClass$6([
+__decorateClass$7([
   n2()
 ], FabByline.prototype, "link", 2);
-FabByline = __decorateClass$6([
+FabByline = __decorateClass$7([
   t$1("fab-byline")
 ], FabByline);
-var __defProp$5 = Object.defineProperty;
-var __getOwnPropDesc$5 = Object.getOwnPropertyDescriptor;
-var __decorateClass$5 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$5(target, key) : target;
+var __defProp$6 = Object.defineProperty;
+var __getOwnPropDesc$6 = Object.getOwnPropertyDescriptor;
+var __decorateClass$6 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$6(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$5(target, key, result);
+  if (kind && result) __defProp$6(target, key, result);
   return result;
 };
 let FabSectionHeader = class extends i$1 {
@@ -4503,26 +4503,26 @@ FabSectionHeader.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$5([
+__decorateClass$6([
   n2()
 ], FabSectionHeader.prototype, "title", 2);
-__decorateClass$5([
+__decorateClass$6([
   n2()
 ], FabSectionHeader.prototype, "subtitle", 2);
-__decorateClass$5([
+__decorateClass$6([
   n2()
 ], FabSectionHeader.prototype, "level", 2);
-FabSectionHeader = __decorateClass$5([
+FabSectionHeader = __decorateClass$6([
   t$1("fab-section-header")
 ], FabSectionHeader);
-var __defProp$4 = Object.defineProperty;
-var __getOwnPropDesc$4 = Object.getOwnPropertyDescriptor;
-var __decorateClass$4 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$4(target, key) : target;
+var __defProp$5 = Object.defineProperty;
+var __getOwnPropDesc$5 = Object.getOwnPropertyDescriptor;
+var __decorateClass$5 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$5(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$4(target, key, result);
+  if (kind && result) __defProp$5(target, key, result);
   return result;
 };
 let FabKeyTakeaways = class extends i$1 {
@@ -4673,23 +4673,23 @@ FabKeyTakeaways.styles = i$4`
       display: none;
     }
   `;
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabKeyTakeaways.prototype, "items", 2);
-__decorateClass$4([
+__decorateClass$5([
   n2()
 ], FabKeyTakeaways.prototype, "title", 2);
-FabKeyTakeaways = __decorateClass$4([
+FabKeyTakeaways = __decorateClass$5([
   t$1("fab-key-takeaways")
 ], FabKeyTakeaways);
-var __defProp$3 = Object.defineProperty;
-var __getOwnPropDesc$3 = Object.getOwnPropertyDescriptor;
-var __decorateClass$3 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$3(target, key) : target;
+var __defProp$4 = Object.defineProperty;
+var __getOwnPropDesc$4 = Object.getOwnPropertyDescriptor;
+var __decorateClass$4 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$4(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$3(target, key, result);
+  if (kind && result) __defProp$4(target, key, result);
   return result;
 };
 let FabMatchReport = class extends i$1 {
@@ -5410,62 +5410,62 @@ FabMatchReport.styles = i$4`
       .inline-card-name { color: #f1f5f9; }
     }
   `;
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabMatchReport.prototype, "overlayImageUrl", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabMatchReport.prototype, "overlayAlt", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "round", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "opponent", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "hero", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: "hero-printing-id" })
 ], FabMatchReport.prototype, "heroPrintingId", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "result", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "record", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "summary", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2()
 ], FabMatchReport.prototype, "sideboard", 2);
-__decorateClass$3([
+__decorateClass$4([
   n2({ attribute: "sideboard-cards" })
 ], FabMatchReport.prototype, "sideboardCardsJson", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabMatchReport.prototype, "cardDataMap", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabMatchReport.prototype, "loadingCards", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabMatchReport.prototype, "heroCardData", 2);
-__decorateClass$3([
+__decorateClass$4([
   r()
 ], FabMatchReport.prototype, "loadingHeroCard", 2);
-FabMatchReport = __decorateClass$3([
+FabMatchReport = __decorateClass$4([
   t$1("fab-match-report")
 ], FabMatchReport);
-var __defProp$2 = Object.defineProperty;
-var __getOwnPropDesc$2 = Object.getOwnPropertyDescriptor;
-var __decorateClass$2 = (decorators, target, key, kind) => {
-  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$2(target, key) : target;
+var __defProp$3 = Object.defineProperty;
+var __getOwnPropDesc$3 = Object.getOwnPropertyDescriptor;
+var __decorateClass$3 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$3(target, key) : target;
   for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
     if (decorator = decorators[i3])
       result = (kind ? decorator(target, key, result) : decorator(result)) || result;
-  if (kind && result) __defProp$2(target, key, result);
+  if (kind && result) __defProp$3(target, key, result);
   return result;
 };
 const COST_CHIPS = [0, 1, 2, 3, 4, 5];
@@ -6860,48 +6860,782 @@ FabDecklistBlock.styles = i$4`
       to   { transform: scale(1);    opacity: 1; }
     }
   `;
-__decorateClass$2([
+__decorateClass$3([
   n2({ attribute: "deck-id" })
 ], FabDecklistBlock.prototype, "deckId", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabDecklistBlock.prototype, "sections", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2({ attribute: "export-url" })
 ], FabDecklistBlock.prototype, "exportUrl", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabDecklistBlock.prototype, "notes", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2()
 ], FabDecklistBlock.prototype, "title", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2({ attribute: "article-public-id" })
 ], FabDecklistBlock.prototype, "articlePublicId", 2);
-__decorateClass$2([
+__decorateClass$3([
   n2({ attribute: "hero-public-id" })
 ], FabDecklistBlock.prototype, "heroPublicId", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_loading", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_error", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_deckData", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_viewMode", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_highlightFilters", 2);
-__decorateClass$2([
+__decorateClass$3([
   r()
 ], FabDecklistBlock.prototype, "_overlayImage", 2);
-FabDecklistBlock = __decorateClass$2([
+FabDecklistBlock = __decorateClass$3([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);
+var __defProp$2 = Object.defineProperty;
+var __getOwnPropDesc$2 = Object.getOwnPropertyDescriptor;
+var __decorateClass$2 = (decorators, target, key, kind) => {
+  var result = kind > 1 ? void 0 : kind ? __getOwnPropDesc$2(target, key) : target;
+  for (var i3 = decorators.length - 1, decorator; i3 >= 0; i3--)
+    if (decorator = decorators[i3])
+      result = (kind ? decorator(target, key, result) : decorator(result)) || result;
+  if (kind && result) __defProp$2(target, key, result);
+  return result;
+};
+let FabBuylistBlock = class extends i$1 {
+  constructor() {
+    super(...arguments);
+    this.tiers = "";
+    this.title = "Buy List";
+    this.note = "";
+    this._loading = false;
+    this._error = "";
+    this._data = null;
+    this._collapsed = /* @__PURE__ */ new Set();
+    this._adding = false;
+    this._addMessage = "";
+    this._addFailed = false;
+    this._lastFetched = "";
+  }
+  firstUpdated() {
+    this._fetchRollup();
+  }
+  updated(changed) {
+    if (changed.has("tiers") && this.tiers !== this._lastFetched) {
+      this._fetchRollup();
+    }
+  }
+  _parseTiers() {
+    if (!this.tiers) return null;
+    try {
+      const parsed = JSON.parse(this.tiers);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  async _fetchRollup() {
+    const tiers = this._parseTiers();
+    this._lastFetched = this.tiers;
+    if (!tiers) {
+      this._error = "This buy list is misconfigured.";
+      return;
+    }
+    this._loading = true;
+    this._error = "";
+    try {
+      const response = await fetch("/api/buylist/rollup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tiers })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to price this buy list");
+      }
+      this._data = result.data;
+    } catch (e2) {
+      this._error = e2 instanceof Error ? e2.message : "Failed to price this buy list";
+    } finally {
+      this._loading = false;
+    }
+  }
+  _toggleGroup(key) {
+    const next = new Set(this._collapsed);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    this._collapsed = next;
+  }
+  _money(value) {
+    return `$${value.toFixed(2)}`;
+  }
+  _range(range) {
+    return range.min === range.max ? this._money(range.min) : `${this._money(range.min)} – ${this._money(range.max)}`;
+  }
+  _qtyText(qty) {
+    return qty.min === qty.max ? `${qty.min}x` : `${qty.min}-${qty.max}x`;
+  }
+  /** Every card the reader still needs at least one copy of. */
+  _missingCards() {
+    if (!this._data) return [];
+    return this._data.rollup.tiers.flatMap((tier) => tier.groups).flatMap((group) => group.cards).filter((card) => card.needed.max > 0).map((card) => ({ printingId: card.printingId, quantity: card.needed.max }));
+  }
+  async _addMissingToWants() {
+    const printings = this._missingCards();
+    if (printings.length === 0) return;
+    this._adding = true;
+    this._addMessage = "";
+    this._addFailed = false;
+    try {
+      const response = await fetch("/api/wants/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ printings })
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || "Could not update your wants list");
+      }
+      this._addMessage = `Added ${printings.length} card${printings.length === 1 ? "" : "s"} to your wants`;
+    } catch (e2) {
+      this._addFailed = true;
+      this._addMessage = e2 instanceof Error ? e2.message : "Could not update your wants list";
+    } finally {
+      this._adding = false;
+    }
+  }
+  _renderOwnPill(totals) {
+    if (!this._data?.authenticated) return null;
+    const owned = totals.ownedCopies;
+    const wanted = totals.wantedCopies.max;
+    const cls = owned === 0 ? "none" : owned >= wanted ? "complete" : "partial";
+    const glyph = owned === 0 ? "✗" : owned >= wanted ? "✓" : "◐";
+    return b`<span class="own-pill ${cls}">${glyph} own ${owned} / ${wanted}</span>`;
+  }
+  _renderCard(card) {
+    const meta = this._data?.cards[card.printingId];
+    const name = meta?.name ?? card.printingId;
+    const authenticated = this._data?.authenticated ?? false;
+    return b`
+      <li class="row">
+        ${meta?.image_url ? b`<img class="thumb" src=${meta.image_url} alt="" loading="lazy" />` : b`<span class="thumb" aria-hidden="true"></span>`}
+        <span class="row-main">
+          <span class="row-name">${name}</span>
+          ${meta?.collector_number ? b`<span class="row-meta"> ${meta.collector_number.toUpperCase()}</span>` : null}
+        </span>
+        <span class="row-qty">${this._qtyText(card.qty)}</span>
+        <span class="row-price">
+          ${card.unitPrice == null ? b`<span class="no-price">no price</span>` : b`${this._range(card.subtotal)}${card.priceIsFallback ? b`<span class="fallback-flag" title="Priced from TCG Market — no low price available"> ·M</span>` : null}`}
+        </span>
+        ${authenticated ? b`<span class="row-own ${card.owned > 0 ? "have" : "need"}">
+              ${card.owned > 0 ? b`✓ ${card.owned}` : b`—`}
+            </span>` : null}
+      </li>
+    `;
+  }
+  _renderGroup(group, key) {
+    const collapsed = this._collapsed.has(key);
+    return b`
+      <div class="group">
+        <button
+          class="group-header"
+          aria-expanded=${collapsed ? "false" : "true"}
+          @click=${() => this._toggleGroup(key)}
+        >
+          <svg class="caret ${collapsed ? "collapsed" : ""}" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          ${group.qtyLabel ? b`<span class="group-qty">${group.qtyLabel}</span>` : null}
+          <span class="group-label">${group.label}</span>
+          ${this._renderOwnPill(group.totals)}
+          <span class="group-cost">${this._range(group.totals.cost)}</span>
+        </button>
+        ${collapsed ? null : b`<ul class="rows">${group.cards.map((card) => this._renderCard(card))}</ul>`}
+      </div>
+    `;
+  }
+  _renderTier(tier, tierIndex) {
+    return b`
+      <section class="tier">
+        <div class="tier-header">
+          <h3 class="tier-title">${tier.label}</h3>
+          <span class="tier-total">${this._range(tier.totals.cost)}</span>
+        </div>
+        ${tier.groups.map((group, i3) => this._renderGroup(group, `${tierIndex}-${i3}`))}
+      </section>
+    `;
+  }
+  render() {
+    if (this._loading) {
+      return b`<div class="buylist"><div class="state">Pricing this buy list…</div></div>`;
+    }
+    if (this._error) {
+      return b`<div class="buylist"><div class="state error">${this._error}</div></div>`;
+    }
+    if (!this._data) {
+      return b`<div class="buylist"><div class="state">No cards in this buy list yet.</div></div>`;
+    }
+    const { rollup, authenticated } = this._data;
+    const missingCount = this._missingCards().length;
+    const showNeed = authenticated && rollup.totals.needCost.max > 0 && rollup.totals.needCost.max < rollup.totals.cost.max;
+    return b`
+      <div class="buylist">
+        <div class="header">
+          <h2 class="title">${this.title}</h2>
+          <div class="totals">
+            <span class="total-cost">${this._range(rollup.totals.cost)}</span>
+            <span class="total-label">
+              ${rollup.totals.wantedCopies.max} cards
+              ${rollup.totals.missingPrices.length > 0 ? b`· <span class="no-price">${rollup.totals.missingPrices.length} unpriced</span>` : null}
+            </span>
+            ${showNeed ? b`<span class="total-need">you still need ${this._range(rollup.totals.needCost)}</span>` : null}
+          </div>
+        </div>
+
+        ${rollup.tiers.map((tier, i3) => this._renderTier(tier, i3))}
+
+        <div class="footer">
+          <p class="note">
+            ${this.note || (authenticated ? "Ownership counts any printing of a card you already have." : "Sign in to see which of these you already own.")}
+          </p>
+          ${this._addMessage ? b`<span class="add-status ${this._addFailed ? "error" : ""}">${this._addMessage}</span>` : null}
+          ${authenticated && missingCount > 0 ? b`<button class="add-btn" ?disabled=${this._adding} @click=${this._addMissingToWants}>
+                ${this._adding ? "Adding…" : `Add ${missingCount} missing to Wants`}
+              </button>` : null}
+        </div>
+      </div>
+    `;
+  }
+};
+FabBuylistBlock.styles = i$4`
+    /* ===== HOST SETUP ===== */
+    :host {
+      display: block;
+      margin: 2rem 0;
+    }
+
+    .buylist {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
+      overflow: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+    }
+
+    .totals {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .total-cost {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .total-need {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #047857;
+    }
+
+    .total-label {
+      font-size: 0.875rem;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    /* ===== TIERS ===== */
+    .tier {
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .tier:first-of-type {
+      border-top: none;
+    }
+
+    .tier-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1.25rem;
+      background: #f1f5f9;
+      flex-wrap: wrap;
+    }
+
+    .tier-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tier-total {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    /* ===== GROUPS ===== */
+    .group {
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      width: 100%;
+      padding: 0.75rem 1.25rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      color: #0f172a;
+    }
+
+    .group-header:hover {
+      background: #f1f5f9;
+    }
+
+    .group-header:focus-visible {
+      outline: none;
+      box-shadow: inset 0 0 0 2px #60a5fa;
+    }
+
+    .caret {
+      flex-shrink: 0;
+      width: 0.75rem;
+      height: 0.75rem;
+      transition: transform 0.15s;
+      color: #475569;
+    }
+
+    .caret.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .group-qty {
+      flex-shrink: 0;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #1e293b;
+      background: #e2e8f0;
+      border-radius: 0.25rem;
+      padding: 0.125rem 0.375rem;
+      min-width: 2.25rem;
+      text-align: center;
+    }
+
+    .group-label {
+      font-size: 1rem;
+      font-weight: 600;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .group-cost {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #334155;
+      white-space: nowrap;
+    }
+
+    /* ===== OWNERSHIP PILL ===== */
+    .own-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.125rem 0.5rem;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    /* Shape + glyph carry the meaning, not colour alone (WCAG SC 1.4.1). */
+    .own-pill.complete {
+      color: #065f46;
+      background: #d1fae5;
+      border-color: #34d399;
+    }
+
+    .own-pill.partial {
+      color: #854d0e;
+      background: #fef3c7;
+      border-color: #fbbf24;
+    }
+
+    .own-pill.none {
+      color: #475569;
+      background: transparent;
+      border-style: dashed;
+      border-color: #94a3b8;
+    }
+
+    /* ===== CARD ROWS ===== */
+    .rows {
+      list-style: none;
+      margin: 0;
+      padding: 0 0 0.5rem 0;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.375rem 1.25rem 0.375rem 2.75rem;
+    }
+
+    .row:hover {
+      background: #f1f5f9;
+    }
+
+    .thumb {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2.8rem;
+      object-fit: cover;
+      border-radius: 0.1875rem;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+    }
+
+    .row-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .row-name {
+      font-size: 1rem;
+      color: #0f172a;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .row-meta {
+      font-size: 0.875rem;
+      color: #475569;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .row-qty {
+      flex-shrink: 0;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #1e293b;
+      font-variant-numeric: tabular-nums;
+      min-width: 2.75rem;
+      text-align: right;
+    }
+
+    .row-price {
+      flex-shrink: 0;
+      font-size: 0.875rem;
+      color: #334155;
+      font-variant-numeric: tabular-nums;
+      min-width: 5rem;
+      text-align: right;
+    }
+
+    .row-own {
+      flex-shrink: 0;
+      min-width: 4.5rem;
+      text-align: right;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .row-own.have {
+      color: #047857;
+    }
+
+    .row-own.need {
+      color: #475569;
+    }
+
+    .fallback-flag {
+      font-size: 0.875rem;
+      color: #854d0e;
+      font-weight: 600;
+    }
+
+    .no-price {
+      color: #854d0e;
+      font-weight: 600;
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.875rem 1.25rem;
+      border-top: 1px solid #e2e8f0;
+      background: #f1f5f9;
+      flex-wrap: wrap;
+    }
+
+    .note {
+      font-size: 0.875rem;
+      color: #475569;
+      margin: 0;
+      flex: 1;
+      min-width: 12rem;
+    }
+
+    .add-btn {
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.5rem 0.875rem;
+      border-radius: 0.375rem;
+      border: 1px solid #0f172a;
+      background: #0f172a;
+      color: #ffffff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .add-btn:hover:not(:disabled) {
+      background: #1e293b;
+    }
+
+    .add-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #60a5fa;
+    }
+
+    .add-btn:disabled {
+      opacity: 1;
+      background: #64748b;
+      border-color: #64748b;
+      cursor: not-allowed;
+    }
+
+    .add-status {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #047857;
+    }
+
+    .add-status.error {
+      color: #b91c1c;
+    }
+
+    /* ===== STATES ===== */
+    .state {
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+      color: #475569;
+      font-size: 1rem;
+    }
+
+    .state.error {
+      color: #b91c1c;
+    }
+
+    /* ===== MOBILE ===== */
+    @media (max-width: 640px) {
+      .row {
+        padding-left: 1.25rem;
+        flex-wrap: wrap;
+      }
+
+      .row-main {
+        flex-basis: calc(100% - 3rem);
+      }
+
+      .row-price,
+      .row-own {
+        min-width: 0;
+      }
+
+      .row-meta {
+        display: none;
+      }
+    }
+
+    /* ===== DARK MODE ===== */
+    :host-context(.dark) .buylist {
+      background: #0f172a;
+      border-color: #334155;
+    }
+
+    :host-context(.dark) .header,
+    :host-context(.dark) .tier,
+    :host-context(.dark) .group,
+    :host-context(.dark) .footer {
+      border-color: #334155;
+    }
+
+    :host-context(.dark) .title,
+    :host-context(.dark) .tier-title,
+    :host-context(.dark) .group-header,
+    :host-context(.dark) .row-name,
+    :host-context(.dark) .row-qty,
+    :host-context(.dark) .total-cost {
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .tier-header {
+      background: #1e293b;
+    }
+
+    :host-context(.dark) .tier-total,
+    :host-context(.dark) .group-cost,
+    :host-context(.dark) .row-price {
+      color: #cbd5e1;
+    }
+
+    :host-context(.dark) .total-label,
+    :host-context(.dark) .row-meta,
+    :host-context(.dark) .note,
+    :host-context(.dark) .state,
+    :host-context(.dark) .caret,
+    :host-context(.dark) .row-own.need {
+      color: #cbd5e1;
+    }
+
+    :host-context(.dark) .group-header:hover,
+    :host-context(.dark) .row:hover {
+      background: #1e293b;
+    }
+
+    :host-context(.dark) .group-qty {
+      background: #334155;
+      color: #f1f5f9;
+    }
+
+    :host-context(.dark) .footer {
+      background: #1e293b;
+    }
+
+    :host-context(.dark) .thumb {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    :host-context(.dark) .total-need,
+    :host-context(.dark) .row-own.have,
+    :host-context(.dark) .add-status {
+      color: #34d399;
+    }
+
+    :host-context(.dark) .own-pill.complete {
+      color: #d1fae5;
+      background: #064e3b;
+      border-color: #34d399;
+    }
+
+    :host-context(.dark) .own-pill.partial {
+      color: #fef3c7;
+      background: #78350f;
+      border-color: #fbbf24;
+    }
+
+    :host-context(.dark) .own-pill.none {
+      color: #cbd5e1;
+      border-color: #64748b;
+    }
+
+    :host-context(.dark) .fallback-flag,
+    :host-context(.dark) .no-price {
+      color: #fbbf24;
+    }
+
+    :host-context(.dark) .add-btn {
+      background: #f1f5f9;
+      border-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    :host-context(.dark) .add-btn:hover:not(:disabled) {
+      background: #ffffff;
+    }
+
+    :host-context(.dark) .add-btn:disabled {
+      background: #475569;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    :host-context(.dark) .state.error,
+    :host-context(.dark) .add-status.error {
+      color: #fca5a5;
+    }
+  `;
+__decorateClass$2([
+  n2()
+], FabBuylistBlock.prototype, "tiers", 2);
+__decorateClass$2([
+  n2()
+], FabBuylistBlock.prototype, "title", 2);
+__decorateClass$2([
+  n2()
+], FabBuylistBlock.prototype, "note", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_loading", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_error", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_data", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_collapsed", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_adding", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_addMessage", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_addFailed", 2);
+FabBuylistBlock = __decorateClass$2([
+  t$1("fab-buylist-block")
+], FabBuylistBlock);
 var __defProp$1 = Object.defineProperty;
 var __getOwnPropDesc$1 = Object.getOwnPropertyDescriptor;
 var __decorateClass$1 = (decorators, target, key, kind) => {
@@ -7648,6 +8382,7 @@ FabOpportunityCard = __decorateClass([
 ], FabOpportunityCard);
 const version = "2.1.0";
 export {
+  FabBuylistBlock,
   FabByline,
   FabCallout,
   FabCreatorSpotlight,

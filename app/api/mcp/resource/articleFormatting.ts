@@ -185,6 +185,64 @@ export const articleFormattingResource = {
               title: 'string',
               commentary: 'string'
             }
+          },
+
+          'buylist-block': {
+            description: 'Grouped, priced shopping list — the right section for "what do I need to buy for this hero". Renders a scannable checklist (no carousel): tiers → purchasable packages → card rows, with tcg_low pricing, per-package and grand totals, and — for signed-in readers — how many of each card they already own plus an "add all missing to Wants" button.',
+            structure: {
+              type: 'buylist-block',
+              title: 'optional string (default: "Buy List")',
+              note: 'optional footnote string',
+              tiers: [
+                {
+                  label: 'string — e.g. "The Core" / "Flex & Tech"',
+                  groups: [
+                    {
+                      label: 'string — a purchasable package, e.g. "Steel Soul Set"',
+                      cards: [{ printingId: 'string', qty: 'number or range string' }]
+                    }
+                  ]
+                }
+              ]
+            },
+            quantityRules: [
+              'qty accepts a fixed count (3) or a range string ("2-3") — ranges produce a min/max cost range',
+              'A trailing x is tolerated: "2-3x" parses the same as "2-3"',
+              'A reversed range ("3-2") or non-numeric qty is rejected with a 400 — fix it, do not retry',
+              'A group header shows its quantity only when every card in it shares the same qty'
+            ],
+            notes: [
+              'Ownership is counted per CARD, not per printing — a reader holding any printing of the card already owns it',
+              'Prices come from tcg_low, falling back to tcg_market only when tcg_low is absent (flagged in the UI with ·M)',
+              'Prefer this over card-carousel for buy lists: a carousel hides items behind a swipe, and a buy list is meant to be scanned and printed'
+            ],
+            example: {
+              type: 'buylist-block',
+              title: 'Teklovossen Buy List',
+              tiers: [
+                {
+                  label: 'The Core',
+                  groups: [
+                    {
+                      label: 'Steel Soul Set',
+                      cards: [
+                        { printingId: 'Q7bHNWdWH7BgqnpktCDLb', qty: 3 },
+                        { printingId: 'BQtw9MRfNkpftDdRrddTT', qty: 3 }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  label: 'Flex & Tech',
+                  groups: [
+                    {
+                      label: 'Scrap Trader',
+                      cards: [{ printingId: 'somePrintingId12345678', qty: '2-3' }]
+                    }
+                  ]
+                }
+              ]
+            }
           }
         }
       },
@@ -226,6 +284,7 @@ export const articleFormattingResource = {
         'Bold card names when using InlineCard syntax: **<InlineCard>...</InlineCard>**',
         'Include pitch color in card name when applicable: (Red), (Yellow), (Blue)',
         'Use card-carousel sections for visual card showcases',
+        'Use buylist-block for "what should I buy" content — never card-carousel, which hides cards behind a swipe',
         'Use text sections with InlineCard for narrative card references',
         'Preview updates with mode: "preview" before confirming',
         'Use includeFullContent: true when reading sections to edit'

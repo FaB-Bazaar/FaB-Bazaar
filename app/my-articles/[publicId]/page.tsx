@@ -39,6 +39,7 @@ import { SectionHeaderEditor } from '@/app/admin/articles/edit/[articleId]/Secti
 import { KeyTakeawaysSectionEditor } from '@/app/admin/articles/edit/[articleId]/KeyTakeawaysSectionEditor';
 import { MatchReportSectionEditor } from '@/app/admin/articles/edit/[articleId]/MatchReportSectionEditor';
 import { DecklistBlockEditor } from '@/app/admin/articles/edit/[articleId]/DecklistBlockEditor';
+import { BuylistBlockEditor } from '@/components/BuylistBlockEditor';
 import { SpotlightCardSectionEditor } from '@/app/admin/articles/edit/[articleId]/SpotlightCardSectionEditor';
 
 // Preview components
@@ -55,6 +56,7 @@ const USER_ALLOWED_SECTIONS = [
   { type: 'spotlight-card', label: 'Spotlight Card' },
   { type: 'card-carousel', label: 'Card Carousel' },
   { type: 'decklist-block', label: 'Decklist Block' },
+  { type: 'buylist-block', label: 'Buy List' },
   { type: 'match-report', label: 'Match Report' },
   { type: 'key-takeaways', label: 'Key Takeaways' },
   { type: 'video', label: 'Video' },
@@ -205,6 +207,7 @@ export default function EditArticlePage() {
     // Set defaults based on type
     if (type === 'text') newSection.content = '';
     if (type === 'card-carousel') newSection.cards = [];
+    if (type === 'buylist-block') newSection.tiers = [];
     if (type === 'callout') {
       newSection.title = '';
       newSection.text = '';
@@ -466,6 +469,13 @@ export default function EditArticlePage() {
       case 'decklist-block':
         return (
           <DecklistBlockEditor
+            section={section}
+            onChange={(updates) => updateSection(index, updates)}
+          />
+        );
+      case 'buylist-block':
+        return (
+          <BuylistBlockEditor
             section={section}
             onChange={(updates) => updateSection(index, updates)}
           />

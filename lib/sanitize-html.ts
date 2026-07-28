@@ -13,6 +13,7 @@ const ALLOWED_WEB_COMPONENTS = [
   'fab-key-takeaways',
   'fab-match-report',
   'fab-decklist-block',
+  'fab-buylist-block',
   'fab-callout',
   'fab-video',
   'fab-opportunity-card',

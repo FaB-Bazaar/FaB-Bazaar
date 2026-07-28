@@ -19,6 +19,7 @@ export { FabSectionHeader } from './fab-section-header';
 export { FabKeyTakeaways } from './fab-key-takeaways';
 export { FabMatchReport } from './fab-match-report';
 export { FabDecklistBlock } from './fab-decklist-block';
+export { FabBuylistBlock } from './fab-buylist-block';
 
 // Export video and opportunity components (Phase 4)
 export { FabVideo } from './fab-video';
@@ -39,6 +40,7 @@ declare global {
     'fab-key-takeaways': import('./fab-key-takeaways').FabKeyTakeaways;
     'fab-match-report': import('./fab-match-report').FabMatchReport;
     'fab-decklist-block': import('./fab-decklist-block').FabDecklistBlock;
+    'fab-buylist-block': import('./fab-buylist-block').FabBuylistBlock;
     'fab-video': import('./fab-video').FabVideo;
     'fab-opportunity-card': import('./fab-opportunity-card').FabOpportunityCard;
   }

@@ -50,6 +50,7 @@ import { SectionHeaderEditor } from './SectionHeaderEditor';
 import { KeyTakeawaysSectionEditor } from './KeyTakeawaysSectionEditor';
 import { MatchReportSectionEditor } from './MatchReportSectionEditor';
 import { DecklistBlockEditor } from './DecklistBlockEditor';
+import { BuylistBlockEditor } from '@/components/BuylistBlockEditor';
 
 // Import Card Search Dialog for cover image selection
 import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
@@ -151,7 +152,7 @@ export function ArticleEditForm({ initialData }: { initialData: any }) {
     setArticle((prev: any) => ({ ...prev, sections: newSections }));
   };
 
-  const addSection = (type: 'text' | 'card-carousel' | 'video' | 'creator-spotlight' | 'callout' | 'opportunity-card' | 'spotlight-card' | 'intro' | 'byline' | 'section-header' | 'key-takeaways' | 'match-report' | 'decklist-block', index?: number) => {
+  const addSection = (type: 'text' | 'card-carousel' | 'video' | 'creator-spotlight' | 'callout' | 'opportunity-card' | 'spotlight-card' | 'intro' | 'byline' | 'section-header' | 'key-takeaways' | 'match-report' | 'decklist-block' | 'buylist-block', index?: number) => {
     let newSection: any = { type };
     if (type === 'card-carousel') newSection.cards = [];
     if (type === 'video') {
@@ -222,6 +223,11 @@ export function ArticleEditForm({ initialData }: { initialData: any }) {
         newSection.exportUrl = "";
         newSection.notes = "";
     }
+    if (type === 'buylist-block') {
+        newSection.title = "";
+        newSection.note = "";
+        newSection.tiers = [];
+    }
 
     setArticle((prev: any) => {
       const newSections = [...prev.sections];
@@ -291,6 +297,7 @@ export function ArticleEditForm({ initialData }: { initialData: any }) {
           <DropdownMenuItem onClick={() => addSection('byline', insertIndex)}>Byline / Attribution</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('match-report', insertIndex)}>Match Report</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('decklist-block', insertIndex)}>Decklist Block</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => addSection('buylist-block', insertIndex)}>Buy List</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('callout', insertIndex)}>Callout</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('opportunity-card', insertIndex)}>Opportunity Card</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('spotlight-card', insertIndex)}>Spotlight Card</DropdownMenuItem>
@@ -618,6 +625,11 @@ export function ArticleEditForm({ initialData }: { initialData: any }) {
                   />
                 ) : section.type === 'decklist-block' ? (
                   <DecklistBlockEditor
+                    section={section}
+                    onChange={(updates) => handleSectionChange(index, updates)}
+                  />
+                ) : section.type === 'buylist-block' ? (
+                  <BuylistBlockEditor
                     section={section}
                     onChange={(updates) => handleSectionChange(index, updates)}
                   />

@@ -59,7 +59,7 @@ Append new sections to the end of an article. Supports all section types includi
         properties: {
           type: {
             type: 'string',
-            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card'],
+            enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block'],
             description: 'Section type'
           }
         }
@@ -72,7 +72,7 @@ Append new sections to the end of an article. Supports all section types includi
           properties: {
             type: {
               type: 'string',
-              enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card']
+              enum: ['text', 'card-carousel', 'video', 'creator-spotlight', 'callout', 'opportunity-card', 'spotlight-card', 'buylist-block']
             }
           }
         }

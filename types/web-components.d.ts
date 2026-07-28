@@ -77,6 +77,13 @@ declare namespace JSX {
       title?: string;
       children?: React.ReactNode;
     };
+
+    'fab-buylist-block': {
+      tiers?: string; // JSON string
+      title?: string;
+      note?: string;
+      children?: React.ReactNode;
+    };
   }
 }
 
@@ -152,6 +159,13 @@ declare global {
         'export-url'?: string;
         notes?: string;
         title?: string;
+        children?: React.ReactNode;
+      };
+
+      'fab-buylist-block': {
+        tiers?: string;
+        title?: string;
+        note?: string;
         children?: React.ReactNode;
       };
     }

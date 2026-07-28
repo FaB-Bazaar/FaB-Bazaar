@@ -37,6 +37,7 @@ import { SectionHeaderEditor } from '../edit/[articleId]/SectionHeaderEditor';
 import { KeyTakeawaysSectionEditor } from '../edit/[articleId]/KeyTakeawaysSectionEditor';
 import { MatchReportSectionEditor } from '../edit/[articleId]/MatchReportSectionEditor';
 import { DecklistBlockEditor } from '../edit/[articleId]/DecklistBlockEditor';
+import { BuylistBlockEditor } from '@/components/BuylistBlockEditor';
 
 // Import Preview Components (same as edit form)
 import {
@@ -187,7 +188,7 @@ export function ArticleCreateForm() {
     }
   };
 
-  const addSection = (type: 'text' | 'card-carousel' | 'video' | 'creator-spotlight' | 'callout' | 'opportunity-card' | 'spotlight-card' | 'intro' | 'byline' | 'section-header' | 'key-takeaways' | 'match-report' | 'decklist-block', index?: number) => {
+  const addSection = (type: 'text' | 'card-carousel' | 'video' | 'creator-spotlight' | 'callout' | 'opportunity-card' | 'spotlight-card' | 'intro' | 'byline' | 'section-header' | 'key-takeaways' | 'match-report' | 'decklist-block' | 'buylist-block', index?: number) => {
     console.log(`[ArticleCreateForm] addSection: type=${type}, index=${index}`);
     let newSection: any = { type };
     if (type === 'card-carousel') newSection.cards = [];
@@ -251,6 +252,11 @@ export function ArticleCreateForm() {
         newSection.sections = JSON.stringify([{ label: "Core", cards: [] }]);
         newSection.exportUrl = "";
         newSection.notes = "";
+    }
+    if (type === 'buylist-block') {
+        newSection.title = "";
+        newSection.note = "";
+        newSection.tiers = [];
     }
 
     setArticle((prev) => {
@@ -329,6 +335,7 @@ export function ArticleCreateForm() {
           <DropdownMenuItem onClick={() => addSection('byline', insertIndex)}>Byline / Attribution</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('match-report', insertIndex)}>Match Report</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('decklist-block', insertIndex)}>Decklist Block</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => addSection('buylist-block', insertIndex)}>Buy List</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('callout', insertIndex)}>Callout</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('opportunity-card', insertIndex)}>Opportunity Card</DropdownMenuItem>
           <DropdownMenuItem onClick={() => addSection('spotlight-card', insertIndex)}>Spotlight Card</DropdownMenuItem>
@@ -622,6 +629,8 @@ export function ArticleCreateForm() {
                   <MatchReportSectionEditor section={section} onChange={(updates) => handleSectionChange(index, updates)} />
                 ) : section.type === 'decklist-block' ? (
                   <DecklistBlockEditor section={section} onChange={(updates) => handleSectionChange(index, updates)} />
+                ) : section.type === 'buylist-block' ? (
+                  <BuylistBlockEditor section={section} onChange={(updates) => handleSectionChange(index, updates)} />
                 ) : (
                   <div className="text-destructive font-mono p-4 bg-muted/30 rounded-md">
                     Error: Unknown section type '{section.type}'
