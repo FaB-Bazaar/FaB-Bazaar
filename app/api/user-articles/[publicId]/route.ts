@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { articleService } from '@/lib/services';
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { publicArticlePath } from '@/lib/articles/public-path';
 
 /**
  * GET /api/user-articles/[publicId]
@@ -155,7 +156,15 @@ export async function PATCH(
     // If published, revalidate public pages
     if (result.data.status === 'published') {
       revalidatePath('/guides');
-      revalidatePath(`/articles/${publicId}`);
+      // A hero guide lives at /heroes/<publicId>, everything else at
+      // /articles/<publicId>. Bust the pre-update path too — a publish can
+      // change contentType in the same request, stranding the old URL on a
+      // cached page that should now 404.
+      const paths = new Set([
+        publicArticlePath(publicId, articleResult.data.contentType),
+        publicArticlePath(publicId, result.data.contentType),
+      ]);
+      paths.forEach(path => revalidatePath(path));
     }
 
     return NextResponse.json({
@@ -229,9 +238,11 @@ export async function DELETE(
     // Revalidate list page
     revalidatePath('/my-articles');
 
-    // If was published, revalidate public pages
+    // If was published, revalidate public pages — including the article's own
+    // page, which would otherwise keep serving a deleted article from cache.
     if (articleResult.data.status === 'published') {
       revalidatePath('/guides');
+      revalidatePath(publicArticlePath(publicId, articleResult.data.contentType));
     }
 
     return NextResponse.json({

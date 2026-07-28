@@ -29,6 +29,7 @@ vi.mock('next/cache', () => ({
 import { PATCH } from './route';
 import { articleService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
+import { revalidatePath } from 'next/cache';
 
 const mockGet = vi.mocked(articleService.getArticleByPublicId);
 const mockUpdate = vi.mocked(articleService.updateUserArticle);
@@ -125,5 +126,47 @@ describe('error mapping', () => {
 
     expect(res.status).toBe(404);
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('publish-time cache revalidation', () => {
+  // A hero article is served from /heroes/<publicId>, not /articles/<publicId>.
+  // Busting only the latter leaves the real page holding a stale ISR entry —
+  // which, for a freshly published article, is the 404 rendered while it was
+  // still a draft.
+  const publish = async (contentType: string) => {
+    setAuth();
+    mockGet.mockResolvedValue(existingArticle({ contentType }) as any);
+    mockUpdate.mockResolvedValue({
+      success: true,
+      data: { publicId: PUBLIC_ID, contentType, status: 'published' },
+    } as any);
+
+    await callPatch({ status: 'published' });
+    return vi.mocked(revalidatePath).mock.calls.map(c => c[0]);
+  };
+
+  it('busts the /heroes path when publishing a hero article', async () => {
+    const paths = await publish('hero');
+
+    expect(paths).toContain(`/heroes/${PUBLIC_ID}`);
+  });
+
+  it('busts the /articles path when publishing a non-hero article', async () => {
+    const paths = await publish('strategy');
+
+    expect(paths).toContain(`/articles/${PUBLIC_ID}`);
+  });
+
+  it('does not bust the wrong public path for a hero article', async () => {
+    const paths = await publish('hero');
+
+    expect(paths).not.toContain(`/articles/${PUBLIC_ID}`);
+  });
+
+  it('still refreshes the guides index on publish', async () => {
+    const paths = await publish('hero');
+
+    expect(paths).toContain('/guides');
   });
 });

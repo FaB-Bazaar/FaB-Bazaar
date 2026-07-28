@@ -4,6 +4,7 @@
 import { articleService, userService } from '@/lib/services';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { auth } from "@/auth";
+import { publicArticlePath } from '@/lib/articles/public-path';
 // IArticle import removed (MongoDB model, 2026-03-22) — fields inlined below
 type ArticlePayload = {
   title?: string;
@@ -227,7 +228,7 @@ export async function updateArticle(articleId: string, payload: ArticlePayload) 
 
 // Updated to use publicId instead of slug (2026-02)
 export async function revalidateArticle(publicId: string, contentType: string) {
-  const path = `/${contentType === 'hero' ? 'heroes' : 'articles'}/${publicId}`;
+  const path = publicArticlePath(publicId, contentType);
 
   try {
     console.log(`Attempting to revalidate: ${path}`);
@@ -276,7 +277,10 @@ export async function updateArticleStatus(articleId: string, newStatus: 'draft' 
       throw new Error("Article not found.");
     }
 
-    const { slug, contentType } = getResult.data;
+    // publicId, not slug: the public routes resolve by publicId, slug is
+    // deprecated, and user articles have no slug at all — so the old code
+    // revalidated /heroes/undefined and left the real page on a stale entry.
+    const { publicId, contentType } = getResult.data;
 
     // 3. Update the status via service
     const updateResult = await articleService.updateStatus(articleId, userId, newStatus);
@@ -286,13 +290,13 @@ export async function updateArticleStatus(articleId: string, newStatus: 'draft' 
     }
 
     // 4. Trigger cache revalidation for the article's public page
-    await revalidateArticle(slug, contentType);
+    await revalidateArticle(publicId, contentType);
 
     // 5. Revalidate the admin dashboard
     revalidatePath('/admin/articles');
 
     // 6. Invalidate Data Cache
-    revalidateTag(`article-${slug}`);
+    revalidateTag(`article-${publicId}`);
     revalidateTag('articles-published');
 
     return { success: true };
@@ -329,7 +333,7 @@ export async function deleteArticle(articleId: string) {
       return { success: false, error: 'Article not found.' };
     }
 
-    const { slug, contentType } = getResult.data;
+    const { publicId, contentType } = getResult.data;
 
     // Delete via service (service also handles ownership check)
     const deleteResult = await articleService.deleteArticle(articleId, session.user.id);
@@ -342,11 +346,11 @@ export async function deleteArticle(articleId: string) {
     revalidatePath('/admin/articles');
 
     // Revalidate the public page (in case it was published)
-    revalidatePath(`/${contentType === 'hero' ? 'heroes' : 'articles'}/${slug}`);
+    revalidatePath(publicArticlePath(publicId, contentType));
     revalidatePath('/guides');
 
     // Invalidate Data Cache
-    revalidateTag(`article-${slug}`);
+    revalidateTag(`article-${publicId}`);
     revalidateTag('articles-published');
 
     return { success: true };
