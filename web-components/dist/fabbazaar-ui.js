@@ -6925,7 +6925,19 @@ let FabBuylistBlock = class extends i$1 {
     this._adding = false;
     this._addMessage = "";
     this._addFailed = false;
+    this._zoomed = null;
+    this._onKeyDown = (e2) => {
+      if (e2.key === "Escape") this._zoomed = null;
+    };
     this._lastFetched = "";
+  }
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("keydown", this._onKeyDown);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("keydown", this._onKeyDown);
   }
   firstUpdated() {
     this._fetchRollup();
@@ -7028,10 +7040,17 @@ let FabBuylistBlock = class extends i$1 {
     const authenticated = this._data?.authenticated ?? false;
     return b`
       <li class="row">
-        ${meta?.image_url ? b`<img class="thumb" src=${meta.image_url} alt="" loading="lazy" />` : b`<span class="thumb" aria-hidden="true"></span>`}
+        ${meta?.image_url ? b`<button
+              class="thumb-btn"
+              aria-label=${`Enlarge ${name}`}
+              @click=${() => this._zoomed = { src: meta.image_url, alt: name }}
+            >
+              <img class="thumb" src=${meta.image_url} alt=${name} loading="lazy" />
+            </button>` : b`<span class="thumb" aria-hidden="true"></span>`}
         <span class="row-main">
           <span class="row-name">${name}</span>
           ${meta?.collector_number ? b`<span class="row-meta"> ${meta.collector_number.toUpperCase()}</span>` : null}
+          ${card.note ? b`<span class="card-note">${card.note}</span>` : null}
         </span>
         <span class="row-qty">${this._qtyText(card.qty)}</span>
         <span class="row-price">
@@ -7060,7 +7079,10 @@ let FabBuylistBlock = class extends i$1 {
           ${this._renderOwnPill(group.totals)}
           <span class="group-cost">${this._range(group.totals.cost)}</span>
         </button>
-        ${collapsed ? null : b`<ul class="rows">${group.cards.map((card) => this._renderCard(card))}</ul>`}
+        ${collapsed ? null : b`
+              ${group.note ? b`<p class="group-note">${group.note}</p>` : null}
+              <ul class="rows">${group.cards.map((card) => this._renderCard(card))}</ul>
+            `}
       </div>
     `;
   }
@@ -7071,6 +7093,7 @@ let FabBuylistBlock = class extends i$1 {
           <h3 class="tier-title">${tier.label}</h3>
           <span class="tier-total">${this._range(tier.totals.cost)}</span>
         </div>
+        ${tier.note ? b`<p class="tier-note">${tier.note}</p>` : null}
         ${tier.groups.map((group, i3) => this._renderGroup(group, `${tierIndex}-${i3}`))}
       </section>
     `;
@@ -7114,6 +7137,9 @@ let FabBuylistBlock = class extends i$1 {
               </button>` : null}
         </div>
       </div>
+      ${this._zoomed ? b`<button class="overlay" aria-label="Close enlarged card" @click=${() => this._zoomed = null}>
+            <img src=${this._zoomed.src} alt=${this._zoomed.alt} />
+          </button>` : null}
     `;
   }
 };
@@ -7317,22 +7343,66 @@ FabBuylistBlock.styles = i$4`
     .row {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.375rem 1.25rem 0.375rem 2.75rem;
+      gap: 0.875rem;
+      padding: 0.5rem 1.25rem 0.5rem 2.75rem;
     }
 
     .row:hover {
       background: #f1f5f9;
     }
 
+    /* Big enough to recognise the art at a glance — the whole point of showing
+       card images in a shopping list. Click opens a full-size overlay. */
     .thumb {
       flex-shrink: 0;
-      width: 2rem;
-      height: 2.8rem;
+      width: 3.75rem;
+      height: 5.25rem;
       object-fit: cover;
-      border-radius: 0.1875rem;
+      object-position: top;
+      border-radius: 0.25rem;
       background: #e2e8f0;
       border: 1px solid #cbd5e1;
+      display: block;
+    }
+
+    .thumb-btn {
+      flex-shrink: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: zoom-in;
+      border-radius: 0.25rem;
+      line-height: 0;
+    }
+
+    .thumb-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
+    .thumb-btn:hover .thumb {
+      border-color: #60a5fa;
+    }
+
+    /* ===== ZOOM OVERLAY ===== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(2, 6, 23, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      cursor: zoom-out;
+      border: none;
+    }
+
+    .overlay img {
+      max-width: min(90vw, 26rem);
+      max-height: 90vh;
+      border-radius: 0.75rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
     }
 
     .row-main {
@@ -7353,6 +7423,37 @@ FabBuylistBlock.styles = i$4`
       font-size: 0.875rem;
       color: #475569;
       font-variant-numeric: tabular-nums;
+    }
+
+    /* ===== AUTHOR NOTES ===== */
+    .card-note {
+      display: block;
+      font-size: 0.875rem;
+      line-height: 1.45;
+      color: #475569;
+      margin-top: 0.1875rem;
+      max-width: 46rem;
+    }
+
+    .group-note {
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: #475569;
+      margin: 0 1.25rem 0.5rem 2.75rem;
+      max-width: 46rem;
+      border-left: 2px solid #cbd5e1;
+      padding-left: 0.75rem;
+    }
+
+    /* Its own block under the tier heading — never squeezed into the header
+       row alongside the total. */
+    .tier-note {
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: #475569;
+      /* Margin, not padding, so the text box aligns with the tier heading. */
+      margin: 0.75rem 1.25rem;
+      max-width: 52rem;
     }
 
     .row-qty {
@@ -7529,10 +7630,17 @@ FabBuylistBlock.styles = i$4`
     :host-context(.dark) .total-label,
     :host-context(.dark) .row-meta,
     :host-context(.dark) .note,
+    :host-context(.dark) .card-note,
+    :host-context(.dark) .group-note,
+    :host-context(.dark) .tier-note,
     :host-context(.dark) .state,
     :host-context(.dark) .caret,
     :host-context(.dark) .row-own.need {
       color: #cbd5e1;
+    }
+
+    :host-context(.dark) .group-note {
+      border-left-color: #475569;
     }
 
     :host-context(.dark) .group-header:hover,
@@ -7633,6 +7741,9 @@ __decorateClass$2([
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_addFailed", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_zoomed", 2);
 FabBuylistBlock = __decorateClass$2([
   t$1("fab-buylist-block")
 ], FabBuylistBlock);

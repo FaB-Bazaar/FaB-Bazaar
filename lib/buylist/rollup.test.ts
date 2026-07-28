@@ -224,3 +224,69 @@ describe('rollupBuylist — ownership', () => {
     expect(result.totals.needCost).toEqual(result.totals.cost);
   });
 });
+
+// Authors annotate a buy list the way they'd talk about it — "you can't run more
+// than 3 copies each due to the same-name rule". Those notes hang off a package
+// or an individual card and have to survive the rollup.
+describe('rollupBuylist — author notes', () => {
+  it('carries a package note through to the rolled group', () => {
+    const section: BuylistSectionData = {
+      tiers: [
+        {
+          label: 'The Core',
+          groups: [
+            {
+              label: 'Adaptive Bases',
+              note: 'Only 3 copies each across colors.',
+              cards: [{ printingId: 'memory', qty: 3 }],
+            },
+          ],
+        },
+      ],
+    };
+    const result = rollupBuylist(section, { prices: PRICES });
+
+    expect(result.tiers[0].groups[0].note).toBe('Only 3 copies each across colors.');
+  });
+
+  it('carries a per-card note through to the rolled card', () => {
+    const section: BuylistSectionData = {
+      tiers: [
+        {
+          label: 'The Core',
+          groups: [
+            {
+              label: 'Steel Soul Set',
+              cards: [{ printingId: 'memory', qty: 3, note: 'The expensive one.' }],
+            },
+          ],
+        },
+      ],
+    };
+    const result = rollupBuylist(section, { prices: PRICES });
+
+    expect(result.tiers[0].groups[0].cards[0].note).toBe('The expensive one.');
+  });
+
+  it('leaves note undefined when the author wrote none', () => {
+    const result = rollupBuylist(STEEL_SOUL, { prices: PRICES });
+
+    expect(result.tiers[0].groups[0].note).toBeUndefined();
+    expect(result.tiers[0].groups[0].cards[0].note).toBeUndefined();
+  });
+
+  it('carries a tier note through', () => {
+    const section: BuylistSectionData = {
+      tiers: [
+        {
+          label: 'Flex & Tech',
+          note: 'Swap these by matchup.',
+          groups: [{ label: 'g', cards: [{ printingId: 'memory', qty: 1 }] }],
+        },
+      ],
+    };
+    const result = rollupBuylist(section, { prices: PRICES });
+
+    expect(result.tiers[0].note).toBe('Swap these by matchup.');
+  });
+});

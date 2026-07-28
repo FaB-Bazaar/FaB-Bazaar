@@ -12,15 +12,18 @@ import { parseQuantity } from '@/lib/buylist/rollup';
 interface BuylistCard {
   printingId: string;
   qty: string | number;
+  note?: string;
 }
 
 interface BuylistGroup {
   label: string;
+  note?: string;
   cards: BuylistCard[];
 }
 
 interface BuylistTier {
   label: string;
+  note?: string;
   groups: BuylistGroup[];
 }
 
@@ -200,6 +203,13 @@ export function BuylistBlockEditor({ section, onChange, onUpdate }: BuylistBlock
             </Button>
           </div>
 
+          <Input
+            value={tier.note || ''}
+            onChange={e => mutateTier(tierIndex, t => ({ ...t, note: e.target.value }))}
+            placeholder="Tier note (optional) — shown under the tier heading"
+            className="bg-background text-sm"
+          />
+
           {(tier.groups || []).map((group, groupIndex) => (
             <div key={groupIndex} className="space-y-2 rounded-md border border-border bg-background p-3">
               <div className="flex items-center gap-2">
@@ -226,10 +236,20 @@ export function BuylistBlockEditor({ section, onChange, onUpdate }: BuylistBlock
                 </Button>
               </div>
 
+              <Input
+                value={group.note || ''}
+                onChange={e =>
+                  mutateGroup(tierIndex, groupIndex, g => ({ ...g, note: e.target.value }))
+                }
+                placeholder="Package note (optional) — e.g. the same-name rule caveat"
+                className="bg-card text-sm"
+              />
+
               {(group.cards || []).map((card, cardIndex) => {
                 const error = quantityError(card.qty);
                 return (
-                  <div key={cardIndex} className="flex items-center gap-2 pl-2">
+                  <div key={cardIndex} className="space-y-1 pl-2">
+                  <div className="flex items-center gap-2">
                     <Input
                       value={String(card.qty)}
                       onChange={e =>
@@ -265,6 +285,21 @@ export function BuylistBlockEditor({ section, onChange, onUpdate }: BuylistBlock
                     >
                       <X className="h-4 w-4" />
                     </Button>
+                    </div>
+                    <Input
+                      value={card.note || ''}
+                      onChange={e =>
+                        mutateGroup(tierIndex, groupIndex, g => ({
+                          ...g,
+                          cards: g.cards.map((c, i) =>
+                            i === cardIndex ? { ...c, note: e.target.value } : c
+                          ),
+                        }))
+                      }
+                      aria-label={`Note for ${cardLabel(card.printingId)}`}
+                      placeholder="Card note (optional)"
+                      className="ml-24 bg-card text-sm"
+                    />
                   </div>
                 );
               })}

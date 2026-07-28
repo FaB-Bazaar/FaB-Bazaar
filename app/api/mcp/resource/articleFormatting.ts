@@ -196,10 +196,18 @@ export const articleFormattingResource = {
               tiers: [
                 {
                   label: 'string — e.g. "The Core" / "Flex & Tech"',
+                  note: 'optional string — prose shown under the tier heading',
                   groups: [
                     {
                       label: 'string — a purchasable package, e.g. "Steel Soul Set"',
-                      cards: [{ printingId: 'string', qty: 'number or range string' }]
+                      note: 'optional string — prose shown under the package header',
+                      cards: [
+                        {
+                          printingId: 'string',
+                          qty: 'number or range string',
+                          note: 'optional string — prose shown under this card row'
+                        }
+                      ]
                     }
                   ]
                 }
@@ -211,8 +219,15 @@ export const articleFormattingResource = {
               'A reversed range ("3-2") or non-numeric qty is rejected with a 400 — fix it, do not retry',
               'A group header shows its quantity only when every card in it shares the same qty'
             ],
+            annotationRules: [
+              'note is plain text (no markdown) and may be set on a tier, a group, or an individual card',
+              'Use a group note for the reasoning behind a package — deckbuilding caveats, rules interactions, why the count is what it is',
+              'Use a card note for something true of that one card — why it is expensive, when you would cut it',
+              'Omit note entirely rather than passing an empty string; empty notes render no element'
+            ],
             notes: [
               'Ownership is counted per CARD, not per printing — a reader holding any printing of the card already owns it',
+              'Card images render large and open a full-size overlay on click',
               'Prices come from tcg_low, falling back to tcg_market only when tcg_low is absent (flagged in the UI with ·M)',
               'Prefer this over card-carousel for buy lists: a carousel hides items behind a swipe, and a buy list is meant to be scanned and printed'
             ],
@@ -222,11 +237,13 @@ export const articleFormattingResource = {
               tiers: [
                 {
                   label: 'The Core',
+                  note: 'These are the cards every build runs. Buy this tier first.',
                   groups: [
                     {
                       label: 'Steel Soul Set',
+                      note: 'Only 3 copies each are legal across colors — the same-name rule.',
                       cards: [
-                        { printingId: 'Q7bHNWdWH7BgqnpktCDLb', qty: 3 },
+                        { printingId: 'Q7bHNWdWH7BgqnpktCDLb', qty: 3, note: 'The expensive one.' },
                         { printingId: 'BQtw9MRfNkpftDdRrddTT', qty: 3 }
                       ]
                     }

@@ -60,15 +60,21 @@ export function formatQuantity(qty: QuantityRange): string {
 export interface BuylistCardData {
   printingId: string;
   qty: QuantitySpec;
+  /** Free-text annotation shown under the card row. */
+  note?: string;
 }
 
 export interface BuylistGroupData {
   label: string;
+  /** Free-text annotation shown under the package header. */
+  note?: string;
   cards: BuylistCardData[];
 }
 
 export interface BuylistTierData {
   label: string;
+  /** Free-text annotation shown under the tier header. */
+  note?: string;
   groups: BuylistGroupData[];
 }
 
@@ -97,6 +103,7 @@ export interface RolledCard {
   subtotal: QuantityRange;
   owned: number;
   needed: QuantityRange;
+  note?: string;
 }
 
 export interface RollupTotals {
@@ -109,6 +116,7 @@ export interface RollupTotals {
 
 export interface RolledGroup {
   label: string;
+  note?: string;
   qtyLabel: string | null;
   cards: RolledCard[];
   totals: RollupTotals;
@@ -116,6 +124,7 @@ export interface RolledGroup {
 
 export interface RolledTier {
   label: string;
+  note?: string;
   groups: RolledGroup[];
   totals: RollupTotals;
 }
@@ -182,7 +191,16 @@ function rollCard(
     : { min: money(unitPrice * needed.min), max: money(unitPrice * needed.max) };
 
   return {
-    card: { printingId: card.printingId, qty, unitPrice, priceIsFallback, subtotal, owned, needed },
+    card: {
+      printingId: card.printingId,
+      qty,
+      unitPrice,
+      priceIsFallback,
+      subtotal,
+      owned,
+      needed,
+      note: card.note,
+    },
     totals: {
       cost: subtotal,
       needCost,
@@ -207,6 +225,7 @@ function rollGroup(group: BuylistGroupData, input: BuylistRollupInput): RolledGr
 
   return {
     label: group.label,
+    note: group.note,
     qtyLabel: uniform ? formatQuantity(first) : null,
     cards,
     totals: sumTotals(rolled.map(r => r.totals)),
@@ -219,7 +238,12 @@ export function rollupBuylist(
 ): BuylistRollup {
   const tiers: RolledTier[] = (section.tiers ?? []).map(tier => {
     const groups = (tier.groups ?? []).map(group => rollGroup(group, input));
-    return { label: tier.label, groups, totals: sumTotals(groups.map(g => g.totals)) };
+    return {
+      label: tier.label,
+      note: tier.note,
+      groups,
+      totals: sumTotals(groups.map(g => g.totals)),
+    };
   });
 
   return { tiers, totals: sumTotals(tiers.map(t => t.totals)) };

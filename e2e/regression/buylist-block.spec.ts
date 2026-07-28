@@ -41,19 +41,19 @@ const TIERS = [
   },
 ];
 
-async function mountBuylist(page: any) {
+async function mountBuylist(page: any, tiers: unknown = TIERS) {
   await page.goto('/articles/g4zzA4Ev_Q');
   await page.waitForFunction(() => customElements.get('fab-buylist-block') !== undefined, {
     timeout: 30_000,
   });
 
-  await page.evaluate((tiers: unknown) => {
+  await page.evaluate((t: unknown) => {
     document.querySelectorAll('fab-buylist-block').forEach(n => n.remove());
     const el = document.createElement('fab-buylist-block');
-    el.setAttribute('tiers', JSON.stringify(tiers));
+    el.setAttribute('tiers', JSON.stringify(t));
     el.setAttribute('title', 'Teklovossen Buy List');
     (document.querySelector('article') || document.body).prepend(el);
-  }, TIERS);
+  }, tiers);
 
   const host = page.locator('fab-buylist-block');
   await expect(host.locator('.title')).toHaveText('Teklovossen Buy List', { timeout: 30_000 });
@@ -111,7 +111,7 @@ test('renders legibly in light and dark mode', async ({ page }) => {
 
   // Dark mode must actually repaint the shell, not inherit the light card.
   const background = await host.locator('.buylist').evaluate(
-    el => getComputedStyle(el).backgroundColor
+    (el: Element) => getComputedStyle(el).backgroundColor
   );
   expect(background).toBe('rgb(15, 23, 42)');
 });
@@ -141,11 +141,84 @@ test('keeps the per-row quantity readable in dark mode', async ({ page }) => {
   const qty = host.locator('.row-qty').first();
   await expect(qty).toHaveText('3x');
 
-  const fg = parseRgb(await qty.evaluate(el => getComputedStyle(el).color));
+  const fg = parseRgb(await qty.evaluate((el: Element) => getComputedStyle(el).color));
   const bg = parseRgb(
-    await host.locator('.buylist').evaluate(el => getComputedStyle(el).backgroundColor)
+    await host.locator('.buylist').evaluate((el: Element) => getComputedStyle(el).backgroundColor)
   );
 
   // 4.5:1 is the AA floor for text this size.
   expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+});
+
+/**
+ * Author notes and card art. A buy list is a reading surface as much as a
+ * checklist — the packages carry explanations, and the images have to be big
+ * enough to recognise without clicking.
+ */
+const ANNOTATED = [
+  {
+    label: 'The Core',
+    note: 'Buy these first.',
+    groups: [
+      {
+        label: 'Adaptive Bases',
+        note: 'You can only run 3 copies each across colors — the same-name rule.',
+        cards: [
+          { printingId: '6CzJM7Ww9N98Rk8fDnqPp', qty: 3, note: 'The single most expensive card here.' },
+          { printingId: 'K8BPJPR8tHhc7LTqCCHK6', qty: 3 },
+        ],
+      },
+    ],
+  },
+];
+
+test('renders author notes at tier, package and card level', async ({ page }) => {
+  const host = await mountBuylist(page, ANNOTATED);
+
+  await expect(host.locator('.tier-note')).toHaveText('Buy these first.');
+  await expect(host.locator('.group-note')).toContainText('same-name rule');
+  await expect(host.locator('.card-note')).toHaveText('The single most expensive card here.');
+});
+
+test('omits note elements entirely when the author wrote none', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  await expect(host.locator('.tier-note')).toHaveCount(0);
+  await expect(host.locator('.group-note')).toHaveCount(0);
+  await expect(host.locator('.card-note')).toHaveCount(0);
+});
+
+test('renders card art large enough to recognise', async ({ page }) => {
+  const host = await mountBuylist(page);
+  const thumb = host.locator('.thumb').first();
+
+  const box = await thumb.boundingBox();
+  // Comfortably readable art, not a 32px chip.
+  expect(box!.width).toBeGreaterThanOrEqual(52);
+});
+
+test('opens a full-size card image on click and closes on Escape', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  await expect(host.locator('.overlay')).toHaveCount(0);
+  await host.locator('.thumb-btn').first().click();
+
+  const overlay = host.locator('.overlay');
+  await expect(overlay).toBeVisible();
+  await expect(overlay.locator('img')).toHaveAttribute('alt', /Steel Soul/);
+
+  await page.keyboard.press('Escape');
+  await expect(overlay).toHaveCount(0);
+});
+
+test('lays the tier note on its own line below the tier heading', async ({ page }) => {
+  const host = await mountBuylist(page, ANNOTATED);
+
+  const title = await host.locator('.tier-title').boundingBox();
+  const note = await host.locator('.tier-note').boundingBox();
+
+  // Below the heading, not squeezed into the same row as the total.
+  expect(note!.y).toBeGreaterThan(title!.y + title!.height - 2);
+  // And starting at the left edge, aligned with the heading.
+  expect(Math.abs(note!.x - title!.x)).toBeLessThan(4);
 });
