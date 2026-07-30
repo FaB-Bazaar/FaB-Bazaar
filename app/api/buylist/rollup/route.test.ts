@@ -63,6 +63,7 @@ const PRINTINGS = [
     tcgplayer_url: 'https://www.tcgplayer.com/product/517741',
     tcg_low: 7.99,
     tcg_market: 9.5,
+    price_updated_at: '2026-07-25T04:00:00.000Z',
   },
   {
     printing_id: 'p-processor',
@@ -74,6 +75,7 @@ const PRINTINGS = [
     image_url: 'https://img/EVO027',
     tcg_low: 8.18,
     tcg_market: 9.0,
+    price_updated_at: '2026-07-26T04:00:00.000Z',
   },
 ];
 
@@ -138,6 +140,15 @@ describe('POST /api/buylist/rollup — pricing', () => {
       collector_number: 'EVO026',
       image_url: 'https://img/EVO026',
     });
+  });
+
+  it('reports the freshest price timestamp so the component can show an as-of date', async () => {
+    const res = await POST(makeRequest({ tiers: TIERS }));
+    const body = await res.json();
+
+    // The max across returned printings — the nightly run stamps them together,
+    // but a partial run must surface the newest, not a stale outlier.
+    expect(body.data.prices_as_of).toBe('2026-07-26T04:00:00.000Z');
   });
 
   it('returns the tcgplayer url so the component can render buy links', async () => {

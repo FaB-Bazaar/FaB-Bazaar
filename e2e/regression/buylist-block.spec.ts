@@ -338,6 +338,79 @@ test('shows a fully priced list even when the rollup API is unreachable', async 
   await expect(host.locator('.state')).toHaveCount(0);
 });
 
+/**
+ * Footer transparency + resilience: the as-of date makes price staleness
+ * self-evident, the ·M flag gets a visible legend (its explanation used to be
+ * hover-only), a failed fetch offers a retry, and the sign-in nudge is an
+ * actual link.
+ */
+test('shows when the prices were last refreshed', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  // Local DB prices carry a real price_updated_at; exact date varies by copy.
+  await expect(host.locator('.prices-as-of')).toContainText(/prices as of/i);
+  await expect(host.locator('.prices-as-of')).toContainText(/\d{4}/);
+});
+
+test('explains the ·M market-price flag with a visible legend', async ({ page }) => {
+  // No local printing is market-priced-only, so flip one in the API response.
+  await page.route('**/api/buylist/rollup', async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const card = body.data.rollup.tiers[0].groups[0].cards[0];
+    card.priceIsFallback = true;
+    await route.fulfill({ response, json: body });
+  });
+
+  const host = await mountBuylist(page);
+
+  await expect(host.locator('.fallback-flag').first()).toBeVisible();
+  await expect(host.locator('.legend')).toContainText('TCG Market');
+});
+
+test('hides the legend when no row is market-priced', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  await expect(host.locator('.legend')).toHaveCount(0);
+});
+
+test('offers a retry when pricing fails, which recovers on click', async ({ page }) => {
+  let broken = true;
+  await page.route('**/api/buylist/rollup', route => {
+    if (broken) return route.abort();
+    return route.fallback();
+  });
+
+  await page.goto('/articles/g4zzA4Ev_Q');
+  await page.waitForFunction(() => customElements.get('fab-buylist-block') !== undefined, {
+    timeout: 30_000,
+  });
+  await page.evaluate((t: unknown) => {
+    document.querySelectorAll('fab-buylist-block').forEach(n => n.remove());
+    const el = document.createElement('fab-buylist-block');
+    el.setAttribute('tiers', JSON.stringify(t));
+    el.setAttribute('heading', 'Retry Check');
+    (document.querySelector('article') || document.body).prepend(el);
+  }, TIERS);
+
+  const host = page.locator('fab-buylist-block');
+  await expect(host.locator('.state.error')).toBeVisible({ timeout: 30_000 });
+
+  broken = false;
+  await host.locator('.retry-btn').click();
+
+  await expect(host.locator('.title')).toHaveText('Retry Check', { timeout: 30_000 });
+  await expect(host.locator('.row').first()).toBeVisible();
+});
+
+test('links the signed-out nudge to the login page', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  const link = host.locator('.note a');
+  await expect(link).toContainText(/sign in/i);
+  expect(await link.getAttribute('href')).toContain('/login');
+});
+
 test('lays the tier note on its own line below the tier heading', async ({ page }) => {
   const host = await mountBuylist(page, ANNOTATED);
 

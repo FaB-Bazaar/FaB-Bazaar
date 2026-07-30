@@ -86,5 +86,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  return NextResponse.json({ success: true, data: { rollup, cards, authenticated } })
+  return NextResponse.json({
+    success: true,
+    data: { rollup, cards, authenticated, prices_as_of: pricingResult.data.pricesAsOf },
+  })
 }

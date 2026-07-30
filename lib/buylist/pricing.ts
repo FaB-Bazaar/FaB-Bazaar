@@ -28,6 +28,8 @@ export interface BuylistPricingData {
   cards: Record<string, BuylistCardMeta>;
   /** For resolving per-card ownership; only the API route uses this. */
   cardUniqueIdByPrinting: Record<string, string>;
+  /** Freshest price_updated_at across the returned printings (ISO), if any. */
+  pricesAsOf: string | null;
 }
 
 /** Every distinct printingId referenced by a tiers structure, order-stable. */
@@ -57,8 +59,13 @@ export async function loadBuylistPricing(
   const prices: BuylistPriceMap = {};
   const cards: Record<string, BuylistCardMeta> = {};
   const cardUniqueIdByPrinting: Record<string, string> = {};
+  let pricesAsOf: string | null = null;
 
   for (const p of printings) {
+    if (p.price_updated_at) {
+      const iso = new Date(p.price_updated_at).toISOString();
+      if (!pricesAsOf || iso > pricesAsOf) pricesAsOf = iso;
+    }
     prices[p.printing_id] = { tcg_low: p.tcg_low, tcg_market: p.tcg_market };
     if (p.card_unique_id) cardUniqueIdByPrinting[p.printing_id] = p.card_unique_id;
     cards[p.printing_id] = {
@@ -77,5 +84,5 @@ export async function loadBuylistPricing(
     };
   }
 
-  return { success: true, data: { prices, cards, cardUniqueIdByPrinting } };
+  return { success: true, data: { prices, cards, cardUniqueIdByPrinting, pricesAsOf } };
 }

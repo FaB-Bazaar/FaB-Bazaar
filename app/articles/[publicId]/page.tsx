@@ -58,7 +58,11 @@ async function prerollBuylist(tiers: any[]): Promise<string | null> {
 
   try {
     const rollup = rollupBuylist({ tiers }, { prices: pricing.data.prices });
-    return JSON.stringify({ rollup, cards: pricing.data.cards });
+    return JSON.stringify({
+      rollup,
+      cards: pricing.data.cards,
+      prices_as_of: pricing.data.pricesAsOf,
+    });
   } catch {
     // Malformed authored quantity — let the client fetch surface the API's 400.
     return null;

@@ -77,6 +77,7 @@ interface RollupResponse {
   rollup: { tiers: RolledTier[]; totals: Totals };
   cards: Record<string, CardMeta>;
   authenticated: boolean;
+  prices_as_of?: string | null;
 }
 
 @customElement('fab-buylist-block')
@@ -481,12 +482,64 @@ export class FabBuylistBlock extends LitElement {
       flex-wrap: wrap;
     }
 
+    .footer-note {
+      flex: 1;
+      min-width: 12rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1875rem;
+    }
+
     .note {
       font-size: 0.875rem;
       color: #475569;
       margin: 0;
-      flex: 1;
-      min-width: 12rem;
+    }
+
+    .signin-link {
+      color: #1d4ed8;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    .signin-link:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+      border-radius: 0.125rem;
+    }
+
+    .legend {
+      font-size: 0.8125rem;
+      color: #854d0e;
+      margin: 0;
+    }
+
+    .prices-as-of {
+      font-size: 0.8125rem;
+      color: #64748b;
+      margin: 0;
+    }
+
+    .retry-btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-left: 0.75rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      border: 1px solid #cbd5e1;
+      background: transparent;
+      color: #334155;
+      cursor: pointer;
+    }
+
+    .retry-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .retry-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
     }
 
     .add-btn {
@@ -694,8 +747,26 @@ export class FabBuylistBlock extends LitElement {
       color: #fbbf24;
     }
 
-    :host([dark]) .row-unit {
+    :host([dark]) .row-unit,
+    :host([dark]) .prices-as-of {
       color: #94a3b8;
+    }
+
+    :host([dark]) .legend {
+      color: #fbbf24;
+    }
+
+    :host([dark]) .signin-link {
+      color: #93c5fd;
+    }
+
+    :host([dark]) .retry-btn {
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    :host([dark]) .retry-btn:hover {
+      background: #334155;
     }
 
     :host([dark]) .buy-link {
@@ -789,7 +860,12 @@ export class FabBuylistBlock extends LitElement {
     try {
       const parsed = JSON.parse(this.prerolled);
       if (parsed?.rollup && parsed?.cards) {
-        this._data = { rollup: parsed.rollup, cards: parsed.cards, authenticated: false };
+        this._data = {
+          rollup: parsed.rollup,
+          cards: parsed.cards,
+          authenticated: false,
+          prices_as_of: parsed.prices_as_of ?? null,
+        };
       }
     } catch {
       // Malformed payload — fall back to the client fetch.
@@ -943,6 +1019,19 @@ export class FabBuylistBlock extends LitElement {
     this._copyTimer = setTimeout(() => (this._copyMessage = ''), 2500);
   }
 
+  private _anyFallbackPrice(): boolean {
+    if (!this._data) return false;
+    return this._data.rollup.tiers.some(tier =>
+      tier.groups.some(group => group.cards.some(card => card.priceIsFallback))
+    );
+  }
+
+  private _formatDate(iso: string): string {
+    const date = new Date(iso);
+    if (isNaN(date.getTime())) return iso;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
   private _renderOwnPill(totals: Totals) {
     if (!this._data?.authenticated) return null;
 
@@ -1054,7 +1143,12 @@ export class FabBuylistBlock extends LitElement {
     }
 
     if (this._error) {
-      return html`<div class="buylist"><div class="state error">${this._error}</div></div>`;
+      return html`<div class="buylist">
+        <div class="state error">
+          ${this._error}
+          <button class="retry-btn" @click=${() => this._fetchRollup()}>Retry</button>
+        </div>
+      </div>`;
     }
 
     if (!this._data) {
@@ -1092,12 +1186,26 @@ export class FabBuylistBlock extends LitElement {
         ${rollup.tiers.map((tier, i) => this._renderTier(tier, i))}
 
         <div class="footer">
-          <p class="note">
-            ${this.note ||
-            (authenticated
-              ? 'Ownership counts any printing of a card you already have.'
-              : 'Sign in to see which of these you already own.')}
-          </p>
+          <div class="footer-note">
+            <p class="note">
+              ${this.note ||
+              (authenticated
+                ? 'Ownership counts any printing of a card you already have.'
+                : html`<a
+                      class="signin-link"
+                      href=${`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`}
+                    >Sign in</a>
+                    to see which of these you already own.`)}
+            </p>
+            ${this._anyFallbackPrice()
+              ? html`<p class="legend">
+                  ·M — priced from TCG Market (no low price available)
+                </p>`
+              : null}
+            ${this._data.prices_as_of
+              ? html`<p class="prices-as-of">Prices as of ${this._formatDate(this._data.prices_as_of)}</p>`
+              : null}
+          </div>
           ${this._copyMessage ? html`<span class="copy-status">${this._copyMessage}</span>` : null}
           ${this._addMessage
             ? html`<span class="add-status ${this._addFailed ? 'error' : ''}">${this._addMessage}</span>`

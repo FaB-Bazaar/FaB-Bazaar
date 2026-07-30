@@ -7047,7 +7047,12 @@ let FabBuylistBlock = class extends i$1 {
     try {
       const parsed = JSON.parse(this.prerolled);
       if (parsed?.rollup && parsed?.cards) {
-        this._data = { rollup: parsed.rollup, cards: parsed.cards, authenticated: false };
+        this._data = {
+          rollup: parsed.rollup,
+          cards: parsed.cards,
+          authenticated: false,
+          prices_as_of: parsed.prices_as_of ?? null
+        };
       }
     } catch {
     }
@@ -7162,6 +7167,17 @@ let FabBuylistBlock = class extends i$1 {
     clearTimeout(this._copyTimer);
     this._copyTimer = setTimeout(() => this._copyMessage = "", 2500);
   }
+  _anyFallbackPrice() {
+    if (!this._data) return false;
+    return this._data.rollup.tiers.some(
+      (tier) => tier.groups.some((group) => group.cards.some((card) => card.priceIsFallback))
+    );
+  }
+  _formatDate(iso) {
+    const date = new Date(iso);
+    if (isNaN(date.getTime())) return iso;
+    return date.toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
+  }
   _renderOwnPill(totals) {
     if (!this._data?.authenticated) return null;
     const owned = totals.ownedCopies;
@@ -7247,7 +7263,12 @@ let FabBuylistBlock = class extends i$1 {
       return b`<div class="buylist"><div class="state">Pricing this buy list…</div></div>`;
     }
     if (this._error) {
-      return b`<div class="buylist"><div class="state error">${this._error}</div></div>`;
+      return b`<div class="buylist">
+        <div class="state error">
+          ${this._error}
+          <button class="retry-btn" @click=${() => this._fetchRollup()}>Retry</button>
+        </div>
+      </div>`;
     }
     if (!this._data) {
       return b`<div class="buylist"><div class="state">No cards in this buy list yet.</div></div>`;
@@ -7272,9 +7293,19 @@ let FabBuylistBlock = class extends i$1 {
         ${rollup.tiers.map((tier, i3) => this._renderTier(tier, i3))}
 
         <div class="footer">
-          <p class="note">
-            ${this.note || (authenticated ? "Ownership counts any printing of a card you already have." : "Sign in to see which of these you already own.")}
-          </p>
+          <div class="footer-note">
+            <p class="note">
+              ${this.note || (authenticated ? "Ownership counts any printing of a card you already have." : b`<a
+                      class="signin-link"
+                      href=${`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`}
+                    >Sign in</a>
+                    to see which of these you already own.`)}
+            </p>
+            ${this._anyFallbackPrice() ? b`<p class="legend">
+                  ·M — priced from TCG Market (no low price available)
+                </p>` : null}
+            ${this._data.prices_as_of ? b`<p class="prices-as-of">Prices as of ${this._formatDate(this._data.prices_as_of)}</p>` : null}
+          </div>
           ${this._copyMessage ? b`<span class="copy-status">${this._copyMessage}</span>` : null}
           ${this._addMessage ? b`<span class="add-status ${this._addFailed ? "error" : ""}">${this._addMessage}</span>` : null}
           <button class="copy-btn" @click=${() => this._copy("list")}>Copy list</button>
@@ -7692,12 +7723,64 @@ FabBuylistBlock.styles = i$4`
       flex-wrap: wrap;
     }
 
+    .footer-note {
+      flex: 1;
+      min-width: 12rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1875rem;
+    }
+
     .note {
       font-size: 0.875rem;
       color: #475569;
       margin: 0;
-      flex: 1;
-      min-width: 12rem;
+    }
+
+    .signin-link {
+      color: #1d4ed8;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    .signin-link:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+      border-radius: 0.125rem;
+    }
+
+    .legend {
+      font-size: 0.8125rem;
+      color: #854d0e;
+      margin: 0;
+    }
+
+    .prices-as-of {
+      font-size: 0.8125rem;
+      color: #64748b;
+      margin: 0;
+    }
+
+    .retry-btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-left: 0.75rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      border: 1px solid #cbd5e1;
+      background: transparent;
+      color: #334155;
+      cursor: pointer;
+    }
+
+    .retry-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .retry-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
     }
 
     .add-btn {
@@ -7905,8 +7988,26 @@ FabBuylistBlock.styles = i$4`
       color: #fbbf24;
     }
 
-    :host([dark]) .row-unit {
+    :host([dark]) .row-unit,
+    :host([dark]) .prices-as-of {
       color: #94a3b8;
+    }
+
+    :host([dark]) .legend {
+      color: #fbbf24;
+    }
+
+    :host([dark]) .signin-link {
+      color: #93c5fd;
+    }
+
+    :host([dark]) .retry-btn {
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    :host([dark]) .retry-btn:hover {
+      background: #334155;
     }
 
     :host([dark]) .buy-link {
