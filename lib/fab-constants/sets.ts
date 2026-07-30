@@ -16,7 +16,7 @@ export type SetCode = keyof typeof SET_MAP;
  * every filter component reads from it.
  */
 export const CARD_FILTER_SETS = [
-  'iar', 'omn', 'pen', 'anq', 'sup', 'mpg', 'sea', 'hnt', 'ros', 'mst', 'hvy',
+  'mpw', 'iar', 'omn', 'pen', 'anq', 'sup', 'mpg', 'sea', 'hnt', 'ros', 'mst', 'hvy',
   'evo', 'dtd', 'out', 'dyn', 'upr', '1hp', 'evr', 'ele', 'mon', 'cru', 'arc', 'wtr',
 ] as const;
 
