@@ -3353,24 +3353,24 @@ let FabSpotlightCard = class extends i$1 {
     const cardMentionRegex = /\*\*([^*]+)\*\*/g;
     let match;
     while ((match = cardMentionRegex.exec(this.commentary)) !== null) {
-      const cardName = match[1];
-      const isLikelyCardName = /[A-Z]/.test(cardName) || cardName.includes("'");
+      const cardName2 = match[1];
+      const isLikelyCardName = /[A-Z]/.test(cardName2) || cardName2.includes("'");
       if (isLikelyCardName) {
-        cardNames.push(cardName);
+        cardNames.push(cardName2);
       }
     }
     return [...new Set(cardNames)];
   }
   async fetchCardDataByNames() {
     const cardNames = this.extractCardNames();
-    for (const cardName of cardNames) {
-      if (this.cardDataMap.has(cardName) || this.loadingCards.has(cardName)) {
+    for (const cardName2 of cardNames) {
+      if (this.cardDataMap.has(cardName2) || this.loadingCards.has(cardName2)) {
         continue;
       }
-      this.loadingCards.add(cardName);
+      this.loadingCards.add(cardName2);
       try {
         const base = this.apiBase || window.location.origin;
-        const url = `${base}/api/printings/search?name=${encodeURIComponent(cardName)}&show=all&limit=1`;
+        const url = `${base}/api/printings/search?name=${encodeURIComponent(cardName2)}&show=all&limit=1`;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -3378,12 +3378,12 @@ let FabSpotlightCard = class extends i$1 {
         const data = await response.json();
         if (data.success && data.data?.printings?.length > 0) {
           const cardData = data.data.printings[0];
-          this.cardDataMap.set(cardName, cardData);
+          this.cardDataMap.set(cardName2, cardData);
           this.requestUpdate();
         }
       } catch (err) {
       } finally {
-        this.loadingCards.delete(cardName);
+        this.loadingCards.delete(cardName2);
         this.requestUpdate();
       }
     }
@@ -3507,11 +3507,11 @@ let FabSpotlightCard = class extends i$1 {
     if (!text) return b``;
     const cardMentions = [];
     const cardMentionRegex = /\*\*([^*]+)\*\*/g;
-    const withPlaceholders = text.replace(cardMentionRegex, (match, cardName) => {
-      const isLikelyCardName = /[A-Z]/.test(cardName) || cardName.includes("'");
+    const withPlaceholders = text.replace(cardMentionRegex, (match, cardName2) => {
+      const isLikelyCardName = /[A-Z]/.test(cardName2) || cardName2.includes("'");
       if (isLikelyCardName) {
         const index = cardMentions.length;
-        cardMentions.push(cardName);
+        cardMentions.push(cardName2);
         return `{{CARDMENTION${index}}}`;
       }
       return match;
@@ -3524,35 +3524,35 @@ let FabSpotlightCard = class extends i$1 {
     });
     const parts = [];
     let lastIndex = 0;
-    cardMentions.forEach((cardName, index) => {
+    cardMentions.forEach((cardName2, index) => {
       const placeholder = `{{CARDMENTION${index}}}`;
       const placeholderIndex = htmlContent.indexOf(placeholder, lastIndex);
       if (placeholderIndex !== -1) {
         if (placeholderIndex > lastIndex) {
           parts.push(o(htmlContent.substring(lastIndex, placeholderIndex)));
         }
-        const cardData = this.cardDataMap.get(cardName);
-        const isLoading = this.loadingCards.has(cardName);
+        const cardData = this.cardDataMap.get(cardName2);
+        const isLoading = this.loadingCards.has(cardName2);
         if (cardData && cardData.image_url) {
           parts.push(b`
-            <span class="inline-card-wrapper" @click="${() => this.openOverlay(cardData.image_url, cardName)}" title="Click to view full size">
+            <span class="inline-card-wrapper" @click="${() => this.openOverlay(cardData.image_url, cardName2)}" title="Click to view full size">
               <img
                 class="inline-card-thumbnail"
                 src="${cardData.image_url}"
-                alt="${cardName}"
+                alt="${cardName2}"
               />
-              <span class="inline-card-name">${cardName}</span>
+              <span class="inline-card-name">${cardName2}</span>
             </span>
           `);
         } else if (isLoading) {
           parts.push(b`
             <span class="inline-card-wrapper">
               <span class="inline-card-loading"></span>
-              <span class="inline-card-name">${cardName}</span>
+              <span class="inline-card-name">${cardName2}</span>
             </span>
           `);
         } else {
-          parts.push(b`<span class="card-mention">${cardName}</span>`);
+          parts.push(b`<span class="card-mention">${cardName2}</span>`);
         }
         lastIndex = placeholderIndex + placeholder.length;
       }
@@ -5609,13 +5609,13 @@ let FabDecklistBlock = class extends i$1 {
       const cardMap = /* @__PURE__ */ new Map();
       for (const card of heroAndEquipment) {
         const printingId = card.printingId;
-        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
         const qty = card.quantity ?? 1;
         if (cardMap.has(printingId)) {
           cardMap.get(printingId).quantity += qty;
         } else {
           cardMap.set(printingId, {
-            cardName,
+            cardName: cardName2,
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
@@ -5659,14 +5659,14 @@ let FabDecklistBlock = class extends i$1 {
           const bucketIndex = pitch === 1 ? 0 : pitch === 2 ? 1 : pitch === 3 ? 2 : 3;
           const bucket = pitchBuckets[bucketIndex];
           const printingId = card.printingId;
-          const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+          const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
           const qty = card.quantity ?? 1;
           bucket.totalCards += qty;
           if (bucket.cardMap.has(printingId)) {
             bucket.cardMap.get(printingId).quantity += qty;
           } else {
             bucket.cardMap.set(printingId, {
-              cardName,
+              cardName: cardName2,
               printingId,
               quantity: qty,
               foiling: card.printingDetails?.foiling || card.foiling,
@@ -5696,13 +5696,13 @@ let FabDecklistBlock = class extends i$1 {
       const cardMap = /* @__PURE__ */ new Map();
       for (const card of categoryCards) {
         const printingId = card.printingId;
-        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
         const qty = card.quantity ?? 1;
         if (cardMap.has(printingId)) {
           cardMap.get(printingId).quantity += qty;
         } else {
           cardMap.set(printingId, {
-            cardName,
+            cardName: cardName2,
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
@@ -6913,6 +6913,43 @@ __decorateClass$3([
 FabDecklistBlock = __decorateClass$3([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);
+function money(value) {
+  return `$${value.toFixed(2)}`;
+}
+function moneyRange(range) {
+  return range.min === range.max ? money(range.min) : `${money(range.min)} – ${money(range.max)}`;
+}
+function qtyText(range) {
+  return range.min === range.max ? `${range.min}x` : `${range.min}-${range.max}x`;
+}
+function cardName(card, cards) {
+  return cards[card.printingId]?.name ?? card.printingId;
+}
+function eachCard(rollup) {
+  return rollup.tiers.flatMap((tier) => tier.groups).flatMap((group) => group.cards);
+}
+function buildMassEntryText(rollup, cards, options = {}) {
+  return eachCard(rollup).map((card) => {
+    const quantity = options.onlyNeeded ? card.needed.max : card.qty.max;
+    return quantity > 0 ? `${quantity} ${cardName(card, cards)}` : null;
+  }).filter((line) => line !== null).join("\n");
+}
+function buildPlainTextExport(heading2, rollup, cards) {
+  const lines = [`${heading2} (${moneyRange(rollup.totals.cost)})`];
+  for (const tier of rollup.tiers) {
+    lines.push("", `${tier.label} (${moneyRange(tier.totals.cost)})`);
+    for (const group of tier.groups) {
+      lines.push(`  ${group.label}`);
+      for (const card of group.cards) {
+        const meta = cards[card.printingId];
+        const collector = meta?.collector_number ? ` (${meta.collector_number.toUpperCase()})` : "";
+        const price = card.unitPrice == null ? "no price" : moneyRange(card.subtotal);
+        lines.push(`  ${qtyText(card.qty)} ${cardName(card, cards)}${collector} — ${price}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
 var __defProp$2 = Object.defineProperty;
 var __getOwnPropDesc$2 = Object.getOwnPropertyDescriptor;
 var __decorateClass$2 = (decorators, target, key, kind) => {
@@ -6937,6 +6974,7 @@ let FabBuylistBlock = class extends i$1 {
     this._adding = false;
     this._addMessage = "";
     this._addFailed = false;
+    this._copyMessage = "";
     this._zoomed = null;
     this._onKeyDown = (e2) => {
       if (e2.key === "Escape") this._zoomed = null;
@@ -6955,6 +6993,7 @@ let FabBuylistBlock = class extends i$1 {
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener("keydown", this._onKeyDown);
+    clearTimeout(this._copyTimer);
   }
   firstUpdated() {
     this._fetchRollup();
@@ -7042,6 +7081,30 @@ let FabBuylistBlock = class extends i$1 {
     } finally {
       this._adding = false;
     }
+  }
+  _heading() {
+    return this.heading || this._legacyTitle || "Buy List";
+  }
+  async _copy(kind) {
+    if (!this._data) return;
+    const text = kind === "list" ? buildPlainTextExport(this._heading(), this._data.rollup, this._data.cards) : buildMassEntryText(this._data.rollup, this._data.cards, {
+      onlyNeeded: this._data.authenticated
+    });
+    if (!text) {
+      this._flashCopyMessage("Nothing left to buy");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      this._flashCopyMessage(kind === "list" ? "List copied" : "Copied for Mass Entry");
+    } catch {
+      this._flashCopyMessage("Copy failed");
+    }
+  }
+  _flashCopyMessage(message) {
+    this._copyMessage = message;
+    clearTimeout(this._copyTimer);
+    this._copyTimer = setTimeout(() => this._copyMessage = "", 2500);
   }
   _renderOwnPill(totals) {
     if (!this._data?.authenticated) return null;
@@ -7139,7 +7202,7 @@ let FabBuylistBlock = class extends i$1 {
     return b`
       <div class="buylist">
         <div class="header">
-          <h2 class="title">${this.heading || this._legacyTitle || "Buy List"}</h2>
+          <h2 class="title">${this._heading()}</h2>
           <div class="totals">
             <span class="total-cost">${this._range(rollup.totals.cost)}</span>
             <span class="total-label">
@@ -7156,7 +7219,12 @@ let FabBuylistBlock = class extends i$1 {
           <p class="note">
             ${this.note || (authenticated ? "Ownership counts any printing of a card you already have." : "Sign in to see which of these you already own.")}
           </p>
+          ${this._copyMessage ? b`<span class="copy-status">${this._copyMessage}</span>` : null}
           ${this._addMessage ? b`<span class="add-status ${this._addFailed ? "error" : ""}">${this._addMessage}</span>` : null}
+          <button class="copy-btn" @click=${() => this._copy("list")}>Copy list</button>
+          <button class="copy-btn" @click=${() => this._copy("mass")}>
+            Copy for Mass Entry
+          </button>
           ${authenticated && missingCount > 0 ? b`<button class="add-btn" ?disabled=${this._adding} @click=${this._addMissingToWants}>
                 ${this._adding ? "Adding…" : `Add ${missingCount} missing to Wants`}
               </button>` : null}
@@ -7615,6 +7683,34 @@ FabBuylistBlock.styles = i$4`
       color: #b91c1c;
     }
 
+    .copy-btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+      border: 1px solid #cbd5e1;
+      background: transparent;
+      color: #334155;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .copy-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
+    .copy-status {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #047857;
+    }
+
     /* ===== STATES ===== */
     .state {
       padding: 1.5rem 1.25rem;
@@ -7717,8 +7813,18 @@ FabBuylistBlock.styles = i$4`
 
     :host-context(.dark) .total-need,
     :host-context(.dark) .row-own.have,
-    :host-context(.dark) .add-status {
+    :host-context(.dark) .add-status,
+    :host-context(.dark) .copy-status {
       color: #34d399;
+    }
+
+    :host-context(.dark) .copy-btn {
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    :host-context(.dark) .copy-btn:hover {
+      background: #334155;
     }
 
     :host-context(.dark) .own-pill.complete {
@@ -7810,6 +7916,9 @@ __decorateClass$2([
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_addFailed", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_copyMessage", 2);
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_zoomed", 2);

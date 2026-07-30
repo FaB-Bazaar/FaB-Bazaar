@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { buildTcgAffiliateLink } from './utils/affiliate-link-builder';
+import { buildMassEntryText, buildPlainTextExport } from './utils/buylist-export';
 
 /**
  * fab-buylist-block - Grouped, priced shopping list for a hero or archetype.
@@ -522,6 +523,34 @@ export class FabBuylistBlock extends LitElement {
       color: #b91c1c;
     }
 
+    .copy-btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+      border: 1px solid #cbd5e1;
+      background: transparent;
+      color: #334155;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .copy-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
+    .copy-status {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #047857;
+    }
+
     /* ===== STATES ===== */
     .state {
       padding: 1.5rem 1.25rem;
@@ -624,8 +653,18 @@ export class FabBuylistBlock extends LitElement {
 
     :host-context(.dark) .total-need,
     :host-context(.dark) .row-own.have,
-    :host-context(.dark) .add-status {
+    :host-context(.dark) .add-status,
+    :host-context(.dark) .copy-status {
       color: #34d399;
+    }
+
+    :host-context(.dark) .copy-btn {
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    :host-context(.dark) .copy-btn:hover {
+      background: #334155;
     }
 
     :host-context(.dark) .own-pill.complete {
@@ -704,7 +743,10 @@ export class FabBuylistBlock extends LitElement {
   @state() private _adding = false;
   @state() private _addMessage = '';
   @state() private _addFailed = false;
+  @state() private _copyMessage = '';
   @state() private _zoomed: { src: string; alt: string } | null = null;
+
+  private _copyTimer: ReturnType<typeof setTimeout> | undefined;
 
   private _onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') this._zoomed = null;
@@ -723,6 +765,7 @@ export class FabBuylistBlock extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('keydown', this._onKeyDown);
+    clearTimeout(this._copyTimer);
   }
 
   private _lastFetched = '';
@@ -837,6 +880,41 @@ export class FabBuylistBlock extends LitElement {
     } finally {
       this._adding = false;
     }
+  }
+
+  private _heading(): string {
+    return this.heading || this._legacyTitle || 'Buy List';
+  }
+
+  private async _copy(kind: 'list' | 'mass') {
+    if (!this._data) return;
+
+    // A signed-in reader's shopping list is what they still need; a signed-out
+    // reader gets the full list.
+    const text =
+      kind === 'list'
+        ? buildPlainTextExport(this._heading(), this._data.rollup, this._data.cards)
+        : buildMassEntryText(this._data.rollup, this._data.cards, {
+            onlyNeeded: this._data.authenticated,
+          });
+
+    if (!text) {
+      this._flashCopyMessage('Nothing left to buy');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      this._flashCopyMessage(kind === 'list' ? 'List copied' : 'Copied for Mass Entry');
+    } catch {
+      this._flashCopyMessage('Copy failed');
+    }
+  }
+
+  private _flashCopyMessage(message: string) {
+    this._copyMessage = message;
+    clearTimeout(this._copyTimer);
+    this._copyTimer = setTimeout(() => (this._copyMessage = ''), 2500);
   }
 
   private _renderOwnPill(totals: Totals) {
@@ -970,7 +1048,7 @@ export class FabBuylistBlock extends LitElement {
     return html`
       <div class="buylist">
         <div class="header">
-          <h2 class="title">${this.heading || this._legacyTitle || 'Buy List'}</h2>
+          <h2 class="title">${this._heading()}</h2>
           <div class="totals">
             <span class="total-cost">${this._range(rollup.totals.cost)}</span>
             <span class="total-label">
@@ -994,9 +1072,14 @@ export class FabBuylistBlock extends LitElement {
               ? 'Ownership counts any printing of a card you already have.'
               : 'Sign in to see which of these you already own.')}
           </p>
+          ${this._copyMessage ? html`<span class="copy-status">${this._copyMessage}</span>` : null}
           ${this._addMessage
             ? html`<span class="add-status ${this._addFailed ? 'error' : ''}">${this._addMessage}</span>`
             : null}
+          <button class="copy-btn" @click=${() => this._copy('list')}>Copy list</button>
+          <button class="copy-btn" @click=${() => this._copy('mass')}>
+            Copy for Mass Entry
+          </button>
           ${authenticated && missingCount > 0
             ? html`<button class="add-btn" ?disabled=${this._adding} @click=${this._addMissingToWants}>
                 ${this._adding ? 'Adding…' : `Add ${missingCount} missing to Wants`}
