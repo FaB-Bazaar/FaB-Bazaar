@@ -335,7 +335,9 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
                     className="not-prose"
                     dangerouslySetInnerHTML={createSafeInnerHTML('fab-buylist-block', {
                       tiers: JSON.stringify(section.tiers || []),
-                      title: section.title || '',
+                      // heading, not title: a title attribute renders as a
+                      // native browser tooltip over the whole block.
+                      heading: section.title || '',
                       note: section.note,
                     })}
                   />

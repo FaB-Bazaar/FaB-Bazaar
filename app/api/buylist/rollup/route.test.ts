@@ -60,6 +60,7 @@ const PRINTINGS = [
     set: 'evo',
     foiling: 's',
     image_url: 'https://img/EVO026',
+    tcgplayer_url: 'https://www.tcgplayer.com/product/517741',
     tcg_low: 7.99,
     tcg_market: 9.5,
   },
@@ -137,6 +138,17 @@ describe('POST /api/buylist/rollup — pricing', () => {
       collector_number: 'EVO026',
       image_url: 'https://img/EVO026',
     });
+  });
+
+  it('returns the tcgplayer url so the component can render buy links', async () => {
+    const res = await POST(makeRequest({ tiers: TIERS }));
+    const body = await res.json();
+
+    expect(body.data.cards['p-memory'].tcgplayer_url).toBe(
+      'https://www.tcgplayer.com/product/517741'
+    );
+    // Absent on the row → absent in the response, not undefined-stringified.
+    expect(body.data.cards['p-processor'].tcgplayer_url).toBeNull();
   });
 
   it('looks up each printing once even when it appears in several groups', async () => {

@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       // Always the stored CDN url — ids derive from printing characteristics,
       // so a url built from printing_id would 404.
       image_url: p.image_url,
+      tcgplayer_url: p.tcgplayer_url ?? null,
       tcg_low: p.tcg_low,
       tcg_market: p.tcg_market,
     }

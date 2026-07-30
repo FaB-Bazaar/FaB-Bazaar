@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { buildTcgAffiliateLink } from './utils/affiliate-link-builder';
 
 /**
  * fab-buylist-block - Grouped, priced shopping list for a hero or archetype.
@@ -15,7 +16,10 @@ import { customElement, property, state } from 'lit/decorators.js';
  * @element fab-buylist-block
  *
  * @attr {string} tiers - JSON string of tiers: [{label, groups:[{label, cards:[{printingId, qty}]}]}]
- * @attr {string} title - Optional heading (default: "Buy List")
+ * @attr {string} heading - Optional heading (default: "Buy List"). A legacy
+ *   `title` attribute is honoured too, but gets captured and stripped off the
+ *   host — `title` is a global HTML attribute, so leaving it in place makes
+ *   the browser pop a tooltip over the entire block.
  * @attr {string} note - Optional footnote rendered under the list
  */
 
@@ -58,6 +62,7 @@ interface CardMeta {
   collector_number: string;
   set: string;
   image_url?: string | null;
+  tcgplayer_url?: string | null;
   tcg_low?: number | null;
   tcg_market?: number | null;
 }
@@ -402,6 +407,34 @@ export class FabBuylistBlock extends LitElement {
       text-align: right;
     }
 
+    .row-unit {
+      display: block;
+      font-size: 0.75rem;
+      color: #64748b;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .buy-link {
+      flex-shrink: 0;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #1d4ed8;
+      text-decoration: none;
+      border: 1px solid #93c5fd;
+      border-radius: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    .buy-link:hover {
+      background: #dbeafe;
+    }
+
+    .buy-link:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
     .row-own {
       flex-shrink: 0;
       min-width: 4.5rem;
@@ -617,6 +650,19 @@ export class FabBuylistBlock extends LitElement {
       color: #fbbf24;
     }
 
+    :host-context(.dark) .row-unit {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .buy-link {
+      color: #93c5fd;
+      border-color: #1d4ed8;
+    }
+
+    :host-context(.dark) .buy-link:hover {
+      background: #1e3a8a;
+    }
+
     :host-context(.dark) .add-btn {
       background: #f1f5f9;
       border-color: #f1f5f9;
@@ -640,8 +686,16 @@ export class FabBuylistBlock extends LitElement {
   `;
 
   @property() tiers = '';
-  @property() title = 'Buy List';
+  @property() heading = '';
   @property() note = '';
+
+  /**
+   * Heading text taken from a legacy `title` attribute. Captured once in
+   * connectedCallback and then removed from the host, because `title` is a
+   * global HTML attribute and would otherwise render as a browser tooltip
+   * over the whole block.
+   */
+  @state() private _legacyTitle = '';
 
   @state() private _loading = false;
   @state() private _error = '';
@@ -658,6 +712,11 @@ export class FabBuylistBlock extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    const legacyTitle = this.getAttribute('title');
+    if (legacyTitle) {
+      this._legacyTitle = legacyTitle;
+      this.removeAttribute('title');
+    }
     document.addEventListener('keydown', this._onKeyDown);
   }
 
@@ -821,12 +880,24 @@ export class FabBuylistBlock extends LitElement {
             ? html`<span class="no-price">no price</span>`
             : html`${this._range(card.subtotal)}${card.priceIsFallback
                 ? html`<span class="fallback-flag" title="Priced from TCG Market — no low price available"> ·M</span>`
+                : null}
+              ${card.qty.max > 1
+                ? html`<span class="row-unit">${this._money(card.unitPrice)} ea</span>`
                 : null}`}
         </span>
         ${authenticated
           ? html`<span class="row-own ${card.owned > 0 ? 'have' : 'need'}">
               ${card.owned > 0 ? html`✓ ${card.owned}` : html`—`}
             </span>`
+          : null}
+        ${meta?.tcgplayer_url
+          ? html`<a
+              class="buy-link"
+              href=${buildTcgAffiliateLink(meta.tcgplayer_url, 'BuylistPurchase')}
+              target="_blank"
+              rel="noopener"
+              aria-label=${`Buy ${name} on TCGplayer`}
+            >Buy</a>`
           : null}
       </li>
     `;
@@ -899,7 +970,7 @@ export class FabBuylistBlock extends LitElement {
     return html`
       <div class="buylist">
         <div class="header">
-          <h2 class="title">${this.title}</h2>
+          <h2 class="title">${this.heading || this._legacyTitle || 'Buy List'}</h2>
           <div class="totals">
             <span class="total-cost">${this._range(rollup.totals.cost)}</span>
             <span class="total-label">

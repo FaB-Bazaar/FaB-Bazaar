@@ -3210,6 +3210,17 @@ function checkCookieConsent() {
     return null;
   }
 }
+function getPageContext(pathname) {
+  if (typeof window === "undefined") return "Unknown";
+  const path = window.location.pathname;
+  if (path.startsWith("/binder/")) return "Binder";
+  if (path === "/wants") return "Wants";
+  if (path.startsWith("/heroes/")) return "Heroes";
+  if (path.startsWith("/printing/")) return "PrintingDetails";
+  if (path === "/browse") return "Browse";
+  if (path.startsWith("/article/") || path.includes("/articles/")) return "Article";
+  return "Other";
+}
 function getUserContext() {
   if (typeof window === "undefined") return "Unknown";
   const hasAuth = localStorage.getItem("auth") || sessionStorage.getItem("session") || document.cookie.includes("session");
@@ -3233,7 +3244,7 @@ function getDeviceContext() {
 }
 function buildTrackingContext(feature, options) {
   return {
-    pageContext: options?.pageContext,
+    pageContext: options?.pageContext || getPageContext(),
     feature,
     userContext: getUserContext(),
     returnContext: getReturnUserContext(),
@@ -6916,8 +6927,9 @@ let FabBuylistBlock = class extends i$1 {
   constructor() {
     super(...arguments);
     this.tiers = "";
-    this.title = "Buy List";
+    this.heading = "";
     this.note = "";
+    this._legacyTitle = "";
     this._loading = false;
     this._error = "";
     this._data = null;
@@ -6933,6 +6945,11 @@ let FabBuylistBlock = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    const legacyTitle = this.getAttribute("title");
+    if (legacyTitle) {
+      this._legacyTitle = legacyTitle;
+      this.removeAttribute("title");
+    }
     document.addEventListener("keydown", this._onKeyDown);
   }
   disconnectedCallback() {
@@ -7054,11 +7071,19 @@ let FabBuylistBlock = class extends i$1 {
         </span>
         <span class="row-qty">${this._qtyText(card.qty)}</span>
         <span class="row-price">
-          ${card.unitPrice == null ? b`<span class="no-price">no price</span>` : b`${this._range(card.subtotal)}${card.priceIsFallback ? b`<span class="fallback-flag" title="Priced from TCG Market — no low price available"> ·M</span>` : null}`}
+          ${card.unitPrice == null ? b`<span class="no-price">no price</span>` : b`${this._range(card.subtotal)}${card.priceIsFallback ? b`<span class="fallback-flag" title="Priced from TCG Market — no low price available"> ·M</span>` : null}
+              ${card.qty.max > 1 ? b`<span class="row-unit">${this._money(card.unitPrice)} ea</span>` : null}`}
         </span>
         ${authenticated ? b`<span class="row-own ${card.owned > 0 ? "have" : "need"}">
               ${card.owned > 0 ? b`✓ ${card.owned}` : b`—`}
             </span>` : null}
+        ${meta?.tcgplayer_url ? b`<a
+              class="buy-link"
+              href=${buildTcgAffiliateLink(meta.tcgplayer_url, "BuylistPurchase")}
+              target="_blank"
+              rel="noopener"
+              aria-label=${`Buy ${name} on TCGplayer`}
+            >Buy</a>` : null}
       </li>
     `;
   }
@@ -7114,7 +7139,7 @@ let FabBuylistBlock = class extends i$1 {
     return b`
       <div class="buylist">
         <div class="header">
-          <h2 class="title">${this.title}</h2>
+          <h2 class="title">${this.heading || this._legacyTitle || "Buy List"}</h2>
           <div class="totals">
             <span class="total-cost">${this._range(rollup.totals.cost)}</span>
             <span class="total-label">
@@ -7475,6 +7500,34 @@ FabBuylistBlock.styles = i$4`
       text-align: right;
     }
 
+    .row-unit {
+      display: block;
+      font-size: 0.75rem;
+      color: #64748b;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .buy-link {
+      flex-shrink: 0;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #1d4ed8;
+      text-decoration: none;
+      border: 1px solid #93c5fd;
+      border-radius: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    .buy-link:hover {
+      background: #dbeafe;
+    }
+
+    .buy-link:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
     .row-own {
       flex-shrink: 0;
       min-width: 4.5rem;
@@ -7690,6 +7743,19 @@ FabBuylistBlock.styles = i$4`
       color: #fbbf24;
     }
 
+    :host-context(.dark) .row-unit {
+      color: #94a3b8;
+    }
+
+    :host-context(.dark) .buy-link {
+      color: #93c5fd;
+      border-color: #1d4ed8;
+    }
+
+    :host-context(.dark) .buy-link:hover {
+      background: #1e3a8a;
+    }
+
     :host-context(.dark) .add-btn {
       background: #f1f5f9;
       border-color: #f1f5f9;
@@ -7716,10 +7782,13 @@ __decorateClass$2([
 ], FabBuylistBlock.prototype, "tiers", 2);
 __decorateClass$2([
   n2()
-], FabBuylistBlock.prototype, "title", 2);
+], FabBuylistBlock.prototype, "heading", 2);
 __decorateClass$2([
   n2()
 ], FabBuylistBlock.prototype, "note", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_legacyTitle", 2);
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_loading", 2);

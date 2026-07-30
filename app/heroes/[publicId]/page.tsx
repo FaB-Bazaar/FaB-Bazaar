@@ -328,7 +328,9 @@ export default async function HeroArticlePage({ params }: { params: { publicId: 
                     key={index}
                     dangerouslySetInnerHTML={createSafeInnerHTML('fab-buylist-block', {
                       tiers: JSON.stringify(section.tiers || []),
-                      title: section.title || '',
+                      // heading, not title: a title attribute renders as a
+                      // native browser tooltip over the whole block.
+                      heading: section.title || '',
                       note: section.note,
                     })}
                   />

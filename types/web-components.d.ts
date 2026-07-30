@@ -80,7 +80,8 @@ declare namespace JSX {
 
     'fab-buylist-block': {
       tiers?: string; // JSON string
-      title?: string;
+      heading?: string;
+      title?: string; // legacy alias for heading; stripped by the component
       note?: string;
       children?: React.ReactNode;
     };
@@ -164,7 +165,8 @@ declare global {
 
       'fab-buylist-block': {
         tiers?: string;
-        title?: string;
+        heading?: string;
+        title?: string; // legacy alias for heading; stripped by the component
         note?: string;
         children?: React.ReactNode;
       };
