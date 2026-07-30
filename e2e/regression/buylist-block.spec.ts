@@ -411,6 +411,38 @@ test('links the signed-out nudge to the login page', async ({ page }) => {
   expect(await link.getAttribute('href')).toContain('/login');
 });
 
+/**
+ * Check-off boxes. A buy list is worked through over days — each row carries
+ * a checkbox persisted in localStorage (keyed by list identity), so progress
+ * survives leaving the page.
+ */
+test('lets the reader check off a row, dimming it', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  const box = host.locator('.check-box').first();
+  await expect(box).not.toBeChecked();
+
+  await box.check();
+
+  await expect(box).toBeChecked();
+  await expect(host.locator('.row').first()).toHaveClass(/checked/);
+});
+
+test('remembers checked rows across a re-mount of the same list', async ({ page }) => {
+  const host = await mountBuylist(page);
+  await host.locator('.check-box').first().check();
+  await expect(host.locator('.row').first()).toHaveClass(/checked/);
+
+  // Same tiers → same storage identity → state survives.
+  const remounted = await mountBuylist(page);
+  await expect(remounted.locator('.check-box').first()).toBeChecked();
+
+  // And unchecking clears it.
+  await remounted.locator('.check-box').first().uncheck();
+  const again = await mountBuylist(page);
+  await expect(again.locator('.check-box').first()).not.toBeChecked();
+});
+
 test('lays the tier note on its own line below the tier heading', async ({ page }) => {
   const host = await mountBuylist(page, ANNOTATED);
 

@@ -7006,6 +7006,7 @@ let FabBuylistBlock = class extends i$1 {
     this.heading = "";
     this.note = "";
     this.prerolled = "";
+    this.listId = "";
     this._legacyTitle = "";
     this._loading = false;
     this._error = "";
@@ -7016,6 +7017,7 @@ let FabBuylistBlock = class extends i$1 {
     this._addFailed = false;
     this._copyMessage = "";
     this._zoomed = null;
+    this._checked = /* @__PURE__ */ new Set();
     this._onKeyDown = (e2) => {
       if (e2.key === "Escape") this._zoomed = null;
     };
@@ -7039,7 +7041,40 @@ let FabBuylistBlock = class extends i$1 {
   }
   firstUpdated() {
     this._adoptPrerolled();
+    this._loadChecked();
     this._fetchRollup();
+  }
+  /**
+   * Check-off progress lives in localStorage: a buy list is worked through
+   * over days, so ticks must survive leaving the page. Keyed by list-id when
+   * the page provides one, else by a hash of the tiers payload — same list,
+   * same key.
+   */
+  _storageKey() {
+    if (this.listId) return `fab-buylist-checked:${this.listId}`;
+    let hash = 5381;
+    for (let i3 = 0; i3 < this.tiers.length; i3++) {
+      hash = (hash << 5) + hash + this.tiers.charCodeAt(i3) >>> 0;
+    }
+    return `fab-buylist-checked:${hash.toString(36)}`;
+  }
+  _loadChecked() {
+    try {
+      const raw = localStorage.getItem(this._storageKey());
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) this._checked = new Set(parsed.filter((v2) => typeof v2 === "string"));
+    } catch {
+    }
+  }
+  _toggleChecked(printingId, checked) {
+    const next = new Set(this._checked);
+    if (checked) next.add(printingId);
+    else next.delete(printingId);
+    this._checked = next;
+    try {
+      localStorage.setItem(this._storageKey(), JSON.stringify([...next]));
+    } catch {
+    }
   }
   /** Paint the server-rendered rollup immediately, before any network. */
   _adoptPrerolled() {
@@ -7190,8 +7225,16 @@ let FabBuylistBlock = class extends i$1 {
     const meta = this._data?.cards[card.printingId];
     const name = meta?.name ?? card.printingId;
     const authenticated = this._data?.authenticated ?? false;
+    const checked = this._checked.has(card.printingId);
     return b`
-      <li class="row">
+      <li class="row ${checked ? "checked" : ""}">
+        <input
+          type="checkbox"
+          class="check-box"
+          .checked=${checked}
+          aria-label=${`Mark ${name} as picked up`}
+          @change=${(e2) => this._toggleChecked(card.printingId, e2.target.checked)}
+        />
         ${meta?.image_url ? b`<button
               class="thumb-btn"
               aria-label=${`Enlarge ${name}`}
@@ -7529,6 +7572,33 @@ FabBuylistBlock.styles = i$4`
 
     .row:hover {
       background: #f1f5f9;
+    }
+
+    .check-box {
+      flex-shrink: 0;
+      width: 1.125rem;
+      height: 1.125rem;
+      margin: 0;
+      accent-color: #047857;
+      cursor: pointer;
+    }
+
+    .check-box:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+      border-radius: 0.125rem;
+    }
+
+    /* Checked = picked up: recede, don't disappear — totals still count it. */
+    .row.checked .thumb,
+    .row.checked .row-main,
+    .row.checked .row-qty,
+    .row.checked .row-price {
+      opacity: 0.55;
+    }
+
+    .row.checked .row-name {
+      text-decoration: line-through;
     }
 
     /* Big enough to recognise the art at a glance — the whole point of showing
@@ -8053,6 +8123,9 @@ __decorateClass$2([
   n2()
 ], FabBuylistBlock.prototype, "prerolled", 2);
 __decorateClass$2([
+  n2({ attribute: "list-id" })
+], FabBuylistBlock.prototype, "listId", 2);
+__decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_legacyTitle", 2);
 __decorateClass$2([
@@ -8082,6 +8155,9 @@ __decorateClass$2([
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_zoomed", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_checked", 2);
 FabBuylistBlock = __decorateClass$2([
   t$1("fab-buylist-block")
 ], FabBuylistBlock);

@@ -81,6 +81,7 @@ declare namespace JSX {
     'fab-buylist-block': {
       tiers?: string; // JSON string
       prerolled?: string; // server-rendered {rollup, cards} JSON
+      'list-id'?: string; // identity for persisted check-off state
       heading?: string;
       title?: string; // legacy alias for heading; stripped by the component
       note?: string;
@@ -167,6 +168,7 @@ declare global {
       'fab-buylist-block': {
         tiers?: string;
         prerolled?: string; // server-rendered {rollup, cards} JSON
+        'list-id'?: string; // identity for persisted check-off state
         heading?: string;
         title?: string; // legacy alias for heading; stripped by the component
         note?: string;

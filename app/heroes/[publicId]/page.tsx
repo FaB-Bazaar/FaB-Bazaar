@@ -364,6 +364,7 @@ export default async function HeroArticlePage({ params }: { params: { publicId: 
                       heading: section.title || '',
                       note: section.note,
                       prerolled: buylistDataMap.get(index),
+                      'list-id': `${articleDoc.publicId}:${index}`,
                     })}
                   />
                 );

@@ -371,6 +371,7 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
                       heading: section.title || '',
                       note: section.note,
                       prerolled: buylistDataMap.get(index),
+                      'list-id': `${articleDoc.publicId}:${index}`,
                     })}
                   />
                 );

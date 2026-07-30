@@ -290,6 +290,33 @@ export class FabBuylistBlock extends LitElement {
       background: #f1f5f9;
     }
 
+    .check-box {
+      flex-shrink: 0;
+      width: 1.125rem;
+      height: 1.125rem;
+      margin: 0;
+      accent-color: #047857;
+      cursor: pointer;
+    }
+
+    .check-box:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+      border-radius: 0.125rem;
+    }
+
+    /* Checked = picked up: recede, don't disappear — totals still count it. */
+    .row.checked .thumb,
+    .row.checked .row-main,
+    .row.checked .row-qty,
+    .row.checked .row-price {
+      opacity: 0.55;
+    }
+
+    .row.checked .row-name {
+      text-decoration: line-through;
+    }
+
     /* Big enough to recognise the art at a glance — the whole point of showing
        card images in a shopping list. Click opens a full-size overlay. */
     .thumb {
@@ -804,6 +831,8 @@ export class FabBuylistBlock extends LitElement {
   @property() heading = '';
   @property() note = '';
   @property() prerolled = '';
+  /** Stable identity for persisted check-off state (e.g. "<publicId>:<section>"). */
+  @property({ attribute: 'list-id' }) listId = '';
 
   /**
    * Heading text taken from a legacy `title` attribute. Captured once in
@@ -822,6 +851,7 @@ export class FabBuylistBlock extends LitElement {
   @state() private _addFailed = false;
   @state() private _copyMessage = '';
   @state() private _zoomed: { src: string; alt: string } | null = null;
+  @state() private _checked = new Set<string>();
 
   private _copyTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -851,7 +881,45 @@ export class FabBuylistBlock extends LitElement {
 
   protected firstUpdated() {
     this._adoptPrerolled();
+    this._loadChecked();
     this._fetchRollup();
+  }
+
+  /**
+   * Check-off progress lives in localStorage: a buy list is worked through
+   * over days, so ticks must survive leaving the page. Keyed by list-id when
+   * the page provides one, else by a hash of the tiers payload — same list,
+   * same key.
+   */
+  private _storageKey(): string {
+    if (this.listId) return `fab-buylist-checked:${this.listId}`;
+    let hash = 5381;
+    for (let i = 0; i < this.tiers.length; i++) {
+      hash = ((hash << 5) + hash + this.tiers.charCodeAt(i)) >>> 0;
+    }
+    return `fab-buylist-checked:${hash.toString(36)}`;
+  }
+
+  private _loadChecked() {
+    try {
+      const raw = localStorage.getItem(this._storageKey());
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) this._checked = new Set(parsed.filter(v => typeof v === 'string'));
+    } catch {
+      // Private mode / corrupted entry — start unchecked.
+    }
+  }
+
+  private _toggleChecked(printingId: string, checked: boolean) {
+    const next = new Set(this._checked);
+    if (checked) next.add(printingId);
+    else next.delete(printingId);
+    this._checked = next;
+    try {
+      localStorage.setItem(this._storageKey(), JSON.stringify([...next]));
+    } catch {
+      // Storage full or blocked — the tick still works for this visit.
+    }
   }
 
   /** Paint the server-rendered rollup immediately, before any network. */
@@ -1048,9 +1116,18 @@ export class FabBuylistBlock extends LitElement {
     const meta = this._data?.cards[card.printingId];
     const name = meta?.name ?? card.printingId;
     const authenticated = this._data?.authenticated ?? false;
+    const checked = this._checked.has(card.printingId);
 
     return html`
-      <li class="row">
+      <li class="row ${checked ? 'checked' : ''}">
+        <input
+          type="checkbox"
+          class="check-box"
+          .checked=${checked}
+          aria-label=${`Mark ${name} as picked up`}
+          @change=${(e: Event) =>
+            this._toggleChecked(card.printingId, (e.target as HTMLInputElement).checked)}
+        />
         ${meta?.image_url
           ? html`<button
               class="thumb-btn"
