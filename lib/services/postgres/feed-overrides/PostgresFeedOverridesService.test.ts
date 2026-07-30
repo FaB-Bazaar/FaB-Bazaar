@@ -171,3 +171,152 @@ describe('PostgresFeedOverridesService', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('artVariations discriminator (migration 0096)', () => {
+  it('stores art variations uppercase and sorted', async () => {
+    const created = await service.create({
+      collectorNumber: collector(),
+      foiling: 'R',
+      artVariations: ['ds', 'aa'],
+      setFields: { tcgplayer_product_id: '1' },
+      reason: 'normalization',
+    });
+    expect(created.success).toBe(true);
+    if (!created.success) return;
+    track(created.data);
+    expect(created.data.artVariations).toEqual(['AA', 'DS']);
+  });
+
+  it('allows AA / no-variant / wildcard overrides to coexist on one match key', async () => {
+    const cn = collector();
+    const base = {
+      foiling: 'R',
+      setFields: { tcgplayer_product_id: '1' },
+      reason: 'coexist',
+    };
+
+    const aa = await service.create({ ...base, collectorNumber: cn, artVariations: ['AA'] });
+    expect(aa.success).toBe(true);
+    if (aa.success) track(aa.data);
+
+    const none = await service.create({ ...base, collectorNumber: cn, artVariations: [] });
+    expect(none.success).toBe(true);
+    if (none.success) track(none.data);
+    if (none.success) expect(none.data.artVariations).toEqual([]);
+
+    const wildcard = await service.create({ ...base, collectorNumber: cn });
+    expect(wildcard.success).toBe(true);
+    if (wildcard.success) track(wildcard.data);
+    if (wildcard.success) expect(wildcard.data.artVariations).toBeNull();
+  });
+
+  it('rejects a duplicate with the same art variations regardless of case/order', async () => {
+    const cn = collector();
+    const first = await service.create({
+      collectorNumber: cn,
+      foiling: 'R',
+      artVariations: ['AA', 'DS'],
+      setFields: { tcgplayer_product_id: '1' },
+      reason: 'first',
+    });
+    expect(first.success).toBe(true);
+    if (first.success) track(first.data);
+
+    const dup = await service.create({
+      collectorNumber: cn,
+      foiling: 'r',
+      artVariations: ['ds', 'Aa'],
+      setFields: { tcgplayer_product_id: '2' },
+      reason: 'dup',
+    });
+    expect(dup.success).toBe(false);
+    if (dup.success) track(dup.data);
+  });
+
+  it('rejects blank art variation tokens', async () => {
+    const result = await service.create({
+      collectorNumber: collector(),
+      artVariations: ['AA', '  '],
+      setFields: { tcgplayer_product_id: '1' },
+      reason: 'blank token',
+    });
+    expect(result.success).toBe(false);
+    if (result.success) track(result.data);
+  });
+});
+
+describe('upsertByMatchKey (admin PATCH auto-record)', () => {
+  it('creates when no override matches the key', async () => {
+    const cn = collector();
+    const result = await service.upsertByMatchKey({
+      collectorNumber: cn,
+      edition: 'F',
+      foiling: 'R',
+      artVariations: ['AA'],
+      setFields: { tcgplayer_product_id: '248564' },
+      reason: 'manual admin edit',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    track(result.data);
+    expect(result.data.collectorNumber).toBe(cn);
+    expect(result.data.artVariations).toEqual(['AA']);
+  });
+
+  it('updates setFields/reason and reactivates when the key already exists', async () => {
+    const cn = collector();
+    const first = await service.upsertByMatchKey({
+      collectorNumber: cn,
+      edition: 'F',
+      foiling: 'R',
+      artVariations: ['AA'],
+      setFields: { tcgplayer_product_id: '1' },
+      reason: 'first pass',
+    });
+    expect(first.success).toBe(true);
+    if (!first.success) return;
+    track(first.data);
+    const deactivated = await service.update(first.data.id, { active: false });
+    expect(deactivated.success).toBe(true);
+
+    const second = await service.upsertByMatchKey({
+      collectorNumber: cn.toLowerCase(),
+      edition: 'f',
+      foiling: 'r',
+      artVariations: ['aa'],
+      setFields: { tcgplayer_product_id: '2' },
+      reason: 'second pass',
+    });
+    expect(second.success).toBe(true);
+    if (!second.success) return;
+    // Same row, updated in place — not a duplicate-key failure.
+    expect(second.data.id).toBe(first.data.id);
+    expect(second.data.setFields).toEqual({ tcgplayer_product_id: '2' });
+    expect(second.data.reason).toBe('second pass');
+    expect(second.data.active).toBe(true);
+  });
+
+  it('treats wildcard (no artVariations) as its own upsert key', async () => {
+    const cn = collector();
+    const aa = await service.upsertByMatchKey({
+      collectorNumber: cn,
+      foiling: 'R',
+      artVariations: ['AA'],
+      setFields: { tcgplayer_product_id: '1' },
+      reason: 'aa',
+    });
+    expect(aa.success).toBe(true);
+    if (aa.success) track(aa.data);
+
+    const wildcard = await service.upsertByMatchKey({
+      collectorNumber: cn,
+      foiling: 'R',
+      setFields: { tcgplayer_product_id: '2' },
+      reason: 'wildcard',
+    });
+    expect(wildcard.success).toBe(true);
+    if (!wildcard.success) return;
+    track(wildcard.data);
+    expect(wildcard.data.id).not.toBe(aa.success ? aa.data.id : '');
+  });
+});

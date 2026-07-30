@@ -16,6 +16,15 @@ Runs in the `fabbazaar-pipeline` container. See root CLAUDE.md "Data Architectur
   fetch warns and continues (one uncorrected night beats killing the run). 02 also
   warns on any printing whose product id ≠ the id in its own `tcgplayer_url` — those
   are override candidates (this signature mispriced SEA015-017 at $100+/1st Strike).
+  **Art-variation discriminator (migration 0096)**: the feed is 1:N on
+  (collector, edition, foiling) — art variants share the key (ELE146 regular +
+  Alternate Art both 1st-ed rainbow foil). `feed_overrides.art_variations`:
+  NULL = match any (legacy wildcard), `{}` = only no-variant printings,
+  `{AA}` = exact set match (case/order-insensitive). NEVER record a wildcard
+  override for a card that has art variants — it repoints every sibling.
+  The superadmin printing-TCGplayer PATCH (`/api/admin/printings/[id]/tcgplayer`)
+  auto-records an override keyed by the row's exact identity, so a manual admin
+  fix is durable by construction.
 
 - **Card source branch gets deleted on set release** — `001_api_only_enhancer.py`
   `cards_url` should track the-fab-cube's `develop` branch. Upcoming-set branches

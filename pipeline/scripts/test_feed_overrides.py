@@ -156,6 +156,100 @@ class ApplyFeedOverridesTests(unittest.TestCase):
         self.assertEqual(stats["skipped_non_english"], 1)
 
 
+def _art_variant_cards():
+    """One collector key, two printings differing only in art_variations —
+    the ELE146 Channel Lake Frigid shape that motivated migration 0096."""
+    return [
+        {
+            "name": "Channel Lake Frigid",
+            "printings": [
+                {
+                    "id": "ELE146",
+                    "edition": "F",
+                    "foiling": "R",
+                    "art_variations": [],
+                    "tcgplayer_product_id": "247879",
+                },
+                {
+                    "id": "ELE146",
+                    "edition": "F",
+                    "foiling": "R",
+                    "art_variations": ["AA"],
+                    "tcgplayer_product_id": "247879",
+                },
+            ],
+        },
+    ]
+
+
+class ArtVariationMatchingTests(unittest.TestCase):
+    """art_variations discriminator (migration 0096): None = any (legacy),
+    [] = only printings with no variant, ['AA'] = exact set match."""
+
+    def test_aa_override_patches_only_the_alt_art_printing(self):
+        cards = _art_variant_cards()
+        stats = enhancer_mod.apply_feed_overrides(
+            cards,
+            [_override(collector_number="ELE146", edition="F", foiling="R",
+                       art_variations=["AA"],
+                       set_fields={"tcgplayer_product_id": "248564"})],
+        )
+
+        regular, alt = cards[0]["printings"]
+        self.assertEqual(regular["tcgplayer_product_id"], "247879")
+        self.assertEqual(alt["tcgplayer_product_id"], "248564")
+        self.assertEqual(stats["applied"], 1)
+
+    def test_empty_art_variations_patches_only_the_regular_printing(self):
+        cards = _art_variant_cards()
+        stats = enhancer_mod.apply_feed_overrides(
+            cards,
+            [_override(collector_number="ELE146", art_variations=[],
+                       set_fields={"tcgplayer_product_id": "999999"})],
+        )
+
+        regular, alt = cards[0]["printings"]
+        self.assertEqual(regular["tcgplayer_product_id"], "999999")
+        self.assertEqual(alt["tcgplayer_product_id"], "247879")
+        self.assertEqual(stats["applied"], 1)
+
+    def test_missing_art_variations_stays_a_wildcard(self):
+        cards = _art_variant_cards()
+        stats = enhancer_mod.apply_feed_overrides(
+            cards,
+            [_override(collector_number="ELE146",
+                       set_fields={"tcgplayer_product_id": "111111"})],
+        )
+
+        regular, alt = cards[0]["printings"]
+        self.assertEqual(regular["tcgplayer_product_id"], "111111")
+        self.assertEqual(alt["tcgplayer_product_id"], "111111")
+        self.assertEqual(stats["applied"], 2)
+
+    def test_art_variation_match_is_case_and_order_insensitive(self):
+        cards = _art_variant_cards()
+        cards[0]["printings"][1]["art_variations"] = ["DS", "aa"]
+        stats = enhancer_mod.apply_feed_overrides(
+            cards,
+            [_override(collector_number="ELE146", art_variations=["AA", "ds"],
+                       set_fields={"tcgplayer_product_id": "248564"})],
+        )
+
+        self.assertEqual(cards[0]["printings"][1]["tcgplayer_product_id"], "248564")
+        self.assertEqual(stats["applied"], 1)
+
+    def test_unmatched_art_variation_is_reported(self):
+        cards = _art_variant_cards()
+        stats = enhancer_mod.apply_feed_overrides(
+            cards,
+            [_override(collector_number="ELE146", art_variations=["XYZ"],
+                       set_fields={"tcgplayer_product_id": "248564"})],
+        )
+
+        self.assertEqual(stats["applied"], 0)
+        self.assertEqual(len(stats["unmatched"]), 1)
+
+
 class ProductUrlMismatchTests(unittest.TestCase):
     def test_flags_printings_whose_product_id_disagrees_with_url(self):
         cards = _cards_fixture()
@@ -193,15 +287,15 @@ class FetchFeedOverridesTests(unittest.TestCase):
         self.conn.commit()
         self.conn.close()
 
-    def _insert(self, collector, active=True):
+    def _insert(self, collector, active=True, art_variations=None):
         row_id = f"test-{uuid.uuid4()}"
         self.ids.append(row_id)
         with self.conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO feed_overrides
-                   (id, collector_number, foiling, set_fields, reason, active)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
-                (row_id, collector, "R",
+                   (id, collector_number, foiling, art_variations, set_fields, reason, active)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (row_id, collector, "R", art_variations,
                  '{"tcgplayer_product_id": "632643"}', "test row", active),
             )
         self.conn.commit()
@@ -222,6 +316,17 @@ class FetchFeedOverridesTests(unittest.TestCase):
         self.assertEqual(row["foiling"], "R")
         self.assertEqual(row["set_fields"], {"tcgplayer_product_id": "632643"})
         self.assertEqual(row["language"], "en")
+        # Wildcard rows carry art_variations = None (migration 0096).
+        self.assertIsNone(row["art_variations"])
+
+    def test_fetch_returns_art_variations(self):
+        collector = f"ZT{uuid.uuid4().hex[:6].upper()}"
+        self._insert(collector, active=True, art_variations=["AA"])
+
+        rows = enhancer_mod.fetch_feed_overrides(_db_url())
+
+        row = next(r for r in rows if r["collector_number"] == collector)
+        self.assertEqual(row["art_variations"], ["AA"])
 
 
 if __name__ == "__main__":

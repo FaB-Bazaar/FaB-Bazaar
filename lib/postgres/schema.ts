@@ -1809,6 +1809,11 @@ export const feedOverrides = pgTable('feed_overrides', {
   collectorNumber: text('collector_number').notNull(),
   edition: text('edition'),
   foiling: text('foiling'),
+  // NULL = match any art variation; [] = only no-variant printings; ['AA'] =
+  // exact set match (stored uppercase+sorted by the service; migration 0096).
+  // Needed because the feed is 1:N on (collector, edition, foiling) — art
+  // variants share the key and differ only in art_variations.
+  artVariations: text('art_variations').array(),
   language: text('language').default('en').notNull(),
   setFields: jsonb('set_fields').notNull(),
   reason: text('reason').notNull(),

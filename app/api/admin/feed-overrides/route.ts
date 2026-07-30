@@ -39,11 +39,15 @@ export async function POST(request: NextRequest) {
   if (!body.setFields || typeof body.setFields !== 'object') {
     return NextResponse.json({ error: 'setFields is required' }, { status: 400 });
   }
+  if (body.artVariations !== undefined && body.artVariations !== null && !Array.isArray(body.artVariations)) {
+    return NextResponse.json({ error: 'artVariations must be an array of strings' }, { status: 400 });
+  }
 
   const result = await feedOverridesService.create({
     collectorNumber: body.collectorNumber,
     edition: body.edition ?? null,
     foiling: body.foiling ?? null,
+    artVariations: body.artVariations ?? null,
     language: body.language,
     setFields: body.setFields,
     reason: body.reason,

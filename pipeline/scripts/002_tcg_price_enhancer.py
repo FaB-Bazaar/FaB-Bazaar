@@ -89,7 +89,7 @@ def fetch_feed_overrides(db_url):
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT collector_number, edition, foiling, language, set_fields "
+                "SELECT collector_number, edition, foiling, art_variations, language, set_fields "
                 "FROM feed_overrides WHERE active = true"
             )
             return [dict(row) for row in cur.fetchall()]
@@ -101,8 +101,12 @@ def apply_feed_overrides(cards, overrides):
     """Patch feed printings in place from override rows.
 
     Matching: collector_number vs printing['id'], case-insensitive;
-    edition/foiling None = match any. The feed is English-only, so non-'en'
-    overrides are skipped. Only ALLOWED_OVERRIDE_FIELDS keys are applied.
+    edition/foiling None = match any. art_variations (migration 0096):
+    None = match any variant, [] = only printings with no variant, ['AA'] =
+    exact set match (case/order-insensitive) — needed because the feed is 1:N
+    on (collector, edition, foiling) and art variants share the key. The feed
+    is English-only, so non-'en' overrides are skipped. Only
+    ALLOWED_OVERRIDE_FIELDS keys are applied.
     """
     stats = {
         'applied': 0,
@@ -119,6 +123,10 @@ def apply_feed_overrides(cards, overrides):
         collector = str(override.get('collector_number') or '').upper()
         edition = override.get('edition')
         foiling = override.get('foiling')
+        art_variations = override.get('art_variations')
+        art_key = None
+        if art_variations is not None:
+            art_key = sorted(str(v).upper() for v in art_variations)
         requested = override.get('set_fields') or {}
         fields = {k: v for k, v in requested.items() if k in ALLOWED_OVERRIDE_FIELDS}
         for key in requested:
@@ -134,6 +142,12 @@ def apply_feed_overrides(cards, overrides):
                     continue
                 if foiling is not None and str(printing.get('foiling') or '').upper() != foiling.upper():
                     continue
+                if art_key is not None:
+                    printing_arts = sorted(
+                        str(v).upper() for v in (printing.get('art_variations') or [])
+                    )
+                    if printing_arts != art_key:
+                        continue
                 printing.update(fields)
                 matched = True
                 stats['applied'] += 1
@@ -149,6 +163,7 @@ def apply_feed_overrides(cards, overrides):
                 'collector_number': override.get('collector_number'),
                 'edition': edition,
                 'foiling': foiling,
+                'art_variations': art_variations,
             })
     return stats
 

@@ -28,6 +28,7 @@ interface FeedOverride {
   collectorNumber: string;
   edition: string | null;
   foiling: string | null;
+  artVariations: string[] | null;
   language: string;
   setFields: Record<string, string>;
   reason: string;
@@ -39,11 +40,32 @@ const emptyForm = {
   collectorNumber: '',
   edition: '',
   foiling: '',
+  artVariations: '',
   productId: '',
   url: '',
   subtypeName: '',
   reason: '',
 };
+
+/**
+ * Art-variations input → API value. Blank = any variant (wildcard); the
+ * literal "none" = only printings WITHOUT a variant; otherwise
+ * comma-separated tokens ("AA"). Needed because the feed can carry several
+ * printings on one collector/edition/foiling key that differ only by art —
+ * a wildcard override would patch all of them.
+ */
+function parseArtVariationsInput(raw: string): string[] | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase() === 'none') return [];
+  return trimmed.split(',').map((t) => t.trim()).filter(Boolean);
+}
+
+function formatArtVariations(value: string[] | null): string {
+  if (value === null) return 'any art';
+  if (value.length === 0) return 'no art variant';
+  return value.join(',');
+}
 
 export function FeedOverridesClient() {
   const { toast } = useToast();
@@ -93,6 +115,7 @@ export function FeedOverridesClient() {
           collectorNumber: form.collectorNumber,
           edition: form.edition || null,
           foiling: form.foiling || null,
+          artVariations: parseArtVariationsInput(form.artVariations),
           setFields,
           reason: form.reason,
         }),
@@ -176,6 +199,21 @@ export function FeedOverridesClient() {
               ))}
             </select>
           </label>
+          <div className="text-sm space-y-1">
+            <label className="space-y-1 block">
+              <span>Art variations</span>
+              <Input
+                value={form.artVariations}
+                onChange={setField('artVariations')}
+                placeholder='blank = any · "none" = no variant · AA'
+                aria-describedby="art-variations-help"
+              />
+            </label>
+            <span id="art-variations-help" className="text-xs text-muted-foreground block">
+              Art variants share collector/edition/foiling in the feed — use AA
+              (or &quot;none&quot;) so the override only hits the right printing.
+            </span>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label className="text-sm space-y-1">
@@ -229,7 +267,8 @@ export function FeedOverridesClient() {
                 <tr key={row.id} className="border-b border-gray-200 dark:border-gray-800 align-top">
                   <td className="py-2 pr-4 font-mono">{row.collectorNumber}</td>
                   <td className="py-2 pr-4 text-muted-foreground">
-                    {row.edition || 'any edition'} / {row.foiling || 'any foiling'} / {row.language}
+                    {row.edition || 'any edition'} / {row.foiling || 'any foiling'} /{' '}
+                    {formatArtVariations(row.artVariations)} / {row.language}
                   </td>
                   <td className="py-2 pr-4">
                     {Object.entries(row.setFields).map(([k, v]) => (

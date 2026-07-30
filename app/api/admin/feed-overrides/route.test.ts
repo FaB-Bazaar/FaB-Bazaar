@@ -115,6 +115,29 @@ describe('POST /api/admin/feed-overrides', () => {
     expect((await res.json()).data).toEqual({ id: 'o-1' });
   });
 
+  it('passes artVariations through to the service', async () => {
+    mockCreate.mockResolvedValue({ success: true, data: { id: 'o-2' } } as any);
+    const res = await POST(makePost({ ...validBody, artVariations: ['AA'] }));
+    expect(res.status).toBe(200);
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ artVariations: ['AA'] }),
+    );
+  });
+
+  it('omits artVariations (wildcard) when the body does not send it', async () => {
+    mockCreate.mockResolvedValue({ success: true, data: { id: 'o-3' } } as any);
+    await POST(makePost(validBody));
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ artVariations: null }),
+    );
+  });
+
+  it('rejects a non-array artVariations with 400', async () => {
+    const res = await POST(makePost({ ...validBody, artVariations: 'AA' }));
+    expect(res.status).toBe(400);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it('maps a validation failure from the service to 400', async () => {
     mockCreate.mockResolvedValue({
       success: false,
