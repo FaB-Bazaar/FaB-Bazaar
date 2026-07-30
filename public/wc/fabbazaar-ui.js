@@ -3272,6 +3272,31 @@ function shouldShowAffiliateLink(tcgplayerUrl) {
   if (typeof window === "undefined") return false;
   return true;
 }
+let observer = null;
+const hosts = /* @__PURE__ */ new Set();
+function isDark() {
+  return document.documentElement.classList.contains("dark");
+}
+function syncAll() {
+  const dark = isDark();
+  for (const host of hosts) {
+    host.toggleAttribute("dark", dark);
+  }
+}
+function watchTheme(host) {
+  hosts.add(host);
+  host.toggleAttribute("dark", isDark());
+  if (!observer) {
+    observer = new MutationObserver(syncAll);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  }
+}
+function unwatchTheme(host) {
+  hosts.delete(host);
+}
 var __defProp$9 = Object.defineProperty;
 var __getOwnPropDesc$9 = Object.getOwnPropertyDescriptor;
 var __decorateClass$9 = (decorators, target, key, kind) => {
@@ -3304,12 +3329,14 @@ let FabSpotlightCard = class extends i$1 {
   }
   async connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     await this.fetchCard();
     await this.fetchCardDataByNames();
     document.addEventListener("keydown", this.handleKeydown);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this.handleKeydown);
   }
   async updated(changedProperties) {
@@ -3684,7 +3711,7 @@ FabSpotlightCard.styles = i$4`
     }
 
     /* Tailwind class-based dark mode */
-    :host-context(.dark) {
+    :host([dark]) {
       --fab-spotlight-bg: #1e293b;
       --fab-spotlight-border: #475569;
       --fab-spotlight-badge-bg: #818cf8;
@@ -4111,15 +4138,15 @@ FabSpotlightCard.styles = i$4`
       }
     }
 
-    :host-context(.dark) .purchase-link-container {
+    :host([dark]) .purchase-link-container {
       border-top: 1px solid rgba(71, 85, 105, 0.3);
     }
 
-    :host-context(.dark) .purchase-link {
+    :host([dark]) .purchase-link {
       color: #60a5fa;
     }
 
-    :host-context(.dark) .purchase-link:hover {
+    :host([dark]) .purchase-link:hover {
       color: #93c5fd;
     }
 
@@ -4425,6 +4452,14 @@ let FabSectionHeader = class extends i$1 {
     this.subtitle = "";
     this.level = "2";
   }
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
   render() {
     if (!this.title) {
       return b``;
@@ -4486,8 +4521,8 @@ FabSectionHeader.styles = i$4`
     }
 
     /* Support Tailwind's class-based dark mode */
-    :host-context(.dark) h2,
-    :host-context(.dark) h3 {
+    :host([dark]) h2,
+    :host([dark]) h3 {
       color: var(--fab-header-title-dark);
     }
 
@@ -4505,7 +4540,7 @@ FabSectionHeader.styles = i$4`
       }
     }
 
-    :host-context(.dark) .subtitle {
+    :host([dark]) .subtitle {
       color: var(--fab-header-subtitle-dark);
     }
 
@@ -4749,12 +4784,14 @@ let FabMatchReport = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     this.fetchCardData();
     this.fetchHeroCard();
     document.addEventListener("keydown", this.handleKeyDown);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this.handleKeyDown);
   }
   updated(changedProperties) {
@@ -5317,79 +5354,79 @@ FabMatchReport.styles = i$4`
     }
 
     /* ===== DARK MODE (via .dark class on html) ===== */
-    :host-context(.dark) .match {
+    :host([dark]) .match {
       background: #0f172a;
       border-color: #1e293b;
     }
 
-    :host-context(.dark) .header {
+    :host([dark]) .header {
       border-bottom-color: #1e293b;
     }
 
-    :host-context(.dark) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
-    :host-context(.dark) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
-    :host-context(.dark) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+    :host([dark]) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    :host([dark]) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    :host([dark]) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
 
-    :host-context(.dark) .round {
+    :host([dark]) .round {
       color: #94a3b8;
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .hero {
+    :host([dark]) .hero {
       background: #1e293b;
       border-color: #334155;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .opponent-inline {
+    :host([dark]) .opponent-inline {
       color: #64748b;
     }
 
-    :host-context(.dark) .record {
+    :host([dark]) .record {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .summary {
+    :host([dark]) .summary {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .sideboard {
+    :host([dark]) .sideboard {
       background: #422006;
     }
 
-    :host-context(.dark) .sideboard-title {
+    :host([dark]) .sideboard-title {
       color: #fef3c7;
     }
 
-    :host-context(.dark) .sideboard-text {
+    :host([dark]) .sideboard-text {
       color: #fcd34d;
     }
 
-    :host-context(.dark) .card-group-label.in {
+    :host([dark]) .card-group-label.in {
       background: #14532d;
       color: #86efac;
     }
 
-    :host-context(.dark) .card-group-label.out {
+    :host([dark]) .card-group-label.out {
       background: #450a0a;
       color: #fca5a5;
     }
 
-    :host-context(.dark) .card-thumbnail-placeholder,
-    :host-context(.dark) .hero-card-placeholder {
+    :host([dark]) .card-thumbnail-placeholder,
+    :host([dark]) .hero-card-placeholder {
       background: #334155;
     }
 
-    :host-context(.dark) .sideboard-card-name {
+    :host([dark]) .sideboard-card-name {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .inline-card-name {
+    :host([dark]) .inline-card-name {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .inline-card-clickable:hover {
+    :host([dark]) .inline-card-clickable:hover {
       color: #818cf8;
       border-bottom-color: #818cf8;
     }
@@ -5507,6 +5544,7 @@ let FabDecklistBlock = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     document.addEventListener("keydown", this._onKeyDown);
     const saved = localStorage.getItem("fab-decklist-view");
     if (saved === "list" || saved === "grid") {
@@ -5515,6 +5553,7 @@ let FabDecklistBlock = class extends i$1 {
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this._onKeyDown);
   }
   firstUpdated() {
@@ -6679,129 +6718,129 @@ FabDecklistBlock.styles = i$4`
     }
 
     /* ===== DARK MODE ===== */
-    :host-context(.dark) .decklist {
+    :host([dark]) .decklist {
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header {
+    :host([dark]) .header {
       border-bottom-color: #334155;
     }
 
-    :host-context(.dark) .title {
+    :host([dark]) .title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .view-toggle {
+    :host([dark]) .view-toggle {
       border-color: #334155;
     }
 
-    :host-context(.dark) .view-btn {
+    :host([dark]) .view-btn {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .view-btn + .view-btn {
+    :host([dark]) .view-btn + .view-btn {
       border-left-color: #334155;
     }
 
-    :host-context(.dark) .view-btn:hover {
+    :host([dark]) .view-btn:hover {
       background: #0f172a;
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .view-btn.active {
+    :host([dark]) .view-btn.active {
       background: #f1f5f9;
       color: #0f172a;
     }
 
-    :host-context(.dark) .hud {
+    :host([dark]) .hud {
       background: rgba(255, 255, 255, 0.04);
       border-color: rgba(255, 255, 255, 0.08);
     }
 
-    :host-context(.dark) .hud-label {
+    :host([dark]) .hud-label {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .hud-chip {
+    :host([dark]) .hud-chip {
       background: rgba(255, 255, 255, 0.08);
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .hud-chip:hover:not(.zero) {
+    :host([dark]) .hud-chip:hover:not(.zero) {
       background: rgba(255, 255, 255, 0.14);
     }
 
-    :host-context(.dark) .hud-divider {
+    :host([dark]) .hud-divider {
       background: rgba(255, 255, 255, 0.1);
     }
 
-    :host-context(.dark) .hud-clear {
+    :host([dark]) .hud-clear {
       color: #64748b;
     }
 
-    :host-context(.dark) .hud-clear:hover {
+    :host([dark]) .hud-clear:hover {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .section-header {
+    :host([dark]) .section-header {
       border-bottom-color: #334155;
     }
 
-    :host-context(.dark) .section-title {
+    :host([dark]) .section-title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .section-count {
+    :host([dark]) .section-count {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .card-image-wrapper {
+    :host([dark]) .card-image-wrapper {
       background: #0f172a;
     }
 
-    :host-context(.dark) .list-row:hover {
+    :host([dark]) .list-row:hover {
       background: rgba(255, 255, 255, 0.04);
     }
 
-    :host-context(.dark) .list-row.highlighted {
+    :host([dark]) .list-row.highlighted {
       background: rgba(245, 158, 11, 0.12);
     }
 
-    :host-context(.dark) .list-card-name {
+    :host([dark]) .list-card-name {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .list-card-qty {
+    :host([dark]) .list-card-qty {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .list-foil-badge.rf {
+    :host([dark]) .list-foil-badge.rf {
       background: rgba(234, 179, 8, 0.2);
       color: #fcd34d;
     }
 
-    :host-context(.dark) .list-foil-badge.cf {
+    :host([dark]) .list-foil-badge.cf {
       color: #a78bfa;
     }
 
-    :host-context(.dark) .notes {
+    :host([dark]) .notes {
       background: #422006;
     }
 
-    :host-context(.dark) .notes-title {
+    :host([dark]) .notes-title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .notes-text {
+    :host([dark]) .notes-text {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .loading {
+    :host([dark]) .loading {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .loading-spinner {
+    :host([dark]) .loading-spinner {
       border-color: #334155;
       border-top-color: #60a5fa;
     }
@@ -6984,6 +7023,7 @@ let FabBuylistBlock = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     const legacyTitle = this.getAttribute("title");
     if (legacyTitle) {
       this._legacyTitle = legacyTitle;
@@ -6993,6 +7033,7 @@ let FabBuylistBlock = class extends i$1 {
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this._onKeyDown);
     clearTimeout(this._copyTimer);
   }
@@ -7760,141 +7801,141 @@ FabBuylistBlock.styles = i$4`
     }
 
     /* ===== DARK MODE ===== */
-    :host-context(.dark) .buylist {
+    :host([dark]) .buylist {
       background: #0f172a;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header,
-    :host-context(.dark) .tier,
-    :host-context(.dark) .group,
-    :host-context(.dark) .footer {
+    :host([dark]) .header,
+    :host([dark]) .tier,
+    :host([dark]) .group,
+    :host([dark]) .footer {
       border-color: #334155;
     }
 
-    :host-context(.dark) .title,
-    :host-context(.dark) .tier-title,
-    :host-context(.dark) .group-header,
-    :host-context(.dark) .row-name,
-    :host-context(.dark) .row-qty,
-    :host-context(.dark) .total-cost {
+    :host([dark]) .title,
+    :host([dark]) .tier-title,
+    :host([dark]) .group-header,
+    :host([dark]) .row-name,
+    :host([dark]) .row-qty,
+    :host([dark]) .total-cost {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .tier-header {
+    :host([dark]) .tier-header {
       background: #1e293b;
     }
 
-    :host-context(.dark) .tier-total,
-    :host-context(.dark) .group-cost,
-    :host-context(.dark) .row-price {
+    :host([dark]) .tier-total,
+    :host([dark]) .group-cost,
+    :host([dark]) .row-price {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .total-label,
-    :host-context(.dark) .row-meta,
-    :host-context(.dark) .note,
-    :host-context(.dark) .card-note,
-    :host-context(.dark) .group-note,
-    :host-context(.dark) .tier-note,
-    :host-context(.dark) .state,
-    :host-context(.dark) .caret,
-    :host-context(.dark) .row-own.need {
+    :host([dark]) .total-label,
+    :host([dark]) .row-meta,
+    :host([dark]) .note,
+    :host([dark]) .card-note,
+    :host([dark]) .group-note,
+    :host([dark]) .tier-note,
+    :host([dark]) .state,
+    :host([dark]) .caret,
+    :host([dark]) .row-own.need {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .group-note {
+    :host([dark]) .group-note {
       border-left-color: #475569;
     }
 
-    :host-context(.dark) .group-header:hover,
-    :host-context(.dark) .row:hover {
+    :host([dark]) .group-header:hover,
+    :host([dark]) .row:hover {
       background: #1e293b;
     }
 
-    :host-context(.dark) .group-qty {
+    :host([dark]) .group-qty {
       background: #334155;
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .footer {
+    :host([dark]) .footer {
       background: #1e293b;
     }
 
-    :host-context(.dark) .thumb {
+    :host([dark]) .thumb {
       background: #334155;
       border-color: #475569;
     }
 
-    :host-context(.dark) .total-need,
-    :host-context(.dark) .row-own.have,
-    :host-context(.dark) .add-status,
-    :host-context(.dark) .copy-status {
+    :host([dark]) .total-need,
+    :host([dark]) .row-own.have,
+    :host([dark]) .add-status,
+    :host([dark]) .copy-status {
       color: #34d399;
     }
 
-    :host-context(.dark) .copy-btn {
+    :host([dark]) .copy-btn {
       border-color: #475569;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .copy-btn:hover {
+    :host([dark]) .copy-btn:hover {
       background: #334155;
     }
 
-    :host-context(.dark) .own-pill.complete {
+    :host([dark]) .own-pill.complete {
       color: #d1fae5;
       background: #064e3b;
       border-color: #34d399;
     }
 
-    :host-context(.dark) .own-pill.partial {
+    :host([dark]) .own-pill.partial {
       color: #fef3c7;
       background: #78350f;
       border-color: #fbbf24;
     }
 
-    :host-context(.dark) .own-pill.none {
+    :host([dark]) .own-pill.none {
       color: #cbd5e1;
       border-color: #64748b;
     }
 
-    :host-context(.dark) .fallback-flag,
-    :host-context(.dark) .no-price {
+    :host([dark]) .fallback-flag,
+    :host([dark]) .no-price {
       color: #fbbf24;
     }
 
-    :host-context(.dark) .row-unit {
+    :host([dark]) .row-unit {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .buy-link {
+    :host([dark]) .buy-link {
       color: #93c5fd;
       border-color: #1d4ed8;
     }
 
-    :host-context(.dark) .buy-link:hover {
+    :host([dark]) .buy-link:hover {
       background: #1e3a8a;
     }
 
-    :host-context(.dark) .add-btn {
+    :host([dark]) .add-btn {
       background: #f1f5f9;
       border-color: #f1f5f9;
       color: #0f172a;
     }
 
-    :host-context(.dark) .add-btn:hover:not(:disabled) {
+    :host([dark]) .add-btn:hover:not(:disabled) {
       background: #ffffff;
     }
 
-    :host-context(.dark) .add-btn:disabled {
+    :host([dark]) .add-btn:disabled {
       background: #475569;
       border-color: #475569;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .state.error,
-    :host-context(.dark) .add-status.error {
+    :host([dark]) .state.error,
+    :host([dark]) .add-status.error {
       color: #fca5a5;
     }
   `;

@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-section-header - Semantic section headers for articles
@@ -71,8 +72,8 @@ export class FabSectionHeader extends LitElement {
     }
 
     /* Support Tailwind's class-based dark mode */
-    :host-context(.dark) h2,
-    :host-context(.dark) h3 {
+    :host([dark]) h2,
+    :host([dark]) h3 {
       color: var(--fab-header-title-dark);
     }
 
@@ -90,7 +91,7 @@ export class FabSectionHeader extends LitElement {
       }
     }
 
-    :host-context(.dark) .subtitle {
+    :host([dark]) .subtitle {
       color: var(--fab-header-subtitle-dark);
     }
 
@@ -103,6 +104,16 @@ export class FabSectionHeader extends LitElement {
   @property() title = '';
   @property() subtitle = '';
   @property() level = '2';
+
+  override connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
 
   render() {
     if (!this.title) {

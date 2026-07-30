@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { buildTcgAffiliateLink } from './utils/affiliate-link-builder';
 import { buildMassEntryText, buildPlainTextExport } from './utils/buylist-export';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-buylist-block - Grouped, priced shopping list for a hero or archetype.
@@ -589,141 +590,141 @@ export class FabBuylistBlock extends LitElement {
     }
 
     /* ===== DARK MODE ===== */
-    :host-context(.dark) .buylist {
+    :host([dark]) .buylist {
       background: #0f172a;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header,
-    :host-context(.dark) .tier,
-    :host-context(.dark) .group,
-    :host-context(.dark) .footer {
+    :host([dark]) .header,
+    :host([dark]) .tier,
+    :host([dark]) .group,
+    :host([dark]) .footer {
       border-color: #334155;
     }
 
-    :host-context(.dark) .title,
-    :host-context(.dark) .tier-title,
-    :host-context(.dark) .group-header,
-    :host-context(.dark) .row-name,
-    :host-context(.dark) .row-qty,
-    :host-context(.dark) .total-cost {
+    :host([dark]) .title,
+    :host([dark]) .tier-title,
+    :host([dark]) .group-header,
+    :host([dark]) .row-name,
+    :host([dark]) .row-qty,
+    :host([dark]) .total-cost {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .tier-header {
+    :host([dark]) .tier-header {
       background: #1e293b;
     }
 
-    :host-context(.dark) .tier-total,
-    :host-context(.dark) .group-cost,
-    :host-context(.dark) .row-price {
+    :host([dark]) .tier-total,
+    :host([dark]) .group-cost,
+    :host([dark]) .row-price {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .total-label,
-    :host-context(.dark) .row-meta,
-    :host-context(.dark) .note,
-    :host-context(.dark) .card-note,
-    :host-context(.dark) .group-note,
-    :host-context(.dark) .tier-note,
-    :host-context(.dark) .state,
-    :host-context(.dark) .caret,
-    :host-context(.dark) .row-own.need {
+    :host([dark]) .total-label,
+    :host([dark]) .row-meta,
+    :host([dark]) .note,
+    :host([dark]) .card-note,
+    :host([dark]) .group-note,
+    :host([dark]) .tier-note,
+    :host([dark]) .state,
+    :host([dark]) .caret,
+    :host([dark]) .row-own.need {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .group-note {
+    :host([dark]) .group-note {
       border-left-color: #475569;
     }
 
-    :host-context(.dark) .group-header:hover,
-    :host-context(.dark) .row:hover {
+    :host([dark]) .group-header:hover,
+    :host([dark]) .row:hover {
       background: #1e293b;
     }
 
-    :host-context(.dark) .group-qty {
+    :host([dark]) .group-qty {
       background: #334155;
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .footer {
+    :host([dark]) .footer {
       background: #1e293b;
     }
 
-    :host-context(.dark) .thumb {
+    :host([dark]) .thumb {
       background: #334155;
       border-color: #475569;
     }
 
-    :host-context(.dark) .total-need,
-    :host-context(.dark) .row-own.have,
-    :host-context(.dark) .add-status,
-    :host-context(.dark) .copy-status {
+    :host([dark]) .total-need,
+    :host([dark]) .row-own.have,
+    :host([dark]) .add-status,
+    :host([dark]) .copy-status {
       color: #34d399;
     }
 
-    :host-context(.dark) .copy-btn {
+    :host([dark]) .copy-btn {
       border-color: #475569;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .copy-btn:hover {
+    :host([dark]) .copy-btn:hover {
       background: #334155;
     }
 
-    :host-context(.dark) .own-pill.complete {
+    :host([dark]) .own-pill.complete {
       color: #d1fae5;
       background: #064e3b;
       border-color: #34d399;
     }
 
-    :host-context(.dark) .own-pill.partial {
+    :host([dark]) .own-pill.partial {
       color: #fef3c7;
       background: #78350f;
       border-color: #fbbf24;
     }
 
-    :host-context(.dark) .own-pill.none {
+    :host([dark]) .own-pill.none {
       color: #cbd5e1;
       border-color: #64748b;
     }
 
-    :host-context(.dark) .fallback-flag,
-    :host-context(.dark) .no-price {
+    :host([dark]) .fallback-flag,
+    :host([dark]) .no-price {
       color: #fbbf24;
     }
 
-    :host-context(.dark) .row-unit {
+    :host([dark]) .row-unit {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .buy-link {
+    :host([dark]) .buy-link {
       color: #93c5fd;
       border-color: #1d4ed8;
     }
 
-    :host-context(.dark) .buy-link:hover {
+    :host([dark]) .buy-link:hover {
       background: #1e3a8a;
     }
 
-    :host-context(.dark) .add-btn {
+    :host([dark]) .add-btn {
       background: #f1f5f9;
       border-color: #f1f5f9;
       color: #0f172a;
     }
 
-    :host-context(.dark) .add-btn:hover:not(:disabled) {
+    :host([dark]) .add-btn:hover:not(:disabled) {
       background: #ffffff;
     }
 
-    :host-context(.dark) .add-btn:disabled {
+    :host([dark]) .add-btn:disabled {
       background: #475569;
       border-color: #475569;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .state.error,
-    :host-context(.dark) .add-status.error {
+    :host([dark]) .state.error,
+    :host([dark]) .add-status.error {
       color: #fca5a5;
     }
   `;
@@ -759,6 +760,7 @@ export class FabBuylistBlock extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     const legacyTitle = this.getAttribute('title');
     if (legacyTitle) {
       this._legacyTitle = legacyTitle;
@@ -769,6 +771,7 @@ export class FabBuylistBlock extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener('keydown', this._onKeyDown);
     clearTimeout(this._copyTimer);
   }

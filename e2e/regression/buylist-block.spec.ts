@@ -100,7 +100,7 @@ test('prompts a signed-out reader to sign in and offers no wants button', async 
   await expect(host.locator('.own-pill')).toHaveCount(0);
 });
 
-test('renders legibly in light and dark mode', async ({ page }) => {
+test('renders legibly in light and dark mode @firefox', async ({ page }) => {
   const host = await mountBuylist(page);
 
   await page.evaluate(() => document.documentElement.classList.remove('dark'));
@@ -209,6 +209,133 @@ test('opens a full-size card image on click and closes on Escape', async ({ page
 
   await page.keyboard.press('Escape');
   await expect(overlay).toHaveCount(0);
+});
+
+/**
+ * Buy links + unit prices. A buy list must be actionable: every priced row
+ * links out to TCGplayer (affiliate-wrapped only with advertising consent),
+ * and multi-copy rows show the per-copy price next to the subtotal.
+ */
+test('links every row with a TCGplayer product to the store in a new tab', async ({ page }) => {
+  const host = await mountBuylist(page);
+
+  // All 7 fixture printings carry a tcgplayer_url in the local DB copy.
+  const links = host.locator('.buy-link');
+  await expect(links).toHaveCount(7);
+
+  const first = links.first();
+  await expect(first).toHaveAttribute('target', '_blank');
+  expect(await first.getAttribute('href')).toContain('tcgplayer');
+});
+
+test('shows the per-copy price on multi-copy rows', async ({ page }) => {
+  const host = await mountBuylist(page);
+  const firstRow = host.locator('.row').first();
+
+  // 3x Steel Soul Memory @ $7.99 → subtotal $23.97, unit price spelled out.
+  await expect(firstRow.locator('.row-price')).toContainText('$23.97');
+  await expect(firstRow.locator('.row-unit')).toContainText('$7.99 ea');
+});
+
+test('omits the unit price on single-copy rows where it would repeat the subtotal', async ({ page }) => {
+  const host = await mountBuylist(page, [
+    {
+      label: 'One-ofs',
+      groups: [{ label: 'Singles', cards: [{ printingId: 'Q7bHNWdWH7BgqnpktCDLb', qty: 1 }] }],
+    },
+  ]);
+
+  await expect(host.locator('.row-price').first()).toContainText('$7.99');
+  await expect(host.locator('.row-unit')).toHaveCount(0);
+});
+
+/**
+ * The heading attribute. `title` is a global HTML attribute, so authoring
+ * <fab-buylist-block title="…"> makes the browser pop a native tooltip over
+ * the whole block. The component now takes `heading`, and swallows a legacy
+ * `title` (still honoured as the heading) off the host so no tooltip appears.
+ */
+test('takes its heading from the heading attribute', async ({ page }) => {
+  await page.goto('/articles/g4zzA4Ev_Q');
+  await page.waitForFunction(() => customElements.get('fab-buylist-block') !== undefined, {
+    timeout: 30_000,
+  });
+
+  await page.evaluate((t: unknown) => {
+    document.querySelectorAll('fab-buylist-block').forEach(n => n.remove());
+    const el = document.createElement('fab-buylist-block');
+    el.setAttribute('tiers', JSON.stringify(t));
+    el.setAttribute('heading', 'Heading Attr Buy List');
+    (document.querySelector('article') || document.body).prepend(el);
+  }, TIERS);
+
+  const host = page.locator('fab-buylist-block');
+  await expect(host.locator('.title')).toHaveText('Heading Attr Buy List', { timeout: 30_000 });
+  expect(await host.getAttribute('title')).toBeNull();
+});
+
+test('honours a legacy title attribute as the heading but strips it from the host', async ({ page }) => {
+  const host = await mountBuylist(page); // helper mounts with title="Teklovossen Buy List"
+
+  await expect(host.locator('.title')).toHaveText('Teklovossen Buy List');
+  // Captured as the heading, then removed so the browser shows no tooltip.
+  await expect.poll(() => host.getAttribute('title')).toBeNull();
+});
+
+/**
+ * Copy / export. The component doc says a buy list is meant to be taken
+ * somewhere — copy the structured list as text, or bare "<qty> <name>" lines
+ * for TCGplayer's Mass Entry page.
+ */
+test.describe('copy and export', () => {
+  test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+  test('copies the structured list as plain text', async ({ page }) => {
+    const host = await mountBuylist(page);
+
+    await host.locator('.copy-btn', { hasText: 'Copy list' }).click();
+    await expect(host.locator('.copy-status')).toContainText('copied', { ignoreCase: true });
+
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clip).toContain('Teklovossen Buy List ($');
+    expect(clip).toContain('Steel Soul Set');
+    // Card lines carry quantity, collector number and money.
+    expect(clip).toMatch(/3x .+ \(EVO\d+\) — \$\d/);
+  });
+
+  test('copies bare quantity-name lines for TCGplayer Mass Entry', async ({ page }) => {
+    const host = await mountBuylist(page);
+
+    await host.locator('.copy-btn', { hasText: 'Mass Entry' }).click();
+    await expect(host.locator('.copy-status')).toContainText('copied', { ignoreCase: true });
+
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    const lines = clip.split('\n');
+    // 7 fixture rows, every line "<qty> <name>", no headers and no prices.
+    expect(lines).toHaveLength(7);
+    for (const line of lines) {
+      expect(line).toMatch(/^\d+ \S/);
+    }
+    expect(clip).not.toContain('$');
+  });
+});
+
+/**
+ * Server-rendered pricing. The page pre-rolls the buy list at render time and
+ * hands it to the component, so the article's core content paints immediately
+ * (and is crawlable) instead of waiting on a client fetch. The fetch still
+ * runs afterwards to layer in the signed-in reader's ownership.
+ */
+test('shows a fully priced list even when the rollup API is unreachable', async ({ page }) => {
+  await page.route('**/api/buylist/rollup', route => route.abort());
+
+  await page.goto('/heroes/g4zzA4Ev_Q');
+  const host = page.locator('fab-buylist-block').first();
+
+  // Priced from the server-rendered payload, no API round-trip needed.
+  await expect(host.locator('.total-cost')).toContainText('$', { timeout: 30_000 });
+  await expect(host.locator('.row').first()).toBeVisible();
+  await expect(host.locator('.state')).toHaveCount(0);
 });
 
 test('lays the tier note on its own line below the tier heading', async ({ page }) => {

@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import { buildTcgAffiliateLink, shouldShowAffiliateLink } from './utils/affiliate-link-builder';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 /**
  * fab-spotlight-card - Featured card analysis component with rich commentary
@@ -68,7 +69,7 @@ export class FabSpotlightCard extends LitElement {
     }
 
     /* Tailwind class-based dark mode */
-    :host-context(.dark) {
+    :host([dark]) {
       --fab-spotlight-bg: #1e293b;
       --fab-spotlight-border: #475569;
       --fab-spotlight-badge-bg: #818cf8;
@@ -495,15 +496,15 @@ export class FabSpotlightCard extends LitElement {
       }
     }
 
-    :host-context(.dark) .purchase-link-container {
+    :host([dark]) .purchase-link-container {
       border-top: 1px solid rgba(71, 85, 105, 0.3);
     }
 
-    :host-context(.dark) .purchase-link {
+    :host([dark]) .purchase-link {
       color: #60a5fa;
     }
 
-    :host-context(.dark) .purchase-link:hover {
+    :host([dark]) .purchase-link:hover {
       color: #93c5fd;
     }
 
@@ -533,6 +534,7 @@ export class FabSpotlightCard extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     await this.fetchCard();
     await this.fetchCardDataByNames();
     document.addEventListener('keydown', this.handleKeydown);
@@ -540,6 +542,7 @@ export class FabSpotlightCard extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener('keydown', this.handleKeydown);
   }
 

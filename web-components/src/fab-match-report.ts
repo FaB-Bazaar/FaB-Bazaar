@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 interface SideboardCard {
   printingId: string;
@@ -390,79 +391,79 @@ export class FabMatchReport extends LitElement {
     }
 
     /* ===== DARK MODE (via .dark class on html) ===== */
-    :host-context(.dark) .match {
+    :host([dark]) .match {
       background: #0f172a;
       border-color: #1e293b;
     }
 
-    :host-context(.dark) .header {
+    :host([dark]) .header {
       border-bottom-color: #1e293b;
     }
 
-    :host-context(.dark) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
-    :host-context(.dark) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
-    :host-context(.dark) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+    :host([dark]) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    :host([dark]) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    :host([dark]) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
 
-    :host-context(.dark) .round {
+    :host([dark]) .round {
       color: #94a3b8;
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .hero {
+    :host([dark]) .hero {
       background: #1e293b;
       border-color: #334155;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .opponent-inline {
+    :host([dark]) .opponent-inline {
       color: #64748b;
     }
 
-    :host-context(.dark) .record {
+    :host([dark]) .record {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .summary {
+    :host([dark]) .summary {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .sideboard {
+    :host([dark]) .sideboard {
       background: #422006;
     }
 
-    :host-context(.dark) .sideboard-title {
+    :host([dark]) .sideboard-title {
       color: #fef3c7;
     }
 
-    :host-context(.dark) .sideboard-text {
+    :host([dark]) .sideboard-text {
       color: #fcd34d;
     }
 
-    :host-context(.dark) .card-group-label.in {
+    :host([dark]) .card-group-label.in {
       background: #14532d;
       color: #86efac;
     }
 
-    :host-context(.dark) .card-group-label.out {
+    :host([dark]) .card-group-label.out {
       background: #450a0a;
       color: #fca5a5;
     }
 
-    :host-context(.dark) .card-thumbnail-placeholder,
-    :host-context(.dark) .hero-card-placeholder {
+    :host([dark]) .card-thumbnail-placeholder,
+    :host([dark]) .hero-card-placeholder {
       background: #334155;
     }
 
-    :host-context(.dark) .sideboard-card-name {
+    :host([dark]) .sideboard-card-name {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .inline-card-name {
+    :host([dark]) .inline-card-name {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .inline-card-clickable:hover {
+    :host([dark]) .inline-card-clickable:hover {
       color: #818cf8;
       border-bottom-color: #818cf8;
     }
@@ -534,6 +535,7 @@ export class FabMatchReport extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     this.fetchCardData();
     this.fetchHeroCard();
     // Close overlay on Escape key
@@ -542,6 +544,7 @@ export class FabMatchReport extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener('keydown', this.handleKeyDown);
   }
 

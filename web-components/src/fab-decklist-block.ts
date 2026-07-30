@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { watchTheme, unwatchTheme } from './utils/theme';
 
 type PitchColor = 'red' | 'yellow' | 'blue' | null;
 
@@ -610,129 +611,129 @@ export class FabDecklistBlock extends LitElement {
     }
 
     /* ===== DARK MODE ===== */
-    :host-context(.dark) .decklist {
+    :host([dark]) .decklist {
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header {
+    :host([dark]) .header {
       border-bottom-color: #334155;
     }
 
-    :host-context(.dark) .title {
+    :host([dark]) .title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .view-toggle {
+    :host([dark]) .view-toggle {
       border-color: #334155;
     }
 
-    :host-context(.dark) .view-btn {
+    :host([dark]) .view-btn {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .view-btn + .view-btn {
+    :host([dark]) .view-btn + .view-btn {
       border-left-color: #334155;
     }
 
-    :host-context(.dark) .view-btn:hover {
+    :host([dark]) .view-btn:hover {
       background: #0f172a;
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .view-btn.active {
+    :host([dark]) .view-btn.active {
       background: #f1f5f9;
       color: #0f172a;
     }
 
-    :host-context(.dark) .hud {
+    :host([dark]) .hud {
       background: rgba(255, 255, 255, 0.04);
       border-color: rgba(255, 255, 255, 0.08);
     }
 
-    :host-context(.dark) .hud-label {
+    :host([dark]) .hud-label {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .hud-chip {
+    :host([dark]) .hud-chip {
       background: rgba(255, 255, 255, 0.08);
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .hud-chip:hover:not(.zero) {
+    :host([dark]) .hud-chip:hover:not(.zero) {
       background: rgba(255, 255, 255, 0.14);
     }
 
-    :host-context(.dark) .hud-divider {
+    :host([dark]) .hud-divider {
       background: rgba(255, 255, 255, 0.1);
     }
 
-    :host-context(.dark) .hud-clear {
+    :host([dark]) .hud-clear {
       color: #64748b;
     }
 
-    :host-context(.dark) .hud-clear:hover {
+    :host([dark]) .hud-clear:hover {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .section-header {
+    :host([dark]) .section-header {
       border-bottom-color: #334155;
     }
 
-    :host-context(.dark) .section-title {
+    :host([dark]) .section-title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .section-count {
+    :host([dark]) .section-count {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .card-image-wrapper {
+    :host([dark]) .card-image-wrapper {
       background: #0f172a;
     }
 
-    :host-context(.dark) .list-row:hover {
+    :host([dark]) .list-row:hover {
       background: rgba(255, 255, 255, 0.04);
     }
 
-    :host-context(.dark) .list-row.highlighted {
+    :host([dark]) .list-row.highlighted {
       background: rgba(245, 158, 11, 0.12);
     }
 
-    :host-context(.dark) .list-card-name {
+    :host([dark]) .list-card-name {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .list-card-qty {
+    :host([dark]) .list-card-qty {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .list-foil-badge.rf {
+    :host([dark]) .list-foil-badge.rf {
       background: rgba(234, 179, 8, 0.2);
       color: #fcd34d;
     }
 
-    :host-context(.dark) .list-foil-badge.cf {
+    :host([dark]) .list-foil-badge.cf {
       color: #a78bfa;
     }
 
-    :host-context(.dark) .notes {
+    :host([dark]) .notes {
       background: #422006;
     }
 
-    :host-context(.dark) .notes-title {
+    :host([dark]) .notes-title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .notes-text {
+    :host([dark]) .notes-text {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .loading {
+    :host([dark]) .loading {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .loading-spinner {
+    :host([dark]) .loading-spinner {
       border-color: #334155;
       border-top-color: #60a5fa;
     }
@@ -835,6 +836,7 @@ export class FabDecklistBlock extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     document.addEventListener('keydown', this._onKeyDown);
     const saved = localStorage.getItem('fab-decklist-view');
     if (saved === 'list' || saved === 'grid') {
@@ -844,6 +846,7 @@ export class FabDecklistBlock extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener('keydown', this._onKeyDown);
   }
 

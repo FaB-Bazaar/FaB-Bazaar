@@ -19,5 +19,13 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
       grep: /@mobile/,
     },
+    {
+      // Opt-in cross-engine checks (tag a test @firefox). Exists because
+      // Firefox never implemented :host-context(), which silently broke web
+      // component dark mode there.
+      name: 'firefox-desktop',
+      use: { ...devices['Desktop Firefox'], viewport: { width: 1280, height: 800 } },
+      grep: /@firefox/,
+    },
   ],
 })

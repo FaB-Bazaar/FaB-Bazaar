@@ -100,6 +100,37 @@ test('offers a wants action sized to what is actually missing', async ({ page })
   await expect(button).toContainText('Add 2 missing to Wants');
 });
 
+test.describe('mass entry export, signed in', () => {
+  test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+  test('copies only the still-needed copies', async ({ page }) => {
+    const host = await mountBuylist(page, SHORTFALL_TIERS);
+    // Wait for the authenticated rollup (ownership pill) before copying.
+    await expect(host.locator('.own-pill').first()).toContainText('own');
+
+    await host.locator('.copy-btn', { hasText: 'Mass Entry' }).click();
+    await expect(host.locator('.copy-status')).toContainText('copied', { ignoreCase: true });
+
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    // Owns 3 of each, wants 5 → two "2 <name>" lines.
+    const lines = clip.split('\n');
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line).toMatch(/^2 \S/);
+    }
+  });
+});
+
+test('layers ownership onto the server-rendered article page list', async ({ page }) => {
+  await page.goto('/heroes/g4zzA4Ev_Q');
+  const host = page.locator('fab-buylist-block').first();
+
+  // Prices paint from the prerolled payload…
+  await expect(host.locator('.total-cost')).toContainText('$', { timeout: 30_000 });
+  // …then the background fetch swaps in the signed-in reader's ownership.
+  await expect(host.locator('.own-pill').first()).toContainText('own', { timeout: 20_000 });
+});
+
 test('reports success after adding the missing cards to wants', async ({ page }) => {
   const host = await mountBuylist(page, SHORTFALL_TIERS);
 

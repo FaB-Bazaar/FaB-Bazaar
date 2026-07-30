@@ -3210,6 +3210,17 @@ function checkCookieConsent() {
     return null;
   }
 }
+function getPageContext(pathname) {
+  if (typeof window === "undefined") return "Unknown";
+  const path = window.location.pathname;
+  if (path.startsWith("/binder/")) return "Binder";
+  if (path === "/wants") return "Wants";
+  if (path.startsWith("/heroes/")) return "Heroes";
+  if (path.startsWith("/printing/")) return "PrintingDetails";
+  if (path === "/browse") return "Browse";
+  if (path.startsWith("/article/") || path.includes("/articles/")) return "Article";
+  return "Other";
+}
 function getUserContext() {
   if (typeof window === "undefined") return "Unknown";
   const hasAuth = localStorage.getItem("auth") || sessionStorage.getItem("session") || document.cookie.includes("session");
@@ -3233,7 +3244,7 @@ function getDeviceContext() {
 }
 function buildTrackingContext(feature, options) {
   return {
-    pageContext: options?.pageContext,
+    pageContext: options?.pageContext || getPageContext(),
     feature,
     userContext: getUserContext(),
     returnContext: getReturnUserContext(),
@@ -3260,6 +3271,31 @@ function shouldShowAffiliateLink(tcgplayerUrl) {
   if (!tcgplayerUrl) return false;
   if (typeof window === "undefined") return false;
   return true;
+}
+let observer = null;
+const hosts = /* @__PURE__ */ new Set();
+function isDark() {
+  return document.documentElement.classList.contains("dark");
+}
+function syncAll() {
+  const dark = isDark();
+  for (const host of hosts) {
+    host.toggleAttribute("dark", dark);
+  }
+}
+function watchTheme(host) {
+  hosts.add(host);
+  host.toggleAttribute("dark", isDark());
+  if (!observer) {
+    observer = new MutationObserver(syncAll);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  }
+}
+function unwatchTheme(host) {
+  hosts.delete(host);
 }
 var __defProp$9 = Object.defineProperty;
 var __getOwnPropDesc$9 = Object.getOwnPropertyDescriptor;
@@ -3293,12 +3329,14 @@ let FabSpotlightCard = class extends i$1 {
   }
   async connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     await this.fetchCard();
     await this.fetchCardDataByNames();
     document.addEventListener("keydown", this.handleKeydown);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this.handleKeydown);
   }
   async updated(changedProperties) {
@@ -3342,24 +3380,24 @@ let FabSpotlightCard = class extends i$1 {
     const cardMentionRegex = /\*\*([^*]+)\*\*/g;
     let match;
     while ((match = cardMentionRegex.exec(this.commentary)) !== null) {
-      const cardName = match[1];
-      const isLikelyCardName = /[A-Z]/.test(cardName) || cardName.includes("'");
+      const cardName2 = match[1];
+      const isLikelyCardName = /[A-Z]/.test(cardName2) || cardName2.includes("'");
       if (isLikelyCardName) {
-        cardNames.push(cardName);
+        cardNames.push(cardName2);
       }
     }
     return [...new Set(cardNames)];
   }
   async fetchCardDataByNames() {
     const cardNames = this.extractCardNames();
-    for (const cardName of cardNames) {
-      if (this.cardDataMap.has(cardName) || this.loadingCards.has(cardName)) {
+    for (const cardName2 of cardNames) {
+      if (this.cardDataMap.has(cardName2) || this.loadingCards.has(cardName2)) {
         continue;
       }
-      this.loadingCards.add(cardName);
+      this.loadingCards.add(cardName2);
       try {
         const base = this.apiBase || window.location.origin;
-        const url = `${base}/api/printings/search?name=${encodeURIComponent(cardName)}&show=all&limit=1`;
+        const url = `${base}/api/printings/search?name=${encodeURIComponent(cardName2)}&show=all&limit=1`;
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -3367,12 +3405,12 @@ let FabSpotlightCard = class extends i$1 {
         const data = await response.json();
         if (data.success && data.data?.printings?.length > 0) {
           const cardData = data.data.printings[0];
-          this.cardDataMap.set(cardName, cardData);
+          this.cardDataMap.set(cardName2, cardData);
           this.requestUpdate();
         }
       } catch (err) {
       } finally {
-        this.loadingCards.delete(cardName);
+        this.loadingCards.delete(cardName2);
         this.requestUpdate();
       }
     }
@@ -3496,11 +3534,11 @@ let FabSpotlightCard = class extends i$1 {
     if (!text) return b``;
     const cardMentions = [];
     const cardMentionRegex = /\*\*([^*]+)\*\*/g;
-    const withPlaceholders = text.replace(cardMentionRegex, (match, cardName) => {
-      const isLikelyCardName = /[A-Z]/.test(cardName) || cardName.includes("'");
+    const withPlaceholders = text.replace(cardMentionRegex, (match, cardName2) => {
+      const isLikelyCardName = /[A-Z]/.test(cardName2) || cardName2.includes("'");
       if (isLikelyCardName) {
         const index = cardMentions.length;
-        cardMentions.push(cardName);
+        cardMentions.push(cardName2);
         return `{{CARDMENTION${index}}}`;
       }
       return match;
@@ -3513,35 +3551,35 @@ let FabSpotlightCard = class extends i$1 {
     });
     const parts = [];
     let lastIndex = 0;
-    cardMentions.forEach((cardName, index) => {
+    cardMentions.forEach((cardName2, index) => {
       const placeholder = `{{CARDMENTION${index}}}`;
       const placeholderIndex = htmlContent.indexOf(placeholder, lastIndex);
       if (placeholderIndex !== -1) {
         if (placeholderIndex > lastIndex) {
           parts.push(o(htmlContent.substring(lastIndex, placeholderIndex)));
         }
-        const cardData = this.cardDataMap.get(cardName);
-        const isLoading = this.loadingCards.has(cardName);
+        const cardData = this.cardDataMap.get(cardName2);
+        const isLoading = this.loadingCards.has(cardName2);
         if (cardData && cardData.image_url) {
           parts.push(b`
-            <span class="inline-card-wrapper" @click="${() => this.openOverlay(cardData.image_url, cardName)}" title="Click to view full size">
+            <span class="inline-card-wrapper" @click="${() => this.openOverlay(cardData.image_url, cardName2)}" title="Click to view full size">
               <img
                 class="inline-card-thumbnail"
                 src="${cardData.image_url}"
-                alt="${cardName}"
+                alt="${cardName2}"
               />
-              <span class="inline-card-name">${cardName}</span>
+              <span class="inline-card-name">${cardName2}</span>
             </span>
           `);
         } else if (isLoading) {
           parts.push(b`
             <span class="inline-card-wrapper">
               <span class="inline-card-loading"></span>
-              <span class="inline-card-name">${cardName}</span>
+              <span class="inline-card-name">${cardName2}</span>
             </span>
           `);
         } else {
-          parts.push(b`<span class="card-mention">${cardName}</span>`);
+          parts.push(b`<span class="card-mention">${cardName2}</span>`);
         }
         lastIndex = placeholderIndex + placeholder.length;
       }
@@ -3673,7 +3711,7 @@ FabSpotlightCard.styles = i$4`
     }
 
     /* Tailwind class-based dark mode */
-    :host-context(.dark) {
+    :host([dark]) {
       --fab-spotlight-bg: #1e293b;
       --fab-spotlight-border: #475569;
       --fab-spotlight-badge-bg: #818cf8;
@@ -4100,15 +4138,15 @@ FabSpotlightCard.styles = i$4`
       }
     }
 
-    :host-context(.dark) .purchase-link-container {
+    :host([dark]) .purchase-link-container {
       border-top: 1px solid rgba(71, 85, 105, 0.3);
     }
 
-    :host-context(.dark) .purchase-link {
+    :host([dark]) .purchase-link {
       color: #60a5fa;
     }
 
-    :host-context(.dark) .purchase-link:hover {
+    :host([dark]) .purchase-link:hover {
       color: #93c5fd;
     }
 
@@ -4414,6 +4452,14 @@ let FabSectionHeader = class extends i$1 {
     this.subtitle = "";
     this.level = "2";
   }
+  connectedCallback() {
+    super.connectedCallback();
+    watchTheme(this);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    unwatchTheme(this);
+  }
   render() {
     if (!this.title) {
       return b``;
@@ -4475,8 +4521,8 @@ FabSectionHeader.styles = i$4`
     }
 
     /* Support Tailwind's class-based dark mode */
-    :host-context(.dark) h2,
-    :host-context(.dark) h3 {
+    :host([dark]) h2,
+    :host([dark]) h3 {
       color: var(--fab-header-title-dark);
     }
 
@@ -4494,7 +4540,7 @@ FabSectionHeader.styles = i$4`
       }
     }
 
-    :host-context(.dark) .subtitle {
+    :host([dark]) .subtitle {
       color: var(--fab-header-subtitle-dark);
     }
 
@@ -4738,12 +4784,14 @@ let FabMatchReport = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     this.fetchCardData();
     this.fetchHeroCard();
     document.addEventListener("keydown", this.handleKeyDown);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this.handleKeyDown);
   }
   updated(changedProperties) {
@@ -5306,79 +5354,79 @@ FabMatchReport.styles = i$4`
     }
 
     /* ===== DARK MODE (via .dark class on html) ===== */
-    :host-context(.dark) .match {
+    :host([dark]) .match {
       background: #0f172a;
       border-color: #1e293b;
     }
 
-    :host-context(.dark) .header {
+    :host([dark]) .header {
       border-bottom-color: #1e293b;
     }
 
-    :host-context(.dark) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
-    :host-context(.dark) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
-    :host-context(.dark) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
+    :host([dark]) .header.win  { background: rgba(34, 197, 94, 0.08);  border-bottom-color: rgba(34, 197, 94, 0.2); }
+    :host([dark]) .header.loss { background: rgba(239, 68, 68, 0.08);  border-bottom-color: rgba(239, 68, 68, 0.2); }
+    :host([dark]) .header.draw { background: rgba(234, 179, 8, 0.08);  border-bottom-color: rgba(234, 179, 8, 0.2); }
 
-    :host-context(.dark) .round {
+    :host([dark]) .round {
       color: #94a3b8;
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .hero {
+    :host([dark]) .hero {
       background: #1e293b;
       border-color: #334155;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .opponent-inline {
+    :host([dark]) .opponent-inline {
       color: #64748b;
     }
 
-    :host-context(.dark) .record {
+    :host([dark]) .record {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .summary {
+    :host([dark]) .summary {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .sideboard {
+    :host([dark]) .sideboard {
       background: #422006;
     }
 
-    :host-context(.dark) .sideboard-title {
+    :host([dark]) .sideboard-title {
       color: #fef3c7;
     }
 
-    :host-context(.dark) .sideboard-text {
+    :host([dark]) .sideboard-text {
       color: #fcd34d;
     }
 
-    :host-context(.dark) .card-group-label.in {
+    :host([dark]) .card-group-label.in {
       background: #14532d;
       color: #86efac;
     }
 
-    :host-context(.dark) .card-group-label.out {
+    :host([dark]) .card-group-label.out {
       background: #450a0a;
       color: #fca5a5;
     }
 
-    :host-context(.dark) .card-thumbnail-placeholder,
-    :host-context(.dark) .hero-card-placeholder {
+    :host([dark]) .card-thumbnail-placeholder,
+    :host([dark]) .hero-card-placeholder {
       background: #334155;
     }
 
-    :host-context(.dark) .sideboard-card-name {
+    :host([dark]) .sideboard-card-name {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .inline-card-name {
+    :host([dark]) .inline-card-name {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .inline-card-clickable:hover {
+    :host([dark]) .inline-card-clickable:hover {
       color: #818cf8;
       border-bottom-color: #818cf8;
     }
@@ -5496,6 +5544,7 @@ let FabDecklistBlock = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
     document.addEventListener("keydown", this._onKeyDown);
     const saved = localStorage.getItem("fab-decklist-view");
     if (saved === "list" || saved === "grid") {
@@ -5504,6 +5553,7 @@ let FabDecklistBlock = class extends i$1 {
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this._onKeyDown);
   }
   firstUpdated() {
@@ -5598,13 +5648,13 @@ let FabDecklistBlock = class extends i$1 {
       const cardMap = /* @__PURE__ */ new Map();
       for (const card of heroAndEquipment) {
         const printingId = card.printingId;
-        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
         const qty = card.quantity ?? 1;
         if (cardMap.has(printingId)) {
           cardMap.get(printingId).quantity += qty;
         } else {
           cardMap.set(printingId, {
-            cardName,
+            cardName: cardName2,
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
@@ -5648,14 +5698,14 @@ let FabDecklistBlock = class extends i$1 {
           const bucketIndex = pitch === 1 ? 0 : pitch === 2 ? 1 : pitch === 3 ? 2 : 3;
           const bucket = pitchBuckets[bucketIndex];
           const printingId = card.printingId;
-          const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+          const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
           const qty = card.quantity ?? 1;
           bucket.totalCards += qty;
           if (bucket.cardMap.has(printingId)) {
             bucket.cardMap.get(printingId).quantity += qty;
           } else {
             bucket.cardMap.set(printingId, {
-              cardName,
+              cardName: cardName2,
               printingId,
               quantity: qty,
               foiling: card.printingDetails?.foiling || card.foiling,
@@ -5685,13 +5735,13 @@ let FabDecklistBlock = class extends i$1 {
       const cardMap = /* @__PURE__ */ new Map();
       for (const card of categoryCards) {
         const printingId = card.printingId;
-        const cardName = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
+        const cardName2 = card.printingDetails?.display_name || card.printingDetails?.name || "Unknown Card";
         const qty = card.quantity ?? 1;
         if (cardMap.has(printingId)) {
           cardMap.get(printingId).quantity += qty;
         } else {
           cardMap.set(printingId, {
-            cardName,
+            cardName: cardName2,
             printingId,
             quantity: qty,
             foiling: card.printingDetails?.foiling || card.foiling,
@@ -6668,129 +6718,129 @@ FabDecklistBlock.styles = i$4`
     }
 
     /* ===== DARK MODE ===== */
-    :host-context(.dark) .decklist {
+    :host([dark]) .decklist {
       background: #1e293b;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header {
+    :host([dark]) .header {
       border-bottom-color: #334155;
     }
 
-    :host-context(.dark) .title {
+    :host([dark]) .title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .view-toggle {
+    :host([dark]) .view-toggle {
       border-color: #334155;
     }
 
-    :host-context(.dark) .view-btn {
+    :host([dark]) .view-btn {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .view-btn + .view-btn {
+    :host([dark]) .view-btn + .view-btn {
       border-left-color: #334155;
     }
 
-    :host-context(.dark) .view-btn:hover {
+    :host([dark]) .view-btn:hover {
       background: #0f172a;
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .view-btn.active {
+    :host([dark]) .view-btn.active {
       background: #f1f5f9;
       color: #0f172a;
     }
 
-    :host-context(.dark) .hud {
+    :host([dark]) .hud {
       background: rgba(255, 255, 255, 0.04);
       border-color: rgba(255, 255, 255, 0.08);
     }
 
-    :host-context(.dark) .hud-label {
+    :host([dark]) .hud-label {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .hud-chip {
+    :host([dark]) .hud-chip {
       background: rgba(255, 255, 255, 0.08);
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .hud-chip:hover:not(.zero) {
+    :host([dark]) .hud-chip:hover:not(.zero) {
       background: rgba(255, 255, 255, 0.14);
     }
 
-    :host-context(.dark) .hud-divider {
+    :host([dark]) .hud-divider {
       background: rgba(255, 255, 255, 0.1);
     }
 
-    :host-context(.dark) .hud-clear {
+    :host([dark]) .hud-clear {
       color: #64748b;
     }
 
-    :host-context(.dark) .hud-clear:hover {
+    :host([dark]) .hud-clear:hover {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .section-header {
+    :host([dark]) .section-header {
       border-bottom-color: #334155;
     }
 
-    :host-context(.dark) .section-title {
+    :host([dark]) .section-title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .section-count {
+    :host([dark]) .section-count {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .card-image-wrapper {
+    :host([dark]) .card-image-wrapper {
       background: #0f172a;
     }
 
-    :host-context(.dark) .list-row:hover {
+    :host([dark]) .list-row:hover {
       background: rgba(255, 255, 255, 0.04);
     }
 
-    :host-context(.dark) .list-row.highlighted {
+    :host([dark]) .list-row.highlighted {
       background: rgba(245, 158, 11, 0.12);
     }
 
-    :host-context(.dark) .list-card-name {
+    :host([dark]) .list-card-name {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .list-card-qty {
+    :host([dark]) .list-card-qty {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .list-foil-badge.rf {
+    :host([dark]) .list-foil-badge.rf {
       background: rgba(234, 179, 8, 0.2);
       color: #fcd34d;
     }
 
-    :host-context(.dark) .list-foil-badge.cf {
+    :host([dark]) .list-foil-badge.cf {
       color: #a78bfa;
     }
 
-    :host-context(.dark) .notes {
+    :host([dark]) .notes {
       background: #422006;
     }
 
-    :host-context(.dark) .notes-title {
+    :host([dark]) .notes-title {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .notes-text {
+    :host([dark]) .notes-text {
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .loading {
+    :host([dark]) .loading {
       color: #94a3b8;
     }
 
-    :host-context(.dark) .loading-spinner {
+    :host([dark]) .loading-spinner {
       border-color: #334155;
       border-top-color: #60a5fa;
     }
@@ -6902,6 +6952,43 @@ __decorateClass$3([
 FabDecklistBlock = __decorateClass$3([
   t$1("fab-decklist-block")
 ], FabDecklistBlock);
+function money(value) {
+  return `$${value.toFixed(2)}`;
+}
+function moneyRange(range) {
+  return range.min === range.max ? money(range.min) : `${money(range.min)} – ${money(range.max)}`;
+}
+function qtyText(range) {
+  return range.min === range.max ? `${range.min}x` : `${range.min}-${range.max}x`;
+}
+function cardName(card, cards) {
+  return cards[card.printingId]?.name ?? card.printingId;
+}
+function eachCard(rollup) {
+  return rollup.tiers.flatMap((tier) => tier.groups).flatMap((group) => group.cards);
+}
+function buildMassEntryText(rollup, cards, options = {}) {
+  return eachCard(rollup).map((card) => {
+    const quantity = options.onlyNeeded ? card.needed.max : card.qty.max;
+    return quantity > 0 ? `${quantity} ${cardName(card, cards)}` : null;
+  }).filter((line) => line !== null).join("\n");
+}
+function buildPlainTextExport(heading2, rollup, cards) {
+  const lines = [`${heading2} (${moneyRange(rollup.totals.cost)})`];
+  for (const tier of rollup.tiers) {
+    lines.push("", `${tier.label} (${moneyRange(tier.totals.cost)})`);
+    for (const group of tier.groups) {
+      lines.push(`  ${group.label}`);
+      for (const card of group.cards) {
+        const meta = cards[card.printingId];
+        const collector = meta?.collector_number ? ` (${meta.collector_number.toUpperCase()})` : "";
+        const price = card.unitPrice == null ? "no price" : moneyRange(card.subtotal);
+        lines.push(`  ${qtyText(card.qty)} ${cardName(card, cards)}${collector} — ${price}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
 var __defProp$2 = Object.defineProperty;
 var __getOwnPropDesc$2 = Object.getOwnPropertyDescriptor;
 var __decorateClass$2 = (decorators, target, key, kind) => {
@@ -6916,8 +7003,10 @@ let FabBuylistBlock = class extends i$1 {
   constructor() {
     super(...arguments);
     this.tiers = "";
-    this.title = "Buy List";
+    this.heading = "";
     this.note = "";
+    this.prerolled = "";
+    this._legacyTitle = "";
     this._loading = false;
     this._error = "";
     this._data = null;
@@ -6925,6 +7014,7 @@ let FabBuylistBlock = class extends i$1 {
     this._adding = false;
     this._addMessage = "";
     this._addFailed = false;
+    this._copyMessage = "";
     this._zoomed = null;
     this._onKeyDown = (e2) => {
       if (e2.key === "Escape") this._zoomed = null;
@@ -6933,14 +7023,34 @@ let FabBuylistBlock = class extends i$1 {
   }
   connectedCallback() {
     super.connectedCallback();
+    watchTheme(this);
+    const legacyTitle = this.getAttribute("title");
+    if (legacyTitle) {
+      this._legacyTitle = legacyTitle;
+      this.removeAttribute("title");
+    }
     document.addEventListener("keydown", this._onKeyDown);
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    unwatchTheme(this);
     document.removeEventListener("keydown", this._onKeyDown);
+    clearTimeout(this._copyTimer);
   }
   firstUpdated() {
+    this._adoptPrerolled();
     this._fetchRollup();
+  }
+  /** Paint the server-rendered rollup immediately, before any network. */
+  _adoptPrerolled() {
+    if (!this.prerolled) return;
+    try {
+      const parsed = JSON.parse(this.prerolled);
+      if (parsed?.rollup && parsed?.cards) {
+        this._data = { rollup: parsed.rollup, cards: parsed.cards, authenticated: false };
+      }
+    } catch {
+    }
   }
   updated(changed) {
     if (changed.has("tiers") && this.tiers !== this._lastFetched) {
@@ -6960,10 +7070,10 @@ let FabBuylistBlock = class extends i$1 {
     const tiers = this._parseTiers();
     this._lastFetched = this.tiers;
     if (!tiers) {
-      this._error = "This buy list is misconfigured.";
+      if (!this._data) this._error = "This buy list is misconfigured.";
       return;
     }
-    this._loading = true;
+    this._loading = !this._data;
     this._error = "";
     try {
       const response = await fetch("/api/buylist/rollup", {
@@ -6977,7 +7087,9 @@ let FabBuylistBlock = class extends i$1 {
       }
       this._data = result.data;
     } catch (e2) {
-      this._error = e2 instanceof Error ? e2.message : "Failed to price this buy list";
+      if (!this._data) {
+        this._error = e2 instanceof Error ? e2.message : "Failed to price this buy list";
+      }
     } finally {
       this._loading = false;
     }
@@ -7026,6 +7138,30 @@ let FabBuylistBlock = class extends i$1 {
       this._adding = false;
     }
   }
+  _heading() {
+    return this.heading || this._legacyTitle || "Buy List";
+  }
+  async _copy(kind) {
+    if (!this._data) return;
+    const text = kind === "list" ? buildPlainTextExport(this._heading(), this._data.rollup, this._data.cards) : buildMassEntryText(this._data.rollup, this._data.cards, {
+      onlyNeeded: this._data.authenticated
+    });
+    if (!text) {
+      this._flashCopyMessage("Nothing left to buy");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      this._flashCopyMessage(kind === "list" ? "List copied" : "Copied for Mass Entry");
+    } catch {
+      this._flashCopyMessage("Copy failed");
+    }
+  }
+  _flashCopyMessage(message) {
+    this._copyMessage = message;
+    clearTimeout(this._copyTimer);
+    this._copyTimer = setTimeout(() => this._copyMessage = "", 2500);
+  }
   _renderOwnPill(totals) {
     if (!this._data?.authenticated) return null;
     const owned = totals.ownedCopies;
@@ -7054,11 +7190,19 @@ let FabBuylistBlock = class extends i$1 {
         </span>
         <span class="row-qty">${this._qtyText(card.qty)}</span>
         <span class="row-price">
-          ${card.unitPrice == null ? b`<span class="no-price">no price</span>` : b`${this._range(card.subtotal)}${card.priceIsFallback ? b`<span class="fallback-flag" title="Priced from TCG Market — no low price available"> ·M</span>` : null}`}
+          ${card.unitPrice == null ? b`<span class="no-price">no price</span>` : b`${this._range(card.subtotal)}${card.priceIsFallback ? b`<span class="fallback-flag" title="Priced from TCG Market — no low price available"> ·M</span>` : null}
+              ${card.qty.max > 1 ? b`<span class="row-unit">${this._money(card.unitPrice)} ea</span>` : null}`}
         </span>
         ${authenticated ? b`<span class="row-own ${card.owned > 0 ? "have" : "need"}">
               ${card.owned > 0 ? b`✓ ${card.owned}` : b`—`}
             </span>` : null}
+        ${meta?.tcgplayer_url ? b`<a
+              class="buy-link"
+              href=${buildTcgAffiliateLink(meta.tcgplayer_url, "BuylistPurchase")}
+              target="_blank"
+              rel="noopener"
+              aria-label=${`Buy ${name} on TCGplayer`}
+            >Buy</a>` : null}
       </li>
     `;
   }
@@ -7114,7 +7258,7 @@ let FabBuylistBlock = class extends i$1 {
     return b`
       <div class="buylist">
         <div class="header">
-          <h2 class="title">${this.title}</h2>
+          <h2 class="title">${this._heading()}</h2>
           <div class="totals">
             <span class="total-cost">${this._range(rollup.totals.cost)}</span>
             <span class="total-label">
@@ -7131,7 +7275,12 @@ let FabBuylistBlock = class extends i$1 {
           <p class="note">
             ${this.note || (authenticated ? "Ownership counts any printing of a card you already have." : "Sign in to see which of these you already own.")}
           </p>
+          ${this._copyMessage ? b`<span class="copy-status">${this._copyMessage}</span>` : null}
           ${this._addMessage ? b`<span class="add-status ${this._addFailed ? "error" : ""}">${this._addMessage}</span>` : null}
+          <button class="copy-btn" @click=${() => this._copy("list")}>Copy list</button>
+          <button class="copy-btn" @click=${() => this._copy("mass")}>
+            Copy for Mass Entry
+          </button>
           ${authenticated && missingCount > 0 ? b`<button class="add-btn" ?disabled=${this._adding} @click=${this._addMissingToWants}>
                 ${this._adding ? "Adding…" : `Add ${missingCount} missing to Wants`}
               </button>` : null}
@@ -7475,6 +7624,34 @@ FabBuylistBlock.styles = i$4`
       text-align: right;
     }
 
+    .row-unit {
+      display: block;
+      font-size: 0.75rem;
+      color: #64748b;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .buy-link {
+      flex-shrink: 0;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #1d4ed8;
+      text-decoration: none;
+      border: 1px solid #93c5fd;
+      border-radius: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    .buy-link:hover {
+      background: #dbeafe;
+    }
+
+    .buy-link:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
     .row-own {
       flex-shrink: 0;
       min-width: 4.5rem;
@@ -7562,6 +7739,34 @@ FabBuylistBlock.styles = i$4`
       color: #b91c1c;
     }
 
+    .copy-btn {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+      border: 1px solid #cbd5e1;
+      background: transparent;
+      color: #334155;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .copy-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px #60a5fa;
+    }
+
+    .copy-status {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #047857;
+    }
+
     /* ===== STATES ===== */
     .state {
       padding: 1.5rem 1.25rem;
@@ -7596,118 +7801,141 @@ FabBuylistBlock.styles = i$4`
     }
 
     /* ===== DARK MODE ===== */
-    :host-context(.dark) .buylist {
+    :host([dark]) .buylist {
       background: #0f172a;
       border-color: #334155;
     }
 
-    :host-context(.dark) .header,
-    :host-context(.dark) .tier,
-    :host-context(.dark) .group,
-    :host-context(.dark) .footer {
+    :host([dark]) .header,
+    :host([dark]) .tier,
+    :host([dark]) .group,
+    :host([dark]) .footer {
       border-color: #334155;
     }
 
-    :host-context(.dark) .title,
-    :host-context(.dark) .tier-title,
-    :host-context(.dark) .group-header,
-    :host-context(.dark) .row-name,
-    :host-context(.dark) .row-qty,
-    :host-context(.dark) .total-cost {
+    :host([dark]) .title,
+    :host([dark]) .tier-title,
+    :host([dark]) .group-header,
+    :host([dark]) .row-name,
+    :host([dark]) .row-qty,
+    :host([dark]) .total-cost {
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .tier-header {
+    :host([dark]) .tier-header {
       background: #1e293b;
     }
 
-    :host-context(.dark) .tier-total,
-    :host-context(.dark) .group-cost,
-    :host-context(.dark) .row-price {
+    :host([dark]) .tier-total,
+    :host([dark]) .group-cost,
+    :host([dark]) .row-price {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .total-label,
-    :host-context(.dark) .row-meta,
-    :host-context(.dark) .note,
-    :host-context(.dark) .card-note,
-    :host-context(.dark) .group-note,
-    :host-context(.dark) .tier-note,
-    :host-context(.dark) .state,
-    :host-context(.dark) .caret,
-    :host-context(.dark) .row-own.need {
+    :host([dark]) .total-label,
+    :host([dark]) .row-meta,
+    :host([dark]) .note,
+    :host([dark]) .card-note,
+    :host([dark]) .group-note,
+    :host([dark]) .tier-note,
+    :host([dark]) .state,
+    :host([dark]) .caret,
+    :host([dark]) .row-own.need {
       color: #cbd5e1;
     }
 
-    :host-context(.dark) .group-note {
+    :host([dark]) .group-note {
       border-left-color: #475569;
     }
 
-    :host-context(.dark) .group-header:hover,
-    :host-context(.dark) .row:hover {
+    :host([dark]) .group-header:hover,
+    :host([dark]) .row:hover {
       background: #1e293b;
     }
 
-    :host-context(.dark) .group-qty {
+    :host([dark]) .group-qty {
       background: #334155;
       color: #f1f5f9;
     }
 
-    :host-context(.dark) .footer {
+    :host([dark]) .footer {
       background: #1e293b;
     }
 
-    :host-context(.dark) .thumb {
+    :host([dark]) .thumb {
       background: #334155;
       border-color: #475569;
     }
 
-    :host-context(.dark) .total-need,
-    :host-context(.dark) .row-own.have,
-    :host-context(.dark) .add-status {
+    :host([dark]) .total-need,
+    :host([dark]) .row-own.have,
+    :host([dark]) .add-status,
+    :host([dark]) .copy-status {
       color: #34d399;
     }
 
-    :host-context(.dark) .own-pill.complete {
+    :host([dark]) .copy-btn {
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    :host([dark]) .copy-btn:hover {
+      background: #334155;
+    }
+
+    :host([dark]) .own-pill.complete {
       color: #d1fae5;
       background: #064e3b;
       border-color: #34d399;
     }
 
-    :host-context(.dark) .own-pill.partial {
+    :host([dark]) .own-pill.partial {
       color: #fef3c7;
       background: #78350f;
       border-color: #fbbf24;
     }
 
-    :host-context(.dark) .own-pill.none {
+    :host([dark]) .own-pill.none {
       color: #cbd5e1;
       border-color: #64748b;
     }
 
-    :host-context(.dark) .fallback-flag,
-    :host-context(.dark) .no-price {
+    :host([dark]) .fallback-flag,
+    :host([dark]) .no-price {
       color: #fbbf24;
     }
 
-    :host-context(.dark) .add-btn {
+    :host([dark]) .row-unit {
+      color: #94a3b8;
+    }
+
+    :host([dark]) .buy-link {
+      color: #93c5fd;
+      border-color: #1d4ed8;
+    }
+
+    :host([dark]) .buy-link:hover {
+      background: #1e3a8a;
+    }
+
+    :host([dark]) .add-btn {
       background: #f1f5f9;
       border-color: #f1f5f9;
       color: #0f172a;
     }
 
-    :host-context(.dark) .add-btn:hover:not(:disabled) {
+    :host([dark]) .add-btn:hover:not(:disabled) {
       background: #ffffff;
     }
 
-    :host-context(.dark) .add-btn:disabled {
+    :host([dark]) .add-btn:disabled {
       background: #475569;
       border-color: #475569;
       color: #e2e8f0;
     }
 
-    :host-context(.dark) .state.error,
-    :host-context(.dark) .add-status.error {
+    :host([dark]) .state.error,
+    :host([dark]) .add-status.error {
       color: #fca5a5;
     }
   `;
@@ -7716,10 +7944,16 @@ __decorateClass$2([
 ], FabBuylistBlock.prototype, "tiers", 2);
 __decorateClass$2([
   n2()
-], FabBuylistBlock.prototype, "title", 2);
+], FabBuylistBlock.prototype, "heading", 2);
 __decorateClass$2([
   n2()
 ], FabBuylistBlock.prototype, "note", 2);
+__decorateClass$2([
+  n2()
+], FabBuylistBlock.prototype, "prerolled", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_legacyTitle", 2);
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_loading", 2);
@@ -7741,6 +7975,9 @@ __decorateClass$2([
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_addFailed", 2);
+__decorateClass$2([
+  r()
+], FabBuylistBlock.prototype, "_copyMessage", 2);
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_zoomed", 2);
