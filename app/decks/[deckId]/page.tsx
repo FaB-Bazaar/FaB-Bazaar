@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText } from "lucide-react";
+import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useDeckEditor, resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
@@ -21,6 +21,7 @@ import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-
 import { DeckStatsPopover } from "@/components/deck/editor/DeckStatsPopover";
 import MobileBuildToolsPanel from "@/components/deck/editor/MobileBuildToolsPanel";
 import DeckToolbarMoreMenu from "@/components/deck/editor/DeckToolbarMoreMenu";
+import MobileDeckActionsSheet from "@/components/deck/mobile/MobileDeckActionsSheet";
 import DeckRightRail from "@/components/deck/editor/DeckRightRail";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import DeckSettings from "@/components/deck/DeckSettings";
@@ -265,6 +266,31 @@ export default function DeckEditorPage() {
   // Deck settings
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+
+  // Mobile actions bottom sheet (header action cluster is desktop-only)
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+
+  const handleCopyList = () => {
+    if (!state.deck) return;
+    const text = buildDeckExportText(state.deck);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+      toast({ title: "Copied!", description: "Deck list copied to clipboard." });
+    });
+  };
+
+  const handleExportList = () => {
+    if (!state.deck) return;
+    const text = buildDeckExportText(state.deck);
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${state.deck.name || "deck"}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Banned-card detection (populates after deck + format are known)
   const [bannedCardIds, setBannedCardIds] = useState<Set<string>>(new Set());
@@ -1738,6 +1764,16 @@ export default function DeckEditorPage() {
                   {state.deck.format}
                 </span>
               )}
+              {state.deck && (
+                <button
+                  type="button"
+                  aria-label="Deck actions"
+                  onClick={() => setMobileActionsOpen(true)}
+                  className="sm:hidden ml-auto shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-full border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+                </button>
+              )}
               <div className="hidden sm:flex items-center gap-2 ml-auto shrink-0">
                 {!canEdit && (
                   <span className="text-sm text-gray-600 dark:text-gray-300">Read only</span>
@@ -1746,24 +1782,8 @@ export default function DeckEditorPage() {
                 {state.deck && (
                   <DeckToolbarMoreMenu
                     isOwner={isOwner}
-                    onCopyList={() => {
-                      const text = buildDeckExportText(state.deck!);
-                      navigator.clipboard.writeText(text).then(() => {
-                        setCopySuccess(true);
-                        setTimeout(() => setCopySuccess(false), 2000);
-                        toast({ title: "Copied!", description: "Deck list copied to clipboard." });
-                      });
-                    }}
-                    onExport={() => {
-                      const text = buildDeckExportText(state.deck!);
-                      const blob = new Blob([text], { type: "text/plain" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `${state.deck!.name || "deck"}.txt`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    }}
+                    onCopyList={handleCopyList}
+                    onExport={handleExportList}
                     onAnalyze={() => router.push(`/decks/${deckId}/analyze`)}
                     onPresent={() => router.push(`/decks/${deckId}/present`)}
                     onStickers={() => router.push(`/decks/${deckId}/stickers`)}
@@ -2343,6 +2363,22 @@ export default function DeckEditorPage() {
           </div>
         </div>
       </div>
+
+      {state.deck && (
+        <MobileDeckActionsSheet
+          open={mobileActionsOpen}
+          onOpenChange={setMobileActionsOpen}
+          isOwner={isOwner}
+          onCopyList={handleCopyList}
+          onExport={handleExportList}
+          onAnalyze={() => router.push(`/decks/${deckId}/analyze`)}
+          onPresent={() => router.push(`/decks/${deckId}/present`)}
+          onStickers={() => router.push(`/decks/${deckId}/stickers`)}
+          onSettings={() => setSettingsOpen(true)}
+          onUpdateOwnedPrintings={canEdit ? handleUpgradePrintings : undefined}
+          onConvertLanguage={canEdit ? handleConvertLanguage : undefined}
+        />
+      )}
 
       {isOwner && state.deck && (
         <DeckSettings
