@@ -1,4 +1,4 @@
-// lib/decks/import-fabrary.ts
+// lib/deck/import-fabrary.ts
 //
 // Orchestrates "create a deck from a pasted FaBrary list": parse the list,
 // resolve the hero to a format-legal printing, create the deck, resolve every

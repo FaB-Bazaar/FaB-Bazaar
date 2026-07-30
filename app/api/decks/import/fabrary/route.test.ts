@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-vi.mock('@/lib/decks/import-fabrary', () => ({ importFabraryDeck: vi.fn() }));
+vi.mock('@/lib/deck/import-fabrary', () => ({ importFabraryDeck: vi.fn() }));
 vi.mock('@/lib/auth/multi-auth', () => ({ authenticateRequest: vi.fn() }));
 vi.mock('@/lib/services', () => ({
   deckService: { createDeck: vi.fn(), addPrintings: vi.fn() },
@@ -16,7 +16,7 @@ vi.mock('@/lib/services', () => ({
 }));
 
 import { POST } from './route';
-import { importFabraryDeck } from '@/lib/decks/import-fabrary';
+import { importFabraryDeck } from '@/lib/deck/import-fabrary';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 
 const mockImport = vi.mocked(importFabraryDeck);

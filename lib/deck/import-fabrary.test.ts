@@ -1,4 +1,4 @@
-// lib/decks/import-fabrary.test.ts
+// lib/deck/import-fabrary.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { importFabraryDeck, type ImportFabraryDeps } from './import-fabrary';
 

@@ -2,10 +2,10 @@
 //
 // POST /api/decks/import/fabrary — create a deck from a pasted FaBrary list.
 // Thin HTTP wrapper: auth + validation + shape. All resolution/creation logic
-// lives in lib/decks/import-fabrary (dependency-injected, unit-tested there).
+// lives in lib/deck/import-fabrary (dependency-injected, unit-tested there).
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { importFabraryDeck } from '@/lib/decks/import-fabrary';
+import { importFabraryDeck } from '@/lib/deck/import-fabrary';
 
 export async function POST(request: NextRequest) {
   try {

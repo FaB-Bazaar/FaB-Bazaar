@@ -27,7 +27,7 @@ import type {
   ApplyPrintingUpgradesResultDTO,
   DeckLanguageConversionPlanDTO,
 } from '@/lib/services/contracts/IDeckService';
-import type { ImportFabraryResult } from '@/lib/decks/import-fabrary';
+import type { ImportFabraryResult } from '@/lib/deck/import-fabrary';
 import type { DeckMatchup } from '@/types/deck';
 
 // ====================================
