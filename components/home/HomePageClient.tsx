@@ -16,12 +16,9 @@ interface PublicArticle {
   contentType: string;
 }
 
-const CF_BASE = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
-function cfImageUrl(image: string | undefined): string | undefined {
-  if (!image) return undefined;
-  if (image.startsWith('http')) return image;
-  return `${CF_BASE}/${image}/public`;
-}
+// `image` arrives as a fully-resolved url (app/page.tsx resolves bare article
+// image ids through lib/images/article-image). Never rebuild a url from an id
+// here — printing_id-keyed CDN images were deleted 2026-07 and 404.
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
   hero: 'Hero Guide',
@@ -169,7 +166,7 @@ export default function HomePageClient({ articles }: HomePageClientProps) {
                 >
                   <div className="w-12 h-12 rounded overflow-hidden shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
                     {article.image && (
-                      <img src={cfImageUrl(article.image)} alt={article.title} className="w-full h-full object-cover" />
+                      <img src={article.image} alt={article.title} className="w-full h-full object-cover" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">

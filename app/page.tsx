@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { articleService, userService } from '@/lib/services';
 import { resolveLandingPath } from '@/lib/landing-page';
+import { resolveArticleImageUrl, resolveArticleImageUrls } from '@/lib/images/article-image';
 import HomePageClient from '@/components/home/HomePageClient';
 
 export default async function HomePage() {
@@ -28,15 +29,18 @@ export default async function HomePage() {
     { limit: 3, skip: 0 }
   );
 
-  const articles = result.success
-    ? result.data.articles.map((a) => ({
-        publicId: a.publicId,
-        title: a.title,
-        subtitle: a.subtitle,
-        image: a.image,
-        contentType: a.contentType,
-      }))
-    : [];
+  // `image` is a bare id (upload UUID or printing_id) — resolve to a renderable
+  // url server-side; printing_id-keyed CDN urls must never be constructed
+  // (lib/images/article-image). Undefined → the client shows its placeholder.
+  const rawArticles = result.success ? result.data.articles : [];
+  const printingImageUrls = await resolveArticleImageUrls(rawArticles.map((a) => a.image));
+  const articles = rawArticles.map((a) => ({
+    publicId: a.publicId,
+    title: a.title,
+    subtitle: a.subtitle,
+    image: resolveArticleImageUrl(a.image, printingImageUrls) ?? undefined,
+    contentType: a.contentType,
+  }));
 
   return <HomePageClient articles={articles} />;
 }
