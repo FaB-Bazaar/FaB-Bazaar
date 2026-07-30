@@ -28,6 +28,39 @@ export interface PlannedIngestUpload {
   reason?: string;
 }
 
+export interface ChosenUploadId {
+  image_id: string;
+  fallback: boolean;
+  reason?: string;
+}
+
+/**
+ * Same contract as planIngestImageIds, for a single hand-uploaded file (no
+ * source URL): the admin image-uploads page. Universe = every printing sharing
+ * the row's collector number; a sibling deriving the same key vetoes the claim
+ * and the row keeps its printing_id-keyed image. The row itself may or may not
+ * be present in `universe` — its own claim never counts as a collision.
+ */
+export function chooseUploadImageId(
+  row: PrintingKeyAttrs & { printing_id: string },
+  universe: (PrintingKeyAttrs & { printing_id?: string })[],
+): ChosenUploadId {
+  const key = deterministicImageId(row);
+  if (key === null) {
+    return { image_id: row.printing_id, fallback: true, reason: "no derivable key" };
+  }
+
+  // Exclude the row itself by printing_id — the universe usually comes from a
+  // DB query, so the row reappears there as a different object.
+  const others = universe.filter((u) => u !== row && u.printing_id !== row.printing_id);
+  const collides = others.some((u) => deterministicImageId(u) === key);
+  if (collides) {
+    return { image_id: row.printing_id, fallback: true, reason: `key collision: ${key}` };
+  }
+
+  return { image_id: key, fallback: false };
+}
+
 export function planIngestImageIds(
   pending: IngestRow[],
   universe: IngestRow[],

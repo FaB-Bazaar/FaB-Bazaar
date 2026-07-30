@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planIngestImageIds, type IngestRow } from "./ingest-image-ids";
+import { planIngestImageIds, chooseUploadImageId, type IngestRow } from "./ingest-image-ids";
 
 const row = (over: Partial<IngestRow> & { printing_id: string }): IngestRow => ({
   language: "en",
@@ -78,5 +78,65 @@ describe("planIngestImageIds", () => {
     const r = row({ printing_id: "nanoid3", image_url: null });
 
     expect(planIngestImageIds([r], [r])).toEqual([]);
+  });
+});
+
+describe("chooseUploadImageId", () => {
+  // Same contract as planIngestImageIds, but for a single row with NO source
+  // URL — an admin uploading a file by hand. The universe is every printing
+  // sharing the row's collector number (rows already on Cloudflare own their
+  // key and veto a new claim).
+  it("chooses the deterministic key for a plain English printing", () => {
+    const r = row({ printing_id: "nanoid1", collector_number: "MPW029" });
+
+    expect(chooseUploadImageId(r, [r])).toEqual({
+      image_id: "MPW029",
+      fallback: false,
+    });
+  });
+
+  it("falls back to printing_id when another row derives the same key", () => {
+    const a = row({ printing_id: "n1", collector_number: "MPW003", foiling: "c" });
+    const b = row({ printing_id: "n2", collector_number: "MPW003", foiling: "c" });
+
+    expect(chooseUploadImageId(a, [a, b])).toEqual({
+      image_id: "n1",
+      fallback: true,
+      reason: "key collision: MPW003-CF",
+    });
+  });
+
+  it("falls back to printing_id when no key can be derived", () => {
+    const r = row({ printing_id: "n1", collector_number: "" });
+
+    expect(chooseUploadImageId(r, [r])).toEqual({
+      image_id: "n1",
+      fallback: true,
+      reason: "no derivable key",
+    });
+  });
+
+  it("does not collide with its own DB copy (identity by printing_id, not reference)", () => {
+    // The route fetches the universe from the DB — the row arrives as a
+    // DIFFERENT object with the same printing_id. That must not self-collide.
+    const r = row({ printing_id: "n1", collector_number: "MPW034", foiling: "r" });
+    const dbCopyOfSameRow = row({ printing_id: "n1", collector_number: "MPW034", foiling: "r" });
+
+    expect(chooseUploadImageId(r, [dbCopyOfSameRow])).toEqual({
+      image_id: "MPW034-RF",
+      fallback: false,
+    });
+  });
+
+  it("does not collide with itself when the row is absent from the universe", () => {
+    // Caller may build the universe from a query that happens to exclude the
+    // row itself — the row's own claim must not read as a collision either way.
+    const r = row({ printing_id: "n1", collector_number: "MPW030", foiling: "r" });
+    const sibling = row({ printing_id: "n2", collector_number: "MPW030", foiling: "s" });
+
+    expect(chooseUploadImageId(r, [sibling])).toEqual({
+      image_id: "MPW030-RF",
+      fallback: false,
+    });
   });
 });

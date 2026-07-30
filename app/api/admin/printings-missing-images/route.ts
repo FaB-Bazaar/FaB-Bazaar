@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
         foiling: printings.foiling,
         rarity: printings.rarity,
         collectorNumber: printings.collectorNumber,
+        imageUrl: printings.imageUrl,
         pitch: cards.pitch,
         isExtendedArt: printings.isExtendedArt,
         artVariations: printings.artVariations,

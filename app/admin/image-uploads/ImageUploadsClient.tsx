@@ -43,6 +43,7 @@ interface PrintingRow {
   foiling: string;
   rarity: string;
   collectorNumber: string | null;
+  imageUrl: string | null;
   pitch: number | null;
   isExtendedArt: boolean;
   artVariations: string[] | null;
@@ -143,7 +144,9 @@ export function FoilMaskEditor({
   }));
 
   const clipPath = `inset(${mask.top}% ${mask.right}% ${mask.bottom}% ${mask.left}% round ${mask.round})`;
-  const imgSrc = `${CF_BASE_URL}/${row.printingId}/public`;
+  // Prefer the row's real image_url — reconstructing from printing_id 404s
+  // for every deterministic-id row (which is most of the catalog now).
+  const imgSrc = row.imageUrl ?? `${CF_BASE_URL}/${row.printingId}/public`;
   const hasDbValues = row.foilInsetBottom != null;
 
   // Build a human-readable description of what the bulk apply will match
@@ -607,9 +610,15 @@ export function ImageUploadsClient() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('customId', printingId);
 
-      const res = await fetch('/api/upload/cloudflare', { method: 'POST', body: formData });
+      // Dedicated admin endpoint: derives the DETERMINISTIC image id (with
+      // printing_id fallback on key collisions) and persists image_url —
+      // the old generic /api/upload/cloudflare path uploaded under the
+      // printing_id and never updated the DB row.
+      const res = await fetch(`/api/admin/printings/${encodeURIComponent(printingId)}/image`, {
+        method: 'POST',
+        body: formData,
+      });
       const json = await res.json();
 
       if (!json.success) throw new Error(json.error || 'Upload failed');
@@ -725,7 +734,7 @@ export function ImageUploadsClient() {
           {rows.map(row => {
             const uploadState = uploadStates[row.printingId];
             const isBroken = brokenImages.has(row.printingId);
-            const cfUrl = uploadState?.newUrl ?? `${CF_BASE_URL}/${row.printingId}/public`;
+            const cfUrl = uploadState?.newUrl ?? row.imageUrl ?? `${CF_BASE_URL}/${row.printingId}/public`;
             const setLabel = (SET_MAP as Record<string, string>)[row.set] ?? row.set.toUpperCase();
             const foilLabel = (FOILING_MAP as Record<string, string>)[row.foiling] ?? row.foiling;
             const editionLabel = (EDITION_MAP as Record<string, string>)[row.edition] ?? row.edition;
