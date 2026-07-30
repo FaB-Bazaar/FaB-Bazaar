@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authenticateRequest } from "@/lib/auth/multi-auth"
-import { printingsService, inventoryService } from "@/lib/services"
+import { inventoryService } from "@/lib/services"
 import {
   rollupBuylist,
   type BuylistSectionData,
-  type BuylistPriceMap,
   type BuylistOwnedMap,
 } from "@/lib/buylist/rollup"
+import { collectBuylistPrintingIds, loadBuylistPricing } from "@/lib/buylist/pricing"
 
 // A buy list is authored by hand and can span a whole hero's card pool, but it
 // is not unbounded — cap the lookup so a malformed section can't turn into a
@@ -28,15 +28,7 @@ export async function POST(request: NextRequest) {
 
   const section: BuylistSectionData = { tiers }
 
-  const printingIds = [
-    ...new Set(
-      tiers.flatMap((tier: any) =>
-        (tier?.groups ?? []).flatMap((group: any) =>
-          (group?.cards ?? []).map((card: any) => card?.printingId).filter(Boolean)
-        )
-      )
-    ),
-  ] as string[]
+  const printingIds = collectBuylistPrintingIds(tiers)
 
   if (printingIds.length > MAX_CARDS) {
     return NextResponse.json(
@@ -52,35 +44,12 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const printingsResult = await printingsService.getPrintingsByIds(printingIds)
-  if (!printingsResult.success) {
-    return NextResponse.json({ error: printingsResult.error }, { status: 500 })
+  const pricingResult = await loadBuylistPricing(printingIds)
+  if (!pricingResult.success) {
+    return NextResponse.json({ error: pricingResult.error }, { status: 500 })
   }
 
-  const printings = printingsResult.data?.printings ?? []
-
-  const prices: BuylistPriceMap = {}
-  const cards: Record<string, unknown> = {}
-  const cardUniqueIdByPrinting: Record<string, string> = {}
-
-  for (const p of printings) {
-    prices[p.printing_id] = { tcg_low: p.tcg_low, tcg_market: p.tcg_market }
-    if (p.card_unique_id) cardUniqueIdByPrinting[p.printing_id] = p.card_unique_id
-    cards[p.printing_id] = {
-      printing_id: p.printing_id,
-      card_unique_id: p.card_unique_id,
-      name: p.name,
-      collector_number: p.collector_number,
-      set: p.set,
-      foiling: p.foiling,
-      // Always the stored CDN url — ids derive from printing characteristics,
-      // so a url built from printing_id would 404.
-      image_url: p.image_url,
-      tcgplayer_url: p.tcgplayer_url ?? null,
-      tcg_low: p.tcg_low,
-      tcg_market: p.tcg_market,
-    }
-  }
+  const { prices, cards, cardUniqueIdByPrinting } = pricingResult.data
 
   // Optional auth: this powers a public article component, so a signed-out
   // reader gets prices without an ownership overlay rather than a 401.

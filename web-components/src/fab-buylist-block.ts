@@ -17,6 +17,10 @@ import { buildMassEntryText, buildPlainTextExport } from './utils/buylist-export
  * @element fab-buylist-block
  *
  * @attr {string} tiers - JSON string of tiers: [{label, groups:[{label, cards:[{printingId, qty}]}]}]
+ * @attr {string} prerolled - Optional server-rendered {rollup, cards} JSON.
+ *   Painted immediately (no loading state); the client fetch still runs to
+ *   layer in the signed-in reader's ownership, and its failure is silent when
+ *   a prerolled list is already on screen.
  * @attr {string} heading - Optional heading (default: "Buy List"). A legacy
  *   `title` attribute is honoured too, but gets captured and stripped off the
  *   host — `title` is a global HTML attribute, so leaving it in place makes
@@ -727,6 +731,7 @@ export class FabBuylistBlock extends LitElement {
   @property() tiers = '';
   @property() heading = '';
   @property() note = '';
+  @property() prerolled = '';
 
   /**
    * Heading text taken from a legacy `title` attribute. Captured once in
@@ -771,7 +776,21 @@ export class FabBuylistBlock extends LitElement {
   private _lastFetched = '';
 
   protected firstUpdated() {
+    this._adoptPrerolled();
     this._fetchRollup();
+  }
+
+  /** Paint the server-rendered rollup immediately, before any network. */
+  private _adoptPrerolled() {
+    if (!this.prerolled) return;
+    try {
+      const parsed = JSON.parse(this.prerolled);
+      if (parsed?.rollup && parsed?.cards) {
+        this._data = { rollup: parsed.rollup, cards: parsed.cards, authenticated: false };
+      }
+    } catch {
+      // Malformed payload — fall back to the client fetch.
+    }
   }
 
   protected updated(changed: Map<string, unknown>) {
@@ -795,11 +814,13 @@ export class FabBuylistBlock extends LitElement {
     this._lastFetched = this.tiers;
 
     if (!tiers) {
-      this._error = 'This buy list is misconfigured.';
+      if (!this._data) this._error = 'This buy list is misconfigured.';
       return;
     }
 
-    this._loading = true;
+    // With a prerolled list already painted, the fetch is a silent
+    // enhancement (ownership overlay) — no spinner, no error takeover.
+    this._loading = !this._data;
     this._error = '';
 
     try {
@@ -816,7 +837,9 @@ export class FabBuylistBlock extends LitElement {
 
       this._data = result.data;
     } catch (e) {
-      this._error = e instanceof Error ? e.message : 'Failed to price this buy list';
+      if (!this._data) {
+        this._error = e instanceof Error ? e.message : 'Failed to price this buy list';
+      }
     } finally {
       this._loading = false;
     }

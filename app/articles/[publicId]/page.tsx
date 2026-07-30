@@ -43,6 +43,28 @@ const components = {
 // ISR: Cache pages for 1 hour to reduce serverless instance count
 export const revalidate = 3600;
 
+// Pre-roll a buylist-block section server-side so the priced list is in the
+// HTML (first paint + SEO). Ownership stays client-side: this page is
+// ISR-cached across users, so the payload must be reader-agnostic.
+async function prerollBuylist(tiers: any[]): Promise<string | null> {
+  const { collectBuylistPrintingIds, loadBuylistPricing } = await import('@/lib/buylist/pricing');
+  const { rollupBuylist } = await import('@/lib/buylist/rollup');
+
+  const printingIds = collectBuylistPrintingIds(tiers);
+  if (printingIds.length === 0) return null;
+
+  const pricing = await loadBuylistPricing(printingIds);
+  if (!pricing.success) return null;
+
+  try {
+    const rollup = rollupBuylist({ tiers }, { prices: pricing.data.prices });
+    return JSON.stringify({ rollup, cards: pricing.data.cards });
+  } catch {
+    // Malformed authored quantity — let the client fetch surface the API's 400.
+    return null;
+  }
+}
+
 // Helper function to fetch carousel card data using service layer
 async function fetchCarouselCards(cards: { printingId: string; caption?: string }[]) {
   if (!cards || cards.length === 0) return [];
@@ -131,11 +153,16 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
 
   // Pre-fetch all carousel data
   const carouselDataMap = new Map();
+  const buylistDataMap = new Map<number, string>();
   for (let i = 0; i < (articleDoc.sections || []).length; i++) {
     const section = articleDoc.sections[i];
     if (section.type === 'card-carousel') {
       const carouselCards = await fetchCarouselCards(section.cards || []);
       carouselDataMap.set(i, carouselCards);
+    }
+    if (section.type === 'buylist-block') {
+      const prerolled = await prerollBuylist(section.tiers || []);
+      if (prerolled) buylistDataMap.set(i, prerolled);
     }
   }
 
@@ -339,6 +366,7 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
                       // native browser tooltip over the whole block.
                       heading: section.title || '',
                       note: section.note,
+                      prerolled: buylistDataMap.get(index),
                     })}
                   />
                 );

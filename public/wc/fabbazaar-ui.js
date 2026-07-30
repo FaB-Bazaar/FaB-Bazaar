@@ -6966,6 +6966,7 @@ let FabBuylistBlock = class extends i$1 {
     this.tiers = "";
     this.heading = "";
     this.note = "";
+    this.prerolled = "";
     this._legacyTitle = "";
     this._loading = false;
     this._error = "";
@@ -6996,7 +6997,19 @@ let FabBuylistBlock = class extends i$1 {
     clearTimeout(this._copyTimer);
   }
   firstUpdated() {
+    this._adoptPrerolled();
     this._fetchRollup();
+  }
+  /** Paint the server-rendered rollup immediately, before any network. */
+  _adoptPrerolled() {
+    if (!this.prerolled) return;
+    try {
+      const parsed = JSON.parse(this.prerolled);
+      if (parsed?.rollup && parsed?.cards) {
+        this._data = { rollup: parsed.rollup, cards: parsed.cards, authenticated: false };
+      }
+    } catch {
+    }
   }
   updated(changed) {
     if (changed.has("tiers") && this.tiers !== this._lastFetched) {
@@ -7016,10 +7029,10 @@ let FabBuylistBlock = class extends i$1 {
     const tiers = this._parseTiers();
     this._lastFetched = this.tiers;
     if (!tiers) {
-      this._error = "This buy list is misconfigured.";
+      if (!this._data) this._error = "This buy list is misconfigured.";
       return;
     }
-    this._loading = true;
+    this._loading = !this._data;
     this._error = "";
     try {
       const response = await fetch("/api/buylist/rollup", {
@@ -7033,7 +7046,9 @@ let FabBuylistBlock = class extends i$1 {
       }
       this._data = result.data;
     } catch (e2) {
-      this._error = e2 instanceof Error ? e2.message : "Failed to price this buy list";
+      if (!this._data) {
+        this._error = e2 instanceof Error ? e2.message : "Failed to price this buy list";
+      }
     } finally {
       this._loading = false;
     }
@@ -7892,6 +7907,9 @@ __decorateClass$2([
 __decorateClass$2([
   n2()
 ], FabBuylistBlock.prototype, "note", 2);
+__decorateClass$2([
+  n2()
+], FabBuylistBlock.prototype, "prerolled", 2);
 __decorateClass$2([
   r()
 ], FabBuylistBlock.prototype, "_legacyTitle", 2);
