@@ -7,12 +7,12 @@ import { sortPrintings } from "@/lib/fab-constants";
 import { resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
 import { useToast } from "@/hooks/use-toast";
 import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
-import { buildKitSections, type KitBrowseBuild } from "@/lib/deck-flow/kit-browse";
+import { buildKitSections, type KitBrowseBuild } from "@/lib/deck/kit-browse";
 import {
   buildMobileSearchFilters, isKitBrowse, hasChipFilters,
   type MobileSearchFilterState,
-} from "@/lib/deck-flow/mobile-search-filters";
-import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck-flow/search-pagination";
+} from "@/lib/deck/mobile-search-filters";
+import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck/search-pagination";
 import { TYPE_CHIPS, GENERIC_CHIP } from "@/lib/search/card-filter-chips";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 

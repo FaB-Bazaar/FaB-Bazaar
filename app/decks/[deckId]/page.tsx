@@ -36,8 +36,8 @@ import EmptyDeckHero from "@/components/deck/editor/build-progress/EmptyDeckHero
 import { useBuildProgress } from "@/hooks/deck/useBuildProgress";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { useIsMac } from "@/components/ui/use-client-env";
-import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck-flow/quickAddRouting";
-import { resolveDefaultDeckViewMode } from "@/lib/deck-flow/deckViewMode";
+import { resolveQuickAddAction, type QuickAddTarget } from "@/lib/deck/quickAddRouting";
+import { resolveDefaultDeckViewMode } from "@/lib/deck/deckViewMode";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

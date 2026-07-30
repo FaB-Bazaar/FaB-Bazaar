@@ -21,7 +21,7 @@ import {
   FlowContext,
   classify,
   computeTopKeywords,
-} from "@/lib/deck-flow/classify";
+} from "@/lib/deck/classify";
 
 const DEFAULT_COLUMNS: FlowAxisId[] = ["pitch", "supertype", "blocks"];
 const MAX_COLUMNS = 4;
