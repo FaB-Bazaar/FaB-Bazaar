@@ -28,24 +28,29 @@ export default async function VolzarPage({ searchParams }: {
     return <AccessGate />;
   }
 
-  await syncSupporterTierIfStale(user.id);
+  // Fire-and-forget: nothing on this page reads the sync result (access only
+  // feeds isSuperAdmin, which the sync never changes), and the Metafy fetch
+  // has no timeout — awaiting it held the whole page behind an external
+  // round-trip. It swallows its own errors, so a dangling rejection can't
+  // surface here.
+  void syncSupporterTierIfStale(user.id);
 
-  // Flags feed only isSuperAdmin (model picker) now — a failed read degrades
-  // to a standard user instead of blocking the page.
-  const access = await userService.getVolzarAccess(user.id);
-
-  // Empty-state launcher prompts, personalized from a snapshot of the user's
-  // collection/decks/results (falls back to static defaults on any failure).
-  const suggestedPrompts = await getVolzarSuggestedPrompts(user.id);
-
-  // First-visit language nudge: shown only when the user has given us NO
-  // language signal at all — neither an explicit preferred_language (the
-  // nudge/profile setting) nor a country_code (the legacy auto mapping).
-  // Fully guarded: the logged-in home page must render even if this read
-  // throws synchronously (nudge simply doesn't show).
-  const basicInfo = await Promise.resolve()
-    .then(() => userService.getBasicInfo(user.id))
-    .catch(() => null);
+  const [access, suggestedPrompts, basicInfo] = await Promise.all([
+    // Flags feed only isSuperAdmin (model picker) now — a failed read degrades
+    // to a standard user instead of blocking the page.
+    userService.getVolzarAccess(user.id),
+    // Empty-state launcher prompts, personalized from a snapshot of the user's
+    // collection/decks/results (falls back to static defaults on any failure).
+    getVolzarSuggestedPrompts(user.id),
+    // First-visit language nudge: shown only when the user has given us NO
+    // language signal at all — neither an explicit preferred_language (the
+    // nudge/profile setting) nor a country_code (the legacy auto mapping).
+    // Fully guarded: the logged-in home page must render even if this read
+    // throws synchronously (nudge simply doesn't show).
+    Promise.resolve()
+      .then(() => userService.getBasicInfo(user.id))
+      .catch(() => null),
+  ]);
   const needsLanguage = !!basicInfo?.success
     && !basicInfo.data?.preferredLanguage
     && !basicInfo.data?.countryCode;

@@ -19,12 +19,21 @@ import { AccessGate } from './AccessGate';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { userService } from '@/lib/services';
+import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { getVolzarSuggestedPrompts } from '@/lib/ai/volzar-suggestions';
 
 const mockAuth = vi.mocked(auth);
 const mockGetVolzarAccess = vi.mocked(userService.getVolzarAccess);
 const mockRedirect = vi.mocked(redirect);
+const mockSync = vi.mocked(syncSupporterTierIfStale);
 const mockGetSuggestions = vi.mocked(getVolzarSuggestedPrompts);
+
+/** Resolves 'rendered' if the page render wins, 'timed-out' if it hangs. */
+const raceRender = (render: Promise<unknown>, ms = 100) =>
+  Promise.race([
+    render.then(() => 'rendered'),
+    new Promise((resolve) => setTimeout(() => resolve('timed-out'), ms)),
+  ]);
 
 const emptySearchParams = () => Promise.resolve({});
 
@@ -112,6 +121,44 @@ describe('VolzarPage suggested prompts', () => {
     expect(mockGetSuggestions).toHaveBeenCalledWith('u1');
     const chats = findElements(result, (el) => (el.props as any)?.suggestedPrompts === prompts);
     expect(chats.length).toBe(1);
+  });
+});
+
+describe('VolzarPage first-paint latency (no server waterfall)', () => {
+  it('renders without waiting for the Metafy tier sync (fire-and-forget)', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
+    mockGetVolzarAccess.mockResolvedValue({
+      success: true,
+      data: { isSuperAdmin: false, metafySupporterTier: null, volzarAccess: false },
+    } as any);
+    mockGetSuggestions.mockResolvedValue([] as any);
+    // A hung Metafy round-trip (the fetch has no timeout) must not hold the page.
+    mockSync.mockReturnValue(new Promise(() => {}) as any);
+
+    const outcome = await raceRender(VolzarPage({ searchParams: emptySearchParams() }));
+
+    expect(outcome).toBe('rendered');
+    expect(mockSync).toHaveBeenCalledWith('u1');
+  });
+
+  it('starts the access and suggested-prompts reads in parallel', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
+    // Access resolves only once the prompts read has ALSO started: a
+    // sequential await chain deadlocks here, a parallel kickoff passes.
+    let releaseAccess!: () => void;
+    const accessGate = new Promise<void>((resolve) => { releaseAccess = resolve; });
+    mockGetVolzarAccess.mockImplementation((async () => {
+      await accessGate;
+      return { success: true, data: { isSuperAdmin: false, metafySupporterTier: null, volzarAccess: false } };
+    }) as any);
+    mockGetSuggestions.mockImplementation((async () => {
+      releaseAccess();
+      return [];
+    }) as any);
+
+    const outcome = await raceRender(VolzarPage({ searchParams: emptySearchParams() }));
+
+    expect(outcome).toBe('rendered');
   });
 });
 
