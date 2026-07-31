@@ -84,20 +84,23 @@ const FRAG = /* glsl */ `
     float strength = uHover;
 
     if (uFoilType > 1.5) {
-      // ── Cold foil: cool teal/blue crossing gratings, full card ──
-      // (CSS reference: 133deg / -47deg repeating gradients, color-dodge)
+      // ── Cold foil: cool silver-blue crossing gratings, full card ──
+      // Matches the CSS renderer (foil-cards.css "cold foil"): a subtle
+      // silvery sheen with PASTEL teal/blue stripe highlights — hsl(185-215,
+      // ~55%, ~65%) — that concentrate near the light, while the card keeps
+      // its normal colors. Not a saturated cyan wash.
       float t1 = dot(vUv, vec2(cos(2.32), sin(2.32))) * 4.5 + (uPointer.x + uPointer.y) * 0.8;
       float t2 = dot(vUv, vec2(cos(-0.82), sin(-0.82))) * 3.5 + (uPointer.x - uPointer.y) * 0.9;
       float g1 = pow(0.5 + 0.5 * sin(t1 * 6.2831853), 2.5);
       float g2 = pow(0.5 + 0.5 * sin(t2 * 6.2831853), 2.5);
-      // teal <-> blue-violet hue drift along the stripes
-      vec3 cool = mix(vec3(0.30, 0.80, 0.86), vec3(0.45, 0.55, 0.95), 0.5 + 0.5 * sin(t1 * 2.0 + t2));
-      vec3 shine = cool * (g1 * 0.60 + g2 * 0.45);
-      // color-dodge concentrates the metallic pop on dark art/border pixels
-      float dodgeAmt = (0.40 + 0.60 * spotlight) * strength;
-      color = min(color / max(vec3(1.0) - shine * dodgeAmt, vec3(0.30)), vec3(1.5));
-      // cool-tinted glare
-      color += vec3(0.75, 0.90, 1.0) * spotlight * 0.28 * strength;
+      // pastel teal <-> pastel blue drift along the stripes
+      vec3 cool = mix(vec3(0.50, 0.78, 0.84), vec3(0.55, 0.66, 0.88), 0.5 + 0.5 * sin(t1 * 2.0 + t2));
+      vec3 shine = cool * (g1 * 0.38 + g2 * 0.28);
+      // dodge mostly near the pointer, like the CSS pointer-panned stripes
+      float dodgeAmt = (0.18 + 0.72 * spotlight) * strength;
+      color = min(color / max(vec3(1.0) - shine * dodgeAmt, vec3(0.40)), vec3(1.4));
+      // soft blue-white glare (CSS: hsla(195,60%,96%) overlay)
+      color += vec3(0.80, 0.92, 1.0) * spotlight * 0.22 * strength;
     } else if (uFoilType > 0.5) {
       // ── Rainbow foil: spectrum gratings clipped to the foil inset region ──
       vec2 lo = vec2(uInset.w, uInset.z);             // left, bottom (uv space, y up)
