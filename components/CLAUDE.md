@@ -32,7 +32,9 @@ Project-wide front-end rules. Apply to all interactive components, overlays, and
 ## Foil Rendering
 
 - Foil **policy** lives in `lib/foil.ts` (foiling code → treatment, rainbow inset resolution, art-style derivation). Change it there, never inline — call sites use `artStylesFromPrinting()` + `foilInsetFromValues()`.
-- Two renderers consume it: `shared/FoilCardImage` (CSS, styling in `app/foil-cards.css`) for grids/carousels, and `deck/HoloCard3D` (WebGL, presenter spotlight — single instance only; browsers cap WebGL contexts at ~8-16). Visual styling is intentionally per-renderer: retuning `foil-cards.css` means retuning the HoloCard3D shader to match.
+- Two renderers consume it: `shared/FoilCardImage` (CSS, styling in `app/foil-cards.css`) for grids/carousels, and `deck/HoloCard3D` (WebGL, presenter spotlight). The CSS renderer is the LOOK reference (user call, 2026-07: cold foil = subtle silver sheen, not a cyan wash) — retuning `foil-cards.css` means retuning the HoloCard3D shader to match.
+- `HoloCard3D` keeps renderer/scene/shader in a module singleton that survives unmounts (also satisfies the ~8-16 WebGL context cap). Open = re-attach canvas; never dispose on close — per-open teardown/rebuild caused a visible stall. `warmHoloCard()` pre-builds it; the presenter page calls it on mount.
+- `HoloCard3D` at rest must render the raw texture EXACTLY (shader strength = hover only; no idle wander, no entrance boost) — any resting glare makes the reveal over the fallback `<img>` read as a blink, and the img must fade out only AFTER the canvas fade completes or the cross-fade dips visibly.
 - Card image CDN (imagedelivery.net) sends `access-control-allow-origin: *` — safe as WebGL textures with `crossOrigin: 'anonymous'`.
 
 ## HUD / Overlay Patterns
