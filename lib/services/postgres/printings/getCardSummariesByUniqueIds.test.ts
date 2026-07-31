@@ -10,7 +10,10 @@
  * of every card and truncated late-sorting cards out of the result entirely.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { db } from '@/lib/postgres/db';
+import { cards, printings } from '@/lib/postgres/schema';
+import { inArray } from 'drizzle-orm';
 import { PostgresPrintingsService } from './PostgresPrintingsService';
 
 const service = new PostgresPrintingsService();
@@ -118,6 +121,65 @@ describe('PostgresPrintingsService.getCardSummariesByUniqueIds', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data).toEqual([]);
+  });
+
+  it('deprioritizes printing_id-keyed image_urls when a better-imaged printing exists', async () => {
+    // Real-world hazard (tuffnut HER001 / kassai HER110): some rows still carry
+    // an image_url keyed by their own printing_id — either a deleted Cloudflare
+    // image (dead link) or a deliberately-kept alt-art collision variant.
+    // Neither is the portrait a representative lookup should pick when a
+    // deterministically-keyed image exists on another printing, even one from a
+    // LATER set.
+    const token = `zzrepimg${crypto.randomUUID().slice(0, 8)}`;
+    const cardId = `${token}-card`;
+    const earlyStaleId = `${token}-pr-early`;
+    const lateGoodId = `${token}-pr-late`;
+    const CF = 'https://imagedelivery.net/test';
+    try {
+      await db.insert(cards).values([
+        { cardUniqueId: cardId, name: `${token} hero`, displayName: `${token} hero`, types: ['hero'] },
+      ]);
+      await db.insert(printings).values([
+        // Earliest set (her, release_order 80) but image keyed by printing_id
+        { printingId: earlyStaleId, cardUniqueId: cardId, set: 'her', edition: 'n', foiling: 'r', rarity: 'p', imageUrl: `${CF}/${earlyStaleId}/public` },
+        // Later set (sup) with a deterministic print-code image id
+        { printingId: lateGoodId, cardUniqueId: cardId, set: 'sup', edition: 'n', foiling: 's', rarity: 'c', imageUrl: `${CF}/SUP901/public` },
+      ]);
+
+      const res = await service.getCardSummariesByUniqueIds([cardId]);
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0].representativePrintingId).toBe(lateGoodId);
+      expect(res.data[0].representativeImageUrl).toBe(`${CF}/SUP901/public`);
+    } finally {
+      await db.delete(printings).where(inArray(printings.printingId, [earlyStaleId, lateGoodId]));
+      await db.delete(cards).where(inArray(cards.cardUniqueId, [cardId]));
+    }
+  });
+
+  it('still returns a printing_id-keyed image when it is the only one (fallback, not exclusion)', async () => {
+    const token = `zzreponly${crypto.randomUUID().slice(0, 8)}`;
+    const cardId = `${token}-card`;
+    const onlyId = `${token}-pr-only`;
+    const url = `https://imagedelivery.net/test/${onlyId}/public`;
+    try {
+      await db.insert(cards).values([
+        { cardUniqueId: cardId, name: `${token} hero`, displayName: `${token} hero`, types: ['hero'] },
+      ]);
+      await db.insert(printings).values([
+        { printingId: onlyId, cardUniqueId: cardId, set: 'her', edition: 'n', foiling: 'r', rarity: 'p', imageUrl: url },
+      ]);
+
+      const res = await service.getCardSummariesByUniqueIds([cardId]);
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      expect(res.data[0].representativePrintingId).toBe(onlyId);
+      expect(res.data[0].representativeImageUrl).toBe(url);
+    } finally {
+      await db.delete(printings).where(inArray(printings.printingId, [onlyId]));
+      await db.delete(cards).where(inArray(cards.cardUniqueId, [cardId]));
+    }
   });
 
   it('silently skips unknown ids rather than erroring', async () => {

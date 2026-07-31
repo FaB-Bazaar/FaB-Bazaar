@@ -731,6 +731,11 @@ export class PostgresPrintingsService implements IPrintingsService {
         ORDER BY
           ${cards.cardUniqueId},
           (${printings.language} = 'en') DESC,
+          -- Deterministically-keyed images outrank printing_id-keyed ones: a
+          -- URL embedding the row's own printing_id is either a deleted
+          -- pre-2026-07 Cloudflare image (dead link) or a kept alt-art
+          -- collision variant — a fallback either way, never the first pick.
+          (${printings.imageUrl} IS NOT NULL AND ${printings.imageUrl} NOT LIKE '%/' || ${printings.printingId} || '/%') DESC,
           (${printings.imageUrl} IS NOT NULL) DESC,
           COALESCE(${sets.releaseOrder}, 2147483647) ASC,
           CASE ${printings.foiling}

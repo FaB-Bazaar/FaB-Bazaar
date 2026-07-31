@@ -366,13 +366,15 @@ export default function PresenterPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    // First paint blocks only on the deck + matchups (both fast). The hero
+    // portrait maps decorate matchup chips and arrive whenever they arrive —
+    // gating the spinner on them held the whole page hostage to the slowest
+    // hero-printings response.
     Promise.all([
       decksClient.getDeck(deckId).catch(() => null),
       decksClient.getDeckMatchups(deckId).catch(() => null),
-      heroesClient.getHeroPrintings("adult").catch(() => null),
-      heroesClient.getHeroPrintings("young").catch(() => null),
     ])
-      .then(([deckBody, muBody, adultBody, youngBody]) => {
+      .then(([deckBody, muBody]) => {
         if (cancelled) return
         if (!deckBody?.success) {
           setError(deckBody?.error || "Failed to load deck")
@@ -386,21 +388,29 @@ export default function PresenterPage() {
           })
         }
         if (muBody?.success) setMatchups(muBody.data?.matchups ?? [])
-
-        const map = new Map<string, string>()
-        const adultHeroes = adultBody?.success ? adultBody.data.heroes : []
-        const youngHeroes = youngBody?.success ? youngBody.data.heroes : []
-        for (const h of adultHeroes) {
-          const tId = toTalisharIdentifier(h.name)
-          if (tId && h.image_url) map.set(tId, h.image_url)
-        }
-        for (const h of youngHeroes) {
-          const tId = toTalisharIdentifier(h.name)
-          if (tId && h.image_url) map.set(tId, h.image_url)
-        }
-        setHeroImageMap(map)
       })
       .finally(() => { if (!cancelled) setLoading(false) })
+
+    // Non-blocking: hero portraits for matchup chips upgrade in place.
+    Promise.all([
+      heroesClient.getHeroPrintings("adult").catch(() => null),
+      heroesClient.getHeroPrintings("young").catch(() => null),
+    ]).then(([adultBody, youngBody]) => {
+      if (cancelled) return
+      const map = new Map<string, string>()
+      const adultHeroes = adultBody?.success ? adultBody.data.heroes : []
+      const youngHeroes = youngBody?.success ? youngBody.data.heroes : []
+      for (const h of adultHeroes) {
+        const tId = toTalisharIdentifier(h.name)
+        if (tId && h.image_url) map.set(tId, h.image_url)
+      }
+      for (const h of youngHeroes) {
+        const tId = toTalisharIdentifier(h.name)
+        if (tId && h.image_url) map.set(tId, h.image_url)
+      }
+      setHeroImageMap(map)
+    })
+
     return () => { cancelled = true }
   }, [deckId])
 
