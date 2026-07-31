@@ -14,7 +14,11 @@ import { Pencil, Undo2, Trash2 } from "lucide-react"
 import { startStroke, extendStroke, undo as undoStrokes, type Stroke } from "@/lib/drawing/strokes"
 
 const STROKE_COLOR = "#fde047" // amber-300 — high-contrast on dark bg and card art
-const STROKE_WIDTH = 4
+const STROKE_WIDTH = 6
+// Dark casing painted under the color pass (route-on-a-map style) so strokes
+// stay legible over bright, busy card art instead of blending into it.
+const CASING_COLOR = "#1e293b" // slate-800
+const CASING_EXTRA = 5 // total extra width → ~2.5px outline each side
 
 export default function DrawingOverlay({ available }: { available: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -32,26 +36,34 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
     if (!available) setPenMode(false)
   }, [available])
 
-  // Draw a single stroke onto the 2D context.
+  // Draw a single stroke onto the 2D context: a wider dark casing pass first,
+  // then the color pass on top. Two passes per stroke (not per segment) so a
+  // self-crossing stroke keeps its casing under, not over, its own color.
   const paintStroke = useCallback((ctx: CanvasRenderingContext2D, s: Stroke) => {
     if (s.points.length === 0) return
-    ctx.strokeStyle = s.color
-    ctx.fillStyle = s.color
-    ctx.lineWidth = s.width
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    if (s.points.length === 1) {
-      // A click without drag → a dot.
-      const p = s.points[0]
+    const passes: Array<{ color: string; width: number }> = [
+      { color: CASING_COLOR, width: s.width + CASING_EXTRA },
+      { color: s.color, width: s.width },
+    ]
+    for (const pass of passes) {
+      ctx.strokeStyle = pass.color
+      ctx.fillStyle = pass.color
+      ctx.lineWidth = pass.width
+      if (s.points.length === 1) {
+        // A click without drag → a dot.
+        const p = s.points[0]
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, pass.width / 2, 0, Math.PI * 2)
+        ctx.fill()
+        continue
+      }
       ctx.beginPath()
-      ctx.arc(p.x, p.y, s.width / 2, 0, Math.PI * 2)
-      ctx.fill()
-      return
+      ctx.moveTo(s.points[0].x, s.points[0].y)
+      for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
+      ctx.stroke()
     }
-    ctx.beginPath()
-    ctx.moveTo(s.points[0].x, s.points[0].y)
-    for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y)
-    ctx.stroke()
   }, [])
 
   // Full repaint — used on resize, undo, clear, and after each completed stroke.
