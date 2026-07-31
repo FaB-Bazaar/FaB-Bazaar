@@ -363,6 +363,13 @@ export default function PresenterPage() {
   // 'scroll' = full presenter; 'fit' = one-viewport screenshot layout.
   const [viewMode, setViewMode] = useState<'scroll' | 'fit'>('fit')
 
+  // Warm the spotlight card while the user browses: fetch the three.js chunk
+  // and pre-build the WebGL engine (context + shader compile) so the first
+  // card click doesn't stall on them.
+  useEffect(() => {
+    import("@/components/deck/HoloCard3D").then(m => m.warmHoloCard()).catch(() => {})
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)

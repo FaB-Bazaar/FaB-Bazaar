@@ -9,9 +9,16 @@
 //     inset region (DB foil_inset_* values, artStyle-derived fallback)
 //   - Cold Foil ('C'): cool teal/blue gratings across the FULL card
 //   - anything else: glossy tilt + neutral glare, no iridescence
-// GSAP smooths the tilt and plays a light-sweep entrance on card change.
+// GSAP smooths the tilt and plays a light-sweep entrance on card change. The
+// sweep drives only the shader's light position, never the mesh tilt, so the
+// card fades in level instead of snapping to a rotation.
 // A plain <img> always renders underneath, so if WebGL or the cross-origin
 // texture load fails the card still displays.
+//
+// The renderer/scene/shader live in a module-level singleton that survives
+// unmounts: re-opening the spotlight re-attaches the existing canvas instead
+// of paying WebGL context creation + shader compile again. warmHoloCard()
+// lets the presenter page pre-build all of it before the first click.
 
 import React, { useEffect, useRef, useState } from "react"
 import {
@@ -120,8 +127,10 @@ const FRAG = /* glsl */ `
   }
 `
 
-interface SceneState {
+interface HoloEngine {
   renderer: WebGLRenderer
+  camera: PerspectiveCamera
+  scene: Scene
   uniforms: {
     uMap: { value: Texture | null }
     uPointer: { value: Vector2 }
@@ -132,11 +141,82 @@ interface SceneState {
   }
   mesh: Mesh
   // Tilt/glare target driven by GSAP; the rAF loop blends in idle wander.
-  pt: { x: number; y: number; hover: number }
-  toX: (v: number) => void
-  toY: (v: number) => void
-  toHover: (v: number) => void
+  // sweepX/sweepY/sweepBoost carry the entrance light-sweep — they offset the
+  // shader's light only, never the mesh tilt.
+  pt: { x: number; y: number; hover: number; sweepX: number; sweepY: number; sweepBoost: number }
   reducedMotion: boolean
+  // src whose texture currently lives in uMap — lets a re-open of the same
+  // card skip the TextureLoader round-trip.
+  currentSrc: string | null
+}
+
+// Module-level singleton: WebGL context creation + shader compile happen once
+// per page lifetime, not once per spotlight open. undefined = not attempted
+// yet, null = WebGL unavailable.
+let engine: HoloEngine | null | undefined
+
+function getEngine(): HoloEngine | null {
+  if (engine !== undefined) return engine
+  let renderer: WebGLRenderer
+  try {
+    renderer = new WebGLRenderer({ alpha: true, antialias: true })
+  } catch {
+    engine = null
+    return null
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+  renderer.domElement.className = "absolute inset-0 w-full h-full"
+
+  const scene = new Scene()
+  const camera = new PerspectiveCamera(32, CARD_W / CARD_H, 0.1, 20)
+  camera.position.z = 4.25
+
+  const uniforms = {
+    uMap: { value: null as Texture | null },
+    uPointer: { value: new Vector2(0, 0) },
+    uHover: { value: 0 },
+    uFoilType: { value: 0 },
+    uInset: { value: new Vector4(0, 0, 0, 0) },
+    uInsetRound: { value: 0 },
+  }
+  const geometry = new PlaneGeometry(2 * (CARD_W / CARD_H), 2)
+  const material = new ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms, transparent: true })
+  const mesh = new Mesh(geometry, material)
+  scene.add(mesh)
+
+  engine = {
+    renderer,
+    camera,
+    scene,
+    uniforms,
+    mesh,
+    pt: { x: 0, y: 0, hover: 0, sweepX: 0, sweepY: 0, sweepBoost: 0 },
+    reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    currentSrc: null,
+  }
+  return engine
+}
+
+/**
+ * Build the WebGL context and compile the foil shader off-screen so the first
+ * spotlight open doesn't stall on them. Cheap no-op once the engine exists.
+ */
+export function warmHoloCard(): void {
+  const eng = getEngine()
+  if (!eng || eng.renderer.domElement.isConnected) return
+  eng.renderer.setSize(8, 8, false)
+  eng.renderer.render(eng.scene, eng.camera)
+}
+
+// Entrance light-sweep. Only the sweep fields move, so the light crosses the
+// card while the card itself stays level.
+function playSweep(eng: HoloEngine): void {
+  if (eng.reducedMotion) return
+  gsap.fromTo(
+    eng.pt,
+    { sweepX: -1.6, sweepY: 0.35, sweepBoost: 1 },
+    { sweepX: 0, sweepY: 0, sweepBoost: 0, duration: 1.2, ease: "power2.out", overwrite: "auto" }
+  )
 }
 
 /** Foil region corner radius ("1.5%", "8px", null) → card-mm space. */
@@ -165,7 +245,7 @@ interface HoloCard3DProps {
 export default function HoloCard3D({ src, alt, className = "", foiling, artStyle, foilInset }: HoloCard3DProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasWrapRef = useRef<HTMLDivElement | null>(null)
-  const sceneRef = useRef<SceneState | null>(null)
+  const engineRef = useRef<HoloEngine | null>(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -175,46 +255,28 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
   const { top, right, bottom, left, round } = resolveFoilInset(foilInset, artStyle)
   const roundMm = parseRoundMm(round)
 
-  // Mount: renderer, scene, shader plane, pointer handlers, render loop.
+  // Mount: attach the singleton engine's canvas, wire pointer handlers, run
+  // the render loop. The engine itself (context, shader, geometry) is created
+  // once and survives unmounts — see getEngine().
   useEffect(() => {
     const el = containerRef.current
     const wrap = canvasWrapRef.current
     if (!el || !wrap) return
 
-    let renderer: WebGLRenderer
-    try {
-      renderer = new WebGLRenderer({ alpha: true, antialias: true })
-    } catch {
+    const eng = getEngine()
+    if (!eng) {
       setFailed(true)
       return
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    renderer.domElement.className = "absolute inset-0 w-full h-full"
+    engineRef.current = eng
+    const { renderer, camera, scene, uniforms, mesh, pt, reducedMotion } = eng
     wrap.appendChild(renderer.domElement)
 
-    const scene = new Scene()
-    const camera = new PerspectiveCamera(32, CARD_W / CARD_H, 0.1, 20)
-    camera.position.z = 4.25
-
-    const uniforms = {
-      uMap: { value: null as Texture | null },
-      uPointer: { value: new Vector2(0, 0) },
-      uHover: { value: 0 },
-      uFoilType: { value: 0 },
-      uInset: { value: new Vector4(0, 0, 0, 0) },
-      uInsetRound: { value: 0 },
-    }
-    const geometry = new PlaneGeometry(2 * (CARD_W / CARD_H), 2)
-    const material = new ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms, transparent: true })
-    const mesh = new Mesh(geometry, material)
-    scene.add(mesh)
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    const pt = { x: 0, y: 0, hover: 0 }
+    // quickTo tweens are recreated per mount (cheap) — cleanup kills every
+    // tween on pt, which would leave engine-held quickTo instances dead.
     const toX = gsap.quickTo(pt, "x", { duration: 0.5, ease: "power3.out" })
     const toY = gsap.quickTo(pt, "y", { duration: 0.5, ease: "power3.out" })
     const toHover = gsap.quickTo(pt, "hover", { duration: 0.6, ease: "power2.out" })
-    sceneRef.current = { renderer, uniforms, mesh, pt, toX, toY, toHover, reducedMotion }
 
     const resize = () => {
       // Size the renderer to the oversized wrapper, not the container —
@@ -256,11 +318,14 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
       const idle = reducedMotion ? 0 : 1 - Math.min(1, pt.hover)
       const px = pt.x + Math.sin(t * 0.6) * 0.55 * idle
       const py = pt.y + Math.sin(t * 0.45 + 1.7) * 0.45 * idle
-      uniforms.uPointer.value.set(px, py)
-      uniforms.uHover.value = pt.hover
+      // The entrance sweep offsets the light position only — the tilt below
+      // stays on px/py so the card doesn't lurch when the sweep plays.
+      uniforms.uPointer.value.set(px + pt.sweepX, py + pt.sweepY)
+      const boost = Math.max(pt.hover, pt.sweepBoost)
+      uniforms.uHover.value = boost
       mesh.rotation.y = px * 0.42
       mesh.rotation.x = -py * 0.32
-      const s = 1 + pt.hover * 0.03
+      const s = 1 + boost * 0.03
       mesh.scale.set(s, s, 1)
       renderer.render(scene, camera)
     }
@@ -275,33 +340,40 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
       el.removeEventListener("pointerup", release)
       el.removeEventListener("pointercancel", release)
       gsap.killTweensOf(pt)
-      uniforms.uMap.value?.dispose()
-      geometry.dispose()
-      material.dispose()
-      renderer.dispose()
-      renderer.forceContextLoss()
+      pt.x = pt.y = pt.hover = pt.sweepX = pt.sweepY = pt.sweepBoost = 0
       wrap.removeChild(renderer.domElement)
-      sceneRef.current = null
+      engineRef.current = null
+      // Renderer/scene/shader/texture intentionally NOT disposed — the
+      // singleton (and its uMap texture) is reused on the next open; tearing
+      // it down per close is what caused the open-spotlight stall.
     }
   }, [])
 
   // Foil parameters follow the displayed printing (arrow-key navigation).
   useEffect(() => {
-    const s = sceneRef.current
+    const s = engineRef.current
     if (!s) return
     s.uniforms.uFoilType.value = foilType
     s.uniforms.uInset.value.set(top / 100, right / 100, bottom / 100, left / 100)
     s.uniforms.uInsetRound.value = roundMm
   }, [foilType, top, right, bottom, left, roundMm])
 
-  // Texture swap on card change (reuses the renderer).
+  // Texture swap on card change (reuses the renderer). If the engine still
+  // holds this exact src on the GPU (spotlight re-opened on the same card),
+  // skip the loader and reveal instantly.
   useEffect(() => {
+    const eng = engineRef.current
+    if (eng && eng.currentSrc === src && eng.uniforms.uMap.value) {
+      setReady(true)
+      playSweep(eng)
+      return
+    }
     setFailed(false)
     let cancelled = false
     new TextureLoader().setCrossOrigin("anonymous").load(
       src,
       tex => {
-        const s = sceneRef.current
+        const s = engineRef.current
         if (cancelled || !s) {
           tex.dispose()
           return
@@ -309,11 +381,9 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
         tex.anisotropy = s.renderer.capabilities.getMaxAnisotropy()
         s.uniforms.uMap.value?.dispose()
         s.uniforms.uMap.value = tex
+        s.currentSrc = src
         setReady(true)
-        if (!s.reducedMotion) {
-          // Light sweep across the new card, then settle to idle.
-          gsap.fromTo(s.pt, { x: -1.3, y: 0.4, hover: 1 }, { x: 0, y: 0, hover: 0, duration: 1.2, ease: "power2.out", overwrite: "auto" })
-        }
+        playSweep(s)
       },
       undefined,
       () => {
