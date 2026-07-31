@@ -398,12 +398,17 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
       className={`relative aspect-[63/88] select-none ${className}`}
       style={{ touchAction: "none" }}
     >
-      {/* Fallback / loading placeholder — fades OUT once the canvas is live so the two never double up. */}
+      {/* Fallback / loading placeholder. Stays at FULL opacity while the canvas
+          fades in over it (both draw the same card in the same spot, so the
+          stack never dips below opaque — a simultaneous cross-fade lets the
+          backdrop blink through), then fades out AFTER the canvas is fully in
+          (delay-500 = the canvas fade duration) so its edges can't double
+          behind the tilting card on hover. */}
       <img
         src={src}
         alt=""
         aria-hidden="true"
-        className={`absolute inset-0 w-full h-full object-contain rounded-[4.5%] transition-opacity duration-300 ${ready && !failed ? "opacity-0" : "opacity-100"}`}
+        className={`absolute inset-0 w-full h-full object-contain rounded-[4.5%] transition-opacity duration-150 ${ready && !failed ? "opacity-0 delay-500" : "opacity-100"}`}
         draggable={false}
       />
       {/* three's canvas is appended here by the mount effect. The wrapper is
