@@ -20,7 +20,12 @@ Component → Client Service → fetch() → API Route → Server Service → Da
 | `articlesClient` | `articles-client.ts` | Article CRUD, publishing |
 | `locationsClient` | `locations-client.ts` | Stores, events, geo |
 | `collectiblesClient` | `collectibles-client.ts` | Playmat/collectible catalog + have/want marks |
+| `heroesClient` | `heroes-client.ts` | Hero legality rows + representative hero printings |
 
 All methods return `ApiResponse<T>` (defined in `types.ts`): `{ success: true, data }` or `{ success: false, error }`. Types are imported from server-side contracts (`lib/services/contracts/`).
 
 Components should use these services instead of calling fetch() directly.
+
+## Nonstandard response bodies
+
+Some routes return payload fields at the TOP level beside `success`, not under `data` (deck results → `total`; ownership-status → `ownership`/`summary`; hero-printings → `heroes`/`count`; users/autocomplete → `users`; inventory/toggle-for-trade → `updatedCount`; printings/add → `summary`/`deck`). `handleResponse` silently drops these (its legacy fallback masks the bug at runtime) — client methods for such routes must repackage the body manually and pin the shape with a unit test (see `decks-client.notes-results.test.ts`).

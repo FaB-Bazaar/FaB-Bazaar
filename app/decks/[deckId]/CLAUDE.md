@@ -20,6 +20,10 @@ See `components/CLAUDE.md` for shared UI/WCAG standards.
 - **Mobile fit view clips lanes** — the lane row is `overflow-hidden`; narrow viewports cut off outer columns (known, unfixed).
 - **QuickAddCardDialog name search is card-grouped** — it sends `groupByCard=true` so the result `limit` counts CARDS, not printings (else a heavily-reprinted card like "Gustwave", 100+ printings, crowds every other match off the page). Each row is one card carrying `printing_count` → `__printingsCount`; the full printing list is lazy-loaded on select via `fetchPrintingsForCard` (`/api/cards/[cardUniqueId]/printings`). Matching is `searchMode=strict` (substring, accent-insensitive) by default with a Strict/Fuzzy toggle (`fuzzy` state) to opt into `word_similarity`. Swap mode (`initialSearch`) stays flat/ungrouped — it needs every printing of one exact card.
 
+- **Per-card deck tags removed (2026-07-30)** — never persisted (no `deck_cards` column, PATCH route never existed). Deck-LEVEL `decks.tags` is real and untouched. Per-card context belongs in deck notes (`cardNotes`), which MCP coaching reads.
+- **Playmat ownership overlay** — maps the inventory-comparison DTO via `lib/deck/ownership-map.ts`. The for-trade toggle + binder links are gated on `forTrade`/`binderSlugs` field presence: the endpoint doesn't return them yet, and absence means "unknown", not false/empty. Enrich the service before un-gating.
+- **Two deck hooks, don't add useDeckPage consumers** — `useDeckEditor` powers the main deck page; `useDeckPage` (older, larger) powers ONLY the analyze page + PlaymatView/MobileDeckLayout/DeckPageDialogs typed against it. The main page already migrated off it; unification is parked, so new work should build on `useDeckEditor`.
+
 ## Custom Events
 
 | Event | Direction | Purpose |
