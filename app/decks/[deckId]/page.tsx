@@ -426,6 +426,44 @@ export default function DeckEditorPage() {
     return { pitchCounts: { red, yellow, blue, none }, averageCost, ownedCount: owned, totalCount: total, sectionCounts };
   }, [state.deck, state.ownershipMap]);
 
+  /** Pitch/cost stat chips. `extras` adds No Pitch + Avg Cost (the desktop
+      header row); the mobile row omits them — they live in the Stats popover. */
+  const renderPitchChips = (stats: NonNullable<typeof railStats>, extras: boolean) => {
+    const totalPitched = stats.pitchCounts.red + stats.pitchCounts.yellow + stats.pitchCounts.blue + (stats.pitchCounts.none ?? 0);
+    const pitches = [
+      { label: 'Red', count: stats.pitchCounts.red, dot: 'bg-red-500', text: 'text-red-700 dark:text-red-300' },
+      { label: 'Yellow', count: stats.pitchCounts.yellow, dot: 'bg-yellow-400', text: 'text-yellow-700 dark:text-yellow-300' },
+      { label: 'Blue', count: stats.pitchCounts.blue, dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300' },
+      ...(extras ? [{ label: 'No Pitch', count: stats.pitchCounts.none ?? 0, dot: 'bg-gray-400', text: 'text-gray-700 dark:text-gray-300' }] : []),
+    ].filter(p => p.count > 0);
+    return (
+      <>
+        {totalPitched > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200 text-sm">
+            <span className="font-semibold tabular-nums">{totalPitched}</span>
+            <span className="text-gray-600 dark:text-gray-400">Total</span>
+          </span>
+        )}
+        {pitches.map(p => (
+          <span
+            key={p.label}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-sm"
+          >
+            <span className={cn("w-2 h-2 rounded-full", p.dot)} aria-hidden="true" />
+            <span className={cn("font-semibold tabular-nums", p.text)}>{p.count}</span>
+            <span className="text-gray-600 dark:text-gray-400">{p.label}</span>
+          </span>
+        ))}
+        {extras && stats.averageCost != null && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200 text-sm">
+            <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Avg Cost</span>
+            <span className="font-semibold tabular-nums">{stats.averageCost.toFixed(1)}</span>
+          </span>
+        )}
+      </>
+    );
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     await handlers.handleBulkSearch(e);
     setSearchFormOpen(false);
@@ -1979,13 +2017,13 @@ export default function DeckEditorPage() {
               // makes the "start here" path obvious for first-time builders.
               const isEmptyDeck = (buildProgress?.totalCards.current ?? 0) === 0;
               const hasKits = buildsLoading || curatedBuilds.length > 0 || curatorsWithMetafy.length > 0;
-              // Mobile only: the secondary stats ride along on this row (see the
-              // stats bar below, which drops them at < sm) so the deck page opens
-              // with two chip rows instead of four.
-              const showMobileStats = activeTab === "deck" && railStats != null;
-              if (!canEdit && !showMobileStats) return null;
+              // Stats ride along on this row: mobile gets the Stats popover
+              // chip, desktop gets the pitch/avg-cost chips inline — so the
+              // deck tab opens with ONE header chip row, not three.
+              const showStats = activeTab === "deck" && railStats != null;
+              if (!canEdit && !showStats) return null;
               return (
-                <div className={cn("mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2", !canEdit && "sm:hidden")}>
+                <div className="mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
                   {canEdit && hasKits && <DropdownMenu onOpenChange={(open) => { if (open) dismissKitsAttention() }}>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -2075,13 +2113,20 @@ export default function DeckEditorPage() {
                     </kbd>
                   </button>}
 
-                  {showMobileStats && railStats && (
+                  {showStats && railStats && (
                     <DeckStatsPopover
                       className="sm:hidden"
                       noPitch={railStats.pitchCounts.none ?? 0}
                       averageCost={railStats.averageCost}
                       sectionCounts={railStats.sectionCounts}
                     />
+                  )}
+                  {/* Desktop: full pitch/cost chips inline. Zone counts are NOT
+                      here — every view's section headers already carry them. */}
+                  {showStats && railStats && (
+                    <div className="hidden sm:contents">
+                      {renderPitchChips(railStats, true)}
+                    </div>
                   )}
                 </div>
               );
@@ -2235,73 +2280,16 @@ export default function DeckEditorPage() {
                       />
                     </div>
                   )}
-                  {/* Slim deck stats bar — pulled out of the right rail so the rail can dedicate its space
-                      to the (sticky) hovered-card preview without competing for attention. */}
-                  {railStats && (() => {
-                    const totalPitched = railStats.pitchCounts.red + railStats.pitchCounts.yellow + railStats.pitchCounts.blue + (railStats.pitchCounts.none ?? 0);
-                    return (
-                    <div className="mb-3 space-y-2 text-sm">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {totalPitched > 0 && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
-                          <span className="font-semibold tabular-nums">{totalPitched}</span>
-                          <span className="text-gray-600 dark:text-gray-400">Total</span>
-                        </span>
-                      )}
-                      {[
-                        { label: 'Red', count: railStats.pitchCounts.red, dot: 'bg-red-500', text: 'text-red-700 dark:text-red-300', desktopOnly: false },
-                        { label: 'Yellow', count: railStats.pitchCounts.yellow, dot: 'bg-yellow-400', text: 'text-yellow-700 dark:text-yellow-300', desktopOnly: false },
-                        { label: 'Blue', count: railStats.pitchCounts.blue, dot: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300', desktopOnly: false },
-                        // Mobile moves No Pitch into the Stats popover on the row above.
-                        { label: 'No Pitch', count: railStats.pitchCounts.none ?? 0, dot: 'bg-gray-400', text: 'text-gray-700 dark:text-gray-300', desktopOnly: true },
-                      ].filter(p => p.count > 0).map(p => (
-                        <span
-                          key={p.label}
-                          className={cn(
-                            "items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60",
-                            p.desktopOnly ? "hidden sm:inline-flex" : "inline-flex",
-                          )}
-                        >
-                          <span className={cn("w-2 h-2 rounded-full", p.dot)} aria-hidden="true" />
-                          <span className={cn("font-semibold tabular-nums", p.text)}>{p.count}</span>
-                          <span className="text-gray-600 dark:text-gray-400">{p.label}</span>
-                        </span>
-                      ))}
-                      {railStats.averageCost != null && (
-                        <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
-                          <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Avg Cost</span>
-                          <span className="font-semibold tabular-nums">{railStats.averageCost.toFixed(1)}</span>
-                        </span>
-                      )}
+                  {/* Mobile second chip row: Total + R/Y/B (No Pitch, Avg Cost and
+                      zone counts live in the Stats popover on the row above).
+                      Desktop renders these chips inline on the Kits/Explore row
+                      instead — zone counts intentionally nowhere: every view's
+                      section headers already carry them. */}
+                  {railStats && (
+                    <div className="sm:hidden mb-3 flex flex-wrap items-center gap-2">
+                      {renderPitchChips(railStats, false)}
                     </div>
-                    {/* Zone counts on their own row so they read as a distinct group
-                        under the pitch/cost chips instead of one long line. Mobile
-                        reads them from the Stats popover instead. */}
-                    {(() => {
-                      const zones = [
-                        { label: 'Weapons', count: railStats.sectionCounts.weapon },
-                        { label: 'Equipment', count: railStats.sectionCounts.equipment },
-                        { label: 'Maindeck', count: railStats.sectionCounts.maindeck },
-                        { label: 'Inventory', count: railStats.sectionCounts.inventory },
-                        { label: 'Bench', count: railStats.sectionCounts.bench },
-                      ].filter(z => z.count > 0);
-                      return zones.length > 0 ? (
-                        <div className="hidden sm:flex flex-wrap items-center gap-2">
-                          {zones.map(z => (
-                            <span
-                              key={z.label}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900/60 text-gray-700 dark:text-gray-200"
-                            >
-                              <span className="font-semibold tabular-nums">{z.count}</span>
-                              <span className="text-gray-600 dark:text-gray-400">{z.label}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-                    </div>
-                    );
-                  })()}
+                  )}
                   <DeckEditorListView
                     deck={state.deck}
                     ownershipMap={state.ownershipMap}
