@@ -11,8 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Heart, RefreshCw, ArrowLeft, Trash2, X, CheckCircle, XCircle, AlertCircle, Plus, Minus, BookOpen, Tag } from "lucide-react";
+import { Heart, RefreshCw, ArrowLeft, Trash2, X, CheckCircle, XCircle, AlertCircle, Plus, Minus, BookOpen } from "lucide-react";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +22,6 @@ interface DeckPrinting {
   notes?: string;
   addedAt: string;
   printingDetails?: any;
-  tags?: string[];
 }
 
 interface CardZoneExpandedProps {
@@ -40,7 +38,6 @@ interface CardZoneExpandedProps {
   onAddToBinder?: (card: DeckPrinting & { category: string }) => void;
   onRemoveFromBinder?: (card: DeckPrinting & { category: string }) => void;
   onToggleForTrade?: (card: DeckPrinting & { category: string }, forTrade: boolean) => void;
-  onUpdateTags?: (card: DeckPrinting & { category: string }, tags: string[]) => void;
   editable?: boolean;
   deckId?: string;
   // Ownership status for each card (printingId -> { owned: number, needed: number, alternative?: number, forTrade?: boolean, inventoryItemIds?: string[], binderSlugs?: string[], binderNames?: string[], binderIds?: string[] })
@@ -64,7 +61,6 @@ export default function CardZoneExpanded({
   onAddToBinder,
   onRemoveFromBinder,
   onToggleForTrade,
-  onUpdateTags,
   editable = false,
   deckId,
   ownershipStatus,
@@ -73,9 +69,6 @@ export default function CardZoneExpanded({
   binderMap = new Map()
 }: CardZoneExpandedProps) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
-  const [editingTags, setEditingTags] = useState<{cardKey: string, tags: string[]} | null>(null);
-  const [newTagInput, setNewTagInput] = useState("");
 
   // Helper to get ownership status for a card
   const getOwnershipInfo = (printingId: string) => {
@@ -116,129 +109,14 @@ export default function CardZoneExpanded({
     return 'max-w-[90vw]';
   };
 
-  // Collect all unique tags from all cards
-  const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
-    cards.forEach(card => {
-      card.tags?.forEach(tag => tagSet.add(tag));
-    });
-    const tags = Array.from(tagSet).sort();
-    console.log('[CardZoneExpanded] All tags:', tags, 'from', cards.length, 'cards');
-    return tags;
-  }, [cards]);
-
-  // Filter cards based on selected tags
-  const filteredCards = useMemo(() => {
-    if (selectedTags.size === 0) return cards;
-
-    return cards.filter(card => {
-      if (!card.tags || card.tags.length === 0) return false;
-      // Card must have at least one of the selected tags
-      return card.tags.some(tag => selectedTags.has(tag));
-    });
-  }, [cards, selectedTags]);
-
-  // Toggle tag selection for filtering
-  const toggleTagFilter = (tag: string) => {
-    setSelectedTags(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(tag)) {
-        newSet.delete(tag);
-      } else {
-        newSet.add(tag);
-      }
-      return newSet;
-    });
-  };
-
-  // Handle updating tags for a card
-  const handleUpdateTags = async (card: DeckPrinting & { category: string }, tags: string[]) => {
-    console.log('[CardZoneExpanded][handleUpdateTags] Called with tags:', tags);
-    console.log('[CardZoneExpanded][handleUpdateTags] Card:', card.printingId, 'Category:', card.category);
-
-    if (!deckId) {
-      console.error('[CardZoneExpanded][handleUpdateTags] No deckId provided!');
-      return;
-    }
-
-    try {
-      const payload = {
-        printingId: card.printingId,
-        category: card.category,
-        tags,
-        action: 'set'
-      };
-      console.log('[CardZoneExpanded][handleUpdateTags] Sending payload:', JSON.stringify(payload, null, 2));
-
-      const response = await fetch(`/api/decks/${deckId}/printings/tags`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      console.log('[CardZoneExpanded][handleUpdateTags] Response status:', response.status);
-
-      if (!response.ok) {
-        console.error('[CardZoneExpanded][handleUpdateTags] Failed to update tags, status:', response.status);
-        return;
-      }
-
-      const result = await response.json();
-      console.log('[CardZoneExpanded][handleUpdateTags] Response data:', result);
-
-      // Call parent handler to refresh deck data
-      if (onUpdateTags) {
-        console.log('[CardZoneExpanded][handleUpdateTags] Calling onUpdateTags handler');
-        onUpdateTags(card, tags);
-      }
-    } catch (error) {
-      console.error('[CardZoneExpanded][handleUpdateTags] Error:', error);
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={`${getDialogWidth()} max-h-[90vh] overflow-hidden flex flex-col p-0`}>
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="text-2xl font-bold">
-            {title} ({filteredCards.length} {filteredCards.length === 1 ? 'card' : 'cards'}{selectedTags.size > 0 ? ` / ${cards.length} total` : ''})
+            {title} ({cards.length} {cards.length === 1 ? 'card' : 'cards'})
           </DialogTitle>
-
-          {/* Tag Filter Chips */}
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              <span className="text-sm text-gray-400 flex items-center gap-1">
-                <Tag className="h-4 w-4" />
-                Filter by tags:
-              </span>
-              {allTags.map(tag => (
-                <Badge
-                  key={tag}
-                  variant={selectedTags.has(tag) ? "default" : "outline"}
-                  className={cn(
-                    "cursor-pointer transition-all",
-                    selectedTags.has(tag)
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "hover:bg-gray-700"
-                  )}
-                  onClick={() => toggleTagFilter(tag)}
-                >
-                  {tag}
-                </Badge>
-              ))}
-              {selectedTags.size > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={() => setSelectedTags(new Set())}
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          )}
         </DialogHeader>
 
         {/* Cards Grid */}
@@ -247,21 +125,10 @@ export default function CardZoneExpanded({
             <div className="flex items-center justify-center h-full text-gray-400">
               No cards in this zone
             </div>
-          ) : filteredCards.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-              <p>No cards match the selected tags</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedTags(new Set())}
-              >
-                Clear filters
-              </Button>
-            </div>
           ) : (
             <div className="flex justify-center">
               <div className={`grid ${getGridCols()} gap-4`}>
-                {filteredCards.map((card, index) => {
+                {cards.map((card, index) => {
                 const imageUrl = card.printingDetails?.image_url || card.printingDetails?.image;
                 const cardKey = card._id || `${card.printingId}-${index}`;
                 const isHovered = hoveredCard === cardKey;
@@ -532,155 +399,6 @@ export default function CardZoneExpanded({
                           </div>
                         )}
 
-                        {/* Card Tags - editable if deck is editable */}
-                        {editable && deckId && (
-                          <div className="flex flex-col gap-1 px-2 pt-1">
-                            {editingTags?.cardKey === cardKey ? (
-                              // Tag editing mode
-                              <div className="bg-gray-900/90 rounded p-2 space-y-2">
-                                <div className="text-xs text-yellow-400 mb-1">
-                                  Debug: {editingTags.tags.length} tags - [{editingTags.tags.join(', ')}]
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {editingTags.tags.map((tag, tagIdx) => (
-                                    <Badge
-                                      key={tagIdx}
-                                      variant="secondary"
-                                      className="text-xs flex items-center gap-1 bg-purple-700 hover:bg-purple-600"
-                                    >
-                                      {tag}
-                                      <X
-                                        className="h-3 w-3 cursor-pointer"
-                                        onClick={() => {
-                                          // Use functional update to avoid stale state
-                                          setEditingTags(currentState => {
-                                            if (!currentState) return null;
-                                            const newTags = currentState.tags.filter((_, i) => i !== tagIdx);
-                                            return { ...currentState, tags: newTags };
-                                          });
-                                        }}
-                                      />
-                                    </Badge>
-                                  ))}
-                                </div>
-                                <div className="flex gap-1">
-                                  <Input
-                                    type="text"
-                                    placeholder="Add tag..."
-                                    value={newTagInput}
-                                    onChange={(e) => setNewTagInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      // Debug: Check if ANY key is detected
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-
-                                        const inputValue = newTagInput.trim();
-                                        alert(`Enter pressed! Input value: "${inputValue}" (length: ${inputValue.length})`);
-
-                                        if (!inputValue) {
-                                          alert('Input is empty, not adding tag');
-                                          return;
-                                        }
-
-                                        const trimmedTag = inputValue;
-                                        console.log('[CardZoneExpanded] Adding tag:', trimmedTag);
-
-                                        // Use functional update to avoid stale state
-                                        setEditingTags(currentState => {
-                                          alert(`Current state: ${currentState ? JSON.stringify(currentState.tags) : 'null'}`);
-
-                                          if (!currentState) {
-                                            alert('Current state is null!');
-                                            return null;
-                                          }
-
-                                          // Prevent duplicates using the most up-to-date tags array
-                                          if (!currentState.tags.includes(trimmedTag)) {
-                                            const newTags = [...currentState.tags, trimmedTag];
-                                            alert(`Adding tag! New tags: ${JSON.stringify(newTags)}`);
-                                            console.log('[CardZoneExpanded] New tags array:', newTags);
-                                            return { ...currentState, tags: newTags };
-                                          }
-
-                                          alert('Tag already exists!');
-                                          console.log('[CardZoneExpanded] Tag already exists, skipping');
-                                          return currentState;
-                                        });
-
-                                        setNewTagInput('');
-                                      }
-                                    }}
-                                    className="h-6 text-xs bg-gray-800 border-gray-700"
-                                  />
-                                  <Button
-                                    size="sm"
-                                    className="h-6 px-2 text-xs bg-green-700 hover:bg-green-600"
-                                    onClick={async () => {
-                                      console.log('[CardZoneExpanded] Save button clicked!');
-                                      console.log('[CardZoneExpanded] editingTags state:', editingTags);
-                                      console.log('[CardZoneExpanded] Saving tags:', editingTags?.tags, 'for card:', card.printingId);
-                                      if (!editingTags) {
-                                        console.error('[CardZoneExpanded] editingTags is null!');
-                                        return;
-                                      }
-                                      await handleUpdateTags(card, editingTags.tags);
-                                      // DO NOT mutate props directly - let the parent handle state updates via onUpdateTags
-                                      setEditingTags(null);
-                                      setNewTagInput('');
-                                    }}
-                                  >
-                                    Save
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 px-2 text-xs"
-                                    onClick={() => {
-                                      setEditingTags(null);
-                                      setNewTagInput('');
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              // Tag display mode
-                              <div className="flex flex-wrap gap-1 items-center">
-                                {card.tags && card.tags.length > 0 ? (
-                                  card.tags.map((tag, tagIdx) => (
-                                    <Badge
-                                      key={tagIdx}
-                                      variant="secondary"
-                                      className="text-xs bg-purple-700 hover:bg-purple-600"
-                                    >
-                                      {tag}
-                                    </Badge>
-                                  ))
-                                ) : null}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 bg-gray-900/80 hover:bg-purple-700"
-                                  onClick={() => {
-                                    console.log('[CardZoneExpanded][Tag Icon Click] Opening editor for card:', card.printingId);
-                                    console.log('[CardZoneExpanded][Tag Icon Click] Current card.tags:', card.tags);
-                                    console.log('[CardZoneExpanded][Tag Icon Click] cardKey:', cardKey);
-                                    const initialTags = card.tags || [];
-                                    console.log('[CardZoneExpanded][Tag Icon Click] Setting editingTags to:', { cardKey, tags: initialTags });
-                                    setEditingTags({
-                                      cardKey,
-                                      tags: initialTags
-                                    });
-                                  }}
-                                  title="Edit tags"
-                                >
-                                  <Tag className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )}
 

@@ -78,7 +78,6 @@ export default function DeckViewPage() {
     handleRemoveFromBinder,
     handleRemoveFromWants,
     handleToggleForTrade,
-    handleUpdateTags,
   } = handlers;
 
   const handleCopyDeck = async () => {
@@ -288,7 +287,6 @@ export default function DeckViewPage() {
                 onRemoveFromBinder={handleRemoveFromBinder}
                 onRemoveFromWants={handleRemoveFromWants}
                 onToggleForTrade={handleToggleForTrade}
-                onUpdateTags={handleUpdateTags}
               />
             </TabsContent>
 

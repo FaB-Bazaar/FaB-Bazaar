@@ -1256,33 +1256,6 @@ export function useDeckPage(deckId: string) {
     }
   };
 
-  const handleUpdateTags = async (card: DeckPrinting & { category: string }, tags: string[]) => {
-    try {
-      if (optimisticDeck) {
-        const updatedDeck = { ...optimisticDeck };
-        const category = card.category;
-        const categoryArray = [...updatedDeck[category as keyof Pick<Deck, 'hero' | 'equipment' | 'maindeck' | 'inventory' | 'maybeboard' | 'tokens'>] as DeckPrinting[]];
-
-        const printingIndex = categoryArray.findIndex(p =>
-          p._id === card._id || p.printingId === card.printingId
-        );
-
-        if (printingIndex !== -1) {
-          categoryArray[printingIndex] = { ...categoryArray[printingIndex], tags };
-          (updatedDeck as any)[category] = categoryArray;
-          setOptimisticDeck(updatedDeck);
-        }
-      }
-
-      toast({
-        title: "Tags updated",
-        description: `Updated tags for ${card.printingDetails?.display_name || card.printingDetails?.name || 'card'}.`,
-      });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update tags.", variant: "destructive" });
-    }
-  };
-
   // ─── Return ──────────────────────────────────────────────────────────────────
 
   return {
@@ -1366,7 +1339,6 @@ export function useDeckPage(deckId: string) {
       handleRemoveFromBinder,
       handleRemoveFromWants,
       handleToggleForTrade,
-      handleUpdateTags,
     },
   };
 }

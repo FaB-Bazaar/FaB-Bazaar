@@ -60,7 +60,6 @@ interface PlaymatViewProps {
   onAddToBinder?: (card: DeckPrinting & { category: string }) => void;
   onRemoveFromBinder?: (card: DeckPrinting & { category: string }) => void;
   onToggleForTrade?: (card: DeckPrinting & { category: string }, forTrade: boolean) => void;
-  onUpdateTags?: (card: DeckPrinting & { category: string }, tags: string[]) => void;
   editable?: boolean;
   ownershipRefreshKey?: number;
   wantsMap?: Map<string, number>;
@@ -427,7 +426,6 @@ export default function PlaymatView({
   onAddToBinder,
   onRemoveFromBinder,
   onToggleForTrade,
-  onUpdateTags,
   editable = false,
   ownershipRefreshKey = 0,
   wantsMap = new Map(),
@@ -1022,7 +1020,6 @@ export default function PlaymatView({
           onRemoveFromBinder={onRemoveFromBinder}
           onRemoveFromWants={onRemoveFromWants}
           onToggleForTrade={onToggleForTrade}
-          onUpdateTags={onUpdateTags}
           editable={editable}
           deckId={deck._id}
           ownershipStatus={ownershipStatus || undefined}

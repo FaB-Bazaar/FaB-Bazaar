@@ -16,7 +16,6 @@ interface DeckPrinting {
   addedAt: string;
   isOptimistic?: boolean;
   printingDetails?: { [key: string]: any };
-  tags?: string[];
 }
 
 interface CompactStackedCardProps {
@@ -329,15 +328,6 @@ export default function CompactStackedCard({
               {printing.notes && (
                 <div className="text-gray-400 italic">
                   Note: {printing.notes}
-                </div>
-              )}
-              {printing.tags && printing.tags.length > 0 && (
-                <div className="flex gap-1 flex-wrap">
-                  {printing.tags.map((tag, i) => (
-                    <Badge key={i} variant="outline" className="text-[8px]">
-                      {tag}
-                    </Badge>
-                  ))}
                 </div>
               )}
             </div>
