@@ -5,7 +5,16 @@
 // (main booster sets before armory-deck reprints) holds within each language.
 
 import { describe, it, expect } from 'vitest';
-import { sortPrintings, SET_METADATA } from './sets';
+import { getOrderedSets, sortPrintings, SET_METADATA } from './sets';
+
+describe('getOrderedSets — set categorization', () => {
+  it('lists MPW (Mastery Pack Warrior) as a standard set, and only there', () => {
+    const { standard, nonStandard } = getOrderedSets();
+
+    expect(standard.map((s) => s.code.toLowerCase())).toContain('mpw');
+    expect(nonStandard.map((s) => s.code.toLowerCase())).not.toContain('mpw');
+  });
+});
 
 describe('sortPrintings — language priority', () => {
   it('puts English printings before non-English ones regardless of set order', () => {

@@ -152,7 +152,7 @@ export function expandSetSelections(selected: string[]): string[] {
 
 // Explicit ordering for non-standard sets on the /sets page
 const NON_STANDARD_ORDER = [
-  'tcc', 'smp', 'mpw', 'gem', 'dvr', 'aur',
+  'tcc', 'smp', 'gem', 'dvr', 'aur',
   'her', 'jdg', 'lgs', 'lss', 'win', 'tnp', 'oxo', 'fab', 'con',
 ];
 
