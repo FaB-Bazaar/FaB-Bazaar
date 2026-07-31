@@ -20,6 +20,7 @@ import DeckPageDialogs from "@/components/deck/DeckPageDialogs";
 
 import { useDeckPage } from "@/hooks/deck/useDeckPage";
 import { useAuth } from "@/contexts/AuthContext";
+import { decksClient } from "@/lib/client";
 
 const VALID_TABS = ["playmat", "analysis", "simulator", "collection"] as const;
 
@@ -84,18 +85,12 @@ export default function DeckViewPage() {
     if (!displayDeck) return;
     setCopying(true);
     try {
-      const response = await fetch('/api/decks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          copyFromDeckId: displayDeck.publicId,
-          name: `${displayDeck.name} (copy)`,
-          format: displayDeck.format,
-          heroName: displayDeck.heroName,
-        }),
-      });
-      const data = await response.json();
+      const data = await decksClient.createDeck({
+        copyFromDeckId: displayDeck.publicId,
+        name: `${displayDeck.name} (copy)`,
+        format: displayDeck.format,
+        heroName: displayDeck.heroName,
+      } as any);
       if (data.success && data.data?.publicId) {
         router.push(`/decks/${data.data.publicId}/analyze`);
       }

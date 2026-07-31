@@ -469,3 +469,42 @@ export async function deleteAccount(): Promise<ApiResponse<{ success: boolean }>
     return handleError(error);
   }
 }
+
+// ====================================
+// Autocomplete (co-owner picker)
+// ====================================
+
+export interface AutocompleteUser {
+  id: string;
+  username: string;
+  avatar: string | null;
+}
+
+/**
+ * Username autocomplete for co-owner management.
+ *
+ * The route returns `{ success, users }` with the list at the top level
+ * (no `data` key), so this repackages the body instead of handleResponse.
+ */
+export async function autocompleteUsers(
+  query: string,
+  deckId: string
+): Promise<ApiResponse<AutocompleteUser[]>> {
+  try {
+    const response = await fetch(
+      `/api/users/autocomplete?q=${encodeURIComponent(query)}&deckId=${encodeURIComponent(deckId)}`,
+      { credentials: 'include' }
+    );
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body?.success) {
+      return {
+        success: false,
+        error: body?.error || `HTTP ${response.status}: ${response.statusText}`,
+        code: body?.code || `HTTP_${response.status}`,
+      };
+    }
+    return { success: true, data: body.users ?? [] };
+  } catch (error) {
+    return handleError(error);
+  }
+}

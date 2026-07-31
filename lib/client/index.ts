@@ -22,6 +22,7 @@ export * as wantsClient from './wants-client';
 export * as decksClient from './decks-client';
 export * as searchClient from './search-client';
 export * as usersClient from './users-client';
+export * as heroesClient from './heroes-client';
 export * as articlesClient from './articles-client';
 export * as locationsClient from './locations-client';
 export * as fabraryClient from './fabrary-client';

@@ -679,3 +679,264 @@ export async function toggleSystemDeck(
     return handleError(error);
   }
 }
+
+// ====================================
+// Deck Notes
+// ====================================
+
+export interface DeckNotesData {
+  notes: string;
+  cardNotes: Record<string, string>;
+  matchupNotes: Record<string, string>;
+}
+
+/**
+ * Get a deck's notes (deck-level markdown + per-card + per-matchup maps)
+ */
+export async function getDeckNotes(
+  publicId: string
+): Promise<ApiResponse<DeckNotesData>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/notes`);
+    return await handleResponse<DeckNotesData>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Save a partial notes update — only the provided keys are written
+ */
+export async function saveDeckNotes(
+  publicId: string,
+  update: Partial<DeckNotesData>
+): Promise<ApiResponse<DeckNotesData>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/notes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update),
+    });
+    return await handleResponse<DeckNotesData>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ====================================
+// Game Results (Talishar sync)
+// ====================================
+
+/**
+ * List a deck's synced game results.
+ *
+ * The route returns `total` at the TOP LEVEL of the body (beside `data`, not
+ * inside it), so this parses the body directly instead of using
+ * handleResponse — which would silently drop `total`.
+ */
+export async function getDeckResults(
+  publicId: string,
+  options?: { limit?: number; offset?: number }
+): Promise<ApiResponse<{ games: any[]; total: number }>> {
+  try {
+    const params = buildQueryParams(options ?? {});
+    const query = params.toString();
+    const response = await fetch(
+      `/api/decks/${publicId}/results${query ? `?${query}` : ''}`
+    );
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body?.success) {
+      return {
+        success: false,
+        error: body?.error || `HTTP ${response.status}: ${response.statusText}`,
+        code: body?.code || `HTTP_${response.status}`,
+      };
+    }
+    return { success: true, data: { games: body.data, total: body.total } };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Get one game result's detail (turn log, per-card stats, image map)
+ */
+export async function getDeckResult(
+  publicId: string,
+  resultId: string
+): Promise<ApiResponse<any>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/results/${resultId}`);
+    return await handleResponse<any>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Get the raw Talishar log for a game result (null when not retained)
+ */
+export async function getDeckResultRaw(
+  publicId: string,
+  resultId: string
+): Promise<ApiResponse<any>> {
+  try {
+    const response = await fetch(
+      `/api/decks/${publicId}/results/${resultId}/raw`
+    );
+    return await handleResponse<any>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ====================================
+// Matchup writes
+// ====================================
+
+/**
+ * Create or update a matchup plan.
+ *
+ * The API splits the two: POST to the collection creates, PUT to
+ * /matchups/<heroId> updates. Pass `existingHeroId` when editing an entry
+ * that's already saved (it may differ from matchup.heroId if the hero was
+ * changed in the editor).
+ */
+export async function saveDeckMatchup(
+  publicId: string,
+  matchup: DeckMatchup,
+  existingHeroId?: string
+): Promise<ApiResponse<{ matchups: DeckMatchup[] }>> {
+  try {
+    const url = existingHeroId
+      ? `/api/decks/${publicId}/matchups/${existingHeroId}`
+      : `/api/decks/${publicId}/matchups`;
+    const response = await fetch(url, {
+      method: existingHeroId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ matchup }),
+    });
+    return await handleResponse<{ matchups: DeckMatchup[] }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Delete a matchup plan by hero id
+ */
+export async function deleteDeckMatchup(
+  publicId: string,
+  heroId: string
+): Promise<ApiResponse<{ matchups: DeckMatchup[] }>> {
+  try {
+    const response = await fetch(
+      `/api/decks/${publicId}/matchups/${heroId}`,
+      { method: 'DELETE', credentials: 'include' }
+    );
+    return await handleResponse<{ matchups: DeckMatchup[] }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ====================================
+// Co-owners
+// ====================================
+
+export interface DeckCoOwner {
+  id: string;
+  username: string;
+  avatar: string | null;
+}
+
+/**
+ * Get a deck's co-owner list (owner or co-owner only)
+ */
+export async function getDeckCoOwners(
+  publicId: string
+): Promise<ApiResponse<DeckCoOwner[]>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/co-owners`, {
+      credentials: 'include',
+    });
+    return await handleResponse<DeckCoOwner[]>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Replace the deck's co-owner list with the given user ids
+ */
+export async function updateDeckCoOwners(
+  publicId: string,
+  userIds: string[]
+): Promise<ApiResponse<DeckCoOwner[]>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/co-owners`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ userIds }),
+    });
+    return await handleResponse<DeckCoOwner[]>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ====================================
+// Ownership status
+// ====================================
+
+/**
+ * Batch-check which printings the signed-in user owns / wants.
+ *
+ * The route returns `ownership`/`summary` at the TOP LEVEL of the body (no
+ * `data` key), so this repackages the body instead of using handleResponse.
+ */
+export async function getOwnershipStatus(
+  printingIds: string[]
+): Promise<ApiResponse<{ ownership: Record<string, any>; summary?: Record<string, any> }>> {
+  try {
+    const response = await fetch('/api/decks/ownership-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ printingIds }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body?.success) {
+      return {
+        success: false,
+        error: body?.error || `HTTP ${response.status}: ${response.statusText}`,
+        code: body?.code || `HTTP_${response.status}`,
+      };
+    }
+    return {
+      success: true,
+      data: { ownership: body.ownership ?? {}, summary: body.summary },
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Delete a game result from the deck's history
+ */
+export async function deleteDeckResult(
+  publicId: string,
+  resultId: string
+): Promise<ApiResponse<null>> {
+  try {
+    const response = await fetch(`/api/decks/${publicId}/results/${resultId}`, {
+      method: 'DELETE',
+    });
+    return await handleResponse<null>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}

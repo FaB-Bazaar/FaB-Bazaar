@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { decksClient, searchClient } from "@/lib/client"
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import CardCatalogPanel from "./CardCatalogPanel"
 import DeckListPanel from "./DeckListPanel"
@@ -79,18 +80,14 @@ export default function DeckBuilderSplitView({
       }
 
       // Add to deck via API in the background (no await - fire and forget)
-      fetch(`/api/decks/${deckId}/printings/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          printingId: printingDetails.printing_id,
-          category: 'maindeck',
-          condition: 'NM'
-        })
-      }).then(async (response) => {
-        const data = await response.json()
+      decksClient.addPrinting(deckId, {
+        printingId: printingDetails.printing_id,
+        category: 'maindeck',
+        condition: 'NM'
+      } as any).then(async (res) => {
+        const data: any = res.success ? res.data : res
 
-        if (!response.ok || !data.success) {
+        if (!res.success) {
           // On error, revert the optimistic update and show error
           console.error('[DeckBuilderSplitView] Error adding card:', data.error)
           await onDeckUpdate() // Refetch to revert state
@@ -208,8 +205,7 @@ export default function DeckBuilderSplitView({
 // Helper function to find the default printing (Normal > U > first non-foil)
 // Returns the full printing object with all details
 async function findDefaultPrinting(cardUniqueId: string): Promise<any> {
-  const response = await fetch(`/api/search/core?cardUniqueId=${encodeURIComponent(cardUniqueId)}&limit=100`)
-  const data = await response.json()
+  const data = await searchClient.searchCoreByCard(cardUniqueId, 100)
 
   if (!data.success || !data.data?.printings?.length) {
     throw new Error('No printings found for this card')

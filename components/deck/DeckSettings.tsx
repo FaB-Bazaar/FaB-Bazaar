@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { displayUsername } from "@/lib/utils/display-username";
+import { decksClient, usersClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -158,8 +159,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   // Fetch co-owners
   const fetchCoOwners = useCallback(() => {
     if (!deckId) return;
-    fetch(`/api/decks/${deckId}/co-owners`, { credentials: 'include' })
-      .then(res => res.json())
+    decksClient.getDeckCoOwners(deckId)
       .then(data => { if (data.success) setCoOwners(data.data); })
       .catch(() => {});
   }, [deckId]);
@@ -203,12 +203,11 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
       if (!deckId) return;
       setSuggestionsLoading(true);
       try {
-        const res = await fetch(`/api/users/autocomplete?q=${encodeURIComponent(value)}&deckId=${deckId}`, { credentials: 'include' });
-        const data = await res.json();
+        const data = await usersClient.autocompleteUsers(value, deckId);
         if (data.success) {
           // Filter out already-added co-owners
           const addedIds = new Set(coOwners.map(c => c.id));
-          setSuggestions(data.users.filter((u: { id: string }) => !addedIds.has(u.id)));
+          setSuggestions(data.data.filter((u) => !addedIds.has(u.id)));
           setShowSuggestions(true);
         }
       } catch {
@@ -220,13 +219,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   };
 
   const putCoOwners = async (userIds: string[]): Promise<boolean> => {
-    const res = await fetch(`/api/decks/${deckId}/co-owners`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ userIds }),
-    });
-    const data = await res.json();
+    const data = await decksClient.updateDeckCoOwners(deckId!, userIds);
     if (data.success) {
       fetchCoOwners();
       return true;
@@ -302,8 +295,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     const shouldFetch = open === undefined || open === true;
     if (!shouldFetch || !deckId || hasFetchedMatchupsRef.current) return;
     hasFetchedMatchupsRef.current = true;
-    fetch(`/api/decks/${deckId}/matchups`, { credentials: 'include' })
-      .then(res => res.json())
+    decksClient.getDeckMatchups(deckId)
       .then(data => {
         if (data.success) setMatchupsCount(data.data.matchups?.length || 0);
       })
@@ -659,8 +651,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
       onOpenChange={(open) => {
         setMatchupsOpen(open);
         if (!open && deckId) {
-          fetch(`/api/decks/${deckId}/matchups`, { credentials: 'include' })
-            .then(res => res.json())
+          decksClient.getDeckMatchups(deckId)
             .then(data => {
               if (data.success) setMatchupsCount(data.data.matchups?.length || 0);
             })

@@ -8,6 +8,7 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
 import { toTalisharIdentifier } from "@/lib/utils"
+import { decksClient, heroesClient } from "@/lib/client"
 import { artStylesFromPrinting, foilInsetFromValues } from "@/lib/foil"
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants"
 import { toHeroDisplayName } from "@/lib/fab-constants/heroes"
@@ -366,17 +367,17 @@ export default function PresenterPage() {
     let cancelled = false
     setLoading(true)
     Promise.all([
-      fetch(`/api/decks/${deckId}`, { credentials: "include" }).then(r => r.json()).catch(() => null),
-      fetch(`/api/decks/${deckId}/matchups`, { credentials: "include" }).then(r => r.json()).catch(() => null),
-      fetch(`/api/hero-printings?format=adult`).then(r => r.json()).catch(() => null),
-      fetch(`/api/hero-printings?format=young`).then(r => r.json()).catch(() => null),
+      decksClient.getDeck(deckId).catch(() => null),
+      decksClient.getDeckMatchups(deckId).catch(() => null),
+      heroesClient.getHeroPrintings("adult").catch(() => null),
+      heroesClient.getHeroPrintings("young").catch(() => null),
     ])
       .then(([deckBody, muBody, adultBody, youngBody]) => {
         if (cancelled) return
         if (!deckBody?.success) {
           setError(deckBody?.error || "Failed to load deck")
         } else {
-          setDeck(deckBody.data)
+          setDeck(deckBody.data as any)
           trackDeckPresent({
             deck_id: deckId,
             deck_name: deckBody.data?.name,
@@ -387,11 +388,13 @@ export default function PresenterPage() {
         if (muBody?.success) setMatchups(muBody.data?.matchups ?? [])
 
         const map = new Map<string, string>()
-        for (const h of (adultBody?.heroes ?? [])) {
+        const adultHeroes = adultBody?.success ? adultBody.data.heroes : []
+        const youngHeroes = youngBody?.success ? youngBody.data.heroes : []
+        for (const h of adultHeroes) {
           const tId = toTalisharIdentifier(h.name)
           if (tId && h.image_url) map.set(tId, h.image_url)
         }
-        for (const h of (youngBody?.heroes ?? [])) {
+        for (const h of youngHeroes) {
           const tId = toTalisharIdentifier(h.name)
           if (tId && h.image_url) map.set(tId, h.image_url)
         }

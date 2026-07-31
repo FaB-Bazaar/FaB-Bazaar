@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/components/ui/use-mobile";
-import { decksClient, bindersClient, wantsClient, searchClient } from "@/lib/client";
+import { decksClient, bindersClient, wantsClient, searchClient, usersClient } from "@/lib/client";
 import { trackDeckImport } from "@/lib/gtag";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -264,10 +264,9 @@ export function useDeckPage(deckId: string) {
   // Fetch Metafy partner status when user is available
   useEffect(() => {
     if (!user?.id) return;
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setIsMetafyPartner(data.user?.metafyPartner === true);
+    usersClient.getAuthMe()
+      .then(res => {
+        if (res.success) setIsMetafyPartner((res.data.user as any)?.metafyPartner === true);
       })
       .catch(() => {});
   }, [user?.id]);
@@ -1240,20 +1239,13 @@ export function useDeckPage(deckId: string) {
 
   const handleToggleForTrade = async (card: DeckPrinting & { category: string }, forTrade: boolean) => {
     try {
-      const response = await fetch('/api/inventory/toggle-for-trade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          printingId: card.printingId,
-          forTrade: forTrade,
-        }),
-      });
+      const res = await bindersClient.toggleForTrade(card.printingId, forTrade);
 
-      if (response.ok) {
-        const data = await response.json();
+      if (res.success) {
+        const { updatedCount } = res.data;
         toast({
           title: forTrade ? "Marked for trade" : "Unmarked for trade",
-          description: `Updated ${data.updatedCount} ${data.updatedCount === 1 ? 'copy' : 'copies'} of ${card.printingDetails?.display_name || card.printingDetails?.name || 'card'}.`,
+          description: `Updated ${updatedCount} ${updatedCount === 1 ? 'copy' : 'copies'} of ${card.printingDetails?.display_name || card.printingDetails?.name || 'card'}.`,
         });
         setOwnershipRefreshKey(prev => prev + 1);
       } else {

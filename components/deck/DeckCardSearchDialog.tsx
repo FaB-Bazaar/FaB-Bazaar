@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { decksClient, searchClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -191,19 +192,9 @@ export default function DeckCardSearchDialog({
         setLoadingOwnership(true);
         const printingIds = cards.map(card => card.printing_id);
 
-        const response = await fetch('/api/decks/ownership-status', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ printingIds })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setOwnershipData(new Map(Object.entries(data.ownership)));
-          }
+        const data = await decksClient.getOwnershipStatus(printingIds);
+        if (data.success) {
+          setOwnershipData(new Map(Object.entries(data.data.ownership)));
         }
       } catch (error) {
         console.error('Failed to fetch ownership status:', error);
@@ -222,23 +213,20 @@ export default function DeckCardSearchDialog({
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams();
-      params.append('cardUniqueId', heroCardUniqueId);
-      params.append('limit', '50');
-      params.append('sortBy', 'name');
-      params.append('sortOrder', 'asc');
-      params.append('show', 'all');
+      const heroFilters: Record<string, any> = {
+        cardUniqueId: heroCardUniqueId,
+        show: 'all',
+      };
 
       // Format legality filtering (server-side)
       if (deckFormat) {
         const formatParam = getApiFormatCode(deckFormat);
         if (formatParam) {
-          params.append('format', formatParam);
+          heroFilters.format = formatParam;
         }
       }
 
-      fetch(`/api/printings/search?${params.toString()}`)
-        .then(res => res.json())
+      searchClient.searchPrintings(heroFilters, { limit: 50, sortBy: 'name', sortOrder: 'asc' })
         .then(data => {
           if (data.success && data.data?.printings) {
             // Format filtering is now done server-side via format parameter
@@ -281,7 +269,7 @@ export default function DeckCardSearchDialog({
             const validCards = Object.values(groupedByCard).filter((card: any) => isCardValidForCategory(card).valid);
             setCards(validCards);
           } else {
-            setError(data.error || "Failed to search cards.");
+            setError((!data.success && data.error) || "Failed to search cards.");
           }
         })
         .catch(() => setError("Failed to search cards."))
@@ -299,41 +287,39 @@ export default function DeckCardSearchDialog({
 
     const filters = parseSearchQuery(debouncedQuery);
 
-    const params = new URLSearchParams();
-    if (filters.name) params.append('name', filters.name);
-    if (filters.text) params.append('text', filters.text);
-    if (filters.types) params.append('types', filters.types.join(','));
-    if (filters.color) params.append('color', filters.color);
-    if (filters.rarities) params.append('rarities', filters.rarities.join(','));
-    if (filters.priceMax) params.append('priceMax', filters.priceMax.toString());
-    if (filters.power) params.append('power', filters.power.toString());
-    if (filters.cost) params.append('cost', filters.cost.toString());
-
-    params.append('limit', '50');
-    params.append('sortBy', 'name');
-    params.append('sortOrder', 'asc');
-    params.append('show', 'all');
+    // Arrays are pre-joined to commas — the API expects `types=a,b`, not
+    // repeated params (which buildQueryParams would otherwise emit).
+    const searchFilters: Record<string, any> = {
+      name: filters.name || undefined,
+      text: filters.text || undefined,
+      types: filters.types ? filters.types.join(',') : undefined,
+      color: filters.color || undefined,
+      rarities: filters.rarities ? filters.rarities.join(',') : undefined,
+      priceMax: filters.priceMax,
+      power: filters.power,
+      cost: filters.cost,
+      show: 'all',
+    };
 
     // When selecting a hero, restrict to hero cards using the boolean flag (avoids array &&  SQL issues)
     if (targetCategory === 'hero') {
-      params.append('isHero', 'true');
+      searchFilters.isHero = 'true';
     }
 
     // Hero-based class/talent filtering (server-side)
     if (heroName && targetCategory !== 'hero') {
-      params.append('heroLegal', heroName);
+      searchFilters.heroLegal = heroName;
     }
 
     // Format legality filtering (server-side)
     if (deckFormat) {
       const formatParam = getApiFormatCode(deckFormat);
       if (formatParam) {
-        params.append('format', formatParam);
+        searchFilters.format = formatParam;
       }
     }
 
-    fetch(`/api/printings/search?${params.toString()}`)
-      .then(res => res.json())
+    searchClient.searchPrintings(searchFilters, { limit: 50, sortBy: 'name', sortOrder: 'asc' })
       .then(data => {
         if (data.success && data.data?.printings) {
           // Format filtering is now done server-side via format parameter
@@ -389,7 +375,7 @@ export default function DeckCardSearchDialog({
 
           setCards(cardsArray);
         } else {
-          setError(data.error || "Failed to search cards. Please try again.");
+          setError((!data.success && data.error) || "Failed to search cards. Please try again.");
         }
       })
       .catch(() => setError("Failed to search cards. Please try again."))

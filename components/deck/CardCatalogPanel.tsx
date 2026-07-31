@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { searchClient } from "@/lib/client"
 import CatalogFiltersBar from "./CatalogFiltersBar"
 import CatalogCardGrid from "./CatalogCardGrid"
 import { Button } from "@/components/ui/button"
@@ -189,17 +190,7 @@ export default function CardCatalogPanel({
 
       console.log('[CardCatalogPanel] Fetching:', JSON.stringify(searchFilters))
 
-      const response = await fetch('/api/printings/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          filters: searchFilters,
-          options: searchOptions
-        })
-      })
-      const data = await response.json()
+      const data = await searchClient.searchPrintingsAdvanced(searchFilters, searchOptions as any)
 
       if (data.success) {
         setCards(data.data.printings || [])

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Loader2, Save, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { readApiResult } from "@/lib/client/safe-json";
+import { decksClient } from "@/lib/client";
 import { collectUniqueCards } from "@/lib/deck/unique-cards";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 
@@ -37,8 +37,7 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/decks/${deckId}/notes`)
-      .then(readApiResult<{ notes?: string; cardNotes?: Record<string, string>; matchupNotes?: Record<string, string> }>)
+    decksClient.getDeckNotes(deckId)
       .then((d) => {
         if (d.success) {
           setNotes(d.data?.notes ?? "");
@@ -52,12 +51,11 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
 
   // Opponents you've actually faced (for the matchup-notes hero list).
   useEffect(() => {
-    fetch(`/api/decks/${deckId}/results?limit=100`)
-      .then(readApiResult<Array<{ opponentHero?: string | null }>>)
+    decksClient.getDeckResults(deckId, { limit: 100 })
       .then((d) => {
-        if (d.success && Array.isArray(d.data)) {
+        if (d.success && Array.isArray(d.data.games)) {
           const set = new Set<string>();
-          for (const g of d.data) if (g?.opponentHero) set.add(g.opponentHero);
+          for (const g of d.data.games) if (g?.opponentHero) set.add(g.opponentHero);
           setFacedHeroes([...set]);
         }
       })
@@ -83,12 +81,7 @@ export default function DeckNotesTab({ deckId, deck }: { deckId: string; deck?: 
     setError(null);
     setSaved(false);
     try {
-      const res = await fetch(`/api/decks/${deckId}/notes`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes, cardNotes, matchupNotes }),
-      });
-      const d = await readApiResult<{ cardNotes?: Record<string, string>; matchupNotes?: Record<string, string> }>(res);
+      const d = await decksClient.saveDeckNotes(deckId, { notes, cardNotes, matchupNotes });
       if (!d.success) throw new Error(d.error ?? "Save failed");
       // reflect server sanitization
       if (d.data?.cardNotes) setCardNotes(d.data.cardNotes);

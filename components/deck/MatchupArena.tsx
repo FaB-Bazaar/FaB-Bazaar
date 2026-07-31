@@ -6,7 +6,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Eye, Loader2, Pencil, Settings2, Swords, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { decksClient } from "@/lib/client";
+import { decksClient, heroesClient } from "@/lib/client";
 import type { DeckDTO } from "@/lib/services/contracts/IDeckService";
 import type { HeroFormat, HeroLegalityRow } from "@/lib/services/contracts/IPrintingsService";
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
@@ -129,12 +129,11 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
     const formatParam =
       deck.format === "Silver Age" || deck.format === "Blitz" ? "young" : "adult";
     let cancelled = false;
-    fetch(`/api/hero-printings?format=${formatParam}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data?.heroes) return;
+    heroesClient.getHeroPrintings(formatParam)
+      .then((res) => {
+        if (cancelled || !res.success) return;
         const map = new Map<string, string>();
-        for (const h of data.heroes) {
+        for (const h of res.data.heroes) {
           const tId = toTalisharIdentifier(h.name);
           if (tId && h.image_url) map.set(tId, h.image_url);
         }
@@ -153,9 +152,7 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
     setLoading(true);
     Promise.all([
       decksClient.getDeck(deckId),
-      fetch(`/api/decks/${deckId}/matchups`, { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null),
+      decksClient.getDeckMatchups(deckId).catch(() => null),
     ])
       .then(([deckRes, matchupsRes]) => {
         if (cancelled) return;
@@ -192,11 +189,10 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
       return;
     }
     let cancelled = false;
-    fetch(`/api/decks/${deckId}/results?limit=100`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
+    decksClient.getDeckResults(deckId, { limit: 100 })
       .then((data) => {
-        if (cancelled || !data?.success) return;
-        setResults(Array.isArray(data.data) ? data.data : []);
+        if (cancelled || !data.success) return;
+        setResults(Array.isArray(data.data.games) ? data.data.games : []);
       })
       .catch(() => {});
     return () => {
@@ -210,12 +206,10 @@ export default function MatchupArena({ deckId }: MatchupArenaProps) {
   useEffect(() => {
     if (!deck?.format) return;
     const code = formatLabelToCode(deck.format);
-    const url = code ? `/api/heroes?format=${code}` : `/api/heroes`;
     let cancelled = false;
-    fetch(url)
-      .then((r) => (r.ok ? r.json() : null))
+    heroesClient.getHeroes(code || undefined)
       .then((payload) => {
-        if (cancelled || !payload?.success) return;
+        if (cancelled || !payload.success) return;
         setHeroRows(payload.data as HeroLegalityRow[]);
       })
       .catch(() => {});

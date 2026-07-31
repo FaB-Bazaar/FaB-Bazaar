@@ -819,3 +819,40 @@ export async function searchCollectionCards(query: string): Promise<ApiResponse<
     return handleError(error);
   }
 }
+
+// ====================================
+// Inventory trade status
+// ====================================
+
+/**
+ * Mark every owned copy of a printing for-trade / not-for-trade.
+ *
+ * The route returns `updatedCount` at the TOP LEVEL of the body (no `data`
+ * key), so this repackages the body instead of using handleResponse.
+ */
+export async function toggleForTrade(
+  printingId: string,
+  forTrade: boolean
+): Promise<ApiResponse<{ updatedCount: number; message?: string }>> {
+  try {
+    const response = await fetch('/api/inventory/toggle-for-trade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ printingId, forTrade }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || !body?.success) {
+      return {
+        success: false,
+        error: body?.error || `HTTP ${response.status}: ${response.statusText}`,
+        code: body?.code || `HTTP_${response.status}`,
+      };
+    }
+    return {
+      success: true,
+      data: { updatedCount: body.updatedCount ?? 0, message: body.message },
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}

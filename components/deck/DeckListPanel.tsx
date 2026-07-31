@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { decksClient } from "@/lib/client"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,7 +10,6 @@ import { getSetName, getFoilingName, getEditionName } from "@/lib/fab-formatters
 import { Plus, Minus, X, ChevronDown, ChevronUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog"
-import { decksClient } from "@/lib/client"
 
 interface DeckListPanelProps {
   deckId: string
@@ -158,19 +158,10 @@ export default function DeckListPanel({
     }
 
     try {
-      const response = await fetch(`/api/decks/${deckId}/printings/remove`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          printingId,
-          category,
-          quantity
-        })
-      })
+      const res = await decksClient.removePrinting(deckId, printingId, category as any, quantity)
+      const data: any = res.success ? res.data : res
 
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
+      if (!res.success) {
         // Revert optimistic update on error
         if (setDeck) {
           await onDeckUpdate()

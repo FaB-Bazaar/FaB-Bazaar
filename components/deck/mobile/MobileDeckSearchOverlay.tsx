@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { decksClient, searchClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -103,35 +104,33 @@ export default function MobileDeckSearchOverlay({
     }
 
     setLoading(true);
-    const params = new URLSearchParams();
-    params.append("name", debouncedQuery);
-    params.append("limit", "50");
-    params.append("sortBy", "name");
-    params.append("sortOrder", "asc");
-    params.append("show", "all");
+    const searchFilters: Record<string, any> = {
+      name: debouncedQuery,
+      show: "all",
+    };
 
     // Hero-legal filtering: only show cards legal for this hero's class/talent
     if (heroName && activeCategory !== "hero") {
-      params.append("heroLegal", heroName);
+      searchFilters.heroLegal = heroName;
     }
 
     // Format legality filtering (server-side)
     if (deckFormat) {
       const formatParam = getApiFormatCode(deckFormat);
       if (formatParam) {
-        params.append('format', formatParam);
+        searchFilters.format = formatParam;
       }
     }
 
-    // Category-based type filtering
+    // Category-based type filtering (comma-joined — the API expects
+    // `types=a,b`, not repeated params)
     if (activeCategory === "hero") {
-      params.append("types", "hero");
+      searchFilters.types = "hero";
     } else if (activeCategory === "equipment") {
-      params.append("types", "equipment,weapon");
+      searchFilters.types = "equipment,weapon";
     }
 
-    fetch(`/api/printings/search?${params.toString()}`)
-      .then((res) => res.json())
+    searchClient.searchPrintings(searchFilters, { limit: 50, sortBy: "name", sortOrder: "asc" })
       .then((data) => {
         if (data.success && data.data?.printings) {
           const grouped = data.data.printings.reduce(
@@ -197,15 +196,10 @@ export default function MobileDeckSearchOverlay({
       c.printings.map((p: any) => p.printing_id)
     );
 
-    fetch("/api/decks/ownership-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ printingIds }),
-    })
-      .then((res) => res.json())
+    decksClient.getOwnershipStatus(printingIds)
       .then((data) => {
         if (data.success) {
-          setOwnershipData(new Map(Object.entries(data.ownership)));
+          setOwnershipData(new Map(Object.entries(data.data.ownership)));
         }
       })
       .catch(() => {});

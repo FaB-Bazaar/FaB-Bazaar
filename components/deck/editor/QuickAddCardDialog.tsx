@@ -23,6 +23,7 @@ import {
   fetchPrintingsForCard,
   getAvailableChipsFromPool,
 } from "@/lib/client/hero-pool-cache";
+import { searchClient } from "@/lib/client";
 import type { HeroPoolFilters } from "@/lib/services/contracts/IPrintingsService";
 import {
   TYPE_CHIPS as SHARED_TYPE_CHIPS,
@@ -869,15 +870,25 @@ export default function QuickAddCardDialog({
       if (code) params.set("format", code);
     }
 
-    fetch(`/api/printings/search?${params}`, { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { success?: boolean; data?: { printings?: PrintingResult[] } }) => {
+    const {
+      limit: qLimit,
+      sortBy: qSortBy,
+      sortOrder: qSortOrder,
+      ...qFilters
+    } = Object.fromEntries(params) as Record<string, string>;
+    searchClient.searchPrintings(qFilters, {
+      limit: Number(qLimit),
+      sortBy: qSortBy as any,
+      sortOrder: qSortOrder as any,
+      signal: controller.signal,
+    })
+      .then((data) => {
         if (cancelled) return;
         if (data.success && data.data?.printings) {
           // Collapse to one row per card. Grouped responses carry printing_count
           // → __printingsCount (full list lazy-loaded on click); flat swap-mode
           // responses keep every printing inline.
-          setCards(groupSearchPrintingsToCards(data.data.printings));
+          setCards(groupSearchPrintingsToCards(data.data.printings as any));
         } else {
           setError("Search failed. Please try again.");
         }

@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Trash2, Save, X, Swords, ArrowRightLeft, ChevronDown, ChevronUp, Settings2, Bookmark, Copy, Pencil, MoreVertical, Loader2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { decksClient } from "@/lib/client";
 import { HERO_INFO, YOUNG_HERO_INFO } from '@/lib/fab-constants';
 import { toTalisharIdentifier } from "@/lib/utils";
 import { useExcludedHeroIds } from '@/hooks/banned-cards/useExcludedHeroIds';
@@ -391,18 +392,13 @@ export default function DeckMatchupsDialog({
   const fetchMatchups = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/decks/${deckId}/matchups`, {
-        credentials: 'include',
-      });
+      const data = await decksClient.getDeckMatchups(deckId);
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch matchups');
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch matchups');
       }
 
-      const data = await response.json();
-      if (data.success) {
-        setMatchups(data.data.matchups || []);
-      }
+      setMatchups(data.data.matchups || []);
     } catch (error) {
       console.error('Error fetching matchups:', error);
       toast({
@@ -659,21 +655,13 @@ export default function DeckMatchupsDialog({
     setLoading(true);
     try {
       const isEditing = editingHeroId !== null;
-      const url = isEditing
-        ? `/api/decks/${deckId}/matchups/${editingHeroId}`
-        : `/api/decks/${deckId}/matchups`;
-      const method = isEditing ? 'PUT' : 'POST';
+      const data = await decksClient.saveDeckMatchup(
+        deckId,
+        matchupData,
+        isEditing ? editingHeroId : undefined
+      );
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ matchup: matchupData }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to save matchup');
       }
 
@@ -700,14 +688,9 @@ export default function DeckMatchupsDialog({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/decks/${deckId}/matchups/${heroId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const data = await decksClient.deleteDeckMatchup(deckId, heroId);
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to delete matchup');
       }
 
@@ -733,14 +716,8 @@ export default function DeckMatchupsDialog({
     setLoading(true);
     try {
       const newMatchup = buildCopiedMatchup(copySource, copyTargetHeroId);
-      const response = await fetch(`/api/decks/${deckId}/matchups`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ matchup: newMatchup }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
+      const data = await decksClient.saveDeckMatchup(deckId, newMatchup);
+      if (!data.success) {
         throw new Error(data.error || 'Failed to copy matchup');
       }
       toast({

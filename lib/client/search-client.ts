@@ -36,20 +36,74 @@ import type {
  * );
  * ```
  */
+/**
+ * Client-side extension of the server options: `signal` lets callers abort
+ * an in-flight search (e.g. on keystroke) and is never sent to the API.
+ */
+export type ClientSearchOptions = PrintingsSearchOptions & { signal?: AbortSignal };
+
 export async function searchPrintings(
   filters: PrintingsSearchFilters = {},
-  options: PrintingsSearchOptions = {}
+  options: ClientSearchOptions = {}
 ): Promise<ApiResponse<PrintingsSearchResult>> {
   try {
+    const { signal, ...apiOptions } = options;
     const params = buildQueryParams({
-      page: options.page || 1,
-      limit: options.limit || 48,
-      sortBy: options.sortBy || 'name',
-      sortOrder: options.sortOrder || 'asc',
+      page: apiOptions.page || 1,
+      limit: apiOptions.limit || 48,
+      sortBy: apiOptions.sortBy || 'name',
+      sortOrder: apiOptions.sortOrder || 'asc',
       ...filters,
     });
 
-    const response = await fetch(`/api/printings/search?${params.toString()}`);
+    const response = await fetch(
+      `/api/printings/search?${params.toString()}`,
+      signal ? { signal } : undefined
+    );
+    return await handleResponse<PrintingsSearchResult>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Structured search via POST — { filters, options } as the JSON body.
+ *
+ * Same route as searchPrintings but the POST body form supports nested
+ * filter values the query string can't express. NOTE: limit/sortBy/sortOrder
+ * must live under `options` — at the top level the route silently ignores
+ * them (see the /api/search/core gotcha in CLAUDE.md; same body convention).
+ */
+export async function searchPrintingsAdvanced(
+  filters: Record<string, any>,
+  options: PrintingsSearchOptions = {}
+): Promise<ApiResponse<PrintingsSearchResult>> {
+  try {
+    const response = await fetch('/api/printings/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filters, options }),
+    });
+    return await handleResponse<PrintingsSearchResult>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * All printings of one card via the core search endpoint.
+ *
+ * The comparison dialogs use this to show every printing of a card the user
+ * is inspecting (typically limit 100).
+ */
+export async function searchCoreByCard(
+  cardUniqueId: string,
+  limit = 100
+): Promise<ApiResponse<PrintingsSearchResult>> {
+  try {
+    const response = await fetch(
+      `/api/search/core?cardUniqueId=${encodeURIComponent(cardUniqueId)}&limit=${limit}`
+    );
     return await handleResponse<PrintingsSearchResult>(response);
   } catch (error) {
     return handleError(error);

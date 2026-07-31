@@ -8,6 +8,7 @@ import type {
   GameResultDetailDTO,
 } from "@/lib/services/postgres/gameResults/PostgresGameResultsService";
 import type { DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
+import { decksClient } from "@/lib/client";
 import GameDeepDive from "./GameDeepDive";
 
 interface CardResult {
@@ -605,8 +606,7 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
     setCollapsedSections(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
   const handleDeleteGame = async (resultId: string) => {
-    const res = await fetch(`/api/decks/${deckId}/results/${resultId}`, { method: 'DELETE' });
-    const data = await res.json();
+    const data = await decksClient.deleteDeckResult(deckId, resultId);
     if (!data.success) throw new Error(data.error ?? 'Failed to delete game');
     setResults(prev => prev.filter(r => r.id !== resultId));
     setTotal(prev => prev - 1);
@@ -707,10 +707,9 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
   }, [filteredResults]);
 
   useEffect(() => {
-    fetch(`/api/decks/${deckId}/results?limit=20&offset=0`)
-      .then(r => r.json())
+    decksClient.getDeckResults(deckId, { limit: 20, offset: 0 })
       .then(data => {
-        if (data.success) { setResults(data.data); setTotal(data.total ?? data.data.length); }
+        if (data.success) { setResults(data.data.games); setTotal(data.data.total ?? data.data.games.length); }
         else setError(data.error);
       })
       .catch(() => setError("Failed to load results"))
@@ -719,9 +718,8 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
 
   const loadMore = () => {
     setLoadingMore(true);
-    fetch(`/api/decks/${deckId}/results?limit=20&offset=${results.length}`)
-      .then(r => r.json())
-      .then(data => { if (data.success) setResults(prev => [...prev, ...data.data]); })
+    decksClient.getDeckResults(deckId, { limit: 20, offset: results.length })
+      .then(data => { if (data.success) setResults(prev => [...prev, ...data.data.games]); })
       .catch(() => {})
       .finally(() => setLoadingMore(false));
   };
@@ -734,11 +732,11 @@ export default function DeckResultsTab({ deckId, deck }: Props) {
     if (detailById.has(expandedGameId)) return;
     if (inFlightDetail.current.has(expandedGameId)) return;
     inFlightDetail.current.add(expandedGameId);
-    fetch(`/api/decks/${deckId}/results/${expandedGameId}`)
-      .then(r => r.json())
-      .then((response: { success: boolean; data?: GameResultDetailDTO }) => {
+    decksClient.getDeckResult(deckId, expandedGameId)
+      .then((response) => {
         if (response.success && response.data) {
-          setDetailById(prev => new Map(prev).set(response.data!.id, response.data!));
+          const detail = response.data as GameResultDetailDTO;
+          setDetailById(prev => new Map(prev).set(detail.id, detail));
         }
       })
       .catch(() => {})

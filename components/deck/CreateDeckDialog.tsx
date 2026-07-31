@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { heroesClient } from "@/lib/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,10 +86,9 @@ export default function CreateDeckDialog({
   useEffect(() => {
     if (!open || heroes.length > 0) return;
     let cancelled = false;
-    fetch('/api/heroes')
-      .then(r => (r.ok ? r.json() : null))
+    heroesClient.getHeroes()
       .then(payload => {
-        if (cancelled || !payload?.success) return;
+        if (cancelled || !payload.success) return;
         setHeroes(payload.data as HeroLegalityRow[]);
       })
       .catch(() => {});

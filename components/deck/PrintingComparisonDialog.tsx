@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { searchClient } from "@/lib/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -71,18 +72,7 @@ export default function PrintingComparisonDialog({
         console.log('[PrintingComparisonDialog] Fetching alternatives for cardUniqueId:', cardUniqueId)
 
         // Fetch ALL printings for this card using the core search API
-        const response = await fetch(`/api/search/core?cardUniqueId=${encodeURIComponent(cardUniqueId)}&limit=100`)
-        console.log('[PrintingComparisonDialog] Response status:', response.status)
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('[PrintingComparisonDialog] Response not OK:', response.status, errorText)
-          setAlternatives([])
-          return
-        }
-
-        const data = await response.json()
-        console.log('[PrintingComparisonDialog] Response data:', data)
+        const data = await searchClient.searchCoreByCard(cardUniqueId, 100)
 
         if (!data.success || !data.data?.printings) {
           console.log('[PrintingComparisonDialog] No printings found in response data:', data)

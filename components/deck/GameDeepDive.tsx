@@ -15,6 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { decksClient } from "@/lib/client";
 import type { GameAnalysis, PlayerAnalysis, ReplayAction } from "@/lib/talishar/analyzeGame";
 
 interface Props {
@@ -302,12 +303,11 @@ export default function GameDeepDive({ deckId, resultId, playerHeroName, opponen
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/decks/${deckId}/results/${resultId}/raw`)
-      .then((r) => r.json())
-      .then((res: { success: boolean; data: GameAnalysis | null }) => {
+    decksClient.getDeckResultRaw(deckId, resultId)
+      .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) {
-          setAnalysis(res.data);
+          setAnalysis(res.data as GameAnalysis);
           setState("ready");
         } else {
           setState("empty");
