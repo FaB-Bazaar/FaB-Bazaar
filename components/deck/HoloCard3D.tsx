@@ -140,9 +140,9 @@ interface HoloEngine {
     uInsetRound: { value: number }
   }
   mesh: Mesh
-  // Tilt/glare target driven by GSAP; the rAF loop blends in idle wander.
-  // sweepX/sweepY/sweepBoost carry the entrance light-sweep — they offset the
-  // shader's light only, never the mesh tilt.
+  // Tilt/glare target driven by GSAP — pointer hover only; the card is static
+  // at rest. sweepX/sweepY/sweepBoost carry the entrance light-sweep — they
+  // offset the shader's light only, never the mesh tilt.
   pt: { x: number; y: number; hover: number; sweepX: number; sweepY: number; sweepBoost: number }
   reducedMotion: boolean
   // src whose texture currently lives in uMap — lets a re-open of the same
@@ -269,7 +269,7 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
       return
     }
     engineRef.current = eng
-    const { renderer, camera, scene, uniforms, mesh, pt, reducedMotion } = eng
+    const { renderer, camera, scene, uniforms, mesh, pt } = eng
     wrap.appendChild(renderer.domElement)
 
     // quickTo tweens are recreated per mount (cheap) — cleanup kills every
@@ -310,21 +310,16 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
     el.addEventListener("pointercancel", release)
 
     let raf = 0
-    const start = performance.now()
     const loop = () => {
       raf = requestAnimationFrame(loop)
-      const t = (performance.now() - start) / 1000
-      // Idle wander keeps the foil alive when nobody is hovering.
-      const idle = reducedMotion ? 0 : 1 - Math.min(1, pt.hover)
-      const px = pt.x + Math.sin(t * 0.6) * 0.55 * idle
-      const py = pt.y + Math.sin(t * 0.45 + 1.7) * 0.45 * idle
-      // The entrance sweep offsets the light position only — the tilt below
-      // stays on px/py so the card doesn't lurch when the sweep plays.
-      uniforms.uPointer.value.set(px + pt.sweepX, py + pt.sweepY)
+      // The card is static at rest — pt.x/pt.y (and thus tilt) move only while
+      // the pointer is over it. The entrance sweep offsets the light position
+      // only, so it never rotates the card either.
+      uniforms.uPointer.value.set(pt.x + pt.sweepX, pt.y + pt.sweepY)
       const boost = Math.max(pt.hover, pt.sweepBoost)
       uniforms.uHover.value = boost
-      mesh.rotation.y = px * 0.42
-      mesh.rotation.x = -py * 0.32
+      mesh.rotation.y = pt.x * 0.42
+      mesh.rotation.x = -pt.y * 0.32
       const s = 1 + boost * 0.03
       mesh.scale.set(s, s, 1)
       renderer.render(scene, camera)
