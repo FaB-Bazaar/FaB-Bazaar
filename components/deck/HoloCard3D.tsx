@@ -9,9 +9,9 @@
 //     inset region (DB foil_inset_* values, artStyle-derived fallback)
 //   - Cold Foil ('C'): cool teal/blue gratings across the FULL card
 //   - anything else: glossy tilt + neutral glare, no iridescence
-// GSAP smooths the tilt and plays a light-sweep entrance on card change. The
-// sweep drives only the shader's light position, never the mesh tilt, so the
-// card fades in level instead of snapping to a rotation.
+// The card is static and effect-free at rest — it renders the plain texture
+// exactly (so the reveal over the fallback <img> is invisible) and only tilts
+// and lights up while the pointer is over it, with GSAP smoothing the motion.
 // A plain <img> always renders underneath, so if WebGL or the cross-origin
 // texture load fails the card still displays.
 //
@@ -51,7 +51,7 @@ const FRAG = /* glsl */ `
   precision highp float;
   uniform sampler2D uMap;
   uniform vec2 uPointer;     // -1..1, y up
-  uniform float uHover;      // 0 = idle shimmer, 1 = full foil
+  uniform float uHover;      // 0 = flat (matches the plain img), 1 = full foil
   uniform float uFoilType;   // 0 none, 1 rainbow, 2 cold
   uniform vec4 uInset;       // rainbow foil region: top, right, bottom, left (0..1)
   uniform float uInsetRound; // foil region corner radius, card-mm space
@@ -79,7 +79,9 @@ const FRAG = /* glsl */ `
     // Light spotlight around the pointer (shared by all foil types).
     float dGlare = distance(vUv, pUv);
     float spotlight = exp(-dGlare * dGlare * 6.0);
-    float strength = 0.30 + 0.70 * uHover;
+    // Zero at rest: the un-hovered card must render the texture EXACTLY, so
+    // the fade-in from the plain <img> underneath is invisible.
+    float strength = uHover;
 
     if (uFoilType > 1.5) {
       // ── Cold foil: cool teal/blue crossing gratings, full card ──
@@ -120,7 +122,7 @@ const FRAG = /* glsl */ `
       color += vec3(1.0) * spotlight * 0.18 * strength;
     } else {
       // ── Non-foil: glossy card, neutral glare only ──
-      color += vec3(1.0) * spotlight * 0.15 * (0.2 + 0.8 * uHover);
+      color += vec3(1.0) * spotlight * 0.15 * uHover;
     }
 
     gl_FragColor = vec4(color, mask);
@@ -141,10 +143,8 @@ interface HoloEngine {
   }
   mesh: Mesh
   // Tilt/glare target driven by GSAP — pointer hover only; the card is static
-  // at rest. sweepX/sweepY/sweepBoost carry the entrance light-sweep — they
-  // offset the shader's light only, never the mesh tilt.
-  pt: { x: number; y: number; hover: number; sweepX: number; sweepY: number; sweepBoost: number }
-  reducedMotion: boolean
+  // and effect-free at rest.
+  pt: { x: number; y: number; hover: number }
   // src whose texture currently lives in uMap — lets a re-open of the same
   // card skip the TextureLoader round-trip.
   currentSrc: string | null
@@ -190,8 +190,7 @@ function getEngine(): HoloEngine | null {
     scene,
     uniforms,
     mesh,
-    pt: { x: 0, y: 0, hover: 0, sweepX: 0, sweepY: 0, sweepBoost: 0 },
-    reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    pt: { x: 0, y: 0, hover: 0 },
     currentSrc: null,
   }
   return engine
@@ -206,17 +205,6 @@ export function warmHoloCard(): void {
   if (!eng || eng.renderer.domElement.isConnected) return
   eng.renderer.setSize(8, 8, false)
   eng.renderer.render(eng.scene, eng.camera)
-}
-
-// Entrance light-sweep. Only the sweep fields move, so the light crosses the
-// card while the card itself stays level.
-function playSweep(eng: HoloEngine): void {
-  if (eng.reducedMotion) return
-  gsap.fromTo(
-    eng.pt,
-    { sweepX: -1.6, sweepY: 0.35, sweepBoost: 1 },
-    { sweepX: 0, sweepY: 0, sweepBoost: 0, duration: 1.2, ease: "power2.out", overwrite: "auto" }
-  )
 }
 
 /** Foil region corner radius ("1.5%", "8px", null) → card-mm space. */
@@ -312,15 +300,13 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
     let raf = 0
     const loop = () => {
       raf = requestAnimationFrame(loop)
-      // The card is static at rest — pt.x/pt.y (and thus tilt) move only while
-      // the pointer is over it. The entrance sweep offsets the light position
-      // only, so it never rotates the card either.
-      uniforms.uPointer.value.set(pt.x + pt.sweepX, pt.y + pt.sweepY)
-      const boost = Math.max(pt.hover, pt.sweepBoost)
-      uniforms.uHover.value = boost
+      // The card is static and effect-free at rest — tilt and foil intensity
+      // (pt.x/pt.y/pt.hover) move only while the pointer is over it.
+      uniforms.uPointer.value.set(pt.x, pt.y)
+      uniforms.uHover.value = pt.hover
       mesh.rotation.y = pt.x * 0.42
       mesh.rotation.x = -pt.y * 0.32
-      const s = 1 + boost * 0.03
+      const s = 1 + pt.hover * 0.03
       mesh.scale.set(s, s, 1)
       renderer.render(scene, camera)
     }
@@ -335,7 +321,7 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
       el.removeEventListener("pointerup", release)
       el.removeEventListener("pointercancel", release)
       gsap.killTweensOf(pt)
-      pt.x = pt.y = pt.hover = pt.sweepX = pt.sweepY = pt.sweepBoost = 0
+      pt.x = pt.y = pt.hover = 0
       wrap.removeChild(renderer.domElement)
       engineRef.current = null
       // Renderer/scene/shader/texture intentionally NOT disposed — the
@@ -360,7 +346,6 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
     const eng = engineRef.current
     if (eng && eng.currentSrc === src && eng.uniforms.uMap.value) {
       setReady(true)
-      playSweep(eng)
       return
     }
     setFailed(false)
@@ -378,7 +363,6 @@ export default function HoloCard3D({ src, alt, className = "", foiling, artStyle
         s.uniforms.uMap.value = tex
         s.currentSrc = src
         setReady(true)
-        playSweep(s)
       },
       undefined,
       () => {
