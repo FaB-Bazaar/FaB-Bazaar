@@ -356,8 +356,10 @@ export default function CardZoneExpanded({
                           )}
                         </div>
 
-                        {/* For Trade toggle - only show if user owns this card */}
-                        {onToggleForTrade && ownership && ownership.owned > 0 && (
+                        {/* For Trade toggle — only when owned AND the endpoint
+                            reported trade state (forTrade === undefined means
+                            "unknown", so rendering the switch would misreport) */}
+                        {onToggleForTrade && ownership && ownership.owned > 0 && ownership.forTrade !== undefined && (
                           <div className="flex items-center gap-2 px-2 pt-1">
                             <div className={cn(
                               "flex items-center gap-2 rounded-full px-3 py-1.5",

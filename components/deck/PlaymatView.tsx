@@ -26,6 +26,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import CardZoneExpanded from "./CardZoneExpanded";
+import { decksClient } from "@/lib/client";
+import { buildOwnershipMap } from "@/lib/deck/ownership-map";
 
 interface DeckPrinting {
   _id?: string;
@@ -445,64 +447,9 @@ export default function PlaymatView({
       if (!deck._id) return;
 
       try {
-        const response = await fetch(`/api/decks/${deck._id}/inventory-comparison?binderMode=all`);
-        if (!response.ok) return;
-
-        const data = await response.json();
-        if (!data.success || !data.comparison) return;
-
-        console.log('[PlaymatView] Ownership comparison data:', data.comparison);
-
-        // Transform comparison data into Map<printingId, {owned, needed, alternative, forTrade, inventoryItemIds, binderSlugs, binderNames, binderIds}>
-        const ownershipMap = new Map<string, { owned: number; needed: number; alternative?: number; forTrade?: boolean; inventoryItemIds?: string[]; binderSlugs?: string[]; binderNames?: string[]; binderIds?: string[] }>();
-
-        // Process owned cards (exact matches with full quantity)
-        data.comparison.owned?.forEach((card: any) => {
-          console.log('[PlaymatView] Owned card:', card);
-          ownershipMap.set(card.printingId, {
-            owned: card.ownedQuantity || card.exactOwned || 0,
-            needed: card.neededQuantity,
-            alternative: card.alternativeOwned || 0,
-            forTrade: card.forTrade || false,
-            inventoryItemIds: card.inventoryItemIds || [],
-            binderSlugs: card.binderSlugs || [],
-            binderNames: card.binderNames || [],
-            binderIds: card.binderIds || []
-          });
-        });
-
-        // Process partial cards (some exact matches or only alternative printings)
-        data.comparison.partial?.forEach((card: any) => {
-          console.log('[PlaymatView] Partial card:', card);
-          ownershipMap.set(card.printingId, {
-            owned: card.ownedQuantity || card.exactOwned || 0,
-            needed: card.neededQuantity,
-            alternative: card.alternativeOwned || 0,
-            forTrade: card.forTrade || false,
-            inventoryItemIds: card.inventoryItemIds || [],
-            binderSlugs: card.binderSlugs || [],
-            binderNames: card.binderNames || [],
-            binderIds: card.binderIds || []
-          });
-        });
-
-        // Process missing cards (no exact matches, but may have alternatives)
-        data.comparison.missing?.forEach((card: any) => {
-          console.log('[PlaymatView] Missing card:', card);
-          ownershipMap.set(card.printingId, {
-            owned: 0,
-            needed: card.neededQuantity,
-            alternative: card.alternativeOwned || 0,
-            forTrade: false,
-            inventoryItemIds: [],
-            binderSlugs: [],
-            binderNames: [],
-            binderIds: []
-          });
-        });
-
-        console.log('[PlaymatView] Final ownership map:', Array.from(ownershipMap.entries()));
-        setOwnershipStatus(ownershipMap);
+        const result = await decksClient.getInventoryComparison(deck._id, { binderMode: 'all' });
+        if (!result.success) return;
+        setOwnershipStatus(buildOwnershipMap(result.data));
       } catch (error) {
         console.error('[PlaymatView] Failed to fetch ownership data:', error);
         // Don't show error to user, just silently fail
