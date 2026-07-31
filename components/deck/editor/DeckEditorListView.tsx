@@ -3,7 +3,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import HighlightFiltersPopover, { type HighlightFilter as HF } from "./HighlightFiltersPopover";
 import WebcamGameDialog from "./WebcamGameDialog";
-import { RarityIcon } from "@/components/shared/RarityIcon";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -215,8 +214,11 @@ interface GroupedCardRowProps {
   /** Open the full-card lightbox (tap the thumbnail / "View card" in the sheet). */
   onEnlarge?: (url: string, name: string, otherFaceUrl?: string) => void;
   isTouchDevice: boolean;
-  /** 'lane' is the phone row (rail · qty · name · cost · pip · owned); 'table' is the desktop columns. */
-  variant?: 'lane' | 'table';
+  /** 'lane' is the phone row (rail · qty · name · cost · pip · owned); 'column'
+      is the desktop multi-column row (same scan line, but the cost chip carries
+      the resource symbol, the redundant pip is dropped, partial ownership reads
+      as explicit "n/m", and an expand caret opens the printings drawer). */
+  variant: 'lane' | 'column';
 }
 
 function GroupedCardRow({
@@ -231,9 +233,9 @@ function GroupedCardRow({
   onClearImage,
   onEnlarge,
   isTouchDevice,
-  variant = 'table',
+  variant,
 }: GroupedCardRowProps) {
-  const isLane = variant === 'lane';
+  const isColumn = variant === 'column';
   const [expanded, setExpanded] = useState(false);
   // Touch devices have no hover, so the per-printing action buttons are
   // unreachable there. Tapping the row opens this sheet instead (mirrors tiles).
@@ -247,8 +249,6 @@ function GroupedCardRow({
 
   // Card-level data (identical across all printings of the same card)
   const summary = getCardSummary(group.printings[0]?.printingDetails);
-  const fmt = (v: number | null) => (v == null ? '—' : String(v));
-  const pdLabel = summary.power == null && summary.defense == null ? '—' : `${fmt(summary.power)} / ${fmt(summary.defense)}`;
 
   const buildMoveButtons = (pr: DeckPrintingDTO) => {
     if (!onMove) return null;
@@ -289,26 +289,27 @@ function GroupedCardRow({
 
   return (
     <div className="border-b border-gray-100 dark:border-gray-800 last:border-0">
-      {/* Group header — data-dense row.
-          Stats hug the name on the left; Keywords absorb the remaining row width as flex-1. */}
+      {/* Group header — a fixed 38px scan line: rail · qty · name · cost · owned. */}
       <div
         data-testid="deck-list-row"
         className={cn(
-          "flex items-center max-w-[1300px] hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
-          // Lane row (phones): a fixed 38px scan line — rail · qty · name · cost · pip · owned.
-          // Table row (sm+): the data-dense columns.
-          isLane ? "gap-2 h-[38px] px-3" : "gap-3 py-1.5 px-3",
-          isTouchDevice && category !== 'hero' && "cursor-pointer",
+          "flex items-center gap-2 h-[38px] px-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 group",
+          ((isTouchDevice && category !== 'hero') || (isColumn && !isTouchDevice)) && "cursor-pointer",
         )}
-        onClick={isTouchDevice && category !== 'hero' ? () => setSheetOpen(true) : undefined}
+        onClick={
+          isTouchDevice
+            ? (category !== 'hero' ? () => setSheetOpen(true) : undefined)
+            // Desktop column rows: the whole row is a convenience toggle for the
+            // printings drawer (the caret button is the accessible affordance).
+            : isColumn ? () => setExpanded(v => !v) : undefined
+        }
         onMouseEnter={isTouchDevice ? undefined : () => {
           if (!group.imageUrl) return;
           onHoverImage(group.imageUrl, group.displayName, { ...extrasFromPrintingDetails(group.printings[0]?.printingDetails), printingId: group.printings[0]?.printingId });
         }}
         onMouseLeave={isTouchDevice ? undefined : onClearImage}
       >
-        {isLane ? (
-          <>
+        <>
             {/* Pitch rail — load-bearing under type lanes, where the same card name
                 appears once per pitch (three Hyper Drivers in Actions). */}
             <span
@@ -320,108 +321,50 @@ function GroupedCardRow({
             <span className="flex-1 min-w-0 text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>
               {group.displayName}
             </span>
-            {/* Blank (not "—") when the card prints no cost, as in the reference row. */}
+            {/* Blank (not "—") when the card prints no cost, as in the reference row.
+                Column rows carry the resource symbol so the number reads as a cost. */}
             {summary.cost != null && (
               <span
                 data-testid="lane-row-cost"
-                className="flex-shrink-0 min-w-[22px] text-center rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-[11px] tabular-nums text-gray-600 dark:text-gray-300"
+                title="Resource cost"
+                aria-label={`Costs ${summary.cost}`}
+                className="flex-shrink-0 min-w-[22px] flex items-center justify-center gap-0.5 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-[11px] tabular-nums text-gray-600 dark:text-gray-300"
               >
                 {summary.cost}
+                {isColumn && <img src="/fab/symbols/resource.png" alt="" aria-hidden="true" className="w-3 h-3 object-contain" />}
               </span>
             )}
-            <span
-              data-testid="lane-row-pip"
-              className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)}
-              aria-hidden="true"
-            />
-            <span className="w-4 text-center flex-shrink-0" data-testid="list-row-own">
+            {/* Pitch pip — phone lanes only. Column rows already say pitch twice
+                (left rail + section header), a third glyph was pure noise. */}
+            {!isColumn && (
+              <span
+                data-testid="lane-row-pip"
+                className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)}
+                aria-hidden="true"
+              />
+            )}
+            <span className={cn("text-center flex-shrink-0", isColumn ? "min-w-[28px]" : "w-4")} data-testid="list-row-own">
               {ownership === 'full' && <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90" title="Owned">✓</span>}
-              {ownership === 'partial' && <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>}
+              {ownership === 'partial' && (
+                isColumn
+                  ? <span className="text-xs tabular-nums text-amber-700 dark:text-amber-300/90" title="Copies owned / needed">{totalOwned}/{group.totalQty}</span>
+                  : <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>
+              )}
             </span>
-          </>
-        ) : (
-        <>
-        {/* Thumbnail — tap/click opens the full-card lightbox so it can be read. */}
-        <button
-          type="button"
-          className="w-7 h-10 flex-shrink-0 rounded overflow-hidden border border-gray-300 dark:border-gray-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          title="View card"
-          aria-label={`View ${group.displayName}`}
-          onClick={onEnlarge && group.imageUrl
-            ? (e) => { e.stopPropagation(); onEnlarge(group.imageUrl!, group.displayName, group.printings[0]?.printingDetails?.other_face_image_url as string | undefined); }
-            : undefined}
-        >
-          <img
-            src={group.imageUrl || "/cardback.webp"}
-            alt={group.displayName}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </button>
-
-        {/* Pitch dot */}
-        <span className={cn("w-2 h-2 rounded-full flex-shrink-0", pitchClass)} aria-hidden="true" />
-
-        {/* Name + class as a stacked block; class is the secondary line.
-            Fixed 256px, letting Keywords take flex-1. */}
-        <div className="w-64 flex-none min-w-0">
-          <div className="text-sm text-gray-900 dark:text-gray-100 truncate" title={group.displayName}>{group.displayName}</div>
-          {summary.classLabel && (
-            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate" title={summary.classLabel}>
-              {summary.classLabel}
-            </div>
-          )}
-        </div>
-
-        {/* Type */}
-        <span className="hidden md:block text-xs text-gray-500 dark:text-gray-400 w-24 truncate flex-shrink-0" title={summary.type || 'Type'}>
-          {summary.type || '—'}
-        </span>
-
-        {/* Rarity — uses the shared RarityIcon component for consistent treatment across the app */}
-        <span className="flex w-6 items-center justify-center flex-shrink-0">
-          {summary.rarityCode
-            ? <RarityIcon rarityCode={summary.rarityCode} size="sm" />
-            : <span className="text-xs text-gray-400 dark:text-gray-500">—</span>}
-        </span>
-
-        {/* Cost */}
-        <span className="text-xs text-gray-500 dark:text-gray-400 w-8 text-right tabular-nums flex-shrink-0" title="Cost">
-          {fmt(summary.cost)}
-        </span>
-
-        {/* Power / Defense */}
-        <span className="text-xs text-gray-500 dark:text-gray-400 w-14 text-right tabular-nums flex-shrink-0" title="Power / Defense">
-          {pdLabel}
-        </span>
-
-        {/* Keywords — fills the remaining horizontal space; truncates if too many */}
-        <span className="hidden lg:block text-xs text-gray-500 dark:text-gray-400 flex-1 min-w-0 truncate" title={summary.keywords.join(', ')}>
-          {summary.keywords.join(', ')}
-        </span>
-
-        {/* Quantity */}
-        <span className="text-sm text-gray-700 dark:text-gray-200 tabular-nums w-10 text-right flex-shrink-0">{group.totalQty}×</span>
-
-        {/* Ownership */}
-        <span className="w-4 text-center flex-shrink-0" data-testid="list-row-own">
-          {ownership === 'full' && <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90" title="Owned">✓</span>}
-          {ownership === 'partial' && <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>}
-        </span>
-
-        {/* Expand caret — the lane row has none; on touch, tapping the row opens
-            the sheet, which is where printings live. */}
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
-          title={expanded ? "Collapse printings" : "Expand printings"}
-          aria-label={expanded ? "Collapse printings" : "Expand printings"}
-          aria-expanded={expanded}
-        >
-          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
+            {/* Expand caret — desktop only; printings + swap/move/remove live in
+                the drawer it opens. Touch rows open the action sheet instead. */}
+            {isColumn && !isTouchDevice && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                title={expanded ? "Collapse printings" : "Expand printings"}
+                aria-label={expanded ? "Collapse printings" : "Expand printings"}
+                aria-expanded={expanded}
+              >
+                {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            )}
         </>
-        )}
       </div>
 
       {/* Expanded printing rows — left keyline makes the parent → child hierarchy explicit */}
@@ -1812,7 +1755,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   });
 
   /** One card group's row — shared by the desktop sections and the mobile lanes. */
-  const renderGroupedRow = (group: CardGroup, category: DeckCategory, variant: 'lane' | 'table' = 'table') => (
+  const renderGroupedRow = (group: CardGroup, category: DeckCategory, variant: 'lane' | 'column') => (
     <GroupedCardRow
       key={group.uid}
       group={group}
@@ -1836,112 +1779,32 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     />
   );
 
-  const renderCardRows = (cards: DeckPrintingDTO[], category: DeckCategory) => {
+  /** One bordered column block — the desktop analogue of a mobile lane.
+      Blocks flow into CSS multi-columns; break-inside-avoid keeps each whole. */
+  const renderColumnBlock = (
+    label: string,
+    cards: DeckPrintingDTO[],
+    category: DeckCategory,
+    opts?: { dot?: string; limit?: string; alwaysShow?: boolean },
+  ) => {
+    if (cards.length === 0 && !opts?.alwaysShow) return null;
+    const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
     const groups = groupByCardName(cards);
     return (
-      <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
-        {/* Column headers — must match the data row's flex layout exactly (widths, gaps, breakpoints) */}
-        <div data-testid="deck-list-column-header" className="flex items-center gap-3 py-1.5 px-3 max-w-[1300px] text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-300 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40" aria-hidden="true">
-          <span className="w-7 flex-shrink-0" />
-          <span className="w-2 flex-shrink-0" />
-          <span className="flex-1 min-w-0 sm:flex-none sm:w-64">Name</span>
-          <span className="hidden md:block w-24 flex-shrink-0">Type</span>
-          <span className="hidden sm:block w-6 text-center flex-shrink-0">R</span>
-          <span className="hidden sm:block w-8 text-right flex-shrink-0">Cost</span>
-          <span className="hidden sm:block w-14 text-right flex-shrink-0">P / D</span>
-          <span className="hidden lg:block flex-1 min-w-0">Keywords</span>
-          <span className="w-10 text-right flex-shrink-0">Qty</span>
-          <span className="w-4 text-center flex-shrink-0">Own</span>
-          <span className="w-5 flex-shrink-0" />
+      <section className="break-inside-avoid mb-4">
+        <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
+          <h3 className="flex items-center gap-2 px-3 py-2 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+            {opts?.dot && <span className={cn("w-2 h-2 rounded-full shrink-0", opts.dot)} aria-hidden="true" />}
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{label}</span>
+            <span className="ml-auto text-xs tabular-nums text-gray-500 dark:text-gray-400">
+              {total}{opts?.limit ? ` / ${opts.limit}` : ''}
+            </span>
+          </h3>
+          {groups.length > 0
+            ? groups.map(group => renderGroupedRow(group, category, 'column'))
+            : <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-2">No cards yet</p>}
         </div>
-        {groups.map(group => renderGroupedRow(group, category))}
-      </div>
-    );
-  };
-
-  const renderSection = (label: string, cards: DeckPrintingDTO[], category: DeckCategory, sectionKey: string, limit?: string, alwaysShow?: boolean) => {
-    if (cards.length === 0 && !alwaysShow) return null;
-    const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
-    const isCollapsed = collapsedSections.has(sectionKey);
-    return (
-      <div className="mb-6">
-        <button
-          type="button"
-          onClick={() => toggleSection(sectionKey)}
-          className="w-full flex items-center gap-2 mb-2 text-left group"
-        >
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{label}</span>
-          <span className="text-xs font-normal text-gray-400">
-            {total} card{total !== 1 ? "s" : ""}{limit && ` / ${limit}`}
-          </span>
-          <ChevronDown className={cn("h-3.5 w-3.5 text-gray-400 ml-auto transition-transform shrink-0", isCollapsed && "-rotate-90")} />
-        </button>
-        {!isCollapsed && (
-          cards.length > 0
-            ? renderCardRows(cards, category)
-            : <p className="text-xs text-gray-400 dark:text-gray-600 py-1">No cards yet</p>
-        )}
-      </div>
-    );
-  };
-
-  const renderMaindeckSection = (cards: DeckPrintingDTO[], limit?: string) => {
-    const total = cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
-    const isCollapsed = collapsedSections.has('maindeck');
-
-    const red      = cards.filter(c => (c.printingDetails?.pitch as number | undefined) === 1);
-    const yellow   = cards.filter(c => (c.printingDetails?.pitch as number | undefined) === 2);
-    const blue     = cards.filter(c => (c.printingDetails?.pitch as number | undefined) === 3);
-    const unpitched = cards.filter(c => !(c.printingDetails?.pitch as number | undefined));
-
-    // Always show red/yellow/blue so users can see which zones to add cards to
-    const pitchGroups: Array<{ key: string; label: string; dot: string; cards: DeckPrintingDTO[] }> = [];
-    pitchGroups.push({ key: 'maindeck-red',    label: 'Red',    dot: 'bg-red-500',    cards: red });
-    pitchGroups.push({ key: 'maindeck-yellow', label: 'Yellow', dot: 'bg-yellow-400', cards: yellow });
-    pitchGroups.push({ key: 'maindeck-blue',   label: 'Blue',   dot: 'bg-blue-500',   cards: blue });
-    if (unpitched.length) pitchGroups.push({ key: 'maindeck-unpitched', label: 'Unpitched', dot: 'bg-gray-400', cards: unpitched });
-
-    return (
-      <div className="mb-6">
-        <button
-          type="button"
-          onClick={() => toggleSection('maindeck')}
-          className="w-full flex items-center gap-2 mb-2 text-left group"
-        >
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Main Deck</span>
-          <span className="text-xs font-normal text-gray-400">
-            {total} card{total !== 1 ? "s" : ""}{limit && ` / ${limit}`}
-          </span>
-          <ChevronDown className={cn("h-3.5 w-3.5 text-gray-400 ml-auto transition-transform shrink-0", isCollapsed && "-rotate-90")} />
-        </button>
-        {!isCollapsed && (
-          <div className="space-y-3">
-            {pitchGroups.map(pg => {
-              const pgCollapsed = collapsedSections.has(pg.key);
-              const pgTotal = pg.cards.reduce((s, c) => s + (c.quantity ?? 1), 0);
-              return (
-                <div key={pg.key}>
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(pg.key)}
-                    className="flex items-center gap-2 mb-1.5 text-left w-full"
-                  >
-                    <span className={cn("w-2 h-2 rounded-full shrink-0", pg.dot)} />
-                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{pg.label}</span>
-                    <span className="text-xs text-gray-400">({pgTotal})</span>
-                    <ChevronDown className={cn("h-3 w-3 text-gray-500 ml-auto transition-transform shrink-0", pgCollapsed && "-rotate-90")} />
-                  </button>
-                  {!pgCollapsed && (
-                    pg.cards.length > 0
-                      ? renderCardRows(pg.cards, 'maindeck')
-                      : <p className="text-xs text-gray-400 dark:text-gray-600 py-1">No cards yet</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      </section>
     );
   };
 
@@ -2677,13 +2540,25 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             renderRow={card => renderGroupedRow(card.group, card.category, 'lane')}
           />
         ) : (
-          <div>
-            {renderSection("Hero", heroCards, "hero", "hero", "1")}
-            {renderSection("Equipment", equipmentCards, "equipment", "equipment", "5", true)}
-            {renderMaindeckSection(maindeckCards, "60+")}
-            {renderSection("Inventory", inventoryCards, "inventory", "inventory", undefined, true)}
-            {renderSection("Bench", benchedCards, "benched", "bench")}
-          </div>
+          (() => {
+            const pitchOf = (c: DeckPrintingDTO) => c.printingDetails?.pitch as number | undefined;
+            const mdRed = maindeckCards.filter(c => pitchOf(c) === 1);
+            const mdYellow = maindeckCards.filter(c => pitchOf(c) === 2);
+            const mdBlue = maindeckCards.filter(c => pitchOf(c) === 3);
+            const mdUnpitched = maindeckCards.filter(c => !pitchOf(c));
+            return (
+              <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 max-w-[1300px]">
+                {renderColumnBlock("Hero", heroCards, "hero")}
+                {renderColumnBlock("Equipment", equipmentCards, "equipment", { limit: "5", alwaysShow: true })}
+                {renderColumnBlock("Red", mdRed, "maindeck", { dot: "bg-red-500", alwaysShow: true })}
+                {renderColumnBlock("Yellow", mdYellow, "maindeck", { dot: "bg-yellow-400", alwaysShow: true })}
+                {renderColumnBlock("Blue", mdBlue, "maindeck", { dot: "bg-blue-500", alwaysShow: true })}
+                {renderColumnBlock("No Pitch", mdUnpitched, "maindeck", { dot: "bg-gray-400" })}
+                {renderColumnBlock("Inventory", inventoryCards, "inventory", { alwaysShow: true })}
+                {renderColumnBlock("Bench", benchedCards, "benched")}
+              </div>
+            );
+          })()
         )
       ) : viewMode === 'tile' ? (
         <div className="rounded border border-gray-300 dark:border-gray-700/50 p-2">
