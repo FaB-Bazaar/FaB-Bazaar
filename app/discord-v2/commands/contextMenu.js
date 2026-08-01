@@ -329,11 +329,11 @@ export async function handlePublicWants(targetDiscordId, body) {
     return NextResponse.json({
       type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
       data: {
-        content: publicContent.length > 2000 ? 
-          publicContent.substring(0, 1900) + '\n... (use pagination)' : 
+        content: publicContent.length > 2000 ?
+          publicContent.substring(0, 1900) + '\n... (use pagination)' :
           publicContent,
-        components: publicComponents
-        // No flags = PUBLIC message
+        components: publicComponents,
+        flags: 4 // SUPPRESS_EMBEDS — stays public, just no per-card link previews
       }
     });
     
