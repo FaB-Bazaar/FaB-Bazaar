@@ -38,4 +38,9 @@ export {
 
   // Deck commands
   handleDeckCommand,
+
+  // Deck needs (/needs + "Deck Needs" context menu)
+  handleNeedsCommand,
+  handleNeedsDeckSelect,
+  handleNeedsMode,
 } from './commands/index.js';

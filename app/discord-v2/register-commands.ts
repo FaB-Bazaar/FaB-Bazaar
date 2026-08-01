@@ -65,9 +65,19 @@ const commands = [
         .setRequired(false)
     ),
 
+  // 6. /needs - Cards you still need for one of your decks
+  new SlashCommandBuilder()
+    .setName('needs')
+    .setDescription('List the cards you still need for one of your decks'),
+
   // NEW: Context menu commands (right-click on users)
   new ContextMenuCommandBuilder()
     .setName('Show Binder')
+    .setType(ApplicationCommandType.User),
+
+  // Same needs flow, but the final list posts publicly to the channel
+  new ContextMenuCommandBuilder()
+    .setName('Deck Needs')
     .setType(ApplicationCommandType.User),
 
   new ContextMenuCommandBuilder()

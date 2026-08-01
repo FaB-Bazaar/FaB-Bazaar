@@ -13,7 +13,10 @@ import {
   handlePublicWants,
   handlePublicBinderSelect,
   handlePublicBinderPage,
-  handlePublicWantsPage
+  handlePublicWantsPage,
+  handleNeedsCommand,
+  handleNeedsDeckSelect,
+  handleNeedsMode
 } from './commands.js';
 
 export async function POST(req) {
@@ -132,6 +135,9 @@ async function handleApplicationCommand(body) {
         case 'deck':
           return await handleDeckCommand(body, options);
 
+        case 'needs':
+          return await handleNeedsCommand(body, 'eph'); // final list stays ephemeral
+
         default:
           return createErrorResponse(`Command not implemented yet: ${name}`);
       }
@@ -156,6 +162,15 @@ async function handleApplicationCommand(body) {
             return result;
           } catch (error) {
             return createErrorResponse(`Public wants error: ${error.message}`, false);
+          }
+
+        case 'Deck Needs':
+          // Always the REQUESTER's decks/collection (target user is ignored);
+          // final list posts publicly, pickers stay ephemeral.
+          try {
+            return await handleNeedsCommand(body, 'pub');
+          } catch (error) {
+            return createErrorResponse(`Deck needs error: ${error.message}`, false);
           }
 
         default:
@@ -218,6 +233,22 @@ async function handleMessageComponent(body) {
         return result;
       } catch (error) {
         return createErrorResponse(`Public wants page error: ${error.message}`, false);
+      }
+    }
+
+    if (action === 'needs_deck') {
+      try {
+        return await handleNeedsDeckSelect(customId, body);
+      } catch (error) {
+        return createErrorResponse(`Deck needs select error: ${error.message}`, true);
+      }
+    }
+
+    if (action === 'needs_mode') {
+      try {
+        return await handleNeedsMode(customId, body);
+      } catch (error) {
+        return createErrorResponse(`Deck needs error: ${error.message}`, true);
       }
     }
     

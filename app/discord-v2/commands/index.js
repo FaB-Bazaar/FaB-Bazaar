@@ -52,6 +52,13 @@ export {
 export {
   handleDeckCommand,
 } from './deck.js';
+
+// Deck needs (/needs + "Deck Needs" context menu)
+export {
+  handleNeedsCommand,
+  handleNeedsDeckSelect,
+  handleNeedsMode,
+} from './needs.js';
 // // app/discord-v2/commands/index.js
 // // Re-export all command handlers from individual command files
 
