@@ -37,7 +37,7 @@ Rate limited (30 req/min per IP). Responses cached 5 minutes. Only returns publi
 
 ## Hidden Binder Value (migration 0099)
 
-- **`hideValue` stripping is route-layer, not service** — the service only persists/surfaces the flag. `[binderId]/cards` GET deletes `totalValue`/`valueForTrade`/`valueNotForTrade` from `metadata.stats` for non-owners; `/api/users/[userId]/binders` strips them unconditionally (endpoint is anonymous + cached — no viewer identity exists). Owners always get full values.
+- **`hideValue` stripping is route-layer, not service** — the service only persists/surfaces the flag. `[binderId]/cards` GET deletes `totalValue`/`valueForTrade`/`valueNotForTrade` from `metadata.stats` for non-owners; `/api/users/[userId]/binders` strips them unconditionally (endpoint is anonymous + cached — no viewer identity exists); `/api/discord/binder` list mode nulls `totalValue` for non-owner viewers (bot omits the 💰 dropdown line on null). Owners always get full values. A new surface that exposes binder totals must add its own check.
 - **`defaultSort` is validated in the service** against `BINDER_SORT_OPTIONS` (`contracts/IBinderService.ts`); `null` clears. Keep that list in sync with the binder page's sort dropdown.
 - **Client `BinderService.updateSettings` whitelists payload fields** — a new binder setting must be added to its explicit payload object or it's silently dropped before reaching the PUT route (hit with hideValue/defaultSort).
 

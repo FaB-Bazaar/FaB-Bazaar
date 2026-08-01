@@ -121,18 +121,22 @@ export async function handleBinderCommand(body, options) {
     const selectOptions = binders.map((binder) => {
       const slug = getBinderSlug(binder);
       const cardCount = binder.cardCount || 0;
-      const totalValue = binder.totalValue || 0;
+      // null totalValue = owner hides this binder's value — no 💰 line
+      const totalValue = binder.totalValue;
 
       // Validate select option
       if (!slug || slug.length === 0) {
         console.error('[Discord Binder] Invalid slug for binder:', binder.name);
       }
 
-      return {
+      const option = {
         label: `${binder.name} (${cardCount} cards)`.slice(0, 100),
         value: slug,
-        description: `💰 ~$${totalValue}`.slice(0, 100)
       };
+      if (totalValue != null) {
+        option.description = `💰 ~$${totalValue}`.slice(0, 100);
+      }
+      return option;
     });
 
     const selectMenu = {

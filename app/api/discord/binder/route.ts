@@ -132,7 +132,11 @@ async function handleListBinders(
   const bindersWithStats = accessibleBinders.map((binder) => {
     // Use stats if available, otherwise fallback to 0
     const cardCount = binder.stats?.totalQuantity || 0;
-    const totalValue = Math.round(binder.stats?.totalValue?.tcg_low || binder.stats?.totalValue?.tcg_market || 0);
+    // hideValue: the owner keeps this binder's value private — null for
+    // everyone else (the bot omits the 💰 line when totalValue is null)
+    const totalValue = !isOwnData && binder.hideValue
+      ? null
+      : Math.round(binder.stats?.totalValue?.tcg_low || binder.stats?.totalValue?.tcg_market || 0);
 
     return {
       _id: binder._id,
