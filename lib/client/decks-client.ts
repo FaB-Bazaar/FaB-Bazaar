@@ -22,6 +22,7 @@ import type {
   BulkImportResultDTO,
   DeckStatsDTO,
   InventoryComparisonDTO,
+  CardDeckUsageEntryDTO,
   DeckCategory,
   UpgradePrintingSuggestionDTO,
   ApplyPrintingUpgradesResultDTO,
@@ -919,6 +920,21 @@ export async function getOwnershipStatus(
       success: true,
       data: { ownership: body.ownership ?? {}, summary: body.summary },
     };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * The signed-in user's own decks containing any printing of a card, with
+ * per-deck quantity — powers the binder tile "Decks (N)" popover.
+ */
+export async function getCardDeckUsage(
+  cardUniqueId: string
+): Promise<ApiResponse<CardDeckUsageEntryDTO[]>> {
+  try {
+    const response = await fetch(`/api/cards/${cardUniqueId}/deck-usage`);
+    return await handleResponse<CardDeckUsageEntryDTO[]>(response);
   } catch (error) {
     return handleError(error);
   }

@@ -36,6 +36,7 @@ import { useIsMobile } from "@/components/ui/use-mobile";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import { RarityIcon } from '@/components/shared/RarityIcon';
 import { Switch } from "@/components/ui/switch";
+import DeckUsageButton from '@/components/binder/DeckUsageButton';
 
 // Import your existing components
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
@@ -128,6 +129,12 @@ const MobileBinderCard = ({
             <span className={`text-xs ${foilingInfo.color}`}>{foilingInfo.name}</span>
             {set && <span className="text-xs text-gray-500">{set.toUpperCase()}</span>}
           </div>
+
+          {card.deckUsage && card.card_unique_id && (
+            <div className="mb-2">
+              <DeckUsageButton cardUniqueId={card.card_unique_id} deckUsage={card.deckUsage} className="w-auto" />
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

@@ -17,6 +17,9 @@ vi.mock('@/lib/services', () => ({
   printingsService: {
     getPrintingsByIds: vi.fn(),
   },
+  deckService: {
+    getCardDeckUsageSummary: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/auth/multi-auth', () => ({
@@ -29,11 +32,12 @@ vi.mock('@/lib/discord/discord-webhooks', () => ({
 
 // Import AFTER mocks (vi.mock is hoisted)
 import { GET } from '../route';
-import { binderService } from '@/lib/services';
+import { binderService, deckService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 
 const mockGetBinder = vi.mocked(binderService.getBinder);
 const mockGetBinderCards = vi.mocked(binderService.getBinderCards);
+const mockGetCardDeckUsageSummary = vi.mocked(deckService.getCardDeckUsageSummary);
 const mockAuthenticateRequest = vi.mocked(authenticateRequest);
 
 const BINDER_ID = '68acbd2c27d38b1af2694536';
@@ -187,5 +191,56 @@ describe('GET /api/binders/[binderId]/cards', () => {
     const { response } = await getCards();
 
     expect(response.status).toBe(200);
+  });
+});
+
+describe('GET /api/binders/[binderId]/cards — deck-usage enrichment', () => {
+  const cardsWithUniqueIds = [
+    { _id: '1', name: 'Card A', quantity: 2, card_unique_id: 'cu-a' },
+    { _id: '2', name: 'Card B', quantity: 3, card_unique_id: 'cu-b' },
+    { _id: '3', name: 'Card A foil', quantity: 1, card_unique_id: 'cu-a' },
+  ];
+
+  it('attaches deckUsage to the owner\'s cards, batched by unique card ids', async () => {
+    mockAuthenticateRequest.mockResolvedValueOnce({ success: true, userId: 'user123' } as any);
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult({ cards: cardsWithUniqueIds }));
+    mockGetCardDeckUsageSummary.mockResolvedValueOnce({
+      success: true,
+      data: { 'cu-a': { deckCount: 3, maxDeckQuantity: 3, ownedQuantity: 3 } },
+    });
+
+    const { response, data } = await getCards();
+
+    expect(response.status).toBe(200);
+    // One batched call, deduped card ids, keyed to the requesting owner.
+    expect(mockGetCardDeckUsageSummary).toHaveBeenCalledTimes(1);
+    expect(mockGetCardDeckUsageSummary).toHaveBeenCalledWith('user123', ['cu-a', 'cu-b']);
+    // Both inventory rows of the same card get the usage; unused card gets none.
+    expect(data.cards[0].deckUsage).toEqual({ deckCount: 3, maxDeckQuantity: 3, ownedQuantity: 3 });
+    expect(data.cards[2].deckUsage).toEqual({ deckCount: 3, maxDeckQuantity: 3, ownedQuantity: 3 });
+    expect(data.cards[1].deckUsage).toBeUndefined();
+  });
+
+  it('does NOT compute deck usage for non-owner viewers', async () => {
+    // Unauthenticated viewer of a public binder (default beforeEach auth = failure).
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult({ cards: cardsWithUniqueIds }));
+
+    const { response, data } = await getCards();
+
+    expect(response.status).toBe(200);
+    expect(mockGetCardDeckUsageSummary).not.toHaveBeenCalled();
+    expect(data.cards[0].deckUsage).toBeUndefined();
+  });
+
+  it('still returns cards when the deck-usage lookup fails (best-effort enrichment)', async () => {
+    mockAuthenticateRequest.mockResolvedValueOnce({ success: true, userId: 'user123' } as any);
+    mockGetBinderCards.mockResolvedValueOnce(cardsResult({ cards: cardsWithUniqueIds }));
+    mockGetCardDeckUsageSummary.mockResolvedValueOnce({ success: false, error: 'boom' });
+
+    const { response, data } = await getCards();
+
+    expect(response.status).toBe(200);
+    expect(data.cards).toHaveLength(3);
+    expect(data.cards[0].deckUsage).toBeUndefined();
   });
 });

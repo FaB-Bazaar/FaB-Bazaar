@@ -34,6 +34,8 @@ import type {
   DeckStatsDTO,
   OwnershipStatusDTO,
   InventoryComparisonDTO,
+  CardDeckUsageSummaryDTO,
+  CardDeckUsageEntryDTO,
   DeckCoverageSummaryDTO,
   AllocationDTO,
   UpgradePrintingSuggestionDTO,
@@ -2326,6 +2328,122 @@ export class PostgresDeckService implements IDeckService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get inventory comparison',
+      };
+    }
+  }
+
+  // Categories that represent physical cards a deck needs to be played.
+  // 'inventory'/'benched' are scratch areas, 'tokens' aren't deck slots.
+  private static readonly USAGE_CATEGORIES = ['hero', 'equipment', 'maindeck'] as const;
+
+  async getCardDeckUsageSummary(
+    userId: string,
+    cardUniqueIds: string[]
+  ): AsyncResult<Record<string, CardDeckUsageSummaryDTO>> {
+    try {
+      if (cardUniqueIds.length === 0) {
+        return { success: true, data: {} };
+      }
+
+      // Per (card, deck) totals across the user's playable decks.
+      const usageRows = await db
+        .select({
+          cardUniqueId: printings.cardUniqueId,
+          deckId: deckCards.deckId,
+          quantity: sql<number>`SUM(${deckCards.quantity})::int`,
+        })
+        .from(deckCards)
+        .innerJoin(decks, eq(deckCards.deckId, decks.id))
+        .innerJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .where(and(
+          eq(decks.userId, userId),
+          eq(decks.isSystemDeck, false),
+          inArray(printings.cardUniqueId, cardUniqueIds),
+          inArray(deckCards.category, [...PostgresDeckService.USAGE_CATEGORIES]),
+        ))
+        .groupBy(printings.cardUniqueId, deckCards.deckId);
+
+      if (usageRows.length === 0) {
+        return { success: true, data: {} };
+      }
+
+      const usedCardIds = Array.from(new Set(usageRows.map((r) => r.cardUniqueId!)));
+
+      // Owned copies across ALL binders, any printing of the card.
+      const ownedRows = await db
+        .select({
+          cardUniqueId: printings.cardUniqueId,
+          owned: sql<number>`SUM(${inventoryItems.quantity})::int`,
+        })
+        .from(inventoryItems)
+        .innerJoin(printings, eq(inventoryItems.printingId, printings.printingId))
+        .where(and(
+          eq(inventoryItems.userId, userId),
+          inArray(printings.cardUniqueId, usedCardIds),
+        ))
+        .groupBy(printings.cardUniqueId);
+
+      const ownedMap = new Map(ownedRows.map((r) => [r.cardUniqueId!, r.owned]));
+
+      const result: Record<string, CardDeckUsageSummaryDTO> = {};
+      for (const row of usageRows) {
+        const key = row.cardUniqueId!;
+        const entry = result[key] ?? { deckCount: 0, maxDeckQuantity: 0, ownedQuantity: ownedMap.get(key) ?? 0 };
+        entry.deckCount += 1;
+        entry.maxDeckQuantity = Math.max(entry.maxDeckQuantity, row.quantity);
+        result[key] = entry;
+      }
+
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('[PostgresDeckService.getCardDeckUsageSummary] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get card deck usage summary',
+      };
+    }
+  }
+
+  async getCardDeckUsage(
+    userId: string,
+    cardUniqueId: string
+  ): AsyncResult<CardDeckUsageEntryDTO[]> {
+    try {
+      const rows = await db
+        .select({
+          publicId: decks.publicId,
+          name: decks.name,
+          heroName: decks.heroName,
+          format: decks.format,
+          quantity: sql<number>`SUM(${deckCards.quantity})::int`,
+        })
+        .from(deckCards)
+        .innerJoin(decks, eq(deckCards.deckId, decks.id))
+        .innerJoin(printings, eq(deckCards.printingId, printings.printingId))
+        .where(and(
+          eq(decks.userId, userId),
+          eq(decks.isSystemDeck, false),
+          eq(printings.cardUniqueId, cardUniqueId),
+          inArray(deckCards.category, [...PostgresDeckService.USAGE_CATEGORIES]),
+        ))
+        .groupBy(decks.id, decks.publicId, decks.name, decks.heroName, decks.format)
+        .orderBy(sql`SUM(${deckCards.quantity}) DESC`, asc(decks.name));
+
+      return {
+        success: true,
+        data: rows.map((r) => ({
+          publicId: r.publicId,
+          name: r.name,
+          heroName: r.heroName ?? undefined,
+          format: r.format ?? undefined,
+          quantity: r.quantity,
+        })),
+      };
+    } catch (error) {
+      console.error('[PostgresDeckService.getCardDeckUsage] Error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get card deck usage',
       };
     }
   }

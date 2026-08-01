@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, AuthResult } from '@/lib/auth/multi-auth';
 import { DiscordWebhooks } from '@/lib/discord/discord-webhooks';
-import { binderService, printingsService } from '@/lib/services';
+import { binderService, printingsService, deckService } from '@/lib/services';
 import type { BinderCardFilters, BinderCardSearchOptions, AddCardDTO, BinderDTO } from '@/lib/services/contracts/IBinderService';
 
 /**
@@ -90,10 +90,26 @@ export async function GET(
 
     const { cards, pagination, metadata } = result.data;
 
+    // Owner-only, best-effort: per-card deck-usage aggregates for the tile
+    // "Decks (N)" badge (their decks vs. their binder — never a visitor's).
+    let deckUsageByCard: Record<string, { deckCount: number; maxDeckQuantity: number; ownedQuantity: number }> = {};
+    if (isOwner) {
+      const cardUniqueIds = Array.from(new Set(
+        cards.map(card => (card as any).card_unique_id).filter((id): id is string => !!id)
+      ));
+      if (cardUniqueIds.length > 0) {
+        const usageResult = await deckService.getCardDeckUsageSummary(requestingUserId!, cardUniqueIds);
+        if (usageResult.success) {
+          deckUsageByCard = usageResult.data;
+        }
+      }
+    }
+
     // Add id field for backwards compatibility
     const cardsWithId = cards.map(card => ({
       ...card,
-      id: card._id
+      id: card._id,
+      deckUsage: deckUsageByCard[(card as any).card_unique_id],
     }));
 
     return NextResponse.json({

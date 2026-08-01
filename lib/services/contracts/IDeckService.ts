@@ -467,6 +467,32 @@ export interface InventoryComparisonDTO {
 }
 
 /**
+ * Per-card deck-usage aggregate for binder tiles.
+ * Coverage semantics are max-per-deck, not sum: you play one deck at a time,
+ * so owning maxDeckQuantity copies is enough to play any single deck.
+ */
+export interface CardDeckUsageSummaryDTO {
+  /** Number of the user's (non-system) decks containing any printing of the card */
+  deckCount: number;
+  /** Highest total quantity any single deck runs (summed across printings/categories within the deck) */
+  maxDeckQuantity: number;
+  /** Copies owned across ALL the user's binders, any printing */
+  ownedQuantity: number;
+}
+
+/**
+ * One deck row in the per-card usage list (the on-demand popover).
+ */
+export interface CardDeckUsageEntryDTO {
+  publicId: string;
+  name: string;
+  heroName?: string;
+  format?: string;
+  /** Total copies of the card this deck runs (summed across printings/categories) */
+  quantity: number;
+}
+
+/**
  * Compact per-deck coverage row for batch "which of these decks could I
  * build from my collection?" queries (Decks-to-Beat buildability). One
  * small row per deck — sized for LLM consumption, not full comparisons.
@@ -1019,6 +1045,31 @@ export interface IDeckService {
     userId: string,
     options?: { matchBy?: 'printing' | 'card'; topMissingLimit?: number }
   ): AsyncResult<DeckCoverageSummaryDTO[]>;
+
+  /**
+   * Batch per-card deck-usage aggregates for the user's own decks (binder
+   * tile badges). Card-level matching: any printing of the card counts, in
+   * decks and in owned inventory. Cards used by no deck are absent from the
+   * returned map. Excludes system decks and scratch categories
+   * (inventory/benched/tokens).
+   *
+   * @param userId - The user whose decks and inventory to aggregate
+   * @param cardUniqueIds - Cards to look up (typically one binder page)
+   */
+  getCardDeckUsageSummary(
+    userId: string,
+    cardUniqueIds: string[]
+  ): AsyncResult<Record<string, CardDeckUsageSummaryDTO>>;
+
+  /**
+   * The user's (non-system) decks containing any printing of the card, with
+   * per-deck total quantity, highest quantity first. Same category/system-deck
+   * exclusions as getCardDeckUsageSummary.
+   */
+  getCardDeckUsage(
+    userId: string,
+    cardUniqueId: string
+  ): AsyncResult<CardDeckUsageEntryDTO[]>;
 
   /**
    * Calculate deck statistics

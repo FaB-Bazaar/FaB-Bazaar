@@ -11,18 +11,12 @@ import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil'
 import { cn, getCardImageUrl } from '@/lib/utils'
 import Link from "next/link"
 import { TcgAffiliateLink } from '@/components/tracking'
+import DeckUsageButton, { type DeckUsageSummary } from '@/components/binder/DeckUsageButton'
 
-
-interface DeckUsage {
-  deckId: string;
-  deckName: string;
-  quantity: number;
-  category: 'hero' | 'equipment' | 'main' | 'sideboard';
-}
 
 interface EnhancedBinderCardProps {
   card: any & {
-    usedInDecks?: DeckUsage[];
+    deckUsage?: DeckUsageSummary;
   };
   editable: boolean;
   compactMode?: boolean;
@@ -40,7 +34,6 @@ interface EnhancedBinderCardProps {
   onOpenPrintingSwap?: (card: any) => void;
   isInTransferDialog?: boolean;
   transferDialogOpen?: boolean;
-  onViewDeck?: (deckId: string) => void;
 }
 
 export default function EnhancedBinderCard({
@@ -61,7 +54,6 @@ export default function EnhancedBinderCard({
   isInTransferDialog,
   transferDialogOpen,
   compactMode = false,
-  onViewDeck
 }: EnhancedBinderCardProps) {
 
   const [showFeedback, setShowFeedback] = useState(false)
@@ -158,8 +150,6 @@ export default function EnhancedBinderCard({
     )
   }
 
-  const totalUsedInDecks = card.usedInDecks?.reduce((sum, usage) => sum + usage.quantity, 0) || 0
-
   return (
     <div
       className={cn(
@@ -252,6 +242,10 @@ export default function EnhancedBinderCard({
           )}
 
           {card.notes && <div className="text-xs text-gray-600 dark:text-gray-300 italic truncate">{card.notes}</div>}
+
+          {card.deckUsage && card.card_unique_id && (
+            <DeckUsageButton cardUniqueId={card.card_unique_id} deckUsage={card.deckUsage} />
+          )}
 
           <div className="flex items-center gap-2">
             {rarity && <RarityIcon rarityCode={rarity} size="sm" />}
