@@ -69,10 +69,13 @@ Available on both pages, deliberately mirroring the binder page's selection UX:
 
 - **Owner page (`/wants`)**: tapping the card IMAGE toggles the card in/out of the acquire
   selection (blue ring + centered "N Selected" overlay, binder-card style; selected qty
-  starts at 1). Selecting opens `AcquireSelectedCardsSheet` (bottom drawer modeled on
-  `components/binder/MobileSelectedCardsSheet`): per-card qty steppers "(of wanted)", X to
-  remove, inline binder dropdown, green "Mark as Acquired" button, Clear All / Close. A
-  round floating count button (bottom-right, z-[60], binder-FAB style) reopens the sheet.
+  starts at 1). The selection surface splits by viewport (`useIsMobile`, binder-page
+  pattern — a modal sheet on desktop forced a close+click per extra card): DESKTOP renders
+  `AcquireSelectedCardsPanel`, a docked non-modal right rail (content shifts left via
+  `md:max-w-[calc(100%-18rem)]`); MOBILE auto-opens `AcquireSelectedCardsSheet` (bottom
+  drawer) with a round floating count button (bottom-right, z-[60]) to reopen it. Both
+  share `AcquireControls` (binder dropdown + acquire request) in the same file: per-card
+  qty steppers "(of wanted)", X to remove, green "Mark as Acquired", Clear All.
   `WantsCard`'s selection props (`onAcquireToggle`, `isSelected`, `selectedQty`) are
   optional — omitted, the image is inert as before.
 - **Shared page (`/wants/[userId]`) when `isOwnWantsList`**: the selection cart gains a
