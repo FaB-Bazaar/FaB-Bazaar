@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal, Filter, ChevronDown, ChevronUp, X, PackageCheck } from "lucide-react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
-import { WantsCard, AcquireSelectedCardsSheet } from '@/components/wants';
+import { WantsCard, AcquireSelectedCardsSheet, AcquireSelectedCardsPanel } from '@/components/wants';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { AcquiredCard } from '@/components/wants/MarkAcquiredDialog';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
@@ -56,12 +57,17 @@ export default function NewWantsPage() {
   const [selectedForAcquire, setSelectedForAcquire] = useState<any[]>([]);
   const [acquireSheetOpen, setAcquireSheetOpen] = useState(false);
   const cookieBannerInset = useCookieBannerInset();
+  const isMobile = useIsMobile();
 
-  // Match the binder page: the sheet opens whenever cards are selected and
-  // closes when the selection empties.
+  // Selection UX splits by viewport (binder-page pattern): on mobile the
+  // bottom sheet opens whenever cards are selected and closes when the
+  // selection empties; on desktop a docked right panel renders instead —
+  // non-modal, so multi-selecting never requires closing anything.
   useEffect(() => {
-    setAcquireSheetOpen(selectedForAcquire.length > 0);
-  }, [selectedForAcquire.length]);
+    if (isMobile) setAcquireSheetOpen(selectedForAcquire.length > 0);
+  }, [selectedForAcquire.length, isMobile]);
+
+  const desktopPanelOpen = !isMobile && selectedForAcquire.length > 0;
 
   useEffect(() => {
     fetchWantsList();
@@ -431,6 +437,9 @@ export default function NewWantsPage() {
       {/* Slim affiliate disclosure */}
       <AffiliateDisclosure />
 
+      {/* Content shrinks to make room for the docked acquire panel (binder-page pattern) */}
+      <div className={`transition-all duration-300 ${desktopPanelOpen ? 'md:max-w-[calc(100%-18rem)]' : ''}`}>
+
       {/* Header: title + stats + actions */}
       <WantsHeader
         stats={stats}
@@ -637,11 +646,12 @@ export default function NewWantsPage() {
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Floating count button reopens the sheet (binder-page pattern).
-          Shifted above the cookie banner while it is visible so it stays
-          tappable. */}
-      {selectedForAcquire.length > 0 && (
+      {/* Floating count button reopens the sheet (mobile only — the desktop
+          panel is always visible while cards are selected). Shifted above the
+          cookie banner while it is visible so it stays tappable. */}
+      {isMobile && selectedForAcquire.length > 0 && (
         <Button
           onClick={() => setAcquireSheetOpen(true)}
           aria-label={`Open acquired cards sheet (${selectedForAcquire.length} selected)`}
@@ -653,18 +663,31 @@ export default function NewWantsPage() {
         </Button>
       )}
 
-      <AcquireSelectedCardsSheet
-        selectedCards={selectedForAcquire}
-        isOpen={acquireSheetOpen}
-        onOpenChange={setAcquireSheetOpen}
-        onQuantityChange={handleSelectedQtyChange}
-        onRemoveSelected={(index: number) => {
-          const cardToRemove = selectedForAcquire[index];
-          if (cardToRemove) handleAcquireToggle(cardToRemove);
-        }}
-        onClearSelected={() => setSelectedForAcquire([])}
-        onAcquireComplete={handleAcquireComplete}
-      />
+      {isMobile ? (
+        <AcquireSelectedCardsSheet
+          selectedCards={selectedForAcquire}
+          isOpen={acquireSheetOpen}
+          onOpenChange={setAcquireSheetOpen}
+          onQuantityChange={handleSelectedQtyChange}
+          onRemoveSelected={(index: number) => {
+            const cardToRemove = selectedForAcquire[index];
+            if (cardToRemove) handleAcquireToggle(cardToRemove);
+          }}
+          onClearSelected={() => setSelectedForAcquire([])}
+          onAcquireComplete={handleAcquireComplete}
+        />
+      ) : (
+        <AcquireSelectedCardsPanel
+          selectedCards={selectedForAcquire}
+          onQuantityChange={handleSelectedQtyChange}
+          onRemoveSelected={(index: number) => {
+            const cardToRemove = selectedForAcquire[index];
+            if (cardToRemove) handleAcquireToggle(cardToRemove);
+          }}
+          onClearSelected={() => setSelectedForAcquire([])}
+          onAcquireComplete={handleAcquireComplete}
+        />
+      )}
 
     </div>
   );

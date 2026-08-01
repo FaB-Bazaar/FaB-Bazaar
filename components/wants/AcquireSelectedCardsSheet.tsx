@@ -1,10 +1,17 @@
 // components/wants/AcquireSelectedCardsSheet.tsx
-// Bottom-sheet acquire interface for the owner wants page, modeled on
-// components/binder/MobileSelectedCardsSheet (the transfer sheet).
+// Acquire-selection UI for the owner wants page, split by viewport like the
+// binder page's selection UX:
+//  - AcquireSelectedCardsSheet — mobile bottom drawer (vaul), modeled on
+//    components/binder/MobileSelectedCardsSheet.
+//  - AcquireSelectedCardsPanel — desktop docked right rail, modeled on
+//    components/binder/SelectedCardsSidebar. Non-modal so the grid stays
+//    clickable while selecting multiple cards.
+// Both share the same per-card row and binder-picker + acquire controls.
 "use client";
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { X, Plus, Minus, PackageCheck } from "lucide-react";
@@ -56,25 +63,18 @@ const AcquireSelectedCardItem = ({ card, onQuantityChange, onRemove }: any) => {
   );
 };
 
-interface AcquireSelectedCardsSheetProps {
-  selectedCards: any[];
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onQuantityChange: (cardId: string, newQuantity: number) => void;
-  onRemoveSelected: (index: number) => void;
-  onClearSelected: () => void;
-  onAcquireComplete: (acquiredCards: AcquiredCard[]) => void;
-}
-
-export const AcquireSelectedCardsSheet = ({
+// Binder picker + green acquire button. Owns the binder list and the acquire
+// request; both the sheet and the desktop panel render one of these.
+const AcquireControls = ({
   selectedCards,
-  isOpen,
-  onOpenChange,
-  onQuantityChange,
-  onRemoveSelected,
-  onClearSelected,
   onAcquireComplete,
-}: AcquireSelectedCardsSheetProps) => {
+  onDone,
+}: {
+  selectedCards: any[];
+  onAcquireComplete: (acquiredCards: AcquiredCard[]) => void;
+  /** Called after a successful acquire (sheet closes itself here). */
+  onDone?: () => void;
+}) => {
   const { toast } = useToast();
   const [binders, setBinders] = useState<any[]>([]);
   const [targetBinderId, setTargetBinderId] = useState("");
@@ -114,7 +114,7 @@ export const AcquireSelectedCardsSheet = ({
           .filter((r) => r.success)
           .map((r) => ({ printingId: r.printingId, quantity: r.quantity, remainingWanted: r.remainingWanted }));
         onAcquireComplete(acquiredCards);
-        onOpenChange(false);
+        onDone?.();
       }
       if (summary.failed > 0) {
         const failed = results.filter((r) => !r.success);
@@ -131,6 +131,53 @@ export const AcquireSelectedCardsSheet = ({
     }
   };
 
+  return (
+    <>
+      {binders.length > 0 && (
+        <Select value={targetBinderId} onValueChange={setTargetBinderId}>
+          <SelectTrigger className="w-full text-sm">
+            <SelectValue placeholder="Select destination binder…" />
+          </SelectTrigger>
+          <SelectContent>
+            {binders.map(b => (
+              <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <Button
+        onClick={handleAcquire}
+        disabled={acquiring || !targetBinderId || binders.length === 0 || selectedCards.length === 0}
+        className="w-full flex items-center gap-2 bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-500 text-white"
+      >
+        {acquiring
+          ? <><div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />Adding…</>
+          : <><PackageCheck className="h-4 w-4" />Mark as Acquired</>
+        }
+      </Button>
+    </>
+  );
+};
+
+interface AcquireSelectedCardsSheetProps {
+  selectedCards: any[];
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onQuantityChange: (cardId: string, newQuantity: number) => void;
+  onRemoveSelected: (index: number) => void;
+  onClearSelected: () => void;
+  onAcquireComplete: (acquiredCards: AcquiredCard[]) => void;
+}
+
+export const AcquireSelectedCardsSheet = ({
+  selectedCards,
+  isOpen,
+  onOpenChange,
+  onQuantityChange,
+  onRemoveSelected,
+  onClearSelected,
+  onAcquireComplete,
+}: AcquireSelectedCardsSheetProps) => {
   const totalCards = selectedCards.reduce((sum: number, card: any) => sum + (card.quantity || 1), 0);
 
   return (
@@ -159,30 +206,11 @@ export const AcquireSelectedCardsSheet = ({
           </div>
 
           <DrawerFooter className="pt-2 space-y-2">
-            {/* Inline binder picker + acquire */}
-            {binders.length > 0 && (
-              <Select value={targetBinderId} onValueChange={setTargetBinderId}>
-                <SelectTrigger className="w-full text-sm">
-                  <SelectValue placeholder="Select destination binder…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {binders.map(b => (
-                    <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button
-              onClick={handleAcquire}
-              disabled={acquiring || !targetBinderId || binders.length === 0 || selectedCards.length === 0}
-              className="w-full flex items-center gap-2 bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-500 text-white"
-            >
-              {acquiring
-                ? <><div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />Adding…</>
-                : <><PackageCheck className="h-4 w-4" />Mark as Acquired</>
-              }
-            </Button>
-
+            <AcquireControls
+              selectedCards={selectedCards}
+              onAcquireComplete={onAcquireComplete}
+              onDone={() => onOpenChange(false)}
+            />
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={() => { onClearSelected(); onOpenChange(false); }}>
                 Clear All
@@ -195,5 +223,70 @@ export const AcquireSelectedCardsSheet = ({
         </div>
       </DrawerContent>
     </Drawer>
+  );
+};
+
+interface AcquireSelectedCardsPanelProps {
+  selectedCards: any[];
+  onQuantityChange: (cardId: string, newQuantity: number) => void;
+  onRemoveSelected: (index: number) => void;
+  onClearSelected: () => void;
+  onAcquireComplete: (acquiredCards: AcquiredCard[]) => void;
+}
+
+// Desktop docked right rail — non-modal, so the wants grid stays clickable
+// while the user keeps selecting cards. Hidden entirely when nothing is
+// selected; clearing the selection is the only "close".
+export const AcquireSelectedCardsPanel = ({
+  selectedCards,
+  onQuantityChange,
+  onRemoveSelected,
+  onClearSelected,
+  onAcquireComplete,
+}: AcquireSelectedCardsPanelProps) => {
+  if (selectedCards.length === 0) return null;
+
+  const totalCards = selectedCards.reduce((sum: number, card: any) => sum + (card.quantity || 1), 0);
+
+  return (
+    <aside
+      data-testid="acquire-desktop-panel"
+      aria-label="Selected cards to mark as acquired"
+      className="fixed top-16 right-0 bottom-0 w-72 z-40 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-600 shadow-xl flex flex-col"
+    >
+      <div className="p-4 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+        <h2 className="text-lg font-bold flex items-center gap-2 text-gray-900 dark:text-gray-100">
+          <PackageCheck className="h-5 w-5 text-green-700 dark:text-green-400" />
+          <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700">
+            {selectedCards.length}
+          </Badge>
+          Acquired Cards
+        </h2>
+        <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+          {totalCards} {totalCards === 1 ? "card" : "cards"} selected
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3">
+        {selectedCards.map((card: any, index: number) => (
+          <AcquireSelectedCardItem
+            key={card.id}
+            card={card}
+            onQuantityChange={onQuantityChange}
+            onRemove={() => onRemoveSelected(index)}
+          />
+        ))}
+      </div>
+
+      <div className="p-4 border-t border-gray-300 dark:border-gray-600 space-y-2">
+        <AcquireControls
+          selectedCards={selectedCards}
+          onAcquireComplete={onAcquireComplete}
+        />
+        <Button variant="outline" className="w-full" onClick={onClearSelected}>
+          Clear All
+        </Button>
+      </div>
+    </aside>
   );
 };
