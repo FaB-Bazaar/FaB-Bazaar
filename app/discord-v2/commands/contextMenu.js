@@ -114,23 +114,13 @@ export async function handlePublicBinder(targetDiscordId, body) {
     
     const selectOptions = binders.map((binder) => {
       const slug = binder.slug || binder.discordExternalId;
-      const cardCount = binder.cards?.length || 0;
-      
-      // Calculate basic stats for display - PRIORITIZE TCG LOW
-      let totalValue = 0;
-      if (binder.cards?.length) {
-        binder.cards.forEach(card => {
-          // Updated priority: tcg_low → tcg_market → tcg_mid → tcg_high
-          const price = card.printingDetails?.tcg_low || 
-                       card.printingDetails?.tcg_market || 
-                       card.printingDetails?.tcg_mid || 
-                       card.printingDetails?.tcg_high ||
-                       card.price || 0;
-          const quantity = card.quantity || 1;
-          totalValue += price * quantity;
-        });
-      }
-      
+      // BinderWithStatsDTO carries aggregates under `stats` — there is no
+      // `cards` array on it (that was the MongoDB-era embedded shape, which
+      // rendered every binder here as 0 cards / $0.00). Same fields as the
+      // /binder API route: stats.totalQuantity + stats.totalValue.tcg_low.
+      const cardCount = binder.stats?.totalQuantity || 0;
+      const totalValue = binder.stats?.totalValue?.tcg_low || 0;
+
       return {
         label: `${binder.name} (${cardCount} cards)`.slice(0, 100),
         value: slug,
