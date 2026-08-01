@@ -8,7 +8,7 @@ import { buildFilterFacets } from './card-filter-facets';
 import { DEFAULT_OPT_STATE, type OptUiState } from '@/lib/search/opt-url-state';
 
 const state = (over: Partial<OptUiState> = {}): OptUiState => ({ ...DEFAULT_OPT_STATE, ...over });
-const build = (s: OptUiState, opts: { exclude?: string[] } = {}) =>
+const build = (s: OptUiState, opts: { exclude?: string[]; hideHeroAges?: boolean } = {}) =>
   buildFilterFacets({ state: s, dispatch: vi.fn(), availablePacks: [], facetDefs: [], ...opts });
 
 describe('buildFilterFacets', () => {
@@ -44,6 +44,16 @@ describe('buildFilterFacets', () => {
     expect(keys).not.toContain('facets');
     expect(keys).not.toContain('language');
     expect(keys).toContain('pitch');
+  });
+
+  it('hideHeroAges drops the Hero sub-section and its count contribution', () => {
+    // Deck-add dialog: hero age is irrelevant (the deck's hero is fixed).
+    const facets = build(state({ selectedHeroAges: ['young'], selectedType: 'attack' }), { hideHeroAges: true });
+    const type = facets.find((f) => f.key === 'type')!;
+    expect(type.count).toBe(1); // selectedType only — heroAges not counted
+    // The Hero sub-section heading is not rendered in the body.
+    const { renderToStaticMarkup } = require('react-dom/server');
+    expect(renderToStaticMarkup(type.body)).not.toContain('>Hero<');
   });
 
   it('counts default language as zero (["en"] is the default)', () => {

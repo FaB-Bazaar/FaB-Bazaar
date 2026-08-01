@@ -361,7 +361,7 @@ export interface FilterFacet {
 }
 
 export function buildFilterFacets({
-  state, dispatch, availablePacks, facetDefs, exclude,
+  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges,
 }: {
   state: OptUiState;
   dispatch: Dispatch<OptAction>;
@@ -369,6 +369,9 @@ export function buildFilterFacets({
   facetDefs: FacetDef[];
   /** Facet keys to omit (e.g. /tags hides 'facets' — its rail owns them). */
   exclude?: string[];
+  /** Hide the Hero (adult/young) sub-section inside the Type facet — the
+   *  deck-add dialog's hero is fixed, so age chips are noise there. */
+  hideHeroAges?: boolean;
 }): FilterFacet[] {
   const {
     selectedType, selectedHeroAges, selectedClasses, selectedTalents,
@@ -417,7 +420,7 @@ export function buildFilterFacets({
       ),
     },
     {
-      key: 'type', label: 'Type', count: (selectedType ? 1 : 0) + selectedHeroAges.length, panelClassName: 'w-72',
+      key: 'type', label: 'Type', count: (selectedType ? 1 : 0) + (hideHeroAges ? 0 : selectedHeroAges.length), panelClassName: 'w-72',
       body: (
         <>
           <p className={SECTION}>Type</p>
@@ -431,17 +434,21 @@ export function buildFilterFacets({
               />
             ))}
           </div>
-          <p className={cn(SECTION, 'mt-3')}>Hero</p>
-          <div className="grid grid-cols-2 gap-1">
-            {HERO_AGE_CHIPS.map(chip => (
-              <ArtChip
-                key={chip.value}
-                label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
-                active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
-                onClick={() => dispatch({ type: 'TOGGLE_HERO_AGE', value: chip.value })}
-              />
-            ))}
-          </div>
+          {!hideHeroAges && (
+            <>
+              <p className={cn(SECTION, 'mt-3')}>Hero</p>
+              <div className="grid grid-cols-2 gap-1">
+                {HERO_AGE_CHIPS.map(chip => (
+                  <ArtChip
+                    key={chip.value}
+                    label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}
+                    active={selectedHeroAges.includes(chip.value)} activeClass={chip.active}
+                    onClick={() => dispatch({ type: 'TOGGLE_HERO_AGE', value: chip.value })}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </>
       ),
     },

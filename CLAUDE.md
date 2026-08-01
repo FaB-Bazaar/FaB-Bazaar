@@ -118,7 +118,7 @@ npx vitest run <path>                 # single file
 
 Requires `POSTGRES_URL` in `.env.local` for service integration tests (reads via `vitest.setup.ts` → `loadEnvConfig`).
 
-**Tests run only if their path matches a `vitest.config.ts` project `include` glob** (`components/**`, `app/admin/**`, `app/api/**`, `lib/**`, `app/volzar/**`, …). Tests under a new top-level `app/` dir are silently skipped until you add its glob (hit when the chat moved `app/admin/fabby-chat` → `app/fabby-chat`, now `app/volzar`).
+**Tests run only if their path matches a `vitest.config.ts` project `include` glob** (`components/**`, `app/admin/**`, `app/api/**`, `lib/**`, `app/volzar/**`, …). Tests under a new top-level `app/` dir are silently skipped until you add its glob (hit when the chat moved `app/admin/fabby-chat` → `app/fabby-chat`, now `app/volzar`). `hooks/**` has NO glob at all — pure logic that needs node tests must live in `lib/` (why `resolveHeroFilter` moved to `lib/deck/`).
 
 ### Two-layer pattern
 

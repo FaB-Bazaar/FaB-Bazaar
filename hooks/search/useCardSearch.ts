@@ -22,12 +22,15 @@ interface UseCardSearchParams {
   groupByCard: boolean;
   enabled: boolean;                  // false → idle (empty state)
   pageSize?: number;
+  /** Name-matching mode passed to the server ('strict' substring vs 'broad'
+   *  typo-tolerant word_similarity). Distinct from the name/text scope toggle. */
+  matchMode?: 'strict' | 'broad';
   onLoaded?: (total: number) => void; // fired on each page-1 success (e.g. GA)
 }
 
 export function useCardSearch({
   filters, languages, sortBy, sortOrder, groupByCard, enabled,
-  pageSize = PAGE_SIZE, onLoaded,
+  pageSize = PAGE_SIZE, matchMode = 'strict', onLoaded,
 }: UseCardSearchParams) {
   const [results, setResults] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -48,7 +51,7 @@ export function useCardSearch({
   // Stable key: changes whenever the effective query changes.
   const queryKey =
     JSON.stringify(filters) + '|' + sortBy + '|' + sortOrder + '|' + groupByCard +
-    '|' + (languageFilter ? languageFilter.join(',') : 'all') + '|' + enabled;
+    '|' + (languageFilter ? languageFilter.join(',') : 'all') + '|' + enabled + '|' + matchMode;
 
   // ── Page 1 (replace) on query change ──
   useEffect(() => {
@@ -61,7 +64,7 @@ export function useCardSearch({
     setError(null);
     searchPrintingsPost(
       { ...filters, languages: languageFilter },
-      { page: 1, limit: pageSize, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard },
+      { page: 1, limit: pageSize, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: matchMode, groupByCard },
     )
       .then(res => {
         if (id !== reqIdRef.current) return;
@@ -89,7 +92,7 @@ export function useCardSearch({
     setLoadingMore(true);
     searchPrintingsPost(
       { ...filters, languages: languageFilter },
-      { page: next, limit: pageSize, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: 'strict', groupByCard },
+      { page: next, limit: pageSize, sortBy: sortBy as any, sortOrder: sortOrder as any, searchMode: matchMode, groupByCard },
     )
       .then(res => {
         if (id !== reqIdRef.current) return;

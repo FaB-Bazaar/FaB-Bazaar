@@ -6,8 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, AlertCircle, Loader2, Search, List, X, Swords, LayoutGrid, Eye, Sparkles, Trophy, ChevronDown, ChevronUp, ChevronsDown, ChevronsUp, ExternalLink, Settings, Copy, Download, Check, Tv, FileText, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useDeckEditor, resolveHeroFilter } from "@/hooks/deck/useDeckEditor";
-import { preloadHeroPool } from "@/lib/client/hero-pool-cache";
+import { useDeckEditor } from "@/hooks/deck/useDeckEditor";
 import type { SwapTarget } from "@/hooks/deck/useDeckEditor";
 import type { DeckCategory, DeckDTO, DeckPrintingDTO } from "@/lib/services/contracts/IDeckService";
 import { KEYWORDS } from "@/lib/fab-constants/keywords";
@@ -28,7 +27,7 @@ import DeckSettings from "@/components/deck/DeckSettings";
 import OmensReleaseNotice from "@/components/deck/OmensReleaseNotice";
 import DeckResultsTab from "@/components/deck/DeckResultsTab";
 import DeckNotesTab from "@/components/deck/DeckNotesTab";
-import QuickAddCardDialog, { TYPE_CHIPS, GENERIC_CHIP } from "@/components/deck/editor/QuickAddCardDialog";
+import QuickAddCardDialog from "@/components/deck/editor/QuickAddCardDialog";
 import { getHeroInfo } from "@/lib/fab-constants";
 import { OFFICIAL_TALENTS } from "@/lib/talent-constants";
 import MobileCardSearch from "@/components/deck/editor/MobileCardSearch";
@@ -542,20 +541,6 @@ export default function DeckEditorPage() {
     Promise.all([listsPromise, curatorsPromise]).finally(() => setBuildsLoading(false));
   }, [state.deck?.heroName, state.deck?._id, state.deck?.hero]);
 
-
-  // Preload the hero's slim card pool (one row per unique card, ~300 KB) on deck load.
-  // Replaces the legacy preloadCardPool which fetched ~8 × 25 MB of printings per type.
-  useEffect(() => {
-    if (!state.deck) return;
-    const heroFilter = resolveHeroFilter(state.deck);
-    if (!heroFilter || !heroFilter.heroClasses.length) return;
-    preloadHeroPool({
-      heroClasses: heroFilter.heroClasses,
-      heroTalents: heroFilter.heroTalents,
-      heroEssences: heroFilter.heroEssences,
-      format: state.deck.format,
-    });
-  }, [state.deck?.heroName, state.deck?.hero, state.deck?.format]);
 
   // Fetch binders when user is available
   useEffect(() => {
