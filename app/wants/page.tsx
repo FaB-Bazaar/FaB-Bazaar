@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, SlidersHorizontal, Filter, ChevronDown, ChevronUp, X, PackageCheck } from "lucide-react";
 import { FOILING_MAP, RARITY_MAP, SET_MAP } from "@/lib/fab-constants";
+import { formatWantsExport } from "@/lib/wants/export-format";
 import CardSearchDialog from "@/components/dialogs/cards/card-search-dialog";
 import { WantsCard, AcquireSelectedCardsSheet, AcquireSelectedCardsPanel } from '@/components/wants';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -339,14 +340,8 @@ export default function NewWantsPage() {
   const activeFilterCount = Object.values(activeFilters).filter(Boolean).length + (searchQuery ? 1 : 0);
 
   const handleExport = async () => {
-    const cardList = filteredCards.map(card => {
-      const set = card.printingDetails?.set?.toUpperCase() || '';
-      const rarityCode = card.printingDetails?.rarity || '';
-      const rarity = RARITY_MAP[rarityCode?.toLowerCase()] || rarityCode;
-      const foilingCode = card.printingDetails?.foiling || 's';
-      const foiling = FOILING_MAP[foilingCode?.toLowerCase()] || 'Non-foil';
-      return `${card.quantity}x ${card.name} (${set}, ${rarity}, ${foiling})`;
-    }).join('\n');
+    // Export mirrors the on-screen view: filtered AND sorted.
+    const cardList = formatWantsExport(sortedCards);
 
     try {
       await navigator.clipboard.writeText(cardList);
