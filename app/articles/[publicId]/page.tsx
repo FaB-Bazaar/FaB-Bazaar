@@ -9,6 +9,10 @@ import { getCachedArticleByPublicId, getCachedArticlePublicIds } from '@/lib/art
 // --- SECURITY: HTML SANITIZATION ---
 import { createSafeInnerHTML } from '@/lib/sanitize-html';
 
+// --- CO-AUTHOR CREDITS ---
+import { contributorsToMetadataAuthors } from '@/lib/articles/contributors';
+import type { ArticleContributorDTO } from '@/lib/services/contracts/IArticleService';
+
 // --- COMPONENT IMPORTS ---
 import HeroCard from '@/components/heroes/HeroCard';
 import InlineCard from '@/components/heroes/InlineCard';
@@ -119,6 +123,7 @@ export async function generateMetadata({ params }: { params: { publicId: string 
   const article = result.data;
   const { title, subtitle, image } = article;
   const url = `${process.env.NEXT_PUBLIC_APP_URL}/articles/${publicId}`;
+  const metadataAuthors = contributorsToMetadataAuthors(article.contributors);
 
   const ogImageUrl = image
     ? `https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/${image}/public`
@@ -127,6 +132,7 @@ export async function generateMetadata({ params }: { params: { publicId: string 
   return {
     title: title,
     description: subtitle,
+    ...(metadataAuthors.length > 0 ? { authors: metadataAuthors } : {}),
     openGraph: {
       title: title,
       description: subtitle,
@@ -180,6 +186,21 @@ export default async function ArticlePage({ params }: { params: { publicId: stri
           <h1>{articleDoc.title}</h1>
           {articleDoc.subtitle && (
             <p className="lead text-lg text-slate-600 dark:text-slate-400">{articleDoc.subtitle}</p>
+          )}
+          {/* Co-author credits (contributors JSONB, migration 0098) */}
+          {(articleDoc.contributors?.length ?? 0) > 0 && (
+            <div className="not-prose mb-2">
+              {(articleDoc.contributors as ArticleContributorDTO[]).map((contributor, i) => (
+                <div
+                  key={i}
+                  dangerouslySetInnerHTML={createSafeInnerHTML('fab-byline', {
+                    role: contributor.role,
+                    name: contributor.name,
+                    link: contributor.link,
+                  })}
+                />
+              ))}
+            </div>
           )}
           <div className="not-prose flex items-center gap-2 mb-4">
             <ShareButton url={`https://fabbazaar.app/articles/${publicId}`} />

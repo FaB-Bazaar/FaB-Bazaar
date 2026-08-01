@@ -23,9 +23,11 @@ import type {
   ArticleExportDTO,
   ArticleStatus,
   ArticleContentType,
+  ArticleContributorDTO,
   SectionValidationResult,
 } from '../../contracts/IArticleService';
 import type { AsyncResult } from '../../contracts/common';
+import { normalizeContributors } from '@/lib/articles/contributors';
 
 export class PostgresArticleService implements IArticleService {
   // User article constraints
@@ -54,6 +56,7 @@ export class PostgresArticleService implements IArticleService {
       categories: row.categories || [],
       image: row.image || undefined,
       sections: Array.isArray(row.sections) ? row.sections : [],
+      contributors: Array.isArray(row.contributors) ? row.contributors : undefined,
       isUserArticle: row.isUserArticle || false,
       promoted: row.promoted || false,
       heroSlug: row.heroSlug || undefined,
@@ -127,6 +130,16 @@ export class PostgresArticleService implements IArticleService {
         }
       }
 
+      // Validate contributors if provided
+      let contributors: ArticleContributorDTO[] | undefined;
+      if (data.contributors !== undefined) {
+        const normalized = normalizeContributors(data.contributors);
+        if (!normalized.ok) {
+          return { success: false, error: `Invalid contributors: ${normalized.error}` };
+        }
+        contributors = normalized.contributors;
+      }
+
       // Generate unique publicId
       const publicId = nanoid(10);
       const articleId = nanoid(21);
@@ -152,6 +165,7 @@ export class PostgresArticleService implements IArticleService {
           contentType: data.contentType,
           image: data.image,
           sections: data.sections || [],
+          contributors,
           status: data.status || 'draft',
           authorId,
           content: '', // Legacy field
@@ -370,6 +384,13 @@ export class PostgresArticleService implements IArticleService {
       }
 
       const updateFields: any = { updatedAt: new Date() };
+      if (updates.contributors !== undefined) {
+        const normalized = normalizeContributors(updates.contributors);
+        if (!normalized.ok) {
+          return { success: false, error: `Invalid contributors: ${normalized.error}` };
+        }
+        updateFields.contributors = normalized.contributors;
+      }
       if (updates.title !== undefined) updateFields.title = updates.title.trim();
       if (updates.subtitle !== undefined) updateFields.subtitle = updates.subtitle?.trim();
       if (newSlug) updateFields.slug = newSlug;

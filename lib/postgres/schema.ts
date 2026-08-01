@@ -193,6 +193,7 @@ export const articles = pgTable('articles', {
   categories: text('categories').array(),
   image: text('image'),
   sections: jsonb('sections'), // Array of section objects (7 types: text, card-carousel, video, etc.)
+  contributors: jsonb('contributors'), // Co-author credits: array of { role?, name, link? } (migration 0098)
   isUserArticle: boolean('is_user_article').default(false).notNull(),
   promoted: boolean('promoted').default(false).notNull(),
   heroSlug: text('hero_slug'),

@@ -229,7 +229,8 @@ export async function PATCH(
         }
 
         // Only allow updating specific metadata fields
-        const allowedFields = ['title', 'subtitle', 'status', 'image', 'contentType'];
+        // (contributors = co-author credits; validated by the service layer)
+        const allowedFields = ['title', 'subtitle', 'status', 'image', 'contentType', 'contributors'];
         const updateData: any = {};
 
         for (const field of allowedFields) {

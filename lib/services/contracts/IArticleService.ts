@@ -113,6 +113,13 @@ export type ArticleSectionDTO =
 // Article DTOs
 // ============================================================================
 
+/** Co-author credit (deck creator, strategy inventor, guest writer). */
+export interface ArticleContributorDTO {
+  role?: string;   // e.g. "Deck by", "Strategy by" — renderer defaults when absent
+  name: string;
+  link?: string;   // http(s) URL or internal path
+}
+
 export interface ArticleDTO {
   _id?: string;
   title: string;
@@ -127,6 +134,7 @@ export interface ArticleDTO {
   categories?: string[];  // Additional classifications: 'tournament', 'strategy', 'beginner', etc.
   image?: string;
   sections: ArticleSectionDTO[];
+  contributors?: ArticleContributorDTO[];  // Co-author credits rendered in the article header
   isUserArticle?: boolean;  // true = user-managed, false = admin-managed
   promoted?: boolean;       // true = admin has promoted this user article to featured placement
   // Hero guide specific fields (used when contentType is 'hero')
@@ -144,6 +152,7 @@ export interface CreateArticleDTO {
   contentType: ArticleContentType;
   image?: string;
   sections?: ArticleSectionDTO[];
+  contributors?: ArticleContributorDTO[];
   status?: ArticleStatus;
   // Hero guide specific fields
   heroSlug?: string;
@@ -159,6 +168,7 @@ export interface UpdateArticleDTO {
   image?: string;
   status?: ArticleStatus;
   sections?: any[]; // Supports all section types including match-report, decklist-block, etc.
+  contributors?: ArticleContributorDTO[];  // Co-author credits; [] clears
   // Hero guide specific fields
   heroSlug?: string;
   heroClass?: string;
