@@ -35,6 +35,12 @@ Public-facing endpoint for profile pages. Query params:
 
 Rate limited (30 req/min per IP). Responses cached 5 minutes. Only returns public binders.
 
+## Hidden Binder Value (migration 0099)
+
+- **`hideValue` stripping is route-layer, not service** — the service only persists/surfaces the flag. `[binderId]/cards` GET deletes `totalValue`/`valueForTrade`/`valueNotForTrade` from `metadata.stats` for non-owners; `/api/users/[userId]/binders` strips them unconditionally (endpoint is anonymous + cached — no viewer identity exists). Owners always get full values.
+- **`defaultSort` is validated in the service** against `BINDER_SORT_OPTIONS` (`contracts/IBinderService.ts`); `null` clears. Keep that list in sync with the binder page's sort dropdown.
+- **Client `BinderService.updateSettings` whitelists payload fields** — a new binder setting must be added to its explicit payload object or it's silently dropped before reaching the PUT route (hit with hideValue/defaultSort).
+
 ## Copy Behavior
 
 `copyBinder()` enforces privacy: all copied cards set to `forTrade: false`. Generates unique slug with `copy-` prefix.

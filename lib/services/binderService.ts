@@ -292,7 +292,9 @@ export class BinderService {
       description: settings.description,
       visibility: settings.visibility,
       tags: settings.tags,
-      thumbnailPrintingId: settings.thumbnailPrintingId
+      thumbnailPrintingId: settings.thumbnailPrintingId,
+      hideValue: settings.hideValue,
+      defaultSort: settings.defaultSort
     };
 
     // Sync isPublic with visibility.level (for backward compatibility)

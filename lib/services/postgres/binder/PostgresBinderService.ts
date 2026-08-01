@@ -46,6 +46,7 @@ import type {
   CardSearchResultDTO,
   VisibilityDTO,
 } from '@/lib/services/contracts/IBinderService';
+import { BINDER_SORT_OPTIONS } from '@/lib/services/contracts/IBinderService';
 import type { AsyncResult, PaginationOptions } from '@/lib/services/contracts/common';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeCondition } from '@/lib/utils/card-condition';
@@ -148,6 +149,13 @@ export class PostgresBinderService implements IBinderService {
       if (updates.thumbnailPrintingId !== undefined) updateData.thumbnailPrintingId = updates.thumbnailPrintingId;
       if (updates.pinnedInNav !== undefined) updateData.pinnedInNav = updates.pinnedInNav;
       if (updates.tags !== undefined) updateData.tags = updates.tags;
+      if (updates.hideValue !== undefined) updateData.hideValue = updates.hideValue;
+      if (updates.defaultSort !== undefined) {
+        if (updates.defaultSort !== null && !(BINDER_SORT_OPTIONS as readonly string[]).includes(updates.defaultSort)) {
+          return { success: false, error: `Invalid defaultSort: ${updates.defaultSort}` };
+        }
+        updateData.defaultSort = updates.defaultSort;
+      }
 
       if (updates.visibility) {
         if (updates.visibility.level !== undefined) updateData.visibilityLevel = updates.visibility.level;
@@ -1615,6 +1623,7 @@ export class PostgresBinderService implements IBinderService {
               allowWebhooks: b.allowWebhooks,
             },
             pinnedInNav: b.pinnedInNav,
+            hideValue: b.hideValue ?? false,
             tags: b.tags ?? [],
             updatedAt: b.updatedAt,
             showcaseCards: stats.showcaseCards,
@@ -1719,6 +1728,8 @@ export class PostgresBinderService implements IBinderService {
       },
       tags: binder.tags ?? [],
       slug: binder.slug || undefined,
+      hideValue: binder.hideValue ?? false,
+      defaultSort: binder.defaultSort || undefined,
       createdAt: binder.createdAt,
       updatedAt: binder.updatedAt,
       statsNeedUpdate: binder.statsNeedUpdate || false,

@@ -40,6 +40,8 @@ export interface BinderDTO {
   discordId?: string;
   isOnHand?: boolean;
   thumbnailPrintingId?: string;
+  hideValue?: boolean;
+  defaultSort?: string;
   createdAt: Date;
   updatedAt: Date;
 
@@ -105,7 +107,26 @@ export interface UpdateBinderDTO {
   slug?: string;
   thumbnailPrintingId?: string;
   pinnedInNav?: boolean;
+  hideValue?: boolean;
+  /** One of BINDER_SORT_OPTIONS; null clears back to the app default. */
+  defaultSort?: string | null;
 }
+
+/**
+ * Sort options the binder page offers — the only values defaultSort accepts.
+ */
+export const BINDER_SORT_OPTIONS = [
+  'default',
+  'name',
+  'quantity-desc',
+  'quantity-asc',
+  'tcg-market-desc',
+  'tcg-market-asc',
+  'tcg-low-desc',
+  'tcg-low-asc',
+  'collector-release',
+  'collector-absolute',
+] as const;
 
 /**
  * List binders filters
@@ -503,6 +524,7 @@ export interface BinderWithStatsDTO {
   isPublic: boolean;
   visibility?: VisibilityDTO;
   pinnedInNav?: boolean;
+  hideValue?: boolean;
   updatedAt?: Date;
   showcaseCards?: Array<{
     printingId: string;

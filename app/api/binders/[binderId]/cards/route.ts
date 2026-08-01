@@ -90,6 +90,15 @@ export async function GET(
 
     const { cards, pagination, metadata } = result.data;
 
+    // Privacy: when the owner hides this binder's value, strip the value
+    // aggregates server-side for everyone but the owner — the totals must
+    // never reach the network payload.
+    if ((binder as any).hideValue && !isOwner && metadata?.stats) {
+      delete (metadata.stats as any).totalValue;
+      delete (metadata.stats as any).valueForTrade;
+      delete (metadata.stats as any).valueNotForTrade;
+    }
+
     // Owner-only, best-effort: per-card deck-usage aggregates for the tile
     // "Decks (N)" badge (their decks vs. their binder — never a visitor's).
     let deckUsageByCard: Record<string, { deckCount: number; maxDeckQuantity: number; ownedQuantity: number }> = {};

@@ -18,6 +18,7 @@ interface BinderWithStats {
     level: 'public' | 'private' | 'unlisted';
     [key: string]: any;
   };
+  hideValue?: boolean;
   totalQuantity?: number;
   quantityForTrade?: number;
   quantityNotForTrade?: number;
@@ -286,6 +287,10 @@ export default function BinderStats({ binder, stats, loading, editable, onOpenSe
   const totalValue = binder?.totalValue?.tcg_low || binder?.total_value || stats?.estimatedValue || 0;
   const valueForTrade = binder?.valueForTrade?.tcg_low || 0;
   const valueNotForTrade = binder?.valueNotForTrade?.tcg_low || 0;
+
+  // Owner opted to hide this binder's value — the API already strips the
+  // aggregates for visitors; render an explicit "Hidden" state rather than $0.00
+  const valuesHidden = !!binder?.hideValue && !editable;
   
   // Calculate percentages
   const forTradePercentage = totalCards > 0 ? (cardsForTrade / totalCards) * 100 : 0;
@@ -334,10 +339,21 @@ export default function BinderStats({ binder, stats, loading, editable, onOpenSe
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalValue)}</div>
-            <p className="text-xs text-muted-foreground">
-              TCG Low price estimate
-            </p>
+            {valuesHidden ? (
+              <>
+                <div className="text-2xl font-bold">Hidden</div>
+                <p className="text-xs text-muted-foreground">
+                  The owner keeps this binder's value private
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatCurrency(totalValue)}</div>
+                <p className="text-xs text-muted-foreground">
+                  TCG Low price estimate
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -383,30 +399,32 @@ export default function BinderStats({ binder, stats, loading, editable, onOpenSe
 
       {/* Value and Card Distribution with Pie Charts */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <PieChart className="h-5 w-5" />
-              Value Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimplePieChart 
-              data={[
-                { 
-                  label: 'For Trade', 
-                  value: valueForTrade, 
-                  color: '#3b82f6' // blue-500
-                },
-                { 
-                  label: 'Not for Trade', 
-                  value: valueNotForTrade, 
-                  color: '#6b7280' // gray-500
-                }
-              ]}
-            />
-          </CardContent>
-        </Card>
+        {!valuesHidden && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <PieChart className="h-5 w-5" />
+                Value Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SimplePieChart
+                data={[
+                  {
+                    label: 'For Trade',
+                    value: valueForTrade,
+                    color: '#3b82f6' // blue-500
+                  },
+                  {
+                    label: 'Not for Trade',
+                    value: valueNotForTrade,
+                    color: '#6b7280' // gray-500
+                  }
+                ]}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

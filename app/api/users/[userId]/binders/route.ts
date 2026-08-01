@@ -164,30 +164,35 @@ export async function GET(
         formatted.totalQuantity = stats.totalQuantity || 0;
         formatted.quantityForTrade = stats.quantityForTrade || 0;
         formatted.quantityNotForTrade = stats.quantityNotForTrade || 0;
-        formatted.totalValue = stats.totalValue || {
-          tcg_market: 0,
-          tcg_low: 0,
-          tcg_mid: 0,
-          tcg_high: 0,
-        };
-        formatted.valueForTrade = stats.valueForTrade || {
-          tcg_market: 0,
-          tcg_low: 0,
-          tcg_mid: 0,
-          tcg_high: 0,
-        };
-        formatted.valueNotForTrade = stats.valueNotForTrade || {
-          tcg_market: 0,
-          tcg_low: 0,
-          tcg_mid: 0,
-          tcg_high: 0,
-        };
+        // This endpoint is anonymous + cached, so there is no "owner viewer":
+        // hideValue strips value aggregates unconditionally. Owners see values
+        // through the authenticated /api/binders surfaces.
+        if (!(binder as any).hideValue) {
+          formatted.totalValue = stats.totalValue || {
+            tcg_market: 0,
+            tcg_low: 0,
+            tcg_mid: 0,
+            tcg_high: 0,
+          };
+          formatted.valueForTrade = stats.valueForTrade || {
+            tcg_market: 0,
+            tcg_low: 0,
+            tcg_mid: 0,
+            tcg_high: 0,
+          };
+          formatted.valueNotForTrade = stats.valueNotForTrade || {
+            tcg_market: 0,
+            tcg_low: 0,
+            tcg_mid: 0,
+            tcg_high: 0,
+          };
+          formatted.total_value = stats.totalValue?.tcg_low || 0;
+        }
         formatted.rarityCounts = stats.rarityCounts || {};
         formatted.rarityCountsForTrade = stats.rarityCountsForTrade || {};
         formatted.rarityCountsNotForTrade = stats.rarityCountsNotForTrade || {};
         formatted.cardCount = stats.totalQuantity || 0;
         formatted.totalCards = stats.totalQuantity || 0;
-        formatted.total_value = stats.totalValue?.tcg_low || 0;
       }
 
       if (includeShowcase && 'showcaseCards' in binder && binder.showcaseCards) {

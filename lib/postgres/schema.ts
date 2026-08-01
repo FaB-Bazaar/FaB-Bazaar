@@ -234,6 +234,12 @@ export const binders = pgTable('binders', {
   allowWhoHas: boolean('allow_who_has').default(true).notNull(),
   allowWebhooks: boolean('allow_webhooks').default(false).notNull(),
 
+  // Privacy: hide the binder's total value from non-owner viewers
+  hideValue: boolean('hide_value').default(false).notNull(),
+
+  // Initial sort for the binder page (NULL = app default)
+  defaultSort: text('default_sort'),
+
   // Soft delete / archival
   archived: boolean('archived').default(false).notNull(),
 

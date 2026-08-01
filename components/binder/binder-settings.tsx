@@ -29,6 +29,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+// Mirrors the sort options on the binder page's Sort By dropdown
+const DEFAULT_SORT_OPTIONS = [
+  { value: 'default', label: 'Default (recently added)' },
+  { value: 'name', label: 'Name (A–Z)' },
+  { value: 'quantity-desc', label: 'Quantity (High to Low)' },
+  { value: 'quantity-asc', label: 'Quantity (Low to High)' },
+  { value: 'tcg-market-desc', label: 'TCG Market (High to Low)' },
+  { value: 'tcg-market-asc', label: 'TCG Market (Low to High)' },
+  { value: 'tcg-low-desc', label: 'TCG Low (High to Low)' },
+  { value: 'tcg-low-asc', label: 'TCG Low (Low to High)' },
+  { value: 'collector-release', label: 'Collector # (Release Order)' },
+  { value: 'collector-absolute', label: 'Collector # (A–Z)' },
+]
+
 interface BinderSettingsProps {
   binder: {
     id: string
@@ -36,6 +50,8 @@ interface BinderSettingsProps {
     description?: string
     isPublic?: boolean
     thumbnailPrintingId?: string
+    hideValue?: boolean
+    defaultSort?: string
     visibility?: {
       level: string
       allowInSearch: boolean
@@ -49,6 +65,8 @@ interface BinderSettingsProps {
     name: string
     description: string
     thumbnailPrintingId?: string
+    hideValue: boolean
+    defaultSort: string | null
     visibility: {
       level: string
       allowInSearch: boolean
@@ -66,6 +84,8 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
   const [name, setName] = useState(binder.name || "My Trade Binder")
   const [description, setDescription] = useState(binder.description || "")
   const [thumbnailPrintingId, setThumbnailPrintingId] = useState(binder.thumbnailPrintingId || "")
+  const [hideValue, setHideValue] = useState(binder.hideValue ?? false)
+  const [defaultSort, setDefaultSort] = useState(binder.defaultSort || "")
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -148,6 +168,8 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
         name,
         description,
         thumbnailPrintingId: thumbnailPrintingId || undefined,
+        hideValue,
+        defaultSort: defaultSort || null,
         visibility,
       })
       setSuccess(true)
@@ -201,6 +223,25 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
             placeholder="Add a description for your trade binder"
             rows={3}
           />
+        </div>
+
+        {/* Default Sort */}
+        <div className="space-y-2">
+          <Label htmlFor="binder-default-sort">Default Sort</Label>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            How cards are sorted when this binder is first opened.
+          </p>
+          <select
+            id="binder-default-sort"
+            value={defaultSort}
+            onChange={e => setDefaultSort(e.target.value)}
+            className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+          >
+            <option value="">Automatic (TCG Low High to Low, or Name A–Z when value is hidden)</option>
+            {DEFAULT_SORT_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Thumbnail Selection */}
@@ -307,6 +348,15 @@ export default function BinderSettings({ binder, onSave, onSetAllForTrade, loadi
           {/* Advanced Settings Panel */}
           {showAdvancedVisibility && (
             <div className="mt-3 space-y-3 pl-3 border-l-2 border-gray-300 dark:border-gray-600">
+              <label className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={hideValue}
+                  onChange={e => setHideValue(e.target.checked)}
+                  className="rounded"
+                />
+                Hide total value from visitors
+              </label>
               <label className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
                 <input
                   type="checkbox"

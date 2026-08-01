@@ -93,7 +93,9 @@ export default function BinderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery] = useDebounce(searchQuery, 500);
   const [activeFilters, setActiveFilters] = useState<Record<string, string | null>>({});
-  const [sortBy, setSortBy] = useState("tcg-low-desc");
+  // Initial sort comes from the binder's saved defaultSort once it loads;
+  // fallback is name A–Z for hide-value binders, TCG Low high-to-low otherwise.
+  const [sortBy, setSortBy] = useState<string | null>(null);
   
   // Dialog and sidebar state
   const [isCardSearchOpen, setIsCardSearchOpen] = useState(false);
@@ -213,7 +215,7 @@ export default function BinderPage() {
       const options = {
         page,
         limit: 200,
-        sortBy,
+        sortBy: sortBy ?? 'tcg-low-desc',
       };
 
       const result = await bindersClient.getBinderCards(binderId, filters, options);
@@ -264,6 +266,10 @@ export default function BinderPage() {
         const result = await BinderService.fetchBinder(binderId, router);
         if (result.shouldRedirect) return;
         setBinder(result.binder);
+        setSortBy(prev => prev ?? (
+          result.binder?.defaultSort ||
+          (result.binder?.hideValue ? 'name' : 'tcg-low-desc')
+        ));
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -273,18 +279,13 @@ export default function BinderPage() {
     if (binderId) fetchBinderDetails();
   }, [binderId, router]);
 
+  // Initial load + refetch when filters/sort change (sortBy is null until the
+  // binder's saved default sort is resolved — don't fetch before that)
   useEffect(() => {
-    if (binder?._id) {
+    if (binder?._id && sortBy) {
       fetchCards(1, true);
     }
-  }, [binder?._id]);
-
-  // Refetch when filters change
-  useEffect(() => {
-    if (binder) {
-      fetchCards(1, true);
-    }
-  }, [debouncedSearchQuery, activeFilters, sortBy]);
+  }, [binder?._id, debouncedSearchQuery, activeFilters, sortBy]);
 
   // Infinite scroll for server-side pagination
   useEffect(() => {
@@ -949,7 +950,7 @@ const SuperSlamDisclosure = () => {
                   setFiltersExpanded={setFiltersExpanded}
                   activeFilters={activeFilters}
                   activeFilterCount={activeFilterCount}
-                  sortBy={sortBy}
+                  sortBy={sortBy ?? 'tcg-low-desc'}
                   setSortBy={setSortBy}
                   setFilter={setFilter}
                   clearFilter={clearFilter}
@@ -977,7 +978,7 @@ const SuperSlamDisclosure = () => {
                   {filterSidebarVisible ? 'Hide Filters' : 'Show Filters'}
                 </button>
                 <select
-                  value={sortBy}
+                  value={sortBy ?? 'tcg-low-desc'}
                   onChange={e => setSortBy(e.target.value)}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
                 >
@@ -1188,7 +1189,9 @@ const SuperSlamDisclosure = () => {
                         description: binder?.description,
                         isPublic: binder?.isPublic,
                         thumbnailPrintingId: binder?.thumbnailPrintingId,
-                        visibility: binder?.visibility
+                        visibility: binder?.visibility,
+                        hideValue: binder?.hideValue,
+                        defaultSort: binder?.defaultSort
                       }}
                       onSave={handleSaveBinderSettings}
                       onSetAllForTrade={handleBulkToggleForTrade}
