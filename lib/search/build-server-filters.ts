@@ -79,6 +79,13 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
     if (SHORTHAND_RE.test(q)) {
       const { filters } = shorthandParser.parseQuery(q);
       f = { ...filters };
+      // The parser maps leftover bare words to a name search. In text mode
+      // those words are the rule-text query ("hits class:guardian") — unless
+      // an explicit text: token already claimed the text slot.
+      if (s.searchMode === 'text' && f.name !== undefined && f.text === undefined) {
+        f.text = f.name;
+        delete f.name;
+      }
     } else if (s.searchMode === 'text') {
       f.text = q;
     } else {

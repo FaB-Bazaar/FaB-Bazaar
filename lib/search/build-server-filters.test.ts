@@ -77,6 +77,30 @@ describe('buildServerFilters — search mode', () => {
     expect(f).not.toHaveProperty('text');
   });
 
+  it('treats leftover bare words in a shorthand query as rule text in text mode', () => {
+    // "hits class:guardian" with the Text toggle on: the user wants cards whose
+    // rule text mentions "hits", filtered to guardian — not cards NAMED "hits".
+    const f = buildServerFilters({ ...baseState, query: 'hits class:guardian', searchMode: 'text' });
+    expect(f.text).toBe('hits');
+    expect(f.classes).toEqual(['guardian']);
+    expect(f).not.toHaveProperty('name');
+  });
+
+  it('keeps leftover bare words in a shorthand query as a name search in name mode', () => {
+    const f = buildServerFilters({ ...baseState, query: 'hits class:guardian' });
+    expect(f.name).toBe('hits');
+    expect(f.classes).toEqual(['guardian']);
+    expect(f).not.toHaveProperty('text');
+  });
+
+  it('does not clobber an explicit text: token with leftover words in text mode', () => {
+    // text: already claimed the rule-text slot — the stray word stays a name.
+    const f = buildServerFilters({ ...baseState, query: 'text:ice snapdragon class:ranger', searchMode: 'text' });
+    expect(f.text).toBe('ice');
+    expect(f.name).toBe('snapdragon');
+    expect(f.classes).toEqual(['ranger']);
+  });
+
   it('lets chips layer on top of a text-mode query', () => {
     const f = buildServerFilters({ ...baseState, query: 'prevent', searchMode: 'text', selectedClasses: ['guardian'] });
     expect(f.text).toBe('prevent');
