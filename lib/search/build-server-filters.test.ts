@@ -197,6 +197,35 @@ describe('buildServerFilters — talents (multi-select, OR)', () => {
   });
 });
 
+describe('buildServerFilters — Generic chip excludes talented cards by default', () => {
+  it('sets genericTalentless when the generic class chip is selected', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['generic'] });
+    expect(f.classes).toEqual(['generic']);
+    expect(f.genericTalentless).toBe(true);
+  });
+
+  it('keeps genericTalentless when a talent is also selected — the talent leg re-admits its cards', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['generic'], selectedTalents: ['light'] });
+    expect(f.genericTalentless).toBe(true);
+    expect(f.classTalentUnion).toBe(true);
+  });
+
+  it('sets genericTalentless when generic is mixed with other classes', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['warrior', 'generic'] });
+    expect(f.genericTalentless).toBe(true);
+  });
+
+  it('does not set genericTalentless for non-generic class selections', () => {
+    const f = buildServerFilters({ ...baseState, selectedClasses: ['warrior'] });
+    expect(f).not.toHaveProperty('genericTalentless');
+  });
+
+  it('does not set genericTalentless for a shorthand c:generic query (explicit syntax keeps raw semantics)', () => {
+    const f = buildServerFilters({ ...baseState, query: 'c:generic' });
+    expect(f).not.toHaveProperty('genericTalentless');
+  });
+});
+
 describe('buildServerFilters — price', () => {
   it('maps a maximum to priceMax against tcg_low', () => {
     const f = buildServerFilters({ ...baseState, priceMax: '25' });

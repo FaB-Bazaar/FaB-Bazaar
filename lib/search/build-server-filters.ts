@@ -107,6 +107,10 @@ export function buildServerFilters(s: SearchUiState): PrintingsSearchFilters {
   // class value here — selecting a class + Generic returns the union, not the
   // (empty) intersection the old isGenericOnly Type chip produced.
   if (s.selectedClasses.length) f.classes = s.selectedClasses;
+  // The Generic chip means the talent-free generic pool — talented generics
+  // (Light Generic, …) only show up when their talent chip is also selected
+  // (they then enter through the talent leg of the union below).
+  if (s.selectedClasses.includes('generic')) f.genericTalentless = true;
   if (s.selectedTalents.length) f.talents = s.selectedTalents;
   // Class + Talent chips form one OR'd affiliation set (a hero's pool is
   // class ∪ talent ∪ generic), so e.g. Generic + Lightning returns all generic

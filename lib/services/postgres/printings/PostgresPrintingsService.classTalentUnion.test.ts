@@ -42,3 +42,42 @@ describe('PostgresPrintingsService — classTalentUnion', () => {
     expect(unionMajestic).toBeGreaterThan(0);
   });
 });
+
+describe('PostgresPrintingsService — genericTalentless (generic leg excludes talented cards)', () => {
+  it('generic alone: matches only talent-free generic cards', async () => {
+    const allGeneric = await total({ classes: ['generic'] });
+    const talentFree = await total({ classes: ['generic'], talentless: true });
+    const flagged = await total({ classes: ['generic'], genericTalentless: true });
+
+    expect(talentFree).toBeLessThan(allGeneric); // talented generics exist in the catalog
+    expect(flagged).toBe(talentFree);
+  });
+
+  it('generic + talent union: talent leg re-admits its talented cards (incl. talented generics)', async () => {
+    const talentFreeGeneric = await total({ classes: ['generic'], talentless: true });
+    const light = await total({ talents: ['light'] });
+    const union = await total({
+      classes: ['generic'], genericTalentless: true,
+      talents: ['light'], classTalentUnion: true,
+    });
+
+    // The two legs are disjoint (a talent-free card can't carry the light
+    // talent), so the union is the plain sum.
+    expect(union).toBe(talentFreeGeneric + light);
+  });
+
+  it('mixed classes: only the generic leg is talent-stripped — talented warriors stay', async () => {
+    const plainMixed = await total({ classes: ['generic', 'warrior'] });
+    const allTalentless = await total({ classes: ['generic', 'warrior'], talentless: true });
+    const flagged = await total({ classes: ['generic', 'warrior'], genericTalentless: true });
+
+    expect(flagged).toBeLessThan(plainMixed);      // talented generics dropped
+    expect(flagged).toBeGreaterThan(allTalentless); // talented warriors kept
+  });
+
+  it('flag is a no-op when generic is not among the selected classes', async () => {
+    const plain = await total({ classes: ['warrior'] });
+    const flagged = await total({ classes: ['warrior'], genericTalentless: true });
+    expect(flagged).toBe(plain);
+  });
+});

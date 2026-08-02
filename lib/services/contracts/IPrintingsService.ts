@@ -254,6 +254,14 @@ export interface PrintingsSearchFilters {
    * ANY hero of that class; talented cards (e.g. draconic/mystic illusionist)
    * are a subset only playable by heroes of that class who share the talent. */
   talentless?: boolean;
+  /**
+   * When true AND 'generic' is among `classes`, the generic leg of the class
+   * match requires NO talent — talented generics (e.g. Light Generic) only
+   * appear via an explicitly selected talent (`talents` + classTalentUnion).
+   * Other classes in the selection keep their full pool. No-op without
+   * 'generic' in `classes`.
+   */
+  genericTalentless?: boolean;
   talentsAll?: string[];
   talentsNot?: string[];
 

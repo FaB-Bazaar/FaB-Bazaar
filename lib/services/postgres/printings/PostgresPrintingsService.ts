@@ -1397,9 +1397,19 @@ export class PostgresPrintingsService implements IPrintingsService {
     // independently (AND). With classTalentUnion set (the search UI), they OR
     // into a single affiliation set — a hero's pool is class ∪ talent ∪ generic,
     // so e.g. Generic + Lightning shows all generic cards AND all lightning cards.
-    const classesOverlap = filters.classes && filters.classes.length > 0
+    let classesOverlap = filters.classes && filters.classes.length > 0
       ? sql`${cards.classes} && ARRAY[${sql.join(lc(filters.classes).map(t => sql`${t}`), sql`, `)}]::text[]`
       : null;
+    // genericTalentless: the generic leg only matches talent-free cards, so
+    // talented generics (e.g. Light Generic) need their talent explicitly
+    // selected. Other classes in the selection keep their full (talented) pool.
+    if (filters.genericTalentless && filters.classes && lc(filters.classes).includes('generic')) {
+      const otherClasses = lc(filters.classes).filter(c => c !== 'generic');
+      const genericLeg = sql`(${cards.classes} && ARRAY['generic']::text[] AND COALESCE(cardinality(${cards.talents}), 0) = 0)`;
+      classesOverlap = otherClasses.length > 0
+        ? sql`(${cards.classes} && ARRAY[${sql.join(otherClasses.map(t => sql`${t}`), sql`, `)}]::text[] OR ${genericLeg})`
+        : genericLeg;
+    }
     const talentsOverlap = filters.talents && filters.talents.length > 0
       ? sql`${cards.talents} && ARRAY[${sql.join(lc(filters.talents).map(t => sql`${t}`), sql`, `)}]::text[]`
       : null;
