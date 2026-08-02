@@ -277,19 +277,20 @@ export default function SetPage() {
           </Button>
         </div>
 
-        {/* Set Image - Centered (only show if no error) */}
+        {/* Set Image - Centered (only show if no error). Height-capped so a
+            tall logo can't push the carousel below the fold on desktop. */}
         {setCode && !imageError && (
-          <div className="mb-2 flex justify-center">
+          <div className="mb-1 flex justify-center">
             <img
               src={getSetImageUrl(setCode)}
               alt={setInfo?.name || setCode.toUpperCase()}
-              className="max-w-md w-full h-auto rounded-lg shadow-lg"
+              className="max-w-md w-auto max-h-24 md:max-h-32 rounded-lg shadow-lg"
               onError={() => setImageError(true)}
             />
           </div>
         )}
 
-        <div className="text-center mb-3">
+        <div className="text-center mb-2">
           {/* Show set name if no image or image failed to load */}
           {imageError && (
             <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
@@ -303,7 +304,7 @@ export default function SetPage() {
           )}
           {/* Don't show release date for GEM (evergreen set) */}
           {setInfo && setCode !== 'gem' && setInfo.released && (
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               Released: {new Date(setInfo.released).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -338,7 +339,7 @@ export default function SetPage() {
           )}
 
           {/* Filter - Foiling for GEM and FAB sets, Rarity for others */}
-          <div className="mt-4 flex flex-col items-center gap-2">
+          <div className="mt-2 flex flex-col items-center gap-2">
             {/* Pack filter — only for sets split across TCGplayer groups (e.g. GEM) */}
             {packs.length > 0 && (
               <div className="flex flex-wrap gap-2 justify-center">
@@ -501,7 +502,7 @@ export default function SetPage() {
         </div>
 
         {/* Actions — kept above the fold */}
-        <div className="mb-4 flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="mb-3 flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild variant="outline">
             <Link href={`/opt?sets=${setCode}`}>
               View in Opt
@@ -523,7 +524,7 @@ export default function SetPage() {
         </div>
 
         {/* Cards Carousel */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4">
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-flex items-center gap-3 text-gray-500 dark:text-gray-400">
