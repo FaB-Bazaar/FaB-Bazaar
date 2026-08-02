@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   applySideboardToDeck,
   applySideboardToInventory,
+  isGearPrinting,
   type MatchupGalleryCard,
 } from './matchup-gallery';
 
@@ -20,6 +21,33 @@ const card = (
 
 const byId = (cards: MatchupGalleryCard[]) =>
   new Map(cards.map(c => [c.talisharId, c]));
+
+describe('isGearPrinting', () => {
+  const printing = (types: string[]) => ({ printingDetails: { types } });
+
+  it('marks weapons as gear', () => {
+    expect(isGearPrinting(printing(['mechanologist', 'weapon', 'gun', '2h']))).toBe(true);
+  });
+
+  it('marks non-evo equipment as gear (sideboard equipment regression: Hyper-X3, Teklo Foundry Heart)', () => {
+    expect(isGearPrinting(printing(['mechanologist', 'equipment', 'head']))).toBe(true);
+    expect(isGearPrinting(printing(['mechanologist', 'equipment', 'chest']))).toBe(true);
+  });
+
+  it('keeps evo equipment out of gear — they are library cards', () => {
+    expect(isGearPrinting(printing(['mechanologist', 'instant', 'equipment', 'evo', 'legs']))).toBe(false);
+  });
+
+  it('rejects non-gear cards and malformed printings', () => {
+    expect(isGearPrinting(printing(['mechanologist', 'action', 'attack']))).toBe(false);
+    expect(isGearPrinting({})).toBe(false);
+    expect(isGearPrinting({ printingDetails: {} })).toBe(false);
+  });
+
+  it('is case-insensitive on type names', () => {
+    expect(isGearPrinting(printing(['Mechanologist', 'Equipment', 'Head']))).toBe(true);
+  });
+});
 
 describe('applySideboardToDeck', () => {
   const deck = [

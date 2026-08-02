@@ -15,6 +15,15 @@ export interface SideboardSwaps {
   out: string[];
 }
 
+// Weapons and non-evo equipment belong in the Equipment & Weapons section.
+// Evo cards carry the equipment type but are played from the library — they
+// stay in their pitch sections (mirrors MatchupSideboardEditor's getSection).
+export function isGearPrinting(printing: { printingDetails?: { types?: string[] } }): boolean {
+  const types = (printing.printingDetails?.types || []).map(t => t.toLowerCase());
+  if (types.includes('weapon')) return true;
+  return types.includes('equipment') && !types.includes('evo');
+}
+
 function hasSwaps(sideboard: SideboardSwaps | undefined): sideboard is SideboardSwaps {
   return !!sideboard && (sideboard.in.length > 0 || sideboard.out.length > 0);
 }

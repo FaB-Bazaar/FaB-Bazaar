@@ -27,7 +27,7 @@ import { useExcludedHeroIds } from '@/hooks/banned-cards/useExcludedHeroIds';
 import { getHeroPortraitUrl } from "@/lib/fab-constants/heroPortraits";
 import { getStrategyPortraitUrl } from "@/lib/fab-constants/strategyPortraits";
 import { getCopyTargets, buildCopiedMatchup } from "@/lib/utils/matchup-copy";
-import { applySideboardToDeck, applySideboardToInventory } from "@/lib/utils/matchup-gallery";
+import { applySideboardToDeck, applySideboardToInventory, isGearPrinting } from "@/lib/utils/matchup-gallery";
 import { getUnconfiguredMatchupTiles } from "@/lib/utils/matchup-tiles";
 import { findExistingMatchupToEdit } from "@/lib/utils/matchup-edit-mode";
 import MatchupSideboardEditor from "./MatchupSideboardEditor";
@@ -496,11 +496,17 @@ export default function DeckMatchupsDialog({
     return map;
   }, [deckGalleryCards, inventoryGalleryCards]);
 
-  // Set of talisharIds that belong to equipment/hero slots (used for mobile section grouping)
+  // Set of talisharIds that belong to the Equipment & Weapons section: the
+  // deck's equipment/hero slots, plus gear-typed cards sitting in the maindeck
+  // or sideboard inventory (e.g. sideboard equipment like Hyper-X3) — those
+  // would otherwise fall through to the pitch/Library sections.
   const equipmentTalisharIds = useMemo(() => {
     const set = new Set<string>();
     for (const p of [...(deck?.equipment || []), ...(deck?.hero || [])]) {
       set.add(buildTalisharIdentifier(p));
+    }
+    for (const p of [...(deck?.maindeck || []), ...(deck?.inventory || [])]) {
+      if (isGearPrinting(p)) set.add(buildTalisharIdentifier(p));
     }
     return set;
   // eslint-disable-next-line react-hooks/exhaustive-deps
