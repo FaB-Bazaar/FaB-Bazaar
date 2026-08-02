@@ -113,6 +113,59 @@ export async function createBinder(
   }
 }
 
+export interface SetBinderResult {
+  binderId: string;
+  binderName: string;
+  slug?: string;
+  summary: { total: number; added: number; failed: number };
+}
+
+export interface ExistingSetBinder {
+  binderId: string;
+  binderName: string;
+  slug?: string;
+}
+
+export type CreateSetBinderResponse =
+  | { success: true; data: SetBinderResult }
+  | { success: false; error: string; code?: string; existing?: ExistingSetBinder };
+
+/**
+ * Create a "{username} - {SETCODE}" binder holding 1 copy of each card in a
+ * set, filtered by foilings (s/r/c) and optional edition.
+ *
+ * Nonstandard body handling: on 409 the route returns the existing binder
+ * under `data` beside `error` — handleResponse drops it, so parse manually
+ * (pinned by binders-client.set-binder.test.ts).
+ */
+export async function createSetBinder(
+  setCode: string,
+  options: { foilings: string[]; edition?: string }
+): Promise<CreateSetBinderResponse> {
+  try {
+    const response = await fetch(`/api/sets/${setCode}/binder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: body?.error || `HTTP ${response.status}: ${response.statusText}`,
+        code: `HTTP_${response.status}`,
+        ...(response.status === 409 && body?.data
+          ? { existing: body.data as ExistingSetBinder }
+          : {}),
+      };
+    }
+    return { success: true, data: body.data as SetBinderResult };
+  } catch (error) {
+    return handleError(error) as CreateSetBinderResponse;
+  }
+}
+
 /**
  * Update binder metadata
  *

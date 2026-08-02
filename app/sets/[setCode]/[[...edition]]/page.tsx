@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { getSetMetadata, hasFirstEdition } from '@/lib/fab-constants'
 import { getSetImageUrl } from "@/lib/set-images"
 import { languageFlag } from "@/lib/utils/printing-language"
+import { useAuth } from "@/contexts/AuthContext"
+import AddSetToBinderDialog from "@/components/sets/AddSetToBinderDialog"
 
 // Get the edition code based on set and edition parameter
 function getEditionCode(setCode: string, editionParam?: string): string {
@@ -49,6 +51,7 @@ function getEditionName(setCode: string, editionCode: string): string {
 export default function SetPage() {
   // Get params synchronously via useParams hook (idiomatic for client components)
   const params = useParams<{ setCode: string; edition?: string[] }>();
+  const { user } = useAuth();
   const setCode = ((params.setCode as string) ?? '').toLowerCase();
   const editionParam = Array.isArray(params.edition) ? params.edition[0] : undefined;
 
@@ -535,11 +538,19 @@ export default function SetPage() {
                   Search All Cards
                 </Link>
               </Button>
-              <Button asChild>
-                <Link href="/signup">
-                  Start Trading
-                </Link>
-              </Button>
+              {user ? (
+                <AddSetToBinderDialog
+                  setCode={setCode}
+                  editionCode={editionCode}
+                  setName={setInfo?.name || setCode.toUpperCase()}
+                />
+              ) : (
+                <Button asChild>
+                  <Link href="/signup">
+                    Start Trading
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
         )}
