@@ -267,16 +267,6 @@ export default function SetPage() {
     <main className="min-h-screen bg-gray-200 dark:bg-page">
       {/* Header */}
       <div className="max-w-7xl mx-auto px-6 pt-2 pb-2">
-        {/* Back Button */}
-        <div className="mb-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/" className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Home
-            </Link>
-          </Button>
-        </div>
-
         {/* Set Image - Centered (only show if no error). Height-capped so a
             tall logo can't push the carousel below the fold on desktop. */}
         {setCode && !imageError && (
@@ -503,6 +493,12 @@ export default function SetPage() {
 
         {/* Actions — kept above the fold */}
         <div className="mb-3 flex flex-col sm:flex-row gap-3 justify-center">
+          <Button asChild variant="outline">
+            <Link href="/sets" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Return to Sets
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href={`/opt?sets=${setCode}`}>
               View in Opt
