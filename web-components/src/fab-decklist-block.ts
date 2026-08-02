@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { watchTheme, unwatchTheme } from './utils/theme';
+import { resolveDecklistViewMode } from './utils/decklist-view';
 
 type PitchColor = 'red' | 'yellow' | 'blue' | null;
 
@@ -127,6 +128,11 @@ export class FabDecklistBlock extends LitElement {
     .view-btn:hover {
       background: #f1f5f9;
       color: #0f172a;
+    }
+
+    .view-btn:focus-visible {
+      outline: 2px solid #60a5fa;
+      outline-offset: -2px;
     }
 
     .view-btn.active {
@@ -481,7 +487,9 @@ export class FabDecklistBlock extends LitElement {
       color: white;
     }
 
-    /* ===== LIST VIEW ===== */
+    /* ===== LIST VIEW =====
+       Lane-row pattern ported from the deck page: rail · thumb · qty · name · cost.
+       Rows are real buttons (keyboard reachable) with a 38px min tap target. */
     .cards-list {
       display: flex;
       flex-direction: column;
@@ -491,14 +499,27 @@ export class FabDecklistBlock extends LitElement {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.1875rem 0.5rem;
+      width: 100%;
+      min-height: 38px;
+      padding: 0 0.5rem 0 0;
+      margin: 0;
+      border: none;
+      background: none;
+      font: inherit;
+      text-align: left;
       border-radius: 3px;
+      overflow: hidden;
       transition: background 0.1s, opacity 0.2s, filter 0.2s;
       cursor: pointer;
     }
 
     .list-row:hover {
       background: rgba(0, 0, 0, 0.04);
+    }
+
+    .list-row:focus-visible {
+      outline: 2px solid #60a5fa;
+      outline-offset: -2px;
     }
 
     .list-row.dimmed {
@@ -508,13 +529,27 @@ export class FabDecklistBlock extends LitElement {
 
     .list-row.highlighted {
       background: rgba(245, 158, 11, 0.1);
-      border-left: 2px solid #f59e0b;
-      padding-left: 0.25rem;
+    }
+
+    /* Pitch rail — colored bar keyed to the section's pitch; neutral when unknown. */
+    .list-rail {
+      align-self: stretch;
+      width: 3px;
+      flex-shrink: 0;
+      background: #cbd5e1;
+    }
+
+    .list-rail.red { background: #ef4444; }
+    .list-rail.yellow { background: #eab308; }
+    .list-rail.blue { background: #3b82f6; }
+
+    .list-row.highlighted .list-rail {
+      background: #f59e0b;
     }
 
     .list-card-thumb {
-      width: 22px;
-      height: 31px;
+      width: 24px;
+      height: 34px;
       border-radius: 2px;
       object-fit: cover;
       object-position: top;
@@ -522,9 +557,19 @@ export class FabDecklistBlock extends LitElement {
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     }
 
+    .list-card-qty {
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: #475569;
+      min-width: 1.5rem;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
     .list-card-name {
       flex: 1;
-      font-size: 0.75rem;
+      font-size: 0.875rem;
       font-weight: 500;
       color: #1e293b;
       overflow: hidden;
@@ -533,12 +578,18 @@ export class FabDecklistBlock extends LitElement {
       min-width: 0;
     }
 
-    .list-card-qty {
-      font-size: 0.6875rem;
-      font-weight: 600;
-      color: #94a3b8;
-      min-width: 1.25rem;
-      text-align: right;
+    .list-cost-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      font-size: 0.75rem;
+      font-variant-numeric: tabular-nums;
+      color: #475569;
       flex-shrink: 0;
     }
 
@@ -708,6 +759,21 @@ export class FabDecklistBlock extends LitElement {
       color: #94a3b8;
     }
 
+    :host([dark]) .list-rail {
+      background: #475569;
+    }
+
+    :host([dark]) .list-rail.red { background: #ef4444; }
+    :host([dark]) .list-rail.yellow { background: #eab308; }
+    :host([dark]) .list-rail.blue { background: #3b82f6; }
+    :host([dark]) .list-row.highlighted .list-rail { background: #f59e0b; }
+
+    :host([dark]) .list-cost-badge {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: #334155;
+      color: #cbd5e1;
+    }
+
     :host([dark]) .list-foil-badge.rf {
       background: rgba(234, 179, 8, 0.2);
       color: #fcd34d;
@@ -761,6 +827,12 @@ export class FabDecklistBlock extends LitElement {
       .list-row.highlighted { background: rgba(245,158,11,0.12); }
       .list-card-name { color: #e2e8f0; }
       .list-card-qty { color: #94a3b8; }
+      .list-rail { background: #475569; }
+      .list-rail.red { background: #ef4444; }
+      .list-rail.yellow { background: #eab308; }
+      .list-rail.blue { background: #3b82f6; }
+      .list-row.highlighted .list-rail { background: #f59e0b; }
+      .list-cost-badge { background: rgba(255,255,255,0.06); border-color: #334155; color: #cbd5e1; }
       .list-foil-badge.nf { background: rgba(100,116,139,0.3); color: #94a3b8; }
       .list-foil-badge.rf { background: rgba(234,179,8,0.2); color: #fcd34d; }
       .list-foil-badge.cf { color: #a78bfa; }
@@ -838,10 +910,11 @@ export class FabDecklistBlock extends LitElement {
     super.connectedCallback();
     watchTheme(this);
     document.addEventListener('keydown', this._onKeyDown);
-    const saved = localStorage.getItem('fab-decklist-view');
-    if (saved === 'list' || saved === 'grid') {
-      this._viewMode = saved;
-    }
+    // Saved choice wins; otherwise phones read better as a list (deck-page parity).
+    this._viewMode = resolveDecklistViewMode(
+      localStorage.getItem('fab-decklist-view'),
+      window.matchMedia('(max-width: 640px)').matches,
+    );
   }
 
   override disconnectedCallback() {
@@ -1314,27 +1387,39 @@ export class FabDecklistBlock extends LitElement {
           const matched = hasFilters && this._matchesAllFilters(card);
           const dimmed = hasFilters && !this._matchesAllFilters(card);
           const imageUrl = this.getCardImageUrl(card);
+          const railClass = card.pitch === 1 ? 'red' : card.pitch === 2 ? 'yellow' : card.pitch === 3 ? 'blue' : '';
           return html`
-            <div class="list-row ${matched ? 'highlighted' : ''} ${dimmed ? 'dimmed' : ''}" @click="${() => imageUrl && (this._overlayImage = imageUrl)}">
+            <button
+              type="button"
+              class="list-row ${matched ? 'highlighted' : ''} ${dimmed ? 'dimmed' : ''}"
+              data-testid="decklist-list-row"
+              @click="${() => imageUrl && (this._overlayImage = imageUrl)}"
+            >
+              <span class="list-rail ${railClass}" data-testid="list-row-rail" aria-hidden="true"></span>
               ${imageUrl ? html`
                 <img
                   class="list-card-thumb"
                   src="${imageUrl}"
-                  alt="${card.cardName}"
+                  alt=""
                   loading="lazy"
                   @error=${(e: Event) => {
                     (e.target as HTMLImageElement).src = '/cardback.webp';
                   }}
                 />
               ` : html`
-                <img class="list-card-thumb" src="/cardback.webp" alt="${card.cardName}" />
+                <img class="list-card-thumb" src="/cardback.webp" alt="" />
               `}
+              <span class="list-card-qty">${card.quantity}×</span>
               <span class="list-card-name">${card.cardName}</span>
-              ${card.quantity > 1 ? html`<span class="list-card-qty">${card.quantity}×</span>` : ''}
+              ${card.cost !== null ? html`
+                <span class="list-cost-badge" data-testid="list-row-cost" title="Resource cost" aria-label="Costs ${card.cost}">
+                  ${card.cost}
+                </span>
+              ` : ''}
               <span class="list-foil-badge ${this.getFoilingClass(card.foiling)}">
                 ${this.getFoilingText(card.foiling)}
               </span>
-            </div>
+            </button>
           `;
         })}
       </div>
@@ -1431,6 +1516,7 @@ export class FabDecklistBlock extends LitElement {
                 class="view-btn ${this._viewMode === 'grid' ? 'active' : ''}"
                 @click="${() => this._setViewMode('grid')}"
                 title="Grid view"
+                aria-label="Grid view"
                 aria-pressed="${this._viewMode === 'grid'}"
               >
                 ${this.renderGridIcon()} Grid
@@ -1439,6 +1525,7 @@ export class FabDecklistBlock extends LitElement {
                 class="view-btn ${this._viewMode === 'list' ? 'active' : ''}"
                 @click="${() => this._setViewMode('list')}"
                 title="List view"
+                aria-label="List view"
                 aria-pressed="${this._viewMode === 'list'}"
               >
                 ${this.renderListIcon()} List
