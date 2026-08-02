@@ -500,6 +500,28 @@ export default function SetPage() {
           </div>
         </div>
 
+        {/* Actions — kept above the fold */}
+        <div className="mb-4 flex flex-col sm:flex-row gap-3 justify-center">
+          <Button asChild variant="outline">
+            <Link href={`/opt?sets=${setCode}`}>
+              View in Opt
+            </Link>
+          </Button>
+          {user ? (
+            <AddSetToBinderDialog
+              setCode={setCode}
+              editionCode={editionCode}
+              setName={setInfo?.name || setCode.toUpperCase()}
+            />
+          ) : (
+            <Button asChild>
+              <Link href="/signup">
+                Start Trading
+              </Link>
+            </Button>
+          )}
+        </div>
+
         {/* Cards Carousel */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           {loading ? (
@@ -529,31 +551,6 @@ export default function SetPage() {
           )}
         </div>
 
-        {/* Additional Info */}
-        {cards.length > 0 && (
-          <div className="mt-8 text-center">
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild variant="outline">
-                <Link href="/search/results?show=summary&view=checklist">
-                  Search All Cards
-                </Link>
-              </Button>
-              {user ? (
-                <AddSetToBinderDialog
-                  setCode={setCode}
-                  editionCode={editionCode}
-                  setName={setInfo?.name || setCode.toUpperCase()}
-                />
-              ) : (
-                <Button asChild>
-                  <Link href="/signup">
-                    Start Trading
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </main>
   );
