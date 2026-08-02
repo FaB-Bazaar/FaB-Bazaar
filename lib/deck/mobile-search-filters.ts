@@ -1,10 +1,10 @@
 /**
  * Filter model for the deck editor's mobile Cards tab.
  *
- * The curated starter kits are ONE source filter — the default when the hero
- * has kits — rather than a separate mode: `kits` scopes every search to the
- * kits' printings, `all` searches the hero+format-legal pool. Pitch/type chips
- * apply in both sources. Pure so the scoping rules stay unit-testable.
+ * The curated starter kits are ONE source filter rather than a separate mode:
+ * `kits` scopes every search to the kits' printings, `all` (the default)
+ * searches the hero+format-legal pool. Pitch/type chips apply in both sources.
+ * Pure so the scoping rules stay unit-testable.
  */
 import { TYPE_CHIPS, GENERIC_CHIP } from '@/lib/search/card-filter-chips';
 
@@ -14,6 +14,12 @@ export interface MobileSearchFilterState {
   pitches: number[];
   /** TYPE_CHIPS value ('attack', 'non-attack-action', …), GENERIC_CHIP's 'generic', or null. */
   type: string | null;
+}
+
+/** Fresh default state — the full hero+format-legal pool. The curated kits are
+ * an explicit opt-in (Kits toggle / the header's Explore button). */
+export function defaultMobileSearchFilterState(): MobileSearchFilterState {
+  return { source: 'all', pitches: [], type: null };
 }
 
 export function hasChipFilters(state: MobileSearchFilterState): boolean {

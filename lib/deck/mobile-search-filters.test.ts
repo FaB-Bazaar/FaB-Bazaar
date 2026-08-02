@@ -1,12 +1,13 @@
 /**
  * Filter model for the deck editor's mobile Cards tab: the curated kits are
- * ONE source filter (the default when kits exist) rather than a separate mode,
- * plus pitch/type chips. Pure — the component just renders state and passes
- * the built filters to /api/search/core.
+ * ONE source filter (opt-in; 'all' is the default) rather than a separate
+ * mode, plus pitch/type chips. Pure — the component just renders state and
+ * passes the built filters to /api/search/core.
  */
 import { describe, it, expect } from 'vitest';
 import {
   buildMobileSearchFilters, isKitBrowse, hasChipFilters,
+  defaultMobileSearchFilterState,
   type MobileSearchFilterState,
 } from './mobile-search-filters';
 
@@ -44,6 +45,16 @@ describe('isKitBrowse', () => {
   it('never browses without kits or with source=all', () => {
     expect(isKitBrowse(state(), '', false)).toBe(false);
     expect(isKitBrowse(state({ source: 'all' }), '', true)).toBe(false);
+  });
+});
+
+describe('defaultMobileSearchFilterState', () => {
+  it("defaults the source to 'all' — the full hero+format-legal pool; kits are an explicit opt-in", () => {
+    expect(defaultMobileSearchFilterState()).toEqual({ source: 'all', pitches: [], type: null });
+  });
+
+  it('returns a fresh object each call (safe to mutate as React state)', () => {
+    expect(defaultMobileSearchFilterState()).not.toBe(defaultMobileSearchFilterState());
   });
 });
 

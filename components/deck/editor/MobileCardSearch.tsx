@@ -10,6 +10,7 @@ import { FABShorthandParser } from "@/lib/search/fab-shorthand-parser";
 import { buildKitSections, type KitBrowseBuild } from "@/lib/deck/kit-browse";
 import {
   buildMobileSearchFilters, isKitBrowse, hasChipFilters,
+  defaultMobileSearchFilterState,
   type MobileSearchFilterState,
 } from "@/lib/deck/mobile-search-filters";
 import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck/search-pagination";
@@ -54,8 +55,8 @@ interface Props {
   deck: DeckDTO;
   deckId: string;
   onDeckChange: () => void;
-  /** Curated starter kits for this hero — when present, the grid defaults to
-      browsing their cards (grouped by kit) until the user types a search. */
+  /** Curated starter kits for this hero — when present they're offered as an
+      opt-in source filter whose grid browses their cards grouped by kit. */
   kitBuilds?: KitBrowseBuild[];
   /** Increment to reset back to the kit-browse view (clears the query and
       scrolls the grid into view) — wired to the header's Explore button. */
@@ -80,9 +81,10 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   const [deltas, setDeltas] = useState<Map<string, number>>(new Map());
   // Currently selected printing per card_unique_id
   const [selectedPrintings, setSelectedPrintings] = useState<Map<string, any>>(new Map());
-  // Filter row state — the curated kits are the default SOURCE filter when
-  // kits exist; pitch/type chips apply to both sources.
-  const [filterState, setFilterState] = useState<MobileSearchFilterState>({ source: "kits", pitches: [], type: null });
+  // Filter row state — defaults to the full hero+format-legal pool; the
+  // curated kits are an opt-in SOURCE filter (Kits toggle / Explore button).
+  // Pitch/type chips apply to both sources.
+  const [filterState, setFilterState] = useState<MobileSearchFilterState>(defaultMobileSearchFilterState);
   // Results presentation — image tiles (default) or a compact list.
   const [view, setView] = useState<"grid" | "list">("grid");
 
@@ -132,11 +134,12 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   }, [kitIdsKey]);
 
   // Explore button: clear the search AND the filter chips so the kit-browse
-  // view is showing, and bring the grid into view.
+  // view is showing, and bring the grid into view. This is the one path that
+  // deliberately lands on the kits source — the default is the full pool.
   useEffect(() => {
     if (!exploreSignal) return;
     setQuery("");
-    setFilterState({ source: "kits", pitches: [], type: null });
+    setFilterState({ ...defaultMobileSearchFilterState(), source: "kits" });
     rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [exploreSignal]);
 
@@ -607,10 +610,10 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
               </button>
             ))}
           </div>
-          {(hasChipFilters(filterState) || (hasKits && filterState.source !== "kits")) && (
+          {(hasChipFilters(filterState) || (hasKits && filterState.source !== "all")) && (
             <button
               type="button"
-              onClick={() => setFilterState({ source: "kits", pitches: [], type: null })}
+              onClick={() => setFilterState(defaultMobileSearchFilterState())}
               className="shrink-0 rounded-full px-2 py-1 text-xs text-gray-600 dark:text-gray-400 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
               Reset
