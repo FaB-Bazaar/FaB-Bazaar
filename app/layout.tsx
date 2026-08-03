@@ -15,6 +15,7 @@ import { DarkModeProvider } from '@/contexts/DarkModeContext'
 import { cn } from "@/lib/utils"
 import { Toaster } from "@/components/ui/toaster"
 import { AnalyticsListener } from "@/components/analytics/AnalyticsListener"
+import { PinchZoomPanGuard } from "@/components/PinchZoomPanGuard"
 import { Suspense } from "react"
 
 
@@ -201,6 +202,7 @@ export default async function RootLayout({
                 <Suspense fallback={null}>
                   <AnalyticsListener />
                 </Suspense>
+                <PinchZoomPanGuard />
                 {/* The mobile bottom padding clears the floating nav pill + FAB
                     (sm:hidden): safe-area + 12px bottom offset + ~64px pill,
                     padded to 5.5rem for breathing room. Keep in sync with the

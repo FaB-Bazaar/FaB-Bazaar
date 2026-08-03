@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
+import { RULE_TOKEN_ICON } from "@/app/volzar/rule-glyphs";
 import type { DeckCategory } from "@/lib/services/contracts/IDeckService";
 import { SET_IMAGES } from "@/lib/set-images";
 import { getApiFormatCode } from "@/lib/format-constants";
@@ -131,6 +133,135 @@ function PrintingBadges({ p }: { p: PrintingResult }) {
   return <div className="flex flex-wrap gap-0.5 justify-center">{badges}</div>;
 }
 
+// ─── Rules text (details lightbox) ───────────────────────────────────────────
+
+// {g} is CardVault's life token in rendered text ({h} appears too); both map
+// to the health glyph. Unrepresented tokens ({t} tap, {c} chi, …) fall through
+// as literal text.
+const LIGHTBOX_TOKEN_ICON: Record<string, { src: string; alt: string }> = {
+  ...RULE_TOKEN_ICON,
+  g: RULE_TOKEN_ICON.h,
+};
+
+function renderRulesSegment(seg: RulesSegment, i: number): React.ReactNode {
+  switch (seg.type) {
+    case 'text':
+      return <span key={i}>{seg.value}</span>;
+    case 'icon': {
+      const icon = LIGHTBOX_TOKEN_ICON[seg.token];
+      return icon
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img key={i} src={icon.src} alt={icon.alt} title={icon.alt} className="inline-block h-3.5 w-3.5 mx-px align-[-0.125em]" />
+        : <span key={i}>{`{${seg.token}}`}</span>;
+    }
+    case 'bold':
+      return <strong key={i} className="font-semibold text-gray-100">{seg.children.map(renderRulesSegment)}</strong>;
+    case 'italic':
+      return <em key={i} className="text-gray-300">{seg.children.map(renderRulesSegment)}</em>;
+  }
+}
+
+function RulesText({ text }: { text: string }) {
+  const paras = parseRulesText(text);
+  if (paras.length === 0) return null;
+  return (
+    <div className="space-y-1.5 text-sm leading-snug text-gray-200">
+      {paras.map((segs, i) => (
+        <p key={i}>{segs.map(renderRulesSegment)}</p>
+      ))}
+    </div>
+  );
+}
+
+// ─── Card details lightbox ───────────────────────────────────────────────────
+
+/** What the lightbox needs: the printing row (search rows carry the card
+ *  fields — text, type line, stats) plus the card name for the header. */
+interface LightboxCard {
+  printing: PrintingResult;
+  name: string;
+}
+
+function statEntries(p: PrintingResult): Array<{ label: string; value: string }> {
+  const entries: Array<{ label: string; value: string }> = [];
+  const push = (label: string, v: unknown) => {
+    if (v !== null && v !== undefined && v !== '') entries.push({ label, value: String(v) });
+  };
+  push('Cost', p.cost);
+  push('Power', p.power);
+  push('Defense', p.defense);
+  push('Arcane', (p as Record<string, unknown>).arcane);
+  return entries;
+}
+
+function CardDetailsLightbox({ card, onClose }: { card: LightboxCard; onClose: () => void }) {
+  const p = card.printing;
+  const pitch = typeof p.pitch === 'number' ? PITCH_STYLE[p.pitch] : null;
+  const typeLine = (p.type_text_display || p.type_text || '') as string;
+  const rulesText = (p.text || '') as string;
+  const flavorText = (p.flavor_text || '') as string;
+  const stats = statEntries(p);
+  const price = p.tcg_low ?? p.tcg_market;
+
+  return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      data-testid="card-lightbox"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 max-w-[92vw] max-h-[88vh] cursor-default"
+        onClick={e => e.stopPropagation()}
+      >
+        {p.image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={p.image_url}
+            alt={card.name}
+            className="rounded-xl shadow-2xl border border-gray-600 object-contain max-h-[50vh] sm:max-h-[85vh] min-h-0"
+            style={{ aspectRatio: '63/88' }}
+          />
+        )}
+        <div
+          data-testid="card-lightbox-details"
+          className="w-[320px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-gray-900/95 p-4 text-left self-center sm:self-auto"
+        >
+          <p className="text-base font-semibold text-gray-100">{card.name}</p>
+          {typeLine && <p className="mt-0.5 text-sm text-gray-300">{typeLine}</p>}
+          {pitch && (
+            <span className={cn('mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium', pitch.badge)}>
+              {pitch.label}
+            </span>
+          )}
+          {stats.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {stats.map(s => (
+                <div key={s.label} className="rounded-lg border border-gray-700 bg-gray-800/80 px-2.5 py-1.5 text-center">
+                  <div className="text-sm font-semibold text-gray-100 tabular-nums">{s.value}</div>
+                  <div className="text-xs text-gray-300">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {rulesText && (
+            <div className="mt-3 border-t border-gray-700 pt-3">
+              <RulesText text={rulesText} />
+            </div>
+          )}
+          {flavorText && (
+            <p className="mt-3 text-sm italic text-gray-300">{flavorText}</p>
+          )}
+          <div className="mt-3 border-t border-gray-700 pt-2 text-xs text-gray-300">
+            {collectorLabel(p)}
+            {price != null && price > 0 && <span className="ml-2 text-green-400 font-medium">${price.toFixed(2)}</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Drag-scroll hook ─────────────────────────────────────────────────────────
 
 function useDragScroll() {
@@ -189,7 +320,7 @@ function PrintingTile({
   p: PrintingResult;
   isSelected: boolean;
   onSelect: (p: PrintingResult) => void;
-  onEnlarge: (url: string) => void;
+  onEnlarge: (p: PrintingResult) => void;
   onAdd?: (qty: number) => Promise<void>;
   didDrag: React.MutableRefObject<boolean>;
 }) {
@@ -251,7 +382,7 @@ function PrintingTile({
         <button
           className="absolute top-1 right-1 w-4 h-4 rounded-full bg-gray-900/80 text-gray-400 hover:text-white hover:bg-gray-700 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
           title="Enlarge image"
-          onClick={e => { e.stopPropagation(); onEnlarge(p.image_url!); }}
+          onClick={e => { e.stopPropagation(); onEnlarge(p); }}
           onMouseDown={e => e.stopPropagation()}
         >
           <ZoomIn className="h-2.5 w-2.5" />
@@ -331,6 +462,7 @@ function CardGridTile({
   inDeckCount,
   onClick,
   onQuickAdd,
+  onMagnify,
   quickAddStatus,
 }: {
   card: CardResult;
@@ -338,6 +470,7 @@ function CardGridTile({
   inDeckCount: number;
   onClick: () => void;
   onQuickAdd: () => void;
+  onMagnify: () => void;
   quickAddStatus: 'idle' | 'adding' | 'added';
 }) {
   const pitchStyle = card.pitch ? PITCH_STYLE[card.pitch] : null;
@@ -383,6 +516,16 @@ function CardGridTile({
           {inDeckCount}
         </div>
       )}
+      {/* Hover magnifier — read the card without selecting it */}
+      <button
+        type="button"
+        onClick={e => { e.stopPropagation(); onMagnify(); }}
+        aria-label={`View card details for ${card.name}`}
+        title="View card details"
+        className="absolute top-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-gray-900/80 text-gray-300 opacity-0 transition-all hover:bg-gray-700 hover:text-white group-hover/tile:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      >
+        <ZoomIn className="h-3.5 w-3.5" />
+      </button>
       {/* Hover/focus action bar — quick add (default printing) or open the printing picker */}
       <div
         className={cn(
@@ -456,7 +599,7 @@ export default function QuickAddCardDialog({
   const [selectedCard, setSelectedCard] = useState<CardResult | null>(null);
   const [selectedPrinting, setSelectedPrinting] = useState<PrintingResult | null>(null);
   const [showCardZoom, setShowCardZoom] = useState(false);
-  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [enlarged, setEnlarged] = useState<LightboxCard | null>(null);
   const printingsDrag = useDragScroll();
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -473,7 +616,7 @@ export default function QuickAddCardDialog({
       setMatchBroad(false);
       setSelectedCard(null);
       setShowCardZoom(false);
-      setEnlargedImage(null);
+      setEnlarged(null);
       setSwapCards([]);
       setSwapError(null);
       didAutoSelectRef.current = false;
@@ -628,16 +771,18 @@ export default function QuickAddCardDialog({
     !!contentRef.current?.querySelector('button[aria-haspopup="true"][aria-expanded="true"]'),
   []);
 
-  // Tiered escape: close zoom → deselect card → close dialog
+  // Tiered escape: close lightbox → close zoom → deselect card → close dialog
   const handleEscape = useCallback(() => {
-    if (showCardZoom) {
+    if (enlarged) {
+      setEnlarged(null);
+    } else if (showCardZoom) {
       setShowCardZoom(false);
     } else if (selectedCard) {
       setSelectedCard(null);
     } else {
       onOpenChange(false);
     }
-  }, [showCardZoom, selectedCard, onOpenChange]);
+  }, [enlarged, showCardZoom, selectedCard, onOpenChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -832,6 +977,10 @@ export default function QuickAddCardDialog({
                           setShowCardZoom(!isAlreadySelected);
                         }}
                         onQuickAdd={() => handleQuickAdd(card)}
+                        onMagnify={() => {
+                          const printing = card.printings[0];
+                          if (printing) setEnlarged({ printing, name: card.name });
+                        }}
                         quickAddStatus={quickAdd?.id === card.unique_id ? quickAdd.status : 'idle'}
                       />
                     ))}
@@ -864,7 +1013,7 @@ export default function QuickAddCardDialog({
                 <div
                   className="relative flex-shrink-0 rounded overflow-hidden ring-1 ring-gray-600 group/thumb cursor-pointer"
                   style={{ width: 76, aspectRatio: '63/88' }}
-                  onClick={() => selectedPrinting?.image_url && setEnlargedImage(selectedPrinting.image_url)}
+                  onClick={() => selectedPrinting && setEnlarged({ printing: selectedPrinting, name: selectedCard.name })}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -902,7 +1051,7 @@ export default function QuickAddCardDialog({
                         p={p}
                         isSelected={p.printing_id === selectedPrinting?.printing_id}
                         onSelect={p => { setSelectedPrinting(p); }}
-                        onEnlarge={setEnlargedImage}
+                        onEnlarge={p => setEnlarged({ printing: p, name: selectedCard.name })}
                         onAdd={async (qty) => {
                           setSelectedPrinting(p);
                           await onAdd(p, qty);
@@ -923,22 +1072,8 @@ export default function QuickAddCardDialog({
           )}
         </div>
 
-        {/* Lightbox */}
-        {enlargedImage && (
-          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-          <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
-            onClick={() => setEnlargedImage(null)}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={enlargedImage}
-              alt="Card enlarged"
-              className="max-h-[85%] max-w-[85%] rounded-xl shadow-2xl border border-gray-600"
-              onClick={e => e.stopPropagation()}
-            />
-          </div>
-        )}
+        {/* Card details lightbox */}
+        {enlarged && <CardDetailsLightbox card={enlarged} onClose={() => setEnlarged(null)} />}
       </DialogContent>
     </Dialog>
   );
