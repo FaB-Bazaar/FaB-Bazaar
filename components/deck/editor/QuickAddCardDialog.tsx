@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } 
 import { useDebounce } from "use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft } from "lucide-react";
+import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
 import { RULE_TOKEN_ICON } from "@/app/volzar/rule-glyphs";
@@ -194,7 +194,36 @@ function statEntries(p: PrintingResult): Array<{ label: string; value: string }>
   return entries;
 }
 
-function CardDetailsLightbox({ card, onClose }: { card: LightboxCard; onClose: () => void }) {
+function CardDetailsLightbox({
+  card,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  card: LightboxCard;
+  onClose: () => void;
+  /** Step to the previous/next search result; omitted = at that end of the list. */
+  onPrev?: () => void;
+  onNext?: () => void;
+}) {
+  // Arrow-key navigation through the results while the lightbox is up.
+  // Capture phase so nothing underneath (dialog, grid) reacts to the keys.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && onPrev) {
+        e.preventDefault();
+        e.stopPropagation();
+        onPrev();
+      } else if (e.key === 'ArrowRight' && onNext) {
+        e.preventDefault();
+        e.stopPropagation();
+        onNext();
+      }
+    };
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [onPrev, onNext]);
+
   const p = card.printing;
   const pitch = typeof p.pitch === 'number' ? PITCH_STYLE[p.pitch] : null;
   const typeLine = (p.type_text_display || p.type_text || '') as string;
@@ -210,6 +239,28 @@ function CardDetailsLightbox({ card, onClose }: { card: LightboxCard; onClose: (
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer p-4"
       onClick={onClose}
     >
+      {onPrev && (
+        <button
+          type="button"
+          aria-label="Previous card"
+          title="Previous card (←)"
+          onClick={e => { e.stopPropagation(); onPrev(); }}
+          className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-gray-900/80 text-gray-200 transition-colors hover:bg-gray-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      )}
+      {onNext && (
+        <button
+          type="button"
+          aria-label="Next card"
+          title="Next card (→)"
+          onClick={e => { e.stopPropagation(); onNext(); }}
+          className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-gray-900/80 text-gray-200 transition-colors hover:bg-gray-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+      )}
       <div
         className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 max-w-[92vw] max-h-[88vh] cursor-default"
         onClick={e => e.stopPropagation()}
@@ -841,6 +892,22 @@ export default function QuickAddCardDialog({
   const zoneLabel = ZONE_LABELS[targetCategory] ?? targetCategory;
   const selectedPitchStyle = selectedCard?.pitch ? PITCH_STYLE[selectedCard.pitch] : null;
 
+  // Lightbox ←/→ navigation through the current search results. Position is
+  // derived from the enlarged printing's card (uid first, name fallback for
+  // lazy-loaded printing rows that may not carry card_unique_id).
+  const lightboxIndex = useMemo(() => {
+    if (!enlarged) return -1;
+    const uid = enlarged.printing.card_unique_id;
+    const byUid = uid ? cards.findIndex(c => c.unique_id === uid) : -1;
+    return byUid >= 0 ? byUid : cards.findIndex(c => c.name === enlarged.name);
+  }, [enlarged, cards]);
+
+  const openLightboxAt = useCallback((i: number) => {
+    const card = cards[i];
+    const printing = card?.printings[0];
+    if (printing) setEnlarged({ printing, name: card.name });
+  }, [cards]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -1073,7 +1140,14 @@ export default function QuickAddCardDialog({
         </div>
 
         {/* Card details lightbox */}
-        {enlarged && <CardDetailsLightbox card={enlarged} onClose={() => setEnlarged(null)} />}
+        {enlarged && (
+          <CardDetailsLightbox
+            card={enlarged}
+            onClose={() => setEnlarged(null)}
+            onPrev={lightboxIndex > 0 ? () => openLightboxAt(lightboxIndex - 1) : undefined}
+            onNext={lightboxIndex >= 0 && lightboxIndex < cards.length - 1 ? () => openLightboxAt(lightboxIndex + 1) : undefined}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
