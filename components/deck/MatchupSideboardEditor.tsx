@@ -356,10 +356,10 @@ function TileSectionUnified({
         {section.pitchColor && (
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${section.pitchColor}`} />
         )}
-        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
           {section.title}
         </span>
-        <span className="text-[10px] text-gray-500">({deckTotal}/{total})</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400">({deckTotal}/{total})</span>
       </div>
 
       <div className="flex flex-wrap gap-1">
@@ -404,7 +404,7 @@ function TileSectionUnified({
                     className="w-full bg-gray-700 dark:bg-gray-800 rounded flex items-center justify-center p-1"
                     style={{ aspectRatio: '63/53' }}
                   >
-                    <span className="text-[7px] text-center text-gray-300 leading-tight">{card.name}</span>
+                    <span className="text-[10px] text-center text-gray-300 leading-tight">{card.name}</span>
                   </div>
                 )}
               </div>
@@ -622,27 +622,27 @@ export default function MatchupSideboardEditor({
     <div className="space-y-1.5">
       {/* Stats bar */}
       <div className="flex items-center justify-between flex-wrap gap-1">
-        <div className="flex items-center gap-1.5 flex-wrap text-xs">
+        <div className="flex items-center gap-1.5 flex-wrap text-sm">
           {/* Library only — the deck-size number. Gear moves on its own basis, in
               the Gear chip, so these badges always reconcile: before − out + in. */}
-          <span className="text-gray-500 dark:text-gray-400">
+          <span className="font-medium text-gray-700 dark:text-gray-300">
             {libDelta.before}{hasChanges && ' → '}
             {hasChanges && (
-              <span className={`font-medium ${isOverLimit ? 'text-red-600' : 'text-gray-200'}`}>
+              <span className={`font-semibold ${isOverLimit ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>
                 {libDelta.after}
               </span>
             )}
-            {maxSize && <span className="text-gray-500"> / {maxSize}</span>}
+            {maxSize && <span className="font-normal text-gray-600 dark:text-gray-400"> / {maxSize}</span>}
           </span>
           {libDelta.out > 0 && (
-            <Badge variant="outline" className="text-[10px] font-normal h-4 px-1 text-amber-700 border-amber-300">−{libDelta.out}</Badge>
+            <Badge variant="outline" className="text-xs font-normal h-5 px-1.5 text-amber-700 border-amber-400 dark:text-amber-400 dark:border-amber-700">−{libDelta.out}</Badge>
           )}
           {libDelta.in > 0 && (
-            <Badge className="bg-green-600 text-[10px] font-normal h-4 px-1">+{libDelta.in}</Badge>
+            <Badge className="bg-green-600 text-xs font-normal h-5 px-1.5">+{libDelta.in}</Badge>
           )}
           {isOverLimit && (
-            <Badge variant="destructive" className="flex items-center gap-0.5 text-[10px] h-4 px-1">
-              <AlertCircle className="h-2.5 w-2.5" />Over
+            <Badge variant="destructive" className="flex items-center gap-0.5 text-xs h-5 px-1.5">
+              <AlertCircle className="h-3 w-3" />Over
             </Badge>
           )}
           <BreakdownChip label="Main"      bd={mainBd} />
@@ -653,41 +653,41 @@ export default function MatchupSideboardEditor({
 
         <div className="flex items-center gap-1">
           {!readOnly && hasChanges && (
-            <button type="button" onClick={handleReset} className="text-[10px] text-gray-400 hover:text-gray-200 flex items-center gap-0.5">
-              <RotateCcw className="h-2.5 w-2.5" />Reset
+            <button type="button" onClick={handleReset} className="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-0.5">
+              <RotateCcw className="h-3 w-3" />Reset
             </button>
           )}
           {viewMode === 'tile' && (
-            <div className="flex items-center rounded border border-gray-700 overflow-hidden">
+            <div className="flex items-center rounded border border-gray-300 dark:border-gray-700 overflow-hidden">
               <button
                 type="button"
                 disabled={tileSizeIdx === 0}
                 onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx - 1].key)}
-                className="px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-1.5 py-0.5 text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >−</button>
-              <span className="px-1.5 py-0.5 text-[10px] text-gray-300 border-x border-gray-700 min-w-[44px] text-center">{TILE_SIZES[tileSizeIdx].label}</span>
+              <span className="px-1.5 py-0.5 text-xs text-gray-700 dark:text-gray-300 border-x border-gray-300 dark:border-gray-700 min-w-[44px] text-center">{TILE_SIZES[tileSizeIdx].label}</span>
               <button
                 type="button"
                 disabled={tileSizeIdx === TILE_SIZES.length - 1}
                 onClick={() => setTileSizeKey(TILE_SIZES[tileSizeIdx + 1].key)}
-                className="px-1.5 py-0.5 text-[10px] text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="px-1.5 py-0.5 text-xs text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >+</button>
             </div>
           )}
-          <div className="flex rounded border border-gray-700 overflow-hidden">
+          <div className="flex rounded border border-gray-300 dark:border-gray-700 overflow-hidden">
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className={`px-1.5 py-0.5 text-[10px] flex items-center gap-0.5 transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
+              className={`px-1.5 py-0.5 text-xs flex items-center gap-0.5 transition-colors ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800'}`}
             >
-              <List className="h-2.5 w-2.5" />List
+              <List className="h-3 w-3" />List
             </button>
             <button
               type="button"
               onClick={() => setViewMode('tile')}
-              className={`px-1.5 py-0.5 text-[10px] flex items-center gap-0.5 border-l border-gray-700 transition-colors ${viewMode === 'tile' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-800'}`}
+              className={`px-1.5 py-0.5 text-xs flex items-center gap-0.5 border-l border-gray-300 dark:border-gray-700 transition-colors ${viewMode === 'tile' ? 'bg-gray-700 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800'}`}
             >
-              <LayoutGrid className="h-2.5 w-2.5" />Tiles
+              <LayoutGrid className="h-3 w-3" />Tiles
             </button>
           </div>
         </div>
@@ -698,9 +698,9 @@ export default function MatchupSideboardEditor({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
             <div className="flex items-center gap-1.5 mb-1 px-0.5">
-              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deck</span>
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Deck</span>
               {!readOnly && (
-                <span className="text-[10px] text-gray-500">— set how many you&apos;re playing</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400">— set how many you&apos;re playing</span>
               )}
             </div>
             <div className="rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
@@ -722,9 +722,9 @@ export default function MatchupSideboardEditor({
           </div>
           <div>
             <div className="flex items-center gap-1.5 mb-1 px-0.5">
-              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inventory</span>
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Inventory</span>
               {!readOnly && (
-                <span className="text-[10px] text-gray-500">— set how many to bring in</span>
+                <span className="text-xs text-gray-600 dark:text-gray-400">— set how many to bring in</span>
               )}
             </div>
             <div className="rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">

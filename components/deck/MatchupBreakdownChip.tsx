@@ -25,7 +25,7 @@ export const EMPTY_BREAKDOWN: Breakdown = {
  */
 export function BreakdownChip({ label, bd }: { label: string; bd: Breakdown }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-gray-300 border border-gray-300 dark:border-gray-700 rounded h-4 px-1.5">
+    <span className="inline-flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded h-5 px-1.5">
       <span className="font-semibold text-gray-700 dark:text-gray-200">{label}</span>
       <span className="text-gray-500" aria-hidden="true">·</span>
       <span className="font-bold text-gray-700 dark:text-gray-200">{bd.library}</span>
@@ -43,7 +43,7 @@ export function BreakdownChip({ label, bd }: { label: string; bd: Breakdown }) {
         <span>{bd.blue}</span>
       </span>
       {bd.other > 0 && (
-        <span className="text-gray-500 dark:text-gray-400">{bd.other}*</span>
+        <span className="text-gray-600 dark:text-gray-400">{bd.other}*</span>
       )}
     </span>
   );
@@ -57,13 +57,13 @@ export function EquipmentChip({ count, was }: { count: number; was?: number }) {
   const changed = was != null && was !== count;
   return (
     <span
-      className="inline-flex items-center gap-1 text-[10px] text-gray-300 border border-gray-300 dark:border-gray-700 rounded h-4 px-1.5"
+      className="inline-flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded h-5 px-1.5"
       aria-label={`${count} equipment and weapons${changed ? `, was ${was}` : ''}`}
     >
-      <Shield className="h-2.5 w-2.5 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+      <Shield className="h-3 w-3 text-gray-500 dark:text-gray-400" aria-hidden="true" />
       <span className="font-semibold text-gray-700 dark:text-gray-200">Gear</span>
       <span className="text-gray-500" aria-hidden="true">·</span>
-      {changed && <span className="text-gray-500 dark:text-gray-400">{was} →</span>}
+      {changed && <span className="text-gray-600 dark:text-gray-400">{was} →</span>}
       <span className="font-bold text-gray-700 dark:text-gray-200">{count}</span>
     </span>
   );
