@@ -53,13 +53,18 @@ export function useBulkImportPage() {
     fetchUserBinders();
   }, [user]);
 
-  const handleBulkSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Core search pipeline over an explicit input string. The form submit path
+  // wraps this with state.bulkInput; the /browse URL prefill calls it directly
+  // with synthesized text and stages everything it finds.
+  const runBulkSearch = async (
+    input: string,
+    opts: { stageAll?: boolean; quiet?: boolean } = {},
+  ): Promise<boolean> => {
     setLoading(true);
     setError(null);
 
     try {
-      const parsedCards = parseBulkInput(bulkInput, 'cardlist');
+      const parsedCards = parseBulkInput(input, 'cardlist');
       if (parsedCards.length === 0) throw new Error("Input is empty or could not be parsed.");
 
       // Single request + single DB query for all cards
@@ -109,7 +114,7 @@ export function useBulkImportPage() {
         quantity: printings[0].importQuantity,
         forTrade: false,
         allPrintings: printings,
-        isStaged: false, // Default to NOT being in the sidebar
+        isStaged: opts.stageAll ?? false, // URL prefill stages directly; form searches don't
       }));
 
       let addedCount = 0;
@@ -159,16 +164,27 @@ export function useBulkImportPage() {
         });
       });
 
-      setBulkInput(""); // Clear input for the next search
-      toast({ title: "Search Complete", description: `${addedCount} new card(s) added, ${updatedCount} existing card(s) updated.` });
+      if (!opts.quiet) {
+        toast({ title: "Search Complete", description: `${addedCount} new card(s) added, ${updatedCount} existing card(s) updated.` });
+      }
+      return true;
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
       setError(errorMessage);
-      toast({ title: "Search Error", description: errorMessage, variant: "destructive" });
+      if (!opts.quiet) {
+        toast({ title: "Search Error", description: errorMessage, variant: "destructive" });
+      }
+      return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBulkSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = await runBulkSearch(bulkInput);
+    if (ok) setBulkInput(""); // Clear input for the next search
   };
 
   const handleCreateBinder = async (name: string, slug: string, visibility: any) => {
@@ -331,7 +347,7 @@ export function useBulkImportPage() {
       selectedBinderSlug,
     },
     handlers: {
-      setBulkInput, handleBulkSearch, updateCardPrinting,
+      setBulkInput, handleBulkSearch, runBulkSearch, updateCardPrinting,
       updateCardQuantity, toggleForTrade, removeCard, duplicateCard,
       handleAddToBinder, handleAddToWants,
       setSelectedBinderSlug,

@@ -1,10 +1,21 @@
 //browse/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, AlertCircle, Link2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useBulkImportPage } from "@/hooks/browse/useBulkImportPage";
+import { useSession } from "next-auth/react";
+import {
+  parseBrowsePrefillParams,
+  computePrefillPlan,
+  toCardListText,
+  isPrefillReady,
+  type PrefillPlan,
+} from "@/lib/browse/import-url-prefill";
+import { bindersClient, searchClient } from "@/lib/client";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,7 +31,7 @@ const calculateTotalQuantity = (stagedCards: any[]): number => {
   return stagedCards.reduce((total, card) => total + (card.quantity || 0), 0);
 };
 
-export default function BrowsePage() {
+function BrowsePageContent() {
 
   // Add this component after the AffiliateDisclosure component
 const SuperSlamDisclosure = () => {
@@ -44,7 +55,54 @@ const SuperSlamDisclosure = () => {
 
   const { state, handlers } = useBulkImportPage();
   const [activeDialogInstanceId, setActiveDialogInstanceId] = useState<string | null>(null);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false); 
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+
+  // ── URL prefill (?cards=talishar_id,…&binder=slug) ─────────────────────────
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const { status: sessionStatus } = useSession();
+  const prefill = useMemo(
+    () => parseBrowsePrefillParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
+  );
+  const prefillRan = useRef(false);
+  const [prefillPlan, setPrefillPlan] = useState<PrefillPlan | null>(null);
+
+  useEffect(() => {
+    // isPrefillReady waits out the transient authenticated-but-no-user frame
+    // so ownership netting can't be skipped; the ref makes this once-per-mount.
+    if (prefillRan.current) return;
+    if (!isPrefillReady({ cardCount: prefill.cards.length, sessionStatus, hasUser: !!user })) return;
+    prefillRan.current = true;
+
+    (async () => {
+      const lookup = await searchClient.lookupByTalisharIds(prefill.cards.map(c => c.talisharId));
+      if (!lookup.success) return;
+
+      let owned: Record<string, number> = {};
+      if (user) {
+        const cardIds = [...new Set(Object.values(lookup.data).map(c => c.cardUniqueId))];
+        const ownedRes = await bindersClient.getOwnedCountsByCard(cardIds);
+        if (ownedRes.success) owned = ownedRes.data;
+      }
+
+      const plan = computePrefillPlan(prefill.cards, lookup.data, owned);
+      setPrefillPlan(plan);
+      if (plan.lines.length > 0) {
+        await handlers.runBulkSearch(toCardListText(plan.lines), { stageAll: true, quiet: true });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill, sessionStatus, user]);
+
+  // ?binder= preselect — override the hook's first-binder default once binders load.
+  useEffect(() => {
+    if (!prefill.binderSlug) return;
+    if (state.binders.some((b: any) => b.slug === prefill.binderSlug)) {
+      handlers.setSelectedBinderSlug(prefill.binderSlug);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.binders, prefill.binderSlug]);
 
   const handlePrintingView = (instanceId: string) => {
     setActiveDialogInstanceId(instanceId);
@@ -119,6 +177,35 @@ const SuperSlamDisclosure = () => {
           {/* <SuperSlamDisclosure />
           <br></br> */}
 
+          {prefillPlan && (
+            <div className="mb-6 rounded-lg border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 p-4 space-y-1">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                <Link2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                {prefillPlan.summary.toAdd > 0
+                  ? `${prefillPlan.summary.toAdd} card(s) staged from your link.`
+                  : "Nothing to add — your collection already covers this list."}
+              </p>
+              {user && prefillPlan.summary.owned > 0 && (
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  {prefillPlan.summary.owned} of {prefillPlan.summary.requested} requested cop(ies)
+                  are already in your binders (any printing) and were skipped
+                  {prefillPlan.skipped.length > 0 &&
+                    `: ${prefillPlan.skipped.map(s => s.displayName).join(", ")}`}.
+                </p>
+              )}
+              {!user && (
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  Sign in to net this list against the cards you already own.
+                </p>
+              )}
+              {prefillPlan.unresolved.length > 0 && (
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  {prefillPlan.unresolved.length} token(s) couldn&apos;t be matched:{" "}
+                  {prefillPlan.unresolved.join(", ")}
+                </p>
+              )}
+            </div>
+          )}
 
           <BulkImportForm
             bulkInput={state.bulkInput}
@@ -173,5 +260,13 @@ const SuperSlamDisclosure = () => {
       />
     </div>
     </div>
+  );
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<div className="bg-white dark:bg-gray-900 min-h-screen" />}>
+      <BrowsePageContent />
+    </Suspense>
   );
 }

@@ -96,6 +96,27 @@ tokens never ship.
 - Card resolution is batched at 500 distinct ids per request — far above any
   legal deck.
 
+## Binder prefill (collection import)
+
+The same card-token grammar also drives the bulk-import page at
+`https://fabbazaar.app/browse`:
+
+```
+https://fabbazaar.app/browse?cards=fate_foreseen_red,fate_foreseen_red,kiss_of_death_red&binder=my-trades
+```
+
+- `cards` — identical format to the deck import (one token per copy; Talishar
+  ids or kebab slugs). The cards arrive pre-staged in the import list with a
+  sensible default printing chosen; the user can swap printings, adjust
+  quantities, and commit to a binder or their wants list.
+- `binder` — optional binder slug to preselect as the destination.
+- **Ownership netting**: for signed-in users the requested quantities are
+  reduced by what they already own at the card level — any printing variant in
+  any of their binders counts. Fully-covered cards are skipped and listed in a
+  summary ("N of M requested copies are already in your binders"). Signed-out
+  visitors get the full list staged plus a prompt to sign in for netting.
+- Unlike the deck import there is no hero/format — it's a flat card list.
+
 ## Examples
 
 Minimal:

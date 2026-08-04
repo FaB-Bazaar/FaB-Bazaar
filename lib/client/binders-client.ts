@@ -909,3 +909,33 @@ export async function toggleForTrade(
     return handleError(error);
   }
 }
+
+// ====================================
+// Ownership Counts
+// ====================================
+
+/**
+ * Card-level owned counts for the signed-in user — any printing variant in
+ * any binder counts toward a card's total. Used by the /browse URL prefill
+ * to net incoming lists against the collection. Max 1000 ids per call.
+ *
+ * @example
+ * ```typescript
+ * const result = await getOwnedCountsByCard(['card-abc', 'card-def']);
+ * if (result.success) console.log(result.data['card-abc']); // 3
+ * ```
+ */
+export async function getOwnedCountsByCard(
+  cardUniqueIds: string[]
+): Promise<ApiResponse<Record<string, number>>> {
+  try {
+    const response = await fetch('/api/inventory/owned-counts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardUniqueIds }),
+    });
+    return await handleResponse<Record<string, number>>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
