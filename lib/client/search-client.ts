@@ -644,3 +644,45 @@ export async function searchFormatLegal(
     return handleError(error);
   }
 }
+
+// ====================================
+// Talishar-Id Lookup Operations
+// ====================================
+
+/** One card from the by-talishar-id lookup (semantic fields only with details). */
+export interface TalisharCardLookup {
+  cardUniqueId: string;
+  displayName: string;
+  pitch: number | null;
+  imageUrl: string | null;
+  printingId: string | null;
+  talisharCardId: string;
+  types?: string[] | null;
+}
+
+/**
+ * Batch-resolve Talishar card ids (snake_case, pitch-suffixed) to cards.
+ * The response map is keyed by the *input* id. Used by the URL deck-import
+ * preview; ids come straight from `slugToTalisharId` or an external link.
+ *
+ * @example
+ * ```typescript
+ * const result = await lookupByTalisharIds(['comet_storm__shock_red'], { details: true });
+ * if (result.success) console.log(result.data['comet_storm__shock_red']?.displayName);
+ * ```
+ */
+export async function lookupByTalisharIds(
+  ids: string[],
+  options: { details?: boolean } = {}
+): Promise<ApiResponse<Record<string, TalisharCardLookup>>> {
+  try {
+    const response = await fetch('/api/cards/by-talishar-id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, details: options.details ?? false }),
+    });
+    return await handleResponse<Record<string, TalisharCardLookup>>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}

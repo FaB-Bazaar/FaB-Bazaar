@@ -64,6 +64,43 @@ describe('parseImportUrlParams', () => {
   });
 });
 
+describe('raw talishar-id card tokens', () => {
+  test('passes snake_case talishar ids through unchanged', () => {
+    const req = parseImportUrlParams(new URLSearchParams({ cards: 'kiss_of_death_red,kiss_of_death_red' }));
+    expect(req.cards).toEqual([
+      { slug: 'kiss_of_death_red', talisharId: 'kiss_of_death_red', quantity: 2 },
+    ]);
+  });
+
+  test('preserves the DFC double underscore (comet_storm__shock_red)', () => {
+    const req = parseImportUrlParams(new URLSearchParams({ cards: 'comet_storm__shock_red' }));
+    expect(req.cards[0].talisharId).toBe('comet_storm__shock_red');
+  });
+
+  test('mixes kebab slugs and talishar ids in one list', () => {
+    const req = parseImportUrlParams(new URLSearchParams({ cards: 'shred-blue,comet_storm__shock_red,shred-blue' }));
+    expect(req.cards.map(c => c.talisharId)).toEqual(['shred_blue', 'comet_storm__shock_red']);
+    expect(req.cards[0].quantity).toBe(2);
+  });
+});
+
+describe('inventory param', () => {
+  test('parses inventory= with the same repeat-per-copy dedupe as cards=', () => {
+    const req = parseImportUrlParams(new URLSearchParams(
+      'cards=shred-blue&inventory=fate_foreseen_red,fate_foreseen_red,codex_of_frailty_yellow',
+    ));
+    expect(req.inventory).toEqual([
+      { slug: 'fate_foreseen_red', talisharId: 'fate_foreseen_red', quantity: 2 },
+      { slug: 'codex_of_frailty_yellow', talisharId: 'codex_of_frailty_yellow', quantity: 1 },
+    ]);
+    expect(req.cards).toHaveLength(1);
+  });
+
+  test('defaults to an empty inventory when the param is absent', () => {
+    expect(parseImportUrlParams(new URLSearchParams()).inventory).toEqual([]);
+  });
+});
+
 describe('slugToTalisharId', () => {
   test('maps kebab-case to snake_case', () => {
     expect(slugToTalisharId('art-of-desire-body-red')).toBe('art_of_desire_body_red');

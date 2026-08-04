@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { AlertCircle, Download, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { decksClient } from "@/lib/client";
+import { decksClient, searchClient } from "@/lib/client";
 import { trackDeckCreate } from "@/lib/gtag";
 import {
   parseImportUrlParams,
@@ -26,12 +26,7 @@ import {
   type ImportUrlCard,
 } from "@/lib/deck/import-url-params";
 
-interface ResolvedCard {
-  displayName: string;
-  pitch: number | null;
-  imageUrl: string | null;
-  types: string[] | null;
-}
+type ResolvedCard = import("@/lib/client/search-client").TalisharCardLookup;
 
 interface PreviewRow extends ImportUrlCard {
   resolved: ResolvedCard | null;
@@ -45,7 +40,7 @@ const PITCH_DOT: Record<number, { className: string; label: string }> = {
 
 // Mirror of the import pipeline's categorizer (non-Evo equipment/weapon →
 // equipment, everything else → main deck) — preview grouping only.
-function isEquipment(types: string[] | null): boolean {
+function isEquipment(types: string[] | null | undefined): boolean {
   const t = (types || []).map(x => x.toLowerCase());
   return (t.includes("equipment") || t.includes("weapon")) && !t.includes("evo");
 }
@@ -63,49 +58,56 @@ function ImportDeckContent() {
 
   const [deckName, setDeckName] = useState(request.name);
   const [rows, setRows] = useState<PreviewRow[] | null>(null);
+  const [inventoryRows, setInventoryRows] = useState<PreviewRow[] | null>(null);
   const [hero, setHero] = useState<ResolvedCard | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
 
   useEffect(() => setDeckName(request.name), [request.name]);
 
-  // Resolve the hero + every card slug in one batch call.
+  // Resolve the hero + every card and inventory id in one batch call.
   useEffect(() => {
-    if (!request.heroSlug && request.cards.length === 0) return;
+    if (!request.heroSlug && request.cards.length === 0 && request.inventory.length === 0) return;
     let cancelled = false;
 
     (async () => {
-      try {
-        const heroId = request.heroSlug.replace(/-/g, "_");
-        const ids = [
-          ...(request.heroSlug ? [heroId] : []),
-          ...request.cards.map(c => c.talisharId),
-        ];
-        const res = await fetch("/api/cards/by-talishar-id", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids, details: true }),
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json.error || "Card lookup failed");
-        if (cancelled) return;
-
-        const byId: Record<string, any> = json.data || {};
-        setHero(request.heroSlug ? byId[heroId] ?? null : null);
-        setRows(request.cards.map(c => ({ ...c, resolved: byId[c.talisharId] ?? null })));
-      } catch (e) {
-        if (!cancelled) setResolveError(e instanceof Error ? e.message : "Card lookup failed");
+      const heroId = request.heroSlug.replace(/-/g, "_");
+      const ids = [
+        ...(request.heroSlug ? [heroId] : []),
+        ...request.cards.map(c => c.talisharId),
+        ...request.inventory.map(c => c.talisharId),
+      ];
+      const result = await searchClient.lookupByTalisharIds(ids, { details: true });
+      if (cancelled) return;
+      if (!result.success) {
+        setResolveError(result.error || "Card lookup failed");
+        return;
       }
+
+      const byId = result.data;
+      setHero(request.heroSlug ? byId[heroId] ?? null : null);
+      setRows(request.cards.map(c => ({ ...c, resolved: byId[c.talisharId] ?? null })));
+      setInventoryRows(request.inventory.map(c => ({ ...c, resolved: byId[c.talisharId] ?? null })));
     })();
 
     return () => { cancelled = true; };
   }, [request]);
 
-  const resolvedRows = (rows ?? []).filter((r): r is PreviewRow & { resolved: ResolvedCard } => !!r.resolved);
-  const missing = (rows ?? []).filter(r => !r.resolved);
+  const isHeroCard = (r: { resolved: ResolvedCard }) =>
+    (r.resolved.types || []).some(t => t.toLowerCase() === "hero");
+
+  // A hero-typed row in the card list is the hero's own entry (FaBrary-style
+  // links repeat it); the hero is added at deck creation, so drop it here.
+  const resolvedRows = (rows ?? [])
+    .filter((r): r is PreviewRow & { resolved: ResolvedCard } => !!r.resolved)
+    .filter(r => !isHeroCard(r));
+  const missing = [...(rows ?? []), ...(inventoryRows ?? [])].filter(r => !r.resolved);
   const equipmentRows = resolvedRows.filter(r => isEquipment(r.resolved.types));
   const deckRows = resolvedRows.filter(r => !isEquipment(r.resolved.types));
-  const totalCards = resolvedRows.reduce((s, r) => s + r.quantity, 0);
+  const resolvedInventory = (inventoryRows ?? [])
+    .filter((r): r is PreviewRow & { resolved: ResolvedCard } => !!r.resolved)
+    .filter(r => !isHeroCard(r));
+  const totalCards = [...resolvedRows, ...resolvedInventory].reduce((s, r) => s + r.quantity, 0);
 
   const blockers: string[] = [];
   if (!request.format) blockers.push("The link is missing a valid format (e.g. format=Classic Constructed).");
@@ -134,6 +136,18 @@ function ImportDeckContent() {
       if (!result.success) throw new Error(result.error || "Failed to import deck");
 
       const { publicId, deckName: createdName, format, hero: createdHero, unresolved } = result.data;
+
+      // Sideboard cards can't ride through the text pipeline (category is
+      // re-derived from card types there) — add them directly as 'inventory'.
+      let inventoryFailed = 0;
+      const inventoryToAdd = resolvedInventory
+        .filter(r => r.resolved.printingId)
+        .map(r => ({ printingId: r.resolved.printingId as string, quantity: r.quantity, category: "inventory" as const }));
+      if (inventoryToAdd.length > 0) {
+        const invResult = await decksClient.addPrintings(publicId, inventoryToAdd);
+        if (!invResult.success) inventoryFailed = inventoryToAdd.length;
+      }
+
       window.dispatchEvent(new CustomEvent("deckCreated"));
       trackDeckCreate({
         deck_id: publicId,
@@ -144,12 +158,16 @@ function ImportDeckContent() {
       });
 
       const allUnresolved = [...missing.map(m => m.slug), ...unresolved];
+      const problems = [
+        allUnresolved.length > 0 ? `${allUnresolved.length} card(s) couldn't be matched: ${allUnresolved.join(", ")}` : null,
+        inventoryFailed > 0 ? `${inventoryFailed} inventory card(s) could not be added.` : null,
+      ].filter(Boolean);
       toast({
         title: "Deck created",
-        description: allUnresolved.length > 0
-          ? `${createdName} created. ${allUnresolved.length} card(s) couldn't be matched: ${allUnresolved.join(", ")}`
+        description: problems.length > 0
+          ? `${createdName} created. ${problems.join(" ")}`
           : `${createdName} has been created.`,
-        variant: allUnresolved.length > 0 ? "destructive" : undefined,
+        variant: problems.length > 0 ? "destructive" : undefined,
       });
       router.push(`/decks/${publicId}`);
     } catch (e) {
@@ -166,7 +184,8 @@ function ImportDeckContent() {
     typeof window !== "undefined" ? window.location.pathname + window.location.search : "/decks/import",
   )}`;
 
-  const loading = rows === null && !resolveError && (request.heroSlug !== "" || request.cards.length > 0);
+  const loading = rows === null && !resolveError
+    && (request.heroSlug !== "" || request.cards.length > 0 || request.inventory.length > 0);
 
   const renderRows = (list: typeof resolvedRows) => (
     <ul className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -275,6 +294,17 @@ function ImportDeckContent() {
               </h2>
               <div className="rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
                 {renderRows(deckRows)}
+              </div>
+            </div>
+          )}
+
+          {resolvedInventory.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                Inventory ({resolvedInventory.reduce((s, r) => s + r.quantity, 0)})
+              </h2>
+              <div className="rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden">
+                {renderRows(resolvedInventory)}
               </div>
             </div>
           )}

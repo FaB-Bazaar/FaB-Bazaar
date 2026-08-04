@@ -26,6 +26,8 @@ export interface ImportUrlRequest {
   format: DeckFormat | null;
   heroSlug: string;
   cards: ImportUrlCard[];
+  /** Sideboard cards (deck category 'inventory'), from the `inventory=` param. */
+  inventory: ImportUrlCard[];
 }
 
 const DECK_FORMATS: DeckFormat[] = [
@@ -42,22 +44,24 @@ function resolveFormat(raw: string): DeckFormat | null {
 }
 
 export function slugToTalisharId(slug: string): string {
-  return slug
-    .toLowerCase()
+  const lower = slug.toLowerCase();
+  // A hyphen-free token is already a Talishar id — pass it through verbatim.
+  // The pair-collapse below mirrors Talishar's *generator* and must not run
+  // here: it would corrupt canonical DFC ids like comet_storm__shock_red.
+  if (!lower.includes('-')) {
+    return lower.replace(/\s/g, '_').replace(/[^a-z0-9_]/g, '');
+  }
+  return lower
     .replace(/[-\s]/g, '_')
     .replace(/[^a-z0-9_]/g, '')
     .replace(/__/g, '_');
 }
 
-export function parseImportUrlParams(params: URLSearchParams): ImportUrlRequest {
-  const name = (params.get('name') ?? '').trim();
-  const format = resolveFormat(params.get('format') ?? '');
-  const heroSlug = (params.get('hero') ?? '').trim();
-
-  const slugs = params.getAll('cards')
+function parseCardList(params: URLSearchParams, param: string, excludeSlug: string): ImportUrlCard[] {
+  const slugs = params.getAll(param)
     .flatMap(v => v.split(','))
     .map(s => s.trim())
-    .filter(s => s && s !== heroSlug);
+    .filter(s => s && s !== excludeSlug);
 
   const bySlug = new Map<string, ImportUrlCard>();
   for (const slug of slugs) {
@@ -65,8 +69,21 @@ export function parseImportUrlParams(params: URLSearchParams): ImportUrlRequest 
     if (existing) existing.quantity += 1;
     else bySlug.set(slug, { slug, talisharId: slugToTalisharId(slug), quantity: 1 });
   }
+  return Array.from(bySlug.values());
+}
 
-  return { name, format, heroSlug, cards: Array.from(bySlug.values()) };
+export function parseImportUrlParams(params: URLSearchParams): ImportUrlRequest {
+  const name = (params.get('name') ?? '').trim();
+  const format = resolveFormat(params.get('format') ?? '');
+  const heroSlug = (params.get('hero') ?? '').trim();
+
+  return {
+    name,
+    format,
+    heroSlug,
+    cards: parseCardList(params, 'cards', heroSlug),
+    inventory: parseCardList(params, 'inventory', heroSlug),
+  };
 }
 
 const PITCH_COLOR: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
