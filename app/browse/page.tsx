@@ -16,6 +16,7 @@ import {
   type PrefillPlan,
 } from "@/lib/browse/import-url-prefill";
 import { bindersClient, searchClient } from "@/lib/client";
+import IntegrationGuide from "@/components/shared/IntegrationGuide";
 import BulkImportForm from "@/components/browse/BulkImportForm";
 import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -245,6 +246,10 @@ const SuperSlamDisclosure = () => {
             onToggleStaged={handlers.toggleStagedStatus}
             onPrintingView={handlePrintingView}
           />
+
+          <div className="mt-8">
+            <IntegrationGuide defaultOpen={false} />
+          </div>
         </div>
       </div>
       <ViewPrintingsDialog
