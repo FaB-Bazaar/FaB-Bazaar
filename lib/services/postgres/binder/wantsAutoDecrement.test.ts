@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { users, binders, wantsItems, printings } from '@/lib/postgres/schema';
+import { users, binders, wantsItems, printings, cards } from '@/lib/postgres/schema';
 import { PostgresBinderService } from './PostgresBinderService';
 
 const service = new PostgresBinderService();
@@ -138,6 +138,49 @@ describe('PostgresBinderService.addCardsToBinder — wants auto-decrement', () =
     const row = await wantsRow(printingA);
     expect(row).toBeTruthy();
     expect(row!.quantity).toBe(2);
+  });
+
+  it('reports the removal in wantsRemoved with the card name', async () => {
+    await seedWant(printingA, 3);
+
+    const result = await service.addCardsToBinder(binderId, testUserId, [
+      { printingId: printingA, quantity: 1, condition: 'NM', language: 'EN' },
+    ]);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const [{ name: expectedName }] = await db
+      .select({ name: cards.displayName })
+      .from(printings)
+      .innerJoin(cards, eq(printings.cardUniqueId, cards.cardUniqueId))
+      .where(eq(printings.printingId, printingA));
+
+    expect(result.data.wantsRemoved).toEqual([
+      { printingId: printingA, quantityRemoved: 1, cardName: expectedName },
+    ]);
+  });
+
+  it('wantsRemoved reports only the copies actually removed on overshoot', async () => {
+    await seedWant(printingA, 2);
+
+    const result = await service.addCardsToBinder(binderId, testUserId, [
+      { printingId: printingA, quantity: 5, condition: 'NM', language: 'EN' },
+    ]);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data.wantsRemoved).toHaveLength(1);
+    expect(result.data.wantsRemoved![0].quantityRemoved).toBe(2);
+  });
+
+  it('wantsRemoved is empty when no want matched', async () => {
+    const result = await service.addCardsToBinder(binderId, testUserId, [
+      { printingId: printingA, quantity: 1, condition: 'NM', language: 'EN' },
+    ]);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data.wantsRemoved ?? []).toEqual([]);
   });
 
   it('adding the same printing twice in one call (different conditions) decrements by the total', async () => {

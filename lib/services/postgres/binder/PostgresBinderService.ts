@@ -14,6 +14,8 @@
 import { eq, and, or, sql, inArray, desc, asc, like, ilike } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { binders, inventoryItems, users, printings, cards, siteSettings, wantsItems } from '@/lib/postgres/schema';
+// The `cards` table under a non-shadowed name — addCardsToBinder's `cards` param hides the import
+import { cards as cardsTable } from '@/lib/postgres/schema';
 import type {
   IBinderService,
   BinderDTO,
@@ -398,6 +400,7 @@ export class PostgresBinderService implements IBinderService {
       // user's wants list. Atomic quantity math (no read-modify-write) so a
       // double-submit can't lose an update; the tiny transaction only locks
       // this user's own wants row, so it delete-if-zeroes race-free.
+      const wantsRemoved: NonNullable<AddCardsResultDTO['wantsRemoved']> = [];
       for (const [printingId, qty] of addedByPrinting) {
         await db.transaction(async (tx) => {
           const [want] = await tx
@@ -405,10 +408,26 @@ export class PostgresBinderService implements IBinderService {
             .set({ quantity: sql`${wantsItems.quantity} - ${qty}`, updatedAt: new Date() })
             .where(and(eq(wantsItems.userId, userId), eq(wantsItems.printingId, printingId)))
             .returning({ id: wantsItems.id, quantity: wantsItems.quantity });
-          if (want && want.quantity <= 0) {
-            await tx.delete(wantsItems).where(eq(wantsItems.id, want.id));
+          if (want) {
+            if (want.quantity <= 0) {
+              await tx.delete(wantsItems).where(eq(wantsItems.id, want.id));
+            }
+            // A negative remainder means the want had fewer copies than were added
+            const quantityRemoved = want.quantity >= 0 ? qty : qty + want.quantity;
+            if (quantityRemoved > 0) {
+              wantsRemoved.push({ printingId, quantityRemoved, cardName: '' });
+            }
           }
         });
+      }
+      if (wantsRemoved.length > 0) {
+        const nameRows = await db
+          .select({ printingId: printings.printingId, name: cardsTable.displayName })
+          .from(printings)
+          .innerJoin(cardsTable, eq(printings.cardUniqueId, cardsTable.cardUniqueId))
+          .where(inArray(printings.printingId, wantsRemoved.map((w) => w.printingId)));
+        const nameMap = new Map(nameRows.map((r) => [r.printingId, r.name]));
+        for (const w of wantsRemoved) w.cardName = nameMap.get(w.printingId) ?? '';
       }
 
       // Mark stats as needing update and record activity
@@ -425,6 +444,7 @@ export class PostgresBinderService implements IBinderService {
             filtered: 0,
           },
           results,
+          wantsRemoved,
         },
       };
     } catch (error) {

@@ -5,6 +5,7 @@ import { parseBulkInput } from '@/lib/browse/parsers/bulk-input-parser';
 import { selectDefaultPrinting, getDefaultDeckName, calculateTotalQuantity } from '@/lib/browse/utils';
 import { searchCards, fetchUserBinders, fetchUserDecks, fetchMetadata, addToWantsList, createBinder, createDeck, addCardsToBinder } from '@/lib/browse/api';
 import { handleImportToDeck as handleDeckImport, handleImportToNewDeck as handleNewDeckImport } from '@/lib/deck-allocation';
+import { formatWantsRemoved } from '@/lib/wants/format-wants-removed';
 
 // Helper function to group a flat list of printings into cards, each with a `printings` array.
 const groupPrintingsByCard = (printings: any[]) => {
@@ -197,8 +198,9 @@ export function useBrowsePage({ user, toast }: UseBrowsePageProps) {
         const selectedBinder = userBinders.find(b => b._id === selectedBinderId);
         if (!selectedBinder) throw new Error("Selected binder not found");
         const printingsToAdd = pendingImport.map(card => ({ printingId: card.printingId, quantity: card.quantity, condition: "NM", forTrade: card.forTrade, notes: "" }));
-        await addCardsToBinder(selectedBinder.slug, printingsToAdd);
-        toast({ title: "Import successful!", variant: "default" }); setPendingImport([]);
+        const addResult = await addCardsToBinder(selectedBinder.slug, printingsToAdd);
+        const wantsMsg = formatWantsRemoved(addResult?.wantsRemoved);
+        toast({ title: "Import successful!", description: wantsMsg ?? undefined, variant: "default" }); setPendingImport([]);
     } catch (err: any) { toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally { setCreatingBinder(false); }
   };

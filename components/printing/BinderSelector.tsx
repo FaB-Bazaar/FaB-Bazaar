@@ -9,6 +9,7 @@ import { Plus, Loader2, Package, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { bindersClient } from "@/lib/client";
+import { formatWantsRemoved } from "@/lib/wants/format-wants-removed";
 
 interface Binder {
   _id: string;
@@ -78,9 +79,10 @@ export default function BinderSelector({ printingId, cardName, onSuccess, onCanc
       }]);
 
       if (result.success) {
+        const wantsMsg = formatWantsRemoved(result.data?.wantsRemoved);
         toast({
           title: "Added to collection!",
-          description: `${cardName} was added to ${binderName}.`,
+          description: `${cardName} was added to ${binderName}.${wantsMsg ? ` ${wantsMsg}` : ''}`,
           variant: "default"
         });
 

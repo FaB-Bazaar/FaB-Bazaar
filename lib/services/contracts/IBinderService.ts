@@ -183,6 +183,12 @@ export interface AddCardsResultDTO {
     set: string;
     quantity: number;
   }>;
+  /** Wants-list copies auto-removed because the same printing was added */
+  wantsRemoved?: Array<{
+    printingId: string;
+    quantityRemoved: number;
+    cardName: string;
+  }>;
 }
 
 /**

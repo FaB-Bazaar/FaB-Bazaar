@@ -329,7 +329,9 @@ export async function createDeckWithCards(
       forTrade?: boolean
       notes?: string
     }>
-  ): Promise<void> {
+  ): Promise<{
+    wantsRemoved?: Array<{ printingId: string; quantityRemoved: number; cardName: string }>
+  }> {
     const response = await fetch(`/api/binders/${binderSlug}/cards`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -353,5 +355,9 @@ export async function createDeckWithCards(
 
     if (!result.success) {
       throw new Error(result.error || "Failed to add cards to binder")
+    }
+
+    return result as {
+      wantsRemoved?: Array<{ printingId: string; quantityRemoved: number; cardName: string }>
     }
   }

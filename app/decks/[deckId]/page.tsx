@@ -42,6 +42,7 @@ import BulkResultsGrid from "@/components/browse/BulkResultsGrid";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ViewPrintingsDialog from "@/components/dialogs/cards/view-printings-dialog";
 import { cn } from "@/lib/utils";
+import { formatWantsRemoved } from "@/lib/wants/format-wants-removed";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { trackDeckView } from "@/lib/gtag";
 
@@ -1161,7 +1162,8 @@ export default function DeckEditorPage() {
     const result = await bindersClient.addCardsToBinder(selectedBinderId, [{ printingId, quantity: 1, condition: "NM" }]);
     if (result.success) {
       const binderName = binders.find(b => b._id === selectedBinderId)?.name || "binder";
-      toast({ title: "Added to binder", description: `${cardName} → ${binderName}` });
+      const wantsMsg = formatWantsRemoved(result.data?.wantsRemoved);
+      toast({ title: "Added to binder", description: `${cardName} → ${binderName}${wantsMsg ? `. ${wantsMsg}` : ''}` });
       await handlers.refreshDeck();
     } else {
       toast({ title: "Failed to add to binder", description: result.error, variant: "destructive" });
