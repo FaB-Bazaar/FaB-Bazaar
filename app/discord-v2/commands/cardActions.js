@@ -3,6 +3,7 @@ import { userService, binderService } from '@/lib/services';
 import { createErrorResponse, createUpdateResponse, createSuccessResponse, createComponentResponse } from '../responses.js';
 import { RARITY_MAP, FOILING_MAP, EDITION_MAP } from '../utils.js';
 import { getSetMetadata } from '@/lib/fab-constants/sets';
+import { formatWantsRemoved } from '@/lib/wants/format-wants-removed';
 
 /**
  * Helper function to get the slug value from a binder object
@@ -306,8 +307,9 @@ export async function addPrintingToBinder(userId, binderId, printingId, cardName
     }
     
     if (addData.success) {
+      const wantsMsg = formatWantsRemoved(addData.wantsRemoved);
       return createUpdateResponse(
-        `✅ **${cardName}** added to your binder!`,
+        `✅ **${cardName}** added to your binder!${wantsMsg ? ` ${wantsMsg}` : ''}`,
         []
       );
     } else {

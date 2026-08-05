@@ -90,3 +90,47 @@ describe('addPrintingToBinder', () => {
     expect(json.data.content).not.toContain('binder-id-abc123');
   });
 });
+
+describe('addPrintingToBinder — wants auto-removal note', () => {
+  const realFetch = global.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_APP_URL = 'https://fabbazaar.app';
+  });
+
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('appends the wants-removed line when the add consumed wants copies', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        success: true,
+        summary: { added: 1 },
+        wantsRemoved: [{ printingId: 'printing-1', quantityRemoved: 1, cardName: 'Evo Beta Base Head' }],
+      }),
+    });
+
+    const response = await addPrintingToBinder('discord-123', 'binder-id-abc123', 'printing-1', 'Evo Beta Base Head');
+    const json = await response.json();
+
+    expect(json.data.content).toContain('1 copy of Evo Beta Base Head removed from your wants list.');
+  });
+
+  it('keeps the plain success message when nothing was removed from wants', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ success: true, summary: { added: 1 } }),
+    });
+
+    const response = await addPrintingToBinder('discord-123', 'binder-id-abc123', 'printing-1', 'Evo Beta Base Head');
+    const json = await response.json();
+
+    expect(json.data.content).toContain('Evo Beta Base Head');
+    expect(json.data.content).not.toContain('wants list');
+  });
+});

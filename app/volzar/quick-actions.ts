@@ -18,6 +18,7 @@ import { bindersClient, wantsClient, decksClient } from '@/lib/client';
 import { getCardImageUrl, generateUniqueBinderSlug } from '@/lib/utils';
 import { matchesDeckFilter } from '@/lib/deck/deck-filter';
 import { deckColorBreakdown, type DeckViewCard } from '@/lib/deck/analytics';
+import { formatWantsRemoved } from '@/lib/wants/format-wants-removed';
 
 /**
  * A display line. Binder/deck lines carry a drill target (one-click
@@ -1474,7 +1475,7 @@ export async function undoRowRemoval(
       { printingId, quantity: qty, forTrade: row.forTrade },
     ]);
     if (!result.success) return { ok: false, error: result.error };
-    return { ok: true, name: row.name };
+    return { ok: true, name: row.name, note: formatWantsRemoved(result.data?.wantsRemoved) ?? undefined };
   }
   if (mutation.kind === 'wants') {
     const result = await wantsClient.addWantsItem(printingId, qty, (row.priority as any) ?? 'medium');
@@ -1793,7 +1794,10 @@ export interface CardSearchSelection {
   forTrade?: boolean;
 }
 
-export type AddCardOutcome = { ok: true; name: string } | { ok: false; error: string };
+export type AddCardOutcome =
+  // note: user-facing side-effect message (e.g. wants auto-removal) for the UI to surface
+  | { ok: true; name: string; note?: string }
+  | { ok: false; error: string };
 
 function selectionPrinting(selection: CardSearchSelection): { printingId?: string; name: string; quantity: number } {
   const printingId = selection.printing?.printing_id || selection.printing?.unique_id;
@@ -1816,7 +1820,7 @@ export async function addSearchSelectionToBinder(
     { printingId, quantity, forTrade: selection.forTrade },
   ]);
   if (!result.success) return { ok: false, error: result.error };
-  return { ok: true, name };
+  return { ok: true, name, note: formatWantsRemoved(result.data?.wantsRemoved) ?? undefined };
 }
 
 export async function addSearchSelectionToWants(
@@ -2076,7 +2080,7 @@ export async function addCompareRowToBinder(binderId: string, row: CardRow): Pro
     { printingId, quantity: qty, forTrade: false },
   ]);
   if (!result.success) return { ok: false, error: result.error };
-  return { ok: true, name: row.name };
+  return { ok: true, name: row.name, note: formatWantsRemoved(result.data?.wantsRemoved) ?? undefined };
 }
 
 /**

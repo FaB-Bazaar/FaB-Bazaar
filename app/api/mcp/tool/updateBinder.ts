@@ -1,6 +1,7 @@
 // app/api/mcp/tool/updateBinder.ts - Fixed to use same pattern as getBinder
 import { NextRequest, NextResponse } from 'next/server';
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { formatWantsRemoved } from '@/lib/wants/format-wants-removed';
 
 export const updateBinderTool = {
   name: 'add_to_binder',
@@ -217,6 +218,9 @@ Workflow: search_printings → pick printing_id(s) → add_to_binder.
         authMethod: result.authMethod || 'mcpToken'
       };
 
+      const wantsMsg = formatWantsRemoved(result.wantsRemoved);
+      const wantsFields = result.wantsRemoved?.length ? { wantsRemoved: result.wantsRemoved } : {};
+
       if (result.summary) {
         // Response with summary (batch operations)
         const cardCount = result.summary.total;
@@ -224,14 +228,16 @@ Workflow: search_printings → pick printing_id(s) → add_to_binder.
         return {
           ...baseResponse,
           summary: result.summary,
-          message: `✅ Successfully processed ${cardCount} ${cardWord}: ${result.summary.added} added, ${result.summary.updated} updated to binder "${targetBinder.name}"`,
+          message: `✅ Successfully processed ${cardCount} ${cardWord}: ${result.summary.added} added, ${result.summary.updated} updated to binder "${targetBinder.name}"${wantsMsg ? ` — ${wantsMsg}` : ''}`,
+          ...wantsFields,
           details: result.results
         };
       } else {
         // Response without summary (legacy format)
         return {
           ...baseResponse,
-          message: `✅ Successfully added cards to binder "${targetBinder.name}"`
+          message: `✅ Successfully added cards to binder "${targetBinder.name}"${wantsMsg ? ` — ${wantsMsg}` : ''}`,
+          ...wantsFields
         };
       }
       

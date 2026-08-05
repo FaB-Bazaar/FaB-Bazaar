@@ -535,3 +535,28 @@ describe('fetchLatestGameForDeck', () => {
     vi.restoreAllMocks();
   });
 });
+
+describe('addSearchSelectionToBinder — wants auto-removal note', () => {
+  it('carries a wants-removed note when the add consumed wants copies', async () => {
+    mockAddCardsToBinder.mockResolvedValue({
+      success: true,
+      data: { wantsRemoved: [{ printingId: 'pr1', quantityRemoved: 2, cardName: 'Enlightened Strike' }] },
+    } as any);
+
+    const result = await addSearchSelectionToBinder('binder-9', selection() as any);
+
+    expect(result).toEqual({
+      ok: true,
+      name: 'Enlightened Strike (Red)',
+      note: '2 copies of Enlightened Strike removed from your wants list.',
+    });
+  });
+
+  it('has no note when nothing was removed from wants', async () => {
+    mockAddCardsToBinder.mockResolvedValue({ success: true, data: {} } as any);
+
+    const result = await addSearchSelectionToBinder('binder-9', selection() as any);
+
+    expect(result).toEqual({ ok: true, name: 'Enlightened Strike (Red)' });
+  });
+});

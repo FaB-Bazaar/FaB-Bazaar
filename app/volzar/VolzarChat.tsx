@@ -51,6 +51,7 @@ import { hasPreviewableContent } from './empty-state';
 // Type-only: the value exports pull the service barrel — never import those here.
 import type { SuggestedPrompt } from '@/lib/ai/volzar-suggestions';
 import { MarkdownMessage } from './MarkdownMessage';
+import { formatWantsRemoved } from '@/lib/wants/format-wants-removed';
 import { uiStrings, SUPPORTED_LANGUAGES } from './ui-strings';
 import { buildTurnMessages, shouldSendOnEnter } from './chat-turn';
 import { parseInstantActionParam } from './instant-link';
@@ -1159,6 +1160,13 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const [busy, setBusy] = useState(false);
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  // Success side-effect notice (e.g. wants auto-removal after a binder add); auto-dismisses.
+  const [noticeBanner, setNoticeBanner] = useState<string | null>(null);
+  useEffect(() => {
+    if (!noticeBanner) return;
+    const t = setTimeout(() => setNoticeBanner(null), 8000);
+    return () => clearTimeout(t);
+  }, [noticeBanner]);
   // Public id of the deck currently being copied via "Add to my decks".
   const [addingDeckId, setAddingDeckId] = useState<string | null>(null);
   // Per-comparison-card "Add missing to wants" feedback, keyed by item index.
@@ -2399,6 +2407,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       return;
     }
     setQuickAddStatus((s) => ({ ...s, [key]: 'done' }));
+    if (outcome.note) setNoticeBanner(outcome.note);
     if (dest === 'binder') {
       // Refresh any open binder table for the destination…
       void refreshItemsForTarget({ destination: 'binder', binderId: targetBinderId });
@@ -2494,6 +2503,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
         setErrorBanner(`Could not add ${label}: ${outcome.error}`);
         return;
       }
+      if (outcome.note) setNoticeBanner(outcome.note);
       // Refresh any open table showing this target so the add is visible
       void refreshItemsForTarget(target);
     });
@@ -2506,7 +2516,9 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
       { printingId: previewCard.printingId, quantity: 1 } as any,
     ]);
     setRailStatus((s) => ({ ...s, binder: result.success ? 'done' : 'error' }));
-    if (!result.success) setErrorBanner(result.error);
+    if (!result.success) { setErrorBanner(result.error); return; }
+    const wantsMsg = formatWantsRemoved(result.data?.wantsRemoved);
+    if (wantsMsg) setNoticeBanner(wantsMsg);
   }, [previewCard, targetBinderId]);
 
   // Empty state (pre-first-turn): greeting + composer + launcher prompts sit
@@ -3631,6 +3643,22 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 px-1" aria-live="polite">
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             Waiting for {model}…
+          </div>
+        )}
+
+        {/* Success side-effect notice (e.g. wants auto-removal) */}
+        {noticeBanner && (
+          <div className="flex items-start gap-2 rounded-md border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-400" role="status">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <span className="text-sm break-words flex-1 min-w-0">{noticeBanner}</span>
+            <button
+              type="button"
+              onClick={() => setNoticeBanner(null)}
+              aria-label="Dismiss notice"
+              className={`shrink-0 ${focusRing}`}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         )}
 

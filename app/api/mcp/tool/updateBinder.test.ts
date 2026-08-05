@@ -71,3 +71,43 @@ describe('add_to_binder — forTrade default', () => {
     expect(lastPostBody().printings[0].forTrade).toBe(false);
   });
 });
+
+describe('add_to_binder — wants auto-removal note', () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  function wireBinderThenAddWithWants(wantsRemoved: any) {
+    mockFetch
+      .mockResolvedValueOnce(res({ success: true, binders: [{ slug: 'ahhhh', _id: 'b1', name: 'ahhhh' }] }))
+      .mockResolvedValueOnce(res({
+        success: true,
+        summary: { total: 1, added: 1, updated: 0 },
+        results: [],
+        wantsRemoved,
+      }));
+  }
+
+  it('appends the wants-removed line to the success message and passes the data through', async () => {
+    wireBinderThenAddWithWants([{ printingId: 'p1', quantityRemoved: 2, cardName: 'Snatch' }]);
+
+    const out: any = await updateBinderTool.handler(
+      { binderSlug: 'ahhhh', printings: [{ printingId: 'p1', quantity: 2 }] },
+      undefined,
+      'tok',
+    );
+
+    expect(out.message).toContain('2 copies of Snatch removed from your wants list.');
+    expect(out.wantsRemoved).toEqual([{ printingId: 'p1', quantityRemoved: 2, cardName: 'Snatch' }]);
+  });
+
+  it('leaves the message untouched when nothing was removed from wants', async () => {
+    wireBinderThenAddWithWants([]);
+
+    const out: any = await updateBinderTool.handler(
+      { binderSlug: 'ahhhh', printings: [{ printingId: 'p1', quantity: 1 }] },
+      undefined,
+      'tok',
+    );
+
+    expect(out.message).not.toContain('wants list');
+  });
+});
