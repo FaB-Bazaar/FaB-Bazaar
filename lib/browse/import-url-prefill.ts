@@ -11,12 +11,15 @@ import { parseImportUrlParams, type ImportUrlCard } from '@/lib/deck/import-url-
 export interface BrowsePrefillParams {
   cards: ImportUrlCard[];
   binderSlug: string;
+  /** Where the link intends the cards to go — flips which commit action is emphasized. */
+  dest: 'binder' | 'wants';
 }
 
 export function parseBrowsePrefillParams(params: URLSearchParams): BrowsePrefillParams {
   return {
     cards: parseImportUrlParams(params).cards,
     binderSlug: (params.get('binder') ?? '').trim(),
+    dest: (params.get('dest') ?? '').trim().toLowerCase() === 'wants' ? 'wants' : 'binder',
   };
 }
 

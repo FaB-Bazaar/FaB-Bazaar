@@ -36,6 +36,17 @@ describe('parseBrowsePrefillParams', () => {
     expect(p.cards).toEqual([]);
     expect(p.binderSlug).toBe('');
   });
+
+  test('dest=wants marks the list as a wants import', () => {
+    const p = parseBrowsePrefillParams(new URLSearchParams('cards=shred_blue&dest=wants'));
+    expect(p.dest).toBe('wants');
+  });
+
+  test('dest defaults to binder, including for unknown values', () => {
+    expect(parseBrowsePrefillParams(new URLSearchParams('cards=shred_blue')).dest).toBe('binder');
+    expect(parseBrowsePrefillParams(new URLSearchParams('cards=shred_blue&dest=xyz')).dest).toBe('binder');
+    expect(parseBrowsePrefillParams(new URLSearchParams('cards=shred_blue&dest=WANTS')).dest).toBe('wants');
+  });
 });
 
 describe('computePrefillPlan', () => {

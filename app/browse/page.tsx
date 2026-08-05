@@ -183,7 +183,7 @@ const SuperSlamDisclosure = () => {
               <p className="text-sm font-medium text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
                 <Link2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                 {prefillPlan.summary.toAdd > 0
-                  ? `${prefillPlan.summary.toAdd} card(s) staged from your link.`
+                  ? `${prefillPlan.summary.toAdd} card(s) staged from your link${prefill.dest === "wants" ? " — use “To Wants” to save them to your wants list" : ""}.`
                   : "Nothing to add — your collection already covers this list."}
               </p>
               {user && prefillPlan.summary.owned > 0 && (
@@ -226,7 +226,8 @@ const SuperSlamDisclosure = () => {
           <ImportActions
             isImporting={state.isImporting}
             // --- PASS THE CORRECT TOTAL QUANTITY ---
-            resultsCount={totalStagedQuantity} 
+            resultsCount={totalStagedQuantity}
+            emphasis={prefill.dest}
             binders={state.binders}
             selectedBinderSlug={state.selectedBinderSlug}
             onSelectBinder={handlers.setSelectedBinderSlug}

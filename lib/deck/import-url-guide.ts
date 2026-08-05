@@ -113,6 +113,10 @@ https://fabbazaar.app/browse?cards=fate_foreseen_red,fate_foreseen_red,kiss_of_d
   sensible default printing chosen; the user can swap printings, adjust
   quantities, and commit to a binder or their wants list.
 - \`binder\` — optional binder slug to preselect as the destination.
+- \`dest\` — optional; \`wants\` marks the link as a wants-list import: the "To
+  Wants" action gets the primary styling and the banner directs the user to
+  it. Anything else (or omitted) keeps the binder flow as primary. Both
+  actions remain available either way.
 - **Ownership netting**: for signed-in users the requested quantities are
   reduced by what they already own at the card level — any printing variant in
   any of their binders counts. Fully-covered cards are skipped and listed in a

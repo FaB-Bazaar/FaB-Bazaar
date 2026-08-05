@@ -29,6 +29,8 @@ interface ImportActionsProps {
   onCreateBinder: (name: string, slug: string, visibility: any) => Promise<void>;
   onAddToBinder: () => void;
   onAddToWants: () => void;
+  /** Which commit action gets the primary styling — 'wants' when the page was opened via a ?dest=wants link. */
+  emphasis?: 'binder' | 'wants';
 }
 
 // Default visibility settings for a new binder
@@ -50,6 +52,7 @@ export default function ImportActions({
   onCreateBinder,
   onAddToBinder,
   onAddToWants,
+  emphasis = 'binder',
 }: ImportActionsProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newBinderName, setNewBinderName] = useState("");
@@ -100,11 +103,21 @@ export default function ImportActions({
           </div>
 
           <div className="flex gap-3 w-full sm:w-auto">
-            <Button onClick={onAddToWants} disabled={isImporting} variant="outline" className="flex-1">
+            <Button
+              onClick={onAddToWants}
+              disabled={isImporting}
+              variant={emphasis === 'wants' ? 'default' : 'outline'}
+              className={emphasis === 'wants' ? 'bg-blue-600 hover:bg-blue-700 flex-1' : 'flex-1'}
+            >
               <Heart className="mr-2 h-4 w-4" />
               {isImporting ? 'Adding...' : 'To Wants'}
             </Button>
-            <Button onClick={onAddToBinder} disabled={isImporting || !selectedBinderSlug} className="bg-blue-600 hover:bg-blue-700 flex-1">
+            <Button
+              onClick={onAddToBinder}
+              disabled={isImporting || !selectedBinderSlug}
+              variant={emphasis === 'wants' ? 'outline' : 'default'}
+              className={emphasis === 'wants' ? 'flex-1' : 'bg-blue-600 hover:bg-blue-700 flex-1'}
+            >
               <UploadCloud className="mr-2 h-4 w-4" />
               {isImporting ? 'Importing...' : 'To Binder'}
             </Button>
