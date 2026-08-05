@@ -137,4 +137,19 @@ Full, with equipment, a mixed-spelling list, an inventory, and a name:
 \`\`\`
 https://fabbazaar.app/decks/import?name=Storm+Surge&format=Classic+Constructed&hero=oscilio_constella_intelligence&cards=fyendals-spring-tunic,comet_storm__shock_red,comet_storm__shock_red,comet_storm__shock_red,fate_foreseen_red,fate_foreseen_red&inventory=fate_foreseen_red
 \`\`\`
+
+Binder prefill — stage a card list into a specific binder, netted against what
+the user already owns:
+
+\`\`\`
+https://fabbazaar.app/browse?cards=fate_foreseen_red,fate_foreseen_red,kiss_of_death_red&binder=my-trades
+\`\`\`
+
+Wants-list import — same page, but the link marks the list as "cards to
+acquire", so the Wants action is primary (useful for "missing cards for this
+deck" or store buylist links):
+
+\`\`\`
+https://fabbazaar.app/browse?cards=kiss_of_death_red,kiss_of_death_red,codex_of_frailty_yellow&dest=wants
+\`\`\`
 `;
