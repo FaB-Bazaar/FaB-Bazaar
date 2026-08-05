@@ -13,7 +13,7 @@
 
 import { eq, and, or, sql, inArray, desc, asc, like, ilike } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
-import { binders, inventoryItems, users, printings, cards, siteSettings } from '@/lib/postgres/schema';
+import { binders, inventoryItems, users, printings, cards, siteSettings, wantsItems } from '@/lib/postgres/schema';
 import type {
   IBinderService,
   BinderDTO,
@@ -292,6 +292,8 @@ export class PostgresBinderService implements IBinderService {
       let added = 0;
       let updated = 0;
       let failed = 0;
+      // Copies successfully added per printing — drives the wants auto-decrement below
+      const addedByPrinting = new Map<string, number>();
 
       for (const card of cards) {
         try {
@@ -343,6 +345,7 @@ export class PostgresBinderService implements IBinderService {
               .where(eq(inventoryItems.id, existing.id));
 
             updated++;
+            addedByPrinting.set(card.printingId, (addedByPrinting.get(card.printingId) ?? 0) + (card.quantity || 1));
             results.push({
               printingId: card.printingId,
               success: true,
@@ -369,6 +372,7 @@ export class PostgresBinderService implements IBinderService {
             });
 
             added++;
+            addedByPrinting.set(card.printingId, (addedByPrinting.get(card.printingId) ?? 0) + (card.quantity || 1));
             results.push({
               printingId: card.printingId,
               success: true,
@@ -388,6 +392,23 @@ export class PostgresBinderService implements IBinderService {
             error: dbMessage ? `${message} | DB: ${dbMessage}` : message,
           });
         }
+      }
+
+      // Auto-decrement wants: copies acquired satisfy the SAME printing on the
+      // user's wants list. Atomic quantity math (no read-modify-write) so a
+      // double-submit can't lose an update; the tiny transaction only locks
+      // this user's own wants row, so it delete-if-zeroes race-free.
+      for (const [printingId, qty] of addedByPrinting) {
+        await db.transaction(async (tx) => {
+          const [want] = await tx
+            .update(wantsItems)
+            .set({ quantity: sql`${wantsItems.quantity} - ${qty}`, updatedAt: new Date() })
+            .where(and(eq(wantsItems.userId, userId), eq(wantsItems.printingId, printingId)))
+            .returning({ id: wantsItems.id, quantity: wantsItems.quantity });
+          if (want && want.quantity <= 0) {
+            await tx.delete(wantsItems).where(eq(wantsItems.id, want.id));
+          }
+        });
       }
 
       // Mark stats as needing update and record activity
