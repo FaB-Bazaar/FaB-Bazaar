@@ -14,6 +14,7 @@ export interface VolzarUiStrings {
   placeholderMobile: string;
   newChat: string;
   instantLabel: string;
+  movers: { heading: string; seeAll: (n: number) => string };
   actions: {
     binders: string;
     wants: string;
@@ -37,6 +38,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'My binders', wants: 'My wants', decks: 'My decks', results: 'Game results',
       'to-beat': 'Decks to beat', archetype: 'Compare archetype', 'hero-kit': 'Hero kit',
     },
+    movers: { heading: 'Today’s movers in your collection', seeAll: (n) => `All ${n} movers` },
   },
   fr: {
     greeting: (u) => `Salut ${u} — pose-moi toutes tes questions sur Flesh and Blood.`,
@@ -49,6 +51,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'Mes classeurs', wants: 'Mes recherches', decks: 'Mes decks', results: 'Résultats de parties',
       'to-beat': 'Decks to beat', archetype: 'Comparer un archétype', 'hero-kit': 'Kit de héros',
     },
+    movers: { heading: 'Les mouvements du jour dans ta collection', seeAll: (n) => `Voir les ${n} mouvements` },
   },
   de: {
     greeting: (u) => `Hey ${u} — frag mich alles über Flesh and Blood.`,
@@ -61,6 +64,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'Meine Ordner', wants: 'Meine Suchliste', decks: 'Meine Decks', results: 'Spielergebnisse',
       'to-beat': 'Decks to beat', archetype: 'Archetyp vergleichen', 'hero-kit': 'Helden-Kit',
     },
+    movers: { heading: 'Heutige Preisbewegungen in deiner Sammlung', seeAll: (n) => `Alle ${n} Bewegungen` },
   },
   it: {
     greeting: (u) => `Ciao ${u} — chiedimi qualsiasi cosa su Flesh and Blood.`,
@@ -73,6 +77,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'I miei raccoglitori', wants: 'La mia lista desideri', decks: 'I miei mazzi', results: 'Risultati partite',
       'to-beat': 'Decks to beat', archetype: 'Confronta archetipo', 'hero-kit': 'Kit eroe',
     },
+    movers: { heading: 'I movimenti di oggi nella tua collezione', seeAll: (n) => `Tutti i ${n} movimenti` },
   },
   es: {
     greeting: (u) => `Hola ${u} — pregúntame lo que quieras sobre Flesh and Blood.`,
@@ -85,6 +90,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'Mis carpetas', wants: 'Mi lista de deseos', decks: 'Mis mazos', results: 'Resultados de partidas',
       'to-beat': 'Decks to beat', archetype: 'Comparar arquetipo', 'hero-kit': 'Kit de héroe',
     },
+    movers: { heading: 'Los movimientos de hoy en tu colección', seeAll: (n) => `Ver los ${n} movimientos` },
   },
   ja: {
     greeting: (u) => `やあ、${u} — Flesh and Bloodのことなら何でも聞いて。`,
@@ -97,6 +103,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'マイバインダー', wants: 'ウォンツリスト', decks: 'マイデッキ', results: '対戦結果',
       'to-beat': 'Decks to beat', archetype: 'アーキタイプ比較', 'hero-kit': 'ヒーローキット',
     },
+    movers: { heading: '今日のコレクション価格変動', seeAll: (n) => `変動${n}件をすべて見る` },
   },
   da: {
     greeting: (u) => `Hej ${u} — spørg mig om alt om Flesh and Blood.`,
@@ -109,6 +116,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'Mine mapper', wants: 'Min ønskeliste', decks: 'Mine decks', results: 'Kampresultater',
       'to-beat': 'Decks to beat', archetype: 'Sammenlign arketype', 'hero-kit': 'Helte-kit',
     },
+    movers: { heading: 'Dagens prisbevægelser i din samling', seeAll: (n) => `Alle ${n} bevægelser` },
   },
   sv: {
     greeting: (u) => `Hej ${u} — fråga mig vad som helst om Flesh and Blood.`,
@@ -121,6 +129,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'Mina pärmar', wants: 'Min önskelista', decks: 'Mina decks', results: 'Matchresultat',
       'to-beat': 'Decks to beat', archetype: 'Jämför arketyp', 'hero-kit': 'Hjälte-kit',
     },
+    movers: { heading: 'Dagens prisrörelser i din samling', seeAll: (n) => `Alla ${n} rörelser` },
   },
   ko: {
     greeting: (u) => `안녕하세요 ${u} — Flesh and Blood에 대해 무엇이든 물어보세요.`,
@@ -133,6 +142,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: '내 바인더', wants: '내 원츠 리스트', decks: '내 덱', results: '경기 결과',
       'to-beat': 'Decks to beat', archetype: '아키타입 비교', 'hero-kit': '히어로 키트',
     },
+    movers: { heading: '오늘 내 컬렉션의 가격 변동', seeAll: (n) => `변동 ${n}건 모두 보기` },
   },
   zh: {
     greeting: (u) => `嗨，${u} — 关于 Flesh and Blood 的问题都可以问我。`,
@@ -145,6 +155,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: '我的卡册', wants: '我的愿望清单', decks: '我的牌组', results: '对局结果',
       'to-beat': 'Decks to beat', archetype: '比较原型', 'hero-kit': '英雄套件',
     },
+    movers: { heading: '今日你收藏中的价格变动', seeAll: (n) => `查看全部 ${n} 项变动` },
   },
   pt: {
     greeting: (u) => `Oi ${u} — pergunte-me qualquer coisa sobre Flesh and Blood.`,
@@ -157,6 +168,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
       binders: 'Meus fichários', wants: 'Minha lista de desejos', decks: 'Meus decks', results: 'Resultados de partidas',
       'to-beat': 'Decks to beat', archetype: 'Comparar arquétipo', 'hero-kit': 'Kit de herói',
     },
+    movers: { heading: 'Os movimentos de hoje na sua coleção', seeAll: (n) => `Todos os ${n} movimentos` },
   },
 };
 

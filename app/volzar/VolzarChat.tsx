@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +28,7 @@ import ViewPrintingsDialog from '@/components/dialogs/cards/view-printings-dialo
 import CardSearchDialog from '@/components/dialogs/cards/card-search-dialog';
 import CreateDeckDialog from '@/components/deck/CreateDeckDialog';
 import { sortPrintings } from '@/lib/fab-constants';
-import { volzarClient, wantsClient, bindersClient, decksClient } from '@/lib/client';
+import { volzarClient, wantsClient, bindersClient, decksClient, dailyClient } from '@/lib/client';
 import { TcgAffiliateLink } from '@/components/tracking';
 import type { AgentEvent, ChatMessage, ToolCall } from '@/lib/ai/types';
 import {
@@ -48,6 +49,8 @@ import {
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
 } from './quick-actions';
 import { hasPreviewableContent } from './empty-state';
+import { pickLandingMovers, formatMoverPrice, formatMoverPct } from './daily-movers-strip';
+import type { MoversInCollectionDTO } from '@/lib/services/contracts/IDailyMoversService';
 // Type-only: the value exports pull the service barrel — never import those here.
 import type { SuggestedPrompt } from '@/lib/ai/volzar-suggestions';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -2526,6 +2529,21 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   // bottom as soon as anything enters the thread. The preview rail stays off
   // until something hoverable exists on screen.
   const chatEmpty = items.length === 0;
+  // "Today's movers" teaser — the pipeline's daily_movers signals intersected
+  // with the user's inventory (same /api/daily the /daily page reads). Instant
+  // and AI-free; fetched once on mount, rendered only pre-first-turn. Skipped
+  // when the chat starts non-empty (/opt handoff) — the strip could never show.
+  const [dailyMovers, setDailyMovers] = useState<MoversInCollectionDTO | null>(null);
+  useEffect(() => {
+    if (items.length > 0) return;
+    let cancelled = false;
+    void dailyClient.getMyMovers().then((res) => {
+      if (!cancelled && res.success && res.data) setDailyMovers(res.data);
+    }).catch(() => { /* teaser only — absence is the failure mode */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const landingMovers = pickLandingMovers(dailyMovers, 4);
   const promptList = suggestedPrompts?.length ? suggestedPrompts : FALLBACK_SUGGESTED_PROMPTS;
   const railHasContent = !!previewCard || hasPreviewableContent(items, previewsByPid.size);
 
@@ -3738,6 +3756,46 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               {t.explainer[0]} <Zap className="inline h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-label="lightning" /> {t.explainer[1]}
               {mockMode && ' (Mock mode: AI replies follow a fixed script; binder questions show the tool loop.)'}
             </p>
+            {landingMovers.length > 0 && dailyMovers && (
+              <section
+                data-testid="daily-movers-strip"
+                aria-label={t.movers.heading}
+                className="w-full rounded-lg border border-border bg-card px-3.5 py-2.5"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    {t.movers.heading}
+                  </p>
+                  <Link href="/daily" className={`shrink-0 rounded-sm text-xs text-blue-700 dark:text-blue-400 hover:underline ${focusRing}`}>
+                    {t.movers.seeAll(dailyMovers.totalCount)} →
+                  </Link>
+                </div>
+                <ul className="mt-1.5 grid gap-x-5 gap-y-1 sm:grid-cols-2">
+                  {landingMovers.map((m, i) => {
+                    const positive = (m.pctChange ?? 0) >= 0;
+                    return (
+                      // Phones show only the top two rows — same calm-empty-state
+                      // rule as the launcher prompt chips above.
+                      <li key={m.printingId} className={i >= 2 ? 'hidden sm:block' : ''}>
+                        <Link
+                          href={`/printing/${m.printingId}`}
+                          className={`flex items-baseline justify-between gap-2 rounded-sm text-sm text-gray-800 dark:text-gray-100 hover:underline ${focusRing}`}
+                        >
+                          <span className="min-w-0 truncate">{m.displayName}</span>
+                          <span className="shrink-0 tabular-nums text-gray-700 dark:text-gray-300">
+                            {formatMoverPrice(m.price)}{' '}
+                            <span className={positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                              {formatMoverPct(m.pctChange)}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
           </div>
         )}
 

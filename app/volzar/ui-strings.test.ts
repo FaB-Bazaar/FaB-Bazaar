@@ -25,6 +25,15 @@ describe('uiStrings', () => {
     expect(uiStrings('en').actions.results).toBe('Game results');
   });
 
+  it('localizes the daily movers strip in every language', () => {
+    expect(uiStrings('en').movers.heading).toBe('Today’s movers in your collection');
+    expect(uiStrings('en').movers.seeAll(5)).toBe('All 5 movers');
+    for (const [lang, dict] of Object.entries(UI_STRINGS)) {
+      expect(dict.movers.heading.length, `language ${lang}`).toBeGreaterThan(5);
+      expect(dict.movers.seeAll(3), `language ${lang}`).toContain('3');
+    }
+  });
+
   it('splits the ⚡ explainer around the icon slot in every language', () => {
     for (const dict of Object.values(UI_STRINGS)) {
       expect(dict.explainer).toHaveLength(2);
