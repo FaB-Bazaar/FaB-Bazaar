@@ -2107,7 +2107,7 @@ export default function DeckEditorPage() {
                       toolbar (DeckEditorListView). */}
                   {user && (
                     <Link
-                      href={`/decks/${deckId}/pimp`}
+                      href={`/decks/${deckId}/upgrade`}
                       aria-label="Pimp My Deck — upgraded printings you don't own yet"
                       title="Pimp My Deck — upgraded printings you don't own yet"
                       className="md:hidden inline-flex items-center rounded-md border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 px-1.5 py-0.5 transition-colors hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"

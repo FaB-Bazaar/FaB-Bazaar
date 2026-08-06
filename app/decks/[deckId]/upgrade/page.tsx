@@ -90,16 +90,21 @@ function UpgradeTile({
         </span>
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2">
-        {/* Compact affiliate link — the wants-page "Available for purchase
-            here" long form wraps to four lines inside these narrow tiles. */}
+        {/* Affiliate link = the TCGplayer logo (wants-page convention), sized
+            for these narrow tiles — the long "Available for purchase here"
+            text form wraps to four lines here. */}
         {u.tcgplayerUrl ? (
           <TcgAffiliateLink
             tcgplayerUrl={u.tcgplayerUrl}
             feature="pimp_my_deck"
-            title="Buy on TCGplayer"
-            className={`inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 dark:border-gray-600 dark:text-blue-400 dark:hover:bg-gray-700 ${focusRing}`}
+            title="Purchase on TCGPlayer"
+            className={`inline-flex items-center rounded-md border border-gray-300 px-2 py-1 hover:bg-blue-50 dark:border-gray-600 dark:hover:bg-gray-700 ${focusRing}`}
           >
-            Buy
+            <img
+              src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"
+              alt="Purchase on TCGPlayer"
+              className="h-4 w-auto max-w-none"
+            />
           </TcgAffiliateLink>
         ) : <span />}
         <button

@@ -2325,15 +2325,17 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         </div>
 
         {/* Pimp My Deck — desktop toolbar button in the dead space next to
-            Webcam (the small chip on the stats row covers < md). The banner
-            art's baked-in lettering is unreadable at toolbar size, so the art
-            is only an icon accent and a real text label carries the name.
-            Signed-in only — the page compares against the viewer's collection. */}
+            Webcam (the small chip on the stats row covers < md). The WHOLE
+            banner art is the button (owner call — a plain-text label reads
+            wrong); -my overhang keeps its layout height at row height so the
+            larger art never pushes the toolbar taller. Signed-in only — the
+            page compares against the viewer's collection. */}
         {user && (
           <Link
-            href={`/decks/${deck.publicId}/pimp`}
-            title="Upgraded printings you don't own yet — extended art, marvels, cold foils, promos"
-            className="hidden md:inline-flex items-center gap-2 rounded-full border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 pl-1.5 pr-3.5 py-1 text-sm font-semibold text-amber-900 dark:text-amber-200 transition-colors hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            href={`/decks/${deck.publicId}/upgrade`}
+            aria-label="Pimp My Deck — upgraded printings you don't own yet"
+            title="Pimp My Deck — upgraded printings you don't own yet"
+            className="hidden md:inline-flex items-center rounded-lg border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 p-0.5 -my-2 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             <img
               src="/images/pimp-my-deck.png"
@@ -2342,12 +2344,8 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
               // max-w-none: the global img{max-width:100%} reset + a shrinking
               // flex item otherwise collapse the art to zero width (same trap
               // as the Volzar table thumbnails).
-              className="h-7 w-7 max-w-none rounded-full object-cover"
+              className="h-12 w-auto max-w-none rounded-md"
             />
-            {/* One span so flex gap-2 can't split the words. Full label only on
-                2xl+: at ~1440 the extra width pushes the collector-mode block
-                onto its own line (= content shoved down). */}
-            <span>Pimp<span className="hidden 2xl:inline"> My Deck</span></span>
           </Link>
         )}
 
