@@ -557,6 +557,22 @@ export async function getPrintingUpgradeSuggestions(
 }
 
 /**
+ * Pimp My Deck: for each deck card, the blingier English printings (EA/alt
+ * art, marvel, cold foil, promo, alpha/first) the CALLER doesn't own anywhere
+ * in their collection. Session-scoped — compares against the viewer.
+ */
+export async function getPimpUpgrades(
+  publicId: string
+): Promise<ApiResponse<import('@/lib/deck/pimp-upgrades').PimpResult & { deckName: string; deckPublicId: string }>> {
+  try {
+    const res = await fetch(`/api/decks/${publicId}/pimp`, { credentials: 'include' });
+    return await handleResponse(res);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
  * Apply a (possibly user-filtered) batch of upgrade swaps to a deck.
  *
  * @param publicId - The deck's public ID
