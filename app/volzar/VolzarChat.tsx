@@ -93,6 +93,7 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   wants: Heart,
   decks: Layers,
   results: BarChart3,
+  daily: TrendingUp,
 };
 
 const PITCH_GEM: Record<number, { bg: string; label: string }> = {
@@ -2531,11 +2532,11 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
   const chatEmpty = items.length === 0;
   // "Today's movers" teaser — the pipeline's daily_movers signals intersected
   // with the user's inventory (same /api/daily the /daily page reads). Instant
-  // and AI-free; fetched once on mount, rendered only pre-first-turn. Skipped
-  // when the chat starts non-empty (/opt handoff) — the strip could never show.
+  // and AI-free; fetched once on mount. The strip renders only pre-first-turn,
+  // but the fetch always runs: the count also badges the Daily movers rail
+  // launcher, which outlives the empty state (and /opt handoffs skip it).
   const [dailyMovers, setDailyMovers] = useState<MoversInCollectionDTO | null>(null);
   useEffect(() => {
-    if (items.length > 0) return;
     let cancelled = false;
     void dailyClient.getMyMovers().then((res) => {
       if (!cancelled && res.success && res.data) setDailyMovers(res.data);
@@ -2757,6 +2758,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
               : action.id === 'wants' ? railCounts.wants
               : action.id === 'decks' ? railCounts.decks
               : action.id === 'results' ? railCounts.results
+              : action.id === 'daily' ? (dailyMovers?.totalCount || undefined)
               : undefined;
             const isActive = activeActionId === action.id;
             const main = (

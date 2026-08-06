@@ -35,7 +35,62 @@ import {
   advanceWorkspace,
   adjustItemRowQty, swapItemRowPrinting, refreshDataItem, collectMutationTargets, WRITE_TOOLS,
   setItemRowForTrade, ownershipSummary, deckInsightLines,
+  summarizeDailyMovers,
 } from './quick-actions';
+import type { MoversInCollectionDTO, DailyMoverDTO, SignalType } from '@/lib/services/contracts/IDailyMoversService';
+
+describe('summarizeDailyMovers', () => {
+  const mover = (over: Partial<DailyMoverDTO> & { printingId: string; signalType: SignalType }): DailyMoverDTO => ({
+    rankInSignal: 1,
+    displayName: `Card ${over.printingId}`,
+    set: 'sea', edition: 'N', foiling: 'S', rarity: 'M',
+    imageUrl: 'https://img/x', tcgplayerUrl: 'https://tcg/x',
+    pAtSignal: 42.1, refPrice: 37.5, dollarChange: 4.6, pctChange: 12.3,
+    quantity: 2, binderId: 'b1', binderName: 'Main',
+    decks: [],
+    ...over,
+  });
+  const data: MoversInCollectionDTO = {
+    asOfDate: '2026-08-04',
+    totalCount: 3,
+    gainers: [mover({ printingId: 'g1', signalType: 'top_gainer', displayName: 'Scowling Flesh Bag' })],
+    breakouts: [mover({ printingId: 'bk1', signalType: 'breakout', displayName: 'Arknight Shard' })],
+    steadyRisers: [],
+    decliners: [mover({ printingId: 'd1', signalType: 'top_decliner', displayName: 'Storm Striders', pAtSignal: 41.6, pctChange: -34.9 })],
+  };
+
+  it('groups movers into titled table sections in signal priority order', () => {
+    const result = summarizeDailyMovers(data);
+    expect(result.title).toBe('Daily movers in your collection (3)');
+    expect(result.tableSections?.map((s) => s.title)).toEqual(['Top gainers', 'Breakouts', 'Top decliners']);
+    expect(result.tableSections?.[0].count).toBe(1);
+    const row = result.tableSections![0].rows[0];
+    expect(row.name).toBe('Scowling Flesh Bag');
+    expect(row.qty).toBe(2);
+    expect(row.price).toBe(42.1);
+    expect(row.image).toBe('https://img/x');
+    expect(row.note).toBe('+12.3% · Main');
+    expect(result.tableNoteHeader).toBe('Change');
+  });
+
+  it('lines carry hover previews and the AI context names every mover with its change', () => {
+    const result = summarizeDailyMovers(data);
+    const entry = result.lines.find((l) => typeof l !== 'string' && l.text.includes('Scowling Flesh Bag'));
+    expect(entry && typeof entry !== 'string' && entry.preview?.printingId).toBe('g1');
+    expect(result.context).toContain('2026-08-04');
+    expect(result.context).toContain('Scowling Flesh Bag');
+    expect(result.context).toContain('+12.3%');
+    expect(result.context).toContain('Storm Striders');
+    expect(result.context).toContain('-34.9%');
+  });
+
+  it('quiet day → friendly line, no table sections', () => {
+    const result = summarizeDailyMovers({ asOfDate: '2026-08-04', totalCount: 0, gainers: [], decliners: [], breakouts: [], steadyRisers: [] });
+    expect(result.tableSections).toBeUndefined();
+    expect(result.lines).toEqual(['No cards in your collection moved today. Check back tomorrow.']);
+    expect(shouldOpenInWorkspace(result)).toBe(false);
+  });
+});
 
 describe('printingToSwapOption', () => {
   const dto = {

@@ -14,7 +14,9 @@
 // type annotations here (getUserWants claims WantsListResultDTO; the route
 // returns the old WantsList format).
 
-import { bindersClient, wantsClient, decksClient } from '@/lib/client';
+import { bindersClient, wantsClient, decksClient, dailyClient } from '@/lib/client';
+import { formatMoverPct, formatMoverPrice } from './daily-movers-strip';
+import type { DailyMoverDTO, MoversInCollectionDTO } from '@/lib/services/contracts/IDailyMoversService';
 import { getCardImageUrl, generateUniqueBinderSlug } from '@/lib/utils';
 import { matchesDeckFilter } from '@/lib/deck/deck-filter';
 import { deckColorBreakdown, type DeckViewCard } from '@/lib/deck/analytics';
@@ -1854,6 +1856,71 @@ export async function addSearchSelectionToDeck(
 // Action runners (thin client-service wiring; parse legacy wire shapes)
 // ---------------------------------------------------------------------------
 
+/**
+ * The pipeline's daily_movers ∩ user inventory (same /api/daily payload the
+ * /daily page and the empty-state strip read), as a section-grouped table:
+ * one section per signal in priority order, rows deduped per (printing,
+ * binder) exactly as the API returns them.
+ */
+export function summarizeDailyMovers(data: MoversInCollectionDTO): QuickActionResult {
+  const sections: Array<{ title: string; movers: DailyMoverDTO[] }> = [
+    { title: 'Top gainers', movers: data.gainers },
+    { title: 'Breakouts', movers: data.breakouts },
+    { title: 'Steady risers', movers: data.steadyRisers },
+    { title: 'Top decliners', movers: data.decliners },
+  ].filter((s) => s.movers.length > 0);
+
+  if (sections.length === 0) {
+    return {
+      title: 'Daily movers in your collection (0)',
+      lines: ['No cards in your collection moved today. Check back tomorrow.'],
+      context: `Daily price movers in the user's collection (as of ${data.asOfDate}): none — a quiet day.`,
+    };
+  }
+
+  const preview = (m: DailyMoverDTO): CardPreview => ({
+    imageUrl: m.imageUrl || '',
+    name: m.displayName,
+    printingId: m.printingId,
+    priceLow: m.pAtSignal,
+    tcgplayerUrl: m.tcgplayerUrl || undefined,
+  });
+  const describe = (m: DailyMoverDTO) =>
+    `${m.quantity}× ${m.displayName} ${formatMoverPrice(m.pAtSignal)} (${formatMoverPct(m.pctChange)})`;
+
+  const lines: CardLine[] = [];
+  const contextParts: string[] = [];
+  const tableSections: Array<{ title: string; count: number; rows: CardRow[] }> = [];
+  for (const s of sections) {
+    lines.push(`— ${s.title} (${s.movers.length}) —`);
+    lines.push(...s.movers.map((m) => ({ text: describe(m), preview: preview(m) })));
+    tableSections.push({
+      title: s.title,
+      count: s.movers.length,
+      rows: s.movers.map((m) => ({
+        qty: m.quantity,
+        name: m.displayName,
+        foiling: m.foiling?.toLowerCase() || undefined,
+        rarity: m.rarity?.toLowerCase() || undefined,
+        edition: m.edition?.toLowerCase() || undefined,
+        image: m.imageUrl || undefined,
+        price: m.pAtSignal,
+        note: `${formatMoverPct(m.pctChange)}${m.binderName ? ` · ${m.binderName}` : ''}`,
+        preview: preview(m),
+      })),
+    });
+    contextParts.push(`${s.title}: ${s.movers.map(describe).join('; ')}`);
+  }
+
+  return {
+    title: `Daily movers in your collection (${data.totalCount})`,
+    lines,
+    context: `Daily price movers in the user's collection (as of ${data.asOfDate}; price is the TCG low at that snapshot, percent is the signal's change): ${contextParts.join('. ')}`,
+    tableSections,
+    tableNoteHeader: 'Change',
+  };
+}
+
 export const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'binders',
@@ -1902,6 +1969,15 @@ export const QUICK_ACTIONS: QuickAction[] = [
       const data = await response.json();
       if (!data.success) throw new Error(data.error || 'Could not load game results');
       return summarizeGameResults(data.data ?? []);
+    },
+  },
+  {
+    id: 'daily',
+    label: 'Daily movers',
+    run: async () => {
+      const result = await dailyClient.getMyMovers();
+      if (!result.success) throw new Error(result.error);
+      return summarizeDailyMovers(result.data!);
     },
   },
 ];

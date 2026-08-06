@@ -8,6 +8,10 @@ describe('parseInstantActionParam', () => {
     }
   });
 
+  it('includes the daily movers action (⚡ sheet deep link)', () => {
+    expect(parseInstantActionParam('?action=daily')).toBe('daily');
+  });
+
   it('parses when other params are present', () => {
     expect(parseInstantActionParam('?foo=1&action=binders&bar=2')).toBe('binders');
   });

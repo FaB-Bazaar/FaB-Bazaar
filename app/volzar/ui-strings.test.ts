@@ -23,6 +23,10 @@ describe('uiStrings', () => {
     expect(uiStrings('fr').actions.binders).toBe('Mes classeurs');
     expect(uiStrings('da').actions.decks).toBe('Mine decks');
     expect(uiStrings('en').actions.results).toBe('Game results');
+    expect(uiStrings('en').actions.daily).toBe('Daily movers');
+    for (const [lang, dict] of Object.entries(UI_STRINGS)) {
+      expect(dict.actions.daily?.length, `language ${lang}`).toBeGreaterThan(3);
+    }
   });
 
   it('localizes the daily movers strip in every language', () => {

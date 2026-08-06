@@ -20,6 +20,7 @@ export interface VolzarUiStrings {
     wants: string;
     decks: string;
     results: string;
+    daily: string;
     'to-beat': string;
     archetype: string;
     'hero-kit': string;
@@ -35,7 +36,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'New chat',
     instantLabel: 'Instant:',
     actions: {
-      binders: 'My binders', wants: 'My wants', decks: 'My decks', results: 'Game results',
+      binders: 'My binders', wants: 'My wants', decks: 'My decks', results: 'Game results', daily: 'Daily movers',
       'to-beat': 'Decks to beat', archetype: 'Compare archetype', 'hero-kit': 'Hero kit',
     },
     movers: { heading: 'Today’s movers in your collection', seeAll: (n) => `All ${n} movers` },
@@ -48,7 +49,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Nouvelle discussion',
     instantLabel: 'Instantané :',
     actions: {
-      binders: 'Mes classeurs', wants: 'Mes recherches', decks: 'Mes decks', results: 'Résultats de parties',
+      binders: 'Mes classeurs', wants: 'Mes recherches', decks: 'Mes decks', results: 'Résultats de parties', daily: 'Mouvements du jour',
       'to-beat': 'Decks to beat', archetype: 'Comparer un archétype', 'hero-kit': 'Kit de héros',
     },
     movers: { heading: 'Les mouvements du jour dans ta collection', seeAll: (n) => `Voir les ${n} mouvements` },
@@ -61,7 +62,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Neuer Chat',
     instantLabel: 'Sofort:',
     actions: {
-      binders: 'Meine Ordner', wants: 'Meine Suchliste', decks: 'Meine Decks', results: 'Spielergebnisse',
+      binders: 'Meine Ordner', wants: 'Meine Suchliste', decks: 'Meine Decks', results: 'Spielergebnisse', daily: 'Preisbewegungen',
       'to-beat': 'Decks to beat', archetype: 'Archetyp vergleichen', 'hero-kit': 'Helden-Kit',
     },
     movers: { heading: 'Heutige Preisbewegungen in deiner Sammlung', seeAll: (n) => `Alle ${n} Bewegungen` },
@@ -74,7 +75,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Nuova chat',
     instantLabel: 'Istantaneo:',
     actions: {
-      binders: 'I miei raccoglitori', wants: 'La mia lista desideri', decks: 'I miei mazzi', results: 'Risultati partite',
+      binders: 'I miei raccoglitori', wants: 'La mia lista desideri', decks: 'I miei mazzi', results: 'Risultati partite', daily: 'Movimenti del giorno',
       'to-beat': 'Decks to beat', archetype: 'Confronta archetipo', 'hero-kit': 'Kit eroe',
     },
     movers: { heading: 'I movimenti di oggi nella tua collezione', seeAll: (n) => `Tutti i ${n} movimenti` },
@@ -87,7 +88,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Nuevo chat',
     instantLabel: 'Instantáneo:',
     actions: {
-      binders: 'Mis carpetas', wants: 'Mi lista de deseos', decks: 'Mis mazos', results: 'Resultados de partidas',
+      binders: 'Mis carpetas', wants: 'Mi lista de deseos', decks: 'Mis mazos', results: 'Resultados de partidas', daily: 'Movimientos del día',
       'to-beat': 'Decks to beat', archetype: 'Comparar arquetipo', 'hero-kit': 'Kit de héroe',
     },
     movers: { heading: 'Los movimientos de hoy en tu colección', seeAll: (n) => `Ver los ${n} movimientos` },
@@ -100,7 +101,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: '新しいチャット',
     instantLabel: 'インスタント:',
     actions: {
-      binders: 'マイバインダー', wants: 'ウォンツリスト', decks: 'マイデッキ', results: '対戦結果',
+      binders: 'マイバインダー', wants: 'ウォンツリスト', decks: 'マイデッキ', results: '対戦結果', daily: '本日の価格変動',
       'to-beat': 'Decks to beat', archetype: 'アーキタイプ比較', 'hero-kit': 'ヒーローキット',
     },
     movers: { heading: '今日のコレクション価格変動', seeAll: (n) => `変動${n}件をすべて見る` },
@@ -113,7 +114,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Ny chat',
     instantLabel: 'Straks:',
     actions: {
-      binders: 'Mine mapper', wants: 'Min ønskeliste', decks: 'Mine decks', results: 'Kampresultater',
+      binders: 'Mine mapper', wants: 'Min ønskeliste', decks: 'Mine decks', results: 'Kampresultater', daily: 'Dagens bevægelser',
       'to-beat': 'Decks to beat', archetype: 'Sammenlign arketype', 'hero-kit': 'Helte-kit',
     },
     movers: { heading: 'Dagens prisbevægelser i din samling', seeAll: (n) => `Alle ${n} bevægelser` },
@@ -126,7 +127,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Ny chatt',
     instantLabel: 'Direkt:',
     actions: {
-      binders: 'Mina pärmar', wants: 'Min önskelista', decks: 'Mina decks', results: 'Matchresultat',
+      binders: 'Mina pärmar', wants: 'Min önskelista', decks: 'Mina decks', results: 'Matchresultat', daily: 'Dagens rörelser',
       'to-beat': 'Decks to beat', archetype: 'Jämför arketyp', 'hero-kit': 'Hjälte-kit',
     },
     movers: { heading: 'Dagens prisrörelser i din samling', seeAll: (n) => `Alla ${n} rörelser` },
@@ -139,7 +140,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: '새 채팅',
     instantLabel: '인스턴트:',
     actions: {
-      binders: '내 바인더', wants: '내 원츠 리스트', decks: '내 덱', results: '경기 결과',
+      binders: '내 바인더', wants: '내 원츠 리스트', decks: '내 덱', results: '경기 결과', daily: '오늘의 가격 변동',
       'to-beat': 'Decks to beat', archetype: '아키타입 비교', 'hero-kit': '히어로 키트',
     },
     movers: { heading: '오늘 내 컬렉션의 가격 변동', seeAll: (n) => `변동 ${n}건 모두 보기` },
@@ -152,7 +153,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: '新对话',
     instantLabel: '即时:',
     actions: {
-      binders: '我的卡册', wants: '我的愿望清单', decks: '我的牌组', results: '对局结果',
+      binders: '我的卡册', wants: '我的愿望清单', decks: '我的牌组', results: '对局结果', daily: '今日价格变动',
       'to-beat': 'Decks to beat', archetype: '比较原型', 'hero-kit': '英雄套件',
     },
     movers: { heading: '今日你收藏中的价格变动', seeAll: (n) => `查看全部 ${n} 项变动` },
@@ -165,7 +166,7 @@ export const UI_STRINGS: Record<string, VolzarUiStrings> = {
     newChat: 'Novo chat',
     instantLabel: 'Instantâneo:',
     actions: {
-      binders: 'Meus fichários', wants: 'Minha lista de desejos', decks: 'Meus decks', results: 'Resultados de partidas',
+      binders: 'Meus fichários', wants: 'Minha lista de desejos', decks: 'Meus decks', results: 'Resultados de partidas', daily: 'Movimentos do dia',
       'to-beat': 'Decks to beat', archetype: 'Comparar arquétipo', 'hero-kit': 'Kit de herói',
     },
     movers: { heading: 'Os movimentos de hoje na sua coleção', seeAll: (n) => `Todos os ${n} movimentos` },

@@ -4,7 +4,7 @@
 // A tiny shared module so the tab-bar hrefs and VolzarChat's parser can't
 // drift — and so unknown strings are never auto-run.
 
-export const INSTANT_LINK_ACTIONS = ['binders', 'wants', 'decks', 'results', 'to-beat'] as const;
+export const INSTANT_LINK_ACTIONS = ['binders', 'wants', 'decks', 'results', 'to-beat', 'daily'] as const;
 export type InstantLinkAction = (typeof INSTANT_LINK_ACTIONS)[number];
 
 export function parseInstantActionParam(search: string): InstantLinkAction | null {
