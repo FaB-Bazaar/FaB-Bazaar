@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
 import HighlightFiltersPopover, { type HighlightFilter as HF } from "./HighlightFiltersPopover";
 import WebcamGameDialog from "./WebcamGameDialog";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { NON_CLASS_TYPE_KEYWORDS, deriveCardType, ownershipStatus } from "./mobi
 import { buildLanes, type LaneCardLike, type LaneMode } from "./mobile-lanes";
 import MobileDeckLanes from "./MobileDeckLanes";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -1582,6 +1584,8 @@ interface DeckEditorListViewProps {
 }
 
 export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+  // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
+  const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
   const { ownedCount, totalCount } = useMemo(() => {
     let owned = 0, total = 0;
@@ -2319,6 +2323,30 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
         <div className="hidden md:block">
           <WebcamGameDialog />
         </div>
+
+        {/* Pimp My Deck — the desktop-size banner button, in the toolbar's dead
+            space (the small chip on the stats row covers < md). Height-matched
+            to the row via the collector-block's -my overhang trick so the
+            bigger art never pushes the toolbar taller. Signed-in only — the
+            page compares against the viewer's collection. */}
+        {user && (
+          <Link
+            href={`/decks/${deck.publicId}/pimp`}
+            aria-label="Pimp My Deck — upgraded printings you don't own yet"
+            title="Pimp My Deck — upgraded printings you don't own yet"
+            className="hidden md:inline-flex items-center rounded-lg border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 px-1.5 py-1 -my-1.5 transition-transform hover:scale-105 hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <img
+              src="/images/pimp-my-deck.png"
+              alt=""
+              aria-hidden="true"
+              // max-w-none: the global img{max-width:100%} reset + a shrinking
+              // flex item otherwise collapse the banner to zero width (same
+              // trap as the Volzar table thumbnails).
+              className="h-10 w-auto max-w-none rounded-md"
+            />
+          </Link>
+        )}
 
         {(viewMode === 'tile' || viewMode === 'game') && onAddToBinder && binders && binders.length > 0 && (
           <div className={cn(

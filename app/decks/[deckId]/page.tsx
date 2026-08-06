@@ -2102,14 +2102,15 @@ export default function DeckEditorPage() {
 
                   {/* Pimp My Deck — blingier printings of this deck's cards
                       that the VIEWER doesn't own yet. Signed-in only (the page
-                      compares against the caller's collection). Icon-only chip
-                      at every width: the banner art is the whole label. */}
+                      compares against the caller's collection). Mobile-only
+                      chip: md+ gets the bigger banner button in the display
+                      toolbar (DeckEditorListView). */}
                   {user && (
                     <Link
                       href={`/decks/${deckId}/pimp`}
                       aria-label="Pimp My Deck — upgraded printings you don't own yet"
                       title="Pimp My Deck — upgraded printings you don't own yet"
-                      className="inline-flex items-center rounded-md border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 px-1.5 py-0.5 transition-colors hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      className="md:hidden inline-flex items-center rounded-md border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 px-1.5 py-0.5 transition-colors hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
                       <img
                         src="/images/pimp-my-deck.png"
