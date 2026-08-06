@@ -2324,27 +2324,30 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <WebcamGameDialog />
         </div>
 
-        {/* Pimp My Deck — the desktop-size banner button, in the toolbar's dead
-            space (the small chip on the stats row covers < md). Height-matched
-            to the row via the collector-block's -my overhang trick so the
-            bigger art never pushes the toolbar taller. Signed-in only — the
-            page compares against the viewer's collection. */}
+        {/* Pimp My Deck — desktop toolbar button in the dead space next to
+            Webcam (the small chip on the stats row covers < md). The banner
+            art's baked-in lettering is unreadable at toolbar size, so the art
+            is only an icon accent and a real text label carries the name.
+            Signed-in only — the page compares against the viewer's collection. */}
         {user && (
           <Link
             href={`/decks/${deck.publicId}/pimp`}
-            aria-label="Pimp My Deck — upgraded printings you don't own yet"
-            title="Pimp My Deck — upgraded printings you don't own yet"
-            className="hidden md:inline-flex items-center rounded-lg border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 px-1.5 py-1 -my-1.5 transition-transform hover:scale-105 hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            title="Upgraded printings you don't own yet — extended art, marvels, cold foils, promos"
+            className="hidden md:inline-flex items-center gap-2 rounded-full border border-amber-400/70 bg-amber-100/60 dark:bg-amber-900/30 pl-1.5 pr-3.5 py-1 text-sm font-semibold text-amber-900 dark:text-amber-200 transition-colors hover:bg-amber-200/70 dark:hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             <img
               src="/images/pimp-my-deck.png"
               alt=""
               aria-hidden="true"
               // max-w-none: the global img{max-width:100%} reset + a shrinking
-              // flex item otherwise collapse the banner to zero width (same
-              // trap as the Volzar table thumbnails).
-              className="h-10 w-auto max-w-none rounded-md"
+              // flex item otherwise collapse the art to zero width (same trap
+              // as the Volzar table thumbnails).
+              className="h-7 w-7 max-w-none rounded-full object-cover"
             />
+            {/* One span so flex gap-2 can't split the words. Full label only on
+                2xl+: at ~1440 the extra width pushes the collector-mode block
+                onto its own line (= content shoved down). */}
+            <span>Pimp<span className="hidden 2xl:inline"> My Deck</span></span>
           </Link>
         )}
 
