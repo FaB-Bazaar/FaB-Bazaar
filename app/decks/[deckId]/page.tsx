@@ -1165,6 +1165,8 @@ export default function DeckEditorPage() {
       const wantsMsg = formatWantsRemoved(result.data?.wantsRemoved);
       toast({ title: "Added to binder", description: `${cardName} → ${binderName}${wantsMsg ? `. ${wantsMsg}` : ''}` });
       await handlers.refreshDeck();
+      // Adding to a binder can auto-remove matching wants rows
+      await handlers.refreshWants();
     } else {
       toast({ title: "Failed to add to binder", description: result.error, variant: "destructive" });
     }
@@ -1174,6 +1176,7 @@ export default function DeckEditorPage() {
     const result = await wantsClient.addWantsItem(printingId, 1, 'medium');
     if (result.success) {
       toast({ title: "Added to wants", description: cardName });
+      await handlers.refreshWants();
     } else {
       toast({ title: "Failed to add to wants", description: result.error, variant: "destructive" });
     }
@@ -2319,6 +2322,7 @@ export default function DeckEditorPage() {
                     onBinderChange={handleBinderChange}
                     onAddToBinder={handleAddToBinder}
                     onAddToWants={handleAddToWants}
+                    wantsMap={state.wantsMap}
                     onUpgradePrintings={handleUpgradePrintings}
                     onCardHover={setHoveredCard}
                   />

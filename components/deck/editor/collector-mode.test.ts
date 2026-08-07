@@ -12,6 +12,8 @@ import {
   filterSectionsByOwnership,
   countUnownedTiles,
   collectorModeToast,
+  buildWantsMap,
+  wantsBadgeTitle,
 } from './collector-mode';
 
 const tile = (printingId: string, copyIndex = 0) => ({ printingId, copyIndex });
@@ -97,5 +99,70 @@ describe('collectorModeToast', () => {
   it('says you own everything when the count is 0', () => {
     const { description } = collectorModeToast(0);
     expect(description).toMatch(/already own every card/i);
+  });
+});
+
+describe('buildWantsMap', () => {
+  it('keys quantities by card_unique_id', () => {
+    const map = buildWantsMap([
+      { cardId: 'cu1', quantity: 2 },
+      { cardId: 'cu2', quantity: 1 },
+    ]);
+    expect(map.get('cu1')).toBe(2);
+    expect(map.get('cu2')).toBe(1);
+  });
+
+  it('sums quantities across printings of the same card', () => {
+    // Same card wanted as two different printings (e.g. regular + rainbow foil)
+    const map = buildWantsMap([
+      { cardId: 'cu1', quantity: 2 },
+      { cardId: 'cu1', quantity: 3 },
+    ]);
+    expect(map.get('cu1')).toBe(5);
+  });
+
+  it('treats a missing or non-positive quantity as 1', () => {
+    const map = buildWantsMap([
+      { cardId: 'cu1' },
+      { cardId: 'cu2', quantity: 0 },
+    ]);
+    expect(map.get('cu1')).toBe(1);
+    expect(map.get('cu2')).toBe(1);
+  });
+
+  it('skips rows without a cardId', () => {
+    const map = buildWantsMap([
+      { cardId: '', quantity: 2 },
+      { quantity: 4 },
+      { cardId: 'cu1', quantity: 1 },
+    ]);
+    expect(map.size).toBe(1);
+    expect(map.get('cu1')).toBe(1);
+  });
+
+  it('returns an empty map for empty or missing input', () => {
+    expect(buildWantsMap([]).size).toBe(0);
+    expect(buildWantsMap(undefined).size).toBe(0);
+  });
+});
+
+describe('wantsBadgeTitle', () => {
+  it('names the card, the total across printings, and that clicking adds one more', () => {
+    const title = wantsBadgeTitle('Command and Conquer', 3);
+    expect(title).toContain('Command and Conquer');
+    expect(title).toContain('3');
+    expect(title).toMatch(/wants/i);
+    expect(title).toMatch(/printing/i);
+    expect(title).toMatch(/add 1 more/i);
+  });
+
+  it('uses singular phrasing for one copy', () => {
+    const title = wantsBadgeTitle('Fyendal\'s Spring Tunic', 1);
+    expect(title).toContain('1 copy ');
+    expect(title).not.toContain('copies');
+  });
+
+  it('uses plural phrasing for multiple copies', () => {
+    expect(wantsBadgeTitle('Snatch', 2)).toContain('2 copies');
   });
 });

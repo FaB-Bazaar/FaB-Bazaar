@@ -55,6 +55,33 @@ export function countUnownedTiles(
   return count;
 }
 
+export interface WantsRowLike {
+  /** card_unique_id of the wanted printing (the wants API calls it cardId) */
+  cardId?: string;
+  quantity?: number;
+}
+
+/**
+ * Aggregate a wants list into card_unique_id → total quantity, summing
+ * across printings (set/edition/foiling) of the same card. Rows without
+ * a cardId are skipped; a missing/zero quantity counts as 1 (a wants row
+ * always represents at least one wanted copy).
+ */
+export function buildWantsMap(rows?: WantsRowLike[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of rows ?? []) {
+    if (!row.cardId) continue;
+    const qty = row.quantity && row.quantity > 0 ? row.quantity : 1;
+    map.set(row.cardId, (map.get(row.cardId) ?? 0) + qty);
+  }
+  return map;
+}
+
+/** Tooltip for the in-wants badge on an unowned Collector Mode tile. */
+export function wantsBadgeTitle(cardName: string, quantity: number): string {
+  return `${cardName} — ${quantity} ${quantity === 1 ? 'copy ' : 'copies '}already in your wants list (all printings). Click to add 1 more.`;
+}
+
 /** Toast content shown when Collector Mode is switched on. */
 export function collectorModeToast(unownedCount: number): { title: string; description: string } {
   if (unownedCount === 0) {

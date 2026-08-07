@@ -7,7 +7,8 @@ import { parseBulkInput } from "@/lib/browse/parsers/bulk-input-parser";
 import { selectDefaultPrinting } from "@/lib/browse/utils";
 import { sortPrintings } from "@/lib/fab-constants";
 import { getSetName } from "@/lib/fab-formatters";
-import { decksClient, searchClient } from "@/lib/client";
+import { decksClient, searchClient, wantsClient } from "@/lib/client";
+import { buildWantsMap } from "@/components/deck/editor/collector-mode";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat } from "@/lib/client/banned-cards-client";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
@@ -62,6 +63,8 @@ export function useDeckEditor(deckId: string) {
   const [deck, setDeck] = useState<DeckDTO | null>(null);
   const [deckLoading, setDeckLoading] = useState(true);
   const [ownershipMap, setOwnershipMap] = useState<Map<string, OwnershipEntry>>(new Map());
+  // card_unique_id → total wanted quantity across all printings (Collector Mode badge)
+  const [wantsMap, setWantsMap] = useState<Map<string, number>>(new Map());
   const [bulkInput, setBulkInput] = useState("");
   const [bulkResults, setBulkResults] = useState<any[]>([]);
   const [excludedBulkCards, setExcludedBulkCards] = useState<Array<{ name: string; quantity: number; reason: 'format' | 'not-found' | 'banned' }>>([]);
@@ -89,6 +92,22 @@ export function useDeckEditor(deckId: string) {
       // Ownership data is best-effort — silently fail
     }
   };
+
+  const fetchWants = async () => {
+    if (!user) return;
+    try {
+      const result = await wantsClient.getUserWants();
+      if (result.success) {
+        setWantsMap(buildWantsMap((result.data as any)?.wantsList?.cards));
+      }
+    } catch {
+      // Wants data is best-effort — silently fail
+    }
+  };
+
+  useEffect(() => {
+    fetchWants();
+  }, [user?.id]);
 
   const loadDeck = async () => {
     setDeckLoading(true);
@@ -397,6 +416,7 @@ export function useDeckEditor(deckId: string) {
       deck,
       deckLoading,
       ownershipMap,
+      wantsMap,
       bulkInput,
       bulkResults,
       excludedBulkCards,
@@ -419,6 +439,7 @@ export function useDeckEditor(deckId: string) {
       removeCard,
       duplicateCard,
       refreshDeck,
+      refreshWants: fetchWants,
     },
   };
 }

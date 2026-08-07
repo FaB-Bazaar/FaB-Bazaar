@@ -13,7 +13,7 @@ import FoilCardImage from "@/components/shared/FoilCardImage";
 import { cn } from "@/lib/utils";
 import { useIsTouchDevice } from "@/components/ui/use-client-env";
 import { useToast } from "@/hooks/use-toast";
-import { filterSectionsByOwnership, countUnownedTiles, collectorModeToast } from "./collector-mode";
+import { filterSectionsByOwnership, countUnownedTiles, collectorModeToast, wantsBadgeTitle } from "./collector-mode";
 import { classifyDeckZone } from "./deck-section-counts";
 import type { DeckDTO, DeckPrintingDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 import type { OwnershipEntry, SwapTarget } from "@/hooks/deck/useDeckEditor";
@@ -716,6 +716,7 @@ function DeckTileSection({
   onEnlargeImage,
   onAddToBinder,
   onAddToWants,
+  wantsMap,
   highlightMatchIds,
   tileWidth = 72,
   ownershipFilter = 'all',
@@ -749,6 +750,8 @@ function DeckTileSection({
   onAddToBinder?: (printingId: string, cardName: string) => void;
   /** Add an unowned card to the wants list */
   onAddToWants?: (printingId: string, cardName: string) => void;
+  /** card_unique_id → total wanted qty across all printings (in-wants badge) */
+  wantsMap?: Map<string, number>;
   /** Set of printingIds that match the active highlight filter (null = no filter) */
   highlightMatchIds?: Set<string> | null;
   /** Width of each card tile in px — default 72 */
@@ -927,6 +930,7 @@ function DeckTileSection({
           const thisTileDraggable = isTileDraggable && tile.category !== 'hero' && !tile.types.includes('demi-hero');
           const isHighlighted = highlightMatchIds ? highlightMatchIds.has(tile.printingId) : null;
           const showBinderLabel = ownershipState === 'full' && (own?.binderNames?.length ?? 0) > 0;
+          const wantsQty = wantsMap?.get(tile.cardUniqueId) ?? 0;
           return (
             <div key={tile.key} className="flex flex-col items-center" data-focus-id={tile.printingId} style={{ width: tileWidth }}>
             <div
@@ -1110,10 +1114,19 @@ function DeckTileSection({
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); onAddToWants(tile.printingId, tile.name); }}
-                      className="flex items-center justify-center text-gray-400 hover:text-pink-400 transition-colors"
-                      title="Add to your wants list"
+                      className={cn(
+                        "flex items-center justify-center gap-0.5 transition-colors",
+                        wantsQty > 0
+                          ? "text-pink-600 dark:text-pink-400 hover:text-pink-500 dark:hover:text-pink-300"
+                          : "text-gray-400 hover:text-pink-400"
+                      )}
+                      title={wantsQty > 0 ? wantsBadgeTitle(tile.name, wantsQty) : "Add to your wants list"}
+                      aria-label={wantsQty > 0 ? wantsBadgeTitle(tile.name, wantsQty) : `Add ${tile.name} to your wants list`}
                     >
-                      <Heart className="h-3.5 w-3.5" />
+                      <Heart className="h-3.5 w-3.5" fill={wantsQty > 0 ? "currentColor" : "none"} />
+                      {wantsQty > 0 && (
+                        <span className="text-xs font-semibold tabular-nums">{wantsQty}</span>
+                      )}
                     </button>
                   )}
                 </div>
@@ -1311,18 +1324,27 @@ function DeckTileSection({
                           <BookOpen className="h-5 w-5" aria-hidden="true" />
                         </button>
                       )}
-                      {onAddToWants && (
-                        <button
-                          type="button"
-                          data-testid="tile-sheet-wants"
-                          aria-label={`Add ${tile.name} to wants`}
-                          title="Add to wants"
-                          onClick={() => { onAddToWants(tile.printingId, tile.name); dismiss(); }}
-                          className="flex h-11 w-12 items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          <Heart className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                      )}
+                      {onAddToWants && (() => {
+                        const sheetWantsQty = wantsMap?.get(tile.cardUniqueId) ?? 0;
+                        return (
+                          <button
+                            type="button"
+                            data-testid="tile-sheet-wants"
+                            aria-label={sheetWantsQty > 0 ? wantsBadgeTitle(tile.name, sheetWantsQty) : `Add ${tile.name} to wants`}
+                            title={sheetWantsQty > 0 ? wantsBadgeTitle(tile.name, sheetWantsQty) : "Add to wants"}
+                            onClick={() => { onAddToWants(tile.printingId, tile.name); dismiss(); }}
+                            className={cn(
+                              "flex h-11 items-center justify-center gap-1 rounded-lg border border-gray-300 dark:border-gray-700 active:bg-gray-100 dark:active:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+                              sheetWantsQty > 0 ? "px-3 text-pink-600 dark:text-pink-400" : "w-12 text-gray-700 dark:text-gray-200"
+                            )}
+                          >
+                            <Heart className="h-5 w-5" aria-hidden="true" fill={sheetWantsQty > 0 ? "currentColor" : "none"} />
+                            {sheetWantsQty > 0 && (
+                              <span className="text-sm font-semibold tabular-nums">{sheetWantsQty}</span>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -1577,13 +1599,15 @@ interface DeckEditorListViewProps {
   onAddToBinder?: (printingId: string, cardName: string) => void;
   /** Called when the user clicks the wants button on an unowned tile */
   onAddToWants?: (printingId: string, cardName: string) => void;
+  /** card_unique_id → total wanted qty across all printings (Collector Mode in-wants badge) */
+  wantsMap?: Map<string, number>;
   /** Swap all unowned deck printings to best-value owned alternatives */
   onUpgradePrintings?: () => Promise<void>;
   /** Called whenever the user hovers/leaves a card tile — used by the page to show a preview in the right rail. */
   onCardHover?: (preview: ({ url: string; name: string } & Partial<HoverExtras>) | null) => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
   // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
   const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
@@ -2159,6 +2183,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     onEnlargeImage: (url: string, name: string, otherFaceUrl?: string) => setEnlargedImage({ url, name, otherFaceUrl }),
     onAddToBinder: onAddToBinder,
     onAddToWants: onAddToWants,
+    wantsMap,
     highlightMatchIds: matchingPrintingIds,
     tileWidth,
     ownershipFilter,
