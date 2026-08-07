@@ -280,7 +280,7 @@ function GroupedCardRow({
         key={to}
         variant="ghost"
         size="icon"
-        className="h-6 w-6 text-gray-400 hover:text-indigo-500"
+        className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
         title={label}
         onClick={() => onMove(pr.printingId, category, to, qty)}
       >
@@ -290,7 +290,7 @@ function GroupedCardRow({
   };
 
   return (
-    <div className="border-b border-gray-100 dark:border-gray-800 last:border-0">
+    <div className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
       {/* Group header — a fixed 38px scan line: rail · qty · name · cost · owned. */}
       <div
         data-testid="deck-list-row"
@@ -330,10 +330,10 @@ function GroupedCardRow({
                 data-testid="lane-row-cost"
                 title="Resource cost"
                 aria-label={`Costs ${summary.cost}`}
-                className="flex-shrink-0 min-w-[22px] flex items-center justify-center gap-0.5 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-[11px] tabular-nums text-gray-600 dark:text-gray-300"
+                className="flex-shrink-0 min-w-[22px] flex items-center justify-center gap-0.5 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-xs tabular-nums text-gray-700 dark:text-gray-300"
               >
                 {summary.cost}
-                {isColumn && <img src="/fab/symbols/resource.png" alt="" aria-hidden="true" className="w-3 h-3 object-contain" />}
+                {isColumn && <img src="/fab/symbols/resource.png" alt="" aria-hidden="true" className="w-3.5 h-3.5 object-contain" />}
               </span>
             )}
             {/* Pitch pip — phone lanes only. Column rows already say pitch twice
@@ -346,11 +346,11 @@ function GroupedCardRow({
               />
             )}
             <span className={cn("text-center flex-shrink-0", isColumn ? "min-w-[28px]" : "w-4")} data-testid="list-row-own">
-              {ownership === 'full' && <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90" title="Owned">✓</span>}
+              {ownership === 'full' && <span role="img" aria-label="All copies owned" className="text-sm text-emerald-700 dark:text-emerald-400" title="Owned">✓</span>}
               {ownership === 'partial' && (
                 isColumn
-                  ? <span className="text-xs tabular-nums text-amber-700 dark:text-amber-300/90" title="Copies owned / needed">{totalOwned}/{group.totalQty}</span>
-                  : <span className="text-xs text-amber-700/70 dark:text-amber-300/70" title="Some copies missing">○</span>
+                  ? <span role="img" aria-label={`${totalOwned} of ${group.totalQty} copies owned`} className="text-sm tabular-nums text-amber-700 dark:text-amber-300" title="Copies owned / needed">{totalOwned}/{group.totalQty}</span>
+                  : <span role="img" aria-label="Some copies missing" className="text-sm text-amber-700 dark:text-amber-300" title="Some copies missing">○</span>
               )}
             </span>
             {/* Expand caret — desktop only; printings + swap/move/remove live in
@@ -358,7 +358,7 @@ function GroupedCardRow({
             {isColumn && !isTouchDevice && (
               <button
                 onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+                className="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
                 title={expanded ? "Collapse printings" : "Expand printings"}
                 aria-label={expanded ? "Collapse printings" : "Expand printings"}
                 aria-expanded={expanded}
@@ -399,7 +399,7 @@ function GroupedCardRow({
 
                 {/* Printing label */}
                 <span
-                  className="text-xs text-gray-500 dark:text-gray-400 font-mono flex-1 min-w-0 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                  className="text-sm text-gray-600 dark:text-gray-300 font-mono flex-1 min-w-0 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
                   onClick={() => onSwap({ printingId: pr.printingId, cardUniqueId: pr.printingDetails?.card_unique_id || "", cardName: group.displayName, category })}
                   title="Click to swap printing"
                 >
@@ -407,23 +407,23 @@ function GroupedCardRow({
                 </span>
 
                 {/* Qty */}
-                <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums flex-shrink-0">{pr.quantity ?? 1}×</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300 tabular-nums flex-shrink-0">{pr.quantity ?? 1}×</span>
 
-                {/* Ownership — informational, not alarmist; muted amber for "missing" */}
+                {/* Ownership — informational, not alarmist; solid amber for "missing" */}
                 {own ? (
                   own.owned >= own.needed ? (
-                    <span className="text-xs text-emerald-600/90 dark:text-emerald-400/90 flex-shrink-0">✓</span>
+                    <span role="img" aria-label="All copies owned" className="text-sm text-emerald-700 dark:text-emerald-400 flex-shrink-0">✓</span>
                   ) : (
-                    <span className="text-xs text-amber-700/70 dark:text-amber-300/70 tabular-nums flex-shrink-0">{own.owned}/{own.needed}</span>
+                    <span role="img" aria-label={`${own.owned} of ${own.needed} copies owned`} className="text-sm text-amber-700 dark:text-amber-300 tabular-nums flex-shrink-0">{own.owned}/{own.needed}</span>
                   )
                 ) : null}
 
-                {/* Actions (visible on hover) */}
-                <div className="flex items-center gap-0.5 opacity-0 group-hover/pr:opacity-100 transition-opacity flex-shrink-0">
+                {/* Actions (visible on hover; focus-within keeps them visible for keyboard users) */}
+                <div className="flex items-center gap-0.5 opacity-0 group-hover/pr:opacity-100 focus-within:opacity-100 transition-opacity flex-shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                    className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                     onClick={() => onSwap({ printingId: pr.printingId, cardUniqueId: pr.printingDetails?.card_unique_id || "", cardName: group.displayName, category })}
                     title="Swap printing"
                   >
@@ -433,7 +433,7 @@ function GroupedCardRow({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-red-500"
+                    className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                     onClick={() => onRemove(pr.printingId, category)}
                     disabled={isRemoving}
                     title="Remove from deck"
@@ -1824,13 +1824,13 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
           <h3 className="flex items-center gap-2 px-3 py-2 border-b border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
             {opts?.dot && <span className={cn("w-2 h-2 rounded-full shrink-0", opts.dot)} aria-hidden="true" />}
             <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{label}</span>
-            <span className="ml-auto text-xs tabular-nums text-gray-500 dark:text-gray-400">
+            <span className="ml-auto text-sm tabular-nums text-gray-600 dark:text-gray-300">
               {total}{opts?.limit ? ` / ${opts.limit}` : ''}
             </span>
           </h3>
           {groups.length > 0
             ? groups.map(group => renderGroupedRow(group, category, 'column'))
-            : <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-2">No cards yet</p>}
+            : <p className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">No cards yet</p>}
         </div>
       </section>
     );
@@ -2409,7 +2409,10 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                   <p className="mb-2">
                     Pick a target binder, then turn on <strong>Collector Mode</strong> (or press <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">⌘K</kbd> then <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">U</kbd>). A small <BookOpen className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> button appears under each card you don&apos;t fully own — click it to add <strong>1× NM</strong> of that printing.
                   </p>
-                  <p className="text-xs text-gray-700 dark:text-gray-300">Your binder selection is remembered across sessions.</p>
+                  <p className="mb-2 text-xs text-gray-700 dark:text-gray-300">Your binder selection is remembered across sessions.</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">
+                    List markers: <span className="text-emerald-700 dark:text-emerald-400 font-semibold">✓</span> all copies in your binders · <span className="text-amber-700 dark:text-amber-300 font-semibold tabular-nums">1/2</span> copies owned / needed.
+                  </p>
                 </PopoverContent>
               </Popover>
             </div>
