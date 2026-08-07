@@ -282,42 +282,43 @@ export const TALISHAR_HERO_IDS: Record<string, string> = {
 
 // Living Legend leaderboard snapshot — updated manually from fabtcg.com leaderboard.
 // Keys must match HERO_INFO / YOUNG_HERO_INFO keys (lowercase). Omit heroes with 0 points.
-export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-07-24';
-export const LIVING_LEGEND_POINTS_SOURCE_LABEL = '2026 National Championships';
+export const LIVING_LEGEND_POINTS_UPDATED_AT = '2026-08-03';
+export const LIVING_LEGEND_POINTS_SOURCE_LABEL = 'OMN season Battlegrounds';
 
 export const LIVING_LEGEND_POINTS: Record<string, number> = {
   // Active Classic Constructed heroes (LL points < 1000)
-  'kassai of the golden sand': 892,
+  'kassai of the golden sand': 967,
+  'arakni, marionette': 889,
+  'fai, rising rebellion': 878,
   'dash i/o': 875,
-  'fai, rising rebellion': 856,
-  'cindra, dracai of retribution': 845,
+  'cindra, dracai of retribution': 870,
+  'katsu, the wanderer': 783,
   'bravo, showstopper': 776,
-  'katsu, the wanderer': 746,
-  'dorinthea ironsong': 743,
-  'oscilio, constella intelligence': 666,
-  'arakni, marionette': 644,
-  'gravy bones, shipwrecked looter': 494,
+  'dorinthea ironsong': 758,
+  'oscilio, constella intelligence': 741,
+  'gravy bones, shipwrecked looter': 584,
   'ser boltyn, breaker of dawn': 417,
   'uzuri, switchblade': 405,
   'rhinar, reckless rampage': 362,
-  'vynnset, iron maiden': 266,
-  'arakni, huntsman': 244,
-  'jarl vetreiði': 223,
+  'vynnset, iron maiden': 296,
+  'jarl vetreiði': 268,
+  'arakni, huntsman': 259,
   'levia, shadowborn abomination': 200,
   'arakni, 5l!p3d 7hru 7h3 cr4x': 193,
   'fang, dracai of blades': 153,
   'ira, scarlet revenger': 131,
   'riptide, lurker of the deep': 98,
   "maxx 'the hype' nitro": 85,
+  'pleiades, superstar': 50,
   'teklovossen, esteemed magnate': 49,
-  'pleiades, superstar': 45,
+  'puffin, hightail': 43,
   'kayo, underhanded cheat': 29,
   'valda, seismic impact': 28,
-  'puffin, hightail': 28,
   'marlynn, treasure hunter': 21,
-  'zyggy starlight': 8,
-  'olympia, prized fighter': 7,
+  'zyggy starlight': 13,
   'betsy, skin in the game': 7,
+  'olympia, prized fighter': 7,
+  'hala, bladesaint of the vow': 5,
   'tuffnut, bumbling hulkster': 5,
   'lyath goldmane, vile savant': 3,
 
