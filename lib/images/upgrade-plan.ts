@@ -27,7 +27,9 @@ export function candidateSourceKeys(imageKey: string): string[] {
   // prefix, a set+collector base (2-4 letter set code, optionally
   // digit-leading, + number), then dash-joined suffixes. Anything else —
   // in particular 21-char mixed-case nanoids — is not derivable.
-  const m = imageKey.match(/^([A-Z]{2}_)?([0-9]?[A-Z]{2,4}[0-9]{2,4}[A-Z]?)(-[A-Z0-9_-]+)?$/);
+  // Suffixes normally attach with a dash; hero back faces may attach `_BACK`
+  // directly to the base (UPR006_BACK).
+  const m = imageKey.match(/^([A-Z]{2}_)?([0-9]?[A-Z]{2,4}[0-9]{2,4}[A-Z]?)((?:-|_)[A-Z0-9_-]+)?$/);
   if (!m) return [];
   const lang = m[1] ?? "";
   const base = m[2];

@@ -162,9 +162,13 @@ async function main() {
     ...rows.map(({ image_url }) => { const k = image_url.split("/")[4]; return { key: k, source: k }; }),
     ...needsWork.map((i) => ({ key: i.key, source: i.source! })),
   ];
-  const { accepted, collided } = resolveFallbackClaims(claims);
-  const acceptedSet = new Set(accepted.map((c) => c.key));
-  const todo = needsWork.filter((i) => acceptedSet.has(i.key));
+  const { collided } = resolveFallbackClaims(claims);
+  // Filter by rejection, not acceptance: every key also carries an accepted
+  // SELF-claim from the all-keys guard, so acceptedSet.has(key) is true even
+  // for keys whose FALLBACK claim was rejected (this exact bug shipped wrong
+  // art for 49 contested UPR/HNT keys on 2026-08-08 before being caught).
+  const collidedSet = new Set(collided.map((c) => c.key));
+  const todo = needsWork.filter((i) => !collidedSet.has(i.key));
   const limited = LIMIT ? todo.slice(0, LIMIT) : todo;
 
   console.log(`\nPlan:`);

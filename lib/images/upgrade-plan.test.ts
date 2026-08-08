@@ -52,6 +52,10 @@ describe("candidateSourceKeys", () => {
   it("back-face keys keep their suffix", () => {
     expect(candidateSourceKeys("MPW135-FA_BACK")).toEqual(["MPW135-FA_BACK"]);
   });
+
+  it("underscore-attached back-face keys are derivable (UPR hero backs)", () => {
+    expect(candidateSourceKeys("UPR006_BACK")).toEqual(["UPR006_BACK"]);
+  });
 });
 
 // Two different printings may resolve (via fallback) onto the SAME source
