@@ -61,10 +61,20 @@ async function cfUpload(id: string, bytes: Uint8Array) {
     const form = new FormData();
     form.append("file", new Blob([bytes as BufferSource]), id);
     form.append("id", id);
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`, {
-      method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
-    });
-    const json = (await res.json()) as { success: boolean; errors: Array<{ code: number; message: string }> };
+    // The upload runs AFTER the delete, so a bare network throw here would
+    // abandon the id deleted — a live 404 (how MST100/MST101 broke). Catch
+    // transport errors into the retry loop instead of propagating.
+    let json: { success: boolean; errors: Array<{ code: number; message: string }> };
+    try {
+      const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form,
+      });
+      json = (await res.json()) as typeof json;
+    } catch (err) {
+      if (attempt === 6) throw new Error(`upload ${id}: transport failed 6× — ${String(err)}`);
+      await sleep(1500 * attempt);
+      continue;
+    }
     if (json.success) return;
     if (json.errors?.some((e) => e.code === 5409 || /already exists/i.test(e.message))) {
       await sleep(1500 * attempt);
