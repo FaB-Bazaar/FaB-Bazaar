@@ -393,7 +393,13 @@ export function ImagesView({
               />
             </div>
           ) : (
-          <div className="h-[min(85vh,126vw)] aspect-[2.5/3.5]">
+          // 762px is the native height of the art itself: upstream publishes
+          // 546x762 (CardVault ships 180/376/546; the fab-cube master matches)
+          // and the Cloudflare `public` variant caps delivery at 768 tall.
+          // Capping here stops the blow-up at 1:1 — without it, 85vh stretched
+          // the image ~1.6x on a tall window and read as pixelated next to
+          // CardVault's own near-native viewer.
+          <div className="h-[min(85vh,126vw,762px)] aspect-[2.5/3.5]">
             {previewPrinting.image_url ? (
               <FoilCardImage
                 foiling={previewPrinting.foiling}
