@@ -220,13 +220,21 @@ export class PostgresPrintingsService implements IPrintingsService {
    * (never in the row select — per-candidate-row subqueries time out broad
    * searches). Two batched lookups:
    *   1. rows with a direct link → their exact partner printing
-   *   2. rows still bare → card-level sibling fallback: fab-cube's linkage is
-   *      patchy across foiling variants, so any linked sibling printing of
-   *      the same card donates the back face. The flip affordance is
-   *      card-level knowledge, not row luck.
+   *   2. rows still bare → SAME-SET sibling fallback: fab-cube's linkage is
+   *      patchy across foiling variants of one product, so a linked sibling
+   *      printing of the same card IN THE SAME SET donates the back face.
+   *      Never across sets: double-sidedness is a property of the physical
+   *      product, not the card — Crown of Providence is single-faced in UPR
+   *      but the back of a double-sided LSS promo, and cross-set donation
+   *      made every UPR single preview beside the promo.
+   * Self-links (other_face_printing_id = printing_id, a corrupt fab-cube
+   * back-row shape, ~307 rows) are ignored in both passes.
    */
   private async enrichOtherFaces(dtos: PrintingDTO[]): Promise<PrintingDTO[]> {
-    const partnerIds = [...new Set(dtos.map((d) => d.other_face_printing_id).filter(Boolean))] as string[];
+    const partnerIds = [...new Set(
+      dtos.filter((d) => d.other_face_printing_id && d.other_face_printing_id !== d.printing_id)
+        .map((d) => d.other_face_printing_id),
+    )] as string[];
     if (partnerIds.length > 0) {
       const partners = await db
         .select({
@@ -252,8 +260,9 @@ export class PostgresPrintingsService implements IPrintingsService {
     )] as string[];
     if (bareCardIds.length > 0) {
       const fallback = await db.execute(sql`
-        SELECT DISTINCT ON (sib.card_unique_id)
+        SELECT DISTINCT ON (sib.card_unique_id, sib.set)
                sib.card_unique_id AS card_unique_id,
+               sib.set AS set,
                p3.image_url AS image_url,
                c3.display_name AS display_name
           FROM ${printings} sib
@@ -261,14 +270,15 @@ export class PostgresPrintingsService implements IPrintingsService {
           JOIN ${cards} c3 ON c3.card_unique_id = p3.card_unique_id
          WHERE sib.card_unique_id IN (${sql.join(bareCardIds.map((id) => sql`${id}`), sql`, `)})
            AND sib.other_face_printing_id IS NOT NULL
+           AND sib.other_face_printing_id <> sib.printing_id
            AND p3.image_url IS NOT NULL AND p3.image_url <> ''
-         ORDER BY sib.card_unique_id, sib.is_front_face DESC, sib.printing_id`);
-      const byCard = new Map(
-        (fallback.rows as Record<string, unknown>[]).map((r) => [r.card_unique_id as string, r]),
+         ORDER BY sib.card_unique_id, sib.set, sib.is_front_face DESC, sib.printing_id`);
+      const byCardSet = new Map(
+        (fallback.rows as Record<string, unknown>[]).map((r) => [`${r.card_unique_id}|${r.set}`, r]),
       );
       for (const d of dtos) {
         if (d.other_face_image_url || !d.card_unique_id) continue;
-        const f = byCard.get(d.card_unique_id);
+        const f = byCardSet.get(`${d.card_unique_id}|${d.set}`);
         if (f) {
           d.other_face_image_url = (f.image_url as string) || null;
           d.other_face_name = (f.display_name as string) || null;

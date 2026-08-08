@@ -48,7 +48,9 @@ describe('searchPrintings — DFC face fields', () => {
     const uid = randomUUID().slice(0, 8);
     const cardA = `zzt-dfc-a-${uid}`;
     const cardB = `zzt-dfc-b-${uid}`;
+    const cardC = `zzt-dfc-c-${uid}`;
     const name = `Zzt Sibling Test ${uid}`;
+    const nameC = `Zzt Selflink Test ${uid}`;
     let pool: Pool;
 
     beforeAll(async () => {
@@ -57,21 +59,33 @@ describe('searchPrintings — DFC face fields', () => {
       // display_name keeps the cased form.
       await pool.query(
         `INSERT INTO cards (card_unique_id, name, display_name, talishar_card_id)
-         VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4), ($5, $6, $7, $8), ($9, $10, $11, $12)`,
         [cardA, name.toLowerCase(), name, `zzt_sib_a_${uid}`,
-         cardB, `${name} Back`.toLowerCase(), `${name} Back`, `zzt_sib_b_${uid}`]);
+         cardB, `${name} Back`.toLowerCase(), `${name} Back`, `zzt_sib_b_${uid}`,
+         cardC, nameC.toLowerCase(), nameC, `zzt_sib_c_${uid}`]);
       await pool.query(
         `INSERT INTO printings (printing_id, card_unique_id, set, collector_number, edition, foiling, rarity, language,
                                 is_front_face, other_face_printing_id, image_url)
          VALUES ($1, $3, 'zzt', 'ZZT600', 'n', 's', 'm', 'en', true, $2, 'https://x/front-s.webp'),
                 ($2, $4, 'zzt', 'ZZT600', 'n', 's', 'm', 'en', false, $1, 'https://x/back-s.webp'),
-                ($5, $3, 'zzt', 'ZZT600', 'n', 'r', 'm', 'en', true, NULL, 'https://x/front-r.webp')`,
-        [`zzt-p-fs-${uid}`, `zzt-p-bs-${uid}`, cardA, cardB, `zzt-p-fr-${uid}`]);
+                ($5, $3, 'zzt', 'ZZT600', 'n', 'r', 'm', 'en', true, NULL, 'https://x/front-r.webp'),
+                -- cardA again, but in ANOTHER set with no link of its own: a
+                -- single-faced reprint (the Crown-of-Providence shape) that
+                -- must NOT inherit zzt's back face.
+                ($6, $3, 'zzu', 'ZZU600', 'n', 's', 'm', 'en', true, NULL, 'https://x/reprint.webp'),
+                -- cardC: an unlinked row plus a SELF-LINKED sibling in the same
+                -- set (the corrupt fab-cube back-row shape, 307 rows in prod).
+                -- A self-link is never a real partner — no donation, and the
+                -- self-linked row itself must not render itself as its back.
+                ($7, $8, 'zzt', 'ZZT601', 'n', 's', 'm', 'en', true, NULL, 'https://x/c-plain.webp'),
+                ($9, $8, 'zzt', 'ZZT601', 'n', 'c', 'm', 'en', false, $9, 'https://x/c-selflink.webp')`,
+        [`zzt-p-fs-${uid}`, `zzt-p-bs-${uid}`, cardA, cardB, `zzt-p-fr-${uid}`,
+         `zzu-p-re-${uid}`, `zzt-p-cp-${uid}`, cardC, `zzt-p-cs-${uid}`]);
     });
 
     afterAll(async () => {
-      await pool.query(`DELETE FROM printings WHERE card_unique_id IN ($1, $2)`, [cardA, cardB]);
-      await pool.query(`DELETE FROM cards WHERE card_unique_id IN ($1, $2)`, [cardA, cardB]);
+      await pool.query(`DELETE FROM printings WHERE card_unique_id IN ($1, $2, $3)`, [cardA, cardB, cardC]);
+      await pool.query(`DELETE FROM cards WHERE card_unique_id IN ($1, $2, $3)`, [cardA, cardB, cardC]);
       await pool.end();
     });
 
@@ -84,6 +98,28 @@ describe('searchPrintings — DFC face fields', () => {
       expect(rf!.other_face_printing_id ?? null).toBeNull();
       expect(rf!.other_face_image_url).toBe('https://x/back-s.webp');
       expect(rf!.other_face_name).toBe(`${name} Back`);
+    });
+
+    it('a reprint in another set does NOT inherit the back face (cross-set misfire)', async () => {
+      const res = await service.searchPrintings({ name, exact: true }, { limit: 10 });
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      const reprint = res.data.printings.find((p) => p.set === 'zzu');
+      expect(reprint).toBeTruthy();
+      expect(reprint!.other_face_image_url ?? null).toBeNull();
+      expect(reprint!.other_face_name ?? null).toBeNull();
+    });
+
+    it('self-linked rows neither donate a back face nor render themselves as one', async () => {
+      const res = await service.searchPrintings({ name: nameC, exact: true }, { limit: 10 });
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      const plain = res.data.printings.find((p) => p.foiling === 's');
+      expect(plain).toBeTruthy();
+      expect(plain!.other_face_image_url ?? null).toBeNull();
+      const selfLinked = res.data.printings.find((p) => p.foiling === 'c');
+      expect(selfLinked).toBeTruthy();
+      expect(selfLinked!.other_face_image_url ?? null).toBeNull();
     });
   });
 
