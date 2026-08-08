@@ -38,12 +38,21 @@ export function candidateSourceKeys(imageKey: string): string[] {
   const candidates = [imageKey];
   let rest = suffix;
 
-  // UNLIMITED printings have no CardVault art at all: CardVault publishes one
-  // image per card and it is the first-edition/alpha printing (verified by
-  // diffing the edition symbol — see upgrade-plan.test.ts). Deriving anything
-  // here would dress an Unlimited row in first-edition art, so stop.
-  // Unlimited is sourced from the feed's `U-`-prefixed images instead.
-  if (/-UL(-|$)/.test(rest)) return candidates;
+  // UNLIMITED art lives under a `U-` PREFIX on the collector (U-MON131), not a
+  // `-UL` suffix — the unsuffixed key is the FIRST EDITION/alpha printing, so
+  // an unlimited key must never derive it (that would dress an Unlimited row
+  // in first-edition art). Foil-specific U- keys exist (U-ELE003-RF) but not
+  // universally, so fall back to the bare U- key when the only thing left is a
+  // finish token; never fall back past an art-variation token (EA/AA/...),
+  // which would swap extended art for regular.
+  if (/-UL(-|$)/.test(rest)) {
+    const withoutUl = rest.replace(/-UL(?=-|$)/, "");
+    candidates.push(`${lang}U-${base}${withoutUl}`);
+    if (/^(-(RF|CF))?$/.test(withoutUl) && withoutUl !== "") {
+      candidates.push(`${lang}U-${base}`);
+    }
+    return [...new Set(candidates)];
+  }
 
   // First-edition / alpha keys carry an edition token CardVault omits. Drop it
   // (it can sit mid-suffix, e.g. EVR021-RF-EA-1E-EA) and keep going, so the

@@ -70,11 +70,14 @@ describe("candidateSourceKeys", () => {
     ]);
   });
 
-  it("unlimited keys derive NOTHING — CardVault has no unlimited art", () => {
-    expect(candidateSourceKeys("ELE001-UL")).toEqual(["ELE001-UL"]);
-    expect(candidateSourceKeys("ARC000-RF-UL")).toEqual(["ARC000-RF-UL"]);
+  // Unlimited art DOES exist on CardVault, under a `U-` prefix (see the
+  // dedicated describe block below). What must never happen is an unlimited
+  // key deriving the UNSUFFIXED key — that one is the first-edition art.
+  it("unlimited keys never derive the first-edition key", () => {
+    expect(candidateSourceKeys("ELE001-UL")).not.toContain("ELE001");
+    expect(candidateSourceKeys("ARC000-RF-UL")).not.toContain("ARC000-RF");
     // Especially not the marvel fallback: that would be first-edition art.
-    expect(candidateSourceKeys("MON001-CF-UL")).toEqual(["MON001-CF-UL"]);
+    expect(candidateSourceKeys("MON001-CF-UL")).not.toContain("MON001-MV");
   });
 
   it("nanoid (printing_id fallback) keys are not derivable", () => {
@@ -180,5 +183,32 @@ describe("resolveFeedClaims", () => {
     ]);
     expect(out.accepted).toEqual([]);
     expect(out.rejected).toHaveLength(2);
+  });
+});
+
+// CardVault DOES publish unlimited art — under a `U-` PREFIX on the collector
+// (U-MON131), not a `-UL` suffix. Missing this cost ~1,000 images a 450px feed
+// fallback when 546px was available. Foil variants exist too (U-ELE003-RF),
+// but not universally, so fall back to the bare U- key when the only remaining
+// suffix is a finish. NEVER fall back past an art-variation token (EA/AA) —
+// that would swap extended art for regular.
+describe("candidateSourceKeys — unlimited via the U- prefix", () => {
+  it("plain unlimited derives the U- key", () => {
+    expect(candidateSourceKeys("MON001-UL")).toEqual(["MON001-UL", "U-MON001"]);
+  });
+
+  it("foil unlimited tries the foil U- key, then the bare one", () => {
+    expect(candidateSourceKeys("ELE003-RF-UL")).toEqual(["ELE003-RF-UL", "U-ELE003-RF", "U-ELE003"]);
+    expect(candidateSourceKeys("MON131-CF-UL")).toEqual(["MON131-CF-UL", "U-MON131-CF", "U-MON131"]);
+  });
+
+  it("never derives the first-edition key from an unlimited key", () => {
+    expect(candidateSourceKeys("MON001-UL")).not.toContain("MON001");
+    expect(candidateSourceKeys("ELE003-RF-UL")).not.toContain("ELE003-RF");
+  });
+
+  it("does not fall back past an art-variation token", () => {
+    expect(candidateSourceKeys("ELE050-EA-EA-UL")).toEqual(["ELE050-EA-EA-UL", "U-ELE050-EA-EA"]);
+    expect(candidateSourceKeys("ARC077-RF-AA-UL")).toEqual(["ARC077-RF-AA-UL", "U-ARC077-RF-AA"]);
   });
 });
