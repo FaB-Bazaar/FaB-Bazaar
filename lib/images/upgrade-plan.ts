@@ -38,6 +38,21 @@ export function candidateSourceKeys(imageKey: string): string[] {
   const candidates = [imageKey];
   let rest = suffix;
 
+  // UNLIMITED printings have no CardVault art at all: CardVault publishes one
+  // image per card and it is the first-edition/alpha printing (verified by
+  // diffing the edition symbol — see upgrade-plan.test.ts). Deriving anything
+  // here would dress an Unlimited row in first-edition art, so stop.
+  // Unlimited is sourced from the feed's `U-`-prefixed images instead.
+  if (/-UL(-|$)/.test(rest)) return candidates;
+
+  // First-edition / alpha keys carry an edition token CardVault omits. Drop it
+  // (it can sit mid-suffix, e.g. EVR021-RF-EA-1E-EA) and keep going, so the
+  // rules below still apply to the reduced key.
+  if (/-(1E|AL)(-|$)/.test(rest)) {
+    rest = rest.replace(/-(1E|AL)(?=-|$)/, "");
+    candidates.push(`${lang}${base}${rest}`);
+  }
+
   // CardVault has no doubled extended-art suffix — strip it and retry.
   if (rest.endsWith("-EA-EA")) {
     rest = rest.slice(0, -"-EA-EA".length);
@@ -50,6 +65,54 @@ export function candidateSourceKeys(imageKey: string): string[] {
   }
 
   return [...new Set(candidates)];
+}
+
+/** Identity of a printing for feed-claim conflict detection (foiling excluded). */
+export interface FeedClaimRow {
+  collector: string;
+  edition: string;
+  artVariations: string[];
+  isFrontFace: boolean;
+}
+
+export interface FeedClaim {
+  key: string;
+  source: string;
+  rows: FeedClaimRow[];
+}
+
+/**
+ * Decide which feed-sourced claims are safe to apply.
+ *
+ * The fab-cube feed publishes ONE image per (card, edition, art variant) and
+ * reuses it across finishes — foiling is a physical treatment over identical
+ * art (ELE003 standard and cold foil both point at ELE003.width-450.png). So
+ * several image keys legitimately share a source. What must never share one is
+ * a different edition (unlimited vs first edition are visibly different
+ * cards), a different art variant, or the opposite face — there, one claimant
+ * would be wearing the other's art.
+ */
+export function resolveFeedClaims(claims: FeedClaim[]): {
+  accepted: FeedClaim[];
+  rejected: FeedClaim[];
+} {
+  const identity = (r: FeedClaimRow) =>
+    `${r.collector}|${r.edition}|${[...r.artVariations].map((v) => v.toUpperCase()).sort().join(",")}|${r.isFrontFace}`;
+
+  const bySource = new Map<string, FeedClaim[]>();
+  for (const c of claims) {
+    if (!bySource.has(c.source)) bySource.set(c.source, []);
+    bySource.get(c.source)!.push(c);
+  }
+
+  const accepted: FeedClaim[] = [];
+  const rejected: FeedClaim[] = [];
+  for (const group of bySource.values()) {
+    const identities = new Set(group.flatMap((c) => c.rows.map(identity)));
+    if (group.length === 1 || identities.size === 1) accepted.push(...group);
+    else rejected.push(...group);
+  }
+  return { accepted, rejected };
 }
 
 /**

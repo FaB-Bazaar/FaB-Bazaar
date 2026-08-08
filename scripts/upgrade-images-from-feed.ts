@@ -24,6 +24,7 @@ import { loadEnvConfig } from "@next/env";
 import { readFileSync } from "fs";
 import { Pool } from "pg";
 import { imageWidth } from "@/lib/images/image-dimensions";
+import { resolveFeedClaims } from "@/lib/images/upgrade-plan";
 
 loadEnvConfig(process.cwd());
 const argv = process.argv.slice(2);
@@ -98,8 +99,10 @@ async function main() {
   const { rows } = await pool.query<{
     image_url: string; fab_cube_printing_id: string | null;
     collector_number: string; foiling: string; art_variations: string[];
+    edition: string; is_front_face: boolean;
   }>(
-    `SELECT image_url, fab_cube_printing_id, collector_number, foiling, art_variations
+    `SELECT image_url, fab_cube_printing_id, collector_number, foiling, art_variations,
+            edition, is_front_face
        FROM printings WHERE set = $1 AND language = 'en'
         AND split_part(image_url, '/', 5) = ANY($2)`,
     [SET, keys],
@@ -147,10 +150,24 @@ async function main() {
     }
   }
 
-  const claimCount = new Map<string, number>();
-  for (const p of plan) claimCount.set(p.source, (claimCount.get(p.source) ?? 0) + 1);
-  const finalPlan = plan.filter((p) => claimCount.get(p.source) === 1);
-  for (const p of plan) if (claimCount.get(p.source)! > 1) skipped.push(`${p.key} (source contested: ${p.source.split("/").pop()})`);
+  // Several keys may legitimately share a feed image (the feed reuses one file
+  // across finishes of the same printing). Only a share across editions / art
+  // variants / faces is a real conflict — see resolveFeedClaims.
+  const { accepted, rejected } = resolveFeedClaims(
+    plan.map((p) => ({
+      key: p.key,
+      source: p.source,
+      rows: (byKey.get(p.key) ?? []).map((r) => ({
+        collector: r.collector_number,
+        edition: r.edition,
+        artVariations: r.art_variations ?? [],
+        isFrontFace: r.is_front_face,
+      })),
+    })),
+  );
+  const acceptedKeys = new Set(accepted.map((c) => c.key));
+  const finalPlan = plan.filter((p) => acceptedKeys.has(p.key));
+  for (const r of rejected) skipped.push(`${r.key} (source contested: ${r.source.split("/").pop()})`);
 
   console.log(`target keys: ${keys.length}, mapped: ${finalPlan.length}, skipped: ${skipped.length}`);
   for (const s of skipped) console.log(`  skip: ${s}`);
