@@ -143,14 +143,19 @@ export default function FoilCardImage({
       const s = springsRef.current
 
       if (!interacting.current) {
-        r += 0.006
-        s.rotX.target   = Math.sin(r) * 12
-        s.rotY.target   = Math.cos(r * 0.71) * 10
-        s.glareX.target = 50 + Math.sin(r * 0.83) * 35
-        s.glareY.target = 50 + Math.cos(r * 1.13) * 30
-        s.glareO.target = 0.7
-        s.bgX.target    = 50 + Math.sin(r) * 18
-        s.bgY.target    = 50 + Math.cos(r * 0.71) * 14
+        // At rest the card shows the RAW art: no tilt, no shimmer. The loop
+        // used to wander here with glare pinned at 0.7 forever, which laid a
+        // permanent iridescent haze over every foil card and read as blur on
+        // the enlarged preview. Same rule the WebGL renderer already follows
+        // (HoloCard3D: shader strength is hover-only, no idle wander) — the
+        // effect belongs to interaction, not to sitting still.
+        s.rotX.target   = 0
+        s.rotY.target   = 0
+        s.glareX.target = 50
+        s.glareY.target = 50
+        s.glareO.target = 0
+        s.bgX.target    = 50
+        s.bgY.target    = 50
         Object.values(s).forEach(sp => { sp.stiffness = 0.015; sp.damping = 0.40 })
       }
 
