@@ -2,9 +2,12 @@
  * Unit tests for the Collector Mode helpers extracted from
  * DeckEditorListView: ownership filtering and the toggle-on toast.
  *
- * Collector Mode ('unowned') ANNOTATES rather than filters: every tile
- * stays visible — owned copies get a binder-name link, unowned copies
- * get add-to-binder/wants buttons. Only the 'owned' filter hides tiles.
+ * Collector Mode ('unowned') HIDES copies you already own at the CARD
+ * level — owning ANY printing of a card covers the deck's slot — and shows
+ * only the copies still missing from your collection (each with
+ * add-to-binder/wants buttons). Card-level ownership comes from a second
+ * map keyed by card_unique_id; without it (signed out, still loading)
+ * the filter falls back to annotate-only and hides nothing.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -16,7 +19,8 @@ import {
   wantsBadgeTitle,
 } from './collector-mode';
 
-const tile = (printingId: string, copyIndex = 0) => ({ printingId, copyIndex });
+const tile = (printingId: string, copyIndex = 0, cardUniqueId = `cu-${printingId}`) =>
+  ({ printingId, copyIndex, cardUniqueId });
 
 const sections = () => [
   { key: 'hero', tiles: [tile('hero-p')] },
@@ -32,15 +36,75 @@ const ownership = () =>
     ['p3', { owned: 1 }],
   ]);
 
+// Same scenario at the card level (any printing counts)
+const cardOwnership = () =>
+  new Map([
+    ['cu-p1', { owned: 1 }],
+    ['cu-p2', { owned: 0 }],
+    ['cu-p3', { owned: 1 }],
+  ]);
+
 describe('filterSectionsByOwnership', () => {
   it('returns sections untouched when filter is all', () => {
     const input = sections();
-    expect(filterSectionsByOwnership(input, 'all', ownership())).toBe(input);
+    expect(filterSectionsByOwnership(input, 'all', ownership(), cardOwnership())).toBe(input);
   });
 
-  it('keeps every tile visible under the unowned (Collector Mode) filter — it annotates, never hides', () => {
+  it('unowned: hides card-level owned copies and keeps only the missing ones', () => {
+    const result = filterSectionsByOwnership(sections(), 'unowned', ownership(), cardOwnership());
+    const red = result.find(s => s.key === 'red')!;
+    // p1: owns 1 of 2 → first copy hidden, second shown; p2 unowned → shown
+    expect(red.tiles).toEqual([tile('p1', 1), tile('p2', 0)]);
+    // p3 fully owned → blue section emptied and dropped
+    expect(result.find(s => s.key === 'blue')).toBeUndefined();
+  });
+
+  it('unowned: ownership spans printings of the same card', () => {
+    const input = [{
+      key: 'red',
+      tiles: [
+        { printingId: 'pA', copyIndex: 0, cardUniqueId: 'cu-X' },
+        { printingId: 'pB', copyIndex: 0, cardUniqueId: 'cu-X' },
+      ],
+    }];
+    // Owns 1 copy of the card (any printing) → one of the two tiles hides
+    const result = filterSectionsByOwnership(input, 'unowned', new Map(), new Map([['cu-X', { owned: 1 }]]));
+    expect(result[0].tiles).toEqual([{ printingId: 'pB', copyIndex: 0, cardUniqueId: 'cu-X' }]);
+  });
+
+  it('unowned: card-level ownership hides a tile even when the exact printing is unowned', () => {
+    const input = [{ key: 'red', tiles: [tile('p9', 0, 'cu-9')] }];
+    const result = filterSectionsByOwnership(
+      input, 'unowned',
+      new Map(),                              // exact printing: owns none
+      new Map([['cu-9', { owned: 1 }]])       // but owns another printing of the card
+    );
+    expect(result.find(s => s.key === 'red')).toBeUndefined();
+  });
+
+  it('unowned: always keeps the hero section even when its tiles are filtered out', () => {
+    const result = filterSectionsByOwnership(
+      sections(), 'unowned', ownership(),
+      new Map([...cardOwnership(), ['cu-hero-p', { owned: 1 }]])
+    );
+    const hero = result.find(s => s.key === 'hero');
+    expect(hero).toBeDefined();
+    expect(hero!.tiles).toEqual([]);
+  });
+
+  it('unowned: without a card-level map it annotates only — nothing hides', () => {
     const input = sections();
     expect(filterSectionsByOwnership(input, 'unowned', ownership())).toBe(input);
+  });
+
+  it('unowned: a tile without a cardUniqueId falls back to exact-printing ownership', () => {
+    const input = [{ key: 'red', tiles: [{ printingId: 'p1', copyIndex: 0, cardUniqueId: '' }] }];
+    const result = filterSectionsByOwnership(
+      input, 'unowned',
+      new Map([['p1', { owned: 1 }]]),
+      new Map()
+    );
+    expect(result.find(s => s.key === 'red')).toBeUndefined();
   });
 
   it('keeps only owned copies under the owned filter', () => {
@@ -73,6 +137,18 @@ describe('countUnownedTiles', () => {
     expect(countUnownedTiles(sections(), ownership())).toBe(3);
   });
 
+  it('counts at the card level when a card map is provided', () => {
+    const input = [{
+      key: 'red',
+      tiles: [
+        { printingId: 'pA', copyIndex: 0, cardUniqueId: 'cu-X' },
+        { printingId: 'pB', copyIndex: 0, cardUniqueId: 'cu-X' },
+      ],
+    }];
+    // Owns 1 copy of the card across printings → only 1 copy still missing
+    expect(countUnownedTiles(input, new Map(), new Map([['cu-X', { owned: 1 }]]))).toBe(1);
+  });
+
   it('returns 0 when everything is owned', () => {
     expect(
       countUnownedTiles(
@@ -84,10 +160,11 @@ describe('countUnownedTiles', () => {
 });
 
 describe('collectorModeToast', () => {
-  it('reports the unowned count and the icon legend', () => {
+  it('reports the unowned count, that owned cards are hidden, and the icon legend', () => {
     const { title, description } = collectorModeToast(23);
     expect(title).toMatch(/collector mode/i);
     expect(description).toContain('23');
+    expect(description).toMatch(/hidden|hiding/i);
     expect(description).toMatch(/binder/i);
     expect(description).toMatch(/wants/i);
   });

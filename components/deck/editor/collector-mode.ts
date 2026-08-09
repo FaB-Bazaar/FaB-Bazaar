@@ -9,6 +9,8 @@ export interface OwnershipLike {
 export interface OwnershipTile {
   printingId: string;
   copyIndex: number;
+  /** card_unique_id — empty/missing falls back to exact-printing ownership */
+  cardUniqueId?: string;
 }
 
 export interface OwnershipSection<T extends OwnershipTile = OwnershipTile> {
@@ -22,16 +24,52 @@ function tileIsOwned(tile: OwnershipTile, ownershipMap: Map<string, OwnershipLik
 }
 
 /**
- * Filter tile sections by ownership. Collector Mode ('unowned')
- * intentionally does NOT hide anything — it annotates: owned copies get
- * a binder-name link, unowned copies get add-to-binder/wants buttons.
- * Only the 'owned' filter actually removes tiles.
+ * Hide the copies the user already owns at the CARD level (owning any
+ * printing covers a slot) and keep only the still-missing copies. Owned
+ * copies are allocated to tiles in render order, per card_unique_id, so a
+ * partially-owned playset keeps exactly its shortage visible. Tiles
+ * without a cardUniqueId fall back to exact-printing ownership.
+ */
+function hideCardOwnedTiles<S extends OwnershipSection>(
+  sections: S[],
+  ownershipMap: Map<string, OwnershipLike>,
+  cardOwnershipMap: Map<string, OwnershipLike>
+): S[] {
+  const hiddenByCard = new Map<string, number>();
+  return sections
+    .map(section => ({
+      ...section,
+      tiles: section.tiles.filter(tile => {
+        if (!tile.cardUniqueId) return !tileIsOwned(tile, ownershipMap);
+        const owned = cardOwnershipMap.get(tile.cardUniqueId)?.owned ?? 0;
+        const hidden = hiddenByCard.get(tile.cardUniqueId) ?? 0;
+        if (hidden >= owned) return true;
+        hiddenByCard.set(tile.cardUniqueId, hidden + 1);
+        return false;
+      }),
+    }))
+    .filter(section => section.key === 'hero' || section.tiles.length > 0);
+}
+
+/**
+ * Filter tile sections by ownership.
+ *
+ * Collector Mode ('unowned') hides the copies you already own — at the
+ * card level, any printing counts — and shows only what's missing, each
+ * tile carrying its add-to-binder/wants buttons. Without a card-level
+ * map (signed out / still loading) it falls back to annotate-only and
+ * hides nothing. The 'owned' filter keeps only exactly-owned copies.
  */
 export function filterSectionsByOwnership<S extends OwnershipSection>(
   sections: S[],
   filter: 'all' | 'owned' | 'unowned',
-  ownershipMap: Map<string, OwnershipLike>
+  ownershipMap: Map<string, OwnershipLike>,
+  cardOwnershipMap?: Map<string, OwnershipLike>
 ): S[] {
+  if (filter === 'unowned') {
+    if (!cardOwnershipMap) return sections;
+    return hideCardOwnedTiles(sections, ownershipMap, cardOwnershipMap);
+  }
   if (filter !== 'owned') return sections;
   return sections
     .map(section => ({
@@ -41,11 +79,20 @@ export function filterSectionsByOwnership<S extends OwnershipSection>(
     .filter(section => section.key === 'hero' || section.tiles.length > 0);
 }
 
-/** Count copies across all sections that aren't covered by the binder ownership map. */
+/**
+ * Count copies across all sections not covered by the user's collection.
+ * With a card-level map, counts at the card level (any printing covers a
+ * slot); otherwise counts exact-printing ownership.
+ */
 export function countUnownedTiles(
   sections: OwnershipSection[],
-  ownershipMap: Map<string, OwnershipLike>
+  ownershipMap: Map<string, OwnershipLike>,
+  cardOwnershipMap?: Map<string, OwnershipLike>
 ): number {
+  if (cardOwnershipMap) {
+    return hideCardOwnedTiles(sections, ownershipMap, cardOwnershipMap)
+      .reduce((sum, section) => sum + section.tiles.length, 0);
+  }
   let count = 0;
   for (const section of sections) {
     for (const tile of section.tiles) {
@@ -94,6 +141,6 @@ export function collectorModeToast(unownedCount: number): { title: string; descr
     title: 'Collector Mode on',
     description: `${unownedCount} card${unownedCount === 1 ? ' ' : 's '}in this deck ${
       unownedCount === 1 ? "isn't" : "aren't"
-    } in your binder. 📖 adds one to your binder, ♥ adds it to your wants list.`,
+    } in your binder — owned copies are hidden. 📖 adds one to your binder, ♥ adds it to your wants list.`,
   };
 }

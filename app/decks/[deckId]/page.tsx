@@ -2304,6 +2304,7 @@ export default function DeckEditorPage() {
                   <DeckEditorListView
                     deck={state.deck}
                     ownershipMap={state.ownershipMap}
+                    cardOwnershipMap={state.cardOwnershipMap}
                     onSwap={target => setDeckSwapTarget(target)}
                     onRemove={handleRemoveDeckCard}
                     onMove={handleMoveDeckCard}

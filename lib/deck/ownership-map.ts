@@ -51,3 +51,32 @@ export function buildOwnershipMap(
 
   return map;
 }
+
+/**
+ * Card-level ownership map from a matchBy:'card' comparison — one row per
+ * card_unique_id, `owned` counting copies across ALL printings. Rows
+ * without a cardUniqueId (older server payloads) are skipped, so consumers
+ * degrade to "unknown" rather than mis-keying on a representative printing.
+ */
+export function buildCardOwnershipMap(
+  comparison: InventoryComparisonDTO
+): Map<string, OwnershipEntry> {
+  const map = new Map<string, OwnershipEntry>();
+
+  for (const card of comparison.owned ?? []) {
+    if (!card.cardUniqueId) continue;
+    map.set(card.cardUniqueId, { owned: card.owned, needed: card.needed, binderNames: card.binderNames ?? [] });
+  }
+
+  for (const card of comparison.partial ?? []) {
+    if (!card.cardUniqueId) continue;
+    map.set(card.cardUniqueId, { owned: card.owned, needed: card.needed, binderNames: [] });
+  }
+
+  for (const card of comparison.missing ?? []) {
+    if (!card.cardUniqueId) continue;
+    map.set(card.cardUniqueId, { owned: 0, needed: card.needed, binderNames: [] });
+  }
+
+  return map;
+}

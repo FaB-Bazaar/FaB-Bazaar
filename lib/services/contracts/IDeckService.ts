@@ -425,6 +425,8 @@ export interface OwnershipStatusDTO {
 export interface InventoryComparisonDTO {
   owned: Array<{
     printingId: string;
+    /** card_unique_id of the row — in matchBy:'card' mode rows are keyed by card, printingId is just a representative */
+    cardUniqueId?: string;
     cardName: string;
     pitch?: number;
     needed: number;
@@ -437,6 +439,7 @@ export interface InventoryComparisonDTO {
   }>;
   missing: Array<{
     printingId: string;
+    cardUniqueId?: string;
     cardName: string;
     pitch?: number;
     needed: number;
@@ -447,6 +450,7 @@ export interface InventoryComparisonDTO {
   }>;
   partial: Array<{
     printingId: string;
+    cardUniqueId?: string;
     cardName: string;
     pitch?: number;
     needed: number;

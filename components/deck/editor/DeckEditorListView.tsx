@@ -1575,6 +1575,9 @@ function buildGameViewSections(deck: DeckDTO): GameViewSection[] {
 interface DeckEditorListViewProps {
   deck: DeckDTO;
   ownershipMap: Map<string, OwnershipEntry>;
+  /** card_unique_id → ownership across ALL printings (Collector Mode hides
+   * card-owned copies). null/undefined = unknown → annotate-only fallback. */
+  cardOwnershipMap?: Map<string, OwnershipEntry> | null;
   onSwap: (target: SwapTarget) => void;
   onRemove: (printingId: string, category: DeckCategory) => Promise<void>;
   onMove?: (printingId: string, fromCategory: DeckCategory, toCategory: DeckCategory, quantity: number) => Promise<void>;
@@ -1607,7 +1610,7 @@ interface DeckEditorListViewProps {
   onCardHover?: (preview: ({ url: string; name: string } & Partial<HoverExtras>) | null) => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
   // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
   const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
@@ -2060,7 +2063,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
   const tileSections = buildTileSections(displayDeck);
 
   const filteredTileSections = filterSectionsByOwnership(
-    tileSections, ownershipFilter, ownershipMap
+    tileSections, ownershipFilter, ownershipMap, cardOwnershipMap ?? undefined
   );
 
   // Toast the icon legend + unowned count when Collector Mode turns on
@@ -2069,7 +2072,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
     if (prevOwnershipFilterRef.current === ownershipFilter) return;
     prevOwnershipFilterRef.current = ownershipFilter;
     if (ownershipFilter === 'unowned') {
-      toast(collectorModeToast(countUnownedTiles(tileSections, ownershipMap)));
+      toast(collectorModeToast(countUnownedTiles(tileSections, ownershipMap, cardOwnershipMap ?? undefined)));
       localStorage.setItem('collectorModeUsed', '1');
       setShowCollectorHint(false);
     }
@@ -2407,7 +2410,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
                 <PopoverContent align="end" className="w-80 text-sm text-gray-700 dark:text-gray-200">
                   <p className="font-semibold mb-2 text-gray-900 dark:text-white">Add to Binder</p>
                   <p className="mb-2">
-                    Pick a target binder, then turn on <strong>Collector Mode</strong> (or press <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">⌘K</kbd> then <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">U</kbd>). A small <BookOpen className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> button appears under each card you don&apos;t fully own — click it to add <strong>1× NM</strong> of that printing.
+                    Pick a target binder, then turn on <strong>Collector Mode</strong> (or press <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">⌘K</kbd> then <kbd className="font-sans font-bold px-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">U</kbd>). Cards you already own — any printing counts — are hidden, leaving only what&apos;s missing. Each remaining card gets a small <BookOpen className="inline h-3.5 w-3.5 align-text-bottom" aria-hidden="true" /> button — click it to add <strong>1× NM</strong> of that printing.
                   </p>
                   <p className="mb-2 text-xs text-gray-700 dark:text-gray-300">Your binder selection is remembered across sessions.</p>
                   <p className="text-xs text-gray-700 dark:text-gray-300">
@@ -2419,7 +2422,7 @@ export default function DeckEditorListView({ deck, ownershipMap, onSwap, onRemov
             <button
               type="button"
               aria-pressed={ownershipFilter === 'unowned'}
-              title="Show an Add-to-Binder button under each card you don't fully own"
+              title="Show only the cards you don't own (any printing counts), each with an Add-to-Binder button"
               onClick={() => {
                 const next = ownershipFilter === 'unowned' ? 'all' : 'unowned';
                 window.dispatchEvent(new CustomEvent('deck-ownership-filter', {

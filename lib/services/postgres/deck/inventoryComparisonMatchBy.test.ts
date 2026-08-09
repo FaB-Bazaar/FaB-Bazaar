@@ -18,6 +18,7 @@ const service = new PostgresDeckService();
 
 let printingA: string; // the printing the deck lists
 let printingB: string; // a DIFFERENT printing of the same card
+let sharedCardUniqueId: string; // the card both printings belong to
 
 let testUserId: string;
 let binderId: string;
@@ -44,6 +45,7 @@ beforeAll(async () => {
     .limit(2);
   printingA = ps[0].printingId; // priced representative
   printingB = ps[1].printingId;
+  sharedCardUniqueId = grp[0].cuid!;
 });
 
 beforeEach(async () => {
@@ -81,6 +83,8 @@ describe('getInventoryComparison matchBy', () => {
     // ...and the printing's stored image_url — Volzar renders it directly
     // (printing_id-keyed CDN URLs 404; images deleted 2026-07).
     expect(miss!.imageUrl).toMatch(/^http/);
+    // Rows carry the card_unique_id so clients can build card-level maps.
+    expect(miss!.cardUniqueId).toBe(sharedCardUniqueId);
   });
 
   it("'card' mode: owning any printing of the card satisfies the slot (card is owned)", async () => {
@@ -89,6 +93,9 @@ describe('getInventoryComparison matchBy', () => {
     if (!res.success) return;
     expect(res.data.missing.length).toBe(0);
     // Representative printing = the one the deck lists.
-    expect(res.data.owned.some((o) => o.printingId === printingA)).toBe(true);
+    const ownedRow = res.data.owned.find((o) => o.printingId === printingA);
+    expect(ownedRow).toBeTruthy();
+    // Card mode keys rows by card — cardUniqueId is what clients map on.
+    expect(ownedRow!.cardUniqueId).toBe(sharedCardUniqueId);
   });
 });

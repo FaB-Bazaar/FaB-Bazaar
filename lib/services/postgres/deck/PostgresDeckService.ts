@@ -2161,7 +2161,7 @@ export class PostgresDeckService implements IDeckService {
       const deckKeyOf = (row: { printingId: string; cardUniqueId: string | null }) =>
         matchByCard ? (row.cardUniqueId ?? row.printingId) : row.printingId;
 
-      const deckMatchMap = new Map<string, { printingId: string; cardName: string; needed: number; tcgMarket: number | null; tcgLow: number | null; tcgplayerUrl: string | null; pitch: number | null; imageUrl: string | null }>();
+      const deckMatchMap = new Map<string, { printingId: string; cardUniqueId: string | null; cardName: string; needed: number; tcgMarket: number | null; tcgLow: number | null; tcgplayerUrl: string | null; pitch: number | null; imageUrl: string | null }>();
       for (const row of deckCardRows) {
         const key = deckKeyOf(row);
         const existing = deckMatchMap.get(key);
@@ -2170,6 +2170,7 @@ export class PostgresDeckService implements IDeckService {
         } else {
           deckMatchMap.set(key, {
             printingId: row.printingId,
+            cardUniqueId: row.cardUniqueId,
             cardName: row.cardName,
             needed: row.quantity,
             tcgMarket: row.tcgMarket,
@@ -2262,7 +2263,7 @@ export class PostgresDeckService implements IDeckService {
       let totalOwned = 0;
       let estimatedMissingValue = 0;
 
-      for (const [matchKey, { printingId, cardName, needed, tcgMarket, tcgLow, tcgplayerUrl, pitch, imageUrl }] of deckMatchMap.entries()) {
+      for (const [matchKey, { printingId, cardUniqueId, cardName, needed, tcgMarket, tcgLow, tcgplayerUrl, pitch, imageUrl }] of deckMatchMap.entries()) {
         totalNeeded += needed;
         const inv = inventoryMap.get(matchKey);
         const rawOwned = inv?.owned ?? 0;
@@ -2271,6 +2272,7 @@ export class PostgresDeckService implements IDeckService {
 
         const baseItem = {
           printingId,
+          cardUniqueId: cardUniqueId ?? undefined,
           cardName,
           pitch: pitch ?? undefined,
           tcgLow: tcgLow ?? undefined,

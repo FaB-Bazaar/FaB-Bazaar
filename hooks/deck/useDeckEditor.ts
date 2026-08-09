@@ -9,6 +9,7 @@ import { sortPrintings } from "@/lib/fab-constants";
 import { getSetName } from "@/lib/fab-formatters";
 import { decksClient, searchClient, wantsClient } from "@/lib/client";
 import { buildWantsMap } from "@/components/deck/editor/collector-mode";
+import { buildCardOwnershipMap } from "@/lib/deck/ownership-map";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat } from "@/lib/client/banned-cards-client";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
@@ -63,6 +64,10 @@ export function useDeckEditor(deckId: string) {
   const [deck, setDeck] = useState<DeckDTO | null>(null);
   const [deckLoading, setDeckLoading] = useState(true);
   const [ownershipMap, setOwnershipMap] = useState<Map<string, OwnershipEntry>>(new Map());
+  // card_unique_id → ownership across ALL printings (Collector Mode hiding).
+  // null = not loaded (signed out / fetch failed) → consumers fall back to
+  // annotate-only instead of hiding everything as "unowned".
+  const [cardOwnershipMap, setCardOwnershipMap] = useState<Map<string, OwnershipEntry> | null>(null);
   // card_unique_id → total wanted quantity across all printings (Collector Mode badge)
   const [wantsMap, setWantsMap] = useState<Map<string, number>>(new Map());
   const [bulkInput, setBulkInput] = useState("");
@@ -86,8 +91,14 @@ export function useDeckEditor(deckId: string) {
 
   const fetchOwnership = async () => {
     try {
-      const compResult = await decksClient.getInventoryComparison(deckId);
+      // Printing-level (exact printing → binder links/annotations) and
+      // card-level (any printing counts → Collector Mode hiding) in parallel.
+      const [compResult, cardCompResult] = await Promise.all([
+        decksClient.getInventoryComparison(deckId),
+        decksClient.getInventoryComparison(deckId, { matchBy: 'card' }),
+      ]);
       if (compResult.success) buildOwnershipMap(compResult.data);
+      if (cardCompResult.success) setCardOwnershipMap(buildCardOwnershipMap(cardCompResult.data));
     } catch {
       // Ownership data is best-effort — silently fail
     }
@@ -416,6 +427,7 @@ export function useDeckEditor(deckId: string) {
       deck,
       deckLoading,
       ownershipMap,
+      cardOwnershipMap,
       wantsMap,
       bulkInput,
       bulkResults,
