@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/postgres/db';
-import { printings } from '@/lib/postgres/schema';
-import { userService } from '@/lib/services';
+import { foilMaskService, userService } from '@/lib/services';
 import { authenticateSession } from '@/lib/auth/multi-auth';
-import { and, eq, isNull, sql } from 'drizzle-orm';
 
 async function requireSuperAdmin() {
   const authResult = await authenticateSession();
@@ -17,6 +14,15 @@ async function requireSuperAdmin() {
   return { userId: authResult.userId } as const;
 }
 
+/**
+ * Three shapes, one endpoint:
+ *
+ *   { dryRun: true, foiling, set?, ... }      → preview counts + sample, no write
+ *   { printingIds: [...], top, ... }          → apply to exactly those printings
+ *   { foiling, set?, ..., top, ... }          → criteria sweep (unset rows only)
+ *
+ * Every applying call records an undoable op; see PostgresFoilMaskService.
+ */
 export async function POST(request: NextRequest) {
   const auth = await requireSuperAdmin();
   if ('error' in auth) {
@@ -29,68 +35,73 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
+  if (typeof body !== 'object' || body === null) {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+  }
 
-  const { set, foiling, isExtendedArt, artVariations, overwrite, top, right, bottom, left, round } = body as Record<string, unknown>;
+  const {
+    printingIds,
+    set,
+    foiling,
+    isExtendedArt,
+    artVariations,
+    dryRun,
+    description,
+    top, right, bottom, left, round,
+  } = body as Record<string, unknown>;
 
-  // set is optional — omit to apply across all sets
+  const isSelection = Array.isArray(printingIds);
+
+  if (!isSelection && (typeof foiling !== 'string' || !foiling)) {
+    return NextResponse.json(
+      { error: 'Provide either printingIds or a foiling to match on' },
+      { status: 400 }
+    );
+  }
   if (set !== undefined && set !== null && typeof set !== 'string') {
     return NextResponse.json({ error: 'set must be a string' }, { status: 400 });
   }
-  if (typeof foiling !== 'string' || !foiling) {
-    return NextResponse.json({ error: 'foiling is required' }, { status: 400 });
+
+  const criteria = {
+    set: typeof set === 'string' ? set : null,
+    foiling: foiling as string,
+    ...(typeof isExtendedArt === 'boolean' ? { isExtendedArt } : {}),
+    ...(Array.isArray(artVariations) ? { artVariations: artVariations as string[] } : {}),
+  };
+
+  // Preview first — a dry run must never reach an apply path.
+  if (dryRun === true) {
+    const preview = await foilMaskService.previewMatch(criteria);
+    if (!preview.success) {
+      return NextResponse.json({ error: preview.error }, { status: 400 });
+    }
+    return NextResponse.json({ success: true, data: preview.data });
   }
-  for (const [field, val] of [['top', top], ['right', right], ['bottom', bottom], ['left', left]] as const) {
-    if (typeof val !== 'number' || val < 0 || val > 100) {
-      return NextResponse.json({ error: `${field} must be a number between 0 and 100` }, { status: 400 });
-    }
+
+  const values = {
+    top: top as number,
+    right: right as number,
+    bottom: bottom as number,
+    left: left as number,
+    round: round as string,
+  };
+  const options = {
+    userId: auth.userId,
+    ...(typeof description === 'string' && description ? { description } : {}),
+  };
+
+  const result = isSelection
+    ? await foilMaskService.applyToSelection(printingIds as string[], values, options)
+    : await foilMaskService.applyToMatch(criteria, values, options);
+
+  if (!result.success) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  if (typeof round !== 'string' || round.length > 20) {
-    return NextResponse.json({ error: 'round must be a short CSS length string' }, { status: 400 });
-  }
 
-  try {
-    const conditions = [
-      eq(printings.foiling, (foiling as string).toLowerCase()),
-    ];
-
-    // set is optional — when omitted, applies across all sets
-    if (typeof set === 'string' && set) {
-      conditions.push(eq(printings.set, set.toLowerCase()));
-    }
-
-    if (typeof isExtendedArt === 'boolean') {
-      conditions.push(eq(printings.isExtendedArt, isExtendedArt));
-    }
-
-    // Exact art_variations array match so EA+AA only hits EA+AA cards, not EA-only
-    if (Array.isArray(artVariations)) {
-      const sorted = [...artVariations as string[]].sort();
-      conditions.push(sql`art_variations = ARRAY[${sql.join(sorted.map(v => sql`${v}`), sql`, `)}]::text[]`);
-    }
-
-    // Always skip locked printings — bulk operations never touch them
-    conditions.push(eq(printings.foilInsetLocked, false));
-
-    // Without overwrite: also skip cards that already have a mask
-    if (!overwrite) {
-      conditions.push(isNull(printings.foilInsetBottom));
-    }
-
-    const result = await db
-      .update(printings)
-      .set({
-        foilInsetTop:    top    as number,
-        foilInsetRight:  right  as number,
-        foilInsetBottom: bottom as number,
-        foilInsetLeft:   left   as number,
-        foilInsetRound:  round  as string,
-        updatedAt: new Date(),
-      })
-      .where(and(...conditions));
-
-    return NextResponse.json({ success: true, updated: result.rowCount ?? 0 });
-  } catch (error) {
-    console.error('[Admin FoilMask Bulk POST]', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+  return NextResponse.json({
+    success: true,
+    // `updated` is kept at the top level for the existing client toast.
+    updated: result.data.updated,
+    data: result.data,
+  });
 }

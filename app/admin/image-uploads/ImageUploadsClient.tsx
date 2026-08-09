@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Upload, CheckCircle, XCircle, Loader2, ImageOff, ChevronLeft, ChevronRight, Sparkles, X, RefreshCw, Lock, LockOpen, Link } from 'lucide-react';
+import { Search, Upload, CheckCircle, XCircle, Loader2, ImageOff, ChevronLeft, ChevronRight, Sparkles, X, RefreshCw, Lock, Link, Undo2 } from 'lucide-react';
 import { SET_MAP, FOILING_MAP, RARITY_MAP, EDITION_MAP } from '@/lib/fab-constants';
-import FoilCardImage from '@/components/shared/FoilCardImage';
+import { FoilMaskEditor } from './FoilMaskEditor';
+import { CF_BASE_URL, type FoilMaskBulkOp, type FoilMaskTemplate, type PrintingRow } from './types';
 
 const PITCH_COLORS: Record<number, string> = {
   1: 'bg-red-500',
@@ -35,345 +36,8 @@ const FOILING_OPTIONS = [
   { value: 'g', label: 'Gold Foil' },
 ];
 
-interface PrintingRow {
-  printingId: string;
-  name: string;
-  set: string;
-  edition: string;
-  foiling: string;
-  rarity: string;
-  collectorNumber: string | null;
-  imageUrl: string | null;
-  pitch: number | null;
-  isExtendedArt: boolean;
-  artVariations: string[] | null;
-  foilInsetTop: number | null;
-  foilInsetRight: number | null;
-  foilInsetBottom: number | null;
-  foilInsetLeft: number | null;
-  foilInsetRound: string | null;
-  foilInsetLocked: boolean;
-  tcgplayerProductId: string | null;
-  tcgplayerUrl: string | null;
-  tcgplayerSubtypeName: string | null;
-}
-
-interface FoilMaskValues {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-  round: string;
-  locked: boolean;
-}
-
-const DEFAULT_MASK: FoilMaskValues = { top: 12.5, right: 9.5, bottom: 41.5, left: 9.5, round: '1.5%', locked: false };
-const CF_BASE_URL = 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg';
-
-// Module-level on purpose: defining this inside FoilMaskEditor gives it a new
-// identity every render, so React remounts the row and the number input drops
-// focus after each keystroke (typing "10" only registered "1").
-function SliderRow({ label, value, onValueChange }: { label: string; value: number; onValueChange: (v: number) => void }) {
-  const [inputVal, setInputVal] = useState(String(value));
-
-  useEffect(() => {
-    setInputVal(String(value));
-  }, [value]);
-
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm text-muted-foreground w-16 shrink-0">{label}</span>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={0.5}
-        value={value}
-        onChange={e => onValueChange(parseFloat(e.target.value))}
-        className="flex-1 h-2 accent-yellow-500 cursor-grab active:cursor-grabbing"
-        style={{ touchAction: 'none' }}
-      />
-      <input
-        type="number"
-        min={0}
-        max={100}
-        step={0.5}
-        value={inputVal}
-        onChange={e => {
-          setInputVal(e.target.value);
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && v >= 0 && v <= 100) {
-            onValueChange(v);
-          }
-        }}
-        onBlur={e => {
-          const v = parseFloat(e.target.value);
-          if (!isNaN(v) && v >= 0 && v <= 100) {
-            onValueChange(v);
-          } else {
-            setInputVal(String(value));
-          }
-        }}
-        className="w-16 shrink-0 px-2 py-1 rounded border border-input bg-background text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-yellow-500"
-      />
-      <span className="text-sm text-muted-foreground shrink-0">%</span>
-    </div>
-  );
-}
-
-export function FoilMaskEditor({
-  row,
-  onClose,
-  onSaved,
-}: {
-  row: PrintingRow;
-  onClose: () => void;
-  onSaved: (values: FoilMaskValues) => void;
-}) {
-  const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-  const [bulkApplying, setBulkApplying] = useState(false);
-  const [locked, setLocked] = useState(row.foilInsetLocked);
-  const [mask, setMask] = useState<FoilMaskValues>(() => ({
-    top:    row.foilInsetTop    ?? DEFAULT_MASK.top,
-    right:  row.foilInsetRight  ?? DEFAULT_MASK.right,
-    bottom: row.foilInsetBottom ?? DEFAULT_MASK.bottom,
-    left:   row.foilInsetLeft   ?? DEFAULT_MASK.left,
-    round:  row.foilInsetRound  ?? DEFAULT_MASK.round,
-    locked: row.foilInsetLocked,
-  }));
-
-  const clipPath = `inset(${mask.top}% ${mask.right}% ${mask.bottom}% ${mask.left}% round ${mask.round})`;
-  // Prefer the row's real image_url — reconstructing from printing_id 404s
-  // for every deterministic-id row (which is most of the catalog now).
-  const imgSrc = row.imageUrl ?? `${CF_BASE_URL}/${row.printingId}/public`;
-  const hasDbValues = row.foilInsetBottom != null;
-
-  // Build a human-readable description of what the bulk apply will match
-  const bulkLabel = (() => {
-    const setUpper = row.set.toUpperCase();
-    const foilName = row.foiling === 'r' ? 'Rainbow Foil' : row.foiling === 'c' ? 'Cold Foil' : row.foiling.toUpperCase();
-    const variants = [
-      row.isExtendedArt && 'EA',
-      ...(row.artVariations?.filter(v => v !== 'EA') ?? []),
-    ].filter(Boolean).join(' + ');
-    return `${setUpper} · ${foilName}${variants ? ` · ${variants}` : ''}`;
-  })();
-
-  // Unset-only on purpose: the UI deliberately offers no overwrite mode, so a
-  // bulk apply can never clobber a mask that was saved by hand.
-  async function handleBulkApply() {
-    setBulkApplying(true);
-    try {
-      const res = await fetch('/api/admin/foil-mask/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          set: row.set,
-          foiling: row.foiling,
-          isExtendedArt: row.isExtendedArt,
-          artVariations: row.artVariations ?? [],
-          overwrite: false,
-          top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round,
-        }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Bulk apply failed');
-      toast({ title: 'Applied', description: `Updated ${json.updated} printings matching ${bulkLabel}` });
-      fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Bulk apply failed';
-      toast({ title: 'Error', description: msg, variant: 'destructive' });
-    } finally {
-      setBulkApplying(false);
-    }
-  }
-
-  async function handleGlobalNoVariationApply() {
-    setBulkApplying(true);
-    try {
-      const res = await fetch('/api/admin/foil-mask/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // No set — applies across all sets
-          foiling: row.foiling,
-          isExtendedArt: false,
-          artVariations: [],
-          overwrite: false,
-          top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round,
-        }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Global apply failed');
-      const foilName = row.foiling === 'r' ? 'Rainbow Foil' : row.foiling.toUpperCase();
-      toast({ title: 'Applied', description: `Updated ${json.updated} ${foilName} printings with no art variations (all sets)` });
-      fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Global apply failed';
-      toast({ title: 'Error', description: msg, variant: 'destructive' });
-    } finally {
-      setBulkApplying(false);
-    }
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/foil-mask/${encodeURIComponent(row.printingId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round, locked }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Save failed');
-      toast({ title: 'Saved', description: `Foil mask updated for ${row.name}${locked ? ' · locked' : ''}` });
-      fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
-      onSaved({ ...mask, locked });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Save failed';
-      toast({ title: 'Error', description: msg, variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="relative z-10 bg-background border rounded-xl shadow-2xl w-full max-w-4xl flex gap-8 p-6">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        {/* Card preview — live foil shimmer on hover */}
-        <div className="flex-shrink-0 w-96">
-          <p className="text-xs text-muted-foreground mb-2 font-medium">
-            Foil area preview <span className="text-[10px] opacity-60">(hover to preview shimmer)</span>
-          </p>
-          <div className="relative rounded overflow-hidden aspect-[5/7] bg-muted">
-            <FoilCardImage
-              foiling={row.foiling}
-              foilInset={{ top: mask.top, right: mask.right, bottom: mask.bottom, left: mask.left, round: mask.round }}
-              src={imgSrc}
-              alt={row.name}
-              className="w-full h-full"
-              imgClassName="w-full h-full object-cover"
-            />
-            {/* Golden overlay showing the foil clip boundary */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: 'rgba(255, 200, 0, 0.25)',
-                clipPath,
-                boxShadow: 'inset 0 0 0 2px rgba(255, 200, 0, 0.9)',
-              }}
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2 font-mono break-all leading-tight">{clipPath}</p>
-        </div>
-
-        {/* Controls */}
-        <div className="flex-1 space-y-4">
-          <div>
-            <p className="text-sm font-semibold">{row.name}</p>
-            <p className="text-xs text-muted-foreground">Rainbow Foil mask editor</p>
-          </div>
-
-          {!hasDbValues && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/30 text-xs text-blue-400">
-              <span className="shrink-0 mt-0.5">ℹ</span>
-              <span>No mask saved for this printing — showing defaults. Hit <strong>Save mask</strong> to lock these values in.</span>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <SliderRow label="Top inset" value={mask.top} onValueChange={v => setMask(prev => ({ ...prev, top: v }))} />
-            <SliderRow label="Right inset" value={mask.right} onValueChange={v => setMask(prev => ({ ...prev, right: v }))} />
-            <SliderRow label="Bottom inset" value={mask.bottom} onValueChange={v => setMask(prev => ({ ...prev, bottom: v }))} />
-            <SliderRow label="Left inset" value={mask.left} onValueChange={v => setMask(prev => ({ ...prev, left: v }))} />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm text-muted-foreground">Corner round</label>
-            <Input
-              value={mask.round}
-              onChange={e => setMask(prev => ({ ...prev, round: e.target.value }))}
-              placeholder="e.g. 1.5%, 8px, 0%"
-              className="font-mono text-sm h-8"
-            />
-            <p className="text-[10px] text-muted-foreground">CSS length used as the round argument of inset()</p>
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button size="sm" onClick={handleSave} disabled={saving || bulkApplying} className="flex-1">
-              {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
-              Save mask
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setMask(DEFAULT_MASK)} disabled={saving || bulkApplying}>
-              Reset
-            </Button>
-            <Button
-              size="sm"
-              variant={locked ? 'default' : 'outline'}
-              className={locked ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600' : 'border-muted-foreground/30'}
-              onClick={() => setLocked(l => !l)}
-              disabled={saving || bulkApplying}
-              title={locked ? 'Locked — bulk operations skip this card. Click to unlock.' : 'Unlocked — bulk operations can update this card. Click to lock.'}
-            >
-              {locked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
-            </Button>
-          </div>
-          {locked && (
-            <p className="text-[11px] text-emerald-500">
-              Locked — bulk operations will skip this card. Save to persist.
-            </p>
-          )}
-
-          <div className="pt-1 border-t border-border space-y-2">
-            <p className="text-[11px] text-muted-foreground">
-              Bulk apply to all <span className="font-semibold text-foreground">{bulkLabel}</span> printings with exactly matching art variations.
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full border-yellow-500/40 text-yellow-600 hover:text-yellow-500 hover:border-yellow-500"
-              onClick={() => handleBulkApply()}
-              disabled={saving || bulkApplying}
-            >
-              {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
-              Apply to unset cards
-            </Button>
-          </div>
-
-          <div className="pt-1 border-t border-border space-y-2">
-            <p className="text-[11px] text-muted-foreground">
-              Apply to all <span className="font-semibold text-foreground">Rainbow Foil with no art variations</span> across every set (unset cards only).
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full border-blue-500/40 text-blue-500 hover:text-blue-400 hover:border-blue-400"
-              onClick={() => handleGlobalNoVariationApply()}
-              disabled={saving || bulkApplying}
-            >
-              {bulkApplying ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1.5" />}
-              Apply globally (no art variation, unset only)
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/** Masks only mean something on foil printings, so only those are selectable. */
+const isMaskable = (row: PrintingRow) => row.foiling === 'r';
 
 const SUBTYPE_OPTIONS = [
   { value: '', label: '— None —' },
@@ -535,12 +199,62 @@ export function ImageUploadsClient() {
   const [loading, setLoading] = useState(false);
   const [uploadStates, setUploadStates] = useState<Record<string, CardUploadState>>({});
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
-  const [maskEditorRow, setMaskEditorRow] = useState<PrintingRow | null>(null);
+  const [maskEditorRows, setMaskEditorRows] = useState<PrintingRow[] | null>(null);
   const [tcgEditorRow, setTcgEditorRow] = useState<PrintingRow | null>(null);
   const [bustingCache, setBustingCache] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [templates, setTemplates] = useState<FoilMaskTemplate[]>([]);
+  const [lastOp, setLastOp] = useState<FoilMaskBulkOp | null>(null);
+  const [undoing, setUndoing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadId = useRef<string | null>(null);
+  // Anchor for shift-click range selection, as an index into the current page.
+  const lastPickedIdx = useRef<number | null>(null);
   const { toast } = useToast();
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/foil-mask/templates');
+      const json = await res.json();
+      if (json.success) setTemplates(json.data);
+    } catch {
+      // The rail is an accelerant, not a requirement — fail quiet.
+    }
+  }, []);
+
+  const loadLastOp = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/foil-mask/ops?limit=5');
+      const json = await res.json();
+      if (json.success) {
+        setLastOp((json.data as FoilMaskBulkOp[]).find(op => !op.undoneAt) ?? null);
+      }
+    } catch {
+      setLastOp(null);
+    }
+  }, []);
+
+  async function handleUndo() {
+    if (!lastOp) return;
+    setUndoing(true);
+    try {
+      const res = await fetch('/api/admin/foil-mask/ops/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opId: lastOp.id }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Undo failed');
+      toast({ title: 'Undone', description: `Restored ${json.data.restored.toLocaleString()} printings to their previous masks.` });
+      fetch('/api/admin/bust-browse-cache', { method: 'POST' }).catch(() => null);
+      await loadLastOp();
+      fetchPrintings(page);
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Undo failed', variant: 'destructive' });
+    } finally {
+      setUndoing(false);
+    }
+  }
 
   async function handleBustCache() {
     setBustingCache(true);
@@ -573,6 +287,10 @@ export function ImageUploadsClient() {
         setTotal(json.data.total);
         setPage(json.data.page);
         setPages(json.data.pages);
+        // Selection is page-scoped: carrying ids across pages would hide part
+        // of the blast radius from the operator.
+        setSelected(new Set());
+        lastPickedIdx.current = null;
       } else {
         toast({ title: 'Error', description: json.error, variant: 'destructive' });
       }
@@ -585,12 +303,55 @@ export function ImageUploadsClient() {
 
   useEffect(() => {
     fetchPrintings(1);
+    loadTemplates();
+    loadLastOp();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     fetchPrintings(1);
   }
+
+  // ------------------------------------------------------------- selection
+
+  function toggleSelected(idx: number, shiftKey: boolean) {
+    const row = rows[idx];
+    if (!isMaskable(row)) return;
+
+    // Read the anchor BEFORE the updater and capture it. Reading the ref inside
+    // makes the updater impure: React invokes it twice under StrictMode, and by
+    // the second pass the ref has already moved to idx, so the range branch is
+    // skipped and a shift-click collapses to a plain toggle.
+    const anchor = lastPickedIdx.current;
+    lastPickedIdx.current = idx;
+
+    setSelected(prev => {
+      const next = new Set(prev);
+
+      if (shiftKey && anchor !== null && anchor !== idx) {
+        // Range select follows the anchor's resulting state, like a file list.
+        const [from, to] = anchor < idx ? [anchor, idx] : [idx, anchor];
+        const turningOn = !prev.has(row.printingId);
+        for (let i = from; i <= to; i++) {
+          if (!isMaskable(rows[i])) continue;
+          if (turningOn) next.add(rows[i].printingId);
+          else next.delete(rows[i].printingId);
+        }
+      } else if (next.has(row.printingId)) {
+        next.delete(row.printingId);
+      } else {
+        next.add(row.printingId);
+      }
+      return next;
+    });
+  }
+
+  function selectAllOnPage() {
+    setSelected(new Set(rows.filter(isMaskable).map(r => r.printingId)));
+  }
+
+  const selectedRows = rows.filter(r => selected.has(r.printingId));
+  const maskableCount = rows.filter(isMaskable).length;
 
   function triggerUpload(printingId: string) {
     pendingUploadId.current = printingId;
@@ -637,7 +398,7 @@ export function ImageUploadsClient() {
   const selectClass = "h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       {/* Filters */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-40">
@@ -712,11 +473,40 @@ export function ImageUploadsClient() {
         </Button>
       </form>
 
+      {/* Undo banner — the last bulk apply stays reversible until it is undone */}
+      {lastOp && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 text-xs">
+          <Undo2 className="h-4 w-4 text-yellow-600 shrink-0" />
+          <span className="flex-1 min-w-0">
+            Last bulk apply: <span className="font-medium">{lastOp.description}</span>{' '}
+            — <span className="tabular-nums">{lastOp.affectedCount.toLocaleString()}</span> printing{lastOp.affectedCount === 1 ? '' : 's'}
+          </span>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleUndo} disabled={undoing}>
+            {undoing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Undo2 className="h-3 w-3 mr-1" />}
+            Undo
+          </Button>
+        </div>
+      )}
+
       {/* Results summary */}
       {!loading && rows.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {total.toLocaleString()} printing{total !== 1 ? 's' : ''} — page {page} of {pages}
-        </p>
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>{total.toLocaleString()} printing{total !== 1 ? 's' : ''} — page {page} of {pages}</span>
+          {maskableCount > 0 && (
+            <>
+              <span aria-hidden className="opacity-40">·</span>
+              <button type="button" className="underline hover:text-foreground" onClick={selectAllOnPage}>
+                Select all {maskableCount} foil on page
+              </button>
+              {selected.size > 0 && (
+                <button type="button" className="underline hover:text-foreground" onClick={() => setSelected(new Set())}>
+                  Clear selection
+                </button>
+              )}
+              <span className="text-[11px] opacity-70">Shift-click to select a range</span>
+            </>
+          )}
+        </div>
       )}
 
       {/* Card Grid */}
@@ -731,7 +521,7 @@ export function ImageUploadsClient() {
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-          {rows.map(row => {
+          {rows.map((row, idx) => {
             const uploadState = uploadStates[row.printingId];
             const isBroken = brokenImages.has(row.printingId);
             const cfUrl = uploadState?.newUrl ?? row.imageUrl ?? `${CF_BASE_URL}/${row.printingId}/public`;
@@ -739,11 +529,12 @@ export function ImageUploadsClient() {
             const foilLabel = (FOILING_MAP as Record<string, string>)[row.foiling] ?? row.foiling;
             const editionLabel = (EDITION_MAP as Record<string, string>)[row.edition] ?? row.edition;
             const rarityLabel = (RARITY_MAP as Record<string, string>)[row.rarity] ?? row.rarity;
+            const isSelected = selected.has(row.printingId);
 
             return (
               <div key={row.printingId} className="flex flex-col gap-1.5">
                 {/* Image container */}
-                <div className="relative rounded overflow-hidden bg-muted aspect-[5/7]">
+                <div className={`relative rounded overflow-hidden bg-muted aspect-[5/7] ${isSelected ? 'ring-2 ring-yellow-500' : ''}`}>
                   {uploadState?.state === 'uploading' ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                       <Loader2 className="h-6 w-6 animate-spin text-white" />
@@ -751,6 +542,7 @@ export function ImageUploadsClient() {
                   ) : null}
 
                   {!isBroken ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={cfUrl}
                       alt={row.name}
@@ -762,6 +554,26 @@ export function ImageUploadsClient() {
                       <ImageOff className="h-5 w-5" />
                       <span className="text-[10px] text-center leading-tight">{row.name}</span>
                     </div>
+                  )}
+
+                  {/* Selection checkbox — foil printings only.
+                      Deliberately NOT wrapped in a <label>: a label re-dispatches
+                      the click to its control with shiftKey cleared, which
+                      silently kills shift-range selection. */}
+                  {isMaskable(row) && (
+                    <span
+                      className="absolute top-1 left-1 flex items-center justify-center h-6 w-6 rounded bg-black/60 hover:bg-black/80"
+                      title={`${isSelected ? 'Deselect' : 'Select'} ${row.name} (shift-click for a range)`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        aria-label={`Select ${row.name}`}
+                        onChange={() => { /* click handler owns the state so shiftKey is available */ }}
+                        onClick={e => toggleSelected(idx, e.shiftKey)}
+                        className="h-3.5 w-3.5 accent-yellow-500 cursor-pointer"
+                      />
+                    </span>
                   )}
 
                   {/* Status overlay badge */}
@@ -776,7 +588,7 @@ export function ImageUploadsClient() {
                     </div>
                   )}
                   {isBroken && !uploadState && (
-                    <div className="absolute top-1 left-1">
+                    <div className="absolute bottom-1 left-1">
                       <Badge variant="destructive" className="text-[9px] px-1 py-0">Missing</Badge>
                     </div>
                   )}
@@ -823,12 +635,12 @@ export function ImageUploadsClient() {
                 </Button>
 
                 {/* Foil mask button — only for rainbow foil cards */}
-                {row.foiling === 'r' && (
+                {isMaskable(row) && (
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs w-full border-yellow-500/40 text-yellow-600 hover:text-yellow-500 hover:border-yellow-500"
-                    onClick={() => setMaskEditorRow(row)}
+                    onClick={() => setMaskEditorRows([row])}
                   >
                     {row.foilInsetLocked
                       ? <Lock className="h-3 w-3 mr-1 text-emerald-500" />
@@ -877,6 +689,32 @@ export function ImageUploadsClient() {
         </div>
       )}
 
+      {/* Sticky selection bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="max-w-6xl mx-auto flex items-center gap-3 px-4 py-3">
+            <span className="text-sm font-medium">
+              {selected.size} selected
+            </span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              The mask applies to exactly these cards
+            </span>
+            <div className="flex-1" />
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              className="border-yellow-500/40"
+              onClick={() => setMaskEditorRows(selectedRows)}
+            >
+              <Sparkles className="h-3 w-3 mr-1.5" />
+              Edit foil mask
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Hidden shared file input */}
       <input
         ref={fileInputRef}
@@ -887,18 +725,32 @@ export function ImageUploadsClient() {
       />
 
       {/* Foil mask editor modal */}
-      {maskEditorRow && (
+      {maskEditorRows && maskEditorRows.length > 0 && (
         <FoilMaskEditor
-          row={maskEditorRow}
-          onClose={() => setMaskEditorRow(null)}
-          onSaved={(values) => {
+          rows={maskEditorRows}
+          templates={templates}
+          onClose={() => setMaskEditorRows(null)}
+          onSaved={(printingIds, values) => {
+            const touched = new Set(printingIds);
             setRows(prev => prev.map(r =>
-              r.printingId === maskEditorRow.printingId
-                ? { ...r, foilInsetTop: values.top, foilInsetRight: values.right, foilInsetBottom: values.bottom, foilInsetLeft: values.left, foilInsetRound: values.round, foilInsetLocked: values.locked }
+              touched.has(r.printingId)
+                ? {
+                    ...r,
+                    foilInsetTop: values.top,
+                    foilInsetRight: values.right,
+                    foilInsetBottom: values.bottom,
+                    foilInsetLeft: values.left,
+                    foilInsetRound: values.round,
+                    // Lock state is only editable one card at a time.
+                    foilInsetLocked: printingIds.length === 1 ? values.locked : r.foilInsetLocked,
+                  }
                 : r
             ));
-            setMaskEditorRow(null);
+            setMaskEditorRows(null);
+            setSelected(new Set());
+            loadLastOp();
           }}
+          onTemplatesChanged={() => { loadTemplates(); loadLastOp(); }}
         />
       )}
 

@@ -1831,3 +1831,45 @@ export const feedOverrides = pgTable('feed_overrides', {
 }, (table) => ({
   activeIdx: index('idx_feed_overrides_active').on(table.active),
 }));
+
+// Named foil-mask presets for the admin mask editor's template rail.
+// Seeded in migration 0100 from the inset clusters already present in the
+// data; fully editable at /admin/image-uploads.
+export const foilMaskTemplates = pgTable('foil_mask_templates', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  foilInsetTop: real('foil_inset_top').notNull(),
+  foilInsetRight: real('foil_inset_right').notNull(),
+  foilInsetBottom: real('foil_inset_bottom').notNull(),
+  foilInsetLeft: real('foil_inset_left').notNull(),
+  foilInsetRound: text('foil_inset_round').default('1.5%').notNull(),
+  notes: text('notes'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Audit trail for bulk foil-mask applies — this is what makes them undoable.
+// priorValues holds one { p, t, r, b, l, rd } entry per affected printing,
+// snapshotted in the same transaction as the update; null t/r/b/l/rd means the
+// printing had no mask before the op (the usual case, since bulk applies
+// target unset rows). See migration 0100.
+export const foilMaskBulkOps = pgTable('foil_mask_bulk_ops', {
+  id: text('id').primaryKey(),
+  // 'selection' = explicit printing_id list; 'match' = criteria-based sweep.
+  kind: text('kind').notNull(),
+  description: text('description').notNull(),
+  foilInsetTop: real('foil_inset_top').notNull(),
+  foilInsetRight: real('foil_inset_right').notNull(),
+  foilInsetBottom: real('foil_inset_bottom').notNull(),
+  foilInsetLeft: real('foil_inset_left').notNull(),
+  foilInsetRound: text('foil_inset_round').notNull(),
+  affectedCount: integer('affected_count').notNull(),
+  priorValues: jsonb('prior_values').notNull(),
+  undoneAt: timestamp('undone_at'),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  createdAtIdx: index('idx_foil_mask_bulk_ops_created_at').on(table.createdAt),
+}));
