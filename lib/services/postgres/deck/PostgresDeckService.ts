@@ -1268,6 +1268,29 @@ export class PostgresDeckService implements IDeckService {
         }
       }
 
+      // "What would it cost me to build this?" — every card repriced at the
+      // cheapest printing of the SAME card (card_unique_id spans set/edition/
+      // foiling/language), falling back to the listed printing's own price when
+      // no priced sibling exists. Same tcg_low basis as totalValue above, so a
+      // deck built on cold foils shows a much lower floor. Separate query,
+      // scoped to the page's decks, to keep the paged listing query untouched.
+      const cheapestByDeckId = new Map<string, number>();
+      if (pageDeckIds.length > 0) {
+        const cheapestRows = await db
+          .select({
+            deckId: deckCards.deckId,
+            cheapestValue: sql<number>`COALESCE(SUM(${deckCards.quantity} * COALESCE(
+              (SELECT MIN(alt.tcg_low) FROM printings alt
+                WHERE alt.card_unique_id = ${printings.cardUniqueId} AND alt.tcg_low > 0),
+              ${printings.tcgLow}, 0)), 0)::real`,
+          })
+          .from(deckCards)
+          .innerJoin(printings, eq(deckCards.printingId, printings.printingId))
+          .where(inArray(deckCards.deckId, pageDeckIds))
+          .groupBy(deckCards.deckId);
+        for (const r of cheapestRows) cheapestByDeckId.set(r.deckId, r.cheapestValue);
+      }
+
       const summaries: PublicDeckSummaryDTO[] = rows.map((row) => ({
         _id: row.id,
         publicId: row.publicId,
@@ -1281,6 +1304,7 @@ export class PostgresDeckService implements IDeckService {
         featured: row.featured,
         totalCards: row.cardCount,
         estimatedValue: row.totalValue,
+        cheapestValue: cheapestByDeckId.get(row.id) ?? row.totalValue,
         updatedAt: row.updatedAt ?? undefined,
         eventName: row.eventName ?? null,
         eventDate: row.eventDate ?? null,

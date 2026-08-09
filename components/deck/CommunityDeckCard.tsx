@@ -77,6 +77,8 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
   const creatorName = deck.creatorDisplayUsername || deck.creatorUsername || 'Unknown';
   const totalCards = deck.totalCards || 0;
   const estimatedValue = deck.estimatedValue || 0;
+  // Same cards priced at the cheapest printing of each — "what it costs to build".
+  const cheapestValue = deck.cheapestValue || 0;
   const articleRefs = deck.articleReferences || [];
   // Only the stored image_url renders — printing_id-keyed CDN URLs 404
   // (old images deleted 2026-07), so no constructed fallback.
@@ -145,6 +147,19 @@ export default function CommunityDeckCard({ deck, onCopy, copying, showUsername 
                 <span className="text-gray-600 dark:text-gray-400">Value:</span>
                 <span className="font-medium text-green-600 dark:text-green-400">
                   ~${estimatedValue.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {cheapestValue > 0 && (
+              <div className="flex justify-between">
+                <span
+                  className="text-gray-600 dark:text-gray-400"
+                  title="Cost to build the deck using the cheapest printing of each card (TCG Low), any set or edition"
+                >
+                  Cheapest build:
+                </span>
+                <span className="font-medium text-gray-700 dark:text-gray-300">
+                  ~${cheapestValue.toFixed(2)}
                 </span>
               </div>
             )}

@@ -380,6 +380,12 @@ export interface ArchetypeConsensusResult {
  */
 export interface PublicDeckSummaryDTO extends DeckSummaryDTO {
   description?: string;
+  /**
+   * What the deck costs to BUILD: each card priced at the cheapest printing of
+   * that card (any set/edition/foiling), not the printing the deck happens to
+   * list. Same tcg_low basis as `estimatedValue`, so the two are comparable.
+   */
+  cheapestValue?: number;
   creatorUsername?: string;
   creatorDisplayUsername?: string;
   heroPrintingId?: string;
