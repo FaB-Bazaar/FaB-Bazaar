@@ -15,6 +15,10 @@ describe('resolveLandingPath', () => {
     expect(resolveLandingPath('volzar')).toBe('/volzar');
   });
 
+  it('maps "opt" to /opt', () => {
+    expect(resolveLandingPath('opt')).toBe('/opt');
+  });
+
   it('defaults to /volzar when unset', () => {
     expect(resolveLandingPath(null)).toBe('/volzar');
     expect(resolveLandingPath(undefined)).toBe('/volzar');
@@ -27,6 +31,6 @@ describe('resolveLandingPath', () => {
   });
 
   it('exposes the options list for UI and validation, volzar first', () => {
-    expect(LANDING_PAGE_OPTIONS.map((o) => o.value)).toEqual(['volzar', 'collection', 'decks']);
+    expect(LANDING_PAGE_OPTIONS.map((o) => o.value)).toEqual(['volzar', 'collection', 'decks', 'opt']);
   });
 });

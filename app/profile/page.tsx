@@ -22,6 +22,7 @@ import {
   BookOpen,
   Download,
   MapPin,
+  Home,
 } from "lucide-react"
 import Link from "next/link"
 import { DeleteAccountDialog } from "@/components/dialogs/account/delete-account-dialog"
@@ -34,6 +35,78 @@ import { useRouter } from "next/navigation"
 // Client services for API calls
 import { bindersClient, wantsClient, usersClient, locationsClient } from '@/lib/client';
 import { displayUsername as stripUsernamePrefix } from '@/lib/utils/display-username';
+import { LANDING_PAGE_OPTIONS } from '@/lib/landing-page';
+import { useToast } from '@/hooks/use-toast';
+
+/**
+ * Inline "Home page" preference for the Settings tab — the same
+ * users.landing_page dropdown as /profile/edit, saved immediately on change.
+ */
+function HomePageRow({
+  initialValue,
+  username,
+}: {
+  initialValue?: string | null
+  username: string
+}) {
+  const [value, setValue] = useState(initialValue || "")
+  const [saving, setSaving] = useState(false)
+  // The root layout mounts the shadcn Toaster (hooks/use-toast), not sonner's
+  // — sonner toasts render nowhere on this page.
+  const { toast: showToast } = useToast()
+
+  // Profile data arrives async — sync once it lands
+  useEffect(() => {
+    setValue(initialValue || "")
+  }, [initialValue])
+
+  async function handleChange(next: string) {
+    if (!username) return
+    const prev = value
+    setValue(next)
+    setSaving(true)
+    try {
+      const res = await fetch("/api/user/complete-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, landingPage: next }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        showToast({ title: "Home page updated" })
+      } else {
+        setValue(prev)
+        showToast({ title: "Error", description: data.error || "Failed to update home page", variant: "destructive" })
+      }
+    } catch {
+      setValue(prev)
+      showToast({ title: "Error", description: "Failed to update home page", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center">
+        <Home className="h-5 w-5 mr-2 text-muted-foreground" />
+        <span>Home Page</span>
+      </div>
+      <select
+        aria-label="Home page"
+        value={value}
+        disabled={saving}
+        onChange={(e) => handleChange(e.target.value)}
+        className="h-9 px-2 max-w-[220px] rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      >
+        <option value="">Default — Volzar (AI chat)</option>
+        {LANDING_PAGE_OPTIONS.filter((o) => o.value !== 'volzar').map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 /**
  * Inline country/state editor for the Overview tab — location is coarse by
@@ -488,6 +561,11 @@ export default function ProfilePage() {
                         </Button>
                       </Link>
                     </div>
+
+                    <HomePageRow
+                      initialValue={userData?.landingPage}
+                      username={userData?.username || ""}
+                    />
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">

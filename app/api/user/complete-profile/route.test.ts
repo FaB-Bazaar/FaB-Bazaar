@@ -38,6 +38,15 @@ describe('POST /api/user/complete-profile — landingPage', () => {
     );
   });
 
+  it('accepts the opt landing page', async () => {
+    const res = await POST(makeRequest({ username: 'bob', landingPage: 'opt' }));
+    expect(res.status).toBe(200);
+    expect(mockUpdateProfile).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ landingPage: 'opt' })
+    );
+  });
+
   it('passes an empty string through (clears back to the /volzar default)', async () => {
     const res = await POST(makeRequest({ username: 'bob', landingPage: '' }));
     expect(res.status).toBe(200);

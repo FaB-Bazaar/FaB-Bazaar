@@ -44,6 +44,7 @@ export async function GET() {
         countryCode: profile.countryCode,
         stateCode: profile.stateCode,
         preferredLanguage: profile.preferredLanguage,
+        landingPage: profile.landingPage,
       },
       sessionType: "nextauth",
       debug: {

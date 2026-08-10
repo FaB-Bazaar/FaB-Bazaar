@@ -5,6 +5,7 @@ export const LANDING_PAGE_OPTIONS = [
   { value: 'volzar', label: 'Volzar (AI chat)', path: '/volzar' },
   { value: 'collection', label: 'My collection', path: '/collection' },
   { value: 'decks', label: 'My decks', path: '/decks' },
+  { value: 'opt', label: 'Card search (/opt)', path: '/opt' },
 ] as const;
 
 export type LandingPage = (typeof LANDING_PAGE_OPTIONS)[number]['value'];
