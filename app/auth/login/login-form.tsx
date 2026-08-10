@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { loginWithDiscord } from "./actions" // <-- Import the new action
 
-export function LoginForm() {
+export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   return (
     <Card>
       <CardHeader className="space-y-1">
@@ -14,7 +14,8 @@ export function LoginForm() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* The form now references the imported server action */}
-        <form action={loginWithDiscord}> 
+        <form action={loginWithDiscord}>
+          {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
           <Button
             type="submit"
             className="w-full flex items-center justify-center bg-[#5865F2] text-white hover:bg-[#4752C4] hover:text-white"

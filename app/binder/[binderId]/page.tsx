@@ -852,7 +852,12 @@ const SuperSlamDisclosure = () => {
   if (authLoading || (loading && !binder)) return <LoadingScreen />;
   if (error) {
     if (error.includes('permission') || error.includes('Access denied') || error.includes('do not have permission')) {
-      return <AccessDeniedScreen />;
+      // Signed-out viewers get a sign-in CTA that brings them back here.
+      return (
+        <AccessDeniedScreen
+          signInHref={!user ? `/auth/login?callbackUrl=${encodeURIComponent(`/binder/${binderId}`)}` : undefined}
+        />
+      );
     }
     return <ErrorScreen error={error} />;
   }
