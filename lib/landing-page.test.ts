@@ -19,15 +19,19 @@ describe('resolveLandingPath', () => {
     expect(resolveLandingPath('opt')).toBe('/opt');
   });
 
-  it('defaults to /volzar when unset', () => {
-    expect(resolveLandingPath(null)).toBe('/volzar');
-    expect(resolveLandingPath(undefined)).toBe('/volzar');
-    expect(resolveLandingPath('')).toBe('/volzar');
+  it('defaults to /opt when unset', () => {
+    expect(resolveLandingPath(null)).toBe('/opt');
+    expect(resolveLandingPath(undefined)).toBe('/opt');
+    expect(resolveLandingPath('')).toBe('/opt');
   });
 
-  it('defaults to /volzar for unknown values', () => {
-    expect(resolveLandingPath('garbage')).toBe('/volzar');
-    expect(resolveLandingPath('/etc/passwd')).toBe('/volzar');
+  it('defaults to /opt for unknown values', () => {
+    expect(resolveLandingPath('garbage')).toBe('/opt');
+    expect(resolveLandingPath('/etc/passwd')).toBe('/opt');
+  });
+
+  it('an explicit volzar preference still resolves (default changed to opt)', () => {
+    expect(resolveLandingPath('volzar')).toBe('/volzar');
   });
 
   it('exposes the options list for UI and validation, volzar first', () => {

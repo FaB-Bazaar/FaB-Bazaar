@@ -22,8 +22,14 @@ beforeEach(() => {
 });
 
 describe('PostLoginPage routing', () => {
-  it('sends users without a landing preference to /volzar — the default logged-in home', async () => {
+  it('sends users without a landing preference to /opt — the default logged-in home', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1' } } as any);
+    await expect(PostLoginPage()).rejects.toThrow('NEXT_REDIRECT:/opt');
+  });
+
+  it('honors an explicit volzar preference', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1' } } as any);
+    mockGetBasicInfo.mockResolvedValue({ success: true, data: { _id: 'u1', landingPage: 'volzar' } } as any);
     await expect(PostLoginPage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
   });
 
@@ -39,10 +45,10 @@ describe('PostLoginPage routing', () => {
     await expect(PostLoginPage()).rejects.toThrow('NEXT_REDIRECT:/decks');
   });
 
-  it('falls back to /volzar when the preference read fails', async () => {
+  it('falls back to /opt when the preference read fails', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1' } } as any);
     mockGetBasicInfo.mockRejectedValue(new Error('db down'));
-    await expect(PostLoginPage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
+    await expect(PostLoginPage()).rejects.toThrow('NEXT_REDIRECT:/opt');
   });
 
   it('falls back to /discord when somehow reached without a session', async () => {

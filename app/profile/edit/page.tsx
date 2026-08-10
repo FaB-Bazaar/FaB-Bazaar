@@ -15,7 +15,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { locationsClient } from "@/lib/client"
 import { SUPPORTED_LANGUAGES } from "@/app/volzar/ui-strings"
-import { LANDING_PAGE_OPTIONS } from "@/lib/landing-page"
+import { LANDING_PAGE_OPTIONS, DEFAULT_LANDING_PAGE } from "@/lib/landing-page"
 
 export default function EditProfilePage() {
   const router = useRouter()
@@ -275,8 +275,8 @@ export default function EditProfilePage() {
                   onChange={(e) => setLandingPage(e.target.value)}
                   className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="">Default — Volzar (AI chat)</option>
-                  {LANDING_PAGE_OPTIONS.filter((o) => o.value !== 'volzar').map((o) => (
+                  <option value="">Default — Card search (/opt)</option>
+                  {LANDING_PAGE_OPTIONS.filter((o) => o.value !== DEFAULT_LANDING_PAGE).map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>

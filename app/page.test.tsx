@@ -33,15 +33,22 @@ beforeEach(() => {
 });
 
 describe('HomePage routing', () => {
-  it('sends any signed-in user to /volzar — the logged-in home', async () => {
+  it('sends any signed-in user to /opt — the default logged-in home', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', roles: {} } } as any);
 
-    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
-    expect(mockRedirect).toHaveBeenCalledWith('/volzar');
+    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/opt');
+    expect(mockRedirect).toHaveBeenCalledWith('/opt');
   });
 
-  it('sends superadmins to /volzar too — no operator carve-out on the homepage', async () => {
+  it('sends superadmins to /opt too — no operator carve-out on the homepage', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'admin', roles: { isSuperAdmin: true } } } as any);
+
+    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/opt');
+  });
+
+  it('honors an explicit volzar preference', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', roles: {} } } as any);
+    mockGetBasicInfo.mockResolvedValue({ success: true, data: { _id: 'u1', landingPage: 'volzar' } } as any);
 
     await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
   });
@@ -60,11 +67,11 @@ describe('HomePage routing', () => {
     await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/decks');
   });
 
-  it('falls back to /volzar when the preference read fails', async () => {
+  it('falls back to /opt when the preference read fails', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', roles: {} } } as any);
     mockGetBasicInfo.mockRejectedValue(new Error('db down'));
 
-    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/volzar');
+    await expect(HomePage()).rejects.toThrow('NEXT_REDIRECT:/opt');
   });
 
   it('renders the marketing home for signed-out visitors', async () => {
