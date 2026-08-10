@@ -424,12 +424,37 @@ export async function GET(
       }
     }
 
+    // Optional art map for graphical clients (?includeArt=1).
+    //
+    // Talishar's game state identifies cards by collector number only, with no
+    // printing info — so a client that wants to render the player's *actual*
+    // printings (foils, alt arts) needs collector_number -> image_url for this
+    // deck. Everything required is already selected by the deck service; this
+    // adds no queries.
+    //
+    // Additive and gated behind the query param so the response Talishar's PHP
+    // consumes in production stays byte-identical. Known limit: Talishar picks
+    // its own canonical printing per identifier, so if it reports a reprint's
+    // collector number the map misses that card — clients should fall back to
+    // Talishar's own card images on a miss.
+    const includeArt = url.searchParams.get('includeArt') === '1';
+    let art: Record<string, string> | undefined;
+    if (includeArt) {
+      art = {};
+      for (const printing of [...deck.hero, ...deck.equipment, ...deck.maindeck, ...deck.inventory]) {
+        const collector = printing.printingDetails?.collector_number;
+        const imageUrl = printing.printingDetails?.image_url;
+        if (collector && imageUrl) art[collector] = imageUrl;
+      }
+    }
+
     // Build Talishar response
     const talisharDeck = {
       name: deck.name,
       ...(deck.format && { format: FORMAT_MAP[deck.format] || deck.format.toLowerCase() }),
       cards,
-      ...(validMatchups.length > 0 && { matchups: validMatchups })
+      ...(validMatchups.length > 0 && { matchups: validMatchups }),
+      ...(art && { art })
     };
 
     return NextResponse.json(talisharDeck);
