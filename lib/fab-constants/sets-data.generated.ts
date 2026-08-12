@@ -131,6 +131,9 @@ export const SET_MAP = {
   "sgb": "Silver Age Deck: Gravy Bones",
   "sly": "Silver Age Deck: Lyath Goldmane",
   "con": "Convention Promos",
+  "ama": "Armory Deck: Malice",
+  "amo": "Armory Deck: Dr. Mortimer",
+  "mpa": "Mastery Pack Assassin",
 } as const;
 
 export const SET_METADATA: Record<string, SetMetadata> = {
@@ -254,4 +257,7 @@ export const SET_METADATA: Record<string, SetMetadata> = {
   "sgb": { code: "SGB", name: "Silver Age Deck: Gravy Bones", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1126, unlimitedBeforeFirst: false },
   "sly": { code: "SLY", name: "Silver Age Deck: Lyath Goldmane", releaseDate: "2026-06-05", hasFirstEdition: false, category: "non-standard", tier: 3, displayOrder: 1127, unlimitedBeforeFirst: false },
   "con": { code: "CON", name: "Convention Promos", releaseDate: "", hasFirstEdition: false, category: "non-standard", tier: 5, displayOrder: 1128, unlimitedBeforeFirst: false },
+  "ama": { code: "AMA", name: "Armory Deck: Malice", releaseDate: "2026-09-25", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1129, unlimitedBeforeFirst: false },
+  "amo": { code: "AMO", name: "Armory Deck: Dr. Mortimer", releaseDate: "2026-11-13", hasFirstEdition: false, category: "armory", tier: 4, displayOrder: 1130, unlimitedBeforeFirst: false },
+  "mpa": { code: "MPA", name: "Mastery Pack Assassin", releaseDate: "2026-11-13", hasFirstEdition: false, category: "standard", tier: 2, displayOrder: 401, unlimitedBeforeFirst: false },
 };
