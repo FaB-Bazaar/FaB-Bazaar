@@ -32,6 +32,26 @@ export const SET_IMAGES: Record<string, string> = {
   'pen': '1b879518-bef3-4abc-5b89-a4fb27ff7500', // Compendium of Rathe
   'anq': '1b879518-bef3-4abc-5b89-a4fb27ff7500', // Antiquities of Rathe
   'iar': 'set-iar-logo', // Usurp the Shadow Throne
+  'ama': 'set-ama-logo', // Armory Deck: Malice
+  'amo': 'set-amo-logo', // Armory Deck: Dr. Mortimer
+  'mpa': 'set-mpa-logo', // Mastery Pack Assassin
+};
+
+// GEM seasonal pack art, keyed by TCGplayer group id (`tcg_groups.group_id`,
+// canonical from tcgcsv — same ids in every environment). The /sets/GEM hero
+// image swaps to the selected season's wrapper art; unmapped groups fall back
+// to the set image.
+export const GEM_PACK_IMAGES: Record<number, string> = {
+  24176: 'gem-pack-1',
+  24334: 'gem-pack-2',
+  24446: 'gem-pack-3',
+  24620: 'gem-pack-4',
+  24720: 'gem-pack-5',
+};
+
+export const getGemPackImageUrl = (groupId: number): string | null => {
+  const imageId = GEM_PACK_IMAGES[groupId];
+  return imageId ? `${CLOUDFLARE_IMAGE_BASE}/${imageId}/public` : null;
 };
 
 // Helper function to get set image URL

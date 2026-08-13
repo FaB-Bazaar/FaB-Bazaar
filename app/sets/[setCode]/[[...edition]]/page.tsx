@@ -7,7 +7,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getSetMetadata, hasFirstEdition } from '@/lib/fab-constants'
-import { getSetImageUrl } from "@/lib/set-images"
+import { getSetImageUrl, getGemPackImageUrl } from "@/lib/set-images"
 import { languageFlag } from "@/lib/utils/printing-language"
 import { useAuth } from "@/contexts/AuthContext"
 import AddSetToBinderDialog from "@/components/sets/AddSetToBinderDialog"
@@ -272,7 +272,7 @@ export default function SetPage() {
         {setCode && !imageError && (
           <div className="mb-1 flex justify-center">
             <img
-              src={getSetImageUrl(setCode)}
+              src={(selectedPack != null && getGemPackImageUrl(selectedPack)) || getSetImageUrl(setCode)}
               alt={setInfo?.name || setCode.toUpperCase()}
               className="max-w-md w-auto max-h-24 md:max-h-32 rounded-lg shadow-lg"
               onError={() => setImageError(true)}
@@ -336,7 +336,7 @@ export default function SetPage() {
                 <Button
                   variant={selectedPack === null ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setSelectedPack(null)}
+                  onClick={() => { setSelectedPack(null); setImageError(false); }}
                   aria-pressed={selectedPack === null}
                 >
                   All Packs
@@ -346,7 +346,7 @@ export default function SetPage() {
                     key={p.groupId}
                     variant={selectedPack === p.groupId ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedPack(p.groupId)}
+                    onClick={() => { setSelectedPack(p.groupId); setImageError(false); }}
                     aria-pressed={selectedPack === p.groupId}
                   >
                     {p.name}

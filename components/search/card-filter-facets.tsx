@@ -199,7 +199,7 @@ function SetGridButton({ setCode, selected, onToggle }: { setCode: string; selec
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imageUrl}
-          className="w-7 h-7 object-contain"
+          className="w-full h-9 px-1 object-contain"
           alt={SET_MAP[setCode as keyof typeof SET_MAP] || setCode}
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
@@ -611,12 +611,12 @@ export function buildFilterFacets({
     {
       // max-h + scroll: three set sections (Promos / Deck products / Other
       // products) plus packs otherwise overflow short viewports.
-      key: 'sets', label: 'Sets', count: selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-80 max-h-[min(70vh,640px)] overflow-y-auto',
+      key: 'sets', label: 'Sets', count: selectedSets.length + selectedPacks.length, align: 'right', panelClassName: 'w-[min(94vw,32rem)] max-h-[min(70vh,640px)] overflow-y-auto',
       body: (
         <div className="space-y-3">
           <div>
             <p className={SECTION}>Set</p>
-            <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
+            <div className="grid grid-cols-5 gap-1 max-h-64 overflow-y-auto">
               {OPT_FILTER_SETS.map(setCode => (
                 <SetGridButton
                   key={setCode}
