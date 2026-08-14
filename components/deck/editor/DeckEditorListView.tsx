@@ -721,6 +721,7 @@ function DeckTileSection({
   tileWidth = 72,
   ownershipFilter = 'all',
   isTouchDevice = false,
+  libraryTotal,
 }: {
   section: DeckTileSectionData;
   onHover: (url: string, name: string, extras?: HoverExtras) => void;
@@ -756,6 +757,8 @@ function DeckTileSection({
   highlightMatchIds?: Set<string> | null;
   /** Width of each card tile in px — default 72 */
   tileWidth?: number;
+  /** Whole-library count — library pitch sections render "(n/total)" instead of "(n)" */
+  libraryTotal?: number;
   /** When set, shows a binder link below owned tiles */
   ownershipFilter?: 'all' | 'owned' | 'unowned';
   isTouchDevice?: boolean;
@@ -887,7 +890,7 @@ function DeckTileSection({
           section.key === 'yellow' ? "text-yellow-700 dark:text-yellow-400" :
           section.key === 'blue'   ? "text-blue-600 dark:text-blue-400" :
           "text-gray-600 dark:text-gray-300"
-        )}>({section.tiles.length})</span>
+        )}>({section.tiles.length}{libraryTotal != null ? `/${libraryTotal}` : ''})</span>
         {isDragActive && isValidDropTarget && (
           <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
         )}
@@ -2653,7 +2656,11 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                   <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">({libraryTileTotal})</span>
                 </div>
               )}
-              <DeckTileSection section={s} {...tileSharedProps} />
+              <DeckTileSection
+                section={s}
+                {...tileSharedProps}
+                libraryTotal={LIBRARY_SECTION_KEYS.includes(s.key) ? libraryTileTotal : undefined}
+              />
             </React.Fragment>
           ))}
         </div>
@@ -2757,7 +2764,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                     section.key === 'yellow' ? "text-yellow-700 dark:text-yellow-400" :
                     section.key === 'blue'   ? "text-blue-600 dark:text-blue-400" :
                     "text-gray-600 dark:text-gray-300"
-                  )}>({sectionTotal})</span>
+                  )}>({sectionTotal}{LIBRARY_SECTION_KEYS.includes(section.key) ? `/${gameLibraryTotal}` : ''})</span>
                   <ChevronDown className={cn("h-3 w-3 text-gray-500 ml-auto transition-transform shrink-0", isSectionCollapsed && "-rotate-90")} />
                 </button>
                 {!isSectionCollapsed && <div className="flex flex-wrap gap-1">
