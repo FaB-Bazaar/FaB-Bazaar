@@ -39,3 +39,13 @@ Re-exports everything from `heroes-rosters` and `heroes-meta`, plus owns the loo
 ## Contract tests
 
 `heroes.test.ts` pins every public export's presence and spot-checks representative values + helper behavior. Run after any edit to roster data, LL snapshot, or Marvel IDs.
+
+## Registering a new set
+
+1. SQL migration inserting the `sets` row — see 0102 for precedents (armory deck:
+   category=armory/tier 4/MAX+1 ordering; mastery pack: standard/tier 2,
+   display_order next to MPW's 400). Then `scripts/generate-set-constants.ts`.
+2. Standard sets ALSO need two manual edits the snapshot does NOT cover: add the
+   code to `CARD_FILTER_SETS` (sets.ts, newest first) and a logo entry in
+   `lib/set-images.ts` SET_IMAGES (deterministic Cloudflare id `set-<code>-logo`).
+   Deck-product sets skip both — groups derive from category/name prefix.
