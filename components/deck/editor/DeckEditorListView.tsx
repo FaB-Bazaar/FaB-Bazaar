@@ -1570,6 +1570,12 @@ function buildGameViewSections(deck: DeckDTO): GameViewSection[] {
   return sections;
 }
 
+/** Copies a game-view section contributes to its zone (pitch sections count only their pitch's qty). */
+function gameSectionQtyTotal(section: GameViewSection): number {
+  return section.cards.reduce((s, c) =>
+    s + (section.key === 'red' ? c.redQty : section.key === 'yellow' ? c.yellowQty : section.key === 'blue' ? c.blueQty : section.key === 'unpitched' ? c.noPitchQty : c.totalQty), 0);
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface DeckEditorListViewProps {
@@ -2155,6 +2161,15 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   const heroPortrait = tileSections.find(s => s.key === 'hero')?.tiles[0] ?? null;
   const tileTopSections = filteredTileSections.filter(s => s.key === 'equipment');
   const tileRestSections = filteredTileSections.filter(s => s.key !== 'hero' && s.key !== 'equipment');
+  // Library (maindeck) total for the pitch-split views — the per-pitch section
+  // headers hide the whole-zone count, and desktop deliberately has no zone-count
+  // chips, so without this rollup the maindeck size appears nowhere.
+  // string[] (not TileSectionKey[]) so both tile sections and the game view's string-keyed sections can share it
+  const LIBRARY_SECTION_KEYS: string[] = ['red', 'yellow', 'blue', 'unpitched'];
+  const firstLibrarySectionKey = tileRestSections.find(s => LIBRARY_SECTION_KEYS.includes(s.key))?.key;
+  const libraryTileTotal = tileRestSections
+    .filter(s => LIBRARY_SECTION_KEYS.includes(s.key))
+    .reduce((sum, s) => sum + s.tiles.length, 0);
 
   const tileSharedProps = {
     onHover: isTouchDevice
@@ -2631,15 +2646,28 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
             />
           ))}
           {tileRestSections.map(s => (
-            <DeckTileSection key={s.key} section={s} {...tileSharedProps} />
+            <React.Fragment key={s.key}>
+              {s.key === firstLibrarySectionKey && (
+                <div className="flex items-center gap-1.5 px-0.5 pt-2 pb-1 mb-1.5 border-b border-gray-300 dark:border-gray-700/60">
+                  <span className="text-sm uppercase tracking-wider font-bold text-gray-700 dark:text-gray-200">Library</span>
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">({libraryTileTotal})</span>
+                </div>
+              )}
+              <DeckTileSection section={s} {...tileSharedProps} />
+            </React.Fragment>
           ))}
         </div>
       ) : (
         /* Game view — one tile per card name, R/Y/B pitch count bubbles */
         <div className="rounded border border-gray-300 dark:border-gray-700/50 p-2">
-          {buildGameViewSections(displayDeck).map(section => {
-            const sectionTotal = section.cards.reduce((s, c) =>
-              s + (section.key === 'red' ? c.redQty : section.key === 'yellow' ? c.yellowQty : section.key === 'blue' ? c.blueQty : section.key === 'unpitched' ? c.noPitchQty : c.totalQty), 0);
+          {(() => {
+            const gameSections = buildGameViewSections(displayDeck);
+            const firstGameLibraryKey = gameSections.find(s => LIBRARY_SECTION_KEYS.includes(s.key))?.key;
+            const gameLibraryTotal = gameSections
+              .filter(s => LIBRARY_SECTION_KEYS.includes(s.key))
+              .reduce((sum, s) => sum + gameSectionQtyTotal(s), 0);
+            return gameSections.map(section => {
+            const sectionTotal = gameSectionQtyTotal(section);
             const sectionCollapseKey = `game-${section.key}`;
             const isSectionCollapsed = collapsedSections.has(sectionCollapseKey);
             const gameZoneAccent: Record<string, { bg: string; border: string; headerBorder: string; labelColor: string }> = {
@@ -2653,8 +2681,15 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
             };
             const gameAccent = gameZoneAccent[section.key] ?? gameZoneAccent.unpitched;
             return (
-              // Same deck-section-* anchors as tile view so the HUD's jump-to-color buttons work here too
-              <div key={section.key} id={`deck-section-${section.key}`} className={cn("mb-3 p-1 transition-all scroll-mt-16", gameAccent.bg, gameAccent.border)}>
+              <React.Fragment key={section.key}>
+              {section.key === firstGameLibraryKey && (
+                <div className="flex items-center gap-1.5 px-0.5 pt-2 pb-1 mb-1.5 border-b border-gray-300 dark:border-gray-700/60">
+                  <span className="text-sm uppercase tracking-wider font-bold text-gray-700 dark:text-gray-200">Library</span>
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">({gameLibraryTotal})</span>
+                </div>
+              )}
+              {/* Same deck-section-* anchors as tile view so the HUD's jump-to-color buttons work here too */}
+              <div id={`deck-section-${section.key}`} className={cn("mb-3 p-1 transition-all scroll-mt-16", gameAccent.bg, gameAccent.border)}>
                 <button
                   type="button"
                   onClick={() => toggleSection(sectionCollapseKey)}
@@ -2811,8 +2846,10 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                   })}
                 </div>}
               </div>
+              </React.Fragment>
             );
-          })}
+          });
+          })()}
         </div>
       )}
 
