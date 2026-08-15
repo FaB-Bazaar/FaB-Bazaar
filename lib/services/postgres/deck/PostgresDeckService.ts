@@ -12,6 +12,7 @@ import { decks, deckCards, printings, cards, inventoryItems, binders, users, art
 import { eq, and, sql, inArray, desc, asc, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { sumOwnedByPrintingId, sumForTradeByPrintingId } from '../inventory/ownership-queries';
+import { DECK_FOLDER_MAX_LENGTH } from '@/lib/services/contracts/IDeckService';
 import type {
   IDeckService,
   DeckDTO,
@@ -252,6 +253,7 @@ export class PostgresDeckService implements IDeckService {
       eventName: deckRow.eventName ?? null,
       eventDate: deckRow.eventDate ?? null,
       placing: deckRow.placing ?? null,
+      folder: deckRow.folder ?? null,
     };
   }
 
@@ -273,6 +275,7 @@ export class PostgresDeckService implements IDeckService {
       featured: deckRow.featured ?? false,
       isSystemDeck: deckRow.isSystemDeck ?? false,
       pinnedInNav: deckRow.pinnedInNav ?? false,
+      folder: deckRow.folder ?? null,
       totalCards: deckRow.totalCards || 0,
       estimatedValue: deckRow.estimatedValue || 0,
       updatedAt: deckRow.updatedAt,
@@ -795,6 +798,13 @@ export class PostgresDeckService implements IDeckService {
       if (updates.eventName !== undefined) updateFields.eventName = updates.eventName;
       if (updates.eventDate !== undefined) updateFields.eventDate = updates.eventDate;
       if (updates.placing !== undefined) updateFields.placing = updates.placing;
+      if (updates.folder !== undefined) {
+        const folder = updates.folder?.trim() || null;
+        if (folder && folder.length > DECK_FOLDER_MAX_LENGTH) {
+          return { success: false, error: `Folder name must be ${DECK_FOLDER_MAX_LENGTH} characters or fewer` };
+        }
+        updateFields.folder = folder;
+      }
 
       // Backfill hero_name from the hero printing when enabling Talishar and hero_name is null
       if (updates.availableOnTalishar === true && updates.heroName === undefined) {

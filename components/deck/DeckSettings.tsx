@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Settings, Save, Trash2, Swords, UserPlus, X, Loader2, Star, Shield } from "lucide-react";
 import DeckMatchupsDialog from "./DeckMatchupsDialog";
+import { DECK_FOLDER_MAX_LENGTH } from "@/lib/services/contracts/IDeckService";
 import TalisharToggle from "./TalisharToggle";
 import { TALISHAR_HERO_IDS } from "@/lib/fab-constants/heroes";
 
@@ -40,6 +41,7 @@ interface DeckSettingsProps {
     eventName?: string | null;
     eventDate?: string | null;
     placing?: number | null;
+    folder?: string | null;
   };
   onSave: (settings: {
     name: string;
@@ -53,7 +55,10 @@ interface DeckSettingsProps {
     eventName: string | null;
     eventDate: string | null;
     placing: number | null;
+    folder: string | null;
   }) => Promise<void>;
+  /** Existing folder names across the user's decks — offered as autocomplete suggestions. */
+  existingFolders?: string[];
   loading?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -69,7 +74,7 @@ interface DeckSettingsProps {
   onToggleSystemDeck?: (deckId: string, value: boolean) => void;
 }
 
-export default function DeckSettings({ deck, onSave, loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck, isCurator, featured: featuredProp, onToggleFeatured, isSuperAdmin, isSystemDeck: isSystemDeckProp, onToggleSystemDeck }: DeckSettingsProps) {
+export default function DeckSettings({ deck, onSave, existingFolders = [], loading = false, open, onOpenChange, isMetafyPartner, deckId, fullDeck, isCurator, featured: featuredProp, onToggleFeatured, isSuperAdmin, isSystemDeck: isSystemDeckProp, onToggleSystemDeck }: DeckSettingsProps) {
   const [name, setName] = useState(deck.name);
   const [description, setDescription] = useState(deck.description || "");
   const [format, setFormat] = useState(deck.format);
@@ -79,6 +84,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
   const [eventName, setEventName] = useState(deck.eventName ?? "");
   const [eventDate, setEventDate] = useState(deck.eventDate ?? "");
   const [placing, setPlacing] = useState(deck.placing != null ? String(deck.placing) : "");
+  const [folder, setFolder] = useState(deck.folder ?? "");
   const [saving, setSaving] = useState(false);
   const [featuredLocal, setFeaturedLocal] = useState(featuredProp ?? false);
   const [isSystemDeckLocal, setIsSystemDeckLocal] = useState(isSystemDeckProp ?? false);
@@ -117,7 +123,8 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     metafyGuideId !== (deck.metafyGuideId || "") ||
     eventName !== (deck.eventName ?? "") ||
     eventDate !== (deck.eventDate ?? "") ||
-    placing !== (deck.placing != null ? String(deck.placing) : "");
+    placing !== (deck.placing != null ? String(deck.placing) : "") ||
+    folder !== (deck.folder ?? "");
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -136,6 +143,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
         eventName: eventName.trim() || null,
         eventDate: eventDate || null,
         placing: placing ? parseInt(placing, 10) : null,
+        folder: folder.trim() || null,
       });
     } catch (error) {
       console.error('Failed to save deck settings:', error);
@@ -154,6 +162,7 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
     setEventName(deck.eventName ?? "");
     setEventDate(deck.eventDate ?? "");
     setPlacing(deck.placing != null ? String(deck.placing) : "");
+    setFolder(deck.folder ?? "");
   };
 
   // Fetch co-owners
@@ -345,6 +354,28 @@ export default function DeckSettings({ deck, onSave, loading = false, open, onOp
             <option key={formatOption} value={formatOption}>{formatOption}</option>
           ))}
         </select>
+      </div>
+
+      {/* Folder (free-form; single-level organization on the /decks page) */}
+      <div className="space-y-1.5">
+        <Label htmlFor="deck-folder">Folder</Label>
+        <Input
+          id="deck-folder"
+          list="deck-folder-suggestions"
+          value={folder}
+          onChange={(e) => setFolder(e.target.value)}
+          placeholder="e.g. Physical decks, Brewing, Retired…"
+          maxLength={DECK_FOLDER_MAX_LENGTH}
+          autoComplete="off"
+        />
+        <datalist id="deck-folder-suggestions">
+          {existingFolders.map(f => (
+            <option key={f} value={f} />
+          ))}
+        </datalist>
+        <p className="text-xs text-muted-foreground">
+          Group this deck with others on your Decks page. Reuse a name to add to an existing folder; leave blank for none.
+        </p>
       </div>
 
       {/* Visibility */}

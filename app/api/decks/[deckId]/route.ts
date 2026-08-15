@@ -224,6 +224,7 @@ export async function PATCH(
         eventName: body.eventName,
         eventDate: body.eventDate,
         placing: body.placing,
+        folder: body.folder,
       }
     );
 

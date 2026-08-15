@@ -86,7 +86,8 @@ export const listDecksTool = {
           : diffDays < 30 ? `${diffDays} days ago`
           : `${Math.floor(diffDays / 30)} months ago`;
 
-        message += `${index + 1}. **${deck.name}** | ${deck.heroName || '—'} | ${deck.format || '—'} | ${deck.totalCards || 0} cards | ${deck.isPublic ? 'Public' : 'Private'} | ${timeAgo}\n`;
+        const folderSuffix = deck.folder ? ` | 📁 ${deck.folder}` : '';
+        message += `${index + 1}. **${deck.name}** | ${deck.heroName || '—'} | ${deck.format || '—'} | ${deck.totalCards || 0} cards | ${deck.isPublic ? 'Public' : 'Private'} | ${timeAgo}${folderSuffix}\n`;
       });
 
       return {
@@ -98,6 +99,7 @@ export const listDecksTool = {
           format: d.format,
           totalCards: d.totalCards || 0,
           isPublic: d.isPublic,
+          folder: d.folder ?? null,
           updatedAt: d.updatedAt,
           // Internal use only — not for display; use url to link to public decks
           publicId: d.publicId,

@@ -776,6 +776,10 @@ export const decks = pgTable('decks', {
   eventDate: date('event_date'),
   placing: integer('placing'),
 
+  // User-defined folder label ("Physical decks", "Brewing", …) — free-form,
+  // single-level organization for the /decks page. NULL = unfiled. (migration 0103)
+  folder: text('folder'),
+
   // Optional metadata
   tags: text('tags').array(),
   metadata: jsonb('metadata'),

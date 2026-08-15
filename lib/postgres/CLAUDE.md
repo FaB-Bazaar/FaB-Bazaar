@@ -26,7 +26,7 @@ Fully normalized PostgreSQL schema with Drizzle ORM. All related data fetched vi
 | `binders` | Named collections. Visibility, feature flags (allowWhoHas, allowInSearch, etc.) | `users.id` CASCADE |
 | `inventory_items` | Card holdings per (binder, printing, condition, language). forTrade/forSale flags | `users.id` + `binders.id` CASCADE |
 | `wants_items` | Want list entries. One per (user, printing) | `users.id` CASCADE |
-| `decks` | Decks with `publicId` (nanoid for URLs), `metadata` (JSONB for matchups etc.) | `users.id` CASCADE |
+| `decks` | Decks with `publicId` (nanoid for URLs), `metadata` (JSONB for matchups etc.), `folder` (free-form user label for /decks grouping; NULL = unfiled, service trims + caps at `DECK_FOLDER_MAX_LENGTH`; migration 0103) | `users.id` CASCADE |
 | `deck_cards` | Join table: deck + printing + category + quantity | `decks.id` CASCADE |
 | `articles` | CMS content. `contentType`: hero/article/guide/news/strategy/tournament. `sections` is JSONB | `users.id` CASCADE |
 | `oauth_clients` | Registered OAuth 2.1 clients | `users.id` CASCADE (nullable) |

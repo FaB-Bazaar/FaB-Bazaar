@@ -473,6 +473,7 @@ export function useDeckPage(deckId: string) {
     isPublic: boolean;
     availableOnTalishar: boolean;
     metafyGuideId: string | null;
+    folder?: string | null;
   }) => {
     const result = await decksClient.updateDeck(deckId, {
       name: settings.name,
@@ -482,6 +483,7 @@ export function useDeckPage(deckId: string) {
       visibility: settings.visibility,
       availableOnTalishar: settings.availableOnTalishar,
       metafyGuideId: settings.metafyGuideId,
+      folder: settings.folder,
     } as any);
     if (!result.success) {
       toast({ title: "Error", description: result.error, variant: "destructive" });

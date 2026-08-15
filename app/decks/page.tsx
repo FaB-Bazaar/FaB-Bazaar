@@ -29,6 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { decksClient } from "@/lib/client";
 import { matchesDeckFilter, type DeckFilterType } from "@/lib/deck/deck-filter";
+import { collectDeckFolders, matchesFolderFilter, ALL_FOLDERS, NO_FOLDER } from "@/lib/deck/deck-folders";
 import { trackDeckCreate } from "@/lib/gtag";
 import { HERO_INFO, YOUNG_HERO_INFO, sortPrintings, TALISHAR_HERO_IDS } from "@/lib/fab-constants";
 
@@ -69,6 +70,7 @@ interface Deck {
   eventName?: string | null;
   eventDate?: string | null;
   placing?: number | null;
+  folder?: string | null;
   coOwners?: string[];
   // Full card arrays — only present when deck detail is loaded; absent for list summaries
   hero?: DeckPrinting[];
@@ -111,6 +113,7 @@ export default function DecksPage() {
   const [filterFormat, setFilterFormat] = useState("all");
   const [filterVisibility, setFilterVisibility] = useState("all"); // all, public, private
   const [filterType, setFilterType] = useState("all"); // all, featured, system
+  const [filterFolder, setFilterFolder] = useState<string>(ALL_FOLDERS); // ALL_FOLDERS | NO_FOLDER | folder name
   const [sortBy, setSortBy] = useState("updated"); // updated, created, name, value
   const [activeTab, setActiveTab] = useState("decks");
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
@@ -452,6 +455,7 @@ export default function DecksPage() {
     eventName: string | null;
     eventDate: string | null;
     placing: number | null;
+    folder: string | null;
   }) => {
     if (!settingsDeck) return;
     const result = await decksClient.updateDeck(settingsDeck.publicId, {
@@ -465,6 +469,7 @@ export default function DecksPage() {
       eventName: settings.eventName,
       eventDate: settings.eventDate,
       placing: settings.placing,
+      folder: settings.folder,
     } as any);
     if (!result.success) {
       toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -484,6 +489,15 @@ export default function DecksPage() {
     return deck.uniqueCardCount ?? 0;
   };
 
+  // Folder names across ALL loaded decks (not just personal) so a system deck's folder is still selectable
+  const availableFolders = collectDeckFolders(decks);
+  // A selected folder can vanish (its last deck was cleared/deleted) — fall back to "all"
+  // instead of silently hiding every deck behind a select that no longer offers that option.
+  const effectiveFolderFilter =
+    filterFolder === ALL_FOLDERS || filterFolder === NO_FOLDER || availableFolders.includes(filterFolder)
+      ? filterFolder
+      : ALL_FOLDERS;
+
   // Filter and sort decks
   const filteredAndSortedDecks = decks
     .filter(deck => {
@@ -498,7 +512,9 @@ export default function DecksPage() {
 
       const matchesType = matchesDeckFilter(deck, filterType as DeckFilterType);
 
-      return matchesSearch && matchesFormat && matchesVisibility && matchesType;
+      const matchesFolder = matchesFolderFilter(deck, effectiveFolderFilter);
+
+      return matchesSearch && matchesFormat && matchesVisibility && matchesType && matchesFolder;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -622,6 +638,7 @@ export default function DecksPage() {
           open={!!settingsDeck}
           onOpenChange={(open) => { if (!open) setSettingsDeck(null); }}
           onSave={handleSaveSettings}
+          existingFolders={availableFolders}
           isMetafyPartner={hasMetafyAccount}
           deckId={settingsDeck.publicId}
           fullDeck={settingsDeck}
@@ -767,6 +784,21 @@ export default function DecksPage() {
                 <option value="private">Private</option>
               </select>
 
+              {availableFolders.length > 0 && (
+                <select
+                  value={effectiveFolderFilter}
+                  onChange={(e) => setFilterFolder(e.target.value)}
+                  aria-label="Filter by folder"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm min-w-0 max-w-[14rem]"
+                >
+                  <option value={ALL_FOLDERS}>All folders</option>
+                  <option value={NO_FOLDER}>No folder</option>
+                  {availableFolders.map(folder => (
+                    <option key={folder} value={folder}>{folder}</option>
+                  ))}
+                </select>
+              )}
+
               {user?.isSuperAdmin && (
                 <select
                   value={filterType}
@@ -793,7 +825,7 @@ export default function DecksPage() {
           </div>
 
           {/* Active filters indicator */}
-          {(searchQuery || filterFormat !== "all" || filterVisibility !== "all" || filterType !== "all") && (
+          {(searchQuery || filterFormat !== "all" || filterVisibility !== "all" || filterType !== "all" || effectiveFolderFilter !== ALL_FOLDERS) && (
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
               <Filter className="h-4 w-4 text-gray-500" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -807,6 +839,7 @@ export default function DecksPage() {
                   setFilterFormat("all");
                   setFilterVisibility("all");
                   setFilterType("all");
+                  setFilterFolder(ALL_FOLDERS);
                 }}
                 className="ml-auto text-xs"
               >
@@ -860,6 +893,7 @@ export default function DecksPage() {
                     onChangeVisibility={handleChangeVisibility}
                     onToggleTalishar={handleToggleTalishar}
                     onTogglePin={handleTogglePin}
+                    onFolderClick={(folder) => { setFilterFolder(folder); setActiveTab("decks"); }}
                   />
                 ))}
               </div>

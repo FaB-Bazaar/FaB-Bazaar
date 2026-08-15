@@ -21,6 +21,7 @@ import {
   Star,
   Shield,
   Pin,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TalisharToggle from "@/components/deck/TalisharToggle";
@@ -56,6 +57,8 @@ interface Deck {
   isSystemDeck?: boolean;
   pinnedInNav?: boolean;
   metafyGuideId?: string | null;
+  /** User-defined folder label (null/undefined = unfiled) */
+  folder?: string | null;
   // New structure - arrays by category
   hero: DeckPrinting[];
   equipment: DeckPrinting[];
@@ -88,6 +91,8 @@ interface DeckCardProps {
   onTogglePin?: (deckId: string, value: boolean) => void;
   onChangeVisibility?: (deckId: string, value: 'private' | 'unlisted' | 'public') => void;
   onSettings?: () => void;
+  /** When provided, the folder chip becomes a button that filters the list by that folder. */
+  onFolderClick?: (folder: string) => void;
 }
 
 export default function DeckCard({
@@ -101,6 +106,7 @@ export default function DeckCard({
   onTogglePin,
   onChangeVisibility,
   onSettings,
+  onFolderClick,
 }: DeckCardProps) {
   const [heroPreview, setHeroPreview] = useState<{ url: string; x: number; y: number } | null>(null);
   
@@ -142,7 +148,7 @@ export default function DeckCard({
   return (
     <TooltipProvider delayDuration={300}>
     <>
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col">
+    <div data-testid="deck-card" className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-300 dark:border-gray-700 overflow-visible">
         <div className="flex items-start gap-3">
@@ -230,11 +236,33 @@ export default function DeckCard({
               </p>
             )}
 
-            {/* Format */}
-            <div className="flex items-center gap-2 mb-1">
+            {/* Format + folder */}
+            <div className="flex items-center gap-2 mb-1 min-w-0">
               <Badge className={cn("text-white text-xs", getFormatColor(deck.format))}>
                 {deck.format}
               </Badge>
+              {deck.folder && (
+                onFolderClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onFolderClick(deck.folder!)}
+                    aria-label={`Folder: ${deck.folder}`}
+                    title={`Show only decks in "${deck.folder}"`}
+                    className="inline-flex items-center gap-1 max-w-full text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors"
+                  >
+                    <Folder className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                    <span className="truncate">{deck.folder}</span>
+                  </button>
+                ) : (
+                  <span
+                    aria-label={`Folder: ${deck.folder}`}
+                    className="inline-flex items-center gap-1 max-w-full text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                  >
+                    <Folder className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                    <span className="truncate">{deck.folder}</span>
+                  </span>
+                )
+              )}
             </div>
 
             {/* Hero name */}

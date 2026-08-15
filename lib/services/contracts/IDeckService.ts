@@ -7,6 +7,9 @@
 
 import type { AsyncResult, PaginationOptions } from './common';
 
+/** Max length of the user-defined deck `folder` label (trimmed; empty → NULL). */
+export const DECK_FOLDER_MAX_LENGTH = 60;
+
 // ====================================
 // DTOs (Data Transfer Objects)
 // ====================================
@@ -114,6 +117,9 @@ export interface DeckDTO {
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;
 
+  // User-defined folder label (free-form; null = unfiled)
+  folder?: string | null;
+
   // Timestamps
   createdAt?: Date;
   updatedAt?: Date;
@@ -167,6 +173,8 @@ export interface DeckSummaryDTO {
   eventName?: string | null;
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;
+  /** User-defined folder label (free-form; null = unfiled) */
+  folder?: string | null;
   /** Game record from game_results (Talishar sync). 0/0 = no games logged. */
   wins?: number;
   losses?: number;
@@ -211,6 +219,8 @@ export interface UpdateDeckDTO {
   eventName?: string | null;
   eventDate?: string | null;  // ISO date string (YYYY-MM-DD)
   placing?: number | null;
+  /** User-defined folder label; trimmed, '' or null clears it (max DECK_FOLDER_MAX_LENGTH) */
+  folder?: string | null;
 }
 
 /**

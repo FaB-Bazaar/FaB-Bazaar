@@ -17,7 +17,8 @@ export const updateDeckTool = {
   Make public: deckName: "My Deck", updates: { isPublic: true }
   Deck to Beat: deckName: "My Deck", updates: { isPublic: true, isSystemDeck: true, featured: true }  (superadmin only — isSystemDeck and featured are independent; both are required to actually appear on the Decks to Beat page)
   Add desc:    deckName: "My Deck", updates: { description: "Tournament deck for Spring 2026" }
-  Set event:   deckName: "My Deck", updates: { eventName: "Pro Tour Indianapolis", eventDate: "2026-03-15", placing: 1 }`,
+  Set event:   deckName: "My Deck", updates: { eventName: "Pro Tour Indianapolis", eventDate: "2026-03-15", placing: 1 }
+  Move to folder: deckName: "My Deck", updates: { folder: "Physical decks" }   (folder: "" or null = remove from folder)`,
 
   parameters: {
     type: 'object',
@@ -65,6 +66,10 @@ export const updateDeckTool = {
           placing: {
             type: 'number',
             description: 'Finishing position at the event (1 = 1st place, 2 = 2nd, etc.)'
+          },
+          folder: {
+            type: 'string',
+            description: 'User-defined folder label to organize the deck on the /decks page (free-form, e.g. "Physical decks", "Brewing"; max 60 chars). Empty string or null removes it from any folder. Reuse an existing folder name from list_decks to group decks together.'
           }
         }
       }

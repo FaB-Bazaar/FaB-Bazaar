@@ -308,6 +308,7 @@ export default function DeckEditorPage() {
     eventName: string | null;
     eventDate: string | null;
     placing: number | null;
+    folder: string | null;
   }) => {
     setSettingsSaving(true);
     try {
@@ -322,6 +323,7 @@ export default function DeckEditorPage() {
         eventName: settings.eventName,
         eventDate: settings.eventDate,
         placing: settings.placing,
+        folder: settings.folder,
       } as any);
       if (!result.success) {
         toast({ title: "Error", description: result.error, variant: "destructive" });
@@ -2396,6 +2398,7 @@ export default function DeckEditorPage() {
             eventName: state.deck.eventName,
             eventDate: state.deck.eventDate,
             placing: state.deck.placing,
+            folder: state.deck.folder,
           }}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
