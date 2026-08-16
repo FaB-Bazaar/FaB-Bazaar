@@ -64,17 +64,25 @@ class CardsToPrintingsTransformer:
             'elemental_cards_processed': 0
         }
         
-        # Define class and talent sets
+        # Define class and talent sets.
+        # Pirate is a CLASS (official LSS: Puffin = "Pirate Mechanologist",
+        # Marlynn = "Pirate Ranger"), NOT a talent. It used to sit in TALENTS,
+        # which made 005 revert migration 0065's reclassification every night
+        # and left the /opt Class → Pirate filter matching zero cards. It has no
+        # `is_pirate` column though — the legacy `has_pirate` flag is kept
+        # populated below (see get_class_talent_flags) because the hasPirate
+        # search filter reads it. See test_pirate_class.py.
         self.CLASSES = {
-            'brute', 'guardian', 'mechanologist', 'ranger', 'runeblade', 
-            'assassin', 'warrior', 'ninja', 'wizard', 'merchant', 'bard', 
+            'brute', 'guardian', 'mechanologist', 'ranger', 'runeblade',
+            'assassin', 'warrior', 'ninja', 'wizard', 'merchant', 'bard',
             'adjudicator', 'illusionist', 'thief', 'shapeshifter', 'necromancer',
+            'pirate',
             'generic'
         }
-        
+
         self.TALENTS = {
-            'chaos', 'light', 'royal', 'draconic', 'lightning', 'shadow', 
-            'earth', 'mystic', 'revered', 'ice', 'reviled', 'pirate', 'elemental'
+            'chaos', 'light', 'royal', 'draconic', 'lightning', 'shadow',
+            'earth', 'mystic', 'revered', 'ice', 'reviled', 'elemental'
         }
         
     def normalize_string(self, value):
@@ -220,13 +228,19 @@ class CardsToPrintingsTransformer:
         """Generate boolean flags for classes and talents"""
         flags = {}
         
-        # Class flags
+        # Class flags. There is no cards.is_pirate column — pirate's flag is the
+        # legacy has_pirate (below), so skip the is_ form for it.
         for class_name in self.CLASSES:
+            if class_name == 'pirate':
+                continue
             flags[f'is_{class_name}'] = class_name in classes
-        
-        # Talent flags  
+
+        # Talent flags
         for talent_name in self.TALENTS:
             flags[f'has_{talent_name}'] = talent_name in talents
+        # Pirate is a class, but its boolean column predates the reclassification
+        # and is still named has_pirate (read by the hasPirate search filter).
+        flags['has_pirate'] = 'pirate' in classes
         
         # Override elemental essence flags if provided (only for cards with elemental talents)
         if essence_flags:
