@@ -77,3 +77,37 @@ describe('POST /api/decks/[deckId]/printings/add — superadmin banned-card bypa
     );
   });
 });
+
+describe('POST /api/decks/[deckId]/printings/add — category normalization', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFindByPublicId.mockResolvedValue({ success: true, data: { totalCards: 1 } } as any);
+    mockAuth.mockResolvedValue({ success: true, userId: 'user1' } as any);
+    mockHasRole.mockResolvedValue({ success: true, data: false } as any);
+    mockAddPrinting.mockResolvedValue({
+      success: true,
+      data: { printingId: 'p1', success: true, cardName: 'Sink Below', quantity: 1, category: 'inventory' },
+    } as any);
+  });
+
+  it('maps category "sideboard" to "inventory" before calling the service', async () => {
+    await POST(postRequest({ printings: [{ printingId: 'p1', quantity: 1, category: 'sideboard' }] }), { params: { deckId: 'pub1' } });
+
+    expect(mockAddPrinting).toHaveBeenCalledWith(
+      'pub1',
+      'user1',
+      expect.objectContaining({ printingId: 'p1', category: 'inventory' }),
+      expect.anything(),
+    );
+  });
+
+  it('rejects an unknown category per-item without calling the service', async () => {
+    const res = await POST(postRequest({ printings: [{ printingId: 'p1', quantity: 1, category: 'graveyard' }] }), { params: { deckId: 'pub1' } });
+    const body = await res.json();
+
+    expect(mockAddPrinting).not.toHaveBeenCalled();
+    expect(body.results[0].success).toBe(false);
+    expect(body.results[0].error).toMatch(/graveyard/);
+    expect(body.results[0].error).toMatch(/inventory/);
+  });
+});

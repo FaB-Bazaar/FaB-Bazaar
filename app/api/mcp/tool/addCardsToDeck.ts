@@ -3,6 +3,7 @@ import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { printingsService } from '@/lib/services';
 import { sortPrintings } from '@/lib/fab-constants/sets';
 import { resolveDeckByName } from './helpers';
+import { normalizeDeckCategory, DECK_CATEGORIES } from '@/lib/deck/deck-category';
 
 export const addCardsToDeckTool = {
   name: 'add_cards_to_deck',
@@ -10,11 +11,15 @@ export const addCardsToDeckTool = {
 
   Adds printings to a deck. Each card can be identified by printingId OR by cardName+pitch.
 
-  📦 CATEGORIES:
+  📦 CATEGORIES (deck zones):
   - "maindeck"   — main library (most cards go here)
   - "equipment"  — equipment/weapon slots
   - "hero"       — hero card (usually set at deck creation)
-  - "sideboard"  — sideboard / inventory bench
+  - "inventory"  — the SIDEBOARD (Flesh and Blood's sideboard is the inventory; this is what
+                   Talishar imports and what matchup plans side in from). "sideboard" is
+                   accepted as an alias and means exactly this.
+  - "benched"    — maybe-pile: cards the player is considering but that are NOT part of the
+                   playable deck. Never exported to Talishar, never in a matchup pool.
   - "tokens"     — token cards
 
   🎯 TWO WAYS TO IDENTIFY A CARD (per item):
@@ -78,9 +83,9 @@ export const addCardsToDeckTool = {
             },
             category: {
               type: 'string',
-              enum: ['maindeck', 'equipment', 'hero', 'sideboard', 'tokens'],
+              enum: ['maindeck', 'equipment', 'hero', 'inventory', 'sideboard', 'benched', 'tokens'],
               default: 'maindeck',
-              description: 'Deck zone to add the card to'
+              description: 'Deck zone to add the card to. "inventory" = the sideboard ("sideboard" is an accepted alias); "benched" = maybe-pile outside the playable deck.'
             }
           },
           required: []
@@ -113,11 +118,24 @@ export const addCardsToDeckTool = {
       const resolutionFailures: string[] = [];
       const needsResolution: Array<{ cardName: string; pitch: number; quantity: number; category: string }> = [];
 
+      // Normalize zone names up front ("sideboard" → "inventory"); an unknown
+      // zone is a hard error so nothing lands in the wrong place.
+      const invalidCategories = printings
+        .map((p: any) => p.category)
+        .filter((c: unknown) => c != null && normalizeDeckCategory(c) === null);
+      if (invalidCategories.length > 0) {
+        return {
+          success: false,
+          error: `Invalid category ${[...new Set(invalidCategories)].map((c) => `"${c}"`).join(', ')}. Valid zones: ${DECK_CATEGORIES.join(', ')} ("sideboard" is an alias of "inventory").`,
+        };
+      }
+
       for (const p of printings) {
+        const category = normalizeDeckCategory(p.category ?? 'maindeck') ?? 'maindeck';
         if (p.printingId) {
-          resolvedPrintings.push({ printingId: p.printingId, quantity: p.quantity || 1, category: p.category || 'maindeck' });
+          resolvedPrintings.push({ printingId: p.printingId, quantity: p.quantity || 1, category });
         } else if (p.cardName) {
-          needsResolution.push({ cardName: p.cardName, pitch: p.pitch ?? 0, quantity: p.quantity || 1, category: p.category || 'maindeck' });
+          needsResolution.push({ cardName: p.cardName, pitch: p.pitch ?? 0, quantity: p.quantity || 1, category });
         } else {
           resolutionFailures.push(`An item is missing both printingId and cardName — skipped.`);
         }

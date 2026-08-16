@@ -513,7 +513,10 @@ function buildDeckText(deck: any, shaped: any, showDetails: boolean): string {
   }
   if (grouped['Other']) section('Other', grouped['Other']);
 
-  section('Inventory', shaped.categories.inventory ?? []);
+  // FaB's sideboard IS the inventory (Talishar import + matchup pool);
+  // benched is a maybe-pile that is not part of the playable deck.
+  section('Inventory (sideboard)', shaped.categories.inventory ?? []);
+  section('Benched (maybe-pile, not in the playable deck)', shaped.categories.benched ?? []);
   section('Tokens', shaped.categories.tokens ?? []);
 
   return lines.join('\n');

@@ -1,6 +1,7 @@
 // app/api/mcp/tool/removeCardsFromDeck.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
 import { resolveDeckByName } from './helpers';
+import { normalizeDeckCategory, DECK_CATEGORIES } from '@/lib/deck/deck-category';
 
 export const removeCardsFromDeckTool = {
   name: 'remove_cards_from_deck',
@@ -12,12 +13,14 @@ export const removeCardsFromDeckTool = {
   Step 1: get_deck — view current decklist and note printingId + category for cards to remove
   Step 2: remove_cards_from_deck — remove them
 
-  📦 CATEGORIES:
+  📦 CATEGORIES (deck zones — the card must currently live in the zone you name):
   - "maindeck"   — main library cards
   - "equipment"  — equipment/weapon slots
   - "hero"       — hero card
-  - "sideboard"  — sideboard / inventory bench
+  - "inventory"  — the SIDEBOARD (FaB's sideboard is the inventory). "sideboard" is an accepted alias.
+  - "benched"    — maybe-pile outside the playable deck
   - "tokens"     — token cards
+  ⚠️ The default is "maindeck" — to remove a sideboard card you MUST pass category "inventory" (or "sideboard").
 
   📖 EXAMPLES:
   Single card:
@@ -55,9 +58,9 @@ export const removeCardsFromDeckTool = {
             },
             category: {
               type: 'string',
-              enum: ['maindeck', 'equipment', 'hero', 'sideboard', 'tokens'],
+              enum: ['maindeck', 'equipment', 'hero', 'inventory', 'sideboard', 'benched', 'tokens'],
               default: 'maindeck',
-              description: 'Deck zone the card is currently in'
+              description: 'Deck zone the card is currently in. "inventory" = the sideboard ("sideboard" is an accepted alias); "benched" = maybe-pile.'
             }
           },
           required: ['printingId']
@@ -85,6 +88,18 @@ export const removeCardsFromDeckTool = {
       if (!deckResult.ok) return { success: false, error: deckResult.error };
       const deck = deckResult.deck;
 
+      // Normalize zone names up front ("sideboard" → "inventory"); an unknown
+      // zone is a hard error rather than a silent no-op removal.
+      const invalidCategories = printings
+        .map((p: any) => p.category)
+        .filter((c: unknown) => c != null && normalizeDeckCategory(c) === null);
+      if (invalidCategories.length > 0) {
+        return {
+          success: false,
+          error: `Invalid category ${[...new Set(invalidCategories)].map((c) => `"${c}"`).join(', ')}. Valid zones: ${DECK_CATEGORIES.join(', ')} ("sideboard" is an alias of "inventory").`,
+        };
+      }
+
       // Remove cards
       const res = await mcpFetch(`${API_BASE_URL}/api/decks/${deck.publicId}/printings/remove`, {
         method: 'POST',
@@ -93,7 +108,7 @@ export const removeCardsFromDeckTool = {
           printings: printings.map((p: any) => ({
             printingId: p.printingId,
             quantity: p.quantity || 1,
-            category: p.category || 'maindeck',
+            category: normalizeDeckCategory(p.category ?? 'maindeck') ?? 'maindeck',
           }))
         })
       });

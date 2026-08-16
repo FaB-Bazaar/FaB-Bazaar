@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { deckService } from '@/lib/services';
-import type { DeckCategory } from '@/lib/services/contracts/IDeckService';
+import { normalizeDeckCategory, DECK_CATEGORIES } from '@/lib/deck/deck-category';
 import { sanitizeAllMatchups } from '@/lib/validation/matchup-validation';
 
 // POST /api/decks/[deckId]/printings/remove
@@ -92,12 +92,24 @@ export async function POST(
         continue;
       }
 
+      // Normalize the zone name ("sideboard" → "inventory", etc.) so an
+      // unknown value is a per-item error instead of matching nothing.
+      const category = normalizeDeckCategory(item.category ?? 'maindeck');
+      if (!category) {
+        results.push({
+          printingId: item.printingId,
+          success: false,
+          error: `Invalid category "${item.category}". Valid: ${DECK_CATEGORIES.join(', ')} ("sideboard" is accepted as an alias of "inventory")`,
+        });
+        continue;
+      }
+
       // Use service layer to remove printing
       const result = await deckService.removePrinting(
         resolvedParams.deckId,
         authResult.userId!,
         item.printingId,
-        (item.category || 'maindeck') as DeckCategory,
+        category,
         item.quantity || 1
       );
 
@@ -108,7 +120,7 @@ export async function POST(
           success: true,
           action: 'removed',
           quantity: item.quantity || 1,
-          category: item.category || 'maindeck',
+          category,
         });
       } else {
         results.push({

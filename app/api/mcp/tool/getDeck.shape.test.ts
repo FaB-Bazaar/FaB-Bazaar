@@ -248,3 +248,29 @@ describe('shapeDeckForMcp', () => {
     );
   });
 });
+
+describe('shapeDeckForMcp — zone labels in the text rendering', () => {
+  const withZones = {
+    ...rawDeckResult,
+    deck: {
+      ...rawDeckResult.deck,
+      categories: {
+        ...rawDeckResult.deck.categories,
+        inventory: [card({ quantity: 2, printingDetails: { display_name: 'Command and Conquer', pitch: 1, types: ['attack action'] } })],
+        benched: [card({ quantity: 1, printingDetails: { display_name: 'Enlightened Strike', pitch: 1, types: ['attack action'] } })],
+      },
+    },
+  };
+
+  it('labels inventory as the sideboard so callers use the right zone name', () => {
+    const text = shapeDeckForMcp(withZones).content[0].text as string;
+    expect(text).toMatch(/\*\*Inventory \(sideboard\)\*\* \(2\)/);
+    expect(text).toContain('Command and Conquer');
+  });
+
+  it('renders benched cards as a maybe-pile section, separate from inventory', () => {
+    const text = shapeDeckForMcp(withZones).content[0].text as string;
+    expect(text).toMatch(/\*\*Benched \(maybe-pile, not in the playable deck\)\*\* \(1\)/);
+    expect(text).toContain('Enlightened Strike');
+  });
+});

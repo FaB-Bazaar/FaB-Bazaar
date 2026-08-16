@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { deckService, userService } from '@/lib/services';
-import type { DeckCategory } from '@/lib/services/contracts/IDeckService';
+import { normalizeDeckCategory, DECK_CATEGORIES } from '@/lib/deck/deck-category';
 
 // POST /api/decks/[deckId]/printings/add
 export async function POST(
@@ -104,6 +104,18 @@ export async function POST(
         continue;
       }
 
+      // Normalize the zone name ("sideboard" → "inventory", etc.) so an
+      // unknown value is a per-item error instead of a Postgres enum failure.
+      const category = normalizeDeckCategory(item.category ?? 'maindeck');
+      if (!category) {
+        results.push({
+          printingId: item.printingId,
+          success: false,
+          error: `Invalid category "${item.category}". Valid: ${DECK_CATEGORIES.join(', ')} ("sideboard" is accepted as an alias of "inventory")`,
+        });
+        continue;
+      }
+
       // Use service layer to add printing
       const result = await deckService.addPrinting(
         resolvedParams.deckId,
@@ -111,7 +123,7 @@ export async function POST(
         {
           printingId: item.printingId,
           quantity: item.quantity || 1,
-          category: (item.category || 'maindeck') as DeckCategory,
+          category,
           condition: item.condition || 'NM',
           notes: item.notes || '',
         },
