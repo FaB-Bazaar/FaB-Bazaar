@@ -1,5 +1,6 @@
 // app/api/mcp/tool/saveDeckMatchup.ts
 import { mcpFetch, getMcpApiBaseUrl } from '@/lib/mcp-fetch';
+import { buildMatchupPool, computeLineupSwaps, type LineupEntry, type LineupResult } from '@/lib/deck/matchup-lineup';
 
 export const saveDeckMatchupTool = {
   name: 'save_deck_matchup',
@@ -9,6 +10,30 @@ export const saveDeckMatchupTool = {
 
   Saves a matchup configuration to a deck: which cards to swap in/out against a specific hero,
   preferred turn order, and strategy notes.
+
+  ✅ PREFERRED — LINEUP MODE (declarative, mirrors the tile editor):
+  Pass \`lineup\`: the COMPLETE active list for this matchup — every library + equipment card
+  that stays in (un-greyed), with quantities. The tool fetches the deck, treats
+  hero + equipment + maindeck + inventory (the sideboard) as the card pool, and computes
+  sideboardIn/sideboardOut for you: anything in the pool you DON'T list is sided out (greyed);
+  inventory cards you list are sided in. The hero is never sided. Nothing about the deck's
+  cards is modified — only the matchup plan. Cards not in the pool are an ERROR (add them to
+  the inventory first with add_cards_to_deck { category: "inventory" }); asking for more copies
+  than the pool holds is an ERROR. Set \`dryRun: true\` to preview the computed swaps + stats
+  without saving.
+    {
+      deckName: "slab maxx", heroId: "arakni_marionette", preferredTurnOrder: "Second",
+      lineup: [
+        { cardName: "Command and Conquer", pitch: 1, quantity: 3 },
+        { cardName: "Sink Below", pitch: 3, quantity: 3 },
+        { cardName: "Adaptive Alpha Mold", quantity: 1 },
+        ...every other active card...
+      ]
+    }
+  ⚠️ lineup is the WHOLE active list — send 30 cards and the other 30 get benched. Read the
+  returned diff/stats. lineup cannot be combined with sideboardIn/sideboardOut.
+
+  LEGACY — DELTA MODE: pass sideboardIn / sideboardOut directly (Talishar ids, one per copy).
 
   Use heroId "core" for a special baseline/stripped-down list configuration (no specific opponent).
   Use heroId "aggro", "fatigue", "combo", or "midrange" for archetype/strategy-based matchup plans.
@@ -73,6 +98,24 @@ export const saveDeckMatchupTool = {
         type: 'array',
         items: { type: 'string' },
         description: 'Array of card IDs to take OUT of the main deck (Talishar format). Each element is one copy — repeat to include multiples. MUST be an array, never a string.'
+      },
+      lineup: {
+        type: 'array',
+        description: 'LINEUP MODE: the complete ACTIVE list for this matchup (library + equipment; hero optional). Unlisted pool cards are sided out; listed inventory cards are sided in. Mutually exclusive with sideboardIn/sideboardOut.',
+        items: {
+          type: 'object',
+          properties: {
+            cardName: { type: 'string', description: 'Card name (e.g. "Sink Below"). Combine with pitch.' },
+            pitch: { type: 'number', enum: [0, 1, 2, 3], default: 0, description: '0 = unpitched (equipment, heroes), 1 red, 2 yellow, 3 blue' },
+            cardId: { type: 'string', description: 'Alternative to cardName+pitch: raw Talishar id (e.g. "sink_below_blue")' },
+            quantity: { type: 'number', default: 1, description: 'Active copies of this card in the matchup' }
+          }
+        }
+      },
+      dryRun: {
+        type: 'boolean',
+        default: false,
+        description: 'Lineup mode only: compute the swaps + stats and return them WITHOUT saving.'
       }
     },
     required: ['deckName', 'heroId']
@@ -94,10 +137,24 @@ export const saveDeckMatchupTool = {
         notes: rawNotes = null,
         sideboardIn: rawSideboardIn = [],
         sideboardOut: rawSideboardOut = [],
+        lineup: rawLineup,
+        dryRun = false,
       } = params;
 
       if (!deckName) return { success: false, error: 'deckName is required.' };
       if (!rawHeroId) return { success: false, error: 'heroId is required.' };
+
+      const lineupMode = Array.isArray(rawLineup);
+      const hasDelta = (Array.isArray(rawSideboardIn) && rawSideboardIn.length > 0)
+        || (Array.isArray(rawSideboardOut) && rawSideboardOut.length > 0)
+        || (typeof rawSideboardIn === 'string' && rawSideboardIn.trim())
+        || (typeof rawSideboardOut === 'string' && rawSideboardOut.trim());
+      if (lineupMode && hasDelta) {
+        return { success: false, error: 'Pass EITHER lineup (the full active list) OR sideboardIn/sideboardOut — not both.' };
+      }
+      if (lineupMode && rawLineup.length === 0) {
+        return { success: false, error: 'lineup is empty. Pass the complete active list for this matchup (or use sideboardIn/sideboardOut).' };
+      }
 
       // Normalize and validate heroId — only lowercase letters, digits, underscores allowed
       const heroId = String(rawHeroId).toLowerCase().trim();
@@ -115,8 +172,8 @@ export const saveDeckMatchupTool = {
         }
         return [];
       };
-      const sideboardIn = normalizeCardList(rawSideboardIn);
-      const sideboardOut = normalizeCardList(rawSideboardOut);
+      let sideboardIn = normalizeCardList(rawSideboardIn);
+      let sideboardOut = normalizeCardList(rawSideboardOut);
 
       // Truncate notes to 500 chars
       const notes = rawNotes ? String(rawNotes).slice(0, 500) : null;
@@ -143,6 +200,49 @@ export const saveDeckMatchupTool = {
       const publicId = String(deck.publicId || '');
       if (!/^[a-zA-Z0-9_-]+$/.test(publicId)) {
         return { success: false, error: 'Unexpected deck ID format.' };
+      }
+
+      // ── Lineup mode: fetch the deck, build the pool, derive in/out ──────────
+      let lineupResult: LineupResult | null = null;
+      if (lineupMode) {
+        const deckRes = await mcpFetch(`${API_BASE_URL}/api/decks/${publicId}`, {
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenToUse}` }
+        });
+        if (!deckRes.ok) return { success: false, error: `Failed to fetch deck "${deck.name}" (HTTP ${deckRes.status}).` };
+        const deckData = await deckRes.json();
+        if (!deckData.success || !deckData.data) return { success: false, error: deckData.error || 'Could not load the deck.' };
+
+        const pool = buildMatchupPool(deckData.data);
+        const entries: LineupEntry[] = rawLineup.map((e: any) => ({
+          cardName: typeof e?.cardName === 'string' ? e.cardName : undefined,
+          cardId: typeof e?.cardId === 'string' ? e.cardId : undefined,
+          pitch: typeof e?.pitch === 'number' ? e.pitch : 0,
+          quantity: typeof e?.quantity === 'number' && e.quantity >= 0 ? Math.floor(e.quantity) : 1,
+        }));
+        lineupResult = computeLineupSwaps(pool, entries);
+        if (!lineupResult.ok) {
+          return {
+            success: false,
+            error: `Lineup not applied — fix these and retry:\n${lineupResult.errors.map(e => `  - ${e}`).join('\n')}`,
+            errors: lineupResult.errors,
+          };
+        }
+        sideboardIn = lineupResult.in;
+        sideboardOut = lineupResult.out;
+
+        if (dryRun) {
+          return {
+            success: true,
+            dryRun: true,
+            message: `DRY RUN — nothing saved.\n${formatLineupSummary(lineupResult)}`,
+            deckName: deck.name,
+            publicId,
+            heroId,
+            sideboard: { in: sideboardIn, out: sideboardOut },
+            changes: lineupResult.changes,
+            stats: lineupResult.stats,
+          };
+        }
       }
 
       const matchupPayload = {
@@ -190,10 +290,13 @@ export const saveDeckMatchupTool = {
 
       return {
         success: true,
-        message: `Saved matchup for "${heroLabel}" on deck "${deck.name}" (${swapSummary})${notes ? `\nNotes: ${notes}` : ''}`,
+        message: `Saved matchup for "${heroLabel}" on deck "${deck.name}" (${swapSummary})${notes ? `\nNotes: ${notes}` : ''}`
+          + (lineupResult ? `\n${formatLineupSummary(lineupResult)}` : ''),
         deckName: deck.name,
         publicId,
         heroId,
+        sideboard: { in: sideboardIn, out: sideboardOut },
+        ...(lineupResult ? { changes: lineupResult.changes, stats: lineupResult.stats } : {}),
       };
 
     } catch (error) {
@@ -201,3 +304,23 @@ export const saveDeckMatchupTool = {
     }
   }
 };
+
+const PITCH_WORD: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
+
+/** Human-readable diff + the same before→after stats the matchup editor's stats bar shows. */
+function formatLineupSummary(r: LineupResult): string {
+  const lib = r.stats.library;
+  const gear = r.stats.equipment;
+  const lines: string[] = [];
+  lines.push(`Library ${lib.before} → ${lib.after} (−${lib.out} / +${lib.in}) · Gear ${gear.before} → ${gear.after} (−${gear.out} / +${gear.in})`);
+  if (r.changes.length === 0) {
+    lines.push('No changes vs the base deck.');
+  } else {
+    for (const c of r.changes) {
+      const label = c.pitch && PITCH_WORD[c.pitch] ? `${c.name} (${PITCH_WORD[c.pitch]})` : c.name;
+      const delta = c.to - c.from;
+      lines.push(`  ${delta > 0 ? '+' : '−'}${Math.abs(delta)} ${label}: ${c.from} → ${c.to}`);
+    }
+  }
+  return lines.join('\n');
+}
