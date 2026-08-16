@@ -69,6 +69,7 @@ export default function Navbar() {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [mobileCollectionExpanded, setMobileCollectionExpanded] = useState(false)
   const [mobileDecksExpanded, setMobileDecksExpanded] = useState(false) // DECKS-FEATURE
+  const [mobileStoresExpanded, setMobileStoresExpanded] = useState(false)
   const pathname = usePathname()
   const { user, logout } = useAuth()
   // Signed-out CTAs carry the current page so login returns the user here
@@ -1114,6 +1115,45 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
+
+                {/* Your Stores - Expandable (signed-in only, mirrors the desktop dropdown) */}
+                {user && (
+                  <div>
+                    <button
+                      onClick={() => { loadStoresOnDemand(); setMobileStoresExpanded(!mobileStoresExpanded); }}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <div className="flex items-center">
+                        <MapPin className="h-5 w-5 mr-3" />
+                        Your Stores
+                      </div>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${mobileStoresExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    {mobileStoresExpanded && (
+                      <div className="bg-gray-50 dark:bg-gray-700/50 py-1">
+                        <Link href="/stores" onClick={() => setIsMenuOpen(false)}>
+                          <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">My Stores</div>
+                        </Link>
+                        <Link href="/stores/browse" onClick={() => setIsMenuOpen(false)}>
+                          <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Browse Stores</div>
+                        </Link>
+                        {storesLoading ? (
+                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                        ) : followedStores.length > 0 ? (
+                          followedStores.slice(0, 3).map((store) => (
+                            <Link key={store.id} href={`/stores/${store.id}`} onClick={() => setIsMenuOpen(false)}>
+                              <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 truncate">
+                                {store.name}
+                              </div>
+                            </Link>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No followed stores yet</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* About - Standalone Link (only for non-logged-in users) */}
                 {!user && (
