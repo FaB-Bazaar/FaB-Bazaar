@@ -31,7 +31,7 @@ import {
 
 // Mirrors the sort options on the binder page's Sort By dropdown
 const DEFAULT_SORT_OPTIONS = [
-  { value: 'default', label: 'Default (recently added)' },
+  { value: 'default', label: 'Default (Name A–Z)' },
   { value: 'name', label: 'Name (A–Z)' },
   { value: 'quantity-desc', label: 'Quantity (High to Low)' },
   { value: 'quantity-asc', label: 'Quantity (Low to High)' },
@@ -41,6 +41,8 @@ const DEFAULT_SORT_OPTIONS = [
   { value: 'tcg-low-asc', label: 'TCG Low (Low to High)' },
   { value: 'collector-release', label: 'Collector # (Release Order)' },
   { value: 'collector-absolute', label: 'Collector # (A–Z)' },
+  { value: 'recently-added', label: 'Recently Added' },
+  { value: 'recently-updated', label: 'Recently Updated' },
 ]
 
 interface BinderSettingsProps {

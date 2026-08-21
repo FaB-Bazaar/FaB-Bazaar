@@ -997,6 +997,8 @@ const SuperSlamDisclosure = () => {
                   <option value="tcg-low-asc">Sort: TCG Low (Low to High)</option>
                   <option value="collector-release">Sort: Collector # (Release Order)</option>
                   <option value="collector-absolute">Sort: Collector # (A–Z)</option>
+                  <option value="recently-added">Sort: Recently Added</option>
+                  <option value="recently-updated">Sort: Recently Updated</option>
                 </select>
 
               </div>

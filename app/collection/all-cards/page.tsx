@@ -102,6 +102,8 @@ export default function AllCardsPage() {
       case 'tcg-market-asc': return sorted.sort((a, b) => (a.tcg_market || 0) - (b.tcg_market || 0));
       case 'tcg-low-desc': return sorted.sort((a, b) => (b.tcg_low || 0) - (a.tcg_low || 0));
       case 'tcg-low-asc': return sorted.sort((a, b) => (a.tcg_low || 0) - (b.tcg_low || 0));
+      case 'recently-updated': return sorted.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+      case 'recently-added':
       default: return sorted.sort((a, b) => new Date(b.addedAt || 0).getTime() - new Date(a.addedAt || 0).getTime());
     }
   };

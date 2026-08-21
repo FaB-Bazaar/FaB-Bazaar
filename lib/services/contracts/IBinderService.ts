@@ -126,6 +126,8 @@ export const BINDER_SORT_OPTIONS = [
   'tcg-low-asc',
   'collector-release',
   'collector-absolute',
+  'recently-added',
+  'recently-updated',
 ] as const;
 
 /**
@@ -222,6 +224,8 @@ export interface BinderCardSearchOptions {
     | 'tcg-low-asc'
     | 'collector-release'
     | 'collector-absolute'
+    | 'recently-added'
+    | 'recently-updated'
     | 'default';
 }
 

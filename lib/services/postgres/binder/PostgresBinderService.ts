@@ -1923,6 +1923,13 @@ export class PostgresBinderService implements IBinderService {
           sql`${printings.collectorNumber} ASC NULLS LAST`,
           asc(cards.displayName),
         ];
+      // 'recently-added' = when the row first entered the binder (adding copies
+      // to an existing stack does NOT move it); 'recently-updated' = last write
+      // of any kind (quantity change, edit, transfer — every path bumps updated_at)
+      case 'recently-added':
+        return [desc(inventoryItems.addedAt), asc(cards.displayName)];
+      case 'recently-updated':
+        return [desc(inventoryItems.updatedAt), asc(cards.displayName)];
       case 'name':
       default:
         return [asc(cards.name)];
