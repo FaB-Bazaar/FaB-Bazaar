@@ -19,6 +19,10 @@ describe('resolveLandingPath', () => {
     expect(resolveLandingPath('opt')).toBe('/opt');
   });
 
+  it('maps "daily" to /daily', () => {
+    expect(resolveLandingPath('daily')).toBe('/daily');
+  });
+
   it('defaults to /opt when unset', () => {
     expect(resolveLandingPath(null)).toBe('/opt');
     expect(resolveLandingPath(undefined)).toBe('/opt');
@@ -35,6 +39,6 @@ describe('resolveLandingPath', () => {
   });
 
   it('exposes the options list for UI and validation, volzar first', () => {
-    expect(LANDING_PAGE_OPTIONS.map((o) => o.value)).toEqual(['volzar', 'collection', 'decks', 'opt']);
+    expect(LANDING_PAGE_OPTIONS.map((o) => o.value)).toEqual(['volzar', 'collection', 'decks', 'opt', 'daily']);
   });
 });

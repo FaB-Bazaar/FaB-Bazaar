@@ -44,17 +44,39 @@ export interface DailyMoverDTO {
   binderId: string;
   binderName: string;
 
-  // Decks containing this printing (any category)
+  // Dollar impact on the user's holdings: dollarChange × quantity.
+  // Null when the pipeline produced no dollarChange for the signal.
+  dollarImpact: number | null;
+
+  // The user's own (non-system) decks containing this printing (any category)
   decks: DeckMembershipDTO[];
 }
+
+/** A mover without inventory context — the site-wide market view. */
+export type MarketMoverDTO = Omit<
+  DailyMoverDTO,
+  'quantity' | 'binderId' | 'binderName' | 'dollarImpact' | 'decks'
+>;
 
 export interface MoversInCollectionDTO {
   asOfDate: string;        // ISO date 'YYYY-MM-DD'
   totalCount: number;
+  // Net movement across the user's holdings: Σ dollarChange × quantity over
+  // distinct inventory rows (a printing appearing in two signals counts once).
+  totalImpact: number;
   gainers: DailyMoverDTO[];
   decliners: DailyMoverDTO[];
   breakouts: DailyMoverDTO[];
   steadyRisers: DailyMoverDTO[];
+}
+
+export interface MarketMoversDTO {
+  asOfDate: string;        // ISO date 'YYYY-MM-DD'
+  totalCount: number;
+  gainers: MarketMoverDTO[];
+  decliners: MarketMoverDTO[];
+  breakouts: MarketMoverDTO[];
+  steadyRisers: MarketMoverDTO[];
 }
 
 export interface IDailyMoversService {
@@ -62,10 +84,19 @@ export interface IDailyMoversService {
    * Returns all daily movers that intersect with the user's inventory_items,
    * for a given snapshot date (defaults to latest available).
    *
-   * Empty groups are returned as empty arrays — never null.
+   * Sections are ordered by absolute dollarImpact (largest holdings movement
+   * first), falling back to pipeline rank. Empty groups are returned as empty
+   * arrays — never null.
    */
   getMoversInUserCollection(
     userId: string,
     asOfDate?: string,
   ): AsyncResult<MoversInCollectionDTO>;
+
+  /**
+   * Returns ALL daily movers for a given snapshot date (defaults to latest
+   * available), regardless of ownership — the site-wide market view.
+   * Sections are ordered by pipeline rank.
+   */
+  getMarketMovers(asOfDate?: string): AsyncResult<MarketMoversDTO>;
 }

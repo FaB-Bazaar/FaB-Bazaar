@@ -43,7 +43,8 @@ export const renderPriceLine = (
 export const renderPurchaseLink = (
   url: string | undefined,
   feature: string,
-  showLabel = false
+  showLabel = false,
+  label = 'Available for purchase here'
 ): React.ReactNode => {
   if (!url) return null;
   return (
@@ -55,7 +56,7 @@ export const renderPurchaseLink = (
         className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
         title="Purchase on TCGPlayer"
       >
-        <span>Available for purchase here</span>
+        <span>{label}</span>
         <div className="flex items-center gap-1">
           <img
             src="https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/596dace2-8614-4efc-b58d-0b0ebdc0d300/public"

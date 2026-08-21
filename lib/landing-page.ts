@@ -7,6 +7,7 @@ export const LANDING_PAGE_OPTIONS = [
   { value: 'collection', label: 'My collection', path: '/collection' },
   { value: 'decks', label: 'My decks', path: '/decks' },
   { value: 'opt', label: 'Card search (/opt)', path: '/opt' },
+  { value: 'daily', label: 'Daily movers', path: '/daily' },
 ] as const;
 
 export type LandingPage = (typeof LANDING_PAGE_OPTIONS)[number]['value'];
