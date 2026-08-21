@@ -367,11 +367,17 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
                       )}
                     </div>
 
-                    {printing.tcg_market && (
+                    {/* tcg_low is THE price (see CLAUDE.md); market only as a
+                        labeled fallback when no low exists — never the reverse */}
+                    {printing.tcg_low != null ? (
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        TCG Low: {formatPrice(printing.tcg_low)}
+                      </div>
+                    ) : printing.tcg_market != null ? (
                       <div className="text-xs text-gray-600 dark:text-gray-400">
                         Market: {formatPrice(printing.tcg_market)}
                       </div>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}
