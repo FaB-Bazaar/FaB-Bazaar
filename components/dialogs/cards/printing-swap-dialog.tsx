@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Check } from "lucide-react";
 import { RarityIcon } from "@/components/shared/RarityIcon";
+import { FOILING_MAP, EDITION_MAP, sortPrintings as sortPrintingsCanonical } from "@/lib/fab-constants";
+import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language";
 
 // ====================================
 // Types
@@ -46,6 +48,8 @@ export interface PrintingOption {
   tcg_high?: number;
   image_url?: string;
   is_extended_art?: boolean;
+  language?: string | null;
+  art_variations?: string[] | null;
 }
 
 /**
@@ -103,43 +107,33 @@ export interface PrintingSwapDialogProps {
 // Helper Functions
 // ====================================
 
-const getFoilingInfo = (foiling: string) => {
-  const foilingMap: Record<string, { name: string; className: string }> = {
-    r: {
-      name: "Rainbow Foil",
-      className:
-        "bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 text-white",
-    },
-    c: { name: "Cold Foil", className: "bg-blue-600 text-white" },
-    g: { name: "Gold Foil", className: "bg-yellow-500 text-black" },
-    s: { name: "Non-foil", className: "bg-gray-500 text-white" },
-  };
-  const code = foiling?.toLowerCase();
-  return foilingMap[code] || { name: "Non-foil", className: "bg-gray-500 text-white" };
+const FOIL_BADGE_CLASSES: Record<string, string> = {
+  r: "bg-gradient-to-r from-red-500 via-yellow-500 to-blue-500 text-white",
+  c: "bg-blue-600 text-white",
+  g: "bg-yellow-500 text-black",
+  s: "bg-gray-500 text-white",
 };
 
-const getEditionName = (edition: string) => {
-  const editionMap: Record<string, string> = {
-    a: "Alpha",
-    f: "First Edition",
-    u: "Unlimited",
-    n: "Normal",
+const getFoilingInfo = (foiling: string) => {
+  const code = foiling?.toLowerCase();
+  return {
+    name: (FOILING_MAP as Record<string, string>)[code] || "Non-foil",
+    className: FOIL_BADGE_CLASSES[code] || "bg-gray-500 text-white",
   };
-  return editionMap[edition?.toLowerCase()] || edition || "Unknown";
 };
+
+const getEditionName = (edition: string) =>
+  (EDITION_MAP as Record<string, string>)[edition?.toLowerCase()] || edition || "Unknown";
 
 const formatPrice = (price?: number) => {
   return price ? `$${price.toFixed(2)}` : "N/A";
 };
 
-const sortPrintings = (printings: PrintingOption[]): PrintingOption[] => {
-  return [...printings].sort((a, b) => {
-    // Sort by set first, then edition, then foiling
-    if (a.set !== b.set) return a.set.localeCompare(b.set);
-    if (a.edition !== b.edition) return a.edition.localeCompare(b.edition);
-    return a.foiling.localeCompare(b.foiling);
-  });
-};
+// Same ordering as the binder add-card dialog (CardSearchDialog): canonical
+// printing order (curated set ranking, gold foils / Marvels last, …) grouped
+// by language with English first.
+const sortPrintings = (printings: PrintingOption[]): PrintingOption[] =>
+  sortPrintingsByLanguage(sortPrintingsCanonical(printings));
 
 // ====================================
 // Component
@@ -317,6 +311,8 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
               {printings.map((printing) => {
                 const isCurrentPrinting = printing.printing_id === printingId;
                 const foilingInfo = getFoilingInfo(printing.foiling);
+                const lang = (printing.language || "en").toLowerCase();
+                const artVariations = printing.art_variations ?? [];
 
                 return (
                   <button
@@ -335,6 +331,12 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
                           {printing.set?.toUpperCase()}
                         </span>
                         <RarityIcon rarityCode={printing.rarity} size="sm" />
+                        <span aria-label={`Language: ${lang}`}>
+                          {languageFlag(lang)}
+                          <span className="ml-1 text-xs uppercase text-gray-500 dark:text-gray-400">
+                            {lang}
+                          </span>
+                        </span>
                         {isCurrentPrinting && (
                           <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         )}
@@ -346,7 +348,7 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       <Badge
                         variant="secondary"
                         className={`text-xs px-2 py-0.5 ${foilingInfo.className}`}
@@ -356,9 +358,11 @@ const PrintingSwapDialog: React.FC<PrintingSwapDialogProps> = ({
                       <Badge variant="outline" className="text-xs">
                         {getEditionName(printing.edition)}
                       </Badge>
-                      {printing.is_extended_art && (
+                      {(artVariations.length > 0 || printing.is_extended_art) && (
                         <Badge variant="outline" className="text-xs">
-                          EA
+                          {artVariations.includes("EA") || printing.is_extended_art
+                            ? "Extended Art"
+                            : artVariations[0]}
                         </Badge>
                       )}
                     </div>
