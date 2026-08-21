@@ -23,19 +23,20 @@ describe('resolveLandingPath', () => {
     expect(resolveLandingPath('daily')).toBe('/daily');
   });
 
-  it('defaults to /opt when unset', () => {
-    expect(resolveLandingPath(null)).toBe('/opt');
-    expect(resolveLandingPath(undefined)).toBe('/opt');
-    expect(resolveLandingPath('')).toBe('/opt');
+  it('defaults to /daily when unset', () => {
+    expect(resolveLandingPath(null)).toBe('/daily');
+    expect(resolveLandingPath(undefined)).toBe('/daily');
+    expect(resolveLandingPath('')).toBe('/daily');
   });
 
-  it('defaults to /opt for unknown values', () => {
-    expect(resolveLandingPath('garbage')).toBe('/opt');
-    expect(resolveLandingPath('/etc/passwd')).toBe('/opt');
+  it('defaults to /daily for unknown values', () => {
+    expect(resolveLandingPath('garbage')).toBe('/daily');
+    expect(resolveLandingPath('/etc/passwd')).toBe('/daily');
   });
 
-  it('an explicit volzar preference still resolves (default changed to opt)', () => {
+  it('explicit preferences survive the default flip (opt → daily, 2026-08)', () => {
     expect(resolveLandingPath('volzar')).toBe('/volzar');
+    expect(resolveLandingPath('opt')).toBe('/opt');
   });
 
   it('exposes the options list for UI and validation, volzar first', () => {

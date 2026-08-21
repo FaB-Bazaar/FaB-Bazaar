@@ -9,7 +9,7 @@ import HomePageClient from '@/components/home/HomePageClient';
 
 export default async function HomePage() {
   // Signed in → the user's landing page preference (users.landing_page),
-  // default /opt (card search). The marketing home below is signed-out-only.
+  // default /daily (daily movers). The marketing home below is signed-out-only.
   // Failure-safe: a broken preference read degrades to the default; redirect()
   // throws, so it stays outside the try.
   const session = await auth();

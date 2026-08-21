@@ -35,7 +35,7 @@ import { useRouter } from "next/navigation"
 // Client services for API calls
 import { bindersClient, wantsClient, usersClient, locationsClient } from '@/lib/client';
 import { displayUsername as stripUsernamePrefix } from '@/lib/utils/display-username';
-import { LANDING_PAGE_OPTIONS, DEFAULT_LANDING_PAGE } from '@/lib/landing-page';
+import { LANDING_PAGE_OPTIONS, DEFAULT_LANDING_PAGE, DEFAULT_LANDING_PAGE_LABEL } from '@/lib/landing-page';
 import { useToast } from '@/hooks/use-toast';
 
 /**
@@ -99,7 +99,7 @@ function HomePageRow({
         onChange={(e) => handleChange(e.target.value)}
         className="h-9 px-2 max-w-[220px] rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
       >
-        <option value="">Default — Card search (/opt)</option>
+        <option value="">{DEFAULT_LANDING_PAGE_LABEL}</option>
         {LANDING_PAGE_OPTIONS.filter((o) => o.value !== DEFAULT_LANDING_PAGE).map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
