@@ -277,11 +277,14 @@ export function CardDetailsLightbox({
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
         {p.image_url && (
+          // Explicit height (not max-h): some older ingests are 300×419, and a
+          // max-h alone never scales a small source UP, so those rendered at
+          // 2/3 size. 762px cap = native height of the standard 546×762 art.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={p.image_url}
             alt={card.name}
-            className="rounded-xl shadow-2xl border border-gray-600 object-contain max-h-[44vh] sm:max-h-[76vh] min-h-0"
+            className="h-[min(44vh,762px)] sm:h-[min(76vh,762px)] w-auto shrink-0 rounded-xl shadow-2xl border border-gray-600 object-contain"
             style={{ aspectRatio: '63/88' }}
           />
         )}
@@ -291,7 +294,7 @@ export function CardDetailsLightbox({
           <img
             src={p.other_face_image_url}
             alt={(p.other_face_name as string) || `${card.name} (other face)`}
-            className="hidden md:block rounded-xl shadow-2xl border border-gray-600 object-contain sm:max-h-[76vh] min-h-0"
+            className="hidden md:block h-[min(76vh,762px)] w-auto shrink-0 rounded-xl shadow-2xl border border-gray-600 object-contain"
             style={{ aspectRatio: '63/88' }}
           />
         )}

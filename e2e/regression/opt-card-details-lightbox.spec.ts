@@ -98,3 +98,28 @@ test('expand button on an /opt image tile opens the enriched card-details lightb
     await expect(lightbox).toHaveCount(0)
   })
 })
+
+test('lightbox renders the card at a consistent size even when the source image is low-res', async ({ page }) => {
+  test.setTimeout(120_000)
+  // AUR005 Aether Crackers ships a 300×419 image (older ingest); MON230 is 546×762.
+  // Both must render at the same on-screen height (76vh, capped at native 762px).
+  await page.addInitScript(() => {
+    localStorage.setItem('cookieConsent', 'true')
+    localStorage.setItem('cookieConsentOptions', JSON.stringify({ necessary: true, analytics: false, advertising: false }))
+  })
+  const heights: Record<string, number> = {}
+  for (const [query, name] of [['aether crackers', /preview aether crackers/i], ['aether ironweave', /preview aether ironweave/i]] as const) {
+    await page.goto(`/opt?q=${encodeURIComponent(query)}`)
+    await expect(page.locator('.animate-spin').first()).not.toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name }).first().click({ force: true })
+    const img = page.getByTestId('card-lightbox').locator('img').first()
+    await expect(img).toBeVisible({ timeout: 5000 })
+    await page.waitForTimeout(300)
+    heights[query] = (await img.boundingBox())!.height
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('card-lightbox')).toHaveCount(0)
+  }
+  // 76vh of an 800px viewport = 608px
+  expect(heights['aether crackers']).toBeGreaterThanOrEqual(590)
+  expect(Math.abs(heights['aether crackers'] - heights['aether ironweave'])).toBeLessThanOrEqual(4)
+})
