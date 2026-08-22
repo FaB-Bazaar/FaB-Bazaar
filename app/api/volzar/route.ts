@@ -16,7 +16,7 @@ import { runAgentLoop } from '@/lib/ai/agent-loop';
 import { createLlm, withFallback } from '@/lib/ai/openrouter';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { waitForConfirmation } from '@/lib/ai/confirmations';
-import { dailyLimitFor, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
+import { DEFAULT_CHAT_MODEL, SUPERADMIN_CHAT_MODEL, dailyLimitFor, globalDailyLimit, resolveChatModel } from '@/lib/ai/tiers';
 import { assembleMessages } from './prompt';
 import { resolveUserLanguage, SUGGESTION_LANGUAGE_NAMES } from '@/lib/ai/volzar-suggestions';
 import type { AgentEvent, ChatMessage } from '@/lib/ai/types';
@@ -60,13 +60,15 @@ const HOSTED_EXTRA_TOOLS: ReadonlySet<string> = new Set([
 const MAX_BODY_BYTES = 200_000;
 const VALID_ROLES = new Set(['system', 'user', 'assistant', 'tool']);
 // Default model — what non-superadmins always run (resolveChatModel pins them
-// here regardless of what the client sends; only superadmins can pick another
-// model). tencent/hy3:free stays in the allowlist for superadmin bake-offs
+// here regardless of what the client sends; superadmins land on
+// SUPERADMIN_CHAT_MODEL unless they name another allowlisted model — both
+// constants live in lib/ai/tiers so the page's models[0] can't drift from
+// them). tencent/hy3:free stays in the allowlist for superadmin bake-offs
 // (free on OpenRouter until 2026-07-21) but is no longer the default — free
 // tiers have 429'd on the first message under load; requests that do land on
 // it still fall back (see createLlmWithFallback below).
-const DEFAULT_PAID_MODEL = 'openai/gpt-oss-120b'; // $0.03/M in
-const FALLBACK_MODEL = 'openai/gpt-oss-120b';
+const DEFAULT_PAID_MODEL = DEFAULT_CHAT_MODEL; // $0.03/M in
+const FALLBACK_MODEL = DEFAULT_CHAT_MODEL;
 
 function modelAllowlist(): string[] {
   return [
@@ -76,11 +78,12 @@ function modelAllowlist(): string[] {
     'openai/gpt-5-nano',        // $0.05/M in
     'google/gemini-2.5-flash-lite', // $0.10/M in
     'anthropic/claude-haiku-4.5',   // $1/M in — quality anchor for bake-offs
+    SUPERADMIN_CHAT_MODEL,         // $0/M in — stealth model, superadmin default (reasoning + tool calls verified 2026-08-21)
     process.env.OPENROUTER_MODEL,
   ].filter((m): m is string => Boolean(m));
 }
 
-function validateBody(raw: unknown): { ok: true; messages: ChatMessage[]; model: string } | { ok: false; error: string } {
+function validateBody(raw: unknown): { ok: true; messages: ChatMessage[]; model: string | undefined } | { ok: false; error: string } {
   const body = raw as { model?: unknown; messages?: unknown };
   if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
     return { ok: false, error: 'messages must be a non-empty array' };
@@ -94,8 +97,10 @@ function validateBody(raw: unknown): { ok: true; messages: ChatMessage[]; model:
   if (last.role !== 'user') {
     return { ok: false, error: 'last message must be from the user' };
   }
-  const model = typeof body.model === 'string' ? body.model : 'mock';
-  if (!modelAllowlist().includes(model)) {
+  // Absent model = "whatever my role's default is" (resolveChatModel decides);
+  // a named model must be allowlisted.
+  const model = typeof body.model === 'string' ? body.model : undefined;
+  if (model !== undefined && !modelAllowlist().includes(model)) {
     return { ok: false, error: `model must be one of: ${modelAllowlist().join(', ')}` };
   }
   return { ok: true, messages: body.messages as ChatMessage[], model };

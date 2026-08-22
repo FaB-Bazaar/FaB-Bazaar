@@ -85,11 +85,31 @@ describe('VolzarPage signed-out handling', () => {
 });
 
 describe('VolzarPage model list', () => {
-  it('defaults the picker to the standard model everyone runs (models[0] = openai/gpt-oss-120b)', async () => {
+  it('sends the stealth bake-off model for superadmins (models[0] = stealth/ox-alpha)', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
     mockGetVolzarAccess.mockResolvedValue({
       success: true,
       data: { isSuperAdmin: true, metafySupporterTier: null, volzarAccess: true },
+    } as any);
+    mockGetSuggestions.mockResolvedValue([] as any);
+    const prevKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    try {
+      const result = await VolzarPage({ searchParams: emptySearchParams() });
+      const chats = findElements(result, (el) => Array.isArray((el.props as any)?.models));
+      expect(chats.length).toBe(1);
+      expect((chats[0].props as any).models[0]).toBe('stealth/ox-alpha');
+    } finally {
+      if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
+      else process.env.OPENROUTER_API_KEY = prevKey;
+    }
+  });
+
+  it('sends the standard model for everyone else (models[0] = openai/gpt-oss-120b)', async () => {
+    mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
+    mockGetVolzarAccess.mockResolvedValue({
+      success: true,
+      data: { isSuperAdmin: false, metafySupporterTier: null, volzarAccess: true },
     } as any);
     mockGetSuggestions.mockResolvedValue([] as any);
     const prevKey = process.env.OPENROUTER_API_KEY;

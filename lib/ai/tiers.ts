@@ -45,18 +45,34 @@ export function globalDailyLimit(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : LLM_LIMITS.globalDailyMessages;
 }
 
+/** What every non-superadmin runs — the cheapest paid OpenRouter model. */
+export const DEFAULT_CHAT_MODEL = 'openai/gpt-oss-120b';
+/**
+ * What superadmins run by default — the stealth bake-off model (free while
+ * unannounced; reasoning + tool calls verified 2026-08-21). Superadmin-only so
+ * a price appearing on it, or a free-tier 429 storm, can't hit the whole site.
+ */
+export const SUPERADMIN_CHAT_MODEL = 'stealth/ox-alpha';
+
+/** The model a role lands on when the client doesn't name one. */
+export function defaultChatModelFor(isSuperAdmin: boolean): string {
+  return isSuperAdmin ? SUPERADMIN_CHAT_MODEL : DEFAULT_CHAT_MODEL;
+}
+
 /**
  * Which model a chat turn actually runs. Only superadmins choose (model bake-
- * offs); everyone else is pinned to the default (cheapest) model regardless of
- * what the client requested — the UI hides the picker, this is the enforcement.
+ * offs) and they land on SUPERADMIN_CHAT_MODEL when they don't; everyone else
+ * is pinned to the default (cheapest) model regardless of what the client
+ * requested — the UI hides the picker, this is the enforcement.
  * Keyless deployments always run 'mock'.
  */
 export function resolveChatModel(opts: {
   hasApiKey: boolean;
   isSuperAdmin: boolean;
-  requested: string;
+  requested: string | undefined;
   defaultModel: string;
 }): string {
   if (!opts.hasApiKey) return 'mock';
-  return opts.isSuperAdmin ? opts.requested : opts.defaultModel;
+  if (!opts.isSuperAdmin) return opts.defaultModel;
+  return opts.requested ?? SUPERADMIN_CHAT_MODEL;
 }

@@ -13,6 +13,10 @@ vi.mock('@/lib/services', () => ({
   llmUsageService: { getTodayRequestCount: vi.fn(), getTodayGlobalRequestCount: vi.fn(), recordTurn: vi.fn() },
 }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn() }));
+vi.mock('@/lib/ai/openrouter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/openrouter')>();
+  return { ...actual, createLlm: vi.fn(actual.createLlm) };
+});
 vi.mock('@/lib/ai/mcp-bridge', () => ({
   fetchLiteTools: vi.fn(),
   fetchToolsByName: vi.fn(),
@@ -27,6 +31,7 @@ import { userService, llmUsageService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { resolveConfirmation } from '@/lib/ai/confirmations';
+import { createLlm, createMockLlm } from '@/lib/ai/openrouter';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
 const mockGetAccess = vi.mocked(userService.getVolzarAccess);
@@ -37,6 +42,7 @@ const mockExecuteTool = vi.mocked(executeTool);
 const mockGetTodayRequestCount = vi.mocked(llmUsageService.getTodayRequestCount);
 const mockGetTodayGlobalRequestCount = vi.mocked(llmUsageService.getTodayGlobalRequestCount);
 const mockRecordTurn = vi.mocked(llmUsageService.recordTurn);
+const mockCreateLlm = vi.mocked(createLlm);
 
 const LITE_TOOLS = {
   tools: [{ type: 'function' as const, function: { name: 'list_binders', description: 'd', parameters: {} } }],
@@ -156,6 +162,48 @@ describe('POST /api/volzar', () => {
     expect((await POST(request({ model: 'mock', messages: [] }))).status).toBe(400);
     expect((await POST(request({ model: 'mock', messages: [{ role: 'user', content: 'x' }, { role: 'assistant', content: 'y' }] }))).status).toBe(400); // last not user
     expect((await POST(request({ model: 'not-a-real-model', messages: VALID_BODY.messages }))).status).toBe(400);
+  });
+
+  it('a superadmin who sends no model runs the stealth default, not mock', async () => {
+    // beforeEach access is superadmin. Key present so resolveChatModel doesn't
+    // short-circuit to mock; the LLM itself is swapped for the scripted mock so
+    // no request leaves the test — we only assert which model the route asked for.
+    const prevKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    mockCreateLlm.mockImplementationOnce(() => createMockLlm({}));
+    try {
+      const res = await POST(request({ messages: VALID_BODY.messages }));
+      expect(res.status).toBe(200);
+      await readSseEvents(res);
+      expect(mockCreateLlm).toHaveBeenCalledWith({ model: 'stealth/ox-alpha' });
+    } finally {
+      if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
+      else process.env.OPENROUTER_API_KEY = prevKey;
+    }
+  });
+
+  it('a non-superadmin stays pinned to the standard model even when a key is present', async () => {
+    standardAccess();
+    const prevKey = process.env.OPENROUTER_API_KEY;
+    process.env.OPENROUTER_API_KEY = 'test-key';
+    mockCreateLlm.mockImplementationOnce(() => createMockLlm({}));
+    try {
+      const res = await POST(request({ model: 'stealth/ox-alpha', messages: VALID_BODY.messages }));
+      expect(res.status).toBe(200);
+      await readSseEvents(res);
+      expect(mockCreateLlm).toHaveBeenCalledWith({ model: 'openai/gpt-oss-120b' });
+    } finally {
+      if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
+      else process.env.OPENROUTER_API_KEY = prevKey;
+    }
+  });
+
+  it('accepts stealth/ox-alpha as a bake-off model (allowlisted, so validation does not 400)', async () => {
+    // Free OpenRouter stealth model under evaluation (2026-08). Only superadmins
+    // actually run it (resolveChatModel pins everyone else to the default), but
+    // it must pass body validation or a superadmin can't try it at all.
+    const res = await POST(request({ model: 'stealth/ox-alpha', messages: VALID_BODY.messages }));
+    expect(res.status).not.toBe(400);
   });
 
   it('502s when tool discovery fails, before any stream starts', async () => {

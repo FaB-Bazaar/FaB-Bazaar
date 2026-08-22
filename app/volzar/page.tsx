@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { userService } from '@/lib/services';
 import { getVolzarSuggestedPrompts, resolveUserLanguage } from '@/lib/ai/volzar-suggestions';
+import { DEFAULT_CHAT_MODEL, defaultChatModelFor } from '@/lib/ai/tiers';
 import { syncSupporterTierIfStale } from '@/lib/metafy/sync-tier';
 import { VolzarChat } from './VolzarChat';
 import { AccessGate } from './AccessGate';
@@ -85,14 +86,16 @@ export default async function VolzarPage({ searchParams }: {
 
   const isSuperAdmin = access.success && !!access.data?.isSuperAdmin;
   const mockMode = !process.env.OPENROUTER_API_KEY;
-  // models[0] is the picker default and MUST match the server's
-  // DEFAULT_PAID_MODEL (app/api/volzar/route.ts) so superadmin chats run the
-  // same model everyone else is pinned to. The picker itself renders only for
-  // superadmins — nobody else selects models at all.
+  // models[0] is what the chat sends, and it comes from the same
+  // lib/ai/tiers constants the server resolves against: superadmins run the
+  // stealth bake-off model, everyone else the cheapest paid one (the server
+  // pins non-superadmins there regardless of what's sent). No picker renders
+  // for anyone — the rest of the list is the superadmin bake-off allowlist.
   const models = mockMode
     ? ['mock']
     : [
-        'openai/gpt-oss-120b',            // $0.03/M in — default for everyone
+        defaultChatModelFor(isSuperAdmin),
+        ...(isSuperAdmin ? [DEFAULT_CHAT_MODEL] : []), // $0.03/M in — what everyone else runs
         'tencent/hy3:free',               // $0/M in — bake-offs (free until 2026-07-21)
         'openai/gpt-5-nano',              // $0.05/M in
         'google/gemini-2.5-flash-lite',   // $0.10/M in

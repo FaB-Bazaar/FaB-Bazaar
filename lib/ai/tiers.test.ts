@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { LLM_LIMITS, globalDailyLimit, dailyLimitFor, resolveChatModel } from './tiers';
+import { LLM_LIMITS, globalDailyLimit, dailyLimitFor, resolveChatModel, DEFAULT_CHAT_MODEL, SUPERADMIN_CHAT_MODEL, defaultChatModelFor } from './tiers';
 
 describe('LLM_LIMITS', () => {
   it('gives every user the same 50-message daily budget', () => {
@@ -52,8 +52,27 @@ describe('globalDailyLimit', () => {
   });
 });
 
+describe('chat model defaults', () => {
+  it('pins everyone to the cheapest paid model and superadmins to the stealth bake-off model', () => {
+    expect(DEFAULT_CHAT_MODEL).toBe('openai/gpt-oss-120b');
+    expect(SUPERADMIN_CHAT_MODEL).toBe('stealth/ox-alpha');
+    expect(defaultChatModelFor(false)).toBe(DEFAULT_CHAT_MODEL);
+    expect(defaultChatModelFor(true)).toBe(SUPERADMIN_CHAT_MODEL);
+  });
+});
+
 describe('resolveChatModel', () => {
   const DEFAULT = 'openai/gpt-oss-120b';
+
+  it('runs the superadmin default when a superadmin sends no model', () => {
+    expect(resolveChatModel({ hasApiKey: true, isSuperAdmin: true, requested: undefined, defaultModel: DEFAULT }))
+      .toBe(SUPERADMIN_CHAT_MODEL);
+  });
+
+  it('still pins a non-superadmin to the default when they send no model', () => {
+    expect(resolveChatModel({ hasApiKey: true, isSuperAdmin: false, requested: undefined, defaultModel: DEFAULT }))
+      .toBe(DEFAULT);
+  });
 
   it('lets a superadmin run whatever they requested', () => {
     expect(resolveChatModel({ hasApiKey: true, isSuperAdmin: true, requested: 'anthropic/claude-haiku-4.5', defaultModel: DEFAULT }))
