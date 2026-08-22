@@ -4,7 +4,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } 
 import { useDebounce } from "use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { formatLegalityRows, type LegalityStatus } from "@/lib/cards/card-legality";
+import { keywordGlossary } from "@/lib/cards/keyword-glossary";
+import { buildPrintingRows } from "@/lib/cards/lightbox-printings";
+import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
 import { RULE_TOKEN_ICON } from "@/app/volzar/rule-glyphs";
@@ -161,6 +165,12 @@ function renderRulesSegment(seg: RulesSegment, i: number): React.ReactNode {
   }
 }
 
+/** Single-paragraph rules markup (glyph tokens + emphasis) rendered inline. */
+function RulesInline({ text }: { text: string }) {
+  const paras = parseRulesText(text);
+  return <>{paras.flat().map(renderRulesSegment)}</>;
+}
+
 function RulesText({ text }: { text: string }) {
   const paras = parseRulesText(text);
   if (paras.length === 0) return null;
@@ -194,18 +204,56 @@ function statEntries(p: PrintingResult): Array<{ label: string; value: string }>
   return entries;
 }
 
+const LEGALITY_STYLE: Record<LegalityStatus, { label: string; cls: string }> = {
+  'legal':      { label: 'Legal',      cls: 'bg-green-900/60 text-green-300 border-green-700/60' },
+  'not-legal':  { label: 'Not Legal',  cls: 'bg-gray-800 text-gray-400 border-gray-700' },
+  'banned':     { label: 'Banned',     cls: 'bg-red-900/60 text-red-300 border-red-700/60' },
+  'suspended':  { label: 'Suspended',  cls: 'bg-amber-900/60 text-amber-300 border-amber-700/60' },
+  'restricted': { label: 'Restricted', cls: 'bg-amber-900/60 text-amber-300 border-amber-700/60' },
+};
+
+/** Artists are stored lowercase ("nailsen ivanderlie") — title-case for display. */
+function artistNames(p: PrintingResult): string {
+  const raw = p.artists;
+  if (!Array.isArray(raw)) return '';
+  return raw
+    .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+    .map(a => a.replace(/\b[a-z]/g, c => c.toUpperCase()))
+    .join(', ');
+}
+
+function tcgplayerFallbackUrl(name: string): string {
+  return `https://www.tcgplayer.com/search/flesh-and-blood-tcg/product?productLineName=flesh-and-blood-tcg&q=${encodeURIComponent(name)}`;
+}
+
 function CardDetailsLightbox({
   card,
   onClose,
   onPrev,
   onNext,
+  onSelectPrinting,
 }: {
   card: LightboxCard;
   onClose: () => void;
   /** Step to the previous/next search result; omitted = at that end of the list. */
   onPrev?: () => void;
   onNext?: () => void;
+  /** User picked another printing from the Printings & prices list. */
+  onSelectPrinting?: (printing: PrintingResult) => void;
 }) {
+  // Sibling printings (all languages) — lazy, cached per card by hero-pool-cache.
+  const cardUid = card.printing.card_unique_id;
+  const [siblings, setSiblings] = useState<PrintingResult[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    setSiblings(null);
+    if (!cardUid) return;
+    fetchPrintingsForCard(cardUid)
+      .then(rows => { if (live) setSiblings(rows as unknown as PrintingResult[]); })
+      .catch(() => { if (live) setSiblings([]); });
+    return () => { live = false; };
+  }, [cardUid]);
+
   // Arrow-key navigation through the results while the lightbox is up.
   // Capture phase so nothing underneath (dialog, grid) reacts to the keys.
   useEffect(() => {
@@ -231,6 +279,11 @@ function CardDetailsLightbox({
   const flavorText = (p.flavor_text || '') as string;
   const stats = statEntries(p);
   const price = p.tcg_low ?? p.tcg_market;
+  const legality = formatLegalityRows(p);
+  const glossary = keywordGlossary(rulesText, Array.isArray(p.keywords) ? (p.keywords as string[]) : []);
+  const artists = artistNames(p);
+  const printingRows = siblings ? buildPrintingRows(siblings, p.printing_id) : null;
+  const tcgUrl = (typeof p.tcgplayer_url === 'string' && p.tcgplayer_url) || tcgplayerFallbackUrl(card.name);
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -276,7 +329,7 @@ function CardDetailsLightbox({
         )}
         <div
           data-testid="card-lightbox-details"
-          className="w-[320px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-gray-900/95 p-4 text-left self-center sm:self-auto"
+          className="w-[380px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-gray-900/95 p-4 text-left self-center sm:self-auto"
         >
           <p className="text-base font-semibold text-gray-100">{card.name}</p>
           {typeLine && <p className="mt-0.5 text-sm text-gray-300">{typeLine}</p>}
@@ -300,13 +353,106 @@ function CardDetailsLightbox({
               <RulesText text={rulesText} />
             </div>
           )}
+          {glossary.length > 0 && (
+            <dl className="mt-3 space-y-1 border-l-2 border-amber-500/60 pl-2.5 text-xs leading-snug" aria-label="Keyword reminders">
+              {glossary.map(g => (
+                <div key={g.key}>
+                  <dt className="inline font-semibold text-gray-100">{g.keyword}</dt>
+                  <dd className="inline text-gray-300"> — <RulesInline text={g.reminder} /></dd>
+                </div>
+              ))}
+            </dl>
+          )}
           {flavorText && (
             <p className="mt-3 text-sm italic text-gray-300">{flavorText}</p>
           )}
-          <div className="mt-3 border-t border-gray-700 pt-2 text-xs text-gray-300">
-            {collectorLabel(p)}
-            {price != null && price > 0 && <span className="ml-2 text-green-400 font-medium">${price.toFixed(2)}</span>}
-          </div>
+          {artists && (
+            <p className="mt-3 text-xs text-gray-300">Illustrated by {artists}</p>
+          )}
+
+          {legality.length > 0 && (
+            <section className="mt-3 border-t border-gray-700 pt-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-amber-300/90">Legality</h3>
+              <ul aria-label="Format legality" className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1">
+                {legality.map(row => {
+                  const st = LEGALITY_STYLE[row.status];
+                  return (
+                    <li key={row.key} className="flex items-center gap-1.5 text-xs text-gray-200">
+                      <span className={cn('shrink-0 rounded border px-1.5 py-px text-[10px] font-semibold leading-tight', st.cls)}>{st.label}</span>
+                      <span className="truncate">{row.format}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
+          <section className="mt-3 border-t border-gray-700 pt-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-amber-300/90">Printings &amp; prices</h3>
+              <span className="text-[10px] text-gray-400">TCG Low</span>
+            </div>
+            {printingRows === null ? (
+              <p className="mt-1.5 text-xs text-gray-400">
+                {collectorLabel(p)}
+                {price != null && price > 0 && <span className="ml-2 text-green-400 font-medium">${price.toFixed(2)}</span>}
+                {cardUid && <Loader2 className="ml-2 inline h-3 w-3 animate-spin text-gray-400" aria-label="Loading printings" />}
+              </p>
+            ) : (
+              <>
+                <ul aria-label="Printings" className="mt-1.5 space-y-1">
+                  {printingRows.rows.map(row => {
+                    const meta = [row.rarity, row.foiling, row.edition !== 'Normal' ? row.edition : null, row.artVariation, row.year]
+                      .filter(Boolean).join(' · ');
+                    return (
+                      <li key={row.printing_id} aria-current={row.isCurrent ? 'true' : undefined}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const target = siblings?.find(s => s.printing_id === row.printing_id);
+                            if (target && onSelectPrinting) onSelectPrinting(target);
+                          }}
+                          aria-label={`${row.collector} ${row.setName} ${meta}`}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                            row.isCurrent
+                              ? 'border-amber-500/70 bg-amber-500/10'
+                              : 'border-gray-700/70 bg-gray-800/50 hover:bg-gray-800',
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm text-gray-100">
+                              <span className="font-mono text-amber-300/90">{row.collector}</span>
+                              <span className="ml-1.5">{row.setName}</span>
+                            </span>
+                            <span className="block truncate text-[11px] text-gray-400">
+                              {row.isCurrent && <span className="font-semibold uppercase tracking-wide text-amber-300">✓ Current · </span>}
+                              {meta}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-sm font-semibold tabular-nums text-green-400">
+                            {row.price != null ? `$${row.price.toFixed(2)}` : <span className="text-xs font-normal text-gray-400">—</span>}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {printingRows.otherLanguages > 0 && (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    +{printingRows.otherLanguages} other-language printing{printingRows.otherLanguages === 1 ? '' : 's'} not shown
+                  </p>
+                )}
+              </>
+            )}
+            <TcgAffiliateLink
+              tcgplayerUrl={tcgUrl}
+              feature="DeckQuickAddLightbox"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-red-700 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              Buy on TCGplayer <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </TcgAffiliateLink>
+          </section>
         </div>
       </div>
     </div>
@@ -1146,6 +1292,7 @@ export default function QuickAddCardDialog({
             onClose={() => setEnlarged(null)}
             onPrev={lightboxIndex > 0 ? () => openLightboxAt(lightboxIndex - 1) : undefined}
             onNext={lightboxIndex >= 0 && lightboxIndex < cards.length - 1 ? () => openLightboxAt(lightboxIndex + 1) : undefined}
+            onSelectPrinting={printing => setEnlarged(prev => (prev ? { ...prev, printing } : prev))}
           />
         )}
       </DialogContent>
