@@ -346,10 +346,7 @@ function CardDetailsLightbox({
         )}
         <div
           data-testid="card-lightbox-details"
-          className={cn(
-            'w-[340px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 border-l-4 bg-gray-900/95 p-3.5 text-left self-center sm:self-auto',
-            pitch?.border ?? 'border-l-gray-600',
-          )}
+          className="w-[340px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-gray-900/95 p-3.5 text-left self-center sm:self-auto"
         >
           <p className="text-base font-semibold text-gray-100">{card.name}</p>
           {typeLine && <p className="mt-0.5 text-sm text-gray-300">{typeLine}</p>}
