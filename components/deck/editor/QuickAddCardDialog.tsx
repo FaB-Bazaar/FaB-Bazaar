@@ -4,10 +4,10 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } 
 import { useDebounce } from "use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
-import { formatLegalityRows, type LegalityStatus } from "@/lib/cards/card-legality";
+import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Info, X, Ban, AlertTriangle } from "lucide-react";
+import { formatLegalityRows, deckLegalityVerdict, type LegalityStatus } from "@/lib/cards/card-legality";
 import { keywordGlossary } from "@/lib/cards/keyword-glossary";
-import { buildPrintingRows } from "@/lib/cards/lightbox-printings";
+import { buildPrintingRows, groupPrintingRows } from "@/lib/cards/lightbox-printings";
 import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
@@ -101,28 +101,8 @@ function PrintingBadges({ p }: { p: PrintingResult }) {
     );
   }
 
-  if (p.foiling === "r") {
-    badges.push(
-      <span
-        key="rf"
-        className="text-[8px] px-1 py-px rounded font-bold text-white"
-        style={{ background: "linear-gradient(90deg, #f43f5e, #a855f7, #3b82f6)" }}
-      >
-        RF
-      </span>
-    );
-  } else if (p.foiling === "c") {
-    badges.push(
-      <span key="cf" className="text-[8px] px-1 py-px rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
-        CF
-      </span>
-    );
-  } else if (p.foiling === "g") {
-    badges.push(
-      <span key="gf" className="text-[8px] px-1 py-px rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 font-bold">
-        GF
-      </span>
-    );
+  if (p.foiling === "r" || p.foiling === "c" || p.foiling === "g") {
+    badges.push(<FoilBadge key={p.foiling} code={p.foiling} className="text-[8px]" />);
   }
 
   if (p.is_extended_art) {
@@ -204,12 +184,37 @@ function statEntries(p: PrintingResult): Array<{ label: string; value: string }>
   return entries;
 }
 
-const LEGALITY_STYLE: Record<LegalityStatus, { label: string; cls: string }> = {
-  'legal':      { label: 'Legal',      cls: 'bg-green-900/60 text-green-300 border-green-700/60' },
-  'not-legal':  { label: 'Not Legal',  cls: 'bg-gray-800 text-gray-400 border-gray-700' },
-  'banned':     { label: 'Banned',     cls: 'bg-red-900/60 text-red-300 border-red-700/60' },
-  'suspended':  { label: 'Suspended',  cls: 'bg-amber-900/60 text-amber-300 border-amber-700/60' },
-  'restricted': { label: 'Restricted', cls: 'bg-amber-900/60 text-amber-300 border-amber-700/60' },
+/** Foil badge vocabulary shared by the grid tiles and the lightbox printing chips. */
+const FOIL_BADGE: Record<string, { label: string; className: string; style?: React.CSSProperties }> = {
+  s: { label: 'NF', className: 'bg-gray-700 text-gray-200 border border-gray-600' },
+  r: { label: 'RF', className: 'text-white', style: { background: 'linear-gradient(90deg, #f43f5e, #a855f7, #3b82f6)' } },
+  c: { label: 'CF', className: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' },
+  g: { label: 'GF', className: 'bg-amber-400/20 text-amber-300 border border-amber-400/40' },
+};
+
+function FoilBadge({ code, className }: { code: string; className?: string }) {
+  const b = FOIL_BADGE[code] ?? { label: code.toUpperCase(), className: 'bg-gray-700 text-gray-200 border border-gray-600' };
+  return (
+    <span className={cn('rounded px-1 py-px text-[10px] font-bold leading-tight', b.className, className)} style={b.style}>
+      {b.label}
+    </span>
+  );
+}
+
+const LEGALITY_STRIP: Record<LegalityStatus, { label: string; cls: string }> = {
+  'legal':      { label: 'Legal',      cls: 'text-gray-200' },
+  'not-legal':  { label: 'Not legal',  cls: 'text-gray-400 line-through decoration-gray-500' },
+  'banned':     { label: 'Banned',     cls: 'text-red-300 line-through decoration-red-400' },
+  'suspended':  { label: 'Suspended',  cls: 'text-amber-300' },
+  'restricted': { label: 'Restricted', cls: 'text-amber-300' },
+};
+
+const VERDICT_STYLE: Record<LegalityStatus, { icon: React.ReactNode; cls: string; phrase: (f: string) => string }> = {
+  'legal':      { icon: <Check className="h-3.5 w-3.5" aria-hidden="true" />,    cls: 'text-green-400', phrase: f => `Legal in ${f}` },
+  'not-legal':  { icon: <X className="h-3.5 w-3.5" aria-hidden="true" />,        cls: 'text-gray-300',  phrase: f => `Not legal in ${f}` },
+  'banned':     { icon: <Ban className="h-3.5 w-3.5" aria-hidden="true" />,      cls: 'text-red-300',   phrase: f => `Banned in ${f}` },
+  'suspended':  { icon: <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />, cls: 'text-amber-300', phrase: f => `Suspended in ${f}` },
+  'restricted': { icon: <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />, cls: 'text-amber-300', phrase: f => `Restricted in ${f}` },
 };
 
 /** Artists are stored lowercase ("nailsen ivanderlie") — title-case for display. */
@@ -226,34 +231,31 @@ function tcgplayerFallbackUrl(name: string): string {
   return `https://www.tcgplayer.com/search/flesh-and-blood-tcg/product?productLineName=flesh-and-blood-tcg&q=${encodeURIComponent(name)}`;
 }
 
+const SectionLabel = ({ children }: { children: React.ReactNode }) => (
+  <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{children}</span>
+);
+
 function CardDetailsLightbox({
   card,
   onClose,
   onPrev,
   onNext,
   onSelectPrinting,
+  deckFormat,
+  inDeckCount = 0,
 }: {
   card: LightboxCard;
   onClose: () => void;
   /** Step to the previous/next search result; omitted = at that end of the list. */
   onPrev?: () => void;
   onNext?: () => void;
-  /** User picked another printing from the Printings & prices list. */
+  /** User picked another printing from the printings list. */
   onSelectPrinting?: (printing: PrintingResult) => void;
+  /** Deck format display string ("Silver Age") — drives the legality verdict line. */
+  deckFormat?: string;
+  /** Copies of this card already in the deck (all zones). */
+  inDeckCount?: number;
 }) {
-  // Sibling printings (all languages) — lazy, cached per card by hero-pool-cache.
-  const cardUid = card.printing.card_unique_id;
-  const [siblings, setSiblings] = useState<PrintingResult[] | null>(null);
-  useEffect(() => {
-    let live = true;
-    setSiblings(null);
-    if (!cardUid) return;
-    fetchPrintingsForCard(cardUid)
-      .then(rows => { if (live) setSiblings(rows as unknown as PrintingResult[]); })
-      .catch(() => { if (live) setSiblings([]); });
-    return () => { live = false; };
-  }, [cardUid]);
-
   // Arrow-key navigation through the results while the lightbox is up.
   // Capture phase so nothing underneath (dialog, grid) reacts to the keys.
   useEffect(() => {
@@ -272,6 +274,19 @@ function CardDetailsLightbox({
     return () => document.removeEventListener('keydown', handler, true);
   }, [onPrev, onNext]);
 
+  // Sibling printings (all languages) — lazy, cached per card by hero-pool-cache.
+  const cardUid = card.printing.card_unique_id;
+  const [siblings, setSiblings] = useState<PrintingResult[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    setSiblings(null);
+    if (!cardUid) return;
+    fetchPrintingsForCard(cardUid)
+      .then(rows => { if (live) setSiblings(rows as unknown as PrintingResult[]); })
+      .catch(() => { if (live) setSiblings([]); });
+    return () => { live = false; };
+  }, [cardUid]);
+
   const p = card.printing;
   const pitch = typeof p.pitch === 'number' ? PITCH_STYLE[p.pitch] : null;
   const typeLine = (p.type_text_display || p.type_text || '') as string;
@@ -280,9 +295,11 @@ function CardDetailsLightbox({
   const stats = statEntries(p);
   const price = p.tcg_low ?? p.tcg_market;
   const legality = formatLegalityRows(p);
+  const verdict = deckLegalityVerdict(legality, deckFormat);
   const glossary = keywordGlossary(rulesText, Array.isArray(p.keywords) ? (p.keywords as string[]) : []);
   const artists = artistNames(p);
   const printingRows = siblings ? buildPrintingRows(siblings, p.printing_id) : null;
+  const groups = printingRows ? groupPrintingRows(printingRows.rows) : null;
   const tcgUrl = (typeof p.tcgplayer_url === 'string' && p.tcgplayer_url) || tcgplayerFallbackUrl(card.name);
 
   return (
@@ -329,7 +346,10 @@ function CardDetailsLightbox({
         )}
         <div
           data-testid="card-lightbox-details"
-          className="w-[380px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-gray-900/95 p-4 text-left self-center sm:self-auto"
+          className={cn(
+            'w-[380px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 border-l-4 bg-gray-900/95 p-4 text-left self-center sm:self-auto',
+            pitch?.border ?? 'border-l-gray-600',
+          )}
         >
           <p className="text-base font-semibold text-gray-100">{card.name}</p>
           {typeLine && <p className="mt-0.5 text-sm text-gray-300">{typeLine}</p>}
@@ -354,92 +374,115 @@ function CardDetailsLightbox({
             </div>
           )}
           {glossary.length > 0 && (
-            <dl className="mt-3 space-y-1 border-l-2 border-amber-500/60 pl-2.5 text-xs leading-snug" aria-label="Keyword reminders">
-              {glossary.map(g => (
-                <div key={g.key}>
-                  <dt className="inline font-semibold text-gray-100">{g.keyword}</dt>
-                  <dd className="inline text-gray-300"> — <RulesInline text={g.reminder} /></dd>
-                </div>
-              ))}
-            </dl>
+            <div role="group" aria-label="Keyword reminders" className="mt-2.5 flex gap-2 rounded-md bg-gray-800/70 px-2.5 py-2 text-xs leading-snug">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
+              <div className="space-y-1">
+                {glossary.map(g => (
+                  <p key={g.key}>
+                    <span className="font-semibold text-gray-100">{g.keyword}</span>
+                    <span className="text-gray-300"> · <RulesInline text={g.reminder} /></span>
+                  </p>
+                ))}
+              </div>
+            </div>
           )}
           {flavorText && (
             <p className="mt-3 text-sm italic text-gray-300">{flavorText}</p>
           )}
           {artists && (
-            <p className="mt-3 text-xs text-gray-300">Illustrated by {artists}</p>
+            <p className="mt-2 text-xs text-gray-400">Illustrated by {artists}</p>
           )}
 
-          {legality.length > 0 && (
-            <section className="mt-3 border-t border-gray-700 pt-3">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-amber-300/90">Legality</h3>
-              <ul aria-label="Format legality" className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1">
-                {legality.map(row => {
-                  const st = LEGALITY_STYLE[row.status];
-                  return (
-                    <li key={row.key} className="flex items-center gap-1.5 text-xs text-gray-200">
-                      <span className={cn('shrink-0 rounded border px-1.5 py-px text-[10px] font-semibold leading-tight', st.cls)}>{st.label}</span>
-                      <span className="truncate">{row.format}</span>
+          {(legality.length > 0 || inDeckCount > 0) && (
+            <div role="group" aria-label="Legality" className="mt-3 border-t border-gray-700 pt-3">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                {verdict ? (
+                  <span className={cn('inline-flex items-center gap-1.5 font-medium', VERDICT_STYLE[verdict.status].cls)}>
+                    {VERDICT_STYLE[verdict.status].icon}
+                    {VERDICT_STYLE[verdict.status].phrase(verdict.format)}
+                  </span>
+                ) : (
+                  <SectionLabel>Legality</SectionLabel>
+                )}
+                <span className="shrink-0 text-xs text-gray-300">
+                  In this deck: <span className={cn('font-semibold tabular-nums', inDeckCount > 0 ? 'text-blue-300' : 'text-gray-200')}>{inDeckCount}</span>
+                </span>
+              </div>
+              {legality.length > 0 && (
+                <ul aria-label="Other formats" className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs">
+                  {legality.map(row => (
+                    <li
+                      key={row.key}
+                      data-status={row.status}
+                      title={`${row.format}: ${LEGALITY_STRIP[row.status].label}`}
+                      className={cn('font-medium', LEGALITY_STRIP[row.status].cls, verdict?.key === row.key && 'underline decoration-dotted underline-offset-2')}
+                    >
+                      {row.short}
+                      <span className="sr-only">: {LEGALITY_STRIP[row.status].label}</span>
                     </li>
-                  );
-                })}
-              </ul>
-            </section>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
 
-          <section className="mt-3 border-t border-gray-700 pt-3">
+          <div className="mt-3 border-t border-gray-700 pt-3">
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-amber-300/90">Printings &amp; prices</h3>
-              <span className="text-[10px] text-gray-400">TCG Low</span>
+              <SectionLabel>Printings</SectionLabel>
+              <span className="text-[11px] text-gray-400">TCG Low · cheapest in green</span>
             </div>
-            {printingRows === null ? (
-              <p className="mt-1.5 text-xs text-gray-400">
-                {collectorLabel(p)}
+            {groups === null ? (
+              <p className="mt-1.5 text-sm text-gray-300">
+                <span className="font-mono text-gray-400">{collectorLabel(p)}</span>
                 {price != null && price > 0 && <span className="ml-2 text-green-400 font-medium">${price.toFixed(2)}</span>}
                 {cardUid && <Loader2 className="ml-2 inline h-3 w-3 animate-spin text-gray-400" aria-label="Loading printings" />}
               </p>
             ) : (
               <>
-                <ul aria-label="Printings" className="mt-1.5 space-y-1">
-                  {printingRows.rows.map(row => {
-                    const meta = [row.rarity, row.foiling, row.edition !== 'Normal' ? row.edition : null, row.artVariation, row.year]
-                      .filter(Boolean).join(' · ');
+                <ul aria-label="Printings" className="mt-1.5 space-y-1.5">
+                  {groups.map(g => {
+                    const meta = [g.rarity, g.edition !== 'Normal' ? g.edition : null, g.artVariation, g.year].filter(Boolean).join(' · ');
                     return (
-                      <li key={row.printing_id} aria-current={row.isCurrent ? 'true' : undefined}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const target = siblings?.find(s => s.printing_id === row.printing_id);
-                            if (target && onSelectPrinting) onSelectPrinting(target);
-                          }}
-                          aria-label={`${row.collector} ${row.setName} ${meta}`}
-                          className={cn(
-                            'flex w-full items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-                            row.isCurrent
-                              ? 'border-amber-500/70 bg-amber-500/10'
-                              : 'border-gray-700/70 bg-gray-800/50 hover:bg-gray-800',
-                          )}
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm text-gray-100">
-                              <span className="font-mono text-amber-300/90">{row.collector}</span>
-                              <span className="ml-1.5">{row.setName}</span>
-                            </span>
-                            <span className="block truncate text-[11px] text-gray-400">
-                              {row.isCurrent && <span className="font-semibold uppercase tracking-wide text-amber-300">✓ Current · </span>}
-                              {meta}
-                            </span>
+                      <li key={g.key} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-gray-100">
+                            <span className="font-mono text-gray-400">{g.collector}</span>
+                            <span className="ml-1.5">{g.setName}</span>
                           </span>
-                          <span className="shrink-0 text-sm font-semibold tabular-nums text-green-400">
-                            {row.price != null ? `$${row.price.toFixed(2)}` : <span className="text-xs font-normal text-gray-400">—</span>}
-                          </span>
-                        </button>
+                          <span className="block truncate text-[11px] text-gray-400">{meta}</span>
+                        </span>
+                        <span className="flex shrink-0 gap-1">
+                          {g.variants.map(v => (
+                            <button
+                              key={v.printing_id}
+                              type="button"
+                              aria-pressed={v.isCurrent}
+                              aria-label={`${g.collector} ${v.foiling}${v.price != null ? ` $${v.price.toFixed(2)}` : ''}`}
+                              title={v.isCurrent ? 'Showing this printing' : `Show ${v.foiling} printing`}
+                              onClick={() => {
+                                const target = siblings?.find(sb => sb.printing_id === v.printing_id);
+                                if (target && onSelectPrinting) onSelectPrinting(target);
+                              }}
+                              className={cn(
+                                'inline-flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                                v.isCurrent
+                                  ? 'border-blue-400 bg-blue-500/10 ring-1 ring-blue-400'
+                                  : 'border-gray-700 bg-gray-800/60 hover:bg-gray-700',
+                              )}
+                            >
+                              <FoilBadge code={v.foilCode} />
+                              <span className={v.isCheapest ? 'font-semibold text-green-400' : 'text-gray-200'}>
+                                {v.price != null ? `$${v.price.toFixed(2)}` : '—'}
+                              </span>
+                            </button>
+                          ))}
+                        </span>
                       </li>
                     );
                   })}
                 </ul>
-                {printingRows.otherLanguages > 0 && (
-                  <p className="mt-1 text-[11px] text-gray-400">
+                {printingRows && printingRows.otherLanguages > 0 && (
+                  <p className="mt-1.5 text-[11px] text-gray-400">
                     +{printingRows.otherLanguages} other-language printing{printingRows.otherLanguages === 1 ? '' : 's'} not shown
                   </p>
                 )}
@@ -448,11 +491,11 @@ function CardDetailsLightbox({
             <TcgAffiliateLink
               tcgplayerUrl={tcgUrl}
               feature="DeckQuickAddLightbox"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-red-700 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="mt-2.5 inline-flex items-center gap-1 rounded text-sm text-blue-300 transition-colors hover:text-blue-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
             >
-              Buy on TCGplayer <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              View on TCGplayer <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </TcgAffiliateLink>
-          </section>
+          </div>
         </div>
       </div>
     </div>
@@ -1293,6 +1336,8 @@ export default function QuickAddCardDialog({
             onPrev={lightboxIndex > 0 ? () => openLightboxAt(lightboxIndex - 1) : undefined}
             onNext={lightboxIndex >= 0 && lightboxIndex < cards.length - 1 ? () => openLightboxAt(lightboxIndex + 1) : undefined}
             onSelectPrinting={printing => setEnlarged(prev => (prev ? { ...prev, printing } : prev))}
+            deckFormat={deckFormat}
+            inDeckCount={inDeckMap.get((lightboxIndex >= 0 ? cards[lightboxIndex]?.unique_id : undefined) ?? enlarged.printing.card_unique_id ?? '') ?? 0}
           />
         )}
       </DialogContent>

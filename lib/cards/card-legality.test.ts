@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatLegalityRows } from './card-legality';
+import { formatLegalityRows, deckLegalityVerdict } from './card-legality';
 
 describe('formatLegalityRows', () => {
   it('lists the five constructed formats in display order with legal / not-legal from the flags', () => {
@@ -31,5 +31,25 @@ describe('formatLegalityRows', () => {
   it('returns no rows when the row carries no legality data at all (lazy printing rows)', () => {
     expect(formatLegalityRows({})).toEqual([]);
     expect(formatLegalityRows({ name: 'x' } as Record<string, unknown>)).toEqual([]);
+  });
+});
+
+describe('deckLegalityVerdict', () => {
+  const rows = formatLegalityRows({ cc_legal: true, cc_banned: true, blitz_legal: true, silver_age_legal: false });
+
+  it('picks the row for the deck format display string', () => {
+    expect(deckLegalityVerdict(rows, 'Blitz')).toMatchObject({ key: 'blitz', format: 'Blitz', status: 'legal' });
+    expect(deckLegalityVerdict(rows, 'Silver Age')).toMatchObject({ key: 'silver_age', format: 'Silver Age', status: 'not-legal' });
+    expect(deckLegalityVerdict(rows, 'Classic Constructed')?.status).toBe('banned');
+  });
+
+  it('returns null for an unknown / missing deck format or no legality data', () => {
+    expect(deckLegalityVerdict(rows, undefined)).toBeNull();
+    expect(deckLegalityVerdict(rows, 'Draft')).toBeNull();
+    expect(deckLegalityVerdict([], 'Blitz')).toBeNull();
+  });
+
+  it('exposes a short code per format for the compact strip', () => {
+    expect(rows.map(r => r.short)).toEqual(['CC', 'Blitz', 'LL', 'SA', 'Commoner']);
   });
 });

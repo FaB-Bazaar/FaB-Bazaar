@@ -14,15 +14,17 @@ export type LegalityKey = 'cc' | 'blitz' | 'll' | 'silver_age' | 'commoner';
 export interface LegalityRow {
   key: LegalityKey;
   format: string;
+  /** Compact label for the inline strip ("CC", "SA"). */
+  short: string;
   status: LegalityStatus;
 }
 
-const FORMATS: Array<{ key: LegalityKey; format: string }> = [
-  { key: 'cc', format: 'Classic Constructed' },
-  { key: 'blitz', format: 'Blitz' },
-  { key: 'll', format: 'Living Legend' },
-  { key: 'silver_age', format: 'Silver Age' },
-  { key: 'commoner', format: 'Commoner' },
+const FORMATS: Array<{ key: LegalityKey; format: string; short: string }> = [
+  { key: 'cc', format: 'Classic Constructed', short: 'CC' },
+  { key: 'blitz', format: 'Blitz', short: 'Blitz' },
+  { key: 'll', format: 'Living Legend', short: 'LL' },
+  { key: 'silver_age', format: 'Silver Age', short: 'SA' },
+  { key: 'commoner', format: 'Commoner', short: 'Commoner' },
 ];
 
 type Flags = Record<string, unknown>;
@@ -33,7 +35,7 @@ const asBool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v 
 export function formatLegalityRows(card: Flags): LegalityRow[] {
   const rows: LegalityRow[] = [];
   let any = false;
-  for (const { key, format } of FORMATS) {
+  for (const { key, format, short } of FORMATS) {
     const legal = asBool(card[`${key}_legal`]);
     const banned = asBool(card[`${key}_banned`]);
     const suspended = asBool(card[`${key}_suspended`]);
@@ -49,7 +51,17 @@ export function formatLegalityRows(card: Flags): LegalityRow[] {
           : legal
             ? 'legal'
             : 'not-legal';
-    rows.push({ key, format, status });
+    rows.push({ key, format, short, status });
   }
   return any ? rows : [];
+}
+
+/**
+ * The row for the deck's format (`decks.format` display string, e.g.
+ * "Silver Age"). Null when the format is unknown/limited or no legality data.
+ */
+export function deckLegalityVerdict(rows: LegalityRow[], deckFormat: string | undefined): LegalityRow | null {
+  if (!deckFormat) return null;
+  const wanted = deckFormat.trim().toLowerCase();
+  return rows.find((r) => r.format.toLowerCase() === wanted) ?? null;
 }

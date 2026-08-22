@@ -45,46 +45,54 @@ test('lightbox shows legality, illustrator, printings with prices and a TCGplaye
     await expect(lightbox).toBeVisible({ timeout: 5000 })
     const details = lightbox.getByTestId('card-lightbox-details')
 
-    await test.step('legality grid', async () => {
-      const legality = details.getByRole('list', { name: /format legality/i })
+    await test.step('deck-format verdict + compact legality strip', async () => {
+      const legality = details.getByRole('group', { name: /legality/i })
       await expect(legality).toBeVisible()
-      const items = legality.getByRole('listitem')
-      await expect(items).toHaveCount(5)
-      await expect(items.filter({ hasText: 'Silver Age' })).toContainText(/^Legal/)
-      await expect(items.filter({ hasText: 'Commoner' })).toContainText('Not Legal')
-      await expect(items.filter({ hasText: 'Classic Constructed' })).toContainText(/^Legal/)
+      // Seeded deck is young Lyath → Silver Age
+      await expect(legality.getByText(/Legal in Silver Age/i)).toBeVisible()
+      const strip = legality.getByRole('list', { name: /other formats/i })
+      await expect(strip.getByRole('listitem')).toHaveCount(5)
+      await expect(strip.getByRole('listitem').filter({ hasText: /^Commoner/ })).toHaveAttribute('data-status', 'not-legal')
+      await expect(strip.getByRole('listitem').filter({ hasText: /^CC/ })).toHaveAttribute('data-status', 'legal')
+    })
+
+    await test.step('deck context: copies already in this deck', async () => {
+      // Seed list has 1× yellow Mocking Blow
+      await expect(details.getByText(/In this deck:\s*1/i)).toBeVisible()
     })
 
     await test.step('illustrator', async () => {
       await expect(details.getByText(/Illustrated by Nailsen Ivanderlie/i)).toBeVisible()
     })
 
-    await test.step('printings & prices (English only, tcg_low, current highlighted)', async () => {
+    await test.step('printings grouped per collector number, foilings as chips, tcg_low', async () => {
       const list = details.getByRole('list', { name: /printings/i })
       await expect(list).toBeVisible({ timeout: 10000 })
       const rows = list.getByRole('listitem')
-      await expect(rows).toHaveCount(4)
-      await expect(rows.filter({ hasText: 'FAB382' })).toContainText('$8.00')
-      await expect(rows.filter({ hasText: 'SLY020' })).toContainText('$0.30')
-      await expect(rows.filter({ hasText: 'SUP091' })).toHaveCount(2)
-      await expect(list.locator('[aria-current="true"]')).toHaveCount(1)
+      await expect(rows).toHaveCount(3) // SUP091 (NF+RF), FAB382, SLY020 — 4 printings, 3 rows
+      const sup = rows.filter({ hasText: 'SUP091' })
+      await expect(sup.getByRole('button')).toHaveCount(2)
+      await expect(sup.getByRole('button', { name: /non-foil/i })).toContainText('$0.08')
+      await expect(sup.getByRole('button', { name: /rainbow foil/i })).toContainText('$0.40')
+      await expect(rows.filter({ hasText: 'FAB382' }).getByRole('button')).toContainText('$8.00')
+      await expect(list.locator('[aria-pressed="true"]')).toHaveCount(1)
       await expect(details.getByText(/4 other-language printings/i)).toBeVisible()
     })
 
-    await test.step('clicking another printing switches the enlarged image + current marker', async () => {
+    await test.step('clicking another foiling chip switches the enlarged image + pressed chip', async () => {
       const list = details.getByRole('list', { name: /printings/i })
       const before = await lightbox.locator('img').first().getAttribute('src')
-      await list.getByRole('button', { name: /FAB382/ }).click()
-      await expect(list.locator('[aria-current="true"]')).toContainText('FAB382')
+      await list.getByRole('listitem').filter({ hasText: 'FAB382' }).getByRole('button').click()
+      await expect(list.locator('[aria-pressed="true"]')).toContainText('$8.00')
       const after = await lightbox.locator('img').first().getAttribute('src')
       expect(after).not.toBe(before)
     })
 
-    await test.step('Buy on TCGplayer link', async () => {
-      const buy = details.getByRole('link', { name: /buy on tcgplayer/i })
-      await expect(buy).toBeVisible()
-      expect(await buy.getAttribute('href')).toMatch(/tcgplayer\.com/)
-      expect(await buy.getAttribute('target')).toBe('_blank')
+    await test.step('TCGplayer is a quiet link, not a CTA button', async () => {
+      const link = details.getByRole('link', { name: /tcgplayer/i })
+      await expect(link).toBeVisible()
+      expect(await link.getAttribute('href')).toMatch(/tcgplayer\.com/)
+      expect(await link.getAttribute('target')).toBe('_blank')
       await page.screenshot({ path: 'e2e/screenshots/card-details-lightbox-enriched.png' })
     })
   } finally {
@@ -113,7 +121,7 @@ test('keyword glossary explains keywords the card names without inline reminder 
     await tile.getByRole('button', { name: /view card details for ancestral harmony/i }).click()
 
     const details = page.getByTestId('card-lightbox').getByTestId('card-lightbox-details')
-    const glossary = details.getByRole('definition').first().locator('xpath=ancestor::dl')
+    const glossary = details.getByRole('group', { name: /keyword reminders/i })
     await expect(glossary).toBeVisible({ timeout: 5000 })
     await expect(glossary).toContainText('Combo')
     await expect(glossary).toContainText(/last attack played this combat chain/i)
