@@ -2,6 +2,11 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+// The shared card-details lightbox renders the Wants-style TCGplayer purchase
+// link, which needs the cookie-consent provider + app router — not part of
+// this component's contract, so stub it.
+vi.mock('@/components/wants/utils', () => ({ renderPurchaseLink: vi.fn(() => null) }));
+
 import { ImagesView } from './ImagesView';
 
 const printing = {
@@ -99,7 +104,7 @@ describe('ImagesView card preview', () => {
   it('closes the preview when the backdrop is clicked', async () => {
     renderView();
     await userEvent.click(screen.getByRole('button', { name: /preview arknight shard/i }));
-    await userEvent.click(screen.getByTestId('preview-backdrop'));
+    await userEvent.click(screen.getByTestId('card-lightbox'));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

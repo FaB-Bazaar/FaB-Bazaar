@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { TcgAffiliateLink } from '@/components/tracking';
 import { FOILING_STYLES, EDITION_MAP, SET_MAP } from '@/lib/fab-constants';
 import { getSetImageOrFallback } from '@/lib/set-images';
-import { Minus, Plus, Check, Expand, X, RefreshCw } from 'lucide-react';
+import { Minus, Plus, Check, Expand, RefreshCw } from 'lucide-react';
 import FoilCardImage from '@/components/shared/FoilCardImage';
+import { CardDetailsLightbox } from '@/components/cards/CardDetailsLightbox';
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
 import { languageFlag } from '@/lib/utils/printing-language';
 
@@ -347,81 +348,21 @@ export function ImagesView({
       })}
     </div>
 
-    {/* Calm card preview - large image, backdrop/Esc/✕ to close, no flip */}
-    {previewPrinting && (
-      <div
-        data-testid="preview-backdrop"
-        className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
-        onClick={() => setPreviewPrinting(null)}
-      >
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={previewPrinting.display_name || previewPrinting.name}
-          className="relative"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            aria-label="Close preview"
-            onClick={() => setPreviewPrinting(null)}
-            className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-gray-900 border border-gray-600 text-gray-300 hover:text-white flex items-center justify-center shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
-          </button>
-          {previewPrinting.other_face_image_url ? (
-            // Double-faced: both faces side by side (same pattern as the deck
-            // editor lightbox). Front always renders LEFT regardless of which
-            // face's tile opened the preview.
-            <div className={`flex gap-3 items-center ${previewPrinting.is_front_face === false ? 'flex-row-reverse' : ''}`}>
-              <div className="w-[min(44vw,340px)] aspect-[2.5/3.5]">
-                <FoilCardImage
-                  foiling={previewPrinting.foiling}
-                  artStyle={artStylesFromPrinting(previewPrinting.art_variations, previewPrinting.is_extended_art)}
-                  foilInset={foilInsetFromValues(previewPrinting.foil_inset_top, previewPrinting.foil_inset_right, previewPrinting.foil_inset_bottom, previewPrinting.foil_inset_left, previewPrinting.foil_inset_round)}
-                  src={previewPrinting.image_url}
-                  alt={previewPrinting.display_name || previewPrinting.name}
-                  className="w-full h-full"
-                  imgClassName="w-full h-full object-contain rounded-xl"
-                />
-              </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewPrinting.other_face_image_url}
-                alt={previewPrinting.other_face_name || `${previewPrinting.display_name || previewPrinting.name} (other face)`}
-                className="w-[min(44vw,340px)] rounded-xl"
-              />
-            </div>
-          ) : (
-          // 762px is the native height of the art itself: upstream publishes
-          // 546x762 (CardVault ships 180/376/546; the fab-cube master matches)
-          // and the Cloudflare `public` variant caps delivery at 768 tall.
-          // Capping here stops the blow-up at 1:1 — without it, 85vh stretched
-          // the image ~1.6x on a tall window and read as pixelated next to
-          // CardVault's own near-native viewer.
-          <div className="h-[min(85vh,126vw,762px)] aspect-[2.5/3.5]">
-            {previewPrinting.image_url ? (
-              <FoilCardImage
-                foiling={previewPrinting.foiling}
-                artStyle={artStylesFromPrinting(previewPrinting.art_variations, previewPrinting.is_extended_art)}
-                foilInset={foilInsetFromValues(previewPrinting.foil_inset_top, previewPrinting.foil_inset_right, previewPrinting.foil_inset_bottom, previewPrinting.foil_inset_left, previewPrinting.foil_inset_round)}
-                src={previewPrinting.image_url}
-                alt={previewPrinting.display_name || previewPrinting.name}
-                className="w-full h-full"
-                imgClassName="w-full h-full object-contain rounded-xl"
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-800 rounded-xl flex items-center justify-center">
-                <span className="text-gray-400 text-lg text-center px-4">
-                  {previewPrinting.display_name || previewPrinting.name}
-                </span>
-              </div>
-            )}
-          </div>
-          )}
-        </div>
-      </div>
-    )}
+    {/* Shared card-details lightbox (same as the deck editor's magnifier).
+        ←/→ step through the visible results. */}
+    {previewPrinting && (() => {
+      const idx = printings.findIndex(x => x.printing_id === previewPrinting.printing_id);
+      const openAt = (i: number) => { const next = printings[i]; if (next) setPreviewPrinting(next); };
+      return (
+        <CardDetailsLightbox
+          card={{ printing: previewPrinting, name: previewPrinting.display_name || previewPrinting.name }}
+          onClose={() => setPreviewPrinting(null)}
+          onPrev={idx > 0 ? () => openAt(idx - 1) : undefined}
+          onNext={idx >= 0 && idx < printings.length - 1 ? () => openAt(idx + 1) : undefined}
+          onSelectPrinting={p => setPreviewPrinting(p)}
+        />
+      );
+    })()}
     </>
   );
 }
