@@ -271,6 +271,23 @@ export interface IInventoryService {
     userId: string,
     cardUniqueIds: string[]
   ): AsyncResult<Record<string, number>>;
+
+  /**
+   * Which of the user's binders hold any printing of each card, with the
+   * summed quantity per binder (ordered by binder name). Cards the user owns
+   * nothing of are absent from the map. Empty input returns {}.
+   */
+  getBindersByCardUniqueId(
+    userId: string,
+    cardUniqueIds: string[]
+  ): AsyncResult<Record<string, BinderCardHit[]>>;
+}
+
+export interface BinderCardHit {
+  binderId: string;
+  name: string;
+  slug: string | null;
+  quantity: number;
 }
 
 // ====================================

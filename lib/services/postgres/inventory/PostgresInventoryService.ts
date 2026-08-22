@@ -8,8 +8,9 @@
 import { eq, and, sql, inArray, gte, exists } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { inventoryItems, users, binders, printings, cards, wantsItems, userFollowedStores } from '@/lib/postgres/schema';
-import { sumOwnedByPrintingId, sumOwnedByCardUniqueId } from './ownership-queries';
+import { sumOwnedByPrintingId, sumOwnedByCardUniqueId, listBindersByCardUniqueId } from './ownership-queries';
 import type {
+  BinderCardHit,
   IInventoryService,
   WhoHasFilters,
   WhoHasResultDTO,
@@ -900,6 +901,18 @@ export class PostgresInventoryService implements IInventoryService {
       return { success: true, data };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to get owned counts by card' };
+    }
+  }
+
+  async getBindersByCardUniqueId(
+    userId: string,
+    cardUniqueIds: string[]
+  ): AsyncResult<Record<string, BinderCardHit[]>> {
+    try {
+      const data = await listBindersByCardUniqueId(userId, cardUniqueIds);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to get binders by card' };
     }
   }
 }

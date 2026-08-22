@@ -939,3 +939,29 @@ export async function getOwnedCountsByCard(
     return handleError(error);
   }
 }
+
+export interface BinderCardHit {
+  binderId: string;
+  name: string;
+  slug: string | null;
+  quantity: number;
+}
+
+/**
+ * Which of the current user's binders hold any printing of each card
+ * (card-details lightbox "In your binders" line).
+ */
+export async function getBindersByCard(
+  cardUniqueIds: string[]
+): Promise<ApiResponse<Record<string, BinderCardHit[]>>> {
+  try {
+    const response = await fetch('/api/inventory/binders-by-card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardUniqueIds }),
+    });
+    return await handleResponse<Record<string, BinderCardHit[]>>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}

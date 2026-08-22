@@ -144,3 +144,45 @@ describe('PostgresInventoryService.getOwnedCountsByCardUniqueId', () => {
     }
   });
 });
+
+describe('PostgresInventoryService.getBindersByCardUniqueId', () => {
+  it('lists each binder holding any printing of the card, with summed quantity, ordered by binder name', async () => {
+    await db.insert(inventoryItems).values([
+      { id: crypto.randomUUID(), userId: testUserId, binderId: binderB, printingId: printingIdA, quantity: 1 },
+      { id: crypto.randomUUID(), userId: testUserId, binderId: binderA, printingId: printingIdA, quantity: 2 },
+      { id: crypto.randomUUID(), userId: testUserId, binderId: binderA, printingId: printingIdA, quantity: 3, condition: 'LP' }, // same binder, second row (unique key includes condition)
+      { id: crypto.randomUUID(), userId: testUserId, binderId: binderA, printingId: printingIdB, quantity: 4 },
+    ]);
+
+    const result = await service.getBindersByCardUniqueId(testUserId, [cardUniqueIdA, cardUniqueIdB, 'nope']);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data[cardUniqueIdA]).toEqual([
+      { binderId: binderA, name: `A-${binderA}`, slug: null, quantity: 5 },
+      { binderId: binderB, name: `B-${binderB}`, slug: null, quantity: 1 },
+    ]);
+    expect(result.data[cardUniqueIdB]).toEqual([{ binderId: binderA, name: `A-${binderA}`, slug: null, quantity: 4 }]);
+    expect(result.data['nope']).toBeUndefined();
+  });
+
+  it("never returns another user's binders", async () => {
+    const otherUser = crypto.randomUUID();
+    const otherBinder = crypto.randomUUID();
+    await db.insert(users).values({ id: otherUser, username: `test-${otherUser}` });
+    await db.insert(binders).values({ id: otherBinder, userId: otherUser, name: 'other' });
+    await db.insert(inventoryItems).values({ id: crypto.randomUUID(), userId: otherUser, binderId: otherBinder, printingId: printingIdA, quantity: 9 });
+    try {
+      const result = await service.getBindersByCardUniqueId(testUserId, [cardUniqueIdA]);
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.data).toEqual({});
+    } finally {
+      await db.delete(users).where(eq(users.id, otherUser));
+    }
+  });
+
+  it('returns {} for empty input', async () => {
+    const result = await service.getBindersByCardUniqueId(testUserId, []);
+    expect(result).toEqual({ success: true, data: {} });
+  });
+});

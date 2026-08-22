@@ -10,6 +10,7 @@
  */
 
 import { test, expect } from '@playwright/test'
+import { execSync } from 'node:child_process'
 import { createEmptyDeck, createSeededDeck, deleteDeck } from '../helpers/deck-fixtures'
 
 test.use({
@@ -17,8 +18,24 @@ test.use({
   viewport: { width: 1280, height: 800 },
 })
 
+// Seeded user (mistercakes) owns no Mocking Blow locally, so seed a throwaway
+// binder holding 2× yellow Mocking Blow (SUP091 NF) straight into Postgres.
+const E2E_USER_ID = '68056532ccbe5f869784823a'
+const YELLOW_MB_SUP091_NF = 'pCwG9QgRGKGWgMTPfz8Jh'
+const BINDER_ID = 'e2e-lightbox-binder-0001'
+const BINDER_NAME = 'E2E Lightbox Binder'
+const psql = (sqlText: string) =>
+  execSync(`docker exec -i fabbazaar-postgres psql -U fabbazaar -d fabbazaar -v ON_ERROR_STOP=1 -c "${sqlText.replace(/"/g, '\\"')}"`, { stdio: 'pipe' })
+const seedBinder = () => {
+  psql(`DELETE FROM binders WHERE id='${BINDER_ID}'`)
+  psql(`INSERT INTO binders (id, user_id, name, slug) VALUES ('${BINDER_ID}', '${E2E_USER_ID}', '${BINDER_NAME}', 'e2e-lightbox-binder')`)
+  psql(`INSERT INTO inventory_items (id, user_id, binder_id, printing_id, quantity) VALUES ('e2e-lightbox-item-0001', '${E2E_USER_ID}', '${BINDER_ID}', '${YELLOW_MB_SUP091_NF}', 2)`)
+}
+const removeBinder = () => psql(`DELETE FROM binders WHERE id='${BINDER_ID}'`)
+
 test('lightbox shows legality, illustrator, printings with prices and a TCGplayer link', async ({ page }) => {
   test.setTimeout(180_000)
+  seedBinder()
   const deckId = await createSeededDeck(page, { namePrefix: 'e2e-carddetail-rich' })
 
   try {
@@ -59,6 +76,13 @@ test('lightbox shows legality, illustrator, printings with prices and a TCGplaye
     await test.step('deck context: copies already in this deck', async () => {
       // Seed list has 1× yellow Mocking Blow
       await expect(details.getByText(/In this deck:\s*1/i)).toBeVisible()
+    })
+
+    await test.step('collection context: which binders hold this card', async () => {
+      const binders = details.getByRole('group', { name: /in your binders/i })
+      await expect(binders).toBeVisible({ timeout: 10000 })
+      await expect(binders).toContainText(BINDER_NAME)
+      await expect(binders).toContainText('×2')
     })
 
     await test.step('illustrator', async () => {
@@ -105,6 +129,7 @@ test('lightbox shows legality, illustrator, printings with prices and a TCGplaye
     })
   } finally {
     await deleteDeck(page, deckId)
+    removeBinder()
   }
 })
 
@@ -135,6 +160,7 @@ test('keyword glossary explains keywords the card names without inline reminder 
     await expect(glossary).toContainText(/last attack played this combat chain/i)
     await expect(glossary).toContainText('Go Again')
     await expect(glossary).toContainText(/gain 1 action point/i)
+    await expect(details.getByText(/Not in your binders/i)).toBeVisible({ timeout: 10000 })
     await page.screenshot({ path: 'e2e/screenshots/card-details-lightbox-glossary.png' })
   } finally {
     await deleteDeck(page, deckId)

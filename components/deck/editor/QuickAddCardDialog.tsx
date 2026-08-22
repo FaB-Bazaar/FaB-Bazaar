@@ -9,6 +9,7 @@ import { formatLegalityRows, deckLegalityVerdict, type LegalityStatus } from "@/
 import { keywordGlossary } from "@/lib/cards/keyword-glossary";
 import { buildPrintingRows, groupPrintingRows } from "@/lib/cards/lightbox-printings";
 import { renderPurchaseLink } from "@/components/wants/utils";
+import { getBindersByCard, type BinderCardHit } from "@/lib/client/binders-client";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
 import { RULE_TOKEN_ICON } from "@/app/volzar/rule-glyphs";
@@ -287,6 +288,19 @@ function CardDetailsLightbox({
     return () => { live = false; };
   }, [cardUid]);
 
+  // Which of the viewer's binders hold this card (any printing). null = loading
+  // or unavailable (signed out / error) → line hidden; [] = owns none.
+  const [binderHits, setBinderHits] = useState<BinderCardHit[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    setBinderHits(null);
+    if (!cardUid) return;
+    getBindersByCard([cardUid]).then(res => {
+      if (live && res.success) setBinderHits(res.data[cardUid] ?? []);
+    });
+    return () => { live = false; };
+  }, [cardUid]);
+
   const p = card.printing;
   const pitch = typeof p.pitch === 'number' ? PITCH_STYLE[p.pitch] : null;
   const typeLine = (p.type_text_display || p.type_text || '') as string;
@@ -405,6 +419,24 @@ function CardDetailsLightbox({
                   In this deck: <span className={cn('font-semibold tabular-nums', inDeckCount > 0 ? 'text-blue-300' : 'text-gray-200')}>{inDeckCount}</span>
                 </span>
               </div>
+              {binderHits !== null && (
+                <p role="group" aria-label="In your binders" className="mt-1 text-xs text-gray-300">
+                  {binderHits.length === 0 ? (
+                    <span className="text-gray-400">Not in your binders</span>
+                  ) : (
+                    <>
+                      <span className="text-gray-400">In your binders: </span>
+                      {binderHits.map((h, i) => (
+                        <span key={h.binderId}>
+                          {i > 0 && <span className="text-gray-500"> · </span>}
+                          <span className="text-gray-100">{h.name}</span>
+                          <span className="ml-0.5 font-semibold tabular-nums text-blue-300">×{h.quantity}</span>
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </p>
+              )}
               {legality.length > 0 && (
                 <ul aria-label="Other formats" className="mt-1.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs">
                   {legality.map(row => (
