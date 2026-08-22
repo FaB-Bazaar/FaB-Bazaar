@@ -88,11 +88,19 @@ test('lightbox shows legality, illustrator, printings with prices and a TCGplaye
       expect(after).not.toBe(before)
     })
 
-    await test.step('TCGplayer is a quiet link, not a CTA button', async () => {
-      const link = details.getByRole('link', { name: /tcgplayer/i })
+    await test.step('TCGplayer purchase link is the shared Wants-style affiliate link (logo + label)', async () => {
+      const link = details.getByRole('link', { name: /available for purchase here/i })
       await expect(link).toBeVisible()
+      await expect(link.getByRole('img', { name: /tcgplayer/i })).toBeVisible()
       expect(await link.getAttribute('href')).toMatch(/tcgplayer\.com/)
       expect(await link.getAttribute('target')).toBe('_blank')
+    })
+
+    await test.step('panel is compact: ≤ 340px wide, image ≤ 78% of viewport height', async () => {
+      const panel = await details.boundingBox()
+      expect(panel?.width).toBeLessThanOrEqual(340)
+      const img = await lightbox.locator('img').first().boundingBox()
+      expect(img?.height).toBeLessThanOrEqual(800 * 0.78)
       await page.screenshot({ path: 'e2e/screenshots/card-details-lightbox-enriched.png' })
     })
   } finally {

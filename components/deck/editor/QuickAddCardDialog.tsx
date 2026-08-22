@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, useReducer } 
 import { useDebounce } from "use-debounce";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Info, X, Ban, AlertTriangle } from "lucide-react";
+import { Plus, Check, Loader2, Search, ZoomIn, ArrowLeft, ChevronLeft, ChevronRight, Info, X, Ban, AlertTriangle } from "lucide-react";
 import { formatLegalityRows, deckLegalityVerdict, type LegalityStatus } from "@/lib/cards/card-legality";
 import { keywordGlossary } from "@/lib/cards/keyword-glossary";
 import { buildPrintingRows, groupPrintingRows } from "@/lib/cards/lightbox-printings";
-import { TcgAffiliateLink } from "@/components/tracking/TcgAffiliateLink";
+import { renderPurchaseLink } from "@/components/wants/utils";
 import { cn } from "@/lib/utils";
 import { parseRulesText, type RulesSegment } from "@/lib/cards/rules-text";
 import { RULE_TOKEN_ICON } from "@/app/volzar/rule-glyphs";
@@ -332,7 +332,7 @@ function CardDetailsLightbox({
         </button>
       )}
       <div
-        className="flex flex-col sm:flex-row items-center sm:items-stretch gap-4 max-w-[92vw] max-h-[88vh] cursor-default"
+        className="flex flex-col sm:flex-row items-center sm:items-stretch gap-3 max-w-[92vw] max-h-[80vh] cursor-default"
         onClick={e => e.stopPropagation()}
       >
         {p.image_url && (
@@ -340,14 +340,14 @@ function CardDetailsLightbox({
           <img
             src={p.image_url}
             alt={card.name}
-            className="rounded-xl shadow-2xl border border-gray-600 object-contain max-h-[50vh] sm:max-h-[85vh] min-h-0"
+            className="rounded-xl shadow-2xl border border-gray-600 object-contain max-h-[44vh] sm:max-h-[76vh] min-h-0"
             style={{ aspectRatio: '63/88' }}
           />
         )}
         <div
           data-testid="card-lightbox-details"
           className={cn(
-            'w-[380px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 border-l-4 bg-gray-900/95 p-4 text-left self-center sm:self-auto',
+            'w-[340px] max-w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-700 border-l-4 bg-gray-900/95 p-3.5 text-left self-center sm:self-auto',
             pitch?.border ?? 'border-l-gray-600',
           )}
         >
@@ -361,7 +361,7 @@ function CardDetailsLightbox({
           {stats.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {stats.map(s => (
-                <div key={s.label} className="rounded-lg border border-gray-700 bg-gray-800/80 px-2.5 py-1.5 text-center">
+                <div key={s.label} className="rounded-lg border border-gray-700 bg-gray-800/80 px-2 py-1 text-center">
                   <div className="text-sm font-semibold text-gray-100 tabular-nums">{s.value}</div>
                   <div className="text-xs text-gray-300">{s.label}</div>
                 </div>
@@ -488,13 +488,9 @@ function CardDetailsLightbox({
                 )}
               </>
             )}
-            <TcgAffiliateLink
-              tcgplayerUrl={tcgUrl}
-              feature="DeckQuickAddLightbox"
-              className="mt-2.5 inline-flex items-center gap-1 rounded text-sm text-blue-300 transition-colors hover:text-blue-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-            >
-              View on TCGplayer <ExternalLink className="h-3 w-3" aria-hidden="true" />
-            </TcgAffiliateLink>
+            {/* Same affiliate purchase link as the Wants cards. The panel is always
+                dark, so force the helper's dark: variants with a `dark` wrapper. */}
+            <div className="dark">{renderPurchaseLink(tcgUrl, 'DeckQuickAddLightbox')}</div>
           </div>
         </div>
       </div>
