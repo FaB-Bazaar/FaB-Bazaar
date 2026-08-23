@@ -606,6 +606,13 @@ class CardsToPrintingsTransformer:
             })
 
             if new_image_url:
+                # image_url becomes the Cloudflare delivery URL; keep the
+                # upstream art URL alongside it so 03B can download+upload
+                # for brand-new printings (it used to read image_url, find
+                # a Cloudflare URL, and skip — so nothing ever uploaded).
+                printing_doc['printing_data']['source_image_url'] = (
+                    printing.get('image_url') or ''
+                )
                 printing_doc['printing_data']['image_url'] = new_image_url
             
             # Create content hash

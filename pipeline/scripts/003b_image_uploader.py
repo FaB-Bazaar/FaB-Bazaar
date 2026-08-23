@@ -56,7 +56,10 @@ def get_existing_printing_ids(conn) -> Set[str]:
 def get_source_image_url(doc: Dict) -> str:
     """Extract the original fab-cube image URL from a seed document."""
     printing_data = doc.get('printing_data', {})
-    url = printing_data.get('image_url', '')
+    # 003 rewrites image_url to the Cloudflare delivery URL and stashes the
+    # upstream (fab-cube / LSS) URL in source_image_url. Prefer that; fall
+    # back to image_url only for legacy seeds where it still held the source.
+    url = printing_data.get('source_image_url') or printing_data.get('image_url', '')
 
     # Skip if it's already a Cloudflare URL or empty
     if not url or 'imagedelivery.net' in url:
