@@ -13,6 +13,7 @@ import CommunityDeckCard from "@/components/deck/CommunityDeckCard";
 import type { PublicDeckSummaryDTO, DeckFormat } from "@/lib/services/contracts/IDeckService";
 import { HERO_INFO, YOUNG_HERO_INFO } from "@/lib/fab-constants";
 import { useExcludedHeroIds } from "@/hooks/banned-cards/useExcludedHeroIds";
+import { resolveDecksToBeatDefaultMonth } from "@/lib/deck/decks-to-beat-default-month";
 
 // ── Format helpers ────────────────────────────────────────────────────────────
 
@@ -135,9 +136,9 @@ export default function DecksToBeatPage() {
   const initDate = parseDateParam(searchParams.get("date") ?? "");
   const [year, setYear] = useState(initDate?.year ?? currentYear);
   const [month, setMonth] = useState(initDate?.month ?? currentMonth);
-  // With no explicit ?date=, default to the latest month that actually has
-  // featured decks (resolved async on mount) rather than the empty current
-  // month. Holds off the data/URL effects until resolved. Captured once.
+  // With no explicit ?date=, default to the current month — or, only when it
+  // has no featured decks in any format, the latest month that does (resolved
+  // async on mount). Holds off the data/URL effects until resolved. Captured once.
   const [resolvingDefault, setResolvingDefault] = useState(() => initDate === null);
   const [format, setFormat] = useState<string>(
     FORMAT_MAP[searchParams.get("format")?.toLowerCase() ?? ""] ??
@@ -162,25 +163,28 @@ export default function DecksToBeatPage() {
   const [expandedFormats, setExpandedFormats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Resolve the default month once, when the URL had no ?date=: jump to the
-  // most recent month with featured decks for the active format (falls back to
-  // the current month if nothing is featured yet).
+  // Resolve the default month once, when the URL had no ?date=: stay on the
+  // current month whenever ANY format has a featured deck in it; only revert
+  // to the latest featured month when the current month is empty across all
+  // formats. Deliberately NOT scoped to the active format tab — an
+  // unpopulated tab must not pull the page back a month.
   useEffect(() => {
     if (!resolvingDefault) return;
     let cancelled = false;
     decksClient
-      .getLatestFeaturedMonth(format)
+      .getLatestFeaturedMonth()
       .then((res) => {
         if (cancelled) return;
-        if (res.success && res.data) {
-          setYear(res.data.year);
-          setMonth(res.data.month);
+        if (res.success) {
+          const target = resolveDecksToBeatDefaultMonth(res.data, { year: currentYear, month: currentMonth });
+          setYear(target.year);
+          setMonth(target.month);
         }
         setResolvingDefault(false);
       })
       .catch(() => { if (!cancelled) setResolvingDefault(false); });
     return () => { cancelled = true; };
-    // Run once on mount; `format` is read at its initial value intentionally.
+    // Run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

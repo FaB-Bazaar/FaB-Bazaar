@@ -1,7 +1,7 @@
 // app/api/decks/featured-latest-month/route.ts
 // Most recent month that actually has featured public decks, so the Decks to
-// Beat page can default to a month with content instead of an empty current
-// calendar month. Public (no auth); optional ?format= to scope by format.
+// Beat page can fall back to a month with content when the current calendar
+// month is empty in every format. Public (no auth); optional ?format= to scope by format.
 import { NextRequest, NextResponse } from 'next/server';
 import { deckService } from '@/lib/services';
 import type { DeckFormat } from '@/lib/services/contracts/IDeckService';
