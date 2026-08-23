@@ -497,6 +497,8 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
     essences: ['earth', 'lightning'],
     shortName: 'briar'
   },
+  'chane': {
+    cardUniqueId: 'mCCnJrJQkqJ7KfqKNHGnc', classes: ['runeblade'], talents: ['shadow'], shortName: 'chane' },
   'florian': {
     cardUniqueId: 'Ht8qhJWDMHjjMjzqgf6KG',
     classes: ['runeblade'],

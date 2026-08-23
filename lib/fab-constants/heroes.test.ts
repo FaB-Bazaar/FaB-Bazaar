@@ -520,3 +520,34 @@ describe('heroes-meta.ts — owns integrations + competitive meta + showcase art
     expect(meta.HERO_MARVEL_PRINTING_IDS['arakni, huntsman']).toBeTruthy();
   });
 });
+
+// Young Chane was absent from YOUNG_HERO_INFO, so classifyHeroName('chane')
+// fell through to HERO_NICKNAMES (chane → "Chane, Bound by Shadow") and
+// classified the young hero as ADULT — create_deck then rejected him for
+// Silver Age / Blitz even though the young card is legal in both.
+describe('young Chane', () => {
+  it('is in the young roster with the young card id (not the adult nickname target)', () => {
+    const young = YOUNG_HERO_INFO['chane'];
+    expect(young).toBeDefined();
+    expect(young.cardUniqueId).toBe('mCCnJrJQkqJ7KfqKNHGnc');
+    expect(young.cardUniqueId).not.toBe(HERO_INFO['chane, bound by shadow'].cardUniqueId);
+    expect(young.classes).toEqual(['runeblade']);
+    expect(young.talents).toEqual(['shadow']);
+  });
+
+  it('validates as a young hero in silver_age and blitz', () => {
+    expect(validateHeroFormatLegality('chane', 'silver_age')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('chane', 'blitz')).toEqual({ ok: true });
+  });
+
+  it('still rejects bare "chane" in cc and points to the adult name', () => {
+    const result = validateHeroFormatLegality('chane', 'cc');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/chane, bound by shadow/i);
+  });
+
+  it('has a Talishar slug', () => {
+    expect(TALISHAR_HERO_SLUGS['chane']).toBe('chane');
+  });
+});

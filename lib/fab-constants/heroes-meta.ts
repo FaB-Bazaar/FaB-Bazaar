@@ -6,7 +6,7 @@
 // Source: https://github.com/Talishar/Talishar/blob/main/Libraries/LegalHeroesHelper.php ($ALL_HEROES_OF_RATHE)
 // When new heroes are added to our roster, cross-check that file for their Talishar slug and add here.
 // Heroes Talishar hasn't wired with an active card object yet (e.g. the librarian,
-// magister of history; melody, sing-along; chane young) are omitted on purpose.
+// magister of history; melody, sing-along) are omitted on purpose.
 export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   // Adult heroes (HERO_INFO)
   'arakni, 5l!p3d 7hru 7h3 cr4x':      'arakni_5lp3d_7hru_7h3_cr4x',
@@ -96,6 +96,7 @@ export const TALISHAR_HERO_SLUGS: Record<string, string> = {
   'florian':                             'florian',
   'viserai':                             'viserai',
   'vynnset':                             'vynnset',
+  'chane':                               'chane',
   'benji, the piercing wind':            'benji_the_piercing_wind',
   'cindra':                              'cindra',
   'fai':                                 'fai',
