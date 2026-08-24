@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
+import { ArrowLeft, Loader2, X, ChevronLeft, ChevronRight, ChevronDown, ArrowDownLeft, ArrowUpRight, Maximize2, ScrollText } from "lucide-react"
 import { toTalisharIdentifier } from "@/lib/utils"
 import { decksClient, heroesClient } from "@/lib/client"
 import { artStylesFromPrinting, foilInsetFromValues } from "@/lib/foil"
@@ -138,6 +138,34 @@ interface Matchup {
 
 function cardTotal(cards: PresenterCard[] | undefined): number {
   return (cards ?? []).reduce((s, c) => s + (c.quantity || 1), 0)
+}
+
+// Round hero/strategy icon used by the matchup chips and the mobile
+// matchup-dropdown trigger. Portrait > card art > core/strategy glyph > initials.
+function MatchupAvatar({ heroId, heroImageMap, className }: {
+  heroId: string
+  heroImageMap: Map<string, string>
+  className: string
+}) {
+  const isStrategy = heroId === 'core' || ['aggro', 'fatigue', 'combo', 'midrange'].includes(heroId)
+  const portrait = !isStrategy ? getHeroPortraitUrl(heroId) : null
+  const cardArt = !portrait && !isStrategy ? heroImageMap.get(heroId) : null
+  const name = heroDisplayFromTalisharId(heroId)
+  return (
+    <span className={`rounded-full bg-gray-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center ${className}`}>
+      {portrait ? (
+        <img src={portrait} alt={name} className="w-full h-full object-cover object-top" />
+      ) : cardArt ? (
+        <img src={cardArt} alt={name} className="w-full h-full object-cover object-top" />
+      ) : heroId === 'core' ? (
+        <Bookmark className="h-4 w-4 text-blue-300" />
+      ) : isStrategy ? (
+        <Swords className="h-4 w-4 text-amber-300" />
+      ) : (
+        <span className="text-[10px] text-gray-300 uppercase">{name.slice(0, 2)}</span>
+      )}
+    </span>
+  )
 }
 
 // One-viewport screenshot layout: hero + meta on the left, card columns grouped
@@ -358,6 +386,11 @@ export default function PresenterPage() {
 
   // Filter the deck by an applied matchup; null = base deck.
   const [selectedMatchupId, setSelectedMatchupId] = useState<string | null>(null)
+
+  // Mobile-only disclosure for the matchup tile row (<sm). The full row eats
+  // several screen-heights of chips on a phone, so it collapses into a single
+  // dropdown, closed by default; desktop always shows the expanded row.
+  const [matchupsOpen, setMatchupsOpen] = useState(false)
 
   // Spotlight state — flat list of all cards in presentation order.
   const [spotlightIdx, setSpotlightIdx] = useState<number | null>(null)
@@ -662,7 +695,25 @@ export default function PresenterPage() {
         {sortedMatchups.length > 0 && (
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-gray-300">Matchups</h2>
+              {/* <sm: the row collapses into a dropdown (chips eat screens of space
+                  on a phone) — the trigger echoes the selected matchup's icon+name */}
+              <button
+                type="button"
+                onClick={() => setMatchupsOpen(o => !o)}
+                aria-expanded={matchupsOpen}
+                className="sm:hidden flex items-center gap-2 px-3 py-1.5 rounded-full border-2 border-gray-700 bg-gray-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                <span className="text-sm font-bold uppercase tracking-[0.18em] text-gray-300">Matchups</span>
+                <span className="text-xs text-gray-500">({sortedMatchups.length})</span>
+                {selectedMatchup && (
+                  <span className="flex items-center gap-1.5 pl-0.5 pr-2 py-0.5 rounded-full border border-blue-500/50 bg-blue-900/40 text-blue-100 text-xs font-semibold">
+                    <MatchupAvatar heroId={selectedMatchup.heroId} heroImageMap={heroImageMap} className="w-5 h-5" />
+                    {heroDisplayFromTalisharId(selectedMatchup.heroId)}
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${matchupsOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <h2 className="hidden sm:block text-sm font-bold uppercase tracking-[0.18em] text-gray-300">Matchups</h2>
               {selectedMatchup && (
                 <button
                   type="button"
@@ -675,10 +726,10 @@ export default function PresenterPage() {
                 </button>
               )}
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div data-testid="matchup-list" className={`${matchupsOpen ? 'flex' : 'hidden'} sm:flex flex-wrap gap-3`}>
               <button
                 type="button"
-                onClick={() => setSelectedMatchupId(null)}
+                onClick={() => { setSelectedMatchupId(null); setMatchupsOpen(false) }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   selectedMatchupId === null
                     ? 'border-blue-400 bg-blue-900/40 text-blue-50'
@@ -692,9 +743,6 @@ export default function PresenterPage() {
                 <span className="text-sm font-semibold">Base deck</span>
               </button>
               {sortedMatchups.map(m => {
-                const isStrategy = m.heroId === 'core' || ['aggro', 'fatigue', 'combo', 'midrange'].includes(m.heroId)
-                const portrait = !isStrategy ? getHeroPortraitUrl(m.heroId) : null
-                const cardArt = !portrait && !isStrategy ? heroImageMap.get(m.heroId) : null
                 const name = heroDisplayFromTalisharId(m.heroId)
                 const isSelected = selectedMatchupId === m.heroId
                 const ring = isSelected
@@ -704,23 +752,11 @@ export default function PresenterPage() {
                   <button
                     key={m.heroId}
                     type="button"
-                    onClick={() => setSelectedMatchupId(isSelected ? null : m.heroId)}
+                    onClick={() => { setSelectedMatchupId(isSelected ? null : m.heroId); setMatchupsOpen(false) }}
                     className={`flex items-center gap-2 pl-1 pr-4 py-1 rounded-full border-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${ring}`}
                     title={isSelected ? `Click to clear filter` : `Show played deck vs ${name}`}
                   >
-                    <span className="w-9 h-9 rounded-full bg-gray-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      {portrait ? (
-                        <img src={portrait} alt={name} className="w-full h-full object-cover object-top" />
-                      ) : cardArt ? (
-                        <img src={cardArt} alt={name} className="w-full h-full object-cover object-top" />
-                      ) : m.heroId === 'core' ? (
-                        <Bookmark className="h-4 w-4 text-blue-300" />
-                      ) : isStrategy ? (
-                        <Swords className="h-4 w-4 text-amber-300" />
-                      ) : (
-                        <span className="text-[10px] text-gray-300 uppercase">{name.slice(0, 2)}</span>
-                      )}
-                    </span>
+                    <MatchupAvatar heroId={m.heroId} heroImageMap={heroImageMap} className="w-9 h-9" />
                     <span className="text-sm font-semibold">{name}</span>
                   </button>
                 )
