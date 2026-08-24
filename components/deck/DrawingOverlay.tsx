@@ -165,6 +165,7 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
           type="button"
           onClick={() => setPenMode(m => !m)}
           aria-pressed={penMode}
+          aria-label={penMode ? "Drawing" : "Draw"}
           title={penMode ? "Disable drawing (D)" : "Draw over the deck (D)"}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
             penMode
@@ -173,7 +174,8 @@ export default function DrawingOverlay({ available }: { available: boolean }) {
           }`}
         >
           <Pencil className="h-4 w-4" />
-          {penMode ? "Drawing" : "Draw"}
+          {/* Icon-only below sm — the three floating pills overlap at phone width otherwise */}
+          <span className="hidden sm:inline">{penMode ? "Drawing" : "Draw"}</span>
         </button>
         {penMode && (
           <>

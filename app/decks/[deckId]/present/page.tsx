@@ -223,8 +223,10 @@ function FitView({
   const tileH = Math.round(tileW * 88 / 63)
   const stackStep = Math.max(24, Math.round(tileH * 0.30))
 
+  // h-dvh (not h-screen): mobile browser toolbars make 100vh overshoot the
+  // visible viewport; pb-24 <sm clears the floating MobileTabBar.
   return (
-    <div className="h-screen flex flex-col px-8 pt-32 pb-4 gap-3">
+    <div className="h-dvh flex flex-col px-3 sm:px-8 pt-32 pb-24 sm:pb-4 gap-3">
       {/* Header — centered, with hero portrait inline so it doesn't steal vertical space */}
       <div className="flex items-center gap-4 flex-shrink-0 max-w-6xl mx-auto w-full">
         {heroCard?.printingDetails?.image_url && (
@@ -361,13 +363,26 @@ export default function PresenterPage() {
   const [spotlightIdx, setSpotlightIdx] = useState<number | null>(null)
 
   // 'scroll' = full presenter; 'fit' = one-viewport screenshot layout.
-  const [viewMode, setViewMode] = useState<'scroll' | 'fit'>('fit')
+  // Resolved on mount: phones default to 'scroll' (the fit layout clips lanes
+  // on narrow viewports — whole sections become unreachable), desktop keeps
+  // 'fit'. Starts null because the viewport is unknown until the client mounts
+  // (same timing gotcha as resolveDefaultDeckViewMode / useIsMobile).
+  const [viewMode, setViewMode] = useState<'scroll' | 'fit' | null>(null)
+  useEffect(() => {
+    setViewMode(m => m ?? (window.matchMedia('(max-width: 767px)').matches ? 'scroll' : 'fit'))
+  }, [])
 
   // Warm the spotlight card while the user browses: fetch the three.js chunk
   // and pre-build the WebGL engine (context + shader compile) so the first
   // card click doesn't stall on them.
   useEffect(() => {
-    import("@/components/deck/HoloCard3D").then(m => m.warmHoloCard()).catch(() => {})
+    // try/catch as well as .catch: in dev, webpack's chunk loader can throw
+    // SYNCHRONOUSLY from import() (stale HMR chunk map → encodeURIPath on an
+    // undefined chunk name), which would escape the promise .catch and crash
+    // the page via the error boundary. Warming is best-effort — never fatal.
+    try {
+      import("@/components/deck/HoloCard3D").then(m => m.warmHoloCard()).catch(() => {})
+    } catch { /* ignore — spotlight will load the chunk on demand */ }
   }, [])
 
   useEffect(() => {
@@ -550,23 +565,30 @@ export default function PresenterPage() {
       {/* Exit pill — always-visible, above the spotlight overlay so you can leave from anywhere */}
       <Link
         href={`/decks/${deckId}`}
-        className="fixed top-20 left-4 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors"
+        aria-label="Back to editor"
+        className="fixed top-20 left-4 z-[60] flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors"
         title="Exit presenter mode (Esc)"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to editor
+        {/* Icon-only below sm — three floating pills overlap at phone width otherwise */}
+        <span className="hidden sm:inline">Back to editor</span>
       </Link>
 
-      {/* View mode toggle — switch between scrollable presenter and a one-viewport fit layout for screenshots */}
-      <button
-        type="button"
-        onClick={() => setViewMode(m => m === 'fit' ? 'scroll' : 'fit')}
-        className="fixed top-20 right-4 z-[60] flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-        title={viewMode === 'fit' ? "Switch to scrollable view" : "Fit deck to screen (for screenshots)"}
-      >
-        {viewMode === 'fit' ? <ScrollText className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        {viewMode === 'fit' ? "Scroll view" : "Fit to screen"}
-      </button>
+      {/* View mode toggle — switch between scrollable presenter and a one-viewport fit layout
+          for screenshots. Hidden while a card is spotlighted: it sits exactly over the
+          spotlight's close X (both top-right), and z-[60] would bury it. */}
+      {!spotlightCard && (
+        <button
+          type="button"
+          onClick={() => setViewMode(m => (m ?? 'fit') === 'fit' ? 'scroll' : 'fit')}
+          aria-label={viewMode === 'fit' ? "Scroll view" : "Fit to screen"}
+          className="fixed top-20 right-4 z-[60] flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-gray-900/90 border border-gray-600 text-sm font-medium text-gray-200 hover:bg-gray-800 hover:text-white hover:border-gray-400 backdrop-blur-md shadow-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          title={viewMode === 'fit' ? "Switch to scrollable view" : "Fit deck to screen (for screenshots)"}
+        >
+          {viewMode === 'fit' ? <ScrollText className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          <span className="hidden sm:inline">{viewMode === 'fit' ? "Scroll view" : "Fit to screen"}</span>
+        </button>
+      )}
 
       {viewMode === 'fit' ? (
         <FitView
@@ -579,7 +601,8 @@ export default function PresenterPage() {
       ) : (<>
 
 
-      <div className="max-w-[1800px] mx-auto px-6 lg:px-10 py-8 lg:py-12">
+      {/* pb-28 <sm keeps the last card row above the floating MobileTabBar */}
+      <div className="max-w-[1800px] mx-auto px-6 lg:px-10 pt-8 lg:pt-12 pb-28 sm:pb-8 lg:pb-12">
         {/* Hero / header panel */}
         <div className="flex flex-col lg:flex-row items-start gap-6 lg:gap-10 mb-10">
           {heroCard?.printingDetails?.image_url && (
@@ -766,7 +789,7 @@ export default function PresenterPage() {
             type="button"
             aria-label="Close"
             onClick={closeSpotlight}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center justify-center"
+            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center justify-center"
           >
             <X className="h-5 w-5" />
           </button>
@@ -775,7 +798,9 @@ export default function PresenterPage() {
               type="button"
               aria-label="Previous card"
               onClick={e => { e.stopPropagation(); setSpotlightIdx(i => (i === null ? null : Math.max(0, i - 1))) }}
-              className="absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center justify-center"
+              // z-10: the panel renders later in the DOM and would otherwise paint over
+              // the arrows (they were unclickable on mobile, where the panel is full-width)
+              className="absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center justify-center"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
@@ -785,14 +810,15 @@ export default function PresenterPage() {
               type="button"
               aria-label="Next card"
               onClick={e => { e.stopPropagation(); setSpotlightIdx(i => (i === null ? null : Math.min(flatCards.length - 1, i + 1))) }}
-              className="absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center justify-center"
+              className="absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-gray-900/80 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 flex items-center justify-center"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
           )}
 
           {/* Dismiss hint — the entire scrim is clickable; this makes that discoverable */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-400 pointer-events-none select-none">
+          {/* Keyboard-centric hint; hidden <sm (no Esc key, and the MobileTabBar covers it) */}
+          <div className="hidden sm:block absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-400 pointer-events-none select-none">
             Click outside the card to close · Esc
           </div>
 
@@ -800,7 +826,7 @@ export default function PresenterPage() {
             // Constant-size panel: fixed width + height (clamped to viewport) so it
             // doesn't reflow when navigating between cards with different name /
             // text lengths. The text column scrolls internally if it overflows.
-            className="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 w-full max-w-5xl h-[min(calc(100vh-180px),780px)] overflow-hidden rounded-3xl border border-white/15 bg-slate-900/85 px-6 py-6 lg:px-12 lg:py-10 shadow-[0_24px_90px_rgba(0,0,0,0.75)] backdrop-blur-md"
+            className="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-12 w-full max-w-5xl h-[min(calc(100dvh-180px),780px)] overflow-hidden rounded-3xl border border-white/15 bg-slate-900/85 px-6 py-6 lg:px-12 lg:py-10 shadow-[0_24px_90px_rgba(0,0,0,0.75)] backdrop-blur-md"
             onClick={e => e.stopPropagation()}
           >
             {spotlightCard.printingDetails?.image_url && (
@@ -817,7 +843,7 @@ export default function PresenterPage() {
               {/* Large qty "×N" to the left of the name when > 1 */}
               <div className="flex items-baseline gap-4 flex-wrap">
                 {(spotlightCard.quantity || 1) > 1 && (
-                  <span className="text-6xl lg:text-7xl font-bold text-blue-300/90 leading-none">
+                  <span className="text-4xl sm:text-6xl lg:text-7xl font-bold text-blue-300/90 leading-none">
                     ×{spotlightCard.quantity}
                   </span>
                 )}
