@@ -50,17 +50,35 @@ export function slugifyBinderName(name: string): string {
     .slice(0, 20);
 }
 
+const BINDER_SLUG_MAX = 20;
+
 // Generates a unique slug for a binder, given a name and a list of existing slugs. If the base slug is taken, appends -2, -3, etc. until unique.
+//
+// The suffix is applied to a base TRIMMED to make room for it, so every candidate
+// stays distinct within the 20-char cap. The old version appended the suffix and
+// then re-truncated, which for a 20-char base collapsed every candidate back to
+// the taken slug — an infinite synchronous loop that pinned prod at 100% CPU for
+// ~3.7h on 2026-08-26 (second Fabrary CSV import of the day). This function must
+// always terminate: it is bounded, and throws rather than spinning if exhausted.
 export function generateUniqueBinderSlug(name: string, existingSlugs: string[]): string {
   const baseSlug = slugifyBinderName(name) || "binder";
-  let slug = baseSlug;
-  let counter = 2;
   const slugSet = new Set(existingSlugs.map(s => s.toLowerCase()));
-  while (slugSet.has(slug)) {
-    slug = `${baseSlug}-${counter++}`;
-    if (slug.length > 20) slug = slug.slice(0, 20);
+  if (!slugSet.has(baseSlug)) return baseSlug;
+
+  const withSuffix = (suffix: string) =>
+    `${baseSlug.slice(0, BINDER_SLUG_MAX - suffix.length).replace(/[-_]+$/, "")}${suffix}`;
+
+  for (let counter = 2; counter <= 1000; counter++) {
+    const candidate = withSuffix(`-${counter}`);
+    if (!slugSet.has(candidate)) return candidate;
   }
-  return slug;
+  // >1000 collisions on one name: fall back to a random suffix. Bounded — a
+  // thrown error surfaces as a 500 for one request; a loop takes the site down.
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const candidate = withSuffix(`-${Math.random().toString(36).slice(2, 8)}`);
+    if (!slugSet.has(candidate)) return candidate;
+  }
+  throw new Error("Could not generate a unique binder slug");
 }
 
 // lib/utils.ts

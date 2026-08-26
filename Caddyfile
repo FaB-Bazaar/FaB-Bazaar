@@ -1,6 +1,20 @@
 fabbazaar.app {
 	tls /certs/fabbazaar.app.pem /certs/fabbazaar.app.key
 
+	# Access log — every request, including the ones that succeed. Added after
+	# the 2026-08-26 hang: Caddy only logged the requests that 502'd, so the
+	# request that wedged the app was invisible. Lives in the caddy_data
+	# volume: `docker compose exec caddy tail -f /data/access.log`.
+	# Caddy redacts Authorization/Cookie header values by default.
+	log {
+		output file /data/access.log {
+			roll_size 50MiB
+			roll_keep 5
+			roll_keep_for 336h
+		}
+		format json
+	}
+
 	reverse_proxy nextjs:3000
 
 	header {

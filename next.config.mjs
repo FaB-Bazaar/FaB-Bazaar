@@ -3,6 +3,18 @@ const nextConfig = {
   // Required for Docker standalone production image
   output: 'standalone',
 
+  experimental: {
+    // The prod container runs with a read-only root FS (docker-compose
+    // `read_only: true`). ISR revalidation tries to persist regenerated pages
+    // to `.next/server/app/<route>.html` and fails with EROFS on every hit,
+    // flooding the logs (the 2026-08-26 outage post-mortem had to grep past
+    // thousands of these). With flushToDisk off, revalidated pages are kept
+    // in the in-memory incremental cache instead; the build's prerendered
+    // HTML is still read from disk. A tmpfs over `.next/server/app` is NOT an
+    // option — it would hide the compiled route files.
+    isrFlushToDisk: false,
+  },
+
   async redirects() {
     return [
       // Product rename: Fabby Chat → Volzar (keeps old bookmarks working)
