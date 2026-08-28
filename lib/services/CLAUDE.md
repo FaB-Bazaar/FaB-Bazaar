@@ -49,6 +49,7 @@ import { userService, binderService, printingsService } from "@/lib/services"
 | `collectibleService` | Non-card collectible catalog (playmats) + per-user have/want marks |
 | `feedOverridesService` | Manual fab-cube feed corrections (`feed_overrides` table) consumed by pipeline step 02. `setFields` whitelist: `tcgplayer_product_id`/`url`/`subtype_name` — keep in sync with `ALLOWED_OVERRIDE_FIELDS` in `pipeline/scripts/002_tcg_price_enhancer.py`. `artVariations` discriminator (0096): NULL = any, `[]` = no-variant only, `['AA']` = exact (stored uppercase+sorted). `upsertByMatchKey()` = create-or-update on the unique match key; used by the printing TCGplayer PATCH auto-record |
 | `setsService` | Set metadata reference data (`sets` table = source of truth: names, release dates/order, category/tier, core-set flag). After editing the table, regenerate the client snapshot: `npx tsx --env-file=.env.local scripts/generate-set-constants.ts` |
+| `ingestService` | Remote set ingest (`POST /api/admin/printings/ingest`, superadmin): upserts snake_case cards/printings/card_translations rows shipped from another FaB Bazaar DB (`scripts/push-set-ingest.ts`). Resolves by natural identity (talishar_card_id / lss_print_id / natural key), mints its own ids — payload ids are local refs only. Enriches provisional cards, never touches fab-cube-anchored ones. `dryRun` returns the plan without writing |
 
 ## Testing
 

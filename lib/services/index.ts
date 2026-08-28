@@ -62,6 +62,7 @@ import { PostgresGameResultsService } from './postgres/gameResults/PostgresGameR
 import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSiteSettingsService';
 import { PostgresFeedOverridesService } from './postgres/feed-overrides/PostgresFeedOverridesService';
 import { PostgresFoilMaskService } from './postgres/foil-mask/PostgresFoilMaskService';
+import { PostgresIngestService } from './postgres/ingest/PostgresIngestService';
 import { PostgresMcpUsageService } from './postgres/mcp-usage/PostgresMcpUsageService';
 import { PostgresLlmUsageService } from './postgres/llm-usage/PostgresLlmUsageService';
 import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
@@ -596,6 +597,7 @@ export const leagueService = ServiceFactory.leagueService;
 export const collectibleService = ServiceFactory.collectibleService;
 export const feedOverridesService = new PostgresFeedOverridesService();
 export const foilMaskService = new PostgresFoilMaskService();
+export const ingestService = new PostgresIngestService();
 
 
 /**
