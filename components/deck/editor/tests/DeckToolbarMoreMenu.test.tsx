@@ -10,6 +10,7 @@ describe('DeckToolbarMoreMenu', () => {
   const baseProps = {
     onCopyList: vi.fn(),
     onExport: vi.fn(),
+    onExportImage: vi.fn(),
     onAnalyze: vi.fn(),
     onPresent: vi.fn(),
     onStickers: vi.fn(),
@@ -27,7 +28,8 @@ describe('DeckToolbarMoreMenu', () => {
     render(<DeckToolbarMoreMenu {...baseProps} />);
     await user.click(screen.getByRole('button', { name: /more/i }));
     expect(await screen.findByRole('menuitem', { name: /copy list/i })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /export/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /^export$/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /export image/i })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /analyze/i })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /present/i })).toBeInTheDocument();
   });
@@ -52,6 +54,15 @@ describe('DeckToolbarMoreMenu', () => {
     await user.click(screen.getByRole('button', { name: /more/i }));
     await user.click(await screen.findByRole('menuitem', { name: /qr sticker sheet/i }));
     expect(onStickers).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires onExportImage when Export image item clicked', async () => {
+    const user = userEvent.setup();
+    const onExportImage = vi.fn();
+    render(<DeckToolbarMoreMenu {...baseProps} onExportImage={onExportImage} />);
+    await user.click(screen.getByRole('button', { name: /more/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /export image/i }));
+    expect(onExportImage).toHaveBeenCalledTimes(1);
   });
 
   it('fires onCopyList when Copy list item clicked', async () => {

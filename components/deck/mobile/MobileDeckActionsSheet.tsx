@@ -9,13 +9,14 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Copy, Download, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode } from "lucide-react";
+import { Copy, Download, ImageDown, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode } from "lucide-react";
 
 interface MobileDeckActionsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCopyList: () => void;
   onExport: () => void;
+  onExportImage: () => void;
   onAnalyze: () => void;
   onPresent: () => void;
   onStickers: () => void;
@@ -33,6 +34,7 @@ export default function MobileDeckActionsSheet({
   onOpenChange,
   onCopyList,
   onExport,
+  onExportImage,
   onAnalyze,
   onPresent,
   onStickers,
@@ -70,6 +72,14 @@ export default function MobileDeckActionsSheet({
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               Export
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-12 text-base"
+              onClick={() => handleAction(onExportImage)}
+            >
+              <ImageDown className="h-4 w-4" aria-hidden="true" />
+              Export image
             </Button>
             <Button
               variant="ghost"

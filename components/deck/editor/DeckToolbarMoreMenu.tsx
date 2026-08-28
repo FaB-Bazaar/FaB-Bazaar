@@ -9,12 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Copy, Download, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode } from "lucide-react";
+import { MoreHorizontal, Copy, Download, ImageDown, Eye, Tv, Settings, ArrowLeftRight, Languages, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DeckToolbarMoreMenuProps {
   onCopyList: () => void;
   onExport: () => void;
+  /** Render the deck as a shareable PNG (opens the export-image dialog). */
+  onExportImage: () => void;
   onAnalyze: () => void;
   onPresent: () => void;
   onStickers: () => void;
@@ -29,6 +31,7 @@ interface DeckToolbarMoreMenuProps {
 export default function DeckToolbarMoreMenu({
   onCopyList,
   onExport,
+  onExportImage,
   onAnalyze,
   onPresent,
   onStickers,
@@ -62,6 +65,10 @@ export default function DeckToolbarMoreMenu({
         <DropdownMenuItem onClick={onExport}>
           <Download className="h-4 w-4 mr-2" aria-hidden="true" />
           Export
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onExportImage}>
+          <ImageDown className="h-4 w-4 mr-2" aria-hidden="true" />
+          Export image
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onAnalyze}>

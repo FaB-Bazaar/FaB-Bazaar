@@ -14,6 +14,7 @@ import { decksClient, bindersClient, wantsClient } from "@/lib/client";
 import { deckFormatToBannedFormat, fetchBannedCardsForFormat, invalidateBannedCardsCache } from "@/lib/client/banned-cards-client";
 import DeckUpgradePrintingsDialog from "@/components/deck/editor/DeckUpgradePrintingsDialog";
 import DeckLanguageConversionDialog from "@/components/deck/editor/DeckLanguageConversionDialog";
+import DeckExportImageDialog from "@/components/deck/editor/DeckExportImageDialog";
 import DeckEditorSidebar from "@/components/deck/editor/DeckEditorSidebar";
 import DeckEditorListView from "@/components/deck/editor/DeckEditorListView";
 import { computeDeckSectionCounts } from "@/components/deck/editor/deck-section-counts";
@@ -262,6 +263,9 @@ export default function DeckEditorPage() {
 
   // Export/copy state
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Export image (shareable PNG) dialog
+  const [exportImageOpen, setExportImageOpen] = useState(false);
 
   // Deck settings
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1814,6 +1818,7 @@ export default function DeckEditorPage() {
                     isOwner={isOwner}
                     onCopyList={handleCopyList}
                     onExport={handleExportList}
+                    onExportImage={() => setExportImageOpen(true)}
                     onAnalyze={() => router.push(`/decks/${deckId}/analyze`)}
                     onPresent={() => router.push(`/decks/${deckId}/present`)}
                     onStickers={() => router.push(`/decks/${deckId}/stickers`)}
@@ -2367,6 +2372,8 @@ export default function DeckEditorPage() {
         </div>
       </div>
 
+      <DeckExportImageDialog open={exportImageOpen} onOpenChange={setExportImageOpen} deck={state.deck} />
+
       {state.deck && (
         <MobileDeckActionsSheet
           open={mobileActionsOpen}
@@ -2374,6 +2381,7 @@ export default function DeckEditorPage() {
           isOwner={isOwner}
           onCopyList={handleCopyList}
           onExport={handleExportList}
+          onExportImage={() => setExportImageOpen(true)}
           onAnalyze={() => router.push(`/decks/${deckId}/analyze`)}
           onPresent={() => router.push(`/decks/${deckId}/present`)}
           onStickers={() => router.push(`/decks/${deckId}/stickers`)}
@@ -2443,7 +2451,10 @@ export default function DeckEditorPage() {
       {/* Mobile bottom tab pill — floating, matching the site-wide MobileTabBar's
           geometry (which hides itself on this route). Deck-context tabs (incl.
           "Deck" to return from the Cards view) are what the user needs here.
-          Active tab = filled bg (shape cue, not color-only). */}
+          Active tab = filled bg (shape cue, not color-only).
+          Hidden while the export-image dialog is open: both are z-50 and the
+          pill is later in the DOM, so it would paint over the dialog's buttons. */}
+      {!exportImageOpen && (
       <div className="fixed z-50 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] inset-x-3 flex justify-center sm:hidden">
         <nav
           aria-label="Deck sections"
@@ -2519,6 +2530,7 @@ export default function DeckEditorPage() {
           )}
         </nav>
       </div>
+      )}
 
       {/* Dialog: quick-add a single card to a specific zone (desktop only;
           mobile users get routed to the inline Cards tab via openQuickAdd) */}
