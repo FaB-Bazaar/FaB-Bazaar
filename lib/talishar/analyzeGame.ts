@@ -1,3 +1,5 @@
+import { resolveStartingHero } from './startingHero';
+import { canonicalHeroId } from './canonicalHero';
 /**
  * analyzeGame — pure derivation of display-ready insight from a raw archived
  * Talishar game blob (the shape stored in `game_result_payloads.payload`).
@@ -176,7 +178,7 @@ function sortedTurns(turnResults?: Record<string, RawTurn>): Array<[number, RawT
 // carry their own katsuDiscard.
 const EXTRA_KEYS = ['activated', 'passiveTriggered', 'katsuDiscard'] as const;
 
-function analyzePlayer(blob: RawDeckBlob): PlayerAnalysis {
+function analyzePlayer(blob: RawDeckBlob, format: string | number | undefined): PlayerAnalysis {
   const turns = sortedTurns(blob.turnResults);
 
   const perTurn: TempoRow[] = turns.map(([turn, t]) => ({
@@ -229,7 +231,7 @@ function analyzePlayer(blob: RawDeckBlob): PlayerAnalysis {
     .sort((a, b) => b.activated - a.activated);
 
   return {
-    hero: (blob.playerHero as string) || '',
+    hero: canonicalHeroId(resolveStartingHero(blob as any), format) || '',
     result: num(blob.result) === 1 ? 'win' : 'loss',
     firstPlayer: num(blob.firstPlayer) === 1,
     turns: num(blob.turns),
@@ -318,8 +320,8 @@ function buildInsights(you: PlayerAnalysis): string[] {
 
 export function analyzeGame(payload: RawGamePayload): GameAnalysis {
   const self = payload.self ?? ({} as RawDeckBlob);
-  const you = analyzePlayer(self);
-  const opponent = payload.opponent ? analyzePlayer(payload.opponent) : null;
+  const you = analyzePlayer(self, payload.format);
+  const opponent = payload.opponent ? analyzePlayer(payload.opponent, payload.format) : null;
 
   return {
     meta: {

@@ -3,6 +3,8 @@ import { gameResults, gameResultPayloads, decks } from '@/lib/postgres/schema';
 import { eq, and, desc, sql, gte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { normalizeTalisharId } from '@/lib/talishar/cardId';
+import { resolveStartingHero, type TalisharCharacterEntry } from '@/lib/talishar/startingHero';
+import { canonicalHeroId } from '@/lib/talishar/canonicalHero';
 import type { AsyncResult } from '../../contracts/common';
 
 export interface GameResultDTO {
@@ -82,6 +84,10 @@ export interface TalisharDeckPayload {
   firstPlayer?: number;
   playerHero?: string;
   opposingHero?: string;
+  // Hero + equipment the player started with; [0] is the hero card. Talishar's
+  // playerHero/opposingHero are end-of-game snapshots (post-transform), so the
+  // stored hero columns derive from this (see lib/talishar/startingHero.ts).
+  character?: TalisharCharacterEntry[] | null;
   cardResults?: unknown;
   turnResults?: unknown;
   turnLog?: [number, string, string][];
@@ -131,8 +137,10 @@ function toDTO(row: typeof gameResults.$inferSelect): GameResultDTO {
     talisharGameId: row.talisharGameId,
     talisharGameGuid: row.talisharGameGuid,
     format: row.format,
-    playerHero: row.playerHero,
-    opponentHero: row.opponentHero,
+    // Read paths always hand out the STARTING hero (lib/talishar/canonicalHero.ts);
+    // the row may hold Talishar's post-transform snapshot.
+    playerHero: canonicalHeroId(row.playerHero, row.format),
+    opponentHero: canonicalHeroId(row.opponentHero, row.format),
     result: row.result,
     conceded: row.conceded,
     firstPlayer: row.firstPlayer,
@@ -193,8 +201,11 @@ export class PostgresGameResultsService {
           talisharGameId: payload.gameID ?? null,
           talisharGameGuid: payload.gameGUID ?? null,
           format: payload.format != null ? String(payload.format) : null,
-          playerHero: deckEntry.playerHero ?? null,
-          opponentHero: deckEntry.opposingHero ?? null,
+          // Starting hero, not Talishar's end-of-game (post-transform) snapshot.
+          // The opponent's character list is fine to read even without consent:
+          // their hero is already disclosed via opposingHero.
+          playerHero: resolveStartingHero(deckEntry) ?? null,
+          opponentHero: resolveStartingHero(opponentEntry) ?? deckEntry.opposingHero ?? null,
           result,
           conceded: payload.conceded ?? false,
           firstPlayer: deckEntry.firstPlayer === 1 ? true : deckEntry.firstPlayer === 0 ? false : null,
@@ -319,8 +330,8 @@ export class PostgresGameResultsService {
         deckPublicId: row.deck_public_id,
         deckName: row.deck_name,
         format: row.format ?? null,
-        playerHero: row.player_hero ?? null,
-        opponentHero: row.opponent_hero ?? null,
+        playerHero: canonicalHeroId(row.player_hero ?? null, row.format),
+        opponentHero: canonicalHeroId(row.opponent_hero ?? null, row.format),
         result: row.result as 'win' | 'loss',
         conceded: row.conceded,
         firstPlayer: row.first_player ?? null,
@@ -350,7 +361,7 @@ export class PostgresGameResultsService {
       const { rows } = await pool.query(
         `SELECT d.public_id AS deck_public_id, d.name AS deck_name, d.hero_name,
                 d.format AS deck_format, gr.result::text AS result,
-                gr.opponent_hero, gr.played_at
+                gr.opponent_hero, gr.format, gr.played_at
            FROM game_results gr
            JOIN decks d ON d.id = gr.deck_id
           WHERE d.user_id = $1
@@ -363,7 +374,7 @@ export class PostgresGameResultsService {
       type Row = {
         deck_public_id: string; deck_name: string; hero_name: string | null;
         deck_format: string | null; result: string; opponent_hero: string | null;
-        played_at: Date;
+        format: string | null; played_at: Date;
       };
       const byDeck = new Map<string, Row[]>();
       for (const row of rows as Row[]) {
@@ -378,11 +389,14 @@ export class PostgresGameResultsService {
 
         const matchups = new Map<string, { games: number; wins: number }>();
         for (const g of games) {
-          if (!g.opponent_hero) continue;
-          const m = matchups.get(g.opponent_hero) ?? { games: 0, wins: 0 };
+          // Bucket on the starting hero so a transformed form (Redback) and its
+          // base (Marionette) count as one matchup.
+          const opponentHero = canonicalHeroId(g.opponent_hero, g.format);
+          if (!opponentHero) continue;
+          const m = matchups.get(opponentHero) ?? { games: 0, wins: 0 };
           m.games += 1;
           if (g.result === 'win') m.wins += 1;
-          matchups.set(g.opponent_hero, m);
+          matchups.set(opponentHero, m);
         }
         const qualifying = [...matchups.entries()]
           .filter(([, m]) => m.games >= minMatchupGames)
@@ -471,8 +485,8 @@ export class PostgresGameResultsService {
           talisharGameId: row.talishar_game_id ?? null,
           talisharGameGuid: row.talishar_game_guid ?? null,
           format: row.format ?? null,
-          playerHero: row.player_hero ?? null,
-          opponentHero: row.opponent_hero ?? null,
+          playerHero: canonicalHeroId(row.player_hero ?? null, row.format),
+          opponentHero: canonicalHeroId(row.opponent_hero ?? null, row.format),
           result: row.result as 'win' | 'loss',
           conceded: row.conceded,
           firstPlayer: row.first_player ?? null,
@@ -556,8 +570,8 @@ export class PostgresGameResultsService {
           talisharGameId: row.talishar_game_id ?? null,
           talisharGameGuid: row.talishar_game_guid ?? null,
           format: row.format ?? null,
-          playerHero: row.player_hero ?? null,
-          opponentHero: row.opponent_hero ?? null,
+          playerHero: canonicalHeroId(row.player_hero ?? null, row.format),
+          opponentHero: canonicalHeroId(row.opponent_hero ?? null, row.format),
           result: row.result as 'win' | 'loss',
           conceded: row.conceded,
           firstPlayer: row.first_player ?? null,

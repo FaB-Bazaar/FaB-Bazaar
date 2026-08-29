@@ -21,7 +21,7 @@ describe('analyzeGame', () => {
   it('reads game meta and player framing', () => {
     expect(a.meta.format).toBe('1');
     expect(a.meta.conceded).toBe(false);
-    expect(a.you.hero).toBe('teklovossen_the_mechropotent');
+    expect(a.you.hero).toBe('teklovossen_esteemed_magnate'); // started as Esteemed Magnate, transformed mid-game
     expect(a.you.result).toBe('loss');
     expect(a.you.firstPlayer).toBe(false);
     expect(a.you.turns).toBe(16);
@@ -123,5 +123,15 @@ describe('analyzeGame', () => {
     expect(solo.opponent).toBeNull();
     // life race still works (driven by self.turnResults)
     expect(solo.lifeRace[0]).toEqual({ turn: 0, you: 40, opp: 40 });
+  });
+});
+
+describe('analyzeGame — hero without a character array', () => {
+  it('maps Talishar\'s transformed playerHero back to the starting hero using the game format', () => {
+    const self = { ...payload.self, character: undefined, playerHero: 'teklovossen_the_mechropotent' };
+    const a = analyzeGame({ ...payload, format: '0', self });
+    expect(a.you.hero).toBe('teklovossen_esteemed_magnate');
+    const b = analyzeGame({ ...payload, format: '14', self });
+    expect(b.you.hero).toBe('teklovossen');
   });
 });
