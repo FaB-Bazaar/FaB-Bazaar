@@ -231,6 +231,18 @@ describe('POST /api/volzar', () => {
     ]));
   });
 
+  it('system prompt explains the Talishar deck-sync setup order (Metafy communities → Connect → deck toggle)', () => {
+    const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
+    const text = String(system.content);
+    // Both Metafy communities are required BEFORE clicking Connect on FaB
+    // Bazaar (memberships are snapshotted at link time), then per-deck toggle.
+    expect(text).toMatch(/Talishar's Community/);
+    expect(text).toMatch(/FabBazaar('s)? Community/);
+    expect(text).toContain('/profile/connected-accounts');
+    expect(text).toContain('BEFORE step 2');
+    expect(text).toMatch(/Talishar (toggle|switch)/);
+  });
+
   it('system prompt steers ban/legality questions to list_card_restrictions', () => {
     const [system] = assembleMessages([{ role: 'user', content: 'hi' }], 'u');
     expect(system.content).toContain('list_card_restrictions');

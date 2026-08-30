@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  noTalisharGamesMessage,
   sortRowsForStrips,
   harvestCardsFromDataItem,
   sumPersonalGames,
@@ -1849,5 +1850,22 @@ describe('summarizeArchetypeConsensus image pass-through', () => {
     const row = r.tableSections![1].rows[0]; // Art of War — no imageUrl
     expect(row.image).not.toContain('imagedelivery.net');
     expect(row.preview!.imageUrl).not.toContain('imagedelivery.net');
+  });
+});
+
+describe('noTalisharGamesMessage', () => {
+  it('names the deck and walks through the setup order in under the banner cap', () => {
+    const msg = noTalisharGamesMessage('Deck: Kayo Aggro');
+    expect(msg).toContain('Kayo Aggro');
+    expect(msg).not.toContain('Deck: ');
+    // Order: Metafy communities first, then Connect on FaB Bazaar, then the deck toggle.
+    const iCommunities = msg.indexOf('Metafy communit');
+    const iConnect = msg.indexOf('Connected Accounts');
+    const iToggle = msg.indexOf('Talishar toggle');
+    expect(iCommunities).toBeGreaterThan(-1);
+    expect(iConnect).toBeGreaterThan(iCommunities);
+    expect(iToggle).toBeGreaterThan(iConnect);
+    // The error banner truncates at 220 chars — the hint must survive a long deck name.
+    expect(noTalisharGamesMessage('Deck: ' + 'x'.repeat(40)).length).toBeLessThanOrEqual(220);
   });
 });

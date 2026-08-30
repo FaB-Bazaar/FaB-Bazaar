@@ -43,7 +43,7 @@ import {
   swapRowPrinting, swapItemRowPrinting, refreshDataItem, runBinderDrill, runDeckDrill, undoRowRemoval,
   runDeckCompareDrill, addCompareRowToWants, addCompareRowToBinder, type CompareRefresh,
   collectMutationTargets, WRITE_TOOLS, splitSectionsByPitch, sumPersonalGames, harvestCardsFromDataItem, type StripSection,
-  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck,
+  moveDeckRow, removeAllDeckCopies, fetchDeckOwnership, deckCategoryFromSection, fetchLatestGameForDeck, noTalisharGamesMessage,
   type DeckOwnership, type DeckSectionCategory,
   type RowMutation, type QuickActionResult, type DeckStats,
   type CardLine, type CardPreview, type SearchResultsCard, type DrillTarget, type HarvestedCard, type ToBeatHero, type ToBeatEvent, type CardRow, type GameResultRow, type KitHero,
@@ -1894,7 +1894,7 @@ export function VolzarChat({ username, userId, mockMode, models, isSuperAdmin, s
     try {
       const row = await fetchLatestGameForDeck(item.deckPublicId);
       if (!row) {
-        setErrorBanner(`No Talishar games recorded for ${item.title.replace(/^Deck: /, '')} yet — sync a game first.`);
+        setErrorBanner(noTalisharGamesMessage(item.title));
         return;
       }
       analyzeGame(row);

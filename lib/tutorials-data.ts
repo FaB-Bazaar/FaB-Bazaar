@@ -104,25 +104,10 @@ export const tutorials: Tutorial[] = [
     icon: "Swords",
     videos: [
       {
-        title: "Linking Your Metafy Account",
-        description:
-          "Before your decks can appear in Talishar, you need to connect your Metafy account. Go to Profile \u2192 Edit Profile and click the link button in the Metafy section. You\u2019ll be redirected to Metafy to authorize the connection. Once linked, Talishar can look up your decks by your Metafy ID. You can disconnect your account at any time from the same page.",
-      },
-      {
         videoId: "BQ_IzoVnYuk",
         title: "Enabling a Deck for Talishar",
         description:
           "Open any deck and toggle the Talishar switch to make it available for online play. Your deck\u2019s hero, equipment, maindeck, and inventory are automatically converted to Talishar\u2019s format. Cards in your inventory section become your sideboard. Once enabled, the deck appears in your Talishar deck list when you start a game.",
-      },
-      {
-        title: "Sideboard Sync",
-        description:
-          "Talishar automatically syncs your sideboard with your deck. Any changes you make to your sideboard in Talishar automatically update your deck's matchups, and your matchups are automatically applied according to your opponent's hero.",
-      },
-      {
-        title: "Tracking Game Results",
-        description:
-          "After you finish a game on Talishar, your results are sent back to FaB Bazaar automatically. The Results tab shows your win/loss record broken down by opponent hero, along with per-card performance stats \u2014 how often each card was played, hit, blocked, or pitched. Use this data to refine your deck and sideboard plans over time.",
       },
     ],
   },

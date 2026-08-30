@@ -419,6 +419,18 @@ export async function fetchLatestGameForDeck(deckPublicId: string): Promise<Game
 }
 
 /**
+ * Banner text when "Review latest Talishar game" finds no games for the deck.
+ * Names the deck and states the sync setup in the ORDER that works: both
+ * Metafy communities first (memberships are snapshotted when Connect is
+ * clicked), then Connect on FaB Bazaar, then the per-deck toggle. Kept short
+ * because the error banner truncates at 220 chars.
+ */
+export function noTalisharGamesMessage(deckTitle: string): string {
+  const name = deckTitle.replace(/^Deck: /, '').slice(0, 40);
+  return `No Talishar games for ${name} yet. Setup: join the FabBazaar + Talishar Metafy communities, then Profile › Connected Accounts › Connect, then switch on the deck's Talishar toggle.`;
+}
+
+/**
  * Rail "Game results" badge: total games on UNFLAGGED personal decks only —
  * a superadmin owns the Decks to Beat system decks, and their games must not
  * inflate the personal count.
