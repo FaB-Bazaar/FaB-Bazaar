@@ -361,7 +361,7 @@ function MarketSection({ signal, movers }: { signal: SignalType; movers: MarketM
         <span className="text-sm text-gray-600 dark:text-gray-400">({movers.length})</span>
         <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">— {meta.blurb}</span>
       </div>
-      <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {preview.map((m) => (
           <MarketMoverTile key={`${m.signalType}-${m.printingId}`} m={m} />
         ))}
@@ -371,7 +371,7 @@ function MarketSection({ signal, movers }: { signal: SignalType; movers: MarketM
           <summary className="cursor-pointer text-sm text-blue-600 dark:text-blue-400 hover:underline">
             Show {rest.length} more
           </summary>
-          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mt-2">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 mt-2">
             {rest.map((m) => (
               <MarketMoverTile key={`${m.signalType}-${m.printingId}`} m={m} />
             ))}
@@ -423,7 +423,7 @@ export function DailyMoversView({
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <AffiliateDisclosure />
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 py-8">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Daily Movers</h1>
@@ -481,7 +481,7 @@ export function DailyMoversView({
                 </div>
               </div>
             ) : sparse ? (
-              <div className="grid gap-2">
+              <div className="grid gap-2 xl:grid-cols-2">
                 {mergedMovers.map((m) => (
                   <MergedMoverRow key={`${m.printingId}-${m.binderId}`} m={m} />
                 ))}
@@ -504,7 +504,7 @@ export function DailyMoversView({
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                       {meta.blurb} on cards you own
                     </p>
-                    <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                       {movers.map((m) => (
                         <MoverCard key={`${m.signalType}-${m.printingId}-${m.binderId}`} m={m} />
                       ))}
