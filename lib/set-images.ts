@@ -35,6 +35,7 @@ export const SET_IMAGES: Record<string, string> = {
   'ama': 'set-ama-logo', // Armory Deck: Malice
   'amo': 'set-amo-logo', // Armory Deck: Dr. Mortimer
   'mpa': 'set-mpa-logo', // Mastery Pack Assassin
+  'tnp': 'set-tnp-logo', // Tournament Pack
 };
 
 // GEM seasonal pack art, keyed by TCGplayer group id (`tcg_groups.group_id`,
