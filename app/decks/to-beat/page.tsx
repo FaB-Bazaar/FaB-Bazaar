@@ -236,6 +236,9 @@ export default function DecksToBeatPage() {
     const result = await decksClient.getCommunityDecks(
       {
         featured: true,
+        // Tournament finish 1st → last (unplaced last); the default is
+        // updated_at DESC, i.e. whatever order the batch was imported in.
+        sortBy: "placing",
         year,
         month,
         ...(format && { format: format as DeckFormat }),

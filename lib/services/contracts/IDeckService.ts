@@ -353,6 +353,12 @@ export interface PublicDeckFilters {
   dateTo?: string;
   /** Filter by event name (exact match) */
   eventName?: string;
+  /**
+   * Result order. 'recent' (default) = updated_at DESC. 'placing' = tournament
+   * finish 1st → last (placing ASC, unplaced rows last, ties recent-first) —
+   * what the Decks to Beat page wants for an event.
+   */
+  sortBy?: 'recent' | 'placing';
 }
 
 /**

@@ -1224,6 +1224,13 @@ export class PostgresDeckService implements IDeckService {
       const limit = pagination?.limit || 20;
       const offset = pagination?.skip || 0;
 
+      // 'placing' = tournament finish 1st → last; unplaced rows sink to the end
+      // and ties (e.g. every 5th–8th finisher) keep the recent-first default.
+      const orderBy =
+        filters?.sortBy === 'placing'
+          ? [sql`${decks.placing} ASC NULLS LAST`, desc(decks.updatedAt)]
+          : [desc(decks.updatedAt)];
+
       const rows = await db
         .select({
           id: decks.id,
@@ -1253,7 +1260,7 @@ export class PostgresDeckService implements IDeckService {
         .where(whereClause)
         .groupBy(decks.id, users.username, users.displayUsername)
         .having(plausibleCountGate)
-        .orderBy(desc(decks.updatedAt))
+        .orderBy(...orderBy)
         .limit(limit)
         .offset(offset);
 

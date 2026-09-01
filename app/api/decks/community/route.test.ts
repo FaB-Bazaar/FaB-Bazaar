@@ -86,3 +86,23 @@ describe('GET /api/decks/community deck payload', () => {
     expect(body.data.decks[0].heroPrintingId).toBe('printing-1');
   });
 });
+
+describe('GET /api/decks/community sortBy', () => {
+  it("forwards sortBy=placing to the service (Decks to Beat 1st → last order)", async () => {
+    await GET(makeRequest('?featured=true&sortBy=placing'));
+    expect(mockList).toHaveBeenCalledWith(
+      expect.objectContaining({ featured: true, sortBy: 'placing' }),
+      expect.anything(),
+    );
+  });
+
+  it('drops an unknown sortBy value instead of forwarding it', async () => {
+    await GET(makeRequest('?featured=true&sortBy=DROP%20TABLE'));
+    expect(mockList.mock.calls[0][0]).not.toHaveProperty('sortBy');
+  });
+
+  it('adds no sortBy key when the param is absent', async () => {
+    await GET(makeRequest('?featured=true'));
+    expect(mockList.mock.calls[0][0]).not.toHaveProperty('sortBy');
+  });
+});

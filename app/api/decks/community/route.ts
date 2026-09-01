@@ -18,6 +18,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 50);
 
     const eventName = url.searchParams.get('eventName');
+    // Allowlisted so an arbitrary string never reaches the ORDER BY branch.
+    const sortByParam = url.searchParams.get('sortBy');
+    const sortBy: 'placing' | 'recent' | undefined =
+      sortByParam === 'placing' || sortByParam === 'recent' ? sortByParam : undefined;
 
     // Rolling event_date window (ISO YYYY-MM-DD); malformed values are dropped.
     const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -35,6 +39,7 @@ export async function GET(request: NextRequest) {
         year: parseInt(yearParam, 10),
       }),
       ...(eventName && { eventName }),
+      ...(sortBy && { sortBy }),
       ...(dateFrom && ISO_DATE.test(dateFrom) && { dateFrom }),
       ...(dateTo && ISO_DATE.test(dateTo) && { dateTo }),
     };
