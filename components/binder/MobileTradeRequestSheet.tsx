@@ -7,14 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
-import { X, Plus, Minus, ArrowLeftRight, Loader2, Copy, ShieldAlert, Package, Users } from "lucide-react";
+import { X, Plus, Minus, ArrowLeftRight, Loader2, Copy, ShieldAlert, Package, Users, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { cn, getCardImageUrl } from "@/lib/utils";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
-import { notifyTradeInterest } from "@/lib/client/binders-client";
+import { notifyTradeInterest, sendTradeInterestNotification } from "@/lib/client/binders-client";
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
+import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
 import { displayUsername } from "@/lib/utils/display-username";
 
 // A simplified card item specifically for the mobile sheet
@@ -60,6 +61,7 @@ export const MobileTradeRequestSheet = ({
   const { toast } = useToast();
   const router = useRouter();
   const [isSending, setIsSending] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
   const [tradeMessage, setTradeMessage] = useState("");
   const [tradeType, setTradeType] = useState<'shipped' | 'in-person'>('in-person');
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +82,44 @@ export const MobileTradeRequestSheet = ({
     setError(null);
     setExistingTradeId(null);
   }, [selectedCards]);
+
+  // Explicit Discord ping — no clipboard involved. Awaited so we can say
+  // whether it fired or was suppressed by the server's dedupe window.
+  const handleNotifyDiscord = async () => {
+    if (validCardsToSend.length === 0) {
+      toast({
+        title: "No Tradable Cards Selected",
+        description: "You can only notify about items marked 'For Trade'.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsNotifying(true);
+    try {
+      const notifyCards = validCardsToSend.map((card: any) => ({
+        name: card.display_name || card.name,
+        quantity: card.quantity,
+        value: card.tcg_low ?? card.printingDetails?.tcg_low ?? 0,
+      }));
+      const { notified } = await sendTradeInterestNotification(binderId, {
+        cards: notifyCards,
+        totalValue: notifyCards.reduce((sum: number, c: any) => sum + c.value * c.quantity, 0),
+      });
+      toast({
+        ...tradeInterestFeedback({ notified, recipientUsername, cardCount: notifyCards.length }),
+        duration: 5000,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Couldn't ping on Discord",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNotifying(false);
+    }
+  };
 
   const handleCopyToClipboard = async () => {
     setIsSending(true);
@@ -243,6 +283,16 @@ export const MobileTradeRequestSheet = ({
                 </div>
               </div>
             )}
+            <Button
+              variant="secondary"
+              onClick={handleNotifyDiscord}
+              disabled={isNotifying || validCardsToSend.length === 0}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              data-testid="notify-discord-button"
+            >
+              {isNotifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              {isNotifying ? "Pinging…" : "Notify on Discord"}
+            </Button>
             <Button onClick={handleCopyToClipboard} disabled={isSending || validCardsToSend.length === 0}>
               {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
               {isSending ? "Copying..." : `Copy Request (${totalCards} ${totalCards === 1 ? 'card' : 'cards'})`}

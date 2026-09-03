@@ -17,15 +17,17 @@ import {
   ChevronRight,
   Copy,
   Package,
-  Users
+  Users,
+  Send
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn, getCardImageUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
-import { notifyTradeInterest } from "@/lib/client/binders-client";
+import { notifyTradeInterest, sendTradeInterestNotification } from "@/lib/client/binders-client";
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
+import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
 import { displayUsername } from "@/lib/utils/display-username";
 
 interface TradeRequestSidebarProps {
@@ -234,6 +236,7 @@ export const TradeRequestSidebar: React.FC<TradeRequestSidebarProps> = ({
   const { toast } = useToast();
   const router = useRouter();
   const [isSending, setIsSending] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
   const [tradeMessage, setTradeMessage] = useState("");
   const [tradeType, setTradeType] = useState<'shipped' | 'in-person'>('in-person');
   const [error, setError] = useState<string | null>(null);
@@ -426,6 +429,45 @@ const handleCopyToClipboard = async () => {
     }
 };
 
+  // Explicit Discord ping — no clipboard involved. Awaited so we can say
+  // whether it fired or was suppressed by the server's dedupe window.
+  const handleNotifyDiscord = async () => {
+    const validCards = cardsWithPriority.filter(card => card.forTrade === true);
+    if (validCards.length === 0) {
+      toast({
+        title: "No Tradable Cards Selected",
+        description: "You can only notify about items marked 'For Trade'.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsNotifying(true);
+    try {
+      const notifyCards = validCards.map(card => ({
+        name: card.display_name || card.name,
+        quantity: card.quantity,
+        value: card.tcg_low ?? card.printingDetails?.tcg_low ?? 0,
+      }));
+      const { notified } = await sendTradeInterestNotification(binderId, {
+        cards: notifyCards,
+        totalValue: notifyCards.reduce((sum, c) => sum + c.value * c.quantity, 0),
+      });
+      toast({
+        ...tradeInterestFeedback({ notified, recipientUsername, cardCount: notifyCards.length }),
+        duration: 5000,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Couldn't ping on Discord",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNotifying(false);
+    }
+  };
+
   const totalEstimatedValue = cardsWithPriority.reduce((total, card) => {
     const price = card.printingDetails?.tcg_low || 0;
     return total + (price * card.quantity);
@@ -568,6 +610,21 @@ const handleCopyToClipboard = async () => {
             </div>
           </div>
         )}
+
+        <Button
+          variant="secondary"
+          onClick={handleNotifyDiscord}
+          disabled={isNotifying || cardsWithPriority.length === 0}
+          className="w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          data-testid="notify-discord-button"
+        >
+          {isNotifying ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="mr-2 h-4 w-4" />
+          )}
+          {isNotifying ? "Pinging…" : "Notify on Discord"}
+        </Button>
 
         <Button
           onClick={handleCopyToClipboard}

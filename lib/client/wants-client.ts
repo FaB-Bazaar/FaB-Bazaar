@@ -440,3 +440,29 @@ export function notifyWantsInterest(
     // best-effort notification — nothing to do on failure
   });
 }
+
+/**
+ * Explicit "Notify" ping from a store page's Trade Opportunities tile
+ * ("they want — you have"). Awaited (unlike notifyWantsInterest) so the
+ * tile can tell the user whether the ping fired or was suppressed by the
+ * server's dedupe window. Throws with the server's error message on a
+ * non-OK response.
+ */
+export async function sendWantsInterestNotification(
+  ownerUserId: string,
+  payload: {
+    cards: Array<{ name: string; quantity: number; value: number }>;
+    totalValue?: number;
+  }
+): Promise<{ notified: boolean }> {
+  const res = await fetch(`/api/wants/user/${ownerUserId}/notify-interest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(body?.error || `Failed to notify (${res.status})`);
+  }
+  return { notified: !!body?.data?.notified };
+}

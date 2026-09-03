@@ -5,12 +5,16 @@ import Link from "next/link";
 import { use } from "react";
 import {
   MapPin, Phone, Globe, Users, Calendar, ChevronLeft,
-  Check, ExternalLink, ArrowLeftRight, Heart,
+  Check, ExternalLink, ArrowLeftRight, Heart, Send, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { locationsClient } from "@/lib/client";
+import { sendWantsInterestNotification } from "@/lib/client/wants-client";
+import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
+import { printingLabel } from "@/lib/trade/printing-label";
+import { useToast } from "@/hooks/use-toast";
 import type { LocationDTO, EventDTO, LocationFollowerDTO } from "@/types/location";
 import type { StoreTradeMatchDTO, StoreWantMatchDTO, StoreTradeCardDTO } from "@/lib/services/contracts/IInventoryService";
 import { profileHref, displayUsername } from "@/lib/utils/display-username";
@@ -41,9 +45,7 @@ function valueSuffix(cards: StoreTradeCardDTO[]): string {
 }
 
 function cardCaption(card: Pick<StoreTradeCardDTO, "displayName" | "foiling" | "collectorNumber" | "quantity">) {
-  const foil = card.foiling && card.foiling !== "NF" ? `${card.foiling} ` : "";
-  const num = card.collectorNumber ? ` (${card.collectorNumber})` : "";
-  return `${card.quantity}× ${foil}${card.displayName}${num}`;
+  return `${card.quantity}× ${printingLabel(card)}`;
 }
 
 /**
@@ -202,6 +204,46 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
   const [tradeMatches, setTradeMatches] = useState<StoreTradeMatchDTO[]>([]);
   const [wantMatches, setWantMatches] = useState<StoreWantMatchDTO[]>([]);
   const [zoomedCard, setZoomedCard] = useState<ZoomedCard | null>(null);
+  const [notifyingUserId, setNotifyingUserId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  // "I have the cards you're looking for" — pings the trader in the
+  // Discord trade channel via their wants list. Awaited so we can report
+  // a deduped ping as informational rather than as silence.
+  const handleNotifyTrader = async (match: StoreTradeMatchDTO) => {
+    // Exact printing identity (foil + collector number), never just the card
+    // name — the match is on printing_id, so the ping must not overstate it.
+    const cards = match.theyWantYouHave.map((c) => ({
+      name: printingLabel(c),
+      quantity: c.quantity,
+      value: c.tcgLow ?? 0,
+    }));
+    if (cards.length === 0) return;
+
+    setNotifyingUserId(match.userId);
+    try {
+      const { notified } = await sendWantsInterestNotification(match.userId, {
+        cards,
+        totalValue: cards.reduce((sum, c) => sum + c.value * c.quantity, 0),
+      });
+      toast({
+        ...tradeInterestFeedback({
+          notified,
+          recipientUsername: match.displayUsername || match.username,
+          cardCount: cards.length,
+        }),
+        duration: 5000,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Couldn't ping on Discord",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setNotifyingUserId(null);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -525,8 +567,25 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
                     )}
                     {match.theyWantYouHave.length > 0 && (
                       <div className="mt-3">
-                        <div className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-2">
-                          They want — you have
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                            They want — you have
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleNotifyTrader(match)}
+                            disabled={notifyingUserId === match.userId}
+                            data-testid={`notify-trade-match-${match.userId}`}
+                            className="text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          >
+                            {notifyingUserId === match.userId ? (
+                              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="mr-1.5 h-4 w-4" />
+                            )}
+                            Notify {match.displayUsername || displayUsername(match.username)}
+                          </Button>
                         </div>
                         <CardStrip>
                           {match.theyWantYouHave.map((c) => (

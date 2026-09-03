@@ -856,6 +856,31 @@ export function notifyTradeInterest(
 }
 
 /**
+ * Explicit "Notify on Discord" ping from the non-owner trade sidebar.
+ * Awaited (unlike notifyTradeInterest) so the UI can tell the user whether
+ * the ping fired or was suppressed by the server's 15-minute dedupe window.
+ * Throws with the server's error message on a non-OK response.
+ */
+export async function sendTradeInterestNotification(
+  binderId: string,
+  payload: {
+    cards: Array<{ name: string; quantity: number; value: number }>;
+    totalValue?: number;
+  }
+): Promise<{ notified: boolean }> {
+  const res = await fetch(`/api/binders/${binderId}/notify-trade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(body?.error || `Failed to notify (${res.status})`);
+  }
+  return { notified: !!body?.data?.notified };
+}
+
+/**
  * Search cards by name across all user binders.
  * Returns cards grouped by card ID with binder locations.
  *
