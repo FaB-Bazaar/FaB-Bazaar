@@ -833,31 +833,8 @@ export async function getCollectionOverview(): Promise<ApiResponse<unknown>> {
 }
 
 /**
- * Notify the binder owner (via Discord channel webhook) that the current
- * user copied a trade request from their binder.
- *
- * Fire-and-forget: the clipboard copy already succeeded, so a failed or
- * deduped ping must never surface as an error to the user.
- */
-export function notifyTradeInterest(
-  binderId: string,
-  payload: {
-    cards: Array<{ name: string; quantity: number; value: number }>;
-    totalValue?: number;
-  }
-): void {
-  fetch(`/api/binders/${binderId}/notify-trade`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {
-    // best-effort notification — nothing to do on failure
-  });
-}
-
-/**
  * Explicit "Notify on Discord" ping from the non-owner trade sidebar.
- * Awaited (unlike notifyTradeInterest) so the UI can tell the user whether
+ * Awaited so the UI can tell the user whether
  * the ping fired or was suppressed by the server's 15-minute dedupe window.
  * Throws with the server's error message on a non-OK response.
  */

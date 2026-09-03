@@ -25,7 +25,7 @@ import { cn, getCardImageUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { formatTradeRequestForDiscord } from "@/lib/formatters/tradeRequestFormatter";
 import { copyToClipboard } from "@/lib/utils/clipboard";
-import { notifyTradeInterest, sendTradeInterestNotification } from "@/lib/client/binders-client";
+import { sendTradeInterestNotification } from "@/lib/client/binders-client";
 import { TRADE_REQUESTS_CHANNEL_NAME, TRADE_REQUESTS_CHANNEL_URL } from "@/lib/discord/links";
 import { tradeInterestFeedback } from "@/lib/discord/trade-interest-feedback";
 import { displayUsername } from "@/lib/utils/display-username";
@@ -390,19 +390,8 @@ const handleCopyToClipboard = async () => {
       if (result.success) {
         toast({
           title: "Copied to Clipboard!",
-          description: `We pinged ${displayUsername(recipientUsername)} in #${TRADE_REQUESTS_CHANNEL_NAME} on the FaB Bazaar Discord — paste your request there.`,
+          description: "Your trade request is ready to paste.",
           duration: 5000,
-        });
-
-        // Ping the binder owner in the Discord server (fire-and-forget)
-        const notifyCards = validCardsToSend.map(card => ({
-          name: card.display_name || card.name,
-          quantity: card.quantity,
-          value: card.tcg_low ?? card.printingDetails?.tcg_low ?? 0,
-        }));
-        notifyTradeInterest(binderId, {
-          cards: notifyCards,
-          totalValue: notifyCards.reduce((sum, c) => sum + c.value * c.quantity, 0),
         });
 
         setError(null);

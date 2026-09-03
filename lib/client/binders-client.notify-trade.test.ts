@@ -2,10 +2,9 @@
  * Unit tests for bindersClient.sendTradeInterestNotification().
  *
  * Wraps POST /api/binders/[binderId]/notify-trade — the explicit
- * "Notify on Discord" button in the non-owner trade sidebar. Unlike the
- * fire-and-forget notifyTradeInterest() (piggybacks on clipboard copy),
- * this one is awaited so the UI can say whether the ping fired or was
- * suppressed by the 15-minute dedupe window.
+ * "Notify on Discord" button in the non-owner trade sidebar. Awaited so
+ * the UI can say whether the ping fired or was suppressed by the
+ * 15-minute dedupe window.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

@@ -16,6 +16,7 @@
 
 import { test, expect } from '@playwright/test'
 import { execSync } from 'child_process'
+import { acceptCookies } from '../helpers/deck-fixtures'
 
 const sql = (query: string) =>
   execSync(`docker exec fabbazaar-postgres psql -U fabbazaar -d fabbazaar -t -A -c "${query}"`)
@@ -82,4 +83,23 @@ test('a deduped ping is reported as already-pinged, not as an error', async ({ p
   await page.getByTestId('notify-discord-button').click()
 
   await expect(page.getByText('Already pinged recently', { exact: true })).toBeVisible()
+})
+
+test('Copy to Clipboard no longer pings Discord — that is the Notify button\'s job', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+
+  let notifyCalls = 0
+  await page.route('**/api/binders/*/notify-trade', async (route) => {
+    notifyCalls += 1
+    await route.fulfill({ json: { success: true, data: { notified: true } } })
+  })
+
+  await selectFirstForTradeCard(page)
+  await acceptCookies(page) // fixed-position banner covers the sidebar footer
+  await page.getByRole('button', { name: 'Copy to Clipboard' }).click()
+
+  await expect(page.getByText('Copied to Clipboard!', { exact: true })).toBeVisible()
+  // The success toast must not claim a ping happened either.
+  await expect(page.getByText(/We pinged/)).toHaveCount(0)
+  expect(notifyCalls).toBe(0)
 })
