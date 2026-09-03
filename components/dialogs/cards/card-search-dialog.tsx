@@ -28,6 +28,7 @@ import {
   type RarityCode
 } from "@/lib/fab-constants"
 import { sortPrintingsByLanguage, languageFlag } from "@/lib/utils/printing-language"
+import { FoilingChip } from "@/components/shared/FoilingChip"
 import { TcgAffiliateLink } from '@/components/tracking'
 
 // --- MODIFICATION START ---
@@ -352,11 +353,12 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
     return display;
   }
 
-  function getPrintingShortDisplay(printing: any) {
+  // includeFoiling=false when the caller renders foiling as a <FoilingChip> instead of a word
+  function getPrintingShortDisplay(printing: any, includeFoiling = true) {
     const setId = printing.printing_data?.set_id || printing.set;
     const setDisplay = getSetDisplayName(setId);
     const editionDisplay = printing.edition === 'f' ? '1st' : printing.edition === 'u' ? 'UNL' : printing.edition === 'a' ? 'Alpha' : '';
-    const foilingDisplay = printing.foiling === 's' ? 'Normal' : printing.foiling === 'r' ? 'Rainbow' : printing.foiling === 'c' ? 'Cold' : printing.foiling;
+    const foilingDisplay = !includeFoiling ? '' : printing.foiling === 's' ? 'Normal' : printing.foiling === 'r' ? 'Rainbow' : printing.foiling === 'c' ? 'Cold' : printing.foiling === 'g' ? 'Gold' : printing.foiling;
     
     return `${setDisplay} ${editionDisplay} ${foilingDisplay}`.replace(/\s+/g, ' ').trim();
   }
@@ -474,11 +476,11 @@ export default function CardSearchDialog({ open, onOpenChange, onSelectCard, des
                             <SelectItem value="cheapest">Cheapest option {(() => { const cheapest = getCheapestPrinting(selectedCard.printings || []); return cheapest?.tcgLow ? `($${Number(cheapest.tcgLow).toFixed(2)})` : ''; })()}</SelectItem>
                             {(selectedCard.printings || []).map((printing: any) => {
                               const price = printing.tcgLow ? `$${Number(printing.tcgLow).toFixed(2)}` : '';
-                              const displayName = getPrintingShortDisplay(printing);
+                              const displayName = getPrintingShortDisplay(printing, false);
                               const rarityDisplay = getRarityDisplayName(printing.rarity);
                               const cardIdDisplay = printing.collector_number ? `(${printing.collector_number})` : '';
                               const lang = (printing.language || 'en').toLowerCase();
-                              return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span><span className="mr-1.5" aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span><span className="mr-1.5 text-xs uppercase text-gray-500 dark:text-gray-400">{lang}</span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-600 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
+                              return (<SelectItem key={printing.unique_id || printing.printing_id} value={printing.unique_id || printing.printing_id}><div className="flex flex-col"><span className="inline-flex items-center gap-1.5"><span aria-label={`Language: ${lang}`}>{languageFlag(lang)}</span><span className="text-xs uppercase text-gray-500 dark:text-gray-400">{lang}</span><FoilingChip foiling={printing.foiling} /><span>{displayName} {cardIdDisplay} {price ? `- ${price}` : ''}</span></span>{(rarityDisplay && rarityDisplay !== 'Common') && (<span className="text-xs text-gray-600 dark:text-gray-400">{rarityDisplay}</span>)}</div></SelectItem>);
                             })}
                           </SelectContent>
                         </Select>
