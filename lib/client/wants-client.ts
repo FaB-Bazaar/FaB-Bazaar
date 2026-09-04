@@ -453,6 +453,8 @@ export async function sendWantsInterestNotification(
   payload: {
     cards: Array<{ name: string; quantity: number; value: number }>;
     totalValue?: number;
+    /** Where the match was spotted — the store page, plus its next upcoming event if any. */
+    source?: { storeId: string; storeName: string; eventName?: string; eventDate?: string };
   }
 ): Promise<{ notified: boolean }> {
   const res = await fetch(`/api/wants/user/${ownerUserId}/notify-interest`, {

@@ -50,6 +50,17 @@ export interface TradeInterestData {
   totalValue?: number;
 }
 
+/**
+ * Where a match was spotted (e.g. a store page). Without it a wants ping
+ * from a store page reads exactly like one from the wants list itself.
+ */
+export interface InterestSource {
+  label: string;
+  url: string;
+  /** One extra line under the link, e.g. the next event at that store. */
+  detail?: string;
+}
+
 export interface WantsInterestData {
   requesterUsername: string;
   requesterDiscordId?: string | null;
@@ -62,6 +73,7 @@ export interface WantsInterestData {
     value: number;
   }>;
   totalValue?: number;
+  source?: InterestSource;
 }
 
 export class DiscordWebhooks {
@@ -106,6 +118,7 @@ export class DiscordWebhooks {
     ownerDiscordId?: string | null;
     cards: Array<{ name: string; quantity: number; value: number }>;
     totalValue?: number;
+    source?: InterestSource;
     contentTemplate: (requesterRef: string, ownerRef: string) => string;
     embedTitle: string;
     linkLabel: string;
@@ -162,6 +175,14 @@ export class DiscordWebhooks {
           name: '💰 Est. Value',
           value: `$${data.totalValue.toFixed(2)}`,
           inline: true
+        });
+      }
+
+      if (data.source) {
+        embed.fields.push({
+          name: '📍 Spotted at',
+          value: [`[${data.source.label}](${data.source.url})`, data.source.detail].filter(Boolean).join('\n'),
+          inline: false
         });
       }
 

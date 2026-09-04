@@ -47,6 +47,15 @@ test('Notify posts the they-want-you-have cards to the trader and confirms', asy
   await page.route('**/api/stores/*/trade-matches', (route) =>
     route.fulfill({ json: { success: true, matches: [MATCH] } }),
   )
+  // Two upcoming events, out of order: the ping should name the SOONER one.
+  const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString()
+  const event = (id: string, name: string, start: string) => ({
+    id, locationId: storeId, locationName: 'x', name, type: 'armory', format: 'CC',
+    startDate: start, endDate: start, active: true, createdAt: start, updatedAt: start,
+  })
+  await page.route('**/api/stores/*/events?*', (route) =>
+    route.fulfill({ json: { success: true, data: [event('ev-later', 'Road to Nationals', inDays(30)), event('ev-soon', 'Armory', inDays(3))] } }),
+  )
   let posted: any = null
   await page.route('**/api/wants/user/*/notify-interest', async (route) => {
     posted = { url: route.request().url(), body: route.request().postDataJSON() }
@@ -68,6 +77,10 @@ test('Notify posts the they-want-you-have cards to the trader and confirms', asy
     { name: 'RF Pounamu Amulet (SEA090)', quantity: 1, value: 8.88 },
   ])
   expect(posted.body.totalValue).toBeCloseTo(3 * 0.38 + 8.88, 2)
+  // Where it was spotted — otherwise the Discord ping is indistinguishable from a wants-page ping.
+  const storeName = sql(`SELECT name FROM locations WHERE id = '${storeId}';`)
+  expect(posted.body.source).toMatchObject({ storeId, storeName, eventName: 'Armory' })
+  expect(posted.body.source.eventDate).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{4}/)
 })
 
 test('a deduped ping is reported as already-pinged', async ({ page }) => {

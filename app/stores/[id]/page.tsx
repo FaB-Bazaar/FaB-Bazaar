@@ -220,11 +220,25 @@ export default function StoreDetailPage({ params }: { params: Promise<{ id: stri
     }));
     if (cards.length === 0) return;
 
+    // Say WHERE this was spotted: the ping otherwise reads like one from the
+    // wants list itself. The soonest upcoming event here is the natural meetup.
+    const nextEvent = events
+      .filter((e) => new Date(e.endDate) >= new Date())
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0];
+
     setNotifyingUserId(match.userId);
     try {
       const { notified } = await sendWantsInterestNotification(match.userId, {
         cards,
         totalValue: cards.reduce((sum, c) => sum + c.value * c.quantity, 0),
+        source: location
+          ? {
+              storeId: id,
+              storeName: location.name,
+              eventName: nextEvent?.name,
+              eventDate: nextEvent ? formatDate(nextEvent.startDate) : undefined,
+            }
+          : undefined,
       });
       toast({
         ...tradeInterestFeedback({

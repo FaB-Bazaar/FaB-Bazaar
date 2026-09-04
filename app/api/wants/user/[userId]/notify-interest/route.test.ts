@@ -168,3 +168,45 @@ describe('notification', () => {
     expect(sent.cards.every((c: any) => typeof c.name === 'string')).toBe(true);
   });
 });
+
+describe('source (where the match was spotted)', () => {
+  it('forwards a store source as a label, a fabbazaar store link and the next event', async () => {
+    setAuth();
+    setUsers();
+
+    const res = await POST(
+      makeRequest({
+        ...validBody(),
+        source: { storeId: 'store-1', storeName: 'Card Kingdom', eventName: 'Armory', eventDate: 'Sep 12, 2026' },
+      }),
+      params,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: {
+          label: 'Card Kingdom',
+          url: 'https://fabbazaar.app/stores/store-1',
+          detail: 'Next event: Armory (Sep 12, 2026)',
+        },
+      }),
+    );
+  });
+
+  it('omits the event line when the store has none, and drops a malformed source entirely', async () => {
+    setAuth();
+    setUsers();
+
+    await POST(makeRequest({ ...validBody(), source: { storeId: 'store-1', storeName: 'Card Kingdom' } }), params);
+    expect(mockSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        source: { label: 'Card Kingdom', url: 'https://fabbazaar.app/stores/store-1', detail: undefined },
+      }),
+    );
+
+    resetTradeInterestDedupe();
+    await POST(makeRequest({ ...validBody(), source: { storeName: 'no id', url: 'https://evil.example' } }), params);
+    expect(mockSend.mock.calls.at(-1)![0].source).toBeUndefined();
+  });
+});

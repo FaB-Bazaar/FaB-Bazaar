@@ -13,6 +13,25 @@ import { shouldNotifyTradeInterest } from '@/lib/discord/trade-interest-dedupe';
 const MAX_CARDS = 10;
 const MAX_NAME_LENGTH = 120;
 
+/**
+ * Optional "where was this spotted" context. Only a store id is accepted —
+ * the link is built here so a client can't inject an arbitrary URL into
+ * the Discord channel.
+ */
+function parseSource(raw: unknown): { label: string; url: string; detail?: string } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const { storeId, storeName, eventName, eventDate } = raw as Record<string, unknown>;
+  if (typeof storeId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(storeId)) return undefined;
+  if (typeof storeName !== 'string' || !storeName.trim()) return undefined;
+  const event = typeof eventName === 'string' && eventName.trim() ? eventName.trim().slice(0, MAX_NAME_LENGTH) : null;
+  const date = typeof eventDate === 'string' && eventDate.trim() ? eventDate.trim().slice(0, 40) : null;
+  return {
+    label: storeName.trim().slice(0, MAX_NAME_LENGTH),
+    url: `https://fabbazaar.app/stores/${storeId}`,
+    detail: event ? `Next event: ${event}${date ? ` (${date})` : ''}` : undefined,
+  };
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
@@ -65,6 +84,7 @@ export async function POST(
       wantsUrl: `https://fabbazaar.app/wants/${ownerId}`,
       cards,
       totalValue: Number.isFinite(Number(body.totalValue)) ? Number(body.totalValue) : undefined,
+      source: parseSource(body.source),
     });
 
     return NextResponse.json({ success: true, data: { notified: true } });

@@ -103,4 +103,24 @@ describe('sendWantsInterest', () => {
 
     expect(await DiscordWebhooks.sendWantsInterest(baseData())).toBe(false);
   });
+
+  it('names where the match was spotted when a source is given, and stays silent otherwise', async () => {
+    await DiscordWebhooks.sendWantsInterest({
+      ...baseData(),
+      source: {
+        label: 'Card Kingdom',
+        url: 'https://fabbazaar.app/stores/store-1',
+        detail: 'Next event: Armory (Sep 12, 2026)',
+      },
+    });
+    const spotted = sentPayload().embeds[0].fields.find((f: { name: string }) => /spotted/i.test(f.name));
+    expect(spotted).toBeDefined();
+    expect(spotted.value).toContain('[Card Kingdom](https://fabbazaar.app/stores/store-1)');
+    expect(spotted.value).toContain('Next event: Armory (Sep 12, 2026)');
+
+    mockFetch.mockClear();
+    await DiscordWebhooks.sendWantsInterest(baseData());
+    const fields = sentPayload().embeds[0].fields;
+    expect(fields.some((f: { name: string }) => /spotted/i.test(f.name))).toBe(false);
+  });
 });
