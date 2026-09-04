@@ -773,6 +773,9 @@ function DeckTileSection({
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHeroSection = section.key === 'hero';
   const isCollapsible = !!heroPortrait; // only the equipment section (which hosts the hero portrait)
+  // An empty zone is just its header row: the add button stays visible (it's the only affordance,
+  // and hover-reveal never fires on touch) and the card-sized dashed placeholder is dropped.
+  const isEmpty = section.tiles.length === 0;
   const isDragActive = !!activeDragTile;
   const isValidDropTarget = activeDragTile ? canDropOnSection(activeDragTile, section.key) : false;
 
@@ -895,7 +898,7 @@ function DeckTileSection({
           <span className="text-[9px] text-indigo-400 font-medium ml-auto">drop here</span>
         )}
         {!isDragActive && (
-          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <div className={cn("ml-auto flex items-center gap-1 transition-opacity", isEmpty ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100")}>
             {onAddCard && sectionToCategory(section.key) && (
               <button
                 type="button"
@@ -922,7 +925,7 @@ function DeckTileSection({
           </div>
         )}
       </div>
-      {!isCollapsed && <div className="flex flex-wrap gap-1">
+      {!isCollapsed && !isEmpty && <div className="flex flex-wrap gap-1">
         {section.tiles.map(tile => {
           const own = ownershipMap.get(tile.printingId);
           const ownershipState = !own ? null
@@ -1028,9 +1031,9 @@ function DeckTileSection({
 
               {/* Ownership dot — fades on hover when missing (wants button takes over) */}
               {ownershipState !== null && (
-                <div className={cn(
-                  "absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20 transition-opacity",
-                  ownershipState === 'full' ? "bg-green-400" : "bg-red-500",
+                <div data-ownership={ownershipState} className={cn(
+                  "absolute top-0.5 right-0.5 w-2 h-2 rounded-full transition-opacity",
+                  ownershipState === 'full' ? "bg-green-400 border border-black/20" : "bg-transparent border-[1.5px] border-red-500",
                   onAddTile ? "group-hover:opacity-0 group-focus-within:opacity-0" : "",
                 )} />
               )}
@@ -2481,10 +2484,13 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                 : <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
               <span>Collector Mode</span>
             </button>
-            <Select value={selectedBinderId} onValueChange={onBinderChange}>
-              <SelectTrigger className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
-                <SelectValue placeholder="Select binder" />
-              </SelectTrigger>
+            <div className="flex items-center gap-1.5">
+              {/* Names what the dots compare against — a bare binder name ("silver") reads as noise. */}
+              <span id="deck-compare-binder-label" className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">Compare to</span>
+              <Select value={selectedBinderId} onValueChange={onBinderChange}>
+                <SelectTrigger aria-labelledby="deck-compare-binder-label" className="h-8 text-sm px-2 py-1 border-gray-300 dark:border-gray-600 bg-transparent min-w-[160px] gap-1">
+                  <SelectValue placeholder="Select binder" />
+                </SelectTrigger>
               <SelectContent>
                 {binders.map(b => (
                   <SelectItem key={b._id} value={b._id} className="text-sm">
@@ -2492,15 +2498,18 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
                   </SelectItem>
                 ))}
               </SelectContent>
-            </Select>
-            {/* Legend for the per-card ownership dots (JoseR's suggestion) */}
+              </Select>
+            </div>
+            {/* Legend for the per-card ownership dots (JoseR's suggestion). "Missing" is an outline
+                on purpose: on a deck you mostly don't own it sits on nearly every tile, so a solid
+                red dot drowned the green one that actually carries the signal. */}
             <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-green-400 border border-black/20" aria-hidden="true" />
                 in your binder
               </span>
               <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-red-500 border border-black/20" aria-hidden="true" />
+                <span data-testid="legend-missing" className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-red-500" aria-hidden="true" />
                 not in binder
               </span>
             </div>
