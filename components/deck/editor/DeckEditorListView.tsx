@@ -934,6 +934,13 @@ function DeckTileSection({
           const isHighlighted = highlightMatchIds ? highlightMatchIds.has(tile.printingId) : null;
           const showBinderLabel = ownershipState === 'full' && (own?.binderNames?.length ?? 0) > 0;
           const wantsQty = wantsMap?.get(tile.cardUniqueId) ?? 0;
+          const openTile = () => {
+            if (onEnlargeImage && tile.imageUrl) {
+              onEnlargeImage(tile.imageUrl, tile.name, tile.otherFaceImageUrl);
+            } else {
+              onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category });
+            }
+          };
           return (
             <div key={tile.key} className="flex flex-col items-center" data-focus-id={tile.printingId} style={{ width: tileWidth }}>
             <div
@@ -954,12 +961,21 @@ function DeckTileSection({
                 } else if ((e.metaKey || e.ctrlKey) && onMoveTo && tile.category !== 'hero') {
                   e.preventDefault();
                   setContextMenu({ tile, x: e.clientX, y: e.clientY });
-                } else if (onEnlargeImage && tile.imageUrl) {
-                  onEnlargeImage(tile.imageUrl, tile.name, tile.otherFaceImageUrl);
                 } else {
-                  onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category });
+                  openTile();
                 }
               }}
+              // Keyboard parity with click: the tile is a real tab stop, Enter/Space enlarges,
+              // and focus anywhere inside (tile or one of its action buttons) previews the card
+              // in the right rail the same way hover does.
+              tabIndex={0}
+              role="button"
+              aria-label={`${tile.name} — enlarge`}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTile(); }
+              }}
+              onFocus={() => !isDragActive && tile.imageUrl && onHover(tile.imageUrl, tile.name, tileToExtras(tile))}
               onTouchStart={!isTouchDevice && onMoveTo && tile.category !== 'hero' && !tile.types.includes('demi-hero') ? (e) => {
                 const touch = e.touches[0];
                 longPressRef.current = setTimeout(() => {
@@ -971,6 +987,7 @@ function DeckTileSection({
               onTouchMove={() => { if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; } }}
               className={cn(
                 "relative rounded select-none group transition-all duration-150",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
                 isHeroSection ? "ring-2 ring-white/60" : "ring-[1.5px] ring-gray-400 dark:ring-gray-500",
                 thisTileDraggable && "cursor-grab active:cursor-grabbing",
                 !thisTileDraggable && onSwap && "cursor-pointer",
@@ -1014,15 +1031,16 @@ function DeckTileSection({
                 <div className={cn(
                   "absolute top-0.5 right-0.5 w-2 h-2 rounded-full border border-black/20 transition-opacity",
                   ownershipState === 'full' ? "bg-green-400" : "bg-red-500",
-                  onAddTile ? "group-hover:opacity-0" : "",
+                  onAddTile ? "group-hover:opacity-0 group-focus-within:opacity-0" : "",
                 )} />
               )}
 
               {/* Remove button (X) — shown on hover, hidden for hero/demi-hero */}
               {!isTouchDevice && !isDragActive && onRemoveTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-red-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
+                  className="absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-red-600 flex items-center justify-center opacity-20 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all z-10"
                   title="Remove 1 copy"
+                  aria-label="Remove 1 copy"
                   onClick={e => { e.stopPropagation(); onRemoveTile(tile); }}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -1032,8 +1050,9 @@ function DeckTileSection({
               {/* Move to inventory button — shown on hover, only for maindeck/equipment cards */}
               {!isTouchDevice && !isDragActive && onMoveToInventory && tile.category !== 'hero' && tile.category !== 'inventory' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-6 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[8px] font-bold leading-none"
+                  className="absolute top-7 left-0.5 w-6 h-6 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all z-10 text-[8px] font-bold leading-none"
                   title="Move to inventory"
+                  aria-label="Move to inventory"
                   onClick={e => { e.stopPropagation(); onMoveToInventory(tile); }}
                 >
                   Inv.
@@ -1043,19 +1062,21 @@ function DeckTileSection({
               {/* Move to bench button — shown on hover, only for non-hero/non-bench cards */}
               {!isTouchDevice && !isDragActive && onMoveTo && tile.category !== 'hero' && tile.category !== 'benched' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-12 left-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10"
+                  className="absolute top-[3.375rem] left-0.5 w-6 h-6 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-blue-600 flex items-center justify-center opacity-20 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all z-10"
                   title="Move to bench"
+                  aria-label="Move to bench"
                   onClick={e => { e.stopPropagation(); onMoveTo(tile, 'benched'); }}
                 >
-                  <img src="/bench-icon.svg" className="h-3 w-3 invert" alt="Bench" />
+                  <img src="/bench-icon.svg" className="h-3 w-3 invert" alt="" aria-hidden="true" />
                 </button>
               )}
 
               {/* Add +1 button — shown on hover, hidden for hero/demi-hero */}
               {!isTouchDevice && !isDragActive && onAddTile && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 transition-all z-10 text-[10px] font-bold leading-none"
+                  className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-green-600 flex items-center justify-center opacity-20 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all z-10 text-[10px] font-bold leading-none"
                   title="Add 1 copy"
+                  aria-label="Add 1 copy"
                   onClick={e => { e.stopPropagation(); onAddTile(tile); }}
                 >
                   +1
@@ -1065,8 +1086,9 @@ function DeckTileSection({
               {/* Swap printing button — bottom-right corner, shown on hover */}
               {!isTouchDevice && !isDragActive && onSwap && tile.category !== 'hero' && !tile.types.includes('demi-hero') && (
                 <button
-                  className="absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-purple-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
+                  className="absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full bg-black/85 ring-1 ring-white/20 text-gray-300 hover:text-white hover:bg-purple-600 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all z-10"
                   title="Swap printing"
+                  aria-label="Swap printing"
                   onClick={e => { e.stopPropagation(); onSwap({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category }); }}
                 >
                   <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -1075,7 +1097,7 @@ function DeckTileSection({
 
               {/* Hover overlay: drag hint when draggable, zoom hint otherwise */}
               {!isTouchDevice && !isDragActive && (
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded transition-opacity pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 bg-black/40 rounded transition-opacity pointer-events-none">
                   {thisTileDraggable ? (
                     <svg className="h-4 w-4 text-white drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                       <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
@@ -2931,6 +2953,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
       {enlargedImage && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
+          data-testid="tile-lightbox"
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
           onClick={() => setEnlargedImage(null)}
         >

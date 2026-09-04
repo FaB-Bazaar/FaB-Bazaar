@@ -1211,22 +1211,39 @@ export default function DeckEditorPage() {
   const isMac = useIsMac();
   const modKey = isMac ? '⌘' : 'Ctrl';
 
+  // The Deck Tools (⌘K HUD) trigger — one look, two homes: the floating pill and the right rail.
+  const renderToolsTrigger = (inRail = false) => (
+    <button
+      type="button"
+      onClick={() => setChordMode('select')}
+      className={cn(
+        "flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400",
+        // The floating pill is tuned for sitting over content; inside the rail it needs a
+        // solid ground so the light theme keeps its contrast.
+        inRail && "w-full justify-center bg-gray-900 hover:bg-gray-800 dark:bg-black/40 dark:hover:bg-black/55",
+      )}
+    >
+      {/* Keyboard hints are desktop-only chrome — meaningless on touch. */}
+      <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
+      <span>Deck Tools</span>
+      <span className="text-blue-400/70 group-hover:text-blue-300 transition-colors">▸</span>
+    </button>
+  );
+
   return (
     // overflow-x-clip (not -hidden): hidden creates a scroll container, which breaks the right rail's position:sticky
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen overflow-x-clip">
-      {/* Dormant HUD trigger */}
+      {/* Dormant HUD trigger. Floats bottom-RIGHT on sm+ (bottom-center on phones, above the
+          mobile tab pill). On the xl deck tab the floating copy is hidden and the same trigger
+          renders as the right rail's first row instead — a fixed pill anywhere over the tile
+          grid or the rail hides content at some scroll position. The open HUD stays centered. */}
       {!chordMode && (
-        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <button
-            type="button"
-            onClick={() => setChordMode('select')}
-            className="flex items-center gap-2.5 bg-black/40 border border-blue-400/60 rounded-full px-5 py-2 text-sm text-gray-200 hover:text-white hover:border-blue-300/90 hover:bg-black/55 backdrop-blur-md shadow-[0_0_12px_rgba(96,165,250,0.25)] hover:shadow-[0_0_18px_rgba(96,165,250,0.4)] transition-all duration-200 group"
-          >
-            {/* Keyboard hints are desktop-only chrome — meaningless on touch. */}
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-gray-300 font-mono text-[10px] border border-white/20 group-hover:text-white transition-colors">{modKey}K</kbd>
-            <span>Deck Tools</span>
-            <span className="text-blue-400/70 group-hover:text-blue-300 transition-colors">▸</span>
-          </button>
+        <div className={cn(
+          "fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-50",
+          activeTab === 'deck' && "xl:hidden",
+        )}>
+          {renderToolsTrigger()}
         </div>
       )}
 
@@ -2364,6 +2381,7 @@ export default function DeckEditorPage() {
                     ownedCount={railStats.ownedCount}
                     totalCount={railStats.totalCount}
                     hoveredCard={hoveredWithOwnership}
+                    toolsTrigger={chordMode ? null : renderToolsTrigger(true)}
                   />
                 );
               })()}

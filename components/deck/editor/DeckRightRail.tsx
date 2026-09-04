@@ -67,6 +67,8 @@ interface DeckRightRailProps {
   } | null;
   /** Optional extra panels (e.g. matchups / results) appended to the rail. */
   extra?: React.ReactNode;
+  /** Deck Tools (⌘K HUD) trigger, rendered as the rail's first row on desktop. */
+  toolsTrigger?: React.ReactNode;
   className?: string;
 }
 
@@ -78,11 +80,13 @@ export default function DeckRightRail({
   totalCount,
   hoveredCard,
   extra,
+  toolsTrigger,
   className,
 }: DeckRightRailProps) {
   const wrapperRef = React.useRef<HTMLDivElement>(null);
-  // Horizontal position of the rail while pinned; null = in normal flow.
-  const [fixedLeft, setFixedLeft] = React.useState<number | null>(null);
+  const asideRef = React.useRef<HTMLElement>(null);
+  // Viewport position of the rail while pinned; null = in normal flow.
+  const [pinned, setPinned] = React.useState<{ left: number; top: number } | null>(null);
 
   React.useEffect(() => {
     let raf = 0;
@@ -91,11 +95,21 @@ export default function DeckRightRail({
       const el = wrapperRef.current;
       if (!el || el.offsetWidth === 0) {
         // display:none below the xl breakpoint
-        setFixedLeft(null);
+        setPinned(null);
         return;
       }
       const rect = el.getBoundingClientRect();
-      setFixedLeft(rect.top <= NAVBAR_OFFSET_PX ? rect.left : null);
+      if (rect.top > NAVBAR_OFFSET_PX) {
+        setPinned(null);
+        return;
+      }
+      // The pinned rail must not outrun its content row: once the row's bottom edge (the
+      // footer line) scrolls up past where the rail would end, slide the rail up with it
+      // instead of painting over the footer.
+      const rowBottom = el.parentElement?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY;
+      const railHeight = asideRef.current?.offsetHeight ?? 0;
+      const top = Math.min(NAVBAR_OFFSET_PX, Math.round(rowBottom - railHeight));
+      setPinned(prev => (prev && prev.left === rect.left && prev.top === top ? prev : { left: rect.left, top }));
     };
     const onScrollOrResize = () => {
       if (!raf) raf = requestAnimationFrame(update);
@@ -117,17 +131,19 @@ export default function DeckRightRail({
     // parent, and the global footer (below the row) doesn't extend that boundary.
     <div ref={wrapperRef} className="hidden xl:block w-72 flex-shrink-0 self-start">
       <aside
+        ref={asideRef}
         role="complementary"
         aria-label="Deck overview"
-        style={fixedLeft != null ? { position: "fixed", top: NAVBAR_OFFSET_PX, left: fixedLeft } : undefined}
+        style={pinned ? { position: "fixed", top: pinned.top, left: pinned.left } : undefined}
         className={cn(
           "w-72 p-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900",
           "space-y-4 text-sm text-gray-700 dark:text-gray-200",
           // While pinned, never extend past the viewport bottom — scroll internally instead.
-          fixedLeft != null && "max-h-[calc(100vh-6rem)] overflow-y-auto",
+          pinned && "max-h-[calc(100vh-6rem)] overflow-y-auto",
           className,
         )}
       >
+        {toolsTrigger && <div>{toolsTrigger}</div>}
         {hoveredCard && (() => {
           const foilingLabel = hoveredCard.foiling ? FOILING_LABEL[hoveredCard.foiling.toLowerCase()] : null;
           const editionLabel = hoveredCard.edition ? EDITION_LABEL[hoveredCard.edition.toLowerCase()] : null;
