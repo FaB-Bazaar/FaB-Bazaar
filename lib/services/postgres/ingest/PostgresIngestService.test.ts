@@ -235,6 +235,40 @@ describe('PostgresIngestService.ingestSetRows', () => {
     expect(b.otherFacePrintingId).toBe(f.printingId);
   });
 
+  test('skips a fab-cube-sourced DFC back face (no lss_print_id) the target already holds', async () => {
+    // FAB232-234 repro: fab-cube DFC rows carry no CardVault print id, so the
+    // back face can only be recognised by natural key + face side. Re-pushing
+    // the set must not mint a second back row for an existing pair.
+    const frontCard = cardRow();
+    const backCard = cardRow();
+    const front = printingRow(frontCard, { is_front_face: true, lss_print_id: null });
+    const back = printingRow(backCard, {
+      is_front_face: false,
+      lss_print_id: null,
+      collector_number: front.collector_number,
+      other_face_printing_id: front.printing_id,
+    });
+    (front as Record<string, unknown>).other_face_printing_id = back.printing_id;
+
+    const first = await service.ingestSetRows({
+      set: testSet, cards: [frontCard, backCard], printings: [front, back],
+    });
+    expect(first.success).toBe(true);
+    if (!first.success) return;
+    expect(first.data.printingsCreated).toBe(2);
+
+    const second = await service.ingestSetRows({
+      set: testSet, cards: [frontCard, backCard], printings: [front, back],
+    });
+    expect(second.success).toBe(true);
+    if (!second.success) return;
+    expect(second.data.printingsCreated).toBe(0);
+    expect(second.data.printingsSkipped).toBe(2);
+
+    const rows = await db.select().from(printings).where(eq(printings.set, testSet));
+    expect(rows).toHaveLength(2);
+  });
+
   test('upserts card_translations rows, mapping the local card ref', async () => {
     const card = cardRow();
     const printing = printingRow(card);

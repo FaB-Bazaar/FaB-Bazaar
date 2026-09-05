@@ -33,8 +33,12 @@ const BASE_URL = (arg('--base-url', 'https://fabbazaar.app') ?? '').replace(/\/$
 const LANGS = arg('--langs')?.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const BEARER = process.env.INGEST_BEARER;
+// Collector numbers to leave out of the payload (e.g. rows the target already
+// holds but its deployed endpoint can't yet recognise — the FAB232-234
+// fab-cube DFC backs before the back-face dedupe fix shipped).
+const SKIP_COLLECTORS = new Set((arg('--skip-collectors', '') ?? '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean));
 if (!SET) {
-  console.error('usage: push-set-ingest.ts --set=iar [--commit] [--base-url=...] [--langs=en,fr]');
+  console.error('usage: push-set-ingest.ts --set=iar [--commit] [--base-url=...] [--langs=en,fr] [--skip-collectors=FAB232,FAB233]');
   process.exit(1);
 }
 if (!BEARER) {
@@ -48,7 +52,7 @@ if (!BEARER) {
   const printings = (await pool.query(
     `SELECT * FROM printings WHERE set = $1${LANGS ? ' AND language = ANY($2)' : ''} ORDER BY collector_number, language, foiling`,
     LANGS ? [SET, LANGS] : [SET],
-  )).rows;
+  )).rows.filter((p) => !SKIP_COLLECTORS.has(String(p.collector_number ?? '').toUpperCase()));
   if (!printings.length) {
     console.error(`✗ no local printings for set '${SET}' — run the local ingest first`);
     process.exit(1);

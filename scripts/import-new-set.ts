@@ -38,6 +38,7 @@ import {
   splitFaces,
   buildFaceRows,
   naturalKeyOf,
+  parseLssPrintCode,
   type LssApiFace,
   type LssApiPrint,
   type ProvisionalPrintingRow,
@@ -54,6 +55,11 @@ const REFRESH = argv.includes('--refresh');
 const MAX_REQUESTS = parseInt(arg('--max-requests', '60')!, 10);
 const DELAY_MS = parseInt(arg('--delay', '2000')!, 10);
 const CACHE_DIR = arg('--cache-dir', '/Users/eko/fabtcg/cardvault-api-cache')!;
+// Collector numbers to leave alone. Use when CardVault's print_id lacks a finish
+// suffix (finish_type 'regular') for a print we already hold as foil (FAB400,
+// FAB425-429: TCGplayer sells them ONLY as Rainbow/Cold Foil) — ingesting would
+// mint a phantom non-foil printing.
+const SKIP_COLLECTORS = new Set((arg('--skip-collectors', '') ?? '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean));
 
 const API = 'https://api.cardvault.fabtcg.com/carddb/api/v1';
 const UA = 'FaBBazaar-Pipeline/1.0 (+https://fabbazaar.app)';
@@ -196,7 +202,7 @@ async function politeFetch(url: string): Promise<any> {
   const newPrintings: Array<ProvisionalPrintingRow & { is_front_face?: boolean; other_face_printing_id?: string | null }> = [];
   // Backs discovered for fronts ingested BEFORE face support: link in place.
   const retroLinks: Array<{ frontId: string; backId: string }> = [];
-  let skippedLss = 0, skippedNaturalKey = 0, backRows = 0;
+  let skippedLss = 0, skippedNaturalKey = 0, skippedFlag = 0, backRows = 0;
 
   // Resolve (or create/enrich) one card row; shared by front and named-back faces.
   const resolveCard = (face: LssApiFace, lssCardId: string): { id: string; via: string } => {
@@ -243,10 +249,16 @@ async function politeFetch(url: string): Promise<any> {
 
     // Named back = its own card (e.g. 'Viserai, Usurper'), resolved once per family.
     const namedBackFace = prints.map((p) => splitFaces(p, 'en')).find((s) => s.namedBack)?.back ?? null;
-    const backCard = namedBackFace ? resolveCard(namedBackFace, card.id) : null;
+    // Resolved LAZILY — only once a print in this family actually needs a row.
+    // Eager resolution minted an orphan card (FAB232's 'Inner Chi' back has no
+    // pitch on CardVault → unknown talishar id → NEW) for a family that was then
+    // skipped in full by natural key, leaving a card row with zero printings.
+    let backCard: { id: string; via: string } | null = null;
+    const getBackCard = () => (backCard ??= resolveCard(namedBackFace!, card.id));
 
     for (const print of prints) {
       const sf = splitFaces(print, 'en');
+      if (SKIP_COLLECTORS.has(parseLssPrintCode(print.print_id, { setHasFirstEdition }).collector.toUpperCase())) { skippedFlag++; continue; }
       const frontExisting = byLssPrint.get(print.id);
       const backLssId = sf.back?.id ?? `${print.id}#back`;
       const backExisting = sf.back ? byLssPrint.get(backLssId) : undefined;
@@ -255,15 +267,19 @@ async function politeFetch(url: string): Promise<any> {
 
       const frontId = frontExisting?.printing_id ?? nanoid();
       const backId = sf.back ? (backExisting?.printing_id ?? nanoid()) : undefined;
-      const { front, back } = buildFaceRows(print, {
-        frontPrintingId: frontId, frontCardId,
-        backPrintingId: backId, backCardId: sf.namedBack ? backCard?.id : frontCardId,
-      }, { setHasFirstEdition });
-
+      const faceIds = { frontPrintingId: frontId, frontCardId, backPrintingId: backId };
       if (!frontExisting) {
         // Whole pair presumed present when the natural key already exists
         // (fab-cube-first rows, e.g. the preview marvels' two face rows).
-        if (knownNaturalKeys.has(naturalKeyOf(front))) { skippedNaturalKey++; continue; }
+        // Natural key is id-independent, so probe BEFORE resolving the back card.
+        const probe = buildFaceRows(print, { ...faceIds, backCardId: frontCardId }, { setHasFirstEdition }).front;
+        if (knownNaturalKeys.has(naturalKeyOf(probe))) { skippedNaturalKey++; continue; }
+      }
+      const { front, back } = buildFaceRows(print, {
+        ...faceIds, backCardId: sf.namedBack ? getBackCard().id : frontCardId,
+      }, { setHasFirstEdition });
+
+      if (!frontExisting) {
         knownNaturalKeys.add(naturalKeyOf(front));
         newPrintings.push(front);
       }
@@ -273,14 +289,15 @@ async function politeFetch(url: string): Promise<any> {
         if (frontExisting) retroLinks.push({ frontId, backId: backId! });
       }
     }
-    const backNote = namedBackFace ? ` // ${namedBackFace.printed_name} (${backCard?.via})` : '';
+    const backNote = namedBackFace ? ` // ${namedBackFace.printed_name} (${(backCard as { via: string } | null)?.via ?? 'not needed'})` : '';
     console.log(`  ${frontFace.printed_name.trim()} (${frontVia})${backNote} — ${prints.length} en prints`);
   }
 
   console.log(`\nplan: ${newCards.length} new cards, ${newPrintings.length} new printings ` +
     `(${backRows} back faces, ${retroLinks.length} retro-links onto existing fronts), ` +
     `${enrichCards.length} provisional cards to enrich; ` +
-    `skipped ${skippedLss} already-ingested (lss), ${skippedNaturalKey} already-present (natural key)`);
+    `skipped ${skippedLss} already-ingested (lss), ${skippedNaturalKey} already-present (natural key)` +
+    (skippedFlag ? `, ${skippedFlag} via --skip-collectors` : ''));
 
   if (!COMMIT) {
     console.log('\nDRY RUN — nothing written. Re-run with --commit to apply.');

@@ -154,11 +154,26 @@ export class PostgresIngestService {
           edition: printings.edition,
           foiling: printings.foiling,
           language: printings.language,
+          isFrontFace: printings.isFrontFace,
         })
         .from(printings)
         .where(eq(printings.set, input.set));
       const knownNaturalKeys = new Set(
-        existingInSet.map((r) =>
+        existingInSet.filter((r) => r.isFrontFace !== false).map((r) =>
+          naturalKeyOf({
+            set: input.set,
+            collector_number: r.collectorNumber ?? '',
+            edition: r.edition,
+            foiling: r.foiling,
+            language: r.language,
+          }),
+        ),
+      );
+      // Back faces share the natural key with their front, so they get their
+      // own set. fab-cube-sourced DFC rows carry no lss_print_id (FAB232-234),
+      // and without this a re-push minted a second back row per pair.
+      const knownBackKeys = new Set(
+        existingInSet.filter((r) => r.isFrontFace === false).map((r) =>
           naturalKeyOf({
             set: input.set,
             collector_number: r.collectorNumber ?? '',
@@ -191,7 +206,11 @@ export class PostgresIngestService {
           counts.printingsSkipped++;
           continue;
         }
-        if (isFront) knownNaturalKeys.add(nk);
+        if (!isFront && knownBackKeys.has(nk)) {
+          counts.printingsSkipped++;
+          continue;
+        }
+        if (isFront) knownNaturalKeys.add(nk); else knownBackKeys.add(nk);
         const cardRef = String(p.card_unique_id ?? '');
         const resolvedCard = cardIdMap.get(cardRef);
         if (!resolvedCard) {
