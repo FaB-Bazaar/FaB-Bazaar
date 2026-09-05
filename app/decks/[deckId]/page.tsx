@@ -489,12 +489,17 @@ export default function DeckEditorPage() {
   const handleQuickAddCard = async (printing: any, quantity: number) => {
     if (!quickAddTarget) return;
     const result = await decksClient.addPrintings(deckId, [{ printingId: printing.printing_id, quantity, category: quickAddTarget.category }]);
-    if (result.success) {
-      await handlers.refreshDeck();
-      // Keep dialog open so user can add more cards
-    } else {
-      toast({ title: "Add failed", description: result.error, variant: "destructive" });
+    // The bulk route answers 200 with per-row outcomes: a legality/copy-cap
+    // rejection lives in results[i].error, not the envelope.
+    const rowError = result.success
+      ? result.data?.results?.find(r => r.printingId === printing.printing_id && !r.success)?.error
+      : result.error;
+    if (rowError) {
+      toast({ title: "Add failed", description: rowError, variant: "destructive" });
+      throw new Error(rowError);
     }
+    await handlers.refreshDeck();
+    // Keep dialog open so user can add more cards
   };
 
   // Clear optimistic deck once the real deck refreshes from the server

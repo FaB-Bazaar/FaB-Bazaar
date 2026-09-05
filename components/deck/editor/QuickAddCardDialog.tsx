@@ -56,6 +56,11 @@ const ZONE_LABELS: Partial<Record<DeckCategory, string>> = {
 // foiling/edition are printing-level concerns handled by the printing picker.
 const BASE_EXCLUDED_FACETS = ["class", "talent", "format", "price", "more", "language"];
 
+// Tile quick-add quantities: 3 is the CC per-card cap (Blitz/Silver Age is 2;
+// the server rejects an over-cap add, same as the printing panel's stepper).
+const QUICK_ADD_QTYS = [1, 2, 3] as const;
+type QuickAddQty = (typeof QUICK_ADD_QTYS)[number];
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -182,6 +187,8 @@ function PrintingTile({
       await onAdd(qty);
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 1500);
+    } catch {
+      // onAdd already surfaced the failure (toast); just don't flash "Added".
     } finally {
       setAdding(false);
     }
@@ -314,7 +321,7 @@ function CardGridTile({
   isSelected: boolean;
   inDeckCount: number;
   onClick: () => void;
-  onQuickAdd: () => void;
+  onQuickAdd: (qty: QuickAddQty) => void;
   onMagnify: () => void;
   quickAddStatus: 'idle' | 'adding' | 'added';
 }) {
@@ -380,21 +387,39 @@ function CardGridTile({
             : "opacity-100",
         )}
       >
-        <button
-          type="button"
-          onClick={onQuickAdd}
-          disabled={quickAddStatus !== 'idle'}
-          aria-label={`Quick add ${card.name}`}
-          title="Add 1× of the default printing"
-          className={cn(
-            "w-full rounded px-1.5 py-1 text-xs font-semibold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
-            quickAddStatus === 'added'
-              ? "bg-green-600 text-white"
-              : "bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-80",
-          )}
-        >
-          {quickAddStatus === 'added' ? '✓ Added' : quickAddStatus === 'adding' ? 'Adding…' : '+ Quick add'}
-        </button>
+        {quickAddStatus === 'idle' ? (
+          <div
+            role="group"
+            aria-label={`Quick add ${card.name}`}
+            className="flex w-full items-stretch rounded shadow-md overflow-hidden bg-blue-600 text-white"
+          >
+            <span className="flex items-center pl-2 pr-1 text-[11px] font-semibold whitespace-nowrap" aria-hidden="true">
+              Quick add
+            </span>
+            {QUICK_ADD_QTYS.map(qty => (
+              <button
+                key={qty}
+                type="button"
+                onClick={() => onQuickAdd(qty)}
+                aria-label={`Quick add ${qty}× ${card.name}`}
+                title={`Add ${qty}× of the default printing`}
+                className="flex-1 border-l border-blue-400/60 px-1 py-1 text-xs font-bold tabular-nums transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-200"
+              >
+                +{qty}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div
+            role="status"
+            className={cn(
+              "w-full rounded px-1.5 py-1 text-center text-xs font-semibold shadow-md text-white",
+              quickAddStatus === 'added' ? "bg-green-600" : "bg-blue-600 opacity-80",
+            )}
+          >
+            {quickAddStatus === 'added' ? '✓ Added' : 'Adding…'}
+          </div>
+        )}
         <button
           type="button"
           onClick={onClick}
@@ -642,16 +667,16 @@ export default function QuickAddCardDialog({
     return () => document.removeEventListener('keydown', handler, true);
   }, [open, handleEscape, hasOpenFacetPopover]);
 
-  // Quick add from a grid tile: 1× the canonical printing (English-first via
-  // sortPrintings; grouped-search representatives are already server-canonical).
+  // Quick add from a grid tile: N× (1/2/3) the canonical printing (English-first
+  // via sortPrintings; grouped-search representatives are already server-canonical).
   // Skips the printing panel entirely.
   const [quickAdd, setQuickAdd] = useState<{ id: string; status: 'adding' | 'added' } | null>(null);
-  const handleQuickAdd = useCallback(async (card: CardResult) => {
+  const handleQuickAdd = useCallback(async (card: CardResult, qty: QuickAddQty) => {
     const printing = sortPrintings([...card.printings])[0];
     if (!printing) return;
     setQuickAdd({ id: card.unique_id, status: 'adding' });
     try {
-      await onAdd(printing, 1);
+      await onAdd(printing, qty);
       setQuickAdd({ id: card.unique_id, status: 'added' });
       setTimeout(
         () => setQuickAdd(s => (s?.id === card.unique_id && s.status === 'added' ? null : s)),
@@ -837,7 +862,7 @@ export default function QuickAddCardDialog({
                           setSelectedCard(isAlreadySelected ? null : card);
                           setShowCardZoom(!isAlreadySelected);
                         }}
-                        onQuickAdd={() => handleQuickAdd(card)}
+                        onQuickAdd={qty => handleQuickAdd(card, qty)}
                         onMagnify={() => {
                           const printing = card.printings[0];
                           if (printing) setEnlarged({ printing, name: card.name });
