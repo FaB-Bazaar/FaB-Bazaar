@@ -551,3 +551,12 @@ describe('young Chane', () => {
     expect(TALISHAR_HERO_SLUGS['chane']).toBe('chane');
   });
 });
+
+describe('validateHeroFormatLegality — Future Classic Constructed', () => {
+  it('requires an adult hero, like CC', () => {
+    expect(validateHeroFormatLegality('kano, dracai of aether', 'future_cc')).toEqual({ ok: true });
+    const young = validateHeroFormatLegality('kano', 'future_cc');
+    expect(young.ok).toBe(false);
+    if (!young.ok) expect(young.error).toContain('Future Classic Constructed');
+  });
+});

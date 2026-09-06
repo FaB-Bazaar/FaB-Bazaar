@@ -4,6 +4,7 @@
  */
 export const DECK_FORMAT_TO_API_CODE: Record<string, string> = {
   'Classic Constructed': 'cc',
+  'Future Classic Constructed': 'future_cc',
   'Blitz': 'blitz',
   'Commoner': 'commoner',
   'Living Legend': 'll',

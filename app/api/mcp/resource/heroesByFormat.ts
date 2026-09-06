@@ -14,7 +14,7 @@ import type { HeroLegalityRow } from '@/lib/services/contracts/IPrintingsService
 const CACHE_KEY = 'mcp:heroes-by-format:v1';
 const CACHE_TTL_SECONDS = 86400; // 24h — legality only changes on the nightly pipeline
 
-export type HeroFormatKey = 'cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
+export type HeroFormatKey = 'cc' | 'future_cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
 
 interface HeroEntry {
   name: string; // lowercase canonical — pass to search_printings heroLegal
@@ -27,6 +27,7 @@ type HeroesByFormat = Record<HeroFormatKey, { adult: HeroEntry[]; young: HeroEnt
 // format key → the HeroLegalityRow boolean that marks legality in that format
 const FORMAT_FLAGS: Array<[HeroFormatKey, keyof HeroLegalityRow]> = [
   ['cc', 'ccLegal'],
+  ['future_cc', 'futureCcLegal'],
   ['blitz', 'blitzLegal'],
   ['silver_age', 'silverAgeLegal'],
   ['commoner', 'commonerLegal'],

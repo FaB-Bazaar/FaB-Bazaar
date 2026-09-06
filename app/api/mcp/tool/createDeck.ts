@@ -40,6 +40,7 @@ const ALL_HERO_NAMES = [...new Set([
 
 const VALID_FORMATS = [
   'Classic Constructed',
+  'Future Classic Constructed',
   'Silver Age',
   'Blitz',
   'Commoner',
@@ -63,7 +64,8 @@ export const createDeckTool = {
     • Silver Age / Blitz: young name  (e.g. "fai")
 
   🎯 FORMATS (exact values required):
-  Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual
+  Classic Constructed | Future Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual
+  (Future Classic Constructed = the CC pool plus every card from a set whose release date is still ahead — for previewing spoiler-season decks.)
 
   🔒 VISIBILITY (default: unlisted):
   - "private"   — only you can see it
@@ -95,7 +97,7 @@ export const createDeckTool = {
       format: {
         type: 'string',
         enum: [...VALID_FORMATS],
-        description: 'Game format — must be an exact enum value: Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual',
+        description: 'Game format — must be an exact enum value: Classic Constructed | Future Classic Constructed | Silver Age | Blitz | Commoner | Living Legend | Limited | Ultimate Pit Fight | Casual',
       },
       heroName: {
         type: 'string',

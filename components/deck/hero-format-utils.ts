@@ -13,6 +13,8 @@ export function deriveFormatFromHero(hero: HeroLegalityRow | undefined): string 
   if (hero.blitzLegal) return 'Blitz'
   if (hero.commonerLegal) return 'Commoner'
   if (hero.llLegal) return 'Living Legend'
+  // Not legal anywhere yet but printed in an unreleased set → Future CC (adult heroes only; it's a CC-rules format).
+  if (hero.futureCcLegal && !hero.types.includes('young')) return 'Future Classic Constructed'
   return 'Classic Constructed'
 }
 
@@ -50,6 +52,7 @@ export function heroRestrictions(
 /** Short chip label for a display format name. */
 export function formatShortLabel(format: string): string {
   if (format === 'Classic Constructed') return 'CC'
+  if (format === 'Future Classic Constructed') return 'Future CC'
   if (format === 'Silver Age') return 'Sage'
   return format
 }

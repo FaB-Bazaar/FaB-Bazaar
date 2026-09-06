@@ -191,6 +191,7 @@ export const fabConstantsResource = {
       _seeAlso: 'For which HEROES are legal in each format (adult vs young, DB-derived), read fab://heroes-by-format.',
       blitz: 'Blitz (40-card constructed)',
       cc: 'Classic Constructed (60-card)',
+      future_cc: 'Future Classic Constructed — the CC pool PLUS every card from a set whose release date is still ahead (spoiler-season preview). Nicknames: "future cc", "fcc". CC banlist still applies.',
       commoner: 'Common and rare cards only',
       ll: 'Living Legend format',
       silver_age: 'Silver Age format — community nicknames: "sage", "sa". Always translate these to silver_age before filtering.'

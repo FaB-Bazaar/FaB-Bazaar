@@ -19,6 +19,7 @@ import { hasTalisharMembership, hasFabBazaarMembership } from '@/lib/metafy/comm
 
 const FORMAT_MAP: Record<string, string> = {
   'Classic Constructed': 'cc',
+  'Future Classic Constructed': 'cc', // CC rules; Talishar has no future-pool format
   'Silver Age': 'sage',
   'Blitz': 'blitz',
   'Commoner': 'commoner',

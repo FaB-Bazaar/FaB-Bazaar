@@ -145,3 +145,12 @@ describe('synthesizeFabraryText', () => {
     expect(parsed.cards[3]).toMatchObject({ name: 'shred', quantity: 2, color: 'blue' });
   });
 });
+
+describe('Future Classic Constructed via URL import', () => {
+  test('accepts the format and its aliases', () => {
+    const fmt = (s: string) => parseImportUrlParams(new URLSearchParams({ format: s })).format;
+    expect(fmt('Future Classic Constructed')).toBe('Future Classic Constructed');
+    expect(fmt('fcc')).toBe('Future Classic Constructed');
+    expect(fmt('future cc')).toBe('Future Classic Constructed');
+  });
+});

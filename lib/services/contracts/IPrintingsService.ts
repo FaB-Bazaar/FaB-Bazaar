@@ -158,6 +158,8 @@ export interface PrintingDTO {
   // Format legality
   blitz_legal: boolean;
   cc_legal: boolean;
+  /** Printed in a set whose release date is still ahead — Future Classic Constructed input (derived; see lib/services/postgres/future-release.ts). */
+  future_release?: boolean;
   commoner_legal: boolean;
   ll_legal: boolean;
   silver_age_legal: boolean;
@@ -407,7 +409,7 @@ export interface PrintingsSearchFilters {
   isPremium?: boolean;
 
   // Format legality
-  format?: 'blitz' | 'cc' | 'commoner' | 'll' | 'silver_age';
+  format?: 'blitz' | 'cc' | 'future_cc' | 'commoner' | 'll' | 'silver_age';
   includeBanned?: boolean;
   includeSuspended?: boolean;
 
@@ -615,9 +617,9 @@ export const HERO_LEGALITY_FLAGS: HeroLegalityFlag[] = [
 ];
 
 /** Format codes for legality filtering — matches the column-suffix part of HeroLegalityFlag. */
-export type HeroFormat = 'cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
+export type HeroFormat = 'cc' | 'future_cc' | 'blitz' | 'silver_age' | 'commoner' | 'll';
 
-export const HERO_FORMATS: HeroFormat[] = ['cc', 'blitz', 'silver_age', 'commoner', 'll'];
+export const HERO_FORMATS: HeroFormat[] = ['cc', 'future_cc', 'blitz', 'silver_age', 'commoner', 'll'];
 
 export interface HeroLegalityRow {
   cardUniqueId: string;
@@ -628,6 +630,8 @@ export interface HeroLegalityRow {
   types: string[];
   klass: string | null;
   ccLegal: boolean;
+  /** cc_legal OR printed in a set whose release date is still ahead (Future Classic Constructed). Derived, not a DB flag. */
+  futureCcLegal: boolean;
   blitzLegal: boolean;
   silverAgeLegal: boolean;
   commonerLegal: boolean;

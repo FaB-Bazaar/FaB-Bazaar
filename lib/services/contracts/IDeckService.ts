@@ -30,6 +30,7 @@ export type DeckCategory =
  */
 export type DeckFormat =
   | 'Classic Constructed'
+  | 'Future Classic Constructed'
   | 'Silver Age'
   | 'Blitz'
   | 'Commoner'

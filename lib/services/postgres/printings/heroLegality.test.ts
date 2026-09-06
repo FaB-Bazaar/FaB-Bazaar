@@ -18,12 +18,15 @@ import { PostgresPrintingsService } from './PostgresPrintingsService';
 const service = new PostgresPrintingsService();
 
 type LegalityFlag = 'cc_legal' | 'blitz_legal' | 'silver_age_legal' | 'commoner_legal' | 'll_legal';
+// Snapshot restores `types` too: the setHeroYoung tests toggle 'young' on a
+// real hero, and without restoring it the last test leaves an ADULT hero typed
+// young in the shared local DB (which then mis-derives Future CC / hero pickers).
 
 describe('PostgresPrintingsService — hero legality admin', () => {
   let heroCardUniqueId: string;
   let nonHeroCardUniqueId: string;
   // Snapshot of the legality booleans we touched so afterEach can restore them.
-  const snapshots = new Map<string, Record<LegalityFlag, boolean>>();
+  const snapshots = new Map<string, Record<LegalityFlag, boolean> & { types: string[] }>();
 
   beforeAll(async () => {
     const heroRow = await db
@@ -53,6 +56,7 @@ describe('PostgresPrintingsService — hero legality admin', () => {
           silverAgeLegal: original.silver_age_legal,
           commonerLegal: original.commoner_legal,
           llLegal: original.ll_legal,
+          types: original.types,
         })
         .where(eq(cards.cardUniqueId, cardUniqueId));
     }
@@ -67,11 +71,13 @@ describe('PostgresPrintingsService — hero legality admin', () => {
         silver: cards.silverAgeLegal,
         commoner: cards.commonerLegal,
         ll: cards.llLegal,
+        types: cards.types,
       })
       .from(cards)
       .where(eq(cards.cardUniqueId, cardUniqueId))
       .limit(1);
     snapshots.set(cardUniqueId, {
+      types: row[0].types,
       cc_legal: row[0].cc,
       blitz_legal: row[0].blitz,
       silver_age_legal: row[0].silver,

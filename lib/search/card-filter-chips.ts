@@ -163,6 +163,7 @@ export const PRICE_PRESETS = [
 // two formats players filter for most.
 export const FORMAT_OPTIONS = [
   { value: 'cc', label: 'Classic Constructed' },
+  { value: 'future_cc', label: 'Future CC' },
   { value: 'silver_age', label: 'Silver Age' },
   { value: 'blitz', label: 'Blitz' },
   { value: 'll', label: 'Living Legend' },

@@ -101,7 +101,7 @@ export const searchCapabilitiesResource = {
         case_handling: 'Class/talent/rarity/foiling/edition/color/type/keyword values are case-insensitive.'
       },
       format_values: {
-        supported: ['blitz', 'cc', 'commoner', 'll', 'silver_age'],
+        supported: ['blitz', 'cc', 'future_cc', 'commoner', 'll', 'silver_age'],
         note: 'silver_age is a valid format — do not omit it'
       },
       hero_filtering: {

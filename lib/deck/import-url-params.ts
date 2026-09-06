@@ -31,7 +31,7 @@ export interface ImportUrlRequest {
 }
 
 const DECK_FORMATS: DeckFormat[] = [
-  'Classic Constructed', 'Silver Age', 'Blitz', 'Commoner',
+  'Classic Constructed', 'Future Classic Constructed', 'Silver Age', 'Blitz', 'Commoner',
   'Living Legend', 'Limited', 'Ultimate Pit Fight', 'Casual',
 ];
 

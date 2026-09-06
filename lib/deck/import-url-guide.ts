@@ -28,10 +28,10 @@ Standard URL-encoding applies (\`%2C\` and literal \`,\` are equivalent; spaces 
 
 ### Formats
 
-Canonical values: \`Classic Constructed\`, \`Silver Age\`, \`Blitz\`, \`Commoner\`,
-\`Living Legend\`, \`Limited\`, \`Ultimate Pit Fight\`, \`Casual\`.
+Canonical values: \`Classic Constructed\`, \`Future Classic Constructed\`, \`Silver Age\`,
+\`Blitz\`, \`Commoner\`, \`Living Legend\`, \`Limited\`, \`Ultimate Pit Fight\`, \`Casual\`.
 
-Accepted aliases: \`cc\` → Classic Constructed, \`sage\` / \`silver_age\` → Silver
+Accepted aliases: \`cc\` → Classic Constructed, \`fcc\` → Future Classic Constructed, \`sage\` / \`silver_age\` → Silver
 Age, \`ll\` → Living Legend, \`upf\` → Ultimate Pit Fight. Anything else renders a
 "missing a valid format" warning and disables the import.
 

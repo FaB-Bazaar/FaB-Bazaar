@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate format
-    const validFormats = ['Blitz', 'Classic Constructed', 'Commoner', 'Draft', 'Sealed', 'Living Legend', 'Limited', 'Ultimate Pit Fight', 'Casual'];
+    const validFormats = ['Blitz', 'Classic Constructed', 'Future Classic Constructed', 'Silver Age', 'Commoner', 'Draft', 'Sealed', 'Living Legend', 'Limited', 'Ultimate Pit Fight', 'Casual'];
     if (!validFormats.includes(format.trim())) {
       return NextResponse.json(
         { success: false, error: `Invalid format. Must be one of: ${validFormats.join(', ')}` },

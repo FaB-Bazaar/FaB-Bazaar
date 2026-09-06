@@ -14,7 +14,10 @@ export function deckFormatToBannedFormat(deckFormat?: string | null): BannedForm
   switch (key) {
     case 'classic constructed':
     case 'cc':
-      return 'classic_constructed'
+    case 'future classic constructed':
+    case 'future cc':
+    case 'fcc':
+      return 'classic_constructed' // Future CC shares the CC banlist
     case 'silver age':
       return 'silver_age'
     case 'living legend':

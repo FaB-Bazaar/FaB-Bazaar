@@ -15,7 +15,7 @@ import { SearchableHeroSelect } from '@/components/deck/SearchableHeroSelect';
 import { getHeroesGroupedByClass, getAllClasses } from '@/lib/fab-constants';
 import QuickAddCardDialog from '@/components/deck/editor/QuickAddCardDialog';
 
-const FORMATS = ['Classic Constructed', 'Silver Age', 'Blitz', 'Limited', 'Commoner', 'Living Legend'];
+const FORMATS = ['Classic Constructed', 'Future Classic Constructed', 'Silver Age', 'Blitz', 'Limited', 'Commoner', 'Living Legend'];
 
 type Scope = 'general' | 'class' | 'hero';
 

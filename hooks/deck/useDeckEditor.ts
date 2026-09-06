@@ -21,6 +21,7 @@ import { resolveHeroFilter } from '@/lib/deck/resolve-hero-filter';
 // Maps deck format strings to search API format codes
 const FORMAT_TO_SEARCH: Record<string, string> = {
   "Classic Constructed": "cc",
+  "Future Classic Constructed": "future_cc",
   "Blitz": "blitz",
   "Commoner": "commoner",
   "Living Legend": "ll",

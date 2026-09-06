@@ -53,3 +53,25 @@ describe('deckLegalityVerdict', () => {
     expect(rows.map(r => r.short)).toEqual(['CC', 'Blitz', 'LL', 'SA', 'Commoner']);
   });
 });
+
+describe('deckLegalityVerdict — Future Classic Constructed', () => {
+  it('reuses the CC verdict for a card that is CC-legal today', () => {
+    const rows = formatLegalityRows({ cc_legal: true, blitz_legal: true });
+    expect(deckLegalityVerdict(rows, 'Future Classic Constructed', { future_release: false }))
+      .toMatchObject({ format: 'Future Classic Constructed', short: 'Future CC', status: 'legal' });
+  });
+
+  it('marks a not-yet-legal card from a future-dated set as legal', () => {
+    const rows = formatLegalityRows({ cc_legal: false, blitz_legal: false, future_release: true });
+    expect(deckLegalityVerdict(rows, 'Future Classic Constructed', { future_release: true })?.status).toBe('legal');
+  });
+
+  it('keeps a CC ban even for a future-set card', () => {
+    const rows = formatLegalityRows({ cc_legal: true, cc_banned: true });
+    expect(deckLegalityVerdict(rows, 'Future Classic Constructed', { future_release: true })?.status).toBe('banned');
+  });
+
+  it('does not add a sixth row to the per-card legality strip', () => {
+    expect(formatLegalityRows({ cc_legal: true, future_release: true })).toHaveLength(5);
+  });
+});

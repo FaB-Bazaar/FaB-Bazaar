@@ -241,7 +241,7 @@ export function CardDetailsLightbox({
   const stats = statEntries(p);
   const price = p.tcg_low ?? p.tcg_market;
   const legality = formatLegalityRows(p);
-  const verdict = deckLegalityVerdict(legality, deckFormat);
+  const verdict = deckLegalityVerdict(legality, deckFormat, p);
   const glossary = keywordGlossary(rulesText, Array.isArray(p.keywords) ? (p.keywords as string[]) : []);
   const artists = artistNames(p);
   const printingRows = siblings ? buildPrintingRows(siblings, p.printing_id) : null;

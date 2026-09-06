@@ -56,6 +56,7 @@ export default function DeckStats({ stats, onViewFormat }: DeckStatsProps) {
   const getFormatColor = (format: string) => {
     const colors = {
       'Classic Constructed': 'bg-blue-500',
+      'Future Classic Constructed': 'bg-sky-500',
       'Silver Age': 'bg-cyan-500',
       'Blitz': 'bg-red-500',
       'Limited': 'bg-green-500',

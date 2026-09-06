@@ -11,6 +11,7 @@ const hero = (over: Partial<HeroLegalityRow>): HeroLegalityRow => ({
   types: ['ninja', 'hero', 'young'],
   klass: 'ninja',
   ccLegal: false,
+  futureCcLegal: false,
   blitzLegal: true,
   silverAgeLegal: true,
   commonerLegal: true,
@@ -93,5 +94,28 @@ describe('formatShortLabel', () => {
   it('passes through other formats unchanged', () => {
     expect(formatShortLabel('Blitz')).toBe('Blitz')
     expect(formatShortLabel('Living Legend')).toBe('Living Legend')
+  })
+})
+
+describe('deriveFormatFromHero — Future Classic Constructed', () => {
+  const noFlags = { ccLegal: false, blitzLegal: false, silverAgeLegal: false, commonerLegal: false, llLegal: false }
+
+  it('derives Future CC for an adult hero whose only legality is a future-dated set', () => {
+    const h = hero({ ...noFlags, types: ['necromancer', 'hero', 'adult'], futureCcLegal: true })
+    expect(deriveFormatFromHero(h)).toBe('Future Classic Constructed')
+  })
+
+  it('still prefers CC when the hero is CC-legal today', () => {
+    const h = hero({ ...noFlags, ccLegal: true, types: ['necromancer', 'hero', 'adult'], futureCcLegal: true })
+    expect(deriveFormatFromHero(h)).toBe('Classic Constructed')
+  })
+
+  it('does not derive Future CC for a young hero (adult-only format)', () => {
+    const h = hero({ ...noFlags, types: ['necromancer', 'hero', 'young'], futureCcLegal: true })
+    expect(deriveFormatFromHero(h)).toBe('Classic Constructed')
+  })
+
+  it('has a short chip label', () => {
+    expect(formatShortLabel('Future Classic Constructed')).toBe('Future CC')
   })
 })

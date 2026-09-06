@@ -66,6 +66,7 @@ export function deckFormatToSnake(format: string | null | undefined): string | u
     case 'Blitz': return 'blitz';
     case 'Commoner': return 'commoner';
     case 'Classic Constructed': return 'cc';
+    case 'Future Classic Constructed': return 'future_cc';
     case 'Living Legend': return 'll';
     default: return undefined;
   }
@@ -79,6 +80,8 @@ export function deckFormatToSnake(format: string | null | undefined): string | u
 type FormatLegalFields = {
   silverAgeLegal?: boolean;
   ccLegal?: boolean;
+  /** Derived: ccLegal OR printed in a not-yet-released set (lib/services/postgres/future-release.ts). */
+  futureCcLegal?: boolean;
   blitzLegal?: boolean;
   commonerLegal?: boolean;
   llLegal?: boolean;
@@ -87,6 +90,7 @@ type FormatLegalFields = {
 const FORMAT_LEGAL_FIELD: Record<string, keyof FormatLegalFields> = {
   'Silver Age': 'silverAgeLegal',
   'Classic Constructed': 'ccLegal',
+  'Future Classic Constructed': 'futureCcLegal',
   'Blitz': 'blitzLegal',
   'Commoner': 'commonerLegal',
   'Living Legend': 'llLegal',
@@ -111,6 +115,7 @@ type FormatSuspendedFields = {
 const FORMAT_SUSPENDED_FIELD: Record<string, keyof FormatSuspendedFields> = {
   'Silver Age': 'silverAgeSuspended',
   'Classic Constructed': 'ccSuspended',
+  'Future Classic Constructed': 'ccSuspended',
   'Blitz': 'blitzSuspended',
   'Commoner': 'commonerSuspended',
 };
@@ -167,9 +172,9 @@ export function validateCopyLimit(
     return { ok: true };
   }
 
-  if (f === 'classic constructed') {
+  if (f === 'classic constructed' || f === 'future classic constructed') {
     if (newTotalCount > 3) {
-      return { ok: false, reason: `Classic Constructed allows max 3 copies (would be ${newTotalCount})` };
+      return { ok: false, reason: `${format} allows max 3 copies (would be ${newTotalCount})` };
     }
     return { ok: true };
   }

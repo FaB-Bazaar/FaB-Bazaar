@@ -221,3 +221,10 @@ describe('computeBuildProgress', () => {
     expect(result.steps.attacks.target).toBe(24);
   });
 });
+
+describe('Future Classic Constructed', () => {
+  test('uses the CC deck-size targets', () => {
+    const result = computeBuildProgress(emptyDeck(), 'Future Classic Constructed');
+    expect(result.totalCards.target).toBe(80);
+  });
+});

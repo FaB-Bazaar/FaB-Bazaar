@@ -19,6 +19,7 @@ import { TALISHAR_HERO_IDS } from "@/lib/fab-constants/heroes";
 
 const FORMATS = [
   'Classic Constructed',
+  'Future Classic Constructed',
   'Silver Age',
   'Blitz',
   'Limited',

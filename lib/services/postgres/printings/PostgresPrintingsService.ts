@@ -8,6 +8,7 @@
 import { eq, and, or, sql, inArray, notInArray, isNull, desc, asc, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/postgres/db';
 import { printings, cards, bannedCards, cardTranslations, cardFacetTags, cardFacetTagVotes, facetTagDefinitions, sets, tcgGroups } from '@/lib/postgres/schema';
+import { isFutureReleaseCard } from '../future-release';
 import type {
   IPrintingsService,
   PrintingDTO,
@@ -1274,6 +1275,10 @@ export class PostgresPrintingsService implements IPrintingsService {
       commonerSuspended: cards.commonerSuspended,
       llRestricted: cards.llRestricted,
       silverAgeSuspended: cards.silverAgeSuspended,
+      // Future Classic Constructed input: printed in a set that hasn't released yet.
+      // .as() — the groupByCard path re-selects this from a subquery, and drizzle
+      // needs an alias to reference a raw SQL field there.
+      futureRelease: isFutureReleaseCard(cards.cardUniqueId).as('future_release'),
       cardCreatedAt: cards.createdAt,
     };
   }
@@ -1812,12 +1817,18 @@ export class PostgresPrintingsService implements IPrintingsService {
       const legalField = {
         blitz: cards.blitzLegal,
         cc: cards.ccLegal,
+        future_cc: cards.ccLegal,
         commoner: cards.commonerLegal,
         ll: cards.llLegal,
         silver_age: cards.silverAgeLegal,
       }[filters.format];
 
-      if (legalField) {
+      if (filters.format === 'future_cc') {
+        // Future CC: today's CC pool plus every card from a not-yet-released
+        // set (the feed only flips cc_legal on release). Bans/suspensions
+        // below are CC's.
+        conditions.push(or(eq(cards.ccLegal, true), isFutureReleaseCard(cards.cardUniqueId))!);
+      } else if (legalField) {
         conditions.push(eq(legalField, true));
       }
 
@@ -1830,6 +1841,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         const registryFormat = {
           blitz: 'blitz',
           cc: 'classic_constructed',
+          future_cc: 'classic_constructed',
           commoner: 'commoner',
           ll: 'living_legend',
           silver_age: 'silver_age',
@@ -1850,6 +1862,7 @@ export class PostgresPrintingsService implements IPrintingsService {
         const suspendedField = {
           blitz: cards.blitzSuspended,
           cc: cards.ccSuspended,
+          future_cc: cards.ccSuspended,
           commoner: cards.commonerSuspended,
           ll: sql`false`, // LL doesn't have suspended
           silver_age: cards.silverAgeSuspended,
@@ -2249,6 +2262,7 @@ export class PostgresPrintingsService implements IPrintingsService {
       is_premium: row.isPremium || false,
       blitz_legal: row.blitzLegal || false,
       cc_legal: row.ccLegal || false,
+      future_release: row.futureRelease === true,
       commoner_legal: row.commonerLegal || false,
       ll_legal: row.llLegal || false,
       silver_age_legal: row.silverAgeLegal || false,
@@ -2290,6 +2304,7 @@ export class PostgresPrintingsService implements IPrintingsService {
 
       const FORMAT_TO_COLUMN: Record<HeroFormat, any> = {
         cc: cards.ccLegal,
+        future_cc: cards.ccLegal, // widened below with the future-release predicate
         blitz: cards.blitzLegal,
         silver_age: cards.silverAgeLegal,
         commoner: cards.commonerLegal,
@@ -2307,7 +2322,17 @@ export class PostgresPrintingsService implements IPrintingsService {
         SELECT 1 FROM ${printings} p
          WHERE p.card_unique_id = ${cards.cardUniqueId} AND p.is_front_face = true
       ))`);
-      if (opts?.legalIn) {
+      if (opts?.legalIn === 'future_cc') {
+        // Superset of CC (whatever the feed flags cc_legal stays), plus ADULT
+        // heroes from unreleased sets — a young hero from a future set belongs
+        // to a (future) Silver Age, not here.
+        whereConditions.push(
+          or(
+            eq(cards.ccLegal, true),
+            and(isFutureReleaseCard(cards.cardUniqueId), sql`NOT ('young' = ANY(${cards.types}))`),
+          )!,
+        );
+      } else if (opts?.legalIn) {
         whereConditions.push(eq(FORMAT_TO_COLUMN[opts.legalIn], true));
       }
 
@@ -2319,6 +2344,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           types: cards.types,
           classes: cards.classes,
           ccLegal: cards.ccLegal,
+          futureRelease: isFutureReleaseCard(cards.cardUniqueId),
           blitzLegal: cards.blitzLegal,
           silverAgeLegal: cards.silverAgeLegal,
           commonerLegal: cards.commonerLegal,
@@ -2363,6 +2389,7 @@ export class PostgresPrintingsService implements IPrintingsService {
           types: r.types ?? [],
           klass: (r.classes && r.classes[0]) || null,
           ccLegal: r.ccLegal,
+          futureCcLegal: r.ccLegal || r.futureRelease === true,
           blitzLegal: r.blitzLegal,
           silverAgeLegal: r.silverAgeLegal,
           commonerLegal: r.commonerLegal,

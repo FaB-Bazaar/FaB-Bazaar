@@ -11,6 +11,8 @@ function toRegistryFormat(displayFormat: string): string | null {
   switch (displayFormat) {
     case 'Classic Constructed':
     case 'cc':
+    case 'Future Classic Constructed':
+    case 'future_cc':
       return 'classic_constructed'
     case 'Blitz':
     case 'blitz':

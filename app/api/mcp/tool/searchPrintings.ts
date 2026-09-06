@@ -504,7 +504,7 @@ search_printings({ cards: [{ query: "rf cnc" }, { query: "cf cheeto" }, { query:
                 rarities:         { type: 'array', items: { type: 'string', enum: ['c','r','s','m','l','f','t','p','v'] }, description: 'c=Common r=Rare s=SuperRare m=Majestic l=Legendary f=Fabled t=Token p=Promo v=Marvel' },
                 foilings:         { type: 'array', items: { type: 'string', enum: ['s','r','c','g'] }, description: 's=NonFoil r=RainbowFoil c=ColdFoil g=GoldFoil' },
                 editions:         { type: 'array', items: { type: 'string', enum: ['a','f','u','n'] }, description: 'a=Alpha f=FirstEdition u=Unlimited n=Normal' },
-                format:           { type: 'string', enum: ['blitz', 'cc', 'commoner', 'll', 'silver_age'] },
+                format:           { type: 'string', enum: ['blitz', 'cc', 'future_cc', 'commoner', 'll', 'silver_age'] },
                 heroLegal:        { type: 'string', description: 'Hero name — returns cards legal for that hero' },
                 facetTags:        { type: 'array', items: { type: 'string' }, description: 'Curated function tags — what a card DOES/enables (e.g. "beats-fatigue", "combo-enabler", "disruption", "pitch-stack"). Matches cards tagged with ANY listed tag. Read fab://facet-tags first for the tag vocabulary with definitions. Coverage is curated and growing — an empty result means "no tagged cards match", not "no cards do this".' },
                 priceMin:         { type: 'number' },

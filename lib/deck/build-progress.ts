@@ -30,6 +30,13 @@ const FORMAT_TARGETS: Record<string, FormatTargets> = {
     utility: 12,
     totalMaindeck: 80,
   },
+  'future classic constructed': {
+    gear: 4,
+    attacks: 24,
+    defense: 15,
+    utility: 12,
+    totalMaindeck: 80,
+  },
   'silver age': {
     gear: 4,
     attacks: 16,

@@ -6,6 +6,7 @@ export const FORMATS = [
   'clash',
   'classic constructed',
   'draft',
+  'future classic constructed',
   'living legend',
   'open',
   'sealed',
@@ -20,6 +21,10 @@ export const FORMAT_CODES = {
   'cc': 'Classic Constructed',
   'classic constructed': 'Classic Constructed',
   'draft': 'Draft',
+  'fcc': 'Future Classic Constructed',
+  'future cc': 'Future Classic Constructed',
+  'future_cc': 'Future Classic Constructed',
+  'future classic constructed': 'Future Classic Constructed', // CC pool + every card from a set whose release date is still ahead
   'll': 'Living Legend',
   'living legend': 'Living Legend',
   'open': 'Open',

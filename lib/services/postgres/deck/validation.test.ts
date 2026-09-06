@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateCardForHero, validateCopyLimit, validateFormatLegal, validateNotSuspended, validateNotBanned } from './validation';
+import { validateCardForHero, validateCopyLimit, validateFormatLegal, validateNotSuspended, validateNotBanned, deckFormatToSnake } from './validation';
 
 const kanoYoung = { classes: ['wizard'], talents: [], essences: [] };
 const briarYoung = { classes: ['runeblade'], talents: ['elemental'], essences: ['earth', 'lightning'] };
@@ -216,5 +216,35 @@ describe('validateNotBanned', () => {
   it('accepts when cardUniqueId is null/undefined', () => {
     expect(validateNotBanned(null, new Set<string>(['x']))).toEqual({ ok: true });
     expect(validateNotBanned(undefined, new Set<string>(['x']))).toEqual({ ok: true });
+  });
+});
+
+describe('Future Classic Constructed', () => {
+  it('maps to the future_cc snake code', () => {
+    expect(deckFormatToSnake('Future Classic Constructed')).toBe('future_cc');
+  });
+
+  it('accepts a card that is not CC-legal yet but comes from a future-dated set', () => {
+    expect(validateFormatLegal({ ccLegal: false, futureCcLegal: true }, 'Future Classic Constructed')).toEqual({ ok: true });
+  });
+
+  it('accepts a card that is CC-legal today', () => {
+    expect(validateFormatLegal({ ccLegal: true, futureCcLegal: true }, 'Future Classic Constructed')).toEqual({ ok: true });
+  });
+
+  it('rejects a card that is neither CC-legal nor from a future set', () => {
+    const result = validateFormatLegal({ ccLegal: false, futureCcLegal: false }, 'Future Classic Constructed');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('not legal in Future Classic Constructed');
+  });
+
+  it('inherits the CC suspended flag', () => {
+    expect(validateNotSuspended({ ccSuspended: true }, 'Future Classic Constructed').ok).toBe(false);
+    expect(validateNotSuspended({ ccSuspended: false }, 'Future Classic Constructed').ok).toBe(true);
+  });
+
+  it('is a 3-of format like CC', () => {
+    expect(validateCopyLimit(3, 'Future Classic Constructed', {})).toEqual({ ok: true });
+    expect(validateCopyLimit(4, 'Future Classic Constructed', {}).ok).toBe(false);
   });
 });

@@ -188,6 +188,7 @@ const FORMAT_HERO_REQUIREMENT: Record<string, HeroAge> = {
   blitz: 'young',
   commoner: 'young',
   cc: 'adult',
+  future_cc: 'adult',
   ll: 'adult',
 };
 
@@ -196,6 +197,7 @@ const FORMAT_LABELS: Record<string, string> = {
   blitz: 'Blitz',
   commoner: 'Commoner',
   cc: 'Classic Constructed',
+  future_cc: 'Future Classic Constructed',
   ll: 'Living Legend',
 };
 

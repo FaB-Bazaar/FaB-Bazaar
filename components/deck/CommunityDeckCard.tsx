@@ -42,6 +42,7 @@ const formatColors: Record<string, string> = {
   'Commoner': 'bg-yellow-500',
   'Living Legend': 'bg-purple-500',
   'Silver Age': 'bg-indigo-500',
+  'Future Classic Constructed': 'bg-sky-500',
 };
 
 function ordinal(n: number): string {

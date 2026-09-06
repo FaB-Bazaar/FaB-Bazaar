@@ -49,6 +49,7 @@ import type { AsyncResult, PaginationOptions } from '../../contracts/common';
 import { pickLanguageVariant } from '@/lib/deck/language-variant';
 import { computeArchetypeConsensus, type ConsensusDeck } from '@/lib/deck/analytics';
 import { getHeroInfo, validateHeroFormatLegality } from '@/lib/fab-constants/heroes';
+import { isFutureReleaseCard } from '../future-release';
 import {
   validateCardForHero,
   validateCopyLimit,
@@ -1656,6 +1657,7 @@ export class PostgresDeckService implements IDeckService {
           llRestricted: cards.llRestricted,
           silverAgeLegal: cards.silverAgeLegal,
           ccLegal: cards.ccLegal,
+          futureCcLegal: sql<boolean>`(${cards.ccLegal} OR ${isFutureReleaseCard(cards.cardUniqueId)})`,
           blitzLegal: cards.blitzLegal,
           commonerLegal: cards.commonerLegal,
           llLegal: cards.llLegal,
@@ -1713,6 +1715,7 @@ export class PostgresDeckService implements IDeckService {
       const banlistRegistryFormat = ({
         silver_age: 'silver_age',
         cc: 'classic_constructed',
+        future_cc: 'classic_constructed',
         blitz: 'blitz',
         commoner: 'commoner',
         ll: 'living_legend',

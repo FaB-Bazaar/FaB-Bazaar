@@ -99,3 +99,10 @@ describe('buildDeckAddFilters — query + facet pass-through', () => {
     expect(f).not.toHaveProperty('format');
   });
 });
+
+describe('Future Classic Constructed deck', () => {
+  it('sends the future_cc format code', () => {
+    const f = buildDeckAddFilters(state(), '', ctx({ deckFormat: 'Future Classic Constructed' }));
+    expect(f.format).toBe('future_cc');
+  });
+});

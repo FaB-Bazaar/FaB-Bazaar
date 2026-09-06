@@ -23,6 +23,7 @@ function row(partial: Partial<HeroLegalityRow>): HeroLegalityRow {
     types: ['hero'],
     klass: null,
     ccLegal: false,
+    futureCcLegal: false,
     blitzLegal: false,
     silverAgeLegal: false,
     commonerLegal: false,
@@ -50,9 +51,9 @@ const ROWS: HeroLegalityRow[] = [
 ];
 
 describe('groupHeroesByFormat', () => {
-  it('exposes all five formats, each split into adult and young arrays', () => {
+  it('exposes all six formats, each split into adult and young arrays', () => {
     const grouped = groupHeroesByFormat(ROWS);
-    for (const fmt of ['cc', 'blitz', 'silver_age', 'commoner', 'll'] as const) {
+    for (const fmt of ['cc', 'future_cc', 'blitz', 'silver_age', 'commoner', 'll'] as const) {
       expect(grouped[fmt]).toBeDefined();
       expect(Array.isArray(grouped[fmt].adult)).toBe(true);
       expect(Array.isArray(grouped[fmt].young)).toBe(true);
