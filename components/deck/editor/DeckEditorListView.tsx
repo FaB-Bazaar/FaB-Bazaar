@@ -1623,6 +1623,9 @@ interface DeckEditorListViewProps {
   onRemoveTile?: (printingId: string, category: DeckCategory, currentQty: number) => Promise<void>;
   /** Add 1 copy of a tile printing (+1 button on hover) */
   onAddOneTile?: (printingId: string, category: DeckCategory, currentQty: number) => Promise<void>;
+  /** Move `copies` copies of a deck printing to another printing (card lightbox
+   *  "Use this printing"). Resolves true on success, after the deck refreshed. */
+  onSwapCopies?: (oldPrintingId: string, newPrintingId: string, category: DeckCategory, copies: number) => Promise<boolean>;
   /** Called when the user clicks "+ Add" on a tile zone — receives the target category and optional pitch filter */
   onAddCard?: (category: DeckCategory, pitch?: 1 | 2 | 3) => void;
   canEdit?: boolean;
@@ -1646,7 +1649,7 @@ interface DeckEditorListViewProps {
   onCardHover?: (preview: ({ url: string; name: string } & Partial<HoverExtras>) | null) => void;
 }
 
-export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
+export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMap, onSwap, onRemove, onMove, onMoveSingle, onRemoveTile, onAddOneTile, onSwapCopies, onAddCard, canEdit, defaultViewMode, binders, selectedBinderId, onBinderChange, onAddToBinder, onAddToWants, wantsMap, onUpgradePrintings, onCardHover }: DeckEditorListViewProps) {
   // Gates the Pimp My Deck toolbar button (viewer-collection-scoped page).
   const { user } = useAuth();
   // Collection summary across all deck cards (excluding hero, which is purely cosmetic for this purpose).
@@ -1677,6 +1680,11 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   // when the enlarged card resolves to a deck printing; enlargedImage stays the
   // bare-image fallback for anything without one.
   const [enlargedCard, setEnlargedCard] = useState<LightboxCard | null>(null);
+  // The deck printing the lightbox opened from — what "Use this printing" moves copies away from.
+  const [enlargedSource, setEnlargedSource] = useState<{ printingId: string; category: DeckCategory; copies: number } | null>(null);
+  // After a swap the deck prop refreshes asynchronously; retarget the lightbox
+  // onto the new printing once it shows up in the deck.
+  const [pendingRetarget, setPendingRetarget] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>(defaultViewMode ?? 'tile');
   // defaultViewMode depends on canEdit, which can resolve after mount (auth
   // often loads slower than the deck). Apply it exactly once when it arrives;
@@ -1772,10 +1780,13 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
 
   const displayDeck = optimisticDeck ?? deck;
 
-  const allDeckPrintings = useMemo(() => [
-    ...displayDeck.hero, ...displayDeck.equipment, ...displayDeck.maindeck,
-    ...displayDeck.inventory, ...(displayDeck.benched ?? []), ...(displayDeck.tokens ?? []),
-  ], [displayDeck]);
+  const allDeckPrintings = useMemo(() => {
+    const zones: Array<[DeckCategory, DeckPrintingDTO[] | undefined]> = [
+      ['hero', displayDeck.hero], ['equipment', displayDeck.equipment], ['maindeck', displayDeck.maindeck],
+      ['inventory', displayDeck.inventory], ['benched', displayDeck.benched], ['tokens', displayDeck.tokens],
+    ];
+    return zones.flatMap(([category, list]) => (list ?? []).map(dp => ({ ...dp, category })));
+  }, [displayDeck]);
 
   /** Copies of a card across every zone — the lightbox's "In this deck" readout. */
   const inDeckCountFor = useCallback((cardUniqueId: string | undefined) => {
@@ -1798,6 +1809,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     const name = (pd.display_name || pd.name || fallback.name) as string;
     setEnlargedImage(null);
     setEnlargedCard({ printing, name });
+    setEnlargedSource({ printingId: dp.printingId, category: dp.category, copies: dp.quantity ?? 1 });
     const uid = pd.card_unique_id as string | undefined;
     if (!uid) return;
     fetchPrintingsForCard(uid).then(rows => {
@@ -1808,6 +1820,15 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
         : prev);
     }).catch(() => { /* deck row already rendered; legality strip just stays hidden */ });
   }, [allDeckPrintings]);
+
+  useEffect(() => {
+    if (!pendingRetarget) return;
+    const dp = allDeckPrintings.find(x => x.printingId === pendingRetarget);
+    if (!dp?.printingDetails) return;
+    const pd = dp.printingDetails;
+    openCardLightbox(dp.printingId, { url: (pd.image_url as string) || '', name: (pd.display_name || pd.name || '') as string });
+    setPendingRetarget(null);
+  }, [pendingRetarget, allDeckPrintings, openCardLightbox]);
 
   const handleRemove = async (printingId: string, category: DeckCategory) => {
     setRemovingId(printingId);
@@ -2090,6 +2111,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
         setHighlightFilters([]);
         setEnlargedImage(null);
         setEnlargedCard(null);
+        setEnlargedSource(null);
       }
       if (e.key === 'h' || e.key === 'H') {
         if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
@@ -3017,12 +3039,21 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
         return (
           <CardDetailsLightbox
             card={enlargedCard}
-            onClose={() => setEnlargedCard(null)}
+            onClose={() => { setEnlargedCard(null); setEnlargedSource(null); }}
             onPrev={idx > 0 ? () => go(idx - 1) : undefined}
             onNext={idx >= 0 && idx < order.length - 1 ? () => go(idx + 1) : undefined}
             onSelectPrinting={printing => setEnlargedCard(prev => (prev ? { ...prev, printing } : prev))}
             deckFormat={displayDeck.format}
             inDeckCount={inDeckCountFor(enlargedCard.printing.card_unique_id)}
+            deckSwap={canEdit && onSwapCopies && enlargedSource ? {
+              currentPrintingId: enlargedSource.printingId,
+              copies: enlargedSource.copies,
+              onSwap: async (newPrintingId, copies) => {
+                const ok = await onSwapCopies(enlargedSource.printingId, newPrintingId, enlargedSource.category, copies);
+                if (ok) setPendingRetarget(newPrintingId);
+                return ok;
+              },
+            } : undefined}
           />
         );
       })()}

@@ -2344,6 +2344,17 @@ export default function DeckEditorPage() {
                     onAddOneTile={(printingId, category, currentQty) =>
                       handleUpdateDeckCardQty(printingId, currentQty + 1, category)
                     }
+                    onSwapCopies={async (oldPrintingId, newPrintingId, category, copies) => {
+                      const result = await decksClient.swapPrinting(deckId, oldPrintingId, newPrintingId, category, copies);
+                      if (!result.success) {
+                        toast({ title: "Could not change printing", description: result.error, variant: "destructive" });
+                        await handlers.refreshDeck();
+                        return false;
+                      }
+                      await handlers.refreshDeck();
+                      toast({ title: "Printing updated", description: `${copies} ${copies === 1 ? 'copy' : 'copies'} moved to the selected printing.` });
+                      return true;
+                    }}
                     onAddCard={(category, pitch) => openQuickAdd({ category, pitch })}
                     canEdit={canEdit}
                     defaultViewMode={authLoading || !viewportResolved ? undefined : resolveDefaultDeckViewMode(canEdit, isMobile)}

@@ -333,24 +333,26 @@ export async function removePrinting(
  * @param oldPrintingId - The printing to replace
  * @param newPrintingId - The new printing
  * @param category - The category containing the printing
+ * @param quantity - Copies to move (default 1 — server-side default; pass N to move several)
  * @returns Updated deck
  *
  * @example
  * ```typescript
- * const result = await swapPrinting('abc123...', 'old123', 'new456', 'maindeck');
+ * const result = await swapPrinting('abc123...', 'old123', 'new456', 'maindeck', 2);
  * ```
  */
 export async function swapPrinting(
   publicId: string,
   oldPrintingId: string,
   newPrintingId: string,
-  category: DeckCategory
+  category: DeckCategory,
+  quantity?: number
 ): Promise<ApiResponse<DeckDTO>> {
   try {
     const response = await fetch(`/api/decks/${publicId}/printings/swap`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oldPrintingId, newPrintingId, category }),
+      body: JSON.stringify({ oldPrintingId, newPrintingId, category, ...(quantity !== undefined ? { quantity } : {}) }),
     });
     return await handleResponse<DeckDTO>(response);
   } catch (error) {

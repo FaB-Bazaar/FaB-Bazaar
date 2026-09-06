@@ -160,3 +160,42 @@ test('clicking a tile opens the details lightbox and → steps to the next tile'
   await expect(details).not.toContainText(new RegExp(`^${firstName}`))
   await expect(page.getByTestId('card-lightbox')).toBeVisible()
 })
+
+test('the lightbox can move 1, 2 or all copies of a card to another printing', async ({ page }) => {
+  await openTiles(page)
+  // Every seeded card has 3 copies; Sink Below (red) has several printings.
+  const tile = page.locator('[data-focus-id] [title^="Sink Below"][title*="click to enlarge"]').first()
+  await tile.click()
+  const details = page.getByTestId('card-lightbox-details')
+  await expect(details).toContainText(/In this deck:\s*3/)
+  await expect(page.getByLabel('Loading printings')).toHaveCount(0, { timeout: 30_000 })
+
+  // No swap control while the shown printing is the one already in the deck.
+  await expect(page.getByTestId('lightbox-use-printing')).toHaveCount(0)
+
+  // Pick a printing chip that is NOT the deck's current one.
+  const otherChip = details.locator('[aria-label="Printings"] button[aria-pressed="false"]').first()
+  const otherLabel = (await otherChip.getAttribute('aria-label'))!
+  await otherChip.click()
+  const control = page.getByTestId('lightbox-use-printing')
+  await expect(control).toBeVisible()
+  await expect(control).toContainText('Use this printing')
+  await expect(control.getByRole('button', { name: /1 copy/ })).toBeVisible()
+  await expect(control.getByRole('button', { name: /2 copies/ })).toBeVisible()
+  await expect(control.getByRole('button', { name: /All 3/ })).toBeVisible()
+
+  await control.getByRole('button', { name: /2 copies/ }).click()
+  // Control retargets to the new printing (now in the deck) — the block goes away
+  // and the deck itself reflects 2 + 1 across the two printings.
+  await expect(page.getByTestId('lightbox-use-printing')).toHaveCount(0, { timeout: 15_000 })
+  await expect(page.getByText('Printing updated').first()).toBeVisible()
+  const res = await page.request.get(`/api/decks/${deckId}`)
+  const body = await res.json()
+  const deck = body.data ?? body.deck ?? body
+  const sinkBelowRed = (deck.maindeck as Array<{ printingId: string; quantity?: number; printingDetails?: { name?: string; pitch?: number; collector_number?: string } }>)
+    .filter((c) => (c.printingDetails?.name ?? '').toLowerCase() === 'sink below' && c.printingDetails?.pitch === 1)
+  const qtys = sinkBelowRed.map((c) => c.quantity ?? 1).sort()
+  expect(qtys).toEqual([1, 2])
+  expect(sinkBelowRed.map((c) => c.printingDetails?.collector_number)).toContain(otherLabel.split(' ')[0])
+})
+

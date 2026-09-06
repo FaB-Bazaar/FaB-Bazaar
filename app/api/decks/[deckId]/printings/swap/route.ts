@@ -40,13 +40,24 @@ export async function POST(
       }, { status: 400 });
     }
 
+    // Copies to move (deck lightbox: 1, 2 or all N). Omitted = 1, the
+    // historical behaviour; anything else must be a positive integer.
+    const quantity = body.quantity === undefined ? 1 : body.quantity;
+    if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1) {
+      return NextResponse.json({
+        success: false,
+        error: 'quantity must be a positive integer',
+      }, { status: 400 });
+    }
+
     // Use service layer to swap printing
     const result = await deckService.swapPrinting(
       resolvedParams.deckId,
       authResult.userId!,
       oldPrintingId,
       newPrintingId,
-      category as DeckCategory
+      category as DeckCategory,
+      quantity
     );
 
     if (!result.success) {

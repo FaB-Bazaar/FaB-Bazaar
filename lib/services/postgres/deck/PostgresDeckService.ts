@@ -2001,11 +2001,38 @@ export class PostgresDeckService implements IDeckService {
     userId: string,
     oldPrintingId: string,
     newPrintingId: string,
-    category: DeckCategory
+    category: DeckCategory,
+    quantity: number = 1
   ): AsyncResult<DeckDTO> {
     try {
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        return { success: false, error: 'quantity must be a positive integer' };
+      }
+      // Never move more copies than are there: removePrinting would silently
+      // delete the row and addPrinting would still add the full count.
+      const deck = await db
+        .select({ id: decks.id })
+        .from(decks)
+        .where(and(eq(decks.publicId, publicId), or(eq(decks.userId, userId), sql`${userId} = ANY(${decks.coOwners})`)))
+        .limit(1);
+      if (deck.length === 0) {
+        return { success: false, error: 'Deck not found or access denied' };
+      }
+      const row = await db
+        .select({ quantity: deckCards.quantity })
+        .from(deckCards)
+        .where(and(eq(deckCards.deckId, deck[0].id), eq(deckCards.printingId, oldPrintingId), eq(deckCards.category, category)))
+        .limit(1);
+      if (row.length === 0) {
+        return { success: false, error: 'Printing not found in deck' };
+      }
+      const present = row[0].quantity || 1;
+      if (quantity > present) {
+        return { success: false, error: `Only ${present} cop${present === 1 ? 'y' : 'ies'} of that printing in the deck` };
+      }
+
       // Remove old, add new
-      const removeResult = await this.removePrinting(publicId, userId, oldPrintingId, category);
+      const removeResult = await this.removePrinting(publicId, userId, oldPrintingId, category, quantity);
       if (!removeResult.success) {
         return { success: false, error: removeResult.error };
       }
@@ -2013,6 +2040,7 @@ export class PostgresDeckService implements IDeckService {
       const addResult = await this.addPrinting(publicId, userId, {
         printingId: newPrintingId,
         category,
+        quantity,
       });
       if (!addResult.success) {
         return { success: false, error: addResult.error };

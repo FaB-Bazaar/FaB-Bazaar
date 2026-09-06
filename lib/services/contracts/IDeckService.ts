@@ -947,6 +947,9 @@ export interface IDeckService {
    * @param oldPrintingId - The printing to replace
    * @param newPrintingId - The new printing
    * @param category - The category containing the printing
+   * @param quantity - Copies to move (default 1). Must not exceed the copies
+   *                   of oldPrintingId present in that category — the deck
+   *                   lightbox offers "1 / 2 / all N copies".
    * @returns The updated deck
    */
   swapPrinting(
@@ -954,7 +957,8 @@ export interface IDeckService {
     userId: string,
     oldPrintingId: string,
     newPrintingId: string,
-    category: DeckCategory
+    category: DeckCategory,
+    quantity?: number
   ): AsyncResult<DeckDTO>;
 
   /**

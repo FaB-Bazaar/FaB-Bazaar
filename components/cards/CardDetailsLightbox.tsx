@@ -159,6 +159,7 @@ export function CardDetailsLightbox({
   onSelectPrinting,
   deckFormat,
   inDeckCount,
+  deckSwap,
 }: {
   card: LightboxCard;
   onClose: () => void;
@@ -172,7 +173,22 @@ export function CardDetailsLightbox({
   /** Copies of this card already in the deck (all zones). Omit when there is
    *  no deck context (e.g. /opt) — the "In this deck" readout is then hidden. */
   inDeckCount?: number;
+  /** Deck context that can CHANGE the deck: which printing the deck holds
+   *  (the one the lightbox opened from) and how many copies. When the user
+   *  is viewing a different printing, a "Use this printing" control offers
+   *  to move 1 … all copies over. Omit on read-only surfaces. */
+  deckSwap?: {
+    currentPrintingId: string;
+    copies: number;
+    onSwap: (newPrintingId: string, copies: number) => Promise<boolean>;
+  };
 }) {
+  // "Use this printing" control state — busy while the swap request runs,
+  // error text if it fails (the parent retargets the lightbox on success).
+  const [swapBusy, setSwapBusy] = useState<number | null>(null);
+  const [swapError, setSwapError] = useState<string | null>(null);
+  useEffect(() => { setSwapBusy(null); setSwapError(null); }, [card.printing.printing_id]);
+
   // Arrow-key navigation through the results while the lightbox is up.
   // Capture phase so nothing underneath (dialog, grid) reacts to the keys.
   useEffect(() => {
@@ -428,8 +444,8 @@ export function CardDetailsLightbox({
                               key={v.printing_id}
                               type="button"
                               aria-pressed={v.isCurrent}
-                              aria-label={`${g.collector} ${v.foiling}${v.price != null ? ` $${v.price.toFixed(2)}` : ''}`}
-                              title={v.isCurrent ? 'Showing this printing' : `Show ${v.foiling} printing`}
+                              aria-label={`${g.collector} ${v.foiling}${v.price != null ? ` $${v.price.toFixed(2)}` : ''}${deckSwap?.currentPrintingId === v.printing_id ? ' (in your deck)' : ''}`}
+                              title={[v.isCurrent ? 'Showing this printing' : `Show ${v.foiling} printing`, deckSwap?.currentPrintingId === v.printing_id ? 'In your deck' : null].filter(Boolean).join(' · ')}
                               onClick={() => {
                                 const target = siblings?.find(sb => sb.printing_id === v.printing_id);
                                 if (target && onSelectPrinting) onSelectPrinting(target);
@@ -445,6 +461,9 @@ export function CardDetailsLightbox({
                               <span className={v.isCheapest ? 'font-semibold text-green-400' : 'text-gray-200'}>
                                 {v.price != null ? `$${v.price.toFixed(2)}` : '—'}
                               </span>
+                              {deckSwap?.currentPrintingId === v.printing_id && (
+                                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                              )}
                             </button>
                           ))}
                         </span>
@@ -456,6 +475,54 @@ export function CardDetailsLightbox({
                   <p className="mt-1.5 text-[11px] text-gray-400">
                     +{printingRows.otherLanguages} other-language printing{printingRows.otherLanguages === 1 ? '' : 's'} not shown
                   </p>
+                )}
+                {deckSwap && p.printing_id !== deckSwap.currentPrintingId && (
+                  <div data-testid="lightbox-use-printing" className="mt-2 rounded-md border border-blue-500/40 bg-blue-500/10 p-2">
+                    <p className="text-xs text-gray-200">
+                      Use this printing in your deck
+                      <span className="ml-1.5 font-mono text-gray-400">{collectorLabel(p)}</span>
+                      {typeof p.foiling === 'string' && <FoilBadge code={p.foiling.toLowerCase()} className="ml-1.5" />}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {(deckSwap.copies <= 1
+                        ? [{ n: 1, label: 'Switch 1 copy' }]
+                        : [
+                            ...Array.from({ length: deckSwap.copies - 1 }, (_, i) => ({ n: i + 1, label: `${i + 1} ${i === 0 ? 'copy' : 'copies'}` })),
+                            { n: deckSwap.copies, label: `All ${deckSwap.copies} copies` },
+                          ]
+                      ).map(({ n, label }) => (
+                        <button
+                          key={n}
+                          type="button"
+                          disabled={swapBusy !== null}
+                          aria-label={`${label} → ${collectorLabel(p)}`}
+                          onClick={async e => {
+                            e.stopPropagation();
+                            setSwapBusy(n); setSwapError(null);
+                            const ok = await deckSwap.onSwap(p.printing_id, n);
+                            setSwapBusy(null);
+                            if (!ok) setSwapError('Could not change the printing — try again.');
+                          }}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                            n === deckSwap.copies && deckSwap.copies > 1
+                              ? 'border-blue-400 bg-blue-500/30 text-white hover:bg-blue-500/40'
+                              : 'border-gray-600 bg-gray-800/70 text-gray-100 hover:bg-gray-700',
+                            swapBusy !== null && 'opacity-60 cursor-wait',
+                          )}
+                        >
+                          {swapBusy === n && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      {deckSwap.copies === 1 ? 'Your 1 copy' : `Your ${deckSwap.copies} copies`} currently use the printing marked
+                      <span aria-hidden="true" className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-400 align-middle" />
+                      above.
+                    </p>
+                    {swapError && <p role="alert" className="mt-1 text-[11px] text-red-300">{swapError}</p>}
+                  </div>
                 )}
               </>
             )}
