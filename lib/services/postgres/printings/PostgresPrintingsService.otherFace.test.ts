@@ -123,6 +123,64 @@ describe('searchPrintings — DFC face fields', () => {
     });
   });
 
+  describe('self-linked back face whose front points at it (the fab-cube back-row shape)', () => {
+    // Every fab-cube back face ships other_face_unique_id = ITSELF (107/107 in
+    // the feed), while the front links correctly to the back. The partner
+    // lookup fetches the back row for the front's sake, so the back used to
+    // find its own id in that map and render itself as its flip target
+    // (Nitro Mechanoid → "Flip to Nitro Mechanoid"). The back must resolve
+    // to the front by the REVERSE link instead.
+    const uid = randomUUID().slice(0, 8);
+    const frontCard = `zzt-nm-front-${uid}`;
+    const backCard = `zzt-nm-back-${uid}`;
+    const frontName = `Zzt Construct Mechanoid ${uid}`;
+    const backName = `Zzt Mechanoid ${uid}`;
+    const frontId = `zzt-p-nmf-${uid}`;
+    const backId = `zzt-p-nmb-${uid}`;
+    let pool: Pool;
+
+    beforeAll(async () => {
+      pool = new Pool({ connectionString: process.env.POSTGRES_URL });
+      await pool.query(
+        `INSERT INTO cards (card_unique_id, name, display_name, talishar_card_id)
+         VALUES ($1, $2, $3, $4), ($5, $6, $7, $8)`,
+        [frontCard, frontName.toLowerCase(), frontName, `zzt_nm_f_${uid}`,
+         backCard, backName.toLowerCase(), backName, `zzt_nm_b_${uid}`]);
+      await pool.query(
+        `INSERT INTO printings (printing_id, card_unique_id, set, collector_number, edition, foiling, rarity, language,
+                                is_front_face, other_face_printing_id, image_url)
+         VALUES ($1, $3, 'zzt', 'ZZT700', 'n', 's', 'm', 'en', true, $2, 'https://x/nm-front.webp'),
+                ($2, $4, 'zzt', 'ZZT700', 'n', 's', 'm', 'en', false, $2, 'https://x/nm-back.webp')`,
+        [frontId, backId, frontCard, backCard]);
+    });
+
+    afterAll(async () => {
+      await pool.query(`DELETE FROM printings WHERE card_unique_id IN ($1, $2)`, [frontCard, backCard]);
+      await pool.query(`DELETE FROM cards WHERE card_unique_id IN ($1, $2)`, [frontCard, backCard]);
+      await pool.end();
+    });
+
+    it('the front still flips to the back', async () => {
+      const res = await service.searchPrintings({ name: frontName, exact: true }, { limit: 10 });
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      const f = res.data.printings.find((p) => p.printing_id === frontId);
+      expect(f).toBeTruthy();
+      expect(f!.other_face_image_url).toBe('https://x/nm-back.webp');
+      expect(f!.other_face_name).toBe(backName);
+    });
+
+    it('the self-linked back flips to the FRONT, never to itself', async () => {
+      const res = await service.searchPrintings({ name: backName, exact: true }, { limit: 10 });
+      expect(res.success).toBe(true);
+      if (!res.success) return;
+      const b = res.data.printings.find((p) => p.printing_id === backId);
+      expect(b).toBeTruthy();
+      expect(b!.other_face_image_url).toBe('https://x/nm-front.webp');
+      expect(b!.other_face_name).toBe(frontName);
+    });
+  });
+
   it('single-faced cards stay null', async () => {
     const res = await service.searchPrintings({ name: 'Vox Necropolis', exact: true }, { limit: 5 });
     expect(res.success).toBe(true);

@@ -335,14 +335,48 @@ class CardsToPrintingsTransformer:
         ]
         return ' '.join(filter(None, components)).lower()
 
+    def index_face_links(self, cards):
+        """Pre-pass over the whole feed: back printing unique_id -> the FRONT
+        printing that points at it.
+
+        fab-cube ships every double-faced BACK printing with
+        other_face_unique_id equal to the back's OWN unique_id (107/107 in the
+        2026-09 feed) while fronts link correctly, so a back's partner can only
+        be recovered by reversing the front's link. Called once by
+        transform_cards_to_printings; safe to skip (then a self-link simply
+        becomes NULL rather than being copied)."""
+        reverse = {}
+        for card in cards:
+            for printing in card.get('printings', []) or []:
+                dfc_list = printing.get('double_sided_card_info') or []
+                dfc_info = dfc_list[0] if dfc_list else {}
+                if not dfc_info.get('is_DFC') or not dfc_info.get('is_front', True):
+                    continue
+                own = printing.get('unique_id')
+                other = dfc_info.get('other_face_unique_id')
+                if own and other and other != own and other not in reverse:
+                    reverse[other] = own
+        self._front_by_back = reverse
+        return reverse
+
     def get_dfc_fields(self, printing):
-        """Extract double-faced card linking fields (only for is_DFC: true entries)"""
+        """Extract double-faced card linking fields (only for is_DFC: true entries).
+
+        A back face's link is trusted only if it points somewhere else; a
+        self-reference or a missing link is resolved through the reverse index
+        built by index_face_links, else emitted as NULL (never as itself)."""
         dfc_list = printing.get('double_sided_card_info') or []
         dfc_info = dfc_list[0] if dfc_list else {}
         is_dfc = bool(dfc_info.get('is_DFC', False))
+        if not is_dfc:
+            return {'other_face_printing_id': None, 'is_front_face': True}
+        own = printing.get('unique_id')
+        other = dfc_info.get('other_face_unique_id')
+        if not other or other == own:
+            other = getattr(self, '_front_by_back', {}).get(own)
         return {
-            'other_face_printing_id': dfc_info.get('other_face_unique_id') if is_dfc else None,
-            'is_front_face': bool(dfc_info.get('is_front', True)) if is_dfc else True,
+            'other_face_printing_id': other,
+            'is_front_face': bool(dfc_info.get('is_front', True)),
         }
 
     def get_edition_flags(self, edition_code):
@@ -649,6 +683,9 @@ class CardsToPrintingsTransformer:
             return False
         
         print(f"📊 Processing {len(cards)} cards...")
+        
+        reverse = self.index_face_links(cards)
+        print(f"   {len(reverse)} double-faced back printings resolved to their front")
         
         all_printings = []
         

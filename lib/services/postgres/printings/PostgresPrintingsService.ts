@@ -247,10 +247,52 @@ export class PostgresPrintingsService implements IPrintingsService {
         .where(inArray(printings.printingId, partnerIds));
       const byId = new Map(partners.map((p) => [p.printingId, p]));
       for (const d of dtos) {
+        // A self-linked row's own id can be IN the map (fetched as some
+        // front's partner) — never let it render itself as its flip.
+        if (d.other_face_printing_id === d.printing_id) continue;
         const p = d.other_face_printing_id ? byId.get(d.other_face_printing_id) : undefined;
         if (p) {
           d.other_face_image_url = p.imageUrl || null;
           d.other_face_name = p.displayName || null;
+        }
+      }
+    }
+
+    // Reverse pass: a back face whose stored link is missing or self-referential
+    // (every fab-cube back row ships other_face = itself) takes the FRONT that
+    // points at it — exact partner, same physical product.
+    const reverseIds = dtos
+      .filter((d) => !d.other_face_image_url && d.is_front_face === false &&
+        (!d.other_face_printing_id || d.other_face_printing_id === d.printing_id))
+      .map((d) => d.printing_id);
+    if (reverseIds.length > 0) {
+      const fronts = await db
+        .select({
+          backId: printings.otherFacePrintingId,
+          frontId: printings.printingId,
+          imageUrl: printings.imageUrl,
+          displayName: cards.displayName,
+          cardUniqueId: printings.cardUniqueId,
+        })
+        .from(printings)
+        .innerJoin(cards, eq(cards.cardUniqueId, printings.cardUniqueId))
+        .where(inArray(printings.otherFacePrintingId, reverseIds));
+      const byBack = new Map(reverseIds.map((id) => [id, [] as typeof fronts]));
+      for (const f of fronts) {
+        if (f.backId && f.frontId !== f.backId) byBack.get(f.backId)?.push(f);
+      }
+      for (const d of dtos) {
+        if (d.other_face_image_url) continue;
+        // Same pick rule as migration 0105: a front of a DIFFERENT card first
+        // (a same-card "front" is an i18n placeholder, not the physical other
+        // face), then printing_id for determinism.
+        const pick = (byBack.get(d.printing_id) ?? [])
+          .sort((a, b) =>
+            Number(b.cardUniqueId !== d.card_unique_id) - Number(a.cardUniqueId !== d.card_unique_id) ||
+            a.frontId.localeCompare(b.frontId))[0];
+        if (pick) {
+          d.other_face_image_url = pick.imageUrl || null;
+          d.other_face_name = pick.displayName || null;
         }
       }
     }
