@@ -27,8 +27,13 @@ describe('resolveClassShorthand', () => {
     expect(resolveClassShorthand('shape')).toBe('shapeshifter');
   });
 
-  it('returns null for ambiguous prefixes (me = mechanologist|merchant, w = warrior|wizard)', () => {
-    expect(resolveClassShorthand('me')).toBeNull();
+  it('every two-letter prefix resolves; me is a curated alias for mechanologist (mer = merchant)', () => {
+    for (const c of HERO_CLASSES) if (c !== 'merchant') expect(resolveClassShorthand(c.slice(0, 2))).toBe(c);
+    expect(resolveClassShorthand('me')).toBe('mechanologist');
+    expect(resolveClassShorthand('mer')).toBe('merchant');
+  });
+
+  it('returns null for ambiguous single letters (w = warrior|wizard)', () => {
     expect(resolveClassShorthand('w')).toBeNull();
     expect(resolveClassShorthand('ge')).toBe('generic');
     expect(resolveClassShorthand('g')).toBeNull();

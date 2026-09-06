@@ -169,7 +169,7 @@ export const fabConstantsResource = {
         price: 'p:<10, p:>50, p:25 (operators < > <= >= :)',
         type: 'type:equipment, t:!generic (negation: ! - not)',
         talent: 'talent:light, tal:i,e, talent:!shadow, tal:dra (unambiguous prefixes resolve)',
-        class: 'class:guardian, c:wizard,ranger, c:!brute, c:mech (aliases: mech/rb/illu/necro/wiz/war/gu/gen; unambiguous prefixes resolve, c:me is ambiguous and stays raw)',
+        class: 'class:guardian, c:wizard,ranger, c:!brute, c:mech (aliases: mech/rb/illu/necro/wiz/war/gu/gen; any two-letter prefix resolves — me=mechanologist, mer=merchant)',
         rarity: 'rarity:m, r:l,f, r!c',
         set: 'set:wtr, set:wtr,arc, set:!out',
         foiling: 'foil:rf, f:cf, foil:!s — or standalone tokens nf/rf/cf/gf',

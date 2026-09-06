@@ -29,6 +29,10 @@ const SEARCHABLE_CLASSES: readonly string[] = [...HERO_CLASSES, 'generic'];
 // Curated shorthand the unique-prefix rule can't reach on its own (initialisms,
 // community names, prefixes that would otherwise be ambiguous).
 export const CLASS_ALIASES: Record<string, string> = {
+  // `me` is the ONE two-letter collision (mechanologist|merchant); it goes to
+  // mechanologist (415 cards vs merchant's 8) so every two-letter prefix
+  // resolves. Merchant is `mer`.
+  me: 'mechanologist',
   mech: 'mechanologist',
   mecha: 'mechanologist',
   mechano: 'mechanologist',

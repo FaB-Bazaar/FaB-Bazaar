@@ -147,7 +147,7 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
     {
       title: "Class Filters",
       description: "Search by hero class — aliases and unambiguous prefixes both work",
-      codes: "mech=mechanologist, rb=runeblade, illu=illusionist, necro=necromancer, wiz=wizard, war=warrior, gu=guardian, gen=generic",
+      codes: "any 2 letters: gu=guardian, ne=necromancer, ni=ninja, ra=ranger, ru=runeblade, wa=warrior, wi=wizard, me/mech=mechanologist (mer=merchant), rb=runeblade, gen=generic",
       examples: [
         { code: "class:guardian", desc: "Guardian class cards" },
         { code: "c:mech", desc: "Mechanologist cards (alias)" },

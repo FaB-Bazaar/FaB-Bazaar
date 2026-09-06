@@ -226,8 +226,13 @@ describe.each([
     expect(parser.parseQuery('class:!rb,wiz').filters.classesNot).toEqual(['runeblade', 'wizard']);
   });
 
-  it('ambiguous class prefix is kept raw (c:me)', () => {
-    expect(parser.parseQuery('c:me').filters.classes).toEqual(['me']);
+  it('two-letter class prefixes resolve (c:me → mechanologist, c:mer → merchant)', () => {
+    expect(parser.parseQuery('c:me').filters.classes).toEqual(['mechanologist']);
+    expect(parser.parseQuery('c:mer').filters.classes).toEqual(['merchant']);
+  });
+
+  it('ambiguous single-letter class is kept raw (c:w)', () => {
+    expect(parser.parseQuery('c:w').filters.classes).toEqual(['w']);
   });
 
   it('tal:dra resolves to draconic, tal:!reve excludes revered', () => {
