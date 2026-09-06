@@ -257,3 +257,52 @@ describe.each([
     expect(getHeroInfo('ka')).toBeNull();
   });
 });
+
+// Bare `-class` / `!class` tokens (no `c:` prefix) exclude a class — the
+// common case is `-generic` to strip generics from a hero/class search. The
+// class goes through the same alias/prefix resolver as `c:`; an unresolvable
+// token (`-xyz`, `-nf`) is DECLINED and stays in the name text.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser bare negated class tokens — %s', (_label, parser) => {
+  it('-generic excludes generic and consumes the token', () => {
+    const r = parser.parseQuery('-generic');
+    expect(r.filters.classesNot).toEqual(['generic']);
+    expect(r.remainingText).toBe('');
+    expect(r.filters.name).toBeUndefined();
+  });
+
+  it('!gen resolves through the class aliases', () => {
+    expect(parser.parseQuery('!gen').filters.classesNot).toEqual(['generic']);
+  });
+
+  it('composes with a name and other tokens (dominate -generic c:brute)', () => {
+    const f = parser.parseQuery('dominate -generic c:brute').filters;
+    expect(f.classesNot).toEqual(['generic']);
+    expect(f.classes).toEqual(['brute']);
+    expect(f.name).toBe('dominate');
+  });
+
+  it('several bare exclusions accumulate (-brute -generic)', () => {
+    expect(parser.parseQuery('-brute -generic').filters.classesNot).toEqual(['brute', 'generic']);
+  });
+
+  it('c:-generic keeps working and is not double-counted', () => {
+    expect(parser.parseQuery('c:-generic').filters.classesNot).toEqual(['generic']);
+  });
+
+  it('an unresolvable bare token stays in the name text (-xyz, -zz)', () => {
+    for (const q of ['-xyz', '-zz']) {
+      const r = parser.parseQuery(q);
+      expect(r.filters.classesNot).toBeUndefined();
+      expect(r.filters.name).toBe(q);
+    }
+  });
+
+  it('a hyphen inside a word is not a negation (ice-bound)', () => {
+    const r = parser.parseQuery('ice-bound');
+    expect(r.filters.classesNot).toBeUndefined();
+    expect(r.filters.name).toBe('ice-bound');
+  });
+});

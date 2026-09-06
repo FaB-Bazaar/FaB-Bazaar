@@ -584,6 +584,22 @@ export class FABShorthandParser {
       examples: ["class:guardian", "c:wizard,ranger", "class:!brute", "c:guardian,!generic", "c:!brute,guardian"]
     },
 
+    // Bare negated class: `-generic` / `!gen` (no `c:` prefix). Same resolver
+    // as `c:`; must follow a token boundary so `ice-bound` and `c:-generic`
+    // (already consumed above) don't match. Unresolvable → DECLINE, so `-xyz`
+    // stays in the name text.
+    {
+      pattern: /(?:^|\s)[-!]([a-z]{2,})\b/gi,
+      parser: (match, filters) => {
+        const cls = resolveClassShorthand(match[1]);
+        if (!cls) return false;
+        if (!filters.classesNot) filters.classesNot = [];
+        if (!filters.classesNot.includes(cls)) filters.classesNot.push(cls);
+      },
+      description: "Bare class exclusion (-generic, !gen)",
+      examples: ["-generic", "!gen", "hero:bravo -generic"]
+    },
+
     // Hero searches
     {
       pattern: /\b(?:hero|h):([!-]?)([a-zA-Z\s]+?)(?=\s|$)/gi,

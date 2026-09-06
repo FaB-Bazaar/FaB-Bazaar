@@ -153,7 +153,8 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
         { code: "c:mech", desc: "Mechanologist cards (alias)" },
         { code: "c:wiz,ran", desc: "Wizard or Ranger cards (prefixes)" },
         { code: "class:!brute", desc: "Not brute class cards" },
-        { code: "c:guardian,!generic", desc: "Guardian cards but not generic" }
+        { code: "c:guardian,!generic", desc: "Guardian cards but not generic" },
+        { code: "hero:bravo -generic", desc: "Bare -class / !class excludes a class without the c: prefix" }
       ]
     },
     {
