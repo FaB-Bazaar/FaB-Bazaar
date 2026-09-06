@@ -22,6 +22,8 @@ import { buildLanes, type LaneCardLike, type LaneMode } from "./mobile-lanes";
 import MobileDeckLanes from "./MobileDeckLanes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
+import { CardDetailsLightbox, type LightboxCard } from "@/components/cards/CardDetailsLightbox";
+import { fetchPrintingsForCard, type PrintingResult } from "@/lib/client/hero-pool-cache";
 
 const PITCH_DOT_CLASS: Record<number, string> = {
   1: "bg-red-500",
@@ -214,7 +216,7 @@ interface GroupedCardRowProps {
   onHoverImage: (url: string, name: string, extras?: HoverExtras) => void;
   onClearImage: () => void;
   /** Open the full-card lightbox (tap the thumbnail / "View card" in the sheet). */
-  onEnlarge?: (url: string, name: string, otherFaceUrl?: string) => void;
+  onEnlarge?: (url: string, name: string, otherFaceUrl?: string, printingId?: string) => void;
   isTouchDevice: boolean;
   /** 'lane' is the phone row (rail · qty · name · cost · pip · owned); 'column'
       is the desktop multi-column row (same scan line, but the cost chip carries
@@ -493,7 +495,7 @@ function GroupedCardRow({
               </div>
               <div className="py-1">
                 {onEnlarge && group.imageUrl && (
-                  <button type="button" className="w-full text-left px-5 py-2.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlarge(group.imageUrl!, group.displayName, primary.printingDetails?.other_face_image_url as string | undefined); dismiss(); }}>
+                  <button type="button" className="w-full text-left px-5 py-2.5 text-sm text-gray-800 dark:text-gray-200 active:bg-gray-100 dark:active:bg-gray-800 transition-colors" onClick={() => { onEnlarge(group.imageUrl!, group.displayName, primary.printingDetails?.other_face_image_url as string | undefined, primary.printingId); dismiss(); }}>
                     View card
                   </button>
                 )}
@@ -746,7 +748,7 @@ function DeckTileSection({
   /** Add 1 more copy of a tile (+1 button on hover) */
   onAddTile?: (tile: DeckTileCard) => void;
   /** Open enlarged image lightbox */
-  onEnlargeImage?: (url: string, name: string, otherFaceUrl?: string) => void;
+  onEnlargeImage?: (url: string, name: string, otherFaceUrl?: string, printingId?: string) => void;
   /** Add a card to the selected binder */
   onAddToBinder?: (printingId: string, cardName: string) => void;
   /** Add an unowned card to the wants list */
@@ -833,7 +835,7 @@ function DeckTileSection({
               onClick={() => {
                 if (isDragActive) return;
                 if (onEnlargeImage && heroPortrait.imageUrl) {
-                  onEnlargeImage(heroPortrait.imageUrl, heroPortrait.name, heroPortrait.otherFaceImageUrl);
+                  onEnlargeImage(heroPortrait.imageUrl, heroPortrait.name, heroPortrait.otherFaceImageUrl, heroPortrait.printingId);
                 } else {
                   onSwap?.({ printingId: heroPortrait.printingId, cardUniqueId: heroPortrait.cardUniqueId, cardName: heroPortrait.name, category: heroPortrait.category });
                 }
@@ -939,7 +941,7 @@ function DeckTileSection({
           const wantsQty = wantsMap?.get(tile.cardUniqueId) ?? 0;
           const openTile = () => {
             if (onEnlargeImage && tile.imageUrl) {
-              onEnlargeImage(tile.imageUrl, tile.name, tile.otherFaceImageUrl);
+              onEnlargeImage(tile.imageUrl, tile.name, tile.otherFaceImageUrl, tile.printingId);
             } else {
               onSwap?.({ printingId: tile.printingId, cardUniqueId: tile.cardUniqueId, cardName: tile.name, category: tile.category });
             }
@@ -1671,6 +1673,10 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
   // mismatch (server → false, touch client → true) that alters tile-view markup.
   const isTouchDevice = useIsTouchDevice();
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; name: string; otherFaceUrl?: string } | null>(null);
+  // Rich card details (same lightbox as the Add Card magnifying glass). Set
+  // when the enlarged card resolves to a deck printing; enlargedImage stays the
+  // bare-image fallback for anything without one.
+  const [enlargedCard, setEnlargedCard] = useState<LightboxCard | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'tile' | 'game'>(defaultViewMode ?? 'tile');
   // defaultViewMode depends on canEdit, which can resolve after mount (auth
   // often loads slower than the deck). Apply it exactly once when it arrives;
@@ -1766,6 +1772,43 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
 
   const displayDeck = optimisticDeck ?? deck;
 
+  const allDeckPrintings = useMemo(() => [
+    ...displayDeck.hero, ...displayDeck.equipment, ...displayDeck.maindeck,
+    ...displayDeck.inventory, ...(displayDeck.benched ?? []), ...(displayDeck.tokens ?? []),
+  ], [displayDeck]);
+
+  /** Copies of a card across every zone — the lightbox's "In this deck" readout. */
+  const inDeckCountFor = useCallback((cardUniqueId: string | undefined) => {
+    if (!cardUniqueId) return 0;
+    return allDeckPrintings
+      .filter(dp => dp.printingDetails?.card_unique_id === cardUniqueId)
+      .reduce((sum, dp) => sum + (dp.quantity ?? 1), 0);
+  }, [allDeckPrintings]);
+
+  /** Open the card details lightbox for a deck printing. The deck row already
+   *  carries text / type line / stats / prices / other face, so it renders at
+   *  once; the full search row (legality flags, artist) is swapped in when the
+   *  card's printings — which the lightbox fetches anyway — arrive. Falls back
+   *  to the bare enlarged image when the printing isn't in the deck. */
+  const openCardLightbox = useCallback((printingId: string | undefined, fallback: { url: string; name: string; otherFaceUrl?: string }) => {
+    const dp = printingId ? allDeckPrintings.find(x => x.printingId === printingId) : undefined;
+    const pd = dp?.printingDetails;
+    if (!dp || !pd) { setEnlargedImage(fallback); return; }
+    const printing = { ...pd, printing_id: dp.printingId, type_text: pd.type_text ?? pd.type_text_display } as PrintingResult;
+    const name = (pd.display_name || pd.name || fallback.name) as string;
+    setEnlargedImage(null);
+    setEnlargedCard({ printing, name });
+    const uid = pd.card_unique_id as string | undefined;
+    if (!uid) return;
+    fetchPrintingsForCard(uid).then(rows => {
+      const full = (rows as unknown as PrintingResult[]).find(r => r.printing_id === dp.printingId);
+      if (!full) return;
+      setEnlargedCard(prev => prev && prev.printing.printing_id === dp.printingId
+        ? { ...prev, printing: { ...full, other_face_image_url: full.other_face_image_url ?? pd.other_face_image_url ?? null } }
+        : prev);
+    }).catch(() => { /* deck row already rendered; legality strip just stays hidden */ });
+  }, [allDeckPrintings]);
+
   const handleRemove = async (printingId: string, category: DeckCategory) => {
     setRemovingId(printingId);
     try {
@@ -1839,7 +1882,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
         // Same sticky-preview rationale as tile/game views above.
         setHoveredImage(null);
       }}
-      onEnlarge={(url, name, otherFaceUrl) => setEnlargedImage({ url, name, otherFaceUrl })}
+      onEnlarge={(url, name, otherFaceUrl, printingId) => openCardLightbox(printingId, { url, name, otherFaceUrl })}
       isTouchDevice={isTouchDevice}
     />
   );
@@ -2046,6 +2089,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
       if (e.key === 'Escape') {
         setHighlightFilters([]);
         setEnlargedImage(null);
+        setEnlargedCard(null);
       }
       if (e.key === 'h' || e.key === 'H') {
         if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
@@ -2226,7 +2270,7 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
     onMoveToInventory: canEdit && onMoveSingle ? handleTileMoveToInventory : undefined,
     onMoveTo: canEdit && onMoveSingle ? handleTileMoveTo : undefined,
     onAddTile: canEdit ? handleTileAddOne : undefined,
-    onEnlargeImage: (url: string, name: string, otherFaceUrl?: string) => setEnlargedImage({ url, name, otherFaceUrl }),
+    onEnlargeImage: (url: string, name: string, otherFaceUrl?: string, printingId?: string) => openCardLightbox(printingId, { url, name, otherFaceUrl }),
     onAddToBinder: onAddToBinder,
     onAddToWants: onAddToWants,
     wantsMap,
@@ -2958,8 +3002,33 @@ export default function DeckEditorListView({ deck, ownershipMap, cardOwnershipMa
         <HoverImagePreview imageUrl={hoveredImage.url} cardName={hoveredImage.name} onDismiss={() => setHoveredImage(null)} />
       )}
 
-      {/* Lightbox */}
-      {enlargedImage && (
+      {/* Card details lightbox — ←/→ walk the tiles in display order */}
+      {enlargedCard && (() => {
+        const order: string[] = [];
+        for (const sec of [...tileSections.filter(s => s.key === 'hero'), ...tileTopSections, ...tileRestSections]) {
+          for (const t of sec.tiles) if (!order.includes(t.printingId)) order.push(t.printingId);
+        }
+        const idx = order.indexOf(enlargedCard.printing.printing_id);
+        const go = (i: number) => {
+          const dp = allDeckPrintings.find(x => x.printingId === order[i]);
+          const pd = dp?.printingDetails;
+          if (dp && pd) openCardLightbox(dp.printingId, { url: (pd.image_url as string) || '', name: (pd.display_name || pd.name || '') as string });
+        };
+        return (
+          <CardDetailsLightbox
+            card={enlargedCard}
+            onClose={() => setEnlargedCard(null)}
+            onPrev={idx > 0 ? () => go(idx - 1) : undefined}
+            onNext={idx >= 0 && idx < order.length - 1 ? () => go(idx + 1) : undefined}
+            onSelectPrinting={printing => setEnlargedCard(prev => (prev ? { ...prev, printing } : prev))}
+            deckFormat={displayDeck.format}
+            inDeckCount={inDeckCountFor(enlargedCard.printing.card_unique_id)}
+          />
+        );
+      })()}
+
+      {/* Bare enlarged image — fallback for a card with no deck printing to resolve */}
+      {enlargedImage && !enlargedCard && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           data-testid="tile-lightbox"

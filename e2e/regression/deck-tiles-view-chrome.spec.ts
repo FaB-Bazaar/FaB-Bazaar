@@ -129,14 +129,34 @@ test('tile actions are keyboard reachable, visible on focus, and at least 24px',
   await expect(tileImages(page)).toHaveCount(before - 1, { timeout: 10_000 })
 })
 
-test('a tile itself takes focus and Enter opens the enlarged card', async ({ page }) => {
+test('a tile itself takes focus and Enter opens the card details lightbox', async ({ page }) => {
   await openTiles(page)
   const tile = page.locator('[data-focus-id] [title*="click to enlarge"]').first()
   await expect(tile).toHaveAttribute('tabindex', '0')
   await tile.focus()
   await expect(tile).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect(page.getByTestId('tile-lightbox')).toBeVisible()
+  // Same rich view as the Add Card magnifying glass: details panel with rules
+  // text, deck count and the printings list — not a bare enlarged image.
+  const lightbox = page.getByTestId('card-lightbox')
+  await expect(lightbox).toBeVisible()
+  const details = page.getByTestId('card-lightbox-details')
+  await expect(details).toBeVisible()
+  await expect(details).toContainText(/In this deck:\s*3/)
+  await expect(details).toContainText('Printings')
   await page.keyboard.press('Escape')
-  await expect(page.getByTestId('tile-lightbox')).toHaveCount(0)
+  await expect(lightbox).toHaveCount(0)
+})
+
+test('clicking a tile opens the details lightbox and → steps to the next tile', async ({ page }) => {
+  await openTiles(page)
+  const tiles = page.locator('[data-focus-id] [title*="click to enlarge"]')
+  const firstName = (await tiles.first().getAttribute('title'))!.split(' — ')[0]
+  await tiles.first().click()
+  const details = page.getByTestId('card-lightbox-details')
+  await expect(details).toContainText(firstName)
+  await page.keyboard.press('ArrowRight')
+  // The seeded deck has three distinct cards per color; stepping lands on a different card.
+  await expect(details).not.toContainText(new RegExp(`^${firstName}`))
+  await expect(page.getByTestId('card-lightbox')).toBeVisible()
 })
