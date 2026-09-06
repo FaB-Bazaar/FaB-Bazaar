@@ -13,6 +13,7 @@ import { getApiFormatCode } from "@/lib/format-constants";
 import { sortPrintings } from "@/lib/fab-constants/sets";
 import { groupSearchPrintingsToCards } from "@/lib/deck/group-search-results";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
+import { heroPoolChips } from "@/lib/deck/hero-pool-chips";
 import { buildDeckAddFilters } from "@/lib/search/deck-add-filters";
 import { optSearchReducer } from "@/lib/search/opt-search-reducer";
 import { DEFAULT_OPT_STATE } from "@/lib/search/opt-url-state";
@@ -477,6 +478,12 @@ export default function QuickAddCardDialog({
 
   // Hero legality context — shared derivation with the deck editor.
   const heroFilter = useMemo(() => resolveHeroFilter(currentDeck ?? null), [currentDeck]);
+  // Hero-pool quick filter (class / talent / Generic chips) — hero zone has
+  // no pool to slice.
+  const poolChips = useMemo(
+    () => (targetCategory === 'hero' ? [] : heroPoolChips(heroFilter)),
+    [heroFilter, targetCategory],
+  );
 
   // Reset on open; seed pitch from the section "+ Add" buttons.
   useEffect(() => {
@@ -786,6 +793,7 @@ export default function QuickAddCardDialog({
               dispatch={dispatch}
               facetDefs={facetDefs}
               excludeFacets={excludeFacets}
+              poolChips={poolChips}
               total={search.total}
               loading={search.loading}
               error={search.error}

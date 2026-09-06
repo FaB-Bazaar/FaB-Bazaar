@@ -28,6 +28,7 @@ import { languageFlag } from '@/lib/utils/printing-language';
 import { LANGUAGES } from '@/lib/search/build-server-filters';
 import { toggleLanguageSelection } from '@/lib/search/language-selection';
 import type { OptUiState } from '@/lib/search/opt-url-state';
+import type { HeroPoolChip } from '@/lib/deck/hero-pool-chips';
 import type { OptAction } from '@/lib/search/opt-search-reducer';
 
 export const SECTION = 'text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-2';
@@ -361,7 +362,7 @@ export interface FilterFacet {
 }
 
 export function buildFilterFacets({
-  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges,
+  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges, poolChips,
 }: {
   state: OptUiState;
   dispatch: Dispatch<OptAction>;
@@ -372,6 +373,10 @@ export function buildFilterFacets({
   /** Hide the Hero (adult/young) sub-section inside the Type facet — the
    *  deck-add dialog's hero is fixed, so age chips are noise there. */
   hideHeroAges?: boolean;
+  /** Deck-add dialog: the hero's own affiliations (classes, talents, Generic)
+   *  as a compact 'pool' facet — replaces the full Class/Talent facets, which
+   *  that surface excludes. Toggles the same selectedClasses/selectedTalents. */
+  poolChips?: HeroPoolChip[];
 }): FilterFacet[] {
   const {
     selectedType, selectedHeroAges, selectedClasses, selectedTalents,
@@ -452,6 +457,35 @@ export function buildFilterFacets({
         </>
       ),
     },
+    ...(poolChips && poolChips.length > 0 ? [{
+      key: 'pool', label: 'Class',
+      count: poolChips.filter(c => (c.kind === 'class' ? selectedClasses : selectedTalents).includes(c.value)).length,
+      panelClassName: 'w-auto',
+      body: (
+        <>
+          <p className={SECTION}>Hero pool</p>
+          {/* Fit the panel to the chip count (2 for Dash, 5 for Oldhim) — same
+              4rem cells the Class facet's w-72 / 4-col grid produces. */}
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(poolChips.length, 4)}, 4rem)` }}>
+            {poolChips.map(chip => {
+              const icon = CLASS_ICONS[chip.value];
+              const active = (chip.kind === 'class' ? selectedClasses : selectedTalents).includes(chip.value);
+              return (
+                <ArtChip
+                  key={chip.value}
+                  label={chip.label} iconUrl={icon?.iconUrl} iconPosition={icon?.iconPosition}
+                  active={active}
+                  activeClass={chip.kind === 'class' ? 'bg-indigo-900/50 border-indigo-600' : 'bg-teal-900/50 border-teal-600'}
+                  onClick={() => dispatch(chip.kind === 'class'
+                    ? { type: 'TOGGLE_IN', key: 'selectedClasses', value: chip.value }
+                    : { type: 'TOGGLE_TALENT', value: chip.value })}
+                />
+              );
+            })}
+          </div>
+        </>
+      ),
+    } satisfies FilterFacet] : []),
     {
       key: 'class', label: 'Class', count: selectedClasses.length, panelClassName: 'w-72',
       body: (
