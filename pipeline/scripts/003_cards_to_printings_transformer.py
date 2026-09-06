@@ -346,17 +346,42 @@ class CardsToPrintingsTransformer:
         transform_cards_to_printings; safe to skip (then a self-link simply
         becomes NULL rather than being copied)."""
         reverse = {}
+        # Natural-key buckets for the UNFLAGGED case below.
+        by_key = {}
         for card in cards:
             for printing in card.get('printings', []) or []:
+                own = printing.get('unique_id')
                 dfc_list = printing.get('double_sided_card_info') or []
                 dfc_info = dfc_list[0] if dfc_list else {}
+                key = (printing.get('set_id'), printing.get('id'), printing.get('edition'), printing.get('foiling'))
+                by_key.setdefault(key, []).append((card.get('unique_id'), own, printing.get('image_url') or ''))
                 if not dfc_info.get('is_DFC') or not dfc_info.get('is_front', True):
                     continue
-                own = printing.get('unique_id')
                 other = dfc_info.get('other_face_unique_id')
                 if own and other and other != own and other not in reverse:
                     reverse[other] = own
         self._front_by_back = reverse
+
+        # Pairs the feed never flags is_DFC (Bank Breaker: AMX022 ships the
+        # linkage with is_DFC false, JDG052 ships no double_sided_card_info at
+        # all). Two different cards sharing one (set, collector, edition,
+        # foiling) where exactly one image is the *_BACK.webp face IS a
+        # double-sided print; two single-faced cards that merely share a number
+        # (Might // Vigor) have no _BACK image and are left alone.
+        inferred = {}
+        for rows in by_key.values():
+            if len({card_uid for card_uid, _, _ in rows}) != 2 or len(rows) != 2:
+                continue
+            backs = [r for r in rows if r[2].endswith('_BACK.webp')]
+            if len(backs) != 1:
+                continue
+            (_, back_uid, _), = backs
+            (_, front_uid, _), = [r for r in rows if r is not backs[0]]
+            if not front_uid or not back_uid:
+                continue
+            inferred[front_uid] = (back_uid, True)
+            inferred[back_uid] = (front_uid, False)
+        self._inferred_faces = inferred
         return reverse
 
     def get_dfc_fields(self, printing):
@@ -368,9 +393,13 @@ class CardsToPrintingsTransformer:
         dfc_list = printing.get('double_sided_card_info') or []
         dfc_info = dfc_list[0] if dfc_list else {}
         is_dfc = bool(dfc_info.get('is_DFC', False))
-        if not is_dfc:
-            return {'other_face_printing_id': None, 'is_front_face': True}
         own = printing.get('unique_id')
+        if not is_dfc:
+            inferred = getattr(self, '_inferred_faces', {}).get(own)
+            if inferred:
+                other, is_front = inferred
+                return {'other_face_printing_id': other, 'is_front_face': is_front}
+            return {'other_face_printing_id': None, 'is_front_face': True}
         other = dfc_info.get('other_face_unique_id')
         if not other or other == own:
             other = getattr(self, '_front_by_back', {}).get(own)
