@@ -116,6 +116,9 @@ pipeline/scripts/logs/post-tournament-decklists.zip
 # "notes/" also matched nested app routes like app/api/decks/[deckId]/notes/,
 # silently dropping that route from git (and therefore from prod builds).
 /notes/
+# Root-level throwaway scripts (scratch-iar-dryrun.ts and the like) — never
+# meant for the public repo; real tooling lives in scripts/.
+/scratch-*
 
 # Database dumps / backups (pg_dump artifacts — never commit)
 *.dump
