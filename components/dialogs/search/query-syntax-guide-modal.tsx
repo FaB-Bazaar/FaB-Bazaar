@@ -84,15 +84,17 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
         { code: "hero:marlynn", desc: "Cards legal for Marlynn" },
         { code: "hero:levia", desc: "Cards legal for Levia" },
         { code: "hero:starvo", desc: "Cards legal for Starvo" },
-        { code: "hero:gravy", desc: "Cards legal for Gravy" }
+        { code: "hero:gravy", desc: "Cards legal for Gravy" },
+        { code: "hero:dor", desc: "Prefixes work when only one hero matches (Dorinthea)" }
       ]
     },
     {
       title: "Talent Filters",
-      description: "Search by talents with abbreviation support",
-      codes: "e=earth, i=ice, l=lightning, li=light, p=pirate, s=shadow, d=draconic",
+      description: "Search by talents — abbreviations and unambiguous prefixes both work",
+      codes: "l=light, li=lightning, i=ice, e=earth, d/dra=draconic, s=shadow, m=mystic, c=chaos, r=royal, el=elemental, reve=revered, revi=reviled",
       examples: [
         { code: "tal:light", desc: "Light talent cards" },
+        { code: "tal:dra", desc: "Draconic (prefix)" },
         { code: "talent:i,e", desc: "Ice and Earth talent cards" },
         { code: "tal:!light", desc: "Exclude light talent cards" },
         { code: "tal:light,lightning", desc: "Light or Lightning talent cards" },
@@ -144,10 +146,12 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
     },
     {
       title: "Class Filters",
-      description: "Search by hero class with multiple support",
+      description: "Search by hero class — aliases and unambiguous prefixes both work",
+      codes: "mech=mechanologist, rb=runeblade, illu=illusionist, necro=necromancer, wiz=wizard, war=warrior, gu=guardian, gen=generic",
       examples: [
         { code: "class:guardian", desc: "Guardian class cards" },
-        { code: "c:wizard,ranger", desc: "Wizard or Ranger cards" },
+        { code: "c:mech", desc: "Mechanologist cards (alias)" },
+        { code: "c:wiz,ran", desc: "Wizard or Ranger cards (prefixes)" },
         { code: "class:!brute", desc: "Not brute class cards" },
         { code: "c:guardian,!generic", desc: "Guardian cards but not generic" }
       ]

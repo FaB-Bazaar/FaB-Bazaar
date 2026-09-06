@@ -149,7 +149,14 @@ export class TalentUtils {
       if (mapped) {
         return mapped;
       }
-      
+
+      // Unambiguous prefix (`dra` → draconic, `reve` → revered). `rev` is
+      // ambiguous (revered|reviled) and stays unresolved.
+      if (normalized.length >= 2) {
+        const hits = OFFICIAL_TALENTS.filter(t => t.startsWith(normalized));
+        if (hits.length === 1) return hits[0];
+      }
+
       return null;
     }
     

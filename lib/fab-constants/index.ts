@@ -61,6 +61,8 @@ export {
 // Classes
 export {
   HERO_CLASSES,
+  CLASS_ALIASES,
+  resolveClassShorthand,
   type HeroClass,
 } from './classes';
 
@@ -88,6 +90,7 @@ export {
   TALISHAR_HERO_SLUGS,
   getTalisharHeroSlug,
   getHeroInfo,
+  resolveHeroShorthand,
   getHeroesGroupedByClass,
   getYoungHeroesGroupedByClass,
   getAllClasses,

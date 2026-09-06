@@ -4,7 +4,7 @@
 // FIXED: Improved text removal to prevent fragments
 
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
-import { HERO_NICKNAMES, normalizeSetCode } from '@/lib/fab-constants';
+import { HERO_NICKNAMES, normalizeSetCode, resolveClassShorthand, resolveHeroShorthand } from '@/lib/fab-constants';
 import { TalentUtils } from '@/lib/talent-constants';
 
 interface ShorthandPattern {
@@ -19,6 +19,12 @@ interface ParsedQuery {
   remainingText: string;
   parsedTokens: string[];
 }
+
+// `c:mech` / `c:gua` → canonical class; unresolvable input stays raw (lowercased).
+const resolveClass = (raw: string): string => {
+  const q = raw.trim().toLowerCase();
+  return resolveClassShorthand(q) ?? q;
+};
 
 export class FABShorthandParser {
   private patterns: ShorthandPattern[] = [
@@ -565,7 +571,7 @@ export class FABShorthandParser {
         
         if (isGlobalNot) {
           // c:!guardian,brute - exclude all specified classes
-          const classes = classInput.split(',').map(c => c.trim().toLowerCase());
+          const classes = classInput.split(',').map(c => resolveClass(c));
           if (!filters.classesNot) filters.classesNot = [];
           filters.classesNot.push(...classes);
           return;
@@ -576,7 +582,7 @@ export class FABShorthandParser {
         
         classes.forEach(className => {
           const isNot = className.startsWith('!') || className.startsWith('-');
-          const cleanClass = className.replace(/^[!-]/, '');
+          const cleanClass = resolveClass(className.replace(/^[!-]/, ''));
           
           if (isNot) {
             if (!filters.classesNot) filters.classesNot = [];
@@ -604,6 +610,9 @@ export class FABShorthandParser {
         
         if (!heroName) return;
         
+        // Prefix/alias resolution first (hero:dor → dori); ambiguous or
+        // unknown input stays raw so it surfaces as "no results".
+        heroName = resolveHeroShorthand(heroName) ?? heroName;
         const mappedHero = HERO_NICKNAMES[heroName as keyof typeof HERO_NICKNAMES];
         const finalHero = mappedHero || heroName;
         

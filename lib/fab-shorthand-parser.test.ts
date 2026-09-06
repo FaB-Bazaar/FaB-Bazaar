@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FABShorthandParser as McpParser } from './fab-shorthand-parser';
 import { FABShorthandParser as SearchParser } from './search/fab-shorthand-parser';
+import { getHeroInfo } from './fab-constants/heroes';
 
 // Both parsers share the same `format:` token handling and historically drifted
 // out of sync. These tests pin the format aliases on BOTH so they can't diverge.
@@ -204,5 +205,50 @@ describe.each([
     const f = parser.parseQuery('tree of life').filters;
     expect(f.health).toBeUndefined();
     expect(f.name).toBe('tree of life');
+  });
+});
+
+// Class / talent / hero tokens accept aliases and unambiguous prefixes on BOTH
+// parsers (`c:mech`, `tal:dra`, `hero:dor`). Ambiguous or unknown input stays
+// raw so a typo still surfaces as "no results" rather than a silent guess.
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser class/talent/hero shorthand — %s', (_label, parser) => {
+  it('c:mech resolves to mechanologist', () => {
+    expect(parser.parseQuery('c:mech').filters.classes).toEqual(['mechanologist']);
+  });
+
+  it('mixed and negated class lists resolve each entry', () => {
+    const f = parser.parseQuery('c:mech,!gua').filters;
+    expect(f.classes).toEqual(['mechanologist']);
+    expect(f.classesNot).toEqual(['guardian']);
+    expect(parser.parseQuery('class:!rb,wiz').filters.classesNot).toEqual(['runeblade', 'wizard']);
+  });
+
+  it('ambiguous class prefix is kept raw (c:me)', () => {
+    expect(parser.parseQuery('c:me').filters.classes).toEqual(['me']);
+  });
+
+  it('tal:dra resolves to draconic, tal:!reve excludes revered', () => {
+    expect(parser.parseQuery('tal:dra').filters).toMatchObject({ hasDraconic: true });
+    expect(parser.parseQuery('tal:!reve').filters).toMatchObject({ hasRevered: false });
+  });
+
+  it('hero:dor resolves to a Dorinthea the hero lookup knows (warrior)', () => {
+    const parsed = parser.parseQuery('hero:dor');
+    const hero = parsed.filters.heroLegal as string;
+    expect(getHeroInfo(hero)?.classes).toEqual(['warrior']);
+    expect(parsed.remainingText.trim()).toBe('');
+  });
+
+  it('hero:!brav negates a Bravo (guardian)', () => {
+    const not = parser.parseQuery('hero:!brav').filters.heroNotLegal as string[];
+    expect(getHeroInfo(not[0])?.classes).toEqual(['guardian']);
+  });
+
+  it('ambiguous hero prefix is kept raw (hero:ka) and resolves to nothing', () => {
+    expect(parser.parseQuery('hero:ka').filters.heroLegal).toBe('ka');
+    expect(getHeroInfo('ka')).toBeNull();
   });
 });

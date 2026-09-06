@@ -234,3 +234,42 @@ export function validateHeroFormatLegality(
     error: `"${heroName}" is not legal in ${format} (${label} requires ${article} ${required} hero).${did}`,
   };
 }
+
+// A hero "family" is the given name shared by every version of a hero
+// (dorinthea ironsong + dorinthea, quicksilver prodigy → "dorinthea").
+function heroFamily(rosterKey: string): string {
+  return rosterKey.replace(/^ser /, '').split(/[, ]/)[0];
+}
+
+/**
+ * Resolve a `hero:` token prefix to something getHeroInfo() understands.
+ * Input that already resolves (full name, nickname, shortName) is returned
+ * unchanged. Otherwise every roster key, shortName and nickname is prefix-
+ * matched; if all hits belong to ONE hero family the first matching entry's
+ * shortName is returned (`dor` → Dorinthea, `brav` → Bravo). Ambiguous
+ * (`ka` → kano|kassai|katsu|kayo) or unknown input returns null.
+ */
+export function resolveHeroShorthand(input: string): string | null {
+  const q = input.trim().toLowerCase();
+  if (!q) return null;
+  if (getHeroInfo(q)) return input.trim();
+
+  const nickToKey = new Map<string, string>();
+  for (const [nick, full] of Object.entries(HERO_NICKNAMES)) nickToKey.set(nick, full.toLowerCase());
+
+  const families = new Set<string>();
+  let first: string | null = null;
+  const consider = (key: string, info: HeroInfo, extraAliases: string[]) => {
+    const aliases = [key, info.shortName, ...extraAliases];
+    if (!aliases.some(a => a.startsWith(q))) return;
+    families.add(heroFamily(key));
+    if (first === null) first = info.shortName;
+  };
+  for (const rosters of [HERO_INFO, YOUNG_HERO_INFO]) {
+    for (const [key, info] of Object.entries(rosters)) {
+      const nicks = [...nickToKey.entries()].filter(([, k]) => k === key).map(([n]) => n);
+      consider(key, info, nicks);
+    }
+  }
+  return families.size === 1 ? first : null;
+}

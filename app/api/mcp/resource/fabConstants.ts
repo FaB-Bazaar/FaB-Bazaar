@@ -168,11 +168,12 @@ export const fabConstantsResource = {
       facets: {
         price: 'p:<10, p:>50, p:25 (operators < > <= >= :)',
         type: 'type:equipment, t:!generic (negation: ! - not)',
-        talent: 'talent:light, tal:i,e, talent:!shadow',
+        talent: 'talent:light, tal:i,e, talent:!shadow, tal:dra (unambiguous prefixes resolve)',
+        class: 'class:guardian, c:wizard,ranger, c:!brute, c:mech (aliases: mech/rb/illu/necro/wiz/war/gu/gen; unambiguous prefixes resolve, c:me is ambiguous and stays raw)',
         rarity: 'rarity:m, r:l,f, r!c',
         set: 'set:wtr, set:wtr,arc, set:!out',
         foiling: 'foil:rf, f:cf, foil:!s — or standalone tokens nf/rf/cf/gf',
-        hero: 'hero:gravy, h:!puffin (auto-filters hero-legal cards)',
+        hero: 'hero:gravy, h:!puffin, hero:dor (auto-filters hero-legal cards; a prefix resolves when it matches one hero family)',
         color: 'color:red, color:!blue (red/yellow/blue = pitch 1/2/3)',
       },
       complex_examples: [
