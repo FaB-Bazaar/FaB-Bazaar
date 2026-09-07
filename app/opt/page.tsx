@@ -158,8 +158,13 @@ export default function OptSearchPage() {
   // OptUiState and queues a context string for the first message.
   const { data: session } = useSession();
   const canAskVolzar = canUseVolzar(session?.user ? (session.user.roles ?? {}) : null);
-  const askVolzarHref = `/volzar?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`;
-  const askVolzarLink = canAskVolzar && hasAnyFilter && (
+  // Always offered to signed-in users — with no filters it's a plain entry
+  // point to the chat (the link used to appear only once a search was active,
+  // which left an empty /opt with no way to ask at all).
+  const askVolzarHref = hasAnyFilter
+    ? `/volzar?from=opt&total=${total}&${uiStateToParams({ ...state, query: debouncedQuery }).toString()}`
+    : '/volzar';
+  const askVolzarLink = canAskVolzar && (
     <Link
       href={askVolzarHref}
       className="shrink-0 inline-flex items-center gap-1 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded px-1"
@@ -497,6 +502,15 @@ export default function OptSearchPage() {
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
               Type a name, use the quick filters above, or try a shorthand query:
             </p>
+            {canAskVolzar && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                Prefer plain English?{' '}
+                <Link href="/volzar" className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium rounded px-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                  <Sparkles className="w-3 h-3" aria-hidden /> Ask Volzar
+                </Link>{' '}
+                — e.g. &ldquo;blue ninja attacks with go again&rdquo;.
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-center gap-2">
               {EXAMPLE_QUERIES.map(q => (
                 <button
