@@ -19,6 +19,7 @@ import { optStateToChips } from '@/lib/search/opt-state-describe';
 import type { OptUiState } from '@/lib/search/opt-url-state';
 import type { OptAction } from '@/lib/search/opt-search-reducer';
 import type { HeroPoolChip } from '@/lib/deck/hero-pool-chips';
+import type { ChipDef } from '@/lib/search/card-filter-chips';
 
 // Sort options that are meaningful for card-grouped deck-building results.
 const SORT_OPTIONS: { value: string; label: string }[] = [
@@ -38,6 +39,8 @@ export interface QuickAddCommandBarProps {
   excludeFacets: string[];
   /** Hero-pool quick filter chips (classes/talents/Generic); empty = no facet. */
   poolChips?: HeroPoolChip[];
+  /** Type chips narrowed to the hero's pool (see lib/deck/available-type-chips). */
+  typeChips?: ChipDef[];
   total: number;
   loading: boolean;
   error: string | null;
@@ -50,7 +53,7 @@ export interface QuickAddCommandBarProps {
 }
 
 export default function QuickAddCommandBar({
-  state, dispatch, facetDefs, excludeFacets, poolChips, total, loading, error,
+  state, dispatch, facetDefs, excludeFacets, poolChips, typeChips, total, loading, error,
   idle, matchBroad, onToggleMatchBroad, inputRef,
 }: QuickAddCommandBarProps) {
   const { query, searchMode, sortBy, sortOrder } = state;
@@ -63,7 +66,7 @@ export default function QuickAddCommandBar({
 
   const filterFacets = buildFilterFacets({
     state, dispatch, availablePacks: [], facetDefs,
-    exclude: excludeFacets, hideHeroAges: true, poolChips,
+    exclude: excludeFacets, hideHeroAges: true, poolChips, typeChips,
   });
 
   const activeChips = optStateToChips(state, { availablePacks: [], facetLabels }).map(c => ({

@@ -14,6 +14,8 @@ import { sortPrintings } from "@/lib/fab-constants/sets";
 import { groupSearchPrintingsToCards } from "@/lib/deck/group-search-results";
 import { resolveHeroFilter } from "@/lib/deck/resolve-hero-filter";
 import { heroPoolChips } from "@/lib/deck/hero-pool-chips";
+import { availableTypeChips } from "@/lib/deck/available-type-chips";
+import { useHeroPoolTypes } from "@/hooks/deck/useHeroPoolTypes";
 import { buildDeckAddFilters } from "@/lib/search/deck-add-filters";
 import { optSearchReducer } from "@/lib/search/opt-search-reducer";
 import { DEFAULT_OPT_STATE } from "@/lib/search/opt-url-state";
@@ -484,6 +486,14 @@ export default function QuickAddCardDialog({
     () => (targetCategory === 'hero' ? [] : heroPoolChips(heroFilter)),
     [heroFilter, targetCategory],
   );
+  // Type chips narrowed to what the hero's legal pool actually contains — a
+  // Malice deck never offers Arrow / Dragon / Figment. null (loading, no hero,
+  // hero zone) = full list.
+  const poolTypes = useHeroPoolTypes(heroFilter, deckFormat, open && !isSwapMode && targetCategory !== 'hero');
+  const typeChips = useMemo(
+    () => (targetCategory === 'hero' ? undefined : availableTypeChips(poolTypes)),
+    [poolTypes, targetCategory],
+  );
 
   // Reset on open; seed pitch from the section "+ Add" buttons.
   useEffect(() => {
@@ -794,6 +804,7 @@ export default function QuickAddCardDialog({
               facetDefs={facetDefs}
               excludeFacets={excludeFacets}
               poolChips={poolChips}
+              typeChips={typeChips}
               total={search.total}
               loading={search.loading}
               error={search.error}

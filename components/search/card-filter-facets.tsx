@@ -21,7 +21,7 @@ import {
   CARD_FILTER_SETS, PROMO_FILTER_SETS, OTHER_PRODUCT_FILTER_SETS, SET_FILTER_GROUPS,
 } from '@/lib/fab-constants/sets';
 import {
-  TYPE_CHIPS, CLASS_ICONS, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
+  TYPE_CHIPS, CLASS_ICONS, type ChipDef, ALL_CLASSES, ALL_TALENTS, PITCH_CHIPS,
   KEYWORD_CHIPS, RARITY_OPTIONS, FOILING_OPTIONS, EDITION_OPTIONS, FORMAT_OPTIONS, PRICE_PRESETS, HERO_AGE_CHIPS,
 } from '@/lib/search/card-filter-chips';
 import { languageFlag } from '@/lib/utils/printing-language';
@@ -362,7 +362,7 @@ export interface FilterFacet {
 }
 
 export function buildFilterFacets({
-  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges, poolChips,
+  state, dispatch, availablePacks, facetDefs, exclude, hideHeroAges, poolChips, typeChips = TYPE_CHIPS,
 }: {
   state: OptUiState;
   dispatch: Dispatch<OptAction>;
@@ -377,6 +377,9 @@ export function buildFilterFacets({
    *  as a compact 'pool' facet — replaces the full Class/Talent facets, which
    *  that surface excludes. Toggles the same selectedClasses/selectedTalents. */
   poolChips?: HeroPoolChip[];
+  /** Type chips to offer (default: the full TYPE_CHIPS list). The Add Card
+   *  dialog passes the subset whose types exist in the hero's legal pool. */
+  typeChips?: ChipDef[];
 }): FilterFacet[] {
   const {
     selectedType, selectedHeroAges, selectedClasses, selectedTalents,
@@ -430,7 +433,7 @@ export function buildFilterFacets({
         <>
           <p className={SECTION}>Type</p>
           <div className="grid grid-cols-4 gap-1">
-            {TYPE_CHIPS.map(chip => (
+            {typeChips.map(chip => (
               <ArtChip
                 key={chip.value}
                 label={chip.label} iconUrl={chip.iconUrl} iconPosition={chip.iconPosition}

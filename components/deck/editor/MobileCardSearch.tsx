@@ -14,7 +14,9 @@ import {
   type MobileSearchFilterState,
 } from "@/lib/deck/mobile-search-filters";
 import { groupSearchPrintings, hasMoreSearchPages } from "@/lib/deck/search-pagination";
-import { TYPE_CHIPS, GENERIC_CHIP } from "@/lib/search/card-filter-chips";
+import { GENERIC_CHIP } from "@/lib/search/card-filter-chips";
+import { availableTypeChips } from "@/lib/deck/available-type-chips";
+import { useHeroPoolTypes } from "@/hooks/deck/useHeroPoolTypes";
 import type { DeckDTO, DeckCategory } from "@/lib/services/contracts/IDeckService";
 
 const shorthandParser = new FABShorthandParser();
@@ -173,6 +175,10 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
   const getQty = (uid: string) => Math.max(0, (deckQtyMap.get(uid)?.qty ?? 0) + (deltas.get(uid) ?? 0));
 
   const heroFilter = useMemo(() => resolveHeroFilter(deck), [deck]);
+  // Type options narrowed to the hero's legal pool (same rule as the desktop
+  // Add Card dialog); null while loading = every type.
+  const poolTypes = useHeroPoolTypes(heroFilter, deck.format, true);
+  const typeChips = useMemo(() => availableTypeChips(poolTypes), [poolTypes]);
   const formatCode = deck.format ? FORMAT_TO_SEARCH[deck.format] : undefined;
 
   // Kits only count as a source when the hero actually has curated kits.
@@ -587,7 +593,7 @@ export default function MobileCardSearch({ deck, deckId, onDeckChange, kitBuilds
             }`}
           >
             <option value="">Any type</option>
-            {[...TYPE_CHIPS, GENERIC_CHIP].map(chip => (
+            {[...typeChips, GENERIC_CHIP].map(chip => (
               <option key={chip.value} value={chip.value}>{chip.label.replace(/­/g, "")}</option>
             ))}
           </select>
