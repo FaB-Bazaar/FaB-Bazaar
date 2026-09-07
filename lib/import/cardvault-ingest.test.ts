@@ -247,3 +247,40 @@ describe('naturalKeyOf', () => {
       .toBe('iar|IAR159|n|c|en');
   });
 });
+
+describe('buildProvisionalCard — keywords from CardVault bold markup', () => {
+  const ids = { cardUniqueId: 'cu1', lssCardId: 'lss1' } as any;
+  const face = (over: Record<string, unknown>) => ({
+    face_id: 'f', face_language: 'en', printed_name: 'Restless Corporal',
+    printed_typebox: 'Shadow Necromancer Action - Zombie Ally', printed_pitch: '1',
+    printed_rules_text: '**Action** -- {t}: Put a card from your banished zone into your graveyard. **Go again**{br}**Decay** _(At the beginning of your end phase, put a -1{h} counter on this.)_',
+    ...over,
+  }) as any;
+
+  it('derives lower-cased keywords from **bold** tokens that are real FaB keywords ("Action" is a type, not a keyword)', () => {
+    const row = buildProvisionalCard(face({}), ids);
+    expect(row.keywords).toEqual(['go again', 'decay']);
+    expect(row.keywords_display).toEqual(['Go again', 'Decay']);
+  });
+
+  it('keeps the parameter on parameterised keywords, matching the pipeline form ("arcane barrier 1", "ward 2")', () => {
+    const row = buildProvisionalCard(face({ printed_rules_text: '**Arcane Barrier** 1{br}**Ward** 2 **Battleworn** **Opt 2**' }), ids);
+    expect(row.keywords).toEqual(['arcane barrier 1', 'ward 2', 'battleworn', 'opt 2']);
+  });
+
+  it('a granted go again is not the card\'s keyword', () => {
+    const row = buildProvisionalCard(face({ printed_rules_text: 'At the start of your turn, destroy this, then your next attack this turn gets **go again**.' }), ids);
+    expect(row.keywords).toEqual([]);
+  });
+
+  it('sets the class/talent combination flags the transformer derives', () => {
+    const row = buildProvisionalCard(face({}), ids);
+    expect(row.has_class_and_talent).toBe(true);
+    expect(row.has_class_only).toBe(false);
+    expect(row.has_talent_only).toBe(false);
+    expect(row.is_generic_only).toBe(false);
+    const generic = buildProvisionalCard(face({ printed_typebox: 'Generic Action - Attack' }), ids);
+    expect(generic.is_generic_only).toBe(true);
+    expect(generic.has_class_and_talent).toBe(false);
+  });
+});

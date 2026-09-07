@@ -54,6 +54,35 @@ def to_talishar_card_id(display_name, pitch):
     return s + suffix
 
 
+import re as _re
+
+# "go again" as the card's OWN keyword vs merely granted to something else.
+# The feed's card_keywords omits go again when it belongs to an activated
+# ability ("Action -- destroy this: ... Go again"), which is exactly how
+# equipment/items/allies (Potion of Strength, Restless Corporal) carry it —
+# 190 cards on 2026-09-07 had it in text but not keywords. A grant reads
+# "<something> gets/gains/has/loses go again" and must NOT be added.
+_GO_AGAIN_GRANT = _re.compile(
+    r"\b(?:get|gets|gain|gains|has|have|with|grant|grants|granted|lose|loses)\s+"
+    r"(?:\+\d\{[a-z]\}\s+and\s+)?[\"']?go again",
+    _re.IGNORECASE,
+)
+_GO_AGAIN = _re.compile(r"\bgo again\b", _re.IGNORECASE)
+
+
+def augment_go_again_keyword(keywords, text):
+    """Return keywords + ['go again'] when the rules text carries it as the
+    card's own keyword (any occurrence that is not a grant). Idempotent."""
+    keywords = list(keywords or [])
+    if not text or 'go again' in keywords:
+        return keywords
+    own = [m for m in _GO_AGAIN.finditer(text)
+           if not any(g.end() == m.end() for g in _GO_AGAIN_GRANT.finditer(text))]
+    if own:
+        keywords.append('go again')
+    return keywords
+
+
 class CardsToPrintingsTransformer:
     def __init__(self):
         self.stats = {
@@ -515,7 +544,7 @@ class CardsToPrintingsTransformer:
             'talents': talents,  # Extracted talents
             'essences': essences,  # Hero-granted essence pools (empty for non-heroes)
             'traits': self.normalize_array(card.get('traits', [])),
-            'keywords': self.normalize_array(card.get('card_keywords', [])),
+            'keywords': augment_go_again_keyword(self.normalize_array(card.get('card_keywords', [])), card.get('functional_text_plain', '') or ''),
             # Original-case keywords for display (e.g. "Go Again", "Ward 10").
             # `keywords` is lowercased for search/filter use; `keywords_display` preserves casing.
             'keywords_display': [k.strip() for k in (card.get('card_keywords') or []) if isinstance(k, str) and k.strip()],

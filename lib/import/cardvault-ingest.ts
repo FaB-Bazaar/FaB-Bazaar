@@ -14,6 +14,7 @@
  * printed_code (old-set codes embed rarity suffixes, spoiler ones are blank).
  */
 import { FINISH_TO_FOILING, RARITY_TO_CODE, foilingFlags } from './derive-foreign-printing';
+import { KEYWORDS } from '@/lib/fab-constants/keywords';
 
 export interface LssApiFace {
   id?: string; // CardVault face UUID
@@ -215,6 +216,42 @@ export interface ProvisionalCardIds {
  * set — spoiler cards genuinely aren't tournament-legal until release
  * (adoption overwrites card fields with fab-cube truth then).
  */
+const KEYWORD_SET = new Set<string>(KEYWORDS);
+// "<something> gets/gains/has go again" is a grant to another object, not this
+// card's keyword (mirrors augment_go_again_keyword in the pipeline transformer).
+const GO_AGAIN_GRANT_TAIL = /(?:get|gets|gain|gains|has|have|with|grant|grants|granted|lose|loses)\s+(?:\+\d\{[a-z]\}\s+and\s+)?["']?\s*$/i;
+
+/**
+ * Keywords from CardVault's rules text, where keywords are the **bold**
+ * tokens ("**Go again**", "**Decay**", "**Arcane Barrier** 1"). Only tokens in
+ * the FaB keyword list count ("**Action**" is a type). Parameterised keywords
+ * keep their value in the pipeline's form ("arcane barrier 1", "ward 2").
+ * Returns [lowercased-for-search, original-case-for-display].
+ */
+export function keywordsFromRulesText(raw: string | null | undefined): [string[], string[]] {
+  const text = raw ?? '';
+  const search: string[] = [];
+  const display: string[] = [];
+  // The parameter may sit inside the bold ("**Opt 2**", "**Amp 1**") or just
+  // after it ("**Arcane Barrier** 1") — accept both.
+  const re = /\*\*([^*]+?)\*\*(?:\s*(\d+|[xX])\b)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    let base = m[1].trim();
+    let param: string | undefined = m[2];
+    const inner = base.match(/^(.*?)\s+(\d+|[xX])$/);
+    if (inner) { base = inner[1]; param = param ?? inner[2]; }
+    const key = base.toLowerCase();
+    if (!KEYWORD_SET.has(key)) continue;
+    if (key === 'go again' && GO_AGAIN_GRANT_TAIL.test(text.slice(Math.max(0, m.index - 40), m.index))) continue;
+    const kw = `${key}${param ? ` ${param.toLowerCase()}` : ''}`;
+    if (search.includes(kw)) continue;
+    search.push(kw);
+    display.push(`${base}${param ? ` ${param}` : ''}`);
+  }
+  return [search, display];
+}
+
 export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds) {
   const displayName = (faceIn.printed_name ?? '').trim();
   const typebox = (faceIn.printed_typebox ?? '').trim();
@@ -229,6 +266,16 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
   for (const t of TALENT_FLAGS) flags[`has_${t}`] = typeTokens.includes(t);
   flags.is_defense_reaction = /defense reaction/i.test(typebox);
 
+  const classes = typeTokens.filter((t) => (CLASS_FLAGS as readonly string[]).includes(t));
+  const talents = typeTokens.filter((t) => (TALENT_FLAGS as readonly string[]).includes(t));
+  const [keywords, keywordsDisplay] = keywordsFromRulesText(faceIn.printed_rules_text);
+  // Combination flags — the transformer's exact formulas (003, "Combination flags").
+  const genericOnlyClass = classes.length === 1 && classes[0] === 'generic';
+  const is_generic_only = genericOnlyClass && talents.length === 0;
+  const has_class_and_talent = classes.length > 0 && talents.length > 0 && !genericOnlyClass;
+  const has_class_only = classes.length > 0 && talents.length === 0 && !genericOnlyClass;
+  const has_talent_only = classes.length <= 1 && classes.includes('generic') && talents.length > 0;
+
   return {
     card_unique_id: ids.cardUniqueId,
     lss_card_id: ids.lssCardId,
@@ -238,8 +285,14 @@ export function buildProvisionalCard(faceIn: LssApiFace, ids: ProvisionalCardIds
     searchable_text: rules || null,
     type_text: typebox.toLowerCase() || null,
     types: typeTokens,
-    classes: typeTokens.filter((t) => (CLASS_FLAGS as readonly string[]).includes(t)),
-    talents: typeTokens.filter((t) => (TALENT_FLAGS as readonly string[]).includes(t)),
+    classes,
+    talents,
+    keywords,
+    keywords_display: keywordsDisplay,
+    is_generic_only,
+    has_class_and_talent,
+    has_class_only,
+    has_talent_only,
     pitch,
     cost: toInt((faceIn as any).printed_cost),
     power: toInt((faceIn as any).printed_power),
