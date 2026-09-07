@@ -6,6 +6,7 @@
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { HERO_NICKNAMES, CARD_NAME_ABBREVIATIONS, normalizeSetCode, resolveClassShorthand, resolveHeroShorthand } from './fab-constants';
 import { TalentUtils } from './talent-constants';
+import { expandKeywordAlias } from './fab-constants/keywords';
 
 interface ShorthandPattern {
   pattern: RegExp;
@@ -670,7 +671,7 @@ export class FABShorthandParser {
         
         if (isGlobalNot) {
           // keyword:!dominate,stealth - exclude all specified keywords
-          const keywords = keywordInput.split(',').map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
+          const keywords = keywordInput.split(',').map(k => expandKeywordAlias(k)).filter(k => k.length > 0);
           if (!filters.keywordsNot) filters.keywordsNot = [];
           filters.keywordsNot.push(...keywords);
           return;
@@ -681,7 +682,8 @@ export class FABShorthandParser {
         
         keywords.forEach(keyword => {
           const isNot = keyword.startsWith('!') || keyword.startsWith('-');
-          const cleanKeyword = keyword.replace(/^[!-]/, '');
+          // k:ga / k:dom → the full keyword (shared KEYWORD_ALIASES table)
+          const cleanKeyword = expandKeywordAlias(keyword.replace(/^[!-]/, ''));
           
           if (isNot) {
             if (!filters.keywordsNot) filters.keywordsNot = [];
@@ -797,6 +799,25 @@ export class FABShorthandParser {
       },
       description: "BB = Black Border = Unlimited/Normal edition (excludes expensive Alpha/1st)",
       examples: ["tectonic plating bb", "ancestral empowerment bb", "command and conquer bb"],
+    },
+
+    // Pitch searches (pitch:1, pitch:red, pitch:2, pitch:yellow, pitch:3, pitch:blue).
+    // Mirrors lib/search/fab-shorthand-parser.ts; must run BEFORE the standalone
+    // colour-word pattern below or `pitch:blue` leaves "pitch:" behind as name text.
+    {
+      pattern: /\bpitch:([1-3]|red|yellow|blue|r|y|b)\b/gi,
+      parser: (match, filters) => {
+        const val = match[1].toLowerCase();
+        const pitchMap: { [key: string]: number } = {
+          '1': 1, 'red': 1, 'r': 1,
+          '2': 2, 'yellow': 2, 'y': 2,
+          '3': 3, 'blue': 3, 'b': 3,
+        };
+        const pitch = pitchMap[val];
+        if (pitch !== undefined) filters.pitch = pitch;
+      },
+      description: "Card pitch value (1/red, 2/yellow, 3/blue)",
+      examples: ["pitch:1", "pitch:red", "pitch:2", "pitch:yellow", "pitch:3", "pitch:blue"]
     },
 
     // Standalone pitch color: red / yellow / blue (without color: prefix)

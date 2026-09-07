@@ -6,6 +6,7 @@
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 import { HERO_NICKNAMES, normalizeSetCode, resolveClassShorthand, resolveHeroShorthand } from '@/lib/fab-constants';
 import { TalentUtils } from '@/lib/talent-constants';
+import { expandKeywordAlias } from '@/lib/fab-constants/keywords';
 
 interface ShorthandPattern {
   pattern: RegExp;
@@ -689,7 +690,7 @@ export class FABShorthandParser {
         
         if (isGlobalNot) {
           // keyword:!dominate,stealth - exclude all specified keywords
-          const keywords = keywordInput.split(',').map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
+          const keywords = keywordInput.split(',').map(k => expandKeywordAlias(k)).filter(k => k.length > 0);
           if (!filters.keywordsNot) filters.keywordsNot = [];
           filters.keywordsNot.push(...keywords);
           return;
@@ -700,7 +701,8 @@ export class FABShorthandParser {
         
         keywords.forEach(keyword => {
           const isNot = keyword.startsWith('!') || keyword.startsWith('-');
-          const cleanKeyword = keyword.replace(/^[!-]/, '');
+          // k:ga / k:dom → the full keyword (shared KEYWORD_ALIASES table)
+          const cleanKeyword = expandKeywordAlias(keyword.replace(/^[!-]/, ''));
           
           if (isNot) {
             if (!filters.keywordsNot) filters.keywordsNot = [];

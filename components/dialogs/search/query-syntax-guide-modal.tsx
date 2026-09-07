@@ -164,6 +164,7 @@ const SyntaxGuideModal = ({ isOpen, onClose }: SyntaxGuideModalProps) => {
         { code: "keyword:dominate", desc: "Cards with dominate" },
         { code: "keyword:stealth,combo", desc: "Cards with stealth or combo" },
         { code: 'keyword:"go again"', desc: 'Cards with "go again" keyword' },
+        { code: 'k:ga', desc: 'Shorthand aliases: ga = go again, dom = dominate' },
         { code: 'keyword:!"stealth"', desc: "Cards without stealth" },
         { code: "keyword:!crush,intimidate", desc: "Exclude crush and intimidate" }
       ]

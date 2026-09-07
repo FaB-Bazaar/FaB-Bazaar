@@ -283,7 +283,7 @@ export default function OptSearchPage() {
                 onChange={e => patch({ query: e.target.value })}
                 placeholder={searchMode === 'text'
                   ? 'Search rule text — e.g. prevent, deal arcane damage, go again'
-                  : 'Search by name or syntax — e.g. blue ninja go again, t:equipment p:<5'}
+                  : 'Search by name or syntax — e.g. c:ninja pitch:blue k:ga, t:equipment p:<5'}
                 aria-label={searchMode === 'text' ? 'Search rule text' : 'Search cards by name'}
                 className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

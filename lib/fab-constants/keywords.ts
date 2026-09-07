@@ -82,3 +82,18 @@ export const KEYWORDS = [
 ] as const;
 
 export type Keyword = typeof KEYWORDS[number];
+
+/**
+ * Community shorthand for the most-typed keywords, expanded by BOTH shorthand
+ * parsers' `k:` / `keyword:` handlers (`k:ga` → "go again"). Bare `ga`/`dom` in
+ * name text is expanded separately by each parser's name-expansion table.
+ */
+export const KEYWORD_ALIASES: Record<string, string> = {
+  ga: 'go again',
+  dom: 'dominate',
+};
+
+export function expandKeywordAlias(keyword: string): string {
+  const k = keyword.trim().toLowerCase();
+  return KEYWORD_ALIASES[k] ?? k;
+}

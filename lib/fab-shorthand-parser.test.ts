@@ -38,6 +38,21 @@ describe.each([
     expect(parser.parseQuery('k:dominate').filters.keywords).toContain('dominate');
   });
 
+  // Community shorthand for the two most-typed keywords. Without this k:ga
+  // searched for a keyword literally named "ga" and returned nothing.
+  it('expands k:ga → go again and k:dom → dominate', () => {
+    expect(parser.parseQuery('k:ga').filters.keywords).toEqual(['go again']);
+    expect(parser.parseQuery('k:dom').filters.keywords).toEqual(['dominate']);
+    expect(parser.parseQuery('c:ninja pitch:blue k:ga').filters.keywords).toEqual(['go again']);
+  });
+
+  it('expands aliases inside comma lists and negations (k:ga,!dom / k:!ga)', () => {
+    const mixed = parser.parseQuery('k:ga,!dom').filters;
+    expect(mixed.keywords).toEqual(['go again']);
+    expect(mixed.keywordsNot).toEqual(['dominate']);
+    expect(parser.parseQuery('k:!ga').filters.keywordsNot).toEqual(['go again']);
+  });
+
   it('parses k: with a quoted multi-word keyword', () => {
     expect(parser.parseQuery('k:"go again"').filters.keywords).toContain('go again');
   });
@@ -304,5 +319,20 @@ describe.each([
     const r = parser.parseQuery('ice-bound');
     expect(r.filters.classesNot).toBeUndefined();
     expect(r.filters.name).toBe('ice-bound');
+  });
+});
+
+// `pitch:` accepts the colour words as well as 1/2/3 and r/y/b — pin it on
+// BOTH parsers (the MCP one used to leave "pitch:" behind as name text and
+// return 0 for `pitch:blue`).
+describe.each([
+  ['mcp (lib/fab-shorthand-parser)', new McpParser()],
+  ['search (lib/search/fab-shorthand-parser)', new SearchParser()],
+])('FABShorthandParser pitch colour words — %s', (_label, parser) => {
+  it.each([['pitch:red', 1], ['pitch:yellow', 2], ['pitch:blue', 3], ['pitch:b', 3], ['pitch:2', 2]])('%s → pitch %i with no leftover name text', (q, pitch) => {
+    const f = parser.parseQuery(`c:ninja ${q}`).filters;
+    expect(f.pitch).toBe(pitch);
+    expect(f.classes).toEqual(['ninja']);
+    expect(f.name).toBeUndefined();
   });
 });
