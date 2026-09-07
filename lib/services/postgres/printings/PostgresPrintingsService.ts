@@ -1921,11 +1921,18 @@ export class PostgresPrintingsService implements IPrintingsService {
       // in the classes column (e.g. classes=['lightning'] for an essence-of-lightning card)
       const heroEssences = (filters.heroEssences || []).map(e => e.toLowerCase());
       const allowedClasses = [...new Set(['generic', ...heroClasses, ...heroTalents, ...heroEssences])];
-      // Use && (overlap) not <@ (subset): a multi-class card like ['ranger','assassin'] is legal
-      // for an assassin hero because at least one class matches — not because all classes match.
-      const classCheck = heroClasses.length > 0
-        ? sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} && ARRAY[${sql.join(allowedClasses.map(c => sql`${c}`), sql`, `)}]::text[])`
-        : sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR ${cards.classes} && ARRAY['generic']::text[])`;
+      // Two kinds of multi-class card (CR 1.1.3b / 2.14.1b), told apart by the
+      // printed type box, which cards.type_text preserves:
+      //   - "Pirate Necromancer Action" (no slash) is ONE supertype set: the hero
+      //     needs every class — subset (<@). Malice (Necromancer) can't play it;
+      //     Gravy Bones (Pirate Necromancer) can.
+      //   - "Brute / Guardian Instant" is a HYBRID: legal if either set fits the
+      //     hero — overlap (&&). A Guardian may play it.
+      // A plain overlap here let every Pirate Necromancer card into a
+      // Necromancer-only pool; a plain subset would wrongly drop the hybrids.
+      const allowedSql = (list: string[]) => sql`ARRAY[${sql.join(list.map(c => sql`${c}`), sql`, `)}]::text[]`;
+      const allowed = heroClasses.length > 0 ? allowedSql(allowedClasses) : sql`ARRAY['generic']::text[]`;
+      const classCheck = sql`(${cards.classes} IS NULL OR ${cards.classes} = '{}' OR CASE WHEN ${cards.typeText} LIKE '% / %' THEN ${cards.classes} && ${allowed} ELSE ${cards.classes} <@ ${allowed} END)`;
 
       // card.talents must be ⊆ hero's talents (empty card talents = no talent restriction = always ok)
       // heroEssences are included so that elemental heroes (whose lightning/earth/ice access comes from
