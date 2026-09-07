@@ -38,7 +38,7 @@ export interface SearchUiState {
   // 'name' (default): a bare query matches card names. 'text': a bare query
   // matches rule text only. Shorthand (t:, text:"…") parses the same either way
   // — the mode only changes the plain-string fallback below.
-  searchMode?: 'name' | 'text';
+  searchMode?: 'name' | 'text' | 'volzar';
   selectedType: string | null;
   selectedClasses: string[];
   selectedTalents: string[];

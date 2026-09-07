@@ -152,3 +152,13 @@ describe('grid columns (image tile density)', () => {
     expect(paramsToUiState(new URLSearchParams('cols=abc')).gridCols).toBeUndefined();
   });
 });
+
+describe('volzar scope', () => {
+  it('is a valid searchMode but never written to the URL (it is a transient input mode)', () => {
+    expect(uiStateToParams(state({ searchMode: 'volzar', query: 'blue ninja go again' })).has('mode')).toBe(false);
+  });
+
+  it('is not restored from the URL either', () => {
+    expect(paramsToUiState(new URLSearchParams('mode=volzar')).searchMode).toBeUndefined();
+  });
+});

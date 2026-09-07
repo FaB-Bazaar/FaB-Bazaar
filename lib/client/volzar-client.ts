@@ -102,3 +102,29 @@ export async function resolveConfirmation(opts: {
     return { success: false, error: error instanceof Error ? error.message : 'Confirmation failed' };
   }
 }
+
+/**
+ * /opt "Volzar" scope: one plain-English question → an OptUiState patch
+ * (chips + query + scope). Non-streaming; the route sanitises the model's
+ * answer against the real vocabulary before it gets here.
+ */
+export async function translateQuery(q: string): Promise<
+  | { success: true; data: { state: Partial<import('@/lib/search/opt-url-state').OptUiState>; filters: Record<string, unknown> } }
+  | { success: false; error: string }
+> {
+  try {
+    const res = await fetch('/api/volzar/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ q }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) {
+      return { success: false, error: json?.error ?? `Volzar request failed (${res.status})` };
+    }
+    return { success: true, data: json.data };
+  } catch {
+    return { success: false, error: 'Volzar is unreachable — check your connection' };
+  }
+}

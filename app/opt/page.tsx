@@ -21,6 +21,7 @@ import { uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { canUseVolzar } from '@/lib/ai/volzar-access';
 import { isSetGroupToken } from '@/lib/fab-constants/sets';
 import { GRID_COLS_OPTIONS } from '@/lib/search/grid-columns';
+import { translateQuery } from '@/lib/client/volzar-client';
 import { trackSearch } from '@/lib/gtag';
 
 // Clickable example queries shown in the empty state. Either a plain card name
@@ -82,6 +83,26 @@ export default function OptSearchPage() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useSearchSelection();
+
+  // ── Volzar scope: plain English → chips. Typing does nothing until Enter;
+  //    the translated OptUiState patch then REPLACES the filters (and drops
+  //    the scope back to Name/Text), so the user sees exactly what Volzar
+  //    decided as editable chips. ──
+  const [volzarBusy, setVolzarBusy] = useState(false);
+  const [volzarError, setVolzarError] = useState<string | null>(null);
+  const askVolzarInline = async () => {
+    const q = query.trim();
+    if (!q || volzarBusy) return;
+    setVolzarBusy(true);
+    setVolzarError(null);
+    try {
+      const result = await translateQuery(q);
+      if (!result.success) { setVolzarError(result.error); return; }
+      dispatch({ type: 'PATCH', patch: result.data.state });
+    } finally {
+      setVolzarBusy(false);
+    }
+  };
 
   // Arrivals via redirect/link (e.g. from Volzar) can carry a stale scroll or
   // visual-viewport pan — land with the command bar in view, then focus
@@ -183,21 +204,22 @@ export default function OptSearchPage() {
   //    same element in both places is safe. ──
   const searchModeToggle = (
     <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden shrink-0" role="group" aria-label="Search scope">
-      {(['name', 'text'] as const).map(mode => (
+      {([...(['name', 'text'] as const), ...(canAskVolzar ? (['volzar'] as const) : [])]).map((mode, i) => (
         <button
           key={mode}
           type="button"
-          onClick={() => { patch({ searchMode: mode }); inputRef.current?.focus(); }}
+          onClick={() => { setVolzarError(null); patch({ searchMode: mode }); inputRef.current?.focus(); }}
           aria-pressed={searchMode === mode}
-          title={mode === 'name' ? 'Search card names' : 'Search rule text'}
+          title={mode === 'name' ? 'Search card names' : mode === 'text' ? 'Search rule text' : 'Ask Volzar in plain English — press Enter to turn it into filters'}
           className={cn(
             'flex items-center gap-1 px-3 py-2 text-sm font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-            mode === 'text' && 'border-l border-gray-300 dark:border-gray-700',
+            i > 0 && 'border-l border-gray-300 dark:border-gray-700',
             searchMode === mode
-              ? 'bg-blue-600 text-white'
+              ? (mode === 'volzar' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white')
               : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700',
           )}
         >
+          {mode === 'volzar' && <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />}
           {mode}
           {searchMode === mode && <Check className="w-3.5 h-3.5 shrink-0" aria-hidden />}
         </button>
@@ -285,11 +307,15 @@ export default function OptSearchPage() {
               <input
                 ref={inputRef}
                 value={query}
-                onChange={e => patch({ query: e.target.value })}
-                placeholder={searchMode === 'text'
-                  ? 'Search rule text — e.g. prevent, deal arcane damage, go again'
-                  : 'Search by name or syntax — e.g. c:ninja pitch:blue k:ga, t:equipment p:<5'}
-                aria-label={searchMode === 'text' ? 'Search rule text' : 'Search cards by name'}
+                onChange={e => { setVolzarError(null); patch({ query: e.target.value }); }}
+                onKeyDown={e => { if (e.key === 'Enter' && searchMode === 'volzar') { e.preventDefault(); void askVolzarInline(); } }}
+                placeholder={searchMode === 'volzar'
+                  ? 'Ask Volzar in plain English — e.g. blue ninja attacks with go again — then press Enter'
+                  : searchMode === 'text'
+                    ? 'Search rule text — e.g. prevent, deal arcane damage, go again'
+                    : 'Search by name or syntax — e.g. c:ninja pitch:blue k:ga, t:equipment p:<5'}
+                aria-label={searchMode === 'volzar' ? 'Ask Volzar' : searchMode === 'text' ? 'Search rule text' : 'Search cards by name'}
+                disabled={volzarBusy}
                 className="w-full pl-9 pr-8 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {query && (
@@ -304,7 +330,13 @@ export default function OptSearchPage() {
             </div>
 
             <span className="flex-1 sm:flex-none text-xs text-gray-600 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap" aria-live="polite">
-              {error ? (
+              {volzarBusy ? (
+                <span className="animate-pulse text-purple-600 dark:text-purple-400">Asking Volzar…</span>
+              ) : volzarError ? (
+                <span className="text-red-500 dark:text-red-400">{volzarError}</span>
+              ) : searchMode === 'volzar' && query.trim() ? (
+                <span className="text-purple-600 dark:text-purple-400">Press Enter to ask Volzar</span>
+              ) : error ? (
                 <span className="text-red-500 dark:text-red-400">{error}</span>
               ) : !hasAnyFilter ? (
                 <span className="text-gray-500 dark:text-gray-400">Search the catalog</span>

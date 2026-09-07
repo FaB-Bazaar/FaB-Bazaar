@@ -21,8 +21,11 @@ export type ViewMode = 'images' | 'checklist';
 
 export interface OptUiState {
   query: string;
-  // 'name' searches card names (default), 'text' searches rule text only.
-  searchMode: 'name' | 'text';
+  // 'name' searches card names (default), 'text' searches rule text only,
+  // 'volzar' is a transient input scope: the box holds a plain-English
+  // question sent to Volzar on Enter, which replaces the state (chips + query
+  // + scope). Never written to / read from the URL.
+  searchMode: 'name' | 'text' | 'volzar';
   selectedType: string | null;
   selectedHeroAges: HeroAge[];
   selectedClasses: string[];

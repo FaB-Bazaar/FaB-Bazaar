@@ -15,6 +15,7 @@ import { useDebounce } from 'use-debounce';
 import { optSearchReducer, type OptAction } from '@/lib/search/opt-search-reducer';
 import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
 import { buildServerFilters } from '@/lib/search/build-server-filters';
+import { effectiveSearchQuery } from '@/lib/search/effective-query';
 import type { PrintingsSearchFilters } from '@/lib/services/contracts/IPrintingsService';
 
 export interface OptSearchState {
@@ -47,14 +48,15 @@ export function useOptSearchState(): OptSearchState {
   // Uses the debounced query so typing doesn't rewrite the URL every keystroke.
   useEffect(() => {
     if (!urlReady) return;
-    const qs = uiStateToParams({ ...state, query: debouncedQuery }).toString();
+    // Volzar scope: the box holds a question, not a filter — keep it out of the URL.
+    const qs = uiStateToParams({ ...state, query: effectiveSearchQuery(state.searchMode, debouncedQuery) }).toString();
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, '', url);
   }, [urlReady, state, debouncedQuery]);
 
   const filters = useMemo<PrintingsSearchFilters>(() => buildServerFilters({
     ...state,
-    query: debouncedQuery,
+    query: effectiveSearchQuery(state.searchMode, debouncedQuery),
     selectedTcgGroups: state.selectedPacks,
     selectedFormat: (state.selectedFormat ?? null) as PrintingsSearchFilters['format'] | null,
   }), [state, debouncedQuery]);

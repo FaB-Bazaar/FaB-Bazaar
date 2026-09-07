@@ -114,11 +114,14 @@ export function ImagesView({
                 {(() => {
                   const setCode = (printing.set || '').toLowerCase();
                   const setName = SET_MAP[setCode as keyof typeof SET_MAP] || setCode.toUpperCase();
-                  return setCode ? (
+                  // '' for promo/product sets with no symbol — never render <img src="">
+                  // (React warns and the browser may re-fetch the page).
+                  const setSrc = setCode ? getSetImageOrFallback(setCode, setCode.toUpperCase()) : '';
+                  return setSrc ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       data-testid="tile-set-symbol"
-                      src={getSetImageOrFallback(setCode, setCode.toUpperCase())}
+                      src={setSrc}
                       alt={setName}
                       title={setName}
                       className="w-4 h-4 shrink-0 object-contain"
