@@ -56,7 +56,9 @@ function sortedKeys<T extends object>(obj: T): T {
 //   v2 — pitch tiebreak (red→yellow→blue) on name sorts
 //   v3 — Marvels demoted globally (not just within their set) in the
 //        canonical printing cascade
-const SEARCH_CACHE_VERSION = 'v3';
+//   v4 — hero legality: non-hybrid multi-class cards need EVERY class
+//        (Pirate Necromancer no longer in a Necromancer-only pool)
+const SEARCH_CACHE_VERSION = 'v4';
 
 function buildSearchCacheKey(filters: PrintingsSearchFilters, options: PrintingsSearchOptions): string {
   const hash = createHash('sha256')
