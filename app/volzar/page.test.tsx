@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SUPERADMIN_CHAT_MODEL } from '@/lib/ai/tiers';
 import type { ReactElement } from 'react';
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
@@ -85,7 +86,7 @@ describe('VolzarPage signed-out handling', () => {
 });
 
 describe('VolzarPage model list', () => {
-  it('sends the stealth bake-off model for superadmins (models[0] = stealth/ox-alpha)', async () => {
+  it('sends the superadmin default model for superadmins (models[0] = SUPERADMIN_CHAT_MODEL)', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', name: 'bob' } } as any);
     mockGetVolzarAccess.mockResolvedValue({
       success: true,
@@ -98,7 +99,7 @@ describe('VolzarPage model list', () => {
       const result = await VolzarPage({ searchParams: emptySearchParams() });
       const chats = findElements(result, (el) => Array.isArray((el.props as any)?.models));
       expect(chats.length).toBe(1);
-      expect((chats[0].props as any).models[0]).toBe('stealth/ox-alpha');
+      expect((chats[0].props as any).models[0]).toBe(SUPERADMIN_CHAT_MODEL);
     } finally {
       if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
       else process.env.OPENROUTER_API_KEY = prevKey;

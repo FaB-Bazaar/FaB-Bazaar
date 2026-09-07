@@ -32,6 +32,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { fetchLiteTools, fetchToolsByName, executeTool } from '@/lib/ai/mcp-bridge';
 import { resolveConfirmation } from '@/lib/ai/confirmations';
 import { createLlm, createMockLlm } from '@/lib/ai/openrouter';
+import { SUPERADMIN_CHAT_MODEL } from '@/lib/ai/tiers';
 
 const mockAuth = vi.mocked(auth as unknown as () => Promise<any>);
 const mockGetAccess = vi.mocked(userService.getVolzarAccess);
@@ -164,7 +165,7 @@ describe('POST /api/volzar', () => {
     expect((await POST(request({ model: 'not-a-real-model', messages: VALID_BODY.messages }))).status).toBe(400);
   });
 
-  it('a superadmin who sends no model runs the stealth default, not mock', async () => {
+  it('a superadmin who sends no model runs SUPERADMIN_CHAT_MODEL, not mock', async () => {
     // beforeEach access is superadmin. Key present so resolveChatModel doesn't
     // short-circuit to mock; the LLM itself is swapped for the scripted mock so
     // no request leaves the test — we only assert which model the route asked for.
@@ -175,7 +176,7 @@ describe('POST /api/volzar', () => {
       const res = await POST(request({ messages: VALID_BODY.messages }));
       expect(res.status).toBe(200);
       await readSseEvents(res);
-      expect(mockCreateLlm).toHaveBeenCalledWith({ model: 'stealth/ox-alpha' });
+      expect(mockCreateLlm).toHaveBeenCalledWith({ model: SUPERADMIN_CHAT_MODEL });
     } finally {
       if (prevKey === undefined) delete process.env.OPENROUTER_API_KEY;
       else process.env.OPENROUTER_API_KEY = prevKey;
@@ -188,7 +189,8 @@ describe('POST /api/volzar', () => {
     process.env.OPENROUTER_API_KEY = 'test-key';
     mockCreateLlm.mockImplementationOnce(() => createMockLlm({}));
     try {
-      const res = await POST(request({ model: 'stealth/ox-alpha', messages: VALID_BODY.messages }));
+      // Ask for a pricier allowlisted model — the pin must ignore it.
+      const res = await POST(request({ model: 'anthropic/claude-haiku-4.5', messages: VALID_BODY.messages }));
       expect(res.status).toBe(200);
       await readSseEvents(res);
       expect(mockCreateLlm).toHaveBeenCalledWith({ model: 'openai/gpt-oss-120b' });
@@ -198,12 +200,16 @@ describe('POST /api/volzar', () => {
     }
   });
 
-  it('accepts stealth/ox-alpha as a bake-off model (allowlisted, so validation does not 400)', async () => {
-    // Free OpenRouter stealth model under evaluation (2026-08). Only superadmins
-    // actually run it (resolveChatModel pins everyone else to the default), but
-    // it must pass body validation or a superadmin can't try it at all.
-    const res = await POST(request({ model: 'stealth/ox-alpha', messages: VALID_BODY.messages }));
+  it('accepts an allowlisted bake-off model (validation does not 400)', async () => {
+    // Only superadmins actually run it (resolveChatModel pins everyone else to
+    // the default), but it must pass body validation or a superadmin can't try it.
+    const res = await POST(request({ model: 'anthropic/claude-haiku-4.5', messages: VALID_BODY.messages }));
     expect(res.status).not.toBe(400);
+  });
+
+  it('rejects the withdrawn stealth/ox-alpha model (no longer on OpenRouter, so no longer allowlisted)', async () => {
+    const res = await POST(request({ model: 'stealth/ox-alpha', messages: VALID_BODY.messages }));
+    expect(res.status).toBe(400);
   });
 
   it('502s when tool discovery fails, before any stream starts', async () => {

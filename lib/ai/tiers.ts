@@ -48,11 +48,13 @@ export function globalDailyLimit(): number {
 /** What every non-superadmin runs — the cheapest paid OpenRouter model. */
 export const DEFAULT_CHAT_MODEL = 'openai/gpt-oss-120b';
 /**
- * What superadmins run by default — the stealth bake-off model (free while
- * unannounced; reasoning + tool calls verified 2026-08-21). Superadmin-only so
- * a price appearing on it, or a free-tier 429 storm, can't hit the whole site.
+ * What superadmins run by default. Kept as its own constant so a bake-off
+ * candidate can be swapped in for superadmins only (a price appearing on it,
+ * or a free-tier 429 storm, then can't hit the whole site). The previous
+ * candidate, stealth/ox-alpha, was withdrawn from OpenRouter (2026-09: no
+ * stealth/* listed at all), so superadmins currently run the shared model.
  */
-export const SUPERADMIN_CHAT_MODEL = 'stealth/ox-alpha';
+export const SUPERADMIN_CHAT_MODEL = DEFAULT_CHAT_MODEL;
 
 /** The model a role lands on when the client doesn't name one. */
 export function defaultChatModelFor(isSuperAdmin: boolean): string {

@@ -55,7 +55,10 @@ describe('globalDailyLimit', () => {
 describe('chat model defaults', () => {
   it('pins everyone to the cheapest paid model and superadmins to the stealth bake-off model', () => {
     expect(DEFAULT_CHAT_MODEL).toBe('openai/gpt-oss-120b');
-    expect(SUPERADMIN_CHAT_MODEL).toBe('stealth/ox-alpha');
+    // The stealth bake-off model (stealth/ox-alpha) was withdrawn from
+    // OpenRouter (2026-09: no stealth/* listed) — superadmins now run the same
+    // model as everyone else until there's a new candidate to bake off.
+    expect(SUPERADMIN_CHAT_MODEL).toBe('openai/gpt-oss-120b');
     expect(defaultChatModelFor(false)).toBe(DEFAULT_CHAT_MODEL);
     expect(defaultChatModelFor(true)).toBe(SUPERADMIN_CHAT_MODEL);
   });

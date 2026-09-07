@@ -78,7 +78,7 @@ function modelAllowlist(): string[] {
     'openai/gpt-5-nano',        // $0.05/M in
     'google/gemini-2.5-flash-lite', // $0.10/M in
     'anthropic/claude-haiku-4.5',   // $1/M in — quality anchor for bake-offs
-    SUPERADMIN_CHAT_MODEL,         // $0/M in — stealth model, superadmin default (reasoning + tool calls verified 2026-08-21)
+    SUPERADMIN_CHAT_MODEL,         // superadmin default — currently the shared model (stealth/ox-alpha was withdrawn from OpenRouter 2026-09)
     process.env.OPENROUTER_MODEL,
   ].filter((m): m is string => Boolean(m));
 }
