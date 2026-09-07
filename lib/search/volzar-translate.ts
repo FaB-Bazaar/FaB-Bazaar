@@ -44,8 +44,28 @@ const FORMAT_SET = new Set<string>(FORMATS);
 
 export type Translation = Record<string, unknown>;
 
+export interface FacetTagVocab { id: string; label: string; def?: string | null }
+
+/**
+ * How FaB card text actually phrases the mechanics people ask for. `text` is a
+ * substring match on rules text, so the model must emit the printed template
+ * ("When this hits …") rather than the player's paraphrase ("on hit effect"
+ * matched nothing). Every phrase below was checked against the DB.
+ */
+export const RULES_TEXT_PHRASINGS: ReadonlyArray<[ask: string, text: string]> = [
+  ['on hit / on-hit effect / when it hits', 'when this hits'],
+  ['on block / when it defends / block effect', 'when this defends'],
+  ['arcane / deals arcane damage', 'arcane damage'],
+  ['draws / card draw', 'draw a card'],
+  ['prevents damage', 'prevent'],
+  ['recursion / gets cards back from the graveyard', 'from your graveyard'],
+  ['banishes / plays from banished zone', 'banish'],
+  ['makes tokens', 'create a'],
+  ['buffs the next attack', 'the next time'],
+];
+
 /** Extract + sanitise the model's JSON. null when no object can be found. */
-export function parseTranslation(raw: string): Translation | null {
+export function parseTranslation(raw: string, opts: { facetTagIds?: ReadonlySet<string> } = {}): Translation | null {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] ?? raw;
   const start = fenced.indexOf('{');
   const end = fenced.lastIndexOf('}');
@@ -77,6 +97,12 @@ export function parseTranslation(raw: string): Translation | null {
     if (Number.isFinite(n) && n >= 0) out[k] = n;
   }
   if (typeof f.heroLegal === 'string' && f.heroLegal.trim()) out.heroLegal = f.heroLegal.trim();
+  // Curated function tags — only ids that exist right now (the list is live,
+  // so the route passes it in); without a list the key is ignored entirely.
+  if (opts.facetTagIds) {
+    const facetTags = pickList(f.facetTags, opts.facetTagIds);
+    if (facetTags) out.facetTags = facetTags;
+  }
   return out;
 }
 
@@ -105,13 +131,14 @@ export function translationToOptState(filters: Translation): Partial<OptUiState>
   return state;
 }
 
-export function buildTranslateSystemPrompt(): string {
+export function buildTranslateSystemPrompt(opts: { facetTags?: FacetTagVocab[] } = {}): string {
+  const tags = opts.facetTags ?? [];
   return [
     'You translate a Flesh and Blood TCG card request written in plain English into ONE JSON object of search filters.',
     'Reply with the JSON object only — no prose, no code fence.',
     'Use only these keys (omit any you do not need):',
     '  name (card name to look up), text (rules-text phrase to search), classes[], talents[], keywords[], types[], rarities[], foilings[], editions[], sets[], format, pitch (1=red 2=yellow 3=blue; array for several), color (red|yellow|blue), heroLegal (hero name — cards that hero may play), heroAges[] (adult|young),',
-    '  costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, healthMin, healthMax, priceMin, priceMax (numbers; price is USD).',
+    '  costMin, costMax, powerMin, powerMax, defenseMin, defenseMax, arcaneMin, arcaneMax, healthMin, healthMax, priceMin, priceMax (numbers; price is USD)' + (tags.length ? ', facetTags[] (curated function tags, see list).' : '.'),
     `classes: ${ALL_CLASSES.join(', ')}`,
     `talents: ${ALL_TALENTS.join(', ')}`,
     `keywords: ${KEYWORDS.join(', ')}`,
@@ -121,11 +148,18 @@ export function buildTranslateSystemPrompt(): string {
     `editions: ${EDITION_OPTIONS.map((e) => `${e.value}=${e.label}`).join(', ')}`,
     `sets (codes): ${CARD_FILTER_SETS.join(', ')}`,
     `format: ${FORMATS.join(', ')} (cc = Classic Constructed, future_cc = CC plus unreleased sets, ll = Living Legend)`,
-    'Rules: a colour word means pitch/color, not a name. A class word (ninja, guardian…) is a class filter. A keyword phrase (go again, dominate…) is a keyword filter. Only use `name` when the user names a specific card; only use `text` for a rules-text phrase that is not a keyword. Do not invent values outside the lists.',
+    'Rules: a colour word means pitch/color, not a name. A class word (ninja, guardian…) is a class filter. A keyword phrase (go again, dominate…) is a keyword filter. Only use `name` when the user names a specific card. Do not invent values outside the lists.',
+    '`text` is a SUBSTRING match on printed rules text, so write the words as they appear on cards — the card template, never the player\'s paraphrase, and never filler like "effect", "ability", "cards that", "with". Common asks → printed phrasing:',
+    ...RULES_TEXT_PHRASINGS.map(([ask, text]) => `  ${ask} → text: "${text}"`),
+    ...(tags.length ? [
+      'facetTags are curated "what the card does" tags. Coverage is partial, so use one only for a function-level ask that has no printed phrasing (beats fatigue, combo enabler, disruption); for a mechanic with a printed phrasing use `text` instead, never both for the same idea. Available tags:',
+      ...tags.map((t) => `  ${t.id} = ${t.label}${t.def ? ` — ${t.def}` : ''}`),
+    ] : []),
     'Examples:',
     '  "blue ninja attacks with go again" → {"color":"blue","classes":["ninja"],"types":["attack"],"keywords":["go again"]}',
     '  "cheap majestics for dorinthea" → {"rarities":["m"],"heroLegal":"Dorinthea","priceMax":5}',
     '  "wizard cards that deal arcane damage" → {"classes":["wizard"],"text":"arcane damage"}',
+    '  "runeblade attack with on hit effect" → {"classes":["runeblade"],"types":["attack"],"text":"when this hits"}',
     '  "rainbow foil command and conquer" → {"name":"command and conquer","foilings":["r"]}',
   ].join('\n');
 }

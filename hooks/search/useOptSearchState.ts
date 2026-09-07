@@ -10,7 +10,7 @@
  * exercised by the /opt Playwright specs.
  */
 
-import { useEffect, useMemo, useReducer, useState, type Dispatch } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type Dispatch } from 'react';
 import { useDebounce } from 'use-debounce';
 import { optSearchReducer, type OptAction } from '@/lib/search/opt-search-reducer';
 import { DEFAULT_OPT_STATE, paramsToUiState, uiStateToParams, type OptUiState } from '@/lib/search/opt-url-state';
@@ -29,11 +29,28 @@ export interface OptSearchState {
   filters: PrintingsSearchFilters;
   hasAnyFilter: boolean;
   clearAll: () => void;
+  /**
+   * Apply a Volzar translation (chips + query + scope) so the FIRST search
+   * after Enter already uses the translated query. A plain PATCH would leave
+   * the 300ms-debounced query holding the English sentence for one render,
+   * firing a stale name/text search (0 results + a wrong URL) that could even
+   * land after the right one — useCardSearch has no request sequencing.
+   */
+  applyTranslation: (patch: Partial<OptUiState>) => void;
 }
 
 export function useOptSearchState(): OptSearchState {
   const [state, dispatch] = useReducer(optSearchReducer, DEFAULT_OPT_STATE);
-  const [debouncedQuery] = useDebounce(state.query, 300);
+  const [debouncedQueryRaw] = useDebounce(state.query, 300);
+  // Set by applyTranslation; while true the live query bypasses the debounce.
+  // Cleared once the debounce has caught up with the state.
+  const immediateRef = useRef(false);
+  if (immediateRef.current && debouncedQueryRaw === state.query) immediateRef.current = false;
+  const debouncedQuery = immediateRef.current ? state.query : debouncedQueryRaw;
+  const applyTranslation = useCallback((patch: Partial<OptUiState>) => {
+    immediateRef.current = true;
+    dispatch({ type: 'PATCH', patch });
+  }, []);
 
   // Hydrate once on mount from the URL (client-only: avoids SSR hydration
   // mismatch). `urlReady` gates the write-back so we never serialize default
@@ -71,5 +88,6 @@ export function useOptSearchState(): OptSearchState {
     filters,
     hasAnyFilter,
     clearAll: () => dispatch({ type: 'RESET' }),
+    applyTranslation,
   };
 }

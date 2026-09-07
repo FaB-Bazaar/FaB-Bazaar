@@ -13,11 +13,11 @@
  */
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { userService, llmUsageService } from '@/lib/services';
+import { userService, llmUsageService, facetService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { createLlm } from '@/lib/ai/openrouter';
 import { DEFAULT_CHAT_MODEL, dailyLimitFor, globalDailyLimit } from '@/lib/ai/tiers';
-import { buildTranslateSystemPrompt, parseTranslation, translationToOptState } from '@/lib/search/volzar-translate';
+import { buildTranslateSystemPrompt, parseTranslation, translationToOptState, type FacetTagVocab } from '@/lib/search/volzar-translate';
 
 const RATE_LIMIT = { limit: 30, windowMs: 3_600_000 }; // shares the chat's shape: 30/hour/user
 const MAX_QUESTION_CHARS = 300;
@@ -60,6 +60,16 @@ export async function POST(req: Request) {
     }
   }
 
+  // Live curated facet tags (non-draft) — listed in the prompt and used to
+  // validate what comes back. A failed read just means no tags this turn.
+  let facetTags: FacetTagVocab[] = [];
+  try {
+    const tags = await facetService.getTagUsageCounts();
+    if (tags.success) facetTags = tags.data.filter((t) => !t.draft).map((t) => ({ id: t.id, label: t.label, def: t.def ?? null }));
+  } catch (error) {
+    console.error('[volzar/translate] facet tag read failed:', error);
+  }
+
   // One completion, no tools: collect the text and the usage frame.
   const model = DEFAULT_CHAT_MODEL;
   const llm = createLlm({ model });
@@ -68,7 +78,7 @@ export async function POST(req: Request) {
   try {
     for await (const delta of llm({
       messages: [
-        { role: 'system', content: buildTranslateSystemPrompt() },
+        { role: 'system', content: buildTranslateSystemPrompt({ facetTags }) },
         { role: 'user', content: q },
       ],
       tools: [],
@@ -86,7 +96,7 @@ export async function POST(req: Request) {
     .then((r) => { if (!r.success) console.error('[volzar/translate] usage record failed:', r.error); })
     .catch((error) => console.error('[volzar/translate] usage record failed:', error));
 
-  const filters = parseTranslation(reply);
+  const filters = parseTranslation(reply, { facetTagIds: new Set(facetTags.map((t) => t.id)) });
   if (!filters) {
     return NextResponse.json({ error: 'Volzar could not turn that into a search — try rephrasing' }, { status: 422 });
   }

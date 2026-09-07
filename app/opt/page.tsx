@@ -42,7 +42,7 @@ export default function OptSearchPage() {
   // (hydrate on mount, replaceState write-back) live in useOptSearchState.
   const {
     state, dispatch, urlReady, debouncedQuery, filters, hasAnyFilter,
-    clearAll: resetFilters,
+    clearAll: resetFilters, applyTranslation,
   } = useOptSearchState();
   // Only the fields the page body itself reads — the filter popovers get the
   // whole state via buildFilterFacets (components/search/card-filter-facets).
@@ -98,7 +98,7 @@ export default function OptSearchPage() {
     try {
       const result = await translateQuery(q);
       if (!result.success) { setVolzarError(result.error); return; }
-      dispatch({ type: 'PATCH', patch: result.data.state });
+      applyTranslation(result.data.state);
     } finally {
       setVolzarBusy(false);
     }

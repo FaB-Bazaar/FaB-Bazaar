@@ -94,3 +94,39 @@ describe('buildTranslateSystemPrompt', () => {
     expect(p).toMatch(/JSON/);
   });
 });
+
+describe('rules-text phrasing + facet tags', () => {
+  const TAGS = [
+    { id: 'on-hit-payoff', label: 'On-hit payoff', def: '' },
+    { id: 'combo-enabler', label: 'Combo enabler', def: 'Sets up combo attacks' },
+  ];
+
+  it('the prompt teaches FaB templating so "on hit" becomes "when this hits", not the user\'s paraphrase', () => {
+    const p = buildTranslateSystemPrompt({ facetTags: TAGS });
+    expect(p).toContain('when this hits');
+    expect(p).toContain('when this defends');
+    expect(p).toContain('arcane damage');
+    expect(p).toMatch(/on hit/i);
+  });
+
+  it('the prompt lists the live facet tags with labels', () => {
+    const p = buildTranslateSystemPrompt({ facetTags: TAGS });
+    expect(p).toContain('on-hit-payoff');
+    expect(p).toContain('Combo enabler');
+  });
+
+  it('parseTranslation keeps facetTags that exist and drops the rest', () => {
+    const out = parseTranslation('{"facetTags":["combo-enabler","made-up-tag"],"classes":["ninja"]}', { facetTagIds: new Set(['combo-enabler']) });
+    expect(out).toEqual({ facetTags: ['combo-enabler'], classes: ['ninja'] });
+  });
+
+  it('parseTranslation drops facetTags entirely when no live list is supplied', () => {
+    expect(parseTranslation('{"facetTags":["combo-enabler"]}')).toEqual({});
+  });
+
+  it('facet tags map onto the /opt tags chips', () => {
+    const s = translationToOptState({ facetTags: ['combo-enabler'], classes: ['ninja'] });
+    expect(s.selectedFacets).toEqual(['combo-enabler']);
+    expect(s.selectedClasses).toEqual(['ninja']);
+  });
+});

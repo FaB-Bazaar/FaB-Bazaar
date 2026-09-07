@@ -10,13 +10,14 @@ vi.mock('@/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/services', () => ({
   userService: { getVolzarAccess: vi.fn() },
   llmUsageService: { getTodayRequestCount: vi.fn(), getTodayGlobalRequestCount: vi.fn(), recordTurn: vi.fn() },
+  facetService: { getTagUsageCounts: vi.fn() },
 }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn() }));
 vi.mock('@/lib/ai/openrouter', () => ({ createLlm: vi.fn() }));
 
 import { POST } from './route';
 import { auth } from '@/auth';
-import { userService, llmUsageService } from '@/lib/services';
+import { userService, llmUsageService, facetService } from '@/lib/services';
 import { rateLimit } from '@/lib/rate-limit';
 import { createLlm } from '@/lib/ai/openrouter';
 
@@ -27,6 +28,7 @@ const mockUsed = vi.mocked(llmUsageService.getTodayRequestCount);
 const mockUsedGlobal = vi.mocked(llmUsageService.getTodayGlobalRequestCount);
 const mockRecord = vi.mocked(llmUsageService.recordTurn);
 const mockCreateLlm = vi.mocked(createLlm);
+const mockTags = vi.mocked(facetService.getTagUsageCounts);
 
 /** An Llm whose only output is `reply` (plus a usage frame). */
 function scriptedLlm(reply: string) {
@@ -52,6 +54,10 @@ beforeEach(() => {
   mockUsed.mockResolvedValue({ success: true, data: 0 } as any);
   mockUsedGlobal.mockResolvedValue({ success: true, data: 0 } as any);
   mockRecord.mockResolvedValue({ success: true, data: undefined } as any);
+  mockTags.mockResolvedValue({ success: true, data: [
+    { id: 'combo-enabler', label: 'Combo enabler', def: 'Sets up combos', draft: false, cardCount: 12 },
+    { id: 'secret-draft', label: 'Draft tag', def: null, draft: true, cardCount: 0 },
+  ] } as any);
   mockCreateLlm.mockReturnValue(scriptedLlm('{"classes":["ninja"],"color":"blue","keywords":["go again"]}') as any);
 });
 
@@ -88,6 +94,16 @@ describe('POST /api/volzar/translate', () => {
     const json = await res.json();
     expect(json.data.state.selectedClasses).toEqual(['ninja']);
     expect(json.data.state.selectedKeywords).toEqual([]);
+  });
+
+  it('passes live non-draft facet tags to the model and accepts them back as tag chips', async () => {
+    mockCreateLlm.mockReturnValue(scriptedLlm('{"facetTags":["combo-enabler","secret-draft","nope"],"classes":["ninja"]}') as any);
+    const res = await POST(request({ q: 'ninja combo enablers' }));
+    const json = await res.json();
+    expect(json.data.state.selectedFacets).toEqual(['combo-enabler']);
+    // The prompt the model saw lists the live tag and the phrasing cheat sheet.
+    const llm = mockCreateLlm.mock.results[0].value;
+    expect(llm).toBeTypeOf('function');
   });
 
   it('422s when the model returns no usable JSON', async () => {
