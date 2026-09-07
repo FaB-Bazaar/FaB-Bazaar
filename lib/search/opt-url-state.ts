@@ -14,6 +14,8 @@
  * useSearchParams (read on mount) + history.replaceState (write on change).
  */
 
+import { DEFAULT_GRID_COLS, isGridCols, type GridCols } from './grid-columns';
+
 export type HeroAge = 'adult' | 'young';
 export type ViewMode = 'images' | 'checklist';
 
@@ -49,6 +51,8 @@ export interface OptUiState {
   sortBy: string;
   sortOrder: string;
   viewMode: ViewMode;
+  /** Image-grid tile density on wide screens (4/5/6 wide; 6 = default ramp). */
+  gridCols: GridCols;
   groupByCard: boolean;
 }
 
@@ -81,6 +85,7 @@ export const DEFAULT_OPT_STATE: OptUiState = {
   sortBy: 'name',
   sortOrder: 'asc',
   viewMode: 'images',
+  gridCols: DEFAULT_GRID_COLS,
   groupByCard: true,
 };
 
@@ -129,6 +134,7 @@ export function uiStateToParams(s: OptUiState): URLSearchParams {
   if (s.sortBy !== DEFAULT_OPT_STATE.sortBy) p.set('sortBy', s.sortBy);
   if (s.sortOrder !== DEFAULT_OPT_STATE.sortOrder) p.set('sortOrder', s.sortOrder);
   if (s.viewMode !== DEFAULT_OPT_STATE.viewMode) p.set('view', s.viewMode);
+  if (s.gridCols !== DEFAULT_OPT_STATE.gridCols) p.set('cols', String(s.gridCols));
   if (s.groupByCard !== DEFAULT_OPT_STATE.groupByCard) p.set('group', s.groupByCard ? '1' : '0');
   return p;
 }
@@ -171,6 +177,7 @@ export function paramsToUiState(p: URLSearchParams): Partial<OptUiState> {
   const sortBy = p.get('sortBy'); if (sortBy) out.sortBy = sortBy;
   const sortOrder = p.get('sortOrder'); if (sortOrder) out.sortOrder = sortOrder;
   const view = p.get('view'); if (view === 'images' || view === 'checklist') out.viewMode = view;
+  const cols = Number(p.get('cols')); if (isGridCols(cols)) out.gridCols = cols;
   const group = p.get('group'); if (group === '0' || group === '1') out.groupByCard = group === '1';
   return out;
 }

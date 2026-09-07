@@ -132,3 +132,23 @@ describe('health range params', () => {
     expect(s.healthMax).toBe('20');
   });
 });
+
+describe('grid columns (image tile density)', () => {
+  it('defaults to 6 and omits the param at the default', () => {
+    expect(DEFAULT_OPT_STATE.gridCols).toBe(6);
+    expect(uiStateToParams(state({ gridCols: 6 })).has('cols')).toBe(false);
+  });
+
+  it('serializes 4 / 5 and parses them back', () => {
+    expect(uiStateToParams(state({ gridCols: 4 })).get('cols')).toBe('4');
+    expect(uiStateToParams(state({ gridCols: 5 })).get('cols')).toBe('5');
+    expect(paramsToUiState(new URLSearchParams('cols=4')).gridCols).toBe(4);
+    expect(paramsToUiState(new URLSearchParams('cols=6')).gridCols).toBe(6);
+  });
+
+  it('ignores out-of-range or junk cols', () => {
+    expect(paramsToUiState(new URLSearchParams('cols=3')).gridCols).toBeUndefined();
+    expect(paramsToUiState(new URLSearchParams('cols=12')).gridCols).toBeUndefined();
+    expect(paramsToUiState(new URLSearchParams('cols=abc')).gridCols).toBeUndefined();
+  });
+});

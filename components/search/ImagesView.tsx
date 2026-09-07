@@ -10,6 +10,7 @@ import FoilCardImage from '@/components/shared/FoilCardImage';
 import { CardDetailsLightbox } from '@/components/cards/CardDetailsLightbox';
 import { artStylesFromPrinting, foilInsetFromValues } from '@/lib/foil';
 import { languageFlag } from '@/lib/utils/printing-language';
+import { gridColsClass, type GridCols } from '@/lib/search/grid-columns';
 
 interface ImagesViewProps {
   printings: any[];
@@ -17,6 +18,8 @@ interface ImagesViewProps {
   isCardSelected?: (printingId: string) => boolean;
   getCardQuantity?: (printingId: string) => number;
   onUpdateQuantity?: (printingId: string, quantity: number) => void;
+  /** Tile density on wide screens (4/5/6 wide). Omit for the default 6-wide ramp. */
+  columns?: GridCols;
 }
 
 // Helper to get edition display name
@@ -57,6 +60,7 @@ export function ImagesView({
   isCardSelected,
   getCardQuantity,
   onUpdateQuantity,
+  columns,
 }: ImagesViewProps) {
   const selectionEnabled = onToggleSelection && isCardSelected && getCardQuantity && onUpdateQuantity;
 
@@ -95,7 +99,7 @@ export function ImagesView({
 
   return (
     <>
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <div data-testid="images-grid" className={`grid ${gridColsClass(columns)} gap-4`}>
       {printings.map((printing: any) => {
         const isSelected = selectionEnabled && isCardSelected(printing.printing_id);
         const quantity = selectionEnabled ? getCardQuantity(printing.printing_id) : 1;

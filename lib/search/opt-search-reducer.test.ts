@@ -214,3 +214,12 @@ describe('health range actions', () => {
     expect(s.healthMax).toBe('');
   });
 });
+
+describe('RESET preserves gridCols (a view pref, not a filter)', () => {
+  it('keeps a non-default gridCols across clear-all', () => {
+    const dirty = optSearchReducer(DEFAULT_OPT_STATE, { type: 'PATCH', patch: { query: 'x', gridCols: 4 } });
+    const s = optSearchReducer(dirty, { type: 'RESET' });
+    expect(s.query).toBe('');
+    expect(s.gridCols).toBe(4);
+  });
+});

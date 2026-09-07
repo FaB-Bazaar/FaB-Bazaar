@@ -67,6 +67,7 @@ export function optSearchReducer(state: OptUiState, action: OptAction): OptUiSta
         sortBy: state.sortBy,
         sortOrder: state.sortOrder,
         viewMode: state.viewMode,
+        gridCols: state.gridCols,
         groupByCard: state.groupByCard,
       };
 
