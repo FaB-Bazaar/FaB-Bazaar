@@ -38,3 +38,22 @@ describe('chip icon CDN ids', () => {
     expect(allIconUrls().length).toBeGreaterThan(40);
   });
 });
+
+describe('TYPE_CHIPS coverage', () => {
+  const byApi = new Map(TYPE_CHIPS.map((c) => [c.apiType, c]));
+
+  it('includes the newer card types (zombie, aura, arrow, trap, token, dragon, figment, invocation)', () => {
+    for (const t of ['zombie', 'aura', 'arrow', 'trap', 'token', 'dragon', 'figment', 'invocation']) {
+      expect(byApi.has(t), `missing type chip: ${t}`).toBe(true);
+    }
+  });
+
+  it('chip values and apiTypes are unique (value is the URL token, apiType the server filter)', () => {
+    expect(new Set(TYPE_CHIPS.map((c) => c.value)).size).toBe(TYPE_CHIPS.length);
+    expect(new Set(TYPE_CHIPS.map((c) => c.apiType)).size).toBe(TYPE_CHIPS.length);
+  });
+
+  it('fills the 4-wide grid evenly (no orphan row in the Type popover)', () => {
+    expect(TYPE_CHIPS.length % 4).toBe(0);
+  });
+});

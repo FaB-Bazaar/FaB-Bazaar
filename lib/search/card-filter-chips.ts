@@ -33,6 +33,17 @@ export const TYPE_CHIPS: ChipDef[] = [
   { label: 'Gem',       value: 'gem',               apiType: 'gem',              active: 'bg-pink-900/50 border-pink-600',          dot: 'bg-pink-400',    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/ARC000-CF-1E/public', iconPosition: 'center 24%' },
   { label: 'Ally',      value: 'ally',              apiType: 'ally',             active: 'bg-green-900/50 border-green-600',       dot: 'bg-green-500',   iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/SEA050/public', iconPosition: 'center 24%' },
   { label: 'Evo',       value: 'evo',               apiType: 'evo',              active: 'bg-sky-900/50 border-sky-600',            dot: 'bg-sky-400',     iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/EVO027-CF-AB/public', iconPosition: 'center 24%' },
+  // Row 5 — subtypes that matter for deckbuilding (matched against cards.types
+  // like every other chip, so "Aura" catches "Action - Aura" and token auras).
+  { label: 'Aura',      value: 'aura',              apiType: 'aura',             active: 'bg-violet-900/50 border-violet-600',      dot: 'bg-violet-400',  iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP054/public', iconPosition: 'center 24%' },
+  { label: 'Arrow',     value: 'arrow',             apiType: 'arrow',            active: 'bg-lime-900/50 border-lime-600',          dot: 'bg-lime-400',    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP228/public', iconPosition: 'center 24%' },
+  { label: 'Trap',      value: 'trap',              apiType: 'trap',             active: 'bg-yellow-900/50 border-yellow-600',      dot: 'bg-yellow-400',  iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/AMO019/public', iconPosition: 'center 24%' },
+  { label: 'Token',     value: 'token',             apiType: 'token',            active: 'bg-stone-700 border-stone-500',           dot: 'bg-stone-400',   iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/1HP085/public', iconPosition: 'center 24%' },
+  // Row 6
+  { label: 'Zombie',    value: 'zombie',            apiType: 'zombie',           active: 'bg-fuchsia-900/50 border-fuchsia-600',    dot: 'bg-fuchsia-400', iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/AMA014/public', iconPosition: 'center 24%' },
+  { label: 'Dragon',    value: 'dragon',            apiType: 'dragon',           active: 'bg-rose-900/50 border-rose-600',          dot: 'bg-rose-400',    iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/DRO003/public', iconPosition: 'center 24%' },
+  { label: 'Figment',   value: 'figment',           apiType: 'figment',          active: 'bg-indigo-900/50 border-indigo-600',      dot: 'bg-indigo-400',  iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/DTD005-CF-EA-EA/public', iconPosition: 'center 24%' },
+  { label: 'Invo­cation', value: 'invocation',       apiType: 'invocation',       active: 'bg-amber-900/50 border-amber-500',        dot: 'bg-amber-300',   iconUrl: 'https://imagedelivery.net/jR5MG4_30kkyiS4RKxXOPg/DYN212-CF/public', iconPosition: 'center 24%' },
 ];
 
 export const GENERIC_CHIP: ChipDef = {
