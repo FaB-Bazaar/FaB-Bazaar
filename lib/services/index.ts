@@ -63,6 +63,7 @@ import { PostgresSiteSettingsService } from './postgres/site-settings/PostgresSi
 import { PostgresFeedOverridesService } from './postgres/feed-overrides/PostgresFeedOverridesService';
 import { PostgresFoilMaskService } from './postgres/foil-mask/PostgresFoilMaskService';
 import { PostgresIngestService } from './postgres/ingest/PostgresIngestService';
+import { PostgresScanService } from './postgres/scan/PostgresScanService';
 import { PostgresMcpUsageService } from './postgres/mcp-usage/PostgresMcpUsageService';
 import { PostgresLlmUsageService } from './postgres/llm-usage/PostgresLlmUsageService';
 import { PostgresSetsService } from './postgres/sets/PostgresSetsService';
@@ -598,6 +599,7 @@ export const collectibleService = ServiceFactory.collectibleService;
 export const feedOverridesService = new PostgresFeedOverridesService();
 export const foilMaskService = new PostgresFoilMaskService();
 export const ingestService = new PostgresIngestService();
+export const scanService = new PostgresScanService();
 
 
 /**

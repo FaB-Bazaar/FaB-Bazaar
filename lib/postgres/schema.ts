@@ -23,6 +23,7 @@ import {
   jsonb,
   primaryKey,
   type AnyPGColumn,
+  char,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
@@ -1691,6 +1692,17 @@ export const bannedCards = pgTable('banned_cards', {
 // pipeline's compute_movers step (DuckDB → Postgres reverse-ETL). The app reads
 // this table to render the /daily page; nothing in the app should INSERT here.
 // 1-year retention is enforced by the pipeline.
+
+// Perceptual-hash index for the card scanner (/scan). Migration 0109.
+// Built by scripts/compute-image-hashes.ts; loaded whole into memory by
+// PostgresScanService and ranked by Hamming distance. Not pipeline-owned.
+export const printingImageHashes = pgTable('printing_image_hashes', {
+  printingId: text('printing_id').primaryKey().references(() => printings.printingId, { onDelete: 'cascade' }),
+  phash: char('phash', { length: 16 }).notNull(),
+  dhash: char('dhash', { length: 16 }).notNull(),
+  imageUrl: text('image_url').notNull(),
+  computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const dailyMovers = pgTable('daily_movers', {
   asOfDate: date('as_of_date').notNull(),

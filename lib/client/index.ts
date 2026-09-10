@@ -30,6 +30,7 @@ export * as customTokenCardsClient from './custom-token-cards-client';
 export * as dailyClient from './daily-client';
 export * as volzarClient from './volzar-client';
 export * as collectiblesClient from './collectibles-client';
+export * as scanClient from './scan-client';
 
 // Re-export specific types from search-client for convenience
 export type {
