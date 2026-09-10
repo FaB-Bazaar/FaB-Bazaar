@@ -549,6 +549,10 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
   'kavdaen, trader of skins': {
     cardUniqueId: 'rgq8FqBMdhn9khbwjDK6Q', classes: ['merchant'], talents: [], shortName: 'kavdaen' },
 
+  // Generic (classless) — Baalghor is a young-only shadow demon hero (IAR159)
+  'baalghor, omen of the end': {
+    cardUniqueId: 'FmWWpM8FLJCCzQLKBwwKk', classes: ['generic'], talents: ['shadow'], shortName: 'baalghor' },
+
   // Mechanologists
   'dash': {
     cardUniqueId: 'kftPnNkrBLJ7rPmFGgQCm', classes: ['mechanologist'], talents: [], shortName: 'dash' },

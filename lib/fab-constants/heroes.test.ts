@@ -632,3 +632,29 @@ describe('IAR heroes — Malice & Viserai', () => {
     expect(validateHeroFormatLegality('viserai, between worlds', 'cc').ok).toBe(false);
   });
 });
+
+// Baalghor (IAR159) is a young-only shadow demon hero with no class of his own
+// (DB: classes {generic}, talents {shadow}). He had Talishar entries in
+// heroes-meta.ts but no roster entry, so Silver Age / Blitz matchup grids and
+// hero-format validation didn't know him.
+describe('IAR heroes — Baalghor, Omen of the End', () => {
+  it('is in YOUNG_HERO_INFO as a generic-class shadow hero', () => {
+    const info = YOUNG_HERO_INFO['baalghor, omen of the end'];
+    expect(info).toBeDefined();
+    expect(info.cardUniqueId).toBe('FmWWpM8FLJCCzQLKBwwKk');
+    expect(info.classes).toEqual(['generic']);
+    expect(info.talents).toEqual(['shadow']);
+    expect(HERO_INFO['baalghor, omen of the end']).toBeUndefined();
+  });
+
+  it('is legal in silver_age and blitz, not in cc / future_cc', () => {
+    expect(validateHeroFormatLegality('baalghor, omen of the end', 'silver_age')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('baalghor, omen of the end', 'blitz')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('baalghor, omen of the end', 'cc').ok).toBe(false);
+    expect(validateHeroFormatLegality('baalghor, omen of the end', 'future_cc').ok).toBe(false);
+  });
+
+  it('resolves via the "baalghor" shortName', () => {
+    expect(getHeroInfo('baalghor')?.cardUniqueId).toBe('FmWWpM8FLJCCzQLKBwwKk');
+  });
+});
