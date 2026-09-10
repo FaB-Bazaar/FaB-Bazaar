@@ -560,3 +560,75 @@ describe('validateHeroFormatLegality — Future Classic Constructed', () => {
     if (!young.ok) expect(young.error).toContain('Future Classic Constructed');
   });
 });
+
+// IAR (Usurp the Shadow Throne) heroes were in the DB but not in the static
+// rosters, so the deck matchup grid, /api/hero-printings and hero-format
+// validation all had no idea Malice / Viserai, the Forsaken existed.
+// card_unique_ids verified against prod via search_printings (sets:[iar], types:[hero]).
+describe('IAR heroes — Malice & Viserai', () => {
+  it('adult Malice, Domina of the Dead is a shadow necromancer in HERO_INFO', () => {
+    const info = HERO_INFO['malice, domina of the dead'];
+    expect(info).toBeDefined();
+    expect(info.cardUniqueId).toBe('rBbRqEjWSWEdE1qSSfTau');
+    expect(info.classes).toEqual(['necromancer']);
+    expect(info.talents).toEqual(['shadow']);
+  });
+
+  it('young Malice is in YOUNG_HERO_INFO with the young card id', () => {
+    const young = YOUNG_HERO_INFO['malice'];
+    expect(young).toBeDefined();
+    expect(young.cardUniqueId).toBe('p41fJeJE2jQZqPsom66wd');
+    expect(young.cardUniqueId).not.toBe(HERO_INFO['malice, domina of the dead'].cardUniqueId);
+    expect(young.classes).toEqual(['necromancer']);
+    expect(young.talents).toEqual(['shadow']);
+  });
+
+  it('adult Viserai, the Forsaken is a shadow runeblade — distinct from Viserai, Rune Blood', () => {
+    const info = HERO_INFO['viserai, the forsaken'];
+    expect(info).toBeDefined();
+    expect(info.cardUniqueId).toBe('gdmOiOhZTn2i5G2Bh3YVt');
+    expect(info.cardUniqueId).not.toBe(HERO_INFO['viserai, rune blood'].cardUniqueId);
+    expect(info.classes).toEqual(['runeblade']);
+    expect(info.talents).toEqual(['shadow']);
+  });
+
+  it('young Viserai, Between Worlds is in YOUNG_HERO_INFO — distinct from young Viserai', () => {
+    const young = YOUNG_HERO_INFO['viserai, between worlds'];
+    expect(young).toBeDefined();
+    expect(young.cardUniqueId).toBe('IWzODTxtdwDV588ZRhqbE');
+    expect(young.cardUniqueId).not.toBe(YOUNG_HERO_INFO['viserai'].cardUniqueId);
+    expect(young.classes).toEqual(['runeblade']);
+    expect(young.talents).toEqual(['shadow']);
+  });
+
+  it('"viserai" nickname still means Viserai, Rune Blood', () => {
+    expect(HERO_NICKNAMES['viserai']).toBe('Viserai, Rune Blood');
+  });
+
+  it('"malice" nickname resolves to the adult hero (levia pattern)', () => {
+    expect(HERO_NICKNAMES['malice' as keyof typeof HERO_NICKNAMES]).toBe('Malice, Domina of the Dead');
+  });
+
+  it('has Talishar slugs matching LegalHeroesHelper.php', () => {
+    expect(TALISHAR_HERO_SLUGS['malice, domina of the dead']).toBe('malice_domina_of_the_dead');
+    expect(TALISHAR_HERO_SLUGS['malice']).toBe('malice');
+    expect(TALISHAR_HERO_SLUGS['viserai, the forsaken']).toBe('viserai_the_forsaken');
+    expect(TALISHAR_HERO_SLUGS['viserai, between worlds']).toBe('viserai_between_worlds');
+  });
+
+  it('has Talishar collector ids (IAR)', () => {
+    expect(TALISHAR_HERO_IDS['malice, domina of the dead']).toBe('IAR053');
+    expect(TALISHAR_HERO_IDS['malice']).toBe('IAR054');
+    expect(TALISHAR_HERO_IDS['viserai, the forsaken']).toBe('IAR106');
+    expect(TALISHAR_HERO_IDS['viserai, between worlds']).toBe('IAR107');
+  });
+
+  it('adult forms are legal in cc / future_cc, young forms in silver_age / blitz', () => {
+    expect(validateHeroFormatLegality('malice, domina of the dead', 'future_cc')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('viserai, the forsaken', 'cc')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('malice', 'silver_age')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('viserai, between worlds', 'blitz')).toEqual({ ok: true });
+    expect(validateHeroFormatLegality('malice', 'future_cc').ok).toBe(false);
+    expect(validateHeroFormatLegality('viserai, between worlds', 'cc').ok).toBe(false);
+  });
+});

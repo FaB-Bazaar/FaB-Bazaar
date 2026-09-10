@@ -213,6 +213,12 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     talents: ['pirate'],
     shortName: 'gravy'
   },
+  'malice, domina of the dead': {
+    cardUniqueId: 'rBbRqEjWSWEdE1qSSfTau',
+    classes: ['necromancer'],
+    talents: ['shadow'],
+    shortName: 'malice'
+  },
 
   // Ninjas
   'cindra, dracai of retribution': {
@@ -313,6 +319,12 @@ export const HERO_INFO: Record<string, HeroInfo> = {
     classes: ['runeblade'],
     talents: [],
     shortName: 'viserai'
+  },
+  'viserai, the forsaken': {
+    cardUniqueId: 'gdmOiOhZTn2i5G2Bh3YVt',
+    classes: ['runeblade'],
+    talents: ['shadow'],
+    shortName: 'forsaken'
   },
   'vynnset, iron maiden': {
     cardUniqueId: '9CwWmnzhhfLbJgc6q7Hm7',
@@ -508,6 +520,8 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
   },
   'viserai': {
     cardUniqueId: 'RHnFkKb8FKdFzp9rdzGjF', classes: ['runeblade'], talents: [], shortName: 'viserai' },
+  'viserai, between worlds': {
+    cardUniqueId: 'IWzODTxtdwDV588ZRhqbE', classes: ['runeblade'], talents: ['shadow'], shortName: 'viserai-bw' },
   'vynnset': {
     cardUniqueId: 'WhKb7MKbcDLhGThWGP8hT', classes: ['runeblade'], talents: ['shadow'], shortName: 'vynnset' },
 
@@ -528,6 +542,8 @@ export const YOUNG_HERO_INFO: Record<string, HeroInfo> = {
   // Necromancer
   'gravy bones': {
     cardUniqueId: 'Fq9Cg9pKGFKrTbfHq9mBb', classes: ['necromancer'], talents: ['pirate'], shortName: 'gravy' },
+  'malice': {
+    cardUniqueId: 'p41fJeJE2jQZqPsom66wd', classes: ['necromancer'], talents: ['shadow'], shortName: 'malice-y' },
 
   // Merchant
   'kavdaen, trader of skins': {

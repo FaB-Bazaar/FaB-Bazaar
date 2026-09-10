@@ -48,6 +48,7 @@ export const HERO_NICKNAMES = {
   'levia': 'Levia, Shadowborn Abomination',
   'lexi': 'Lexi, Livewire',
   'lyath': 'Lyath Goldmane, Vile Savant',
+  'malice': 'Malice, Domina of the Dead',
   'marlynn': 'Marlynn, Treasure Hunter',
   'maxx': 'Maxx \'The Hype\' Nitro',
   'nuu': 'Nuu, Alluring Desire',
