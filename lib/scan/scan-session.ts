@@ -27,12 +27,12 @@ export interface ScanState {
 
 export const initialScanState: ScanState = { items: [] };
 
-// Combined Hamming distance bands (0..256 = 2×art + phash + dhash), from
-// scripts/scan-eval.ts on the PEN+SEA index (2026-09): correct matches p90 40
-// (normal) / 64 (harsh) / 54 (table scene), max 76; wrong matches start at 68.
-// Re-measure after changing the hash pipeline or after the full-index build.
-export const CONFIDENT_MAX_DISTANCE = 44;
-export const PLAUSIBLE_MAX_DISTANCE = 66;
+// Combined Hamming distance bands (0..192 = 2×art + whole-card, dataset-exact
+// pHashes), from scripts/scan-eval.ts on the FULL English index (17,046 rows,
+// 2026-09): correct matches p90 28 (normal) / 42 (harsh) / 26 (table scene),
+// max 54; wrong matches start at 36. Re-measure after changing the hash pipeline.
+export const CONFIDENT_MAX_DISTANCE = 30;
+export const PLAUSIBLE_MAX_DISTANCE = 48;
 export type MatchConfidence = 'confident' | 'plausible' | 'weak';
 export function matchConfidence(distance: number | null): MatchConfidence {
   if (distance === null) return 'weak';

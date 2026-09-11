@@ -1699,7 +1699,8 @@ export const bannedCards = pgTable('banned_cards', {
 export const printingImageHashes = pgTable('printing_image_hashes', {
   printingId: text('printing_id').primaryKey().references(() => printings.printingId, { onDelete: 'cascade' }),
   phash: char('phash', { length: 16 }).notNull(),
-  dhash: char('dhash', { length: 16 }).notNull(),
+  /** Gradient hash; NULL for rows imported from the fab-cube dataset (migration 0111). */
+  dhash: char('dhash', { length: 16 }),
   /** pHash of the fixed art rectangle (migration 0110). NULL until the row is rebuilt. */
   artPhash: char('art_phash', { length: 16 }),
   imageUrl: text('image_url').notNull(),

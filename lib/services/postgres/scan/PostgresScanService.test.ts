@@ -114,7 +114,7 @@ describe('PostgresScanService', () => {
     if (!res.success) return;
     const first = res.data.candidates[0];
     expect(first.cards.some(c => c.cardUniqueId === sameCardUniqueId)).toBe(true);
-    expect(first.distance).toBe(16);
+    expect(first.distance).toBe(8); // 2×art(0) + whole-card(8)
   });
 
   it('filterKnownPrintingIds keeps only ids that exist in printings', async () => {
@@ -125,6 +125,8 @@ describe('PostgresScanService', () => {
   });
 
   it('countHashes reports total, rows with an art hash, and the latest computed_at', async () => {
+    // start from no rows for the fixture printings (a full index has them); afterEach restores the snapshot
+    await db.delete(printingImageHashes).where(inArray(printingImageHashes.printingId, [sameCardA, sameCardB, otherCard]));
     const before = await service.countHashes();
     expect(before.success).toBe(true);
     if (!before.success) return;
@@ -135,9 +137,8 @@ describe('PostgresScanService', () => {
     const after = await service.countHashes();
     expect(after.success).toBe(true);
     if (!after.success) return;
-    const snapTotal = snapshot.length, snapArt = snapshot.filter(r => r.artPhash).length;
-    expect(after.data.total - before.data.total).toBe(2 - snapTotal);
-    expect(after.data.withArt - before.data.withArt).toBe(1 - snapArt);
+    expect(after.data.total - before.data.total).toBe(2);
+    expect(after.data.withArt - before.data.withArt).toBe(1);
     expect(typeof after.data.latestComputedAt).toBe('string');
   });
 });

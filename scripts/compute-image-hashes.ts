@@ -77,7 +77,7 @@ async function main() {
   const failures: string[] = [];
   const started = Date.now();
   let cursor = 0;
-  const pending: Array<{ printingId: string; phash: string; dhash: string; artHash: string; imageUrl: string }> = [];
+  const pending: Array<{ printingId: string; phash: string; dhash: string | null; artHash: string | null; imageUrl: string }> = [];
 
   async function flush() {
     if (pending.length === 0) return;
@@ -93,7 +93,7 @@ async function main() {
       try {
         const bytes = await fetchWithRetry(item.imageUrl);
         const h = await hashImage(bytes, { deskew: false }); // renders are flat + full-bleed; deskew is for photos
-        for (const printingId of item.printingIds) pending.push({ printingId, phash: h.phash, dhash: h.dhash, artHash: h.artHash, imageUrl: item.imageUrl });
+        for (const printingId of item.printingIds) pending.push({ printingId, phash: h.phash, dhash: h.dhash ?? null, artHash: h.artHash, imageUrl: item.imageUrl });
       } catch (err) {
         failed++;
         failures.push(`${item.imageUrl}: ${err instanceof Error ? err.message : String(err)}`);

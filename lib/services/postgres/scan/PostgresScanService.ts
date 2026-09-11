@@ -83,11 +83,11 @@ export class PostgresScanService {
     this.loading = null;
   }
 
-  async upsertHashes(rows: Array<{ printingId: string; phash: string; dhash: string; artHash?: string | null; imageUrl: string }>): AsyncResult<{ upserted: number }> {
+  async upsertHashes(rows: Array<{ printingId: string; phash: string; dhash?: string | null; artHash?: string | null; imageUrl: string }>): AsyncResult<{ upserted: number }> {
     try {
       if (rows.length === 0) return { success: true, data: { upserted: 0 } };
       await db.insert(printingImageHashes)
-        .values(rows.map(r => ({ printingId: r.printingId, phash: r.phash, dhash: r.dhash, artPhash: r.artHash ?? null, imageUrl: r.imageUrl })))
+        .values(rows.map(r => ({ printingId: r.printingId, phash: r.phash, dhash: r.dhash ?? null, artPhash: r.artHash ?? null, imageUrl: r.imageUrl })))
         .onConflictDoUpdate({
           target: printingImageHashes.printingId,
           set: {
@@ -154,7 +154,7 @@ export class PostgresScanService {
         })
         .from(printingImageHashes)
         .innerJoin(printings, eq(printings.printingId, printingImageHashes.printingId));
-      return { success: true, data: rows.map(r => ({ id: r.printingId, printingId: r.printingId, cardUniqueId: r.cardUniqueId, phash: r.phash.trim(), dhash: r.dhash.trim(), artHash: r.artPhash?.trim() ?? null })) };
+      return { success: true, data: rows.map(r => ({ id: r.printingId, printingId: r.printingId, cardUniqueId: r.cardUniqueId, phash: r.phash.trim(), dhash: r.dhash?.trim() ?? null, artHash: r.artPhash?.trim() ?? null })) };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to load hash index' };
     }

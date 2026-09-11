@@ -86,7 +86,7 @@ async function main() {
   const pct = (n: number) => `${((100 * n) / rows.length).toFixed(1)}%`;
   console.log(`n=${rows.length} index=${(await service.listHashIndex() as any).data.length} mode=${HARSH ? 'harsh' : 'normal'}${SCENE ? '+scene' : ''} deskewed=${deskewedCount}/${rows.length}`);
   console.log(`top-1 by name: ${top1} (${pct(top1)})   top-3: ${top3} (${pct(top3)})   misses: ${rows.length - top1} (${deskewedMiss} of them deskewed)`);
-  console.log(`match distance 0..256 (top-1 hits): min=${dists[0]} p50=${dists[Math.floor(dists.length / 2)]} p90=${dists[Math.floor(dists.length * 0.9)]} max=${dists[dists.length - 1]}`);
+  console.log(`match distance 0..192 (top-1 hits): min=${dists[0]} p50=${dists[Math.floor(dists.length / 2)]} p90=${dists[Math.floor(dists.length * 0.9)]} max=${dists[dists.length - 1]}`);
   const missD = misses.map(m => Number(m.match(/d=(\d+)/)?.[1])).filter(n => !Number.isNaN(n)).sort((a, b) => a - b);
   if (missD.length) console.log(`wrong-match distance: min=${missD[0]} p50=${missD[Math.floor(missD.length / 2)]}`);
   const withPitch = pitchOk + pitchNull + pitchWrong;

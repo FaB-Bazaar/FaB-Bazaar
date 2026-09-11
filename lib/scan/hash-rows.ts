@@ -8,7 +8,7 @@ const HEX16 = /^[0-9a-f]{16}$/i;
 export interface HashRow {
   printingId: string;
   phash: string;
-  dhash: string;
+  dhash: string | null;
   artHash: string | null;
   imageUrl: string;
 }
@@ -25,14 +25,18 @@ export function validateHashRows(input: unknown): ValidateResult {
     if (!r || typeof r !== 'object') return { ok: false, error: `row ${i}: not an object` };
     if (typeof r.printingId !== 'string' || !r.printingId) return { ok: false, error: `row ${i}: printingId is required` };
     if (typeof r.phash !== 'string' || !HEX16.test(r.phash)) return { ok: false, error: `row ${i}: phash must be 16 hex chars` };
-    if (typeof r.dhash !== 'string' || !HEX16.test(r.dhash)) return { ok: false, error: `row ${i}: dhash must be 16 hex chars` };
+    let dhash: string | null = null;
+    if (r.dhash !== undefined && r.dhash !== null) {
+      if (typeof r.dhash !== 'string' || !HEX16.test(r.dhash)) return { ok: false, error: `row ${i}: dhash must be 16 hex chars or null` };
+      dhash = r.dhash.toLowerCase();
+    }
     let artHash: string | null = null;
     if (r.artHash !== undefined && r.artHash !== null) {
       if (typeof r.artHash !== 'string' || !HEX16.test(r.artHash)) return { ok: false, error: `row ${i}: artHash must be 16 hex chars or null` };
       artHash = r.artHash.toLowerCase();
     }
     if (typeof r.imageUrl !== 'string' || !r.imageUrl) return { ok: false, error: `row ${i}: imageUrl is required` };
-    byId.set(r.printingId, { printingId: r.printingId, phash: r.phash.toLowerCase(), dhash: r.dhash.toLowerCase(), artHash, imageUrl: r.imageUrl });
+    byId.set(r.printingId, { printingId: r.printingId, phash: r.phash.toLowerCase(), dhash, artHash, imageUrl: r.imageUrl });
   }
   return { ok: true, rows: [...byId.values()] };
 }

@@ -56,7 +56,7 @@ async function main() {
     .from(printingImageHashes)
     .innerJoin(printings, eq(printings.printingId, printingImageHashes.printingId));
   const fetched = await (SETS?.length ? base.where(inArray(printings.set, SETS)) : base).orderBy(asc(printingImageHashes.printingId));
-  let rows = fetched.map(r => ({ ...r, phash: r.phash.trim(), dhash: r.dhash.trim(), artHash: r.artHash?.trim() ?? null }));
+  let rows = fetched.map(r => ({ ...r, phash: r.phash.trim(), dhash: r.dhash?.trim() ?? null, artHash: r.artHash?.trim() ?? null }));
   if (LIMIT) rows = rows.slice(0, LIMIT);
   if (rows.length === 0) { console.error('no local hash rows to push' + (SETS ? ` for sets ${SETS.join(',')}` : '')); process.exit(1); }
   const noArt = rows.filter(r => !r.artHash).length;

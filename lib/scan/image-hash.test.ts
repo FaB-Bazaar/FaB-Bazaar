@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { hashImage, pitchHint, analyzeImage, analyzeImageMulti } from './image-hash';
+import { decimalToHex } from './phash-exact';
 import { rankByDistance, hamming, type HashIndexEntry } from './phash';
 
 const FIX = path.join(__dirname, '__fixtures__');
@@ -37,6 +38,13 @@ describe('hashImage', () => {
     }
   });
 
+  it('index-side hashes of a flat render equal the fab-cube dataset values (bit-exact port)', async () => {
+    // oracle from the dataset script run on lib/scan/__fixtures__/WTR001-UL.png
+    const h = await hashImage(fs.readFileSync(path.join(FIX, 'WTR001-UL.png')), { deskew: false });
+    expect(h.phash).toBe(decimalToHex('1242923972077909366'));
+    expect(h.artHash).toBe(decimalToHex('3573986783825880892'));
+  });
+
   it('returns phash + dhash + artHash, 16 hex chars each', async () => {
     const h = await hashImage(fs.readFileSync(path.join(FIX, 'WTR001-UL.jpg')));
     expect(h.phash).toMatch(/^[0-9a-f]{16}$/);
@@ -52,7 +60,7 @@ describe('hashImage', () => {
     // JPEG and its lossless PNG copy differ by a few bits. Different cards
     // sit 10+ bits apart (see the margin tests below), so this is harmless.
     expect(hamming(a.phash, b.phash)).toBeLessThanOrEqual(4);
-    expect(hamming(a.dhash, b.dhash)).toBeLessThanOrEqual(4);
+    expect(hamming(a.dhash!, b.dhash!)).toBeLessThanOrEqual(4);
   });
 
   it.each(DISTINCT)('ranks a phone-like degraded %s first among the fixtures, with a margin', async (id) => {

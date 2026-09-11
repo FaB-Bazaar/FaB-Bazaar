@@ -10,9 +10,11 @@ export const HASH_SIZE = 32;
 const DCT_KEEP = 8; // low-frequency block used for the pHash bits
 
 export interface HashPair {
+  /** Whole-card pHash — the fab-cube dataset's `phash_full` recipe (lib/scan/phash-exact.ts), 16-char hex. */
   phash: string;
-  dhash: string;
-  /** pHash of the fixed art rectangle (after deskew). Null on rows indexed before migration 0110. */
+  /** Gradient hash of the whole card; informational only (imported dataset rows have none). */
+  dhash?: string | null;
+  /** pHash of the dataset's fixed art rectangle (`phash_art`). Null for landscape cards / pre-0110 rows. */
   artHash?: string | null;
 }
 
@@ -117,26 +119,27 @@ export interface HashIndexEntry extends HashPair {
 
 export interface RankedMatch {
   id: string;
-  /** 0..256: 2×art + phash + dhash (art falls back to the whole-card mean when either side lacks it). */
+  /** 0..192: 2×art + whole-card (3×whole-card when either side lacks an art hash). */
   distance: number;
   phashDistance: number;
-  dhashDistance: number;
+  dhashDistance: number | null;
   artDistance: number | null;
 }
 
 /** Max combined distance (see RankedMatch.distance). */
-export const MAX_DISTANCE = 256;
+export const MAX_DISTANCE = 192;
 
-/** Rank an index by combined Hamming distance to `query` — art hash weighted double. */
+/** Rank an index by combined Hamming distance to `query` — art hash weighted double, whole card as tie-break. */
 export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[], limit: number): RankedMatch[] {
-  const qp = BigInt('0x' + query.phash), qd = BigInt('0x' + query.dhash);
+  const qp = BigInt('0x' + query.phash);
+  const qd = query.dhash ? BigInt('0x' + query.dhash) : null;
   const qa = query.artHash ? BigInt('0x' + query.artHash) : null;
   const scored: RankedMatch[] = index.map(e => {
     const phashDistance = popcount64(qp ^ BigInt('0x' + e.phash));
-    const dhashDistance = popcount64(qd ^ BigInt('0x' + e.dhash));
+    const dhashDistance = qd !== null && e.dhash ? popcount64(qd ^ BigInt('0x' + e.dhash)) : null;
     const artDistance = qa !== null && e.artHash ? popcount64(qa ^ BigInt('0x' + e.artHash)) : null;
-    const art = artDistance ?? (phashDistance + dhashDistance) / 2;
-    return { id: e.id, distance: 2 * art + phashDistance + dhashDistance, phashDistance, dhashDistance, artDistance };
+    const distance = artDistance !== null ? 2 * artDistance + phashDistance : 3 * phashDistance;
+    return { id: e.id, distance, phashDistance, dhashDistance, artDistance };
   });
   scored.sort((a, b) => a.distance - b.distance || a.phashDistance - b.phashDistance);
   return scored.slice(0, limit);

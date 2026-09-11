@@ -2,7 +2,8 @@
 // sharp adapter for the card scanner: any image bytes → HashPair.
 // Server-only (sharp is native). The pure math lives in phash.ts.
 import sharp from 'sharp';
-import { HASH_SIZE, hashPair, pHash, resamplePlane, type HashPair } from './phash';
+import { HASH_SIZE, dHash, resamplePlane, type HashPair } from './phash';
+import { exactPHash, decimalToHex, FULL_BBOX, ART_BBOX } from './phash-exact';
 import { detectCardQuad, detectCardQuads } from './quad-detect';
 import { warpQuadToRect, computeHomography, applyHomography, type Quad } from './geometry';
 
@@ -15,8 +16,6 @@ const CARD_W = 400, CARD_H = 560;
 // always crisp); an inner quad is grown by the border so both land on the
 // same frame. Measured on the Cloudflare renders (300×419: 12.6px, 12.5px).
 const BORDER_X = 0.042, BORDER_Y = 0.030;
-// Fixed art rectangle every FaB frame shares (fractions of the outer frame).
-export const ART_REGION = { x0: 0.08, x1: 0.92, y0: 0.12, y1: 0.55 };
 const MIN_QUAD_CONFIDENCE = 0.5;
 // A single card on a table has background on every side; a quad hugging the frame
 // on a one-card shot is a partial/inner feature of a frame-filling card → flat path.
@@ -133,16 +132,22 @@ async function planesThumb(p: CardPlanes, width = 160): Promise<string> {
   return `data:image/jpeg;base64,${buf.toString('base64')}`;
 }
 
-/** Whole-card pHash/dHash + art-region pHash from card-space planes. */
+/**
+ * Index-compatible hashes from card-space planes: the fab-cube dataset's exact
+ * whole-card and art-rect pHashes (so imported dataset rows match photos), plus
+ * our gradient hash of the whole card (informational).
+ */
 export function hashesFromPlanes(p: CardPlanes): Required<HashPair> {
+  const n = p.w * p.h;
+  const rgb = new Uint8Array(n * 3);
+  for (let i = 0; i < n; i++) { rgb[i * 3] = p.r[i]; rgb[i * 3 + 1] = p.g[i]; rgb[i * 3 + 2] = p.b[i]; }
+  const img = { data: rgb, width: p.w, height: p.h, channels: 3 };
   const whole = resamplePlane(p.gray, p.w, p.h, HASH_SIZE, HASH_SIZE);
-  const ax0 = Math.round(p.w * ART_REGION.x0), ax1 = Math.round(p.w * ART_REGION.x1);
-  const ay0 = Math.round(p.h * ART_REGION.y0), ay1 = Math.round(p.h * ART_REGION.y1);
-  const aw = ax1 - ax0, ah = ay1 - ay0;
-  const art = new Uint8Array(aw * ah);
-  for (let y = 0; y < ah; y++) for (let x = 0; x < aw; x++) art[y * aw + x] = p.gray[(ay0 + y) * p.w + ax0 + x];
-  const artSmall = resamplePlane(art, aw, ah, HASH_SIZE, HASH_SIZE);
-  return { ...hashPair(whole), artHash: pHash(artSmall) };
+  return {
+    phash: decimalToHex(exactPHash(img, FULL_BBOX)),
+    dhash: dHash(whole),
+    artHash: decimalToHex(exactPHash(img, ART_BBOX)),
+  };
 }
 
 export interface ImageAnalysis {
