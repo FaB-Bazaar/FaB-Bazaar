@@ -83,3 +83,19 @@ export function orderQuad(pts: Point[]): Quad {
   }
   return q;
 }
+
+/**
+ * If a quad is SHORTER than `targetAspect` (height/width) by more than `tol`,
+ * extend both sides downward along their own direction so it matches — the
+ * top edge stays. FaB card bottoms are busy (type bar, icons), so a truncated
+ * detection almost always lost its bottom, never its top.
+ */
+export function snapQuadAspect(q: Quad, targetAspect: number, tol = 0.02): Quad {
+  const top = Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]);
+  const left = Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]), right = Math.hypot(q[2][0] - q[1][0], q[2][1] - q[1][1]);
+  const aspect = ((left + right) / 2) / Math.max(1, top);
+  if (aspect >= targetAspect * (1 - tol)) return q;
+  const target = top * targetAspect;
+  const ext = (a: Point, b: Point, len: number): Point => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [a[0] + ((b[0] - a[0]) / L) * len, a[1] + ((b[1] - a[1]) / L) * len]; };
+  return [q[0], q[1], ext(q[1], q[2], target), ext(q[0], q[3], target)];
+}

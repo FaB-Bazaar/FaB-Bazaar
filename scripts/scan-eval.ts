@@ -11,6 +11,7 @@
 import { loadEnvConfig } from '@next/env';
 loadEnvConfig(process.cwd());
 import sharp from 'sharp';
+import fs from 'node:fs';
 import { analyzeImage, analyzeImageMulti } from '@/lib/scan/image-hash';
 import { pickBetterIdentification } from '@/lib/scan/scan-session';
 
@@ -21,6 +22,8 @@ const SETS = arg('--sets')?.split(',');
 const HARSH = argv.includes('--harsh');
 const SCENE = argv.includes('--scene');
 const MULTI = arg('--multi') ? parseInt(arg('--multi')!, 10) : 0;
+const DUMP = arg('--dump-misses');
+const WEIGHTS = arg('--weights') ? (() => { const [f, a] = arg('--weights')!.split(',').map(Number); return { full: f, art: a }; })() : undefined;
 const UA = { 'User-Agent': 'fabbazaar-scan-eval/1.0' };
 
 const TABLES = ['#5a4632', '#2b2b2b', '#c9c2b4', '#3a4a5c', '#7a6a58'];
@@ -65,11 +68,11 @@ async function main() {
     const orig = Buffer.from(await (await fetch(r.image_url, { headers: UA })).arrayBuffer());
     const photo = await degrade(orig, i);
     const a = await analyzeImage(photo);
-    const primary = await service.identify(a.hashes, { limit: 5, pitchHint: a.pitchHint });
+    const primary = await service.identify(a.hashes, { limit: 5, pitchHint: a.pitchHint, weights: WEIGHTS });
     if (!primary.success) throw new Error(primary.error);
     let chosen = { result: primary.data, hint: a.pitchHint, deskewed: a.deskewed };
     if (a.deskewed && a.flatHashes) {
-      const flat = await service.identify(a.flatHashes, { limit: 5, pitchHint: a.flatPitchHint ?? null });
+      const flat = await service.identify(a.flatHashes, { limit: 5, pitchHint: a.flatPitchHint ?? null, weights: WEIGHTS });
       if (flat.success) chosen = pickBetterIdentification(chosen, { result: flat.data, hint: a.flatPitchHint ?? null, deskewed: false });
     }
     const { deskewed, hint } = chosen;
@@ -79,14 +82,14 @@ async function main() {
     const rank = names.indexOf(r.name);
     if (rank === 0) top1++; if (rank >= 0 && rank < 3) top3++;
     if (rank === 0) dists.push(out.data.bestDistance ?? 0);
-    if (rank !== 0) { misses.push(`${r.name} (${r.printing_id}) ${deskewed ? '[deskewed]' : '[flat]'} → ${names.slice(0, 3).join(' | ')} d=${out.data.bestDistance}`); if (deskewed) deskewedMiss++; }
+    if (rank !== 0) { misses.push(`${r.name} (${r.printing_id}) ${deskewed ? '[deskewed]' : '[flat]'} → ${names.slice(0, 3).join(' | ')} d=${out.data.bestDistance}`); if (deskewed) deskewedMiss++; if (DUMP) { fs.mkdirSync(DUMP, { recursive: true }); fs.writeFileSync(`${DUMP}/miss-${i}-${r.printing_id}.jpg`, photo); } }
     if (r.pitch) { if (hint === null) pitchNull++; else if (hint === PITCH[r.pitch]) pitchOk++; else pitchWrong++; }
   }
   dists.sort((a, b) => a - b);
   const pct = (n: number) => `${((100 * n) / rows.length).toFixed(1)}%`;
   console.log(`n=${rows.length} index=${(await service.listHashIndex() as any).data.length} mode=${HARSH ? 'harsh' : 'normal'}${SCENE ? '+scene' : ''} deskewed=${deskewedCount}/${rows.length}`);
   console.log(`top-1 by name: ${top1} (${pct(top1)})   top-3: ${top3} (${pct(top3)})   misses: ${rows.length - top1} (${deskewedMiss} of them deskewed)`);
-  console.log(`match distance 0..192 (top-1 hits): min=${dists[0]} p50=${dists[Math.floor(dists.length / 2)]} p90=${dists[Math.floor(dists.length * 0.9)]} max=${dists[dists.length - 1]}`);
+  console.log(`match distance 0..128 (top-1 hits): min=${dists[0]} p50=${dists[Math.floor(dists.length / 2)]} p90=${dists[Math.floor(dists.length * 0.9)]} max=${dists[dists.length - 1]}`);
   const missD = misses.map(m => Number(m.match(/d=(\d+)/)?.[1])).filter(n => !Number.isNaN(n)).sort((a, b) => a - b);
   if (missD.length) console.log(`wrong-match distance: min=${missD[0]} p50=${missD[Math.floor(missD.length / 2)]}`);
   const withPitch = pitchOk + pitchNull + pitchWrong;
@@ -122,7 +125,7 @@ async function evalMulti(rows: any[], service: any) {
     // score by set membership: which of the photo's cards appear among the found quads' top-1 names
     const winners: string[] = [];
     for (const a of deskewedOnes) {
-      const out = await service.identify(a.hashes, { limit: 1, pitchHint: a.pitchHint });
+      const out = await service.identify(a.hashes, { limit: 1, pitchHint: a.pitchHint, weights: WEIGHTS });
       winners.push(out.success && out.data.candidates[0] ? out.data.candidates[0].name : '');
     }
     for (const r of group) {

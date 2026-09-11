@@ -12,7 +12,7 @@ import { db } from '@/lib/postgres/db';
 import { cards, printings, printingImageHashes } from '@/lib/postgres/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 import type { AsyncResult } from '../../contracts/common';
-import { rankByDistance, MAX_DISTANCE, type HashPair, type HashIndexEntry } from '@/lib/scan/phash';
+import { rankByDistance, MAX_DISTANCE, type HashPair, type HashIndexEntry, type RankWeights } from '@/lib/scan/phash';
 import type { PitchHint } from '@/lib/scan/image-hash';
 
 export interface HashIndexRow extends HashIndexEntry {
@@ -174,13 +174,13 @@ export class PostgresScanService {
     return this.loading;
   }
 
-  async identify(query: HashPair, opts: { limit?: number; pitchHint?: PitchHint | null } = {}): AsyncResult<IdentifyResult> {
+  async identify(query: HashPair, opts: { limit?: number; pitchHint?: PitchHint | null; weights?: RankWeights } = {}): AsyncResult<IdentifyResult> {
     try {
       const limit = Math.max(1, Math.min(opts.limit ?? 5, 20));
       const index = await this.getIndex();
       if (index.length === 0) return { success: true, data: { candidates: [], bestDistance: null, indexSize: 0 } };
 
-      const ranked = rankByDistance(query, index, RAW_RANK_LIMIT);
+      const ranked = rankByDistance(query, index, RAW_RANK_LIMIT, opts.weights);
       const byPrinting = new Map(index.map(r => [r.printingId, r]));
       const distanceByPrinting = new Map(ranked.map(r => [r.id, r.distance]));
       const cardIds = [...new Set(ranked.map(r => byPrinting.get(r.id)!.cardUniqueId))];

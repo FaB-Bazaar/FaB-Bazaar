@@ -74,19 +74,19 @@ describe('hamming', () => {
 });
 
 describe('rankByDistance', () => {
-  // distance = 2×phash + art (0..192); dhash is not scored (imported dataset rows have none)
+  // distance = phash + art (0..128, equal weights); dhash is not scored (imported dataset rows have none)
   const index = [
     { id: 'far', phash: 'ffffffffffffffff', dhash: null, artHash: 'ffffffffffffffff' },
     { id: 'near', phash: '0000000000000003', dhash: null, artHash: '0000000000000001' },
     { id: 'exact', phash: '0000000000000000', dhash: null, artHash: '0000000000000000' },
   ];
 
-  it('orders candidates by 2×whole-card + art distance, best first', () => {
+  it('orders candidates by whole-card + art distance, best first', () => {
     const ranked = rankByDistance({ phash: '0000000000000000', dhash: '0000000000000000', artHash: '0000000000000000' }, index, 3);
     expect(ranked.map(r => r.id)).toEqual(['exact', 'near', 'far']);
     expect(ranked[0].distance).toBe(0);
-    expect(ranked[1].distance).toBe(2 * 2 + 1);
-    expect(ranked[2].distance).toBe(2 * 64 + 64);
+    expect(ranked[1].distance).toBe(2 + 1);
+    expect(ranked[2].distance).toBe(64 + 64);
   });
 
   it('honours the limit', () => {
@@ -95,10 +95,10 @@ describe('rankByDistance', () => {
     expect(ranked[0].id).toBe('exact');
   });
 
-  it('falls back to 3× the whole-card distance when either side lacks an art hash', () => {
+  it('falls back to 2× the whole-card distance when either side lacks an art hash', () => {
     const q = { phash: '0000000000000000', dhash: null, artHash: null };
     const ranked = rankByDistance(q, [{ id: 'a', phash: '0000000000000003', dhash: null, artHash: '0000000000000000' }], 1);
-    expect(ranked[0].distance).toBe(3 * 2);
+    expect(ranked[0].distance).toBe(2 * 2);
     expect(ranked[0].artDistance).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 // lib/scan/geometry.test.ts — homography + perspective warp (pure, grayscale planes).
 import { describe, it, expect } from 'vitest';
-import { computeHomography, applyHomography, warpQuadToRect, type Quad, type Point } from './geometry';
+import { computeHomography, applyHomography, warpQuadToRect, snapQuadAspect, type Quad, type Point } from './geometry';
 
 const rect = (w: number, h: number): Quad => [[0, 0], [w, 0], [w, h], [0, h]];
 
@@ -50,5 +50,21 @@ describe('warpQuadToRect', () => {
     let min = 255;
     for (let y = 3; y < 53; y++) for (let x = 3; x < 37; x++) min = Math.min(min, out[y * 40 + x]);
     expect(min).toBeGreaterThan(180);
+  });
+
+});
+
+describe('snapQuadAspect', () => {
+  it('extends a truncated quad downward to the target aspect, keeping the top edge', () => {
+    const q: Quad = [[100, 100], [300, 100], [300, 340], [100, 340]]; // 200 wide, 240 tall = 1.2
+    const s = snapQuadAspect(q, 1.4);
+    expect(s[0]).toEqual([100, 100]); expect(s[1]).toEqual([300, 100]);
+    expect(s[2][1]).toBeCloseTo(100 + 280, 5); expect(s[3][1]).toBeCloseTo(100 + 280, 5);
+  });
+  it('leaves a quad alone when it is within tolerance or taller than the target', () => {
+    const q: Quad = [[0, 0], [100, 0], [100, 139], [0, 139]];
+    expect(snapQuadAspect(q, 1.4)).toBe(q);
+    const tall: Quad = [[0, 0], [100, 0], [100, 160], [0, 160]];
+    expect(snapQuadAspect(tall, 1.4)).toBe(tall);
   });
 });

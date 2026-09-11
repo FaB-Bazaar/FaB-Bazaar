@@ -4,8 +4,8 @@
 import sharp from 'sharp';
 import { HASH_SIZE, dHash, resamplePlane, type HashPair } from './phash';
 import { exactPHash, decimalToHex, FULL_BBOX, ART_BBOX } from './phash-exact';
-import { detectCardQuad, detectCardQuads } from './quad-detect';
-import { warpQuadToRect, computeHomography, applyHomography, type Quad } from './geometry';
+import { detectCardContours } from './contour-detect';
+import { warpQuadToRect, computeHomography, applyHomography, snapQuadAspect, type Quad } from './geometry';
 
 // Working resolution for analysis (longest edge) and the deskewed card plane.
 const WORK_MAX = 1000;
@@ -16,6 +16,8 @@ const CARD_W = 400, CARD_H = 560;
 // always crisp); an inner quad is grown by the border so both land on the
 // same frame. Measured on the Cloudflare renders (300×419: 12.6px, 12.5px).
 const BORDER_X = 0.042, BORDER_Y = 0.030;
+// 63×88 mm card: outer aspect 1.397; the inner frame (border removed) is taller: 0.94×88 / (0.916×63) ≈ 1.433
+const OUTER_ASPECT = 88 / 63, INNER_ASPECT = (0.94 * 88) / (0.916 * 63);
 const MIN_QUAD_CONFIDENCE = 0.5;
 // A single card on a table has background on every side; a quad hugging the frame
 // on a one-card shot is a partial/inner feature of a frame-filling card → flat path.
@@ -26,8 +28,6 @@ const BORDER_BAND = [0.008, 0.025] as const;
 // The black border is judged RELATIVE to the card's own interior (a blurred border
 // on a dark table reads ~70-90, not ~10) as well as against an absolute ceiling.
 const INTERIOR_BAND = [0.12, 0.4] as const;
-const OUTER_MAX_LUMA = 95;   // band inside the quad this dark (and ≤ 0.75× interior) → the quad is the OUTER edge
-const BORDER_MAX_LUMA = 60;  // band outside the quad this dark (and ≤ 0.6× interior) → the quad is the INNER edge
 
 export interface CardPlanes {
   gray: Uint8Array; r: Uint8Array; g: Uint8Array; b: Uint8Array; w: number; h: number;
@@ -99,16 +99,23 @@ function flatPlanes(d: Decoded): CardPlanes {
  */
 function planesForQuad(d: Decoded, quad: Quad): CardPlanes | null {
   const [cg, cr, cgg, cb] = warpAll([d.gray, d.r, d.g, d.b], d.w, d.h, quad);
-  const interior = bandLuma(cg, INTERIOR_BAND[0], INTERIOR_BAND[1]);
-  const inside = bandLuma(cg, BORDER_BAND[0], BORDER_BAND[1]);
-  if (inside < OUTER_MAX_LUMA && inside <= interior * 0.75) {
-    return { gray: cg, r: cr, g: cgg, b: cb, w: CARD_W, h: CARD_H, deskewed: true };
-  }
   const grown = expandQuad(quad, BORDER_X / (1 - 2 * BORDER_X), BORDER_Y / (1 - 2 * BORDER_Y));
   const [og, or_, ogg, ob] = warpAll([d.gray, d.r, d.g, d.b], d.w, d.h, grown);
+  // Three bands, all RELATIVE (a dark mat defeats absolute cutoffs): the card
+  // interior, the thin band just inside the quad, and the band just outside it.
+  const interior = bandLuma(cg, INTERIOR_BAND[0], INTERIOR_BAND[1]);
+  const inside = bandLuma(cg, BORDER_BAND[0], BORDER_BAND[1]);
   const outside = bandLuma(og, BORDER_BAND[0], BORDER_BAND[1]);
-  if (outside < BORDER_MAX_LUMA && outside <= interior * 0.6) {
-    return { gray: og, r: or_, g: ogg, b: ob, w: CARD_W, h: CARD_H, deskewed: true };
+  const darkVsInterior = (v: number) => v <= interior * 0.75;
+  const finish = (q: Quad): CardPlanes => { const [fg, fr, fgg, fb] = warpAll([d.gray, d.r, d.g, d.b], d.w, d.h, q); return { gray: fg, r: fr, g: fgg, b: fb, w: CARD_W, h: CARD_H, deskewed: true }; };
+  if (darkVsInterior(inside) && inside <= outside + 12) {
+    // black border just inside → this IS the outer edge (snap a truncated bottom to the card ratio)
+    return finish(snapQuadAspect(quad, OUTER_ASPECT));
+  }
+  if (darkVsInterior(outside) && outside < inside) {
+    // black border just outside → INNER edge: snap to the inner ratio, then grow to the outer edge
+    const snapped = snapQuadAspect(quad, INNER_ASPECT);
+    return finish(expandQuad(snapped, BORDER_X / (1 - 2 * BORDER_X), BORDER_Y / (1 - 2 * BORDER_Y)));
   }
   return null;
 }
@@ -116,7 +123,7 @@ function planesForQuad(d: Decoded, quad: Quad): CardPlanes | null {
 /** Decode, EXIF-rotate, find + deskew the card if visible, return canonical (outer-frame) card planes. */
 export async function cardPlanes(input: Buffer | Uint8Array, opts: AnalyzeOptions = {}): Promise<CardPlanes> {
   const d = await decode(input);
-  const found = opts.deskew === false ? null : detectCardQuad(d.gray, d.w, d.h);
+  const found = opts.deskew === false ? null : (detectCardContours(d.gray, d.w, d.h, { maxCards: 1 })[0] ?? null);
   if (found && found.confidence >= MIN_QUAD_CONFIDENCE && hasMargin(found.quad, d.w, d.h, SINGLE_MIN_MARGIN)) {
     const p = planesForQuad(d, found.quad);
     if (p) return { ...p, flat: flatPlanes(d) };
@@ -168,7 +175,7 @@ export interface ImageAnalysis {
  */
 export async function analyzeImageMulti(input: Buffer | Uint8Array, opts: { maxCards?: number } = {}): Promise<ImageAnalysis[]> {
   const d = await decode(input);
-  let quads = detectCardQuads(d.gray, d.w, d.h, { maxCards: opts.maxCards ?? 12 }).filter(q => q.confidence >= MIN_QUAD_CONFIDENCE);
+  let quads = detectCardContours(d.gray, d.w, d.h, { maxCards: opts.maxCards ?? 12 }).filter(q => q.confidence >= MIN_QUAD_CONFIDENCE);
   // a lone quad on a one-card shot must have background all round (a quad hugging the frame is an
   // inner feature of a frame-filling card); small is fine — an arm's-length card is ~8% of the frame
   if (quads.length === 1 && !hasMargin(quads[0].quad, d.w, d.h, SINGLE_MIN_MARGIN)) quads = [];

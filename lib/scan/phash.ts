@@ -119,8 +119,7 @@ export interface HashIndexEntry extends HashPair {
 
 export interface RankedMatch {
   id: string;
-  /** 0..192: 2×whole-card + art (3×whole-card when either side lacks an art hash). The whole-card
-   *  hash is the robust arm on real photos — the art rect is far more sensitive to crop offset. */
+  /** whole-card + art, each weighted (default 1:1 → 0..128); (full+art)×whole-card when either side lacks an art hash. */
   distance: number;
   phashDistance: number;
   dhashDistance: number | null;
@@ -128,10 +127,15 @@ export interface RankedMatch {
 }
 
 /** Max combined distance (see RankedMatch.distance). */
-export const MAX_DISTANCE = 192;
+export const MAX_DISTANCE = 128;
 
 /** Rank an index by combined Hamming distance to `query` — whole card weighted double, art as tie-break. */
-export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[], limit: number): RankedMatch[] {
+export interface RankWeights { full: number; art: number }
+// Equal weights measured best across frame-filling (96% harsh), table-scene and multi-card evals AND the
+// first real captured photo; 2:1 either way loses somewhere (art-heavy on real crops, full-heavy on blur).
+export const DEFAULT_RANK_WEIGHTS: RankWeights = { full: 1, art: 1 };
+
+export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[], limit: number, weights: RankWeights = DEFAULT_RANK_WEIGHTS): RankedMatch[] {
   const qp = BigInt('0x' + query.phash);
   const qd = query.dhash ? BigInt('0x' + query.dhash) : null;
   const qa = query.artHash ? BigInt('0x' + query.artHash) : null;
@@ -139,7 +143,7 @@ export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[]
     const phashDistance = popcount64(qp ^ BigInt('0x' + e.phash));
     const dhashDistance = qd !== null && e.dhash ? popcount64(qd ^ BigInt('0x' + e.dhash)) : null;
     const artDistance = qa !== null && e.artHash ? popcount64(qa ^ BigInt('0x' + e.artHash)) : null;
-    const distance = artDistance !== null ? 2 * phashDistance + artDistance : 3 * phashDistance;
+    const distance = artDistance !== null ? weights.full * phashDistance + weights.art * artDistance : (weights.full + weights.art) * phashDistance;
     return { id: e.id, distance, phashDistance, dhashDistance, artDistance };
   });
   scored.sort((a, b) => a.distance - b.distance || a.phashDistance - b.phashDistance);

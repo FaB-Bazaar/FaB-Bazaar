@@ -27,12 +27,13 @@ export interface ScanState {
 
 export const initialScanState: ScanState = { items: [] };
 
-// Combined Hamming distance bands (0..192 = 2×art + whole-card, dataset-exact
-// pHashes), from scripts/scan-eval.ts on the FULL English index (17,046 rows,
-// 2026-09): correct matches p90 28 (normal) / 42 (harsh) / 26 (table scene),
-// max 54; wrong matches start at 36. Re-measure after changing the hash pipeline.
-export const CONFIDENT_MAX_DISTANCE = 30;
-export const PLAUSIBLE_MAX_DISTANCE = 48;
+// Combined Hamming distance bands (0..128 = whole-card + art, equal weights,
+// dataset-exact pHashes), from scripts/scan-eval.ts on the FULL English index
+// (17,046 rows, 2026-09): correct matches p90 14 (table scene) / 28 (harsh),
+// max 36; wrong matches start at 24–28. The first real captured photo scored
+// 16. Re-measure after changing the hash pipeline or the detector.
+export const CONFIDENT_MAX_DISTANCE = 22;
+export const PLAUSIBLE_MAX_DISTANCE = 34;
 export type MatchConfidence = 'confident' | 'plausible' | 'weak';
 export function matchConfidence(distance: number | null): MatchConfidence {
   if (distance === null) return 'weak';
