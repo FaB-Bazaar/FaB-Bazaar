@@ -20,6 +20,9 @@ vi.mock('@/lib/scan/image-hash', () => ({
 }));
 import { MemoryScanSessionStore } from '@/lib/scan/session-store';
 const sessionStore = new MemoryScanSessionStore();
+import { MemoryScanCaptureStore } from '@/lib/scan/capture-store';
+const captureStore = new MemoryScanCaptureStore();
+vi.mock('@/lib/scan/capture-store', async (orig) => ({ ...(await orig<any>()), getScanCaptureStore: () => captureStore }));
 vi.mock('@/lib/scan/session-store', async (orig) => ({ ...(await orig<any>()), getScanSessionStore: () => sessionStore }));
 
 import { POST } from './route';
@@ -182,5 +185,13 @@ describe('POST /api/scan/identify', () => {
       expect(items.map(i => i.thumb)).toEqual(['data:image/jpeg;base64,ONE', 'data:image/jpeg;base64,TWO']);
       expect(body.data.cards.map((c: any) => c.sessionItemId)).toEqual(items.map(i => i.id));
     });
+  });
+
+  it('keeps the uploaded photo for rollout diagnostics, tagged with the outcome', async () => {
+    const before = (await captureStore.list('u1')).length;
+    await POST(multipart(PNG_BYTES));
+    const list = await captureStore.list('u1');
+    expect(list.length).toBe(before + 1);
+    expect(list[0]).toMatchObject({ contentType: 'image/png', bytes: PNG_BYTES.length, outcome: { cardsFound: 1, topName: 'Sink Below', bestDistance: 4 } });
   });
 });

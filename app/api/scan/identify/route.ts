@@ -12,6 +12,7 @@ import type { PitchHint } from '@/lib/scan/image-hash';
 import { analyzeImageMulti, thumbnailDataUrl, type ImageAnalysis } from '@/lib/scan/image-hash';
 import { getScanSessionStore, loadOwnedSession } from '@/lib/scan/session-store';
 import { pickBetterIdentification } from '@/lib/scan/scan-session';
+import { getScanCaptureStore } from '@/lib/scan/capture-store';
 import { rateLimit } from '@/lib/rate-limit';
 import { randomUUID } from 'node:crypto';
 
@@ -22,7 +23,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_LIMIT = 5;
 const IDENTIFY_PER_MINUTE = 60;
 
-interface Parsed { bytes: Buffer | null; limit: number; session?: string; error?: string; tooLarge?: boolean }
+interface Parsed { bytes: Buffer | null; contentType?: string; limit: number; session?: string; error?: string; tooLarge?: boolean }
 
 async function parseInput(request: NextRequest): Promise<Parsed> {
   const ct = request.headers.get('content-type') ?? '';
@@ -33,7 +34,7 @@ async function parseInput(request: NextRequest): Promise<Parsed> {
     if (file.size > MAX_IMAGE_BYTES) return { bytes: null, limit: DEFAULT_LIMIT, tooLarge: true };
     const limitRaw = fd.get('limit');
     const session = fd.get('session');
-    return { bytes: Buffer.from(await file.arrayBuffer()), limit: clampLimit(limitRaw ? Number(limitRaw) : undefined), session: typeof session === 'string' && session ? session : undefined };
+    return { bytes: Buffer.from(await file.arrayBuffer()), contentType: file.type || 'application/octet-stream', limit: clampLimit(limitRaw ? Number(limitRaw) : undefined), session: typeof session === 'string' && session ? session : undefined };
   }
   let body: any;
   try { body = await request.json(); } catch { return { bytes: null, limit: DEFAULT_LIMIT, error: 'image is required' }; }
@@ -113,8 +114,13 @@ export async function POST(request: NextRequest) {
       });
     }
   }
-  // `data` keeps the first card's shape for existing clients; `cards` carries all of them in reading order.
+  // Rollout diagnostics: keep the original photo (short TTL) so a failed scan can be reproduced and tuned.
   const first = cards[0];
+  void getScanCaptureStore().save(authResult.userId!, parsed.bytes, parsed.contentType ?? 'image/jpeg', {
+    cardsFound: cards.filter(c => c.deskewed).length, topName: first?.candidates[0]?.name ?? null, bestDistance: first?.bestDistance ?? null,
+  }).catch(() => undefined);
+
+  // `data` keeps the first card's shape for existing clients; `cards` carries all of them in reading order.
   return NextResponse.json({ success: true, data: { ...first, cards } });
 
 }
