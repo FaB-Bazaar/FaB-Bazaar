@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
-import { hashImage, pitchHint, analyzeImage } from './image-hash';
+import { hashImage, pitchHint, analyzeImage, analyzeImageMulti } from './image-hash';
 import { rankByDistance, hamming, type HashIndexEntry } from './phash';
 
 const FIX = path.join(__dirname, '__fixtures__');
@@ -141,5 +141,39 @@ describe('analyzeImage on a table scene (deskew + art region)', () => {
     const a = await analyzeImage(fs.readFileSync(path.join(FIX, 'WTR150-RF-UL.jpg')));
     expect(a.deskewed).toBe(false);
     expect(a.hashes.artHash).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+});
+
+/** Three fixture cards side by side on a table, like a phone shot of a row of cards. */
+async function rowScene(ids: string[], bg = '#3b3630') {
+  const cards = await Promise.all(ids.map((id, i) => sharp(fs.readFileSync(path.join(FIX, `${id}.jpg`))).resize({ width: 220 }).rotate(((i % 3) - 1) * 3, { background: bg }).png().toBuffer({ resolveWithObject: true })));
+  const gap = 40, pad = 50;
+  const W = cards.reduce((n, c) => n + c.info.width, 0) + gap * (cards.length - 1) + 2 * pad;
+  const H = Math.max(...cards.map(c => c.info.height)) + 2 * pad;
+  let left = pad;
+  const composite = cards.map(c => { const item = { input: c.data, left, top: pad }; left += c.info.width + gap; return item; });
+  const composed = await sharp({ create: { width: W, height: H, channels: 3, background: bg } }).composite(composite).png().toBuffer();
+  return sharp(composed).blur(0.8).jpeg({ quality: 65 }).toBuffer();
+}
+
+describe('analyzeImageMulti — several cards in one photo', () => {
+  it('returns one analysis per card, each matching its own fixture first', async () => {
+    const ids = ['WTR001-UL', 'WTR150-RF-UL', 'WTR215-UL'];
+    const index: HashIndexEntry[] = [];
+    for (const f of FILES) index.push({ id: f, ...(await hashImage(fs.readFileSync(path.join(FIX, `${f}.jpg`)), { deskew: false })) });
+    const results = await analyzeImageMulti(await rowScene(ids));
+    expect(results).toHaveLength(3);
+    // left-to-right order
+    const winners = results.map(r => rankByDistance(r.hashes, index, 5)[0].id);
+    expect(winners[0]).toBe('WTR001-UL');
+    expect(winners[1]).toBe('WTR150-RF-UL');
+    expect(SIBLINGS).toContain(winners[2]);
+    for (const r of results) { expect(r.deskewed).toBe(true); expect(r.thumb).toMatch(/^data:image\/jpeg;base64,/); }
+  });
+  it('falls back to a single flat analysis when no card quad is found', async () => {
+    const results = await analyzeImageMulti(fs.readFileSync(path.join(FIX, 'WTR150-RF-UL.jpg')));
+    expect(results).toHaveLength(1);
+    expect(results[0].deskewed).toBe(false);
   });
 });

@@ -6,11 +6,12 @@
  * choices, not the scanner's job). Read-only.
  *   npx tsx scripts/scan-eval.ts --n=100 [--sets=pen,sea] [--harsh] [--scene]
  *   --scene: card on a table (background around it, tilt, perspective-ish) → exercises deskew
+ *   --multi=3: N cards side by side in one photo → per-card top-1 through analyzeImageMulti
  */
 import { loadEnvConfig } from '@next/env';
 loadEnvConfig(process.cwd());
 import sharp from 'sharp';
-import { analyzeImage } from '@/lib/scan/image-hash';
+import { analyzeImage, analyzeImageMulti } from '@/lib/scan/image-hash';
 import { pickBetterIdentification } from '@/lib/scan/scan-session';
 
 const argv = process.argv.slice(2);
@@ -19,6 +20,7 @@ const N = parseInt(arg('--n') ?? '60', 10);
 const SETS = arg('--sets')?.split(',');
 const HARSH = argv.includes('--harsh');
 const SCENE = argv.includes('--scene');
+const MULTI = arg('--multi') ? parseInt(arg('--multi')!, 10) : 0;
 const UA = { 'User-Agent': 'fabbazaar-scan-eval/1.0' };
 
 const TABLES = ['#5a4632', '#2b2b2b', '#c9c2b4', '#3a4a5c', '#7a6a58'];
@@ -55,6 +57,7 @@ async function main() {
     FROM printing_image_hashes h JOIN printings p ON p.printing_id = h.printing_id JOIN cards c ON c.card_unique_id = p.card_unique_id
     WHERE p.language = 'en' ${setFilter} ORDER BY md5(h.printing_id) LIMIT ${N}`);
   const rows: any[] = (res as any).rows ?? res;
+  if (MULTI > 0) { await evalMulti(rows, service); process.exit(0); }
   let top1 = 0, top3 = 0, pitchOk = 0, pitchNull = 0, pitchWrong = 0, deskewedCount = 0, deskewedMiss = 0; const dists: number[] = []; const misses: string[] = [];
   const PITCH: Record<number, string> = { 1: 'red', 2: 'yellow', 3: 'blue' };
   for (let i = 0; i < rows.length; i++) {
@@ -91,4 +94,44 @@ async function main() {
   if (misses.length) { console.log('misses:'); for (const m of misses.slice(0, 15)) console.log('  ' + m); }
   process.exit(0);
 }
+/** N cards laid side by side on a table per photo; every card must be found AND matched. */
+async function evalMulti(rows: any[], service: any) {
+  const groups: any[][] = [];
+  for (let i = 0; i + MULTI <= rows.length; i += MULTI) groups.push(rows.slice(i, i + MULTI));
+  let photos = 0, cardsTotal = 0, found = 0, top1 = 0, extra = 0;
+  const misses: string[] = [];
+  for (let gi = 0; gi < groups.length; gi++) {
+    const group = groups[gi];
+    const bg = TABLES[gi % TABLES.length];
+    const cards = await Promise.all(group.map(async (r, k) => {
+      const orig = Buffer.from(await (await fetch(r.image_url, { headers: UA })).arrayBuffer());
+      return sharp(orig).resize({ width: 260 }).rotate(((gi + k) % 5 - 2) * 2, { background: bg }).png().toBuffer({ resolveWithObject: true });
+    }));
+    const gap = 30 + (gi % 3) * 15, pad = 40 + (gi % 4) * 15;
+    const W = cards.reduce((n, c) => n + c.info.width, 0) + gap * (cards.length - 1) + 2 * pad;
+    const H = Math.max(...cards.map(c => c.info.height)) + 2 * pad;
+    let left = pad;
+    const composite = cards.map(c => { const it = { input: c.data, left, top: pad }; left += c.info.width + gap; return it; });
+    const composed = await sharp({ create: { width: W, height: H, channels: 3, background: bg } }).composite(composite).png().toBuffer();
+    const photo = await sharp(composed).modulate({ brightness: 0.8 + (gi % 4) * 0.1 }).blur(HARSH ? 1.4 : 0.9).resize({ width: HARSH ? 800 : 1100 }).jpeg({ quality: HARSH ? 45 : 60 }).toBuffer();
+    const analyses = await analyzeImageMulti(photo);
+    photos++; cardsTotal += group.length;
+    const deskewedOnes = analyses.filter(a => a.deskewed);
+    found += Math.min(deskewedOnes.length, group.length);
+    extra += Math.max(0, deskewedOnes.length - group.length);
+    // reading order = group order
+    for (let k = 0; k < group.length; k++) {
+      const a = deskewedOnes[k];
+      if (!a) { misses.push(`${group[k].name}: not found (photo ${gi})`); continue; }
+      const out = await service.identify(a.hashes, { limit: 3, pitchHint: a.pitchHint });
+      const names = out.success ? out.data.candidates.map((c: any) => c.name) : [];
+      if (names[0] === group[k].name) top1++; else misses.push(`${group[k].name} → ${names.slice(0, 2).join(' | ')} (photo ${gi})`);
+    }
+  }
+  const pct = (n: number) => `${((100 * n) / cardsTotal).toFixed(1)}%`;
+  console.log(`multi=${MULTI} photos=${photos} cards=${cardsTotal} mode=${HARSH ? 'harsh' : 'normal'}`);
+  console.log(`cards found: ${found} (${pct(found)})   phantom quads: ${extra}   top-1 of found: ${top1} (${pct(top1)} of all cards)`);
+  if (misses.length) { console.log('misses:'); for (const m of misses.slice(0, 12)) console.log('  ' + m); }
+}
+
 main().catch(e => { console.error(e); process.exit(1); });

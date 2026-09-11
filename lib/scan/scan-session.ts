@@ -51,7 +51,9 @@ export type ScanAction =
   | { type: 'added'; ids: string[] }
   | { type: 'clearAdded' }
   /** An item identified on a paired phone, delivered over SSE (idempotent on id). */
-  | { type: 'remote'; id: string; previewUrl: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null };
+  | { type: 'remote'; id: string; previewUrl: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null }
+  /** One photo held several cards: replace the queued item with one item per card (in order). */
+  | { type: 'split'; id: string; cards: Array<{ id: string; previewUrl: string | null; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null }> };
 
 /** Scale (w,h) so the longer edge is at most `max`; never upscale. */
 export function fitWithin(width: number, height: number, max: number): { width: number; height: number } {
@@ -114,6 +116,17 @@ export function scanReducer(state: ScanState, action: ScanAction): ScanState {
     }
     case 'clearAdded':
       return { items: state.items.filter(i => i.status !== 'added') };
+    case 'split': {
+      const at = state.items.findIndex(i => i.id === action.id);
+      if (at === -1) return state;
+      const photo = state.items[at];
+      const replacements: ScanItem[] = action.cards.map(c => ({
+        id: c.id, previewUrl: c.previewUrl || photo.previewUrl, status: c.candidates.length > 0 ? 'ready' : 'no-match',
+        candidates: c.candidates, bestDistance: c.bestDistance, pitchHint: c.pitchHint,
+        chosenPrintingId: c.candidates[0] ? defaultPrintingChoice(c.candidates[0]) : null, quantity: 1,
+      }));
+      return { items: [...state.items.slice(0, at), ...replacements, ...state.items.slice(at + 1)] };
+    }
     case 'remote': {
       if (state.items.some(i => i.id === action.id)) return state;
       return {

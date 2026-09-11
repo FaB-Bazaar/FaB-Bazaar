@@ -1,6 +1,6 @@
 // lib/scan/quad-detect.test.ts — find the card's four corners in a photo (grayscale plane).
 import { describe, it, expect } from 'vitest';
-import { detectCardQuad } from './quad-detect';
+import { detectCardQuad, detectCardQuads } from './quad-detect';
 import type { Point, Quad } from './geometry';
 
 function scene(W: number, H: number, quad: Quad, opts: { bg?: number; card?: number; noise?: number } = {}): Uint8Array {
@@ -18,7 +18,7 @@ function scene(W: number, H: number, quad: Quad, opts: { bg?: number; card?: num
   };
   let seed = 7; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const base = inside(x + 0.5, y + 0.5) ? card + Math.round(30 * Math.sin(x / 9) * Math.cos(y / 7)) : bg;
+    const base = inside(x + 0.5, y + 0.5) ? card + Math.round(25 * Math.sin(x / 23) * Math.cos(y / 19)) : bg; // soft blobs: art, not stripes
     px[y * W + x] = Math.max(0, Math.min(255, base + Math.round((rnd() - 0.5) * 2 * noise)));
   }
   return px;
@@ -29,6 +29,20 @@ const rot = (cx: number, cy: number, w: number, h: number, deg: number): Quad =>
   return [c(-w / 2, -h / 2), c(w / 2, -h / 2), c(w / 2, h / 2), c(-w / 2, h / 2)];
 };
 const near = (a: Point, b: Point, tol: number) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= tol;
+
+/** Several cards on one table (each with its own texture phase). */
+function multiScene(W: number, H: number, quads: Quad[], bg = 40): Uint8Array {
+  const px = new Uint8Array(W * H).fill(bg);
+  let seed = 11; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) px[y * W + x] = Math.max(0, Math.min(255, bg + Math.round((rnd() - 0.5) * 10)));
+  quads.forEach((quad, k) => {
+    const inside = (x: number, y: number) => { let sign = 0; for (let i = 0; i < 4; i++) { const [ax, ay] = quad[i], [bx, by] = quad[(i + 1) % 4]; const s = Math.sign((bx - ax) * (y - ay) - (by - ay) * (x - ax)); if (s === 0) continue; if (sign === 0) sign = s; else if (s !== sign) return false; } return true; };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (inside(x + 0.5, y + 0.5)) px[y * W + x] = Math.max(0, Math.min(255, 180 + Math.round(25 * Math.sin((x + k * 7) / 23) * Math.cos(y / 19))));
+  });
+  return px;
+}
+const matchAll = (found: Quad[], truths: Quad[], tol: number) =>
+  truths.every(t => found.some(f => f.every((p, i) => near(p, t[i], tol))));
 
 describe('detectCardQuad', () => {
   it('finds a tilted card on a dark table, corners ordered TL,TR,BR,BL within a few px', () => {
@@ -57,5 +71,31 @@ describe('detectCardQuad', () => {
   it('returns null when the card fills the whole frame (nothing to deskew)', () => {
     const W = 320, H = 400; const px = new Uint8Array(W * H).fill(150);
     expect(detectCardQuad(px, W, H)).toBeNull();
+  });
+
+  it('finds three cards laid side by side (detectCardQuads), each within tolerance, no phantom spans', () => {
+    const W = 640, H = 300;
+    const truths = [rot(110, 150, 150, 210, 3), rot(320, 150, 150, 210, -2), rot(530, 150, 150, 210, 4)];
+    const found = detectCardQuads(multiScene(W, H, truths), W, H);
+    expect(found).toHaveLength(3);
+    expect(matchAll(found.map(f => f.quad), truths, 8)).toBe(true);
+  });
+  it('finds a 2×2 grid of cards', () => {
+    const W = 480, H = 620;
+    const truths = [rot(130, 160, 160, 224, 0), rot(350, 160, 160, 224, 0), rot(130, 460, 160, 224, 0), rot(350, 460, 160, 224, 0)];
+    const found = detectCardQuads(multiScene(W, H, truths), W, H);
+    expect(found).toHaveLength(4);
+    expect(matchAll(found.map(f => f.quad), truths, 8)).toBe(true);
+  });
+  it('detectCardQuads on a single card returns exactly that one (no inner-frame duplicates)', () => {
+    const W = 320, H = 400; const truth = rot(160, 200, 180, 250, 12);
+    const found = detectCardQuads(scene(W, H, truth, { noise: 8 }), W, H);
+    expect(found).toHaveLength(1);
+  });
+  it('cards near the frame edge are still found (no large margin requirement for multi-card shots)', () => {
+    const W = 640, H = 300;
+    const truths = [rot(90, 150, 150, 210, 0), rot(320, 150, 150, 210, 0), rot(550, 150, 150, 210, 0)]; // 15px from each side
+    const found = detectCardQuads(multiScene(W, H, truths), W, H);
+    expect(found).toHaveLength(3);
   });
 });

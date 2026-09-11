@@ -4,7 +4,15 @@ import type { PitchHint } from '@/lib/scan/image-hash';
 import type { ApiResponse } from './types';
 import { handleResponse, handleError } from './utils';
 
-export type IdentifyResponse = IdentifyResult & { pitchHint: PitchHint | null };
+export interface IdentifiedCard extends IdentifyResult {
+  pitchHint: PitchHint | null;
+  deskewed: boolean;
+  /** Per-card JPEG data URL when the card was found and deskewed in the photo. */
+  thumb: string | null;
+  sessionItemId?: string;
+}
+/** `data` is the first card (compatibility); `cards` holds every card found in the photo, in reading order. */
+export type IdentifyResponse = IdentifiedCard & { cards: IdentifiedCard[] };
 
 /** POST one card photo (already downscaled client-side) and get ranked candidates. */
 export async function identifyCard(image: Blob, limit = 5): Promise<ApiResponse<IdentifyResponse>> {

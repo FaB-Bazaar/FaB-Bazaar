@@ -7,7 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireScanAccess } from '@/lib/scan/require-scan-access';
 import { scanService } from '@/lib/services';
-import { analyzeImage, thumbnailDataUrl } from '@/lib/scan/image-hash';
+import type { IdentifyResult } from '@/lib/services/postgres/scan/PostgresScanService';
+import type { PitchHint } from '@/lib/scan/image-hash';
+import { analyzeImageMulti, thumbnailDataUrl, type ImageAnalysis } from '@/lib/scan/image-hash';
 import { getScanSessionStore, loadOwnedSession } from '@/lib/scan/session-store';
 import { pickBetterIdentification } from '@/lib/scan/scan-session';
 import { rateLimit } from '@/lib/rate-limit';
@@ -80,32 +82,39 @@ export async function POST(request: NextRequest) {
     sessionCode = owned.record.code;
   }
 
-  // one decode: deskew the card if it can be found, whole-card + art hashes, pitch hint
-  let analysis;
+  // One decode: every card in the photo (deskewed, with its own thumbnail), or the flat frame.
+  let analyses: ImageAnalysis[];
   try {
-    analysis = await analyzeImage(parsed.bytes);
+    analyses = await analyzeImageMulti(parsed.bytes);
   } catch {
     return NextResponse.json({ error: 'That file is not a readable image' }, { status: 400 });
   }
-  // Deskew is do-no-harm: when a quad was used, the flat frame is matched too and the closer wins.
-  const primary = await scanService.identify(analysis.hashes, { limit: parsed.limit, pitchHint: analysis.pitchHint });
-  if (!primary.success) return NextResponse.json({ error: primary.error }, { status: 500 });
-  let chosen = { result: primary.data, hint: analysis.pitchHint, deskewed: analysis.deskewed };
-  if (analysis.deskewed && analysis.flatHashes) {
-    const flat = await scanService.identify(analysis.flatHashes, { limit: parsed.limit, pitchHint: analysis.flatPitchHint ?? null });
-    if (flat.success) chosen = pickBetterIdentification(chosen, { result: flat.data, hint: analysis.flatPitchHint ?? null, deskewed: false });
-  }
-  const { hint, deskewed } = chosen;
-  const result = { success: true as const, data: chosen.result };
 
-  let sessionItemId: string | undefined;
-  if (sessionCode) {
-    sessionItemId = randomUUID();
-    const thumb = await thumbnailDataUrl(parsed.bytes).catch(() => null);
-    await getScanSessionStore().appendItem(sessionCode, {
-      id: sessionItemId, createdAt: Date.now(), thumb,
-      candidates: result.data.candidates, bestDistance: result.data.bestDistance, pitchHint: hint,
-    });
+  // Per card: identify; when a deskew was applied to a lone card, the flat frame is matched too and the closer wins.
+  const cards: Array<{ candidates: IdentifyResult['candidates']; bestDistance: number | null; indexSize: number; pitchHint: PitchHint | null; deskewed: boolean; thumb: string | null; sessionItemId?: string }> = [];
+  for (const analysis of analyses) {
+    const primary = await scanService.identify(analysis.hashes, { limit: parsed.limit, pitchHint: analysis.pitchHint });
+    if (!primary.success) return NextResponse.json({ error: primary.error }, { status: 500 });
+    let chosen = { result: primary.data, hint: analysis.pitchHint, deskewed: analysis.deskewed };
+    if (analysis.deskewed && analysis.flatHashes) {
+      const flat = await scanService.identify(analysis.flatHashes, { limit: parsed.limit, pitchHint: analysis.flatPitchHint ?? null });
+      if (flat.success) chosen = pickBetterIdentification(chosen, { result: flat.data, hint: analysis.flatPitchHint ?? null, deskewed: false });
+    }
+    cards.push({ ...chosen.result, pitchHint: chosen.hint, deskewed: chosen.deskewed, thumb: analysis.thumb ?? null });
   }
-  return NextResponse.json({ success: true, data: { ...result.data, pitchHint: hint, deskewed, ...(sessionItemId ? { sessionItemId } : {}) } });
+
+  if (sessionCode) {
+    const photoThumb = analyses.some(a => !a.thumb) ? await thumbnailDataUrl(parsed.bytes).catch(() => null) : null;
+    for (const card of cards) {
+      card.sessionItemId = randomUUID();
+      await getScanSessionStore().appendItem(sessionCode, {
+        id: card.sessionItemId, createdAt: Date.now(), thumb: card.thumb ?? photoThumb,
+        candidates: card.candidates, bestDistance: card.bestDistance, pitchHint: card.pitchHint,
+      });
+    }
+  }
+  // `data` keeps the first card's shape for existing clients; `cards` carries all of them in reading order.
+  const first = cards[0];
+  return NextResponse.json({ success: true, data: { ...first, cards } });
+
 }

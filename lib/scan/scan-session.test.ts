@@ -98,6 +98,25 @@ describe('scanReducer remote items (phone → desktop)', () => {
   });
 });
 
+describe('scanReducer split (several cards in one photo)', () => {
+  it('replaces the queued photo with one ready item per card, keeping order and using per-card thumbnails', () => {
+    let s = scanReducer(initialScanState, { type: 'queued', id: 'a', previewUrl: 'blob:a' });
+    s = scanReducer(s, { type: 'queued', id: 'b', previewUrl: 'blob:b' });
+    s = scanReducer(s, { type: 'split', id: 'a', cards: [
+      { id: 'a-1', previewUrl: 'data:1', candidates: [CAND], bestDistance: 3, pitchHint: 'red' },
+      { id: 'a-2', previewUrl: 'data:2', candidates: [], bestDistance: null, pitchHint: null },
+    ] });
+    expect(s.items.map(i => i.id)).toEqual(['a-1', 'a-2', 'b']);
+    expect(s.items[0]).toMatchObject({ status: 'ready', chosenPrintingId: 'p-red-en', previewUrl: 'data:1' });
+    expect(s.items[1]).toMatchObject({ status: 'no-match', previewUrl: 'data:2' });
+  });
+  it('a single card falls back to the photo preview when no thumbnail was produced', () => {
+    let s = scanReducer(initialScanState, { type: 'queued', id: 'a', previewUrl: 'blob:a' });
+    s = scanReducer(s, { type: 'split', id: 'a', cards: [{ id: 'a-1', previewUrl: null, candidates: [CAND], bestDistance: 3, pitchHint: null }] });
+    expect(s.items[0].previewUrl).toBe('blob:a');
+  });
+});
+
 describe('pendingAdds', () => {
   it('collects ready items into binder add rows, merging duplicates of one printing', () => {
     let s = initialScanState;

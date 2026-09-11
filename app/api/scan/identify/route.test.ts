@@ -15,7 +15,7 @@ vi.mock('@/lib/auth/multi-auth', () => ({
 }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn(async () => ({ success: true, remaining: 59 })) }));
 vi.mock('@/lib/scan/image-hash', () => ({
-  analyzeImage: vi.fn(),
+  analyzeImageMulti: vi.fn(),
   thumbnailDataUrl: vi.fn(async () => 'data:image/jpeg;base64,AAAA'),
 }));
 import { MemoryScanSessionStore } from '@/lib/scan/session-store';
@@ -25,11 +25,11 @@ vi.mock('@/lib/scan/session-store', async (orig) => ({ ...(await orig<any>()), g
 import { POST } from './route';
 import { scanService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { analyzeImage } from '@/lib/scan/image-hash';
+import { analyzeImageMulti } from '@/lib/scan/image-hash';
 
 const mockIdentify = vi.mocked(scanService.identify);
 const mockAuth = vi.mocked(authenticateRequest);
-const mockAnalyze = vi.mocked(analyzeImage);
+const mockAnalyze = vi.mocked(analyzeImageMulti);
 const HASHES = { phash: '0'.repeat(16), dhash: '0'.repeat(16), artHash: '1'.repeat(16) };
 
 const PNG_BYTES = Buffer.from('89504e470d0a1a0a', 'hex'); // just a header; hashing is mocked
@@ -51,7 +51,7 @@ const RESULT = { candidates: [{ name: 'Sink Below', distance: 4, cards: [] }], b
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
-  mockAnalyze.mockResolvedValue({ hashes: HASHES, pitchHint: 'red', deskewed: true });
+  mockAnalyze.mockResolvedValue([{ hashes: HASHES, pitchHint: 'red', deskewed: true, thumb: null }]);
   mockIdentify.mockResolvedValue({ success: true, data: RESULT });
 });
 
@@ -66,7 +66,8 @@ describe('POST /api/scan/identify', () => {
     const res = await POST(multipart(PNG_BYTES));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ success: true, data: { ...RESULT, pitchHint: 'red', deskewed: true } });
+    expect(body.data).toMatchObject({ ...RESULT, pitchHint: 'red', deskewed: true });
+    expect(body.data.cards).toHaveLength(1);
     expect(mockAnalyze).toHaveBeenCalledTimes(1);
     expect(Buffer.from(mockAnalyze.mock.calls[0][0]).equals(PNG_BYTES)).toBe(true);
     expect(mockIdentify).toHaveBeenCalledWith(HASHES, { limit: 5, pitchHint: 'red' });
@@ -74,7 +75,7 @@ describe('POST /api/scan/identify', () => {
 
   it('when a deskew was applied, also tries the flat frame and keeps the closer match', async () => {
     const FLAT = { phash: 'f'.repeat(16), dhash: 'f'.repeat(16), artHash: 'f'.repeat(16) };
-    mockAnalyze.mockResolvedValue({ hashes: HASHES, flatHashes: FLAT, pitchHint: 'red', flatPitchHint: 'blue', deskewed: true });
+    mockAnalyze.mockResolvedValue([{ hashes: HASHES, flatHashes: FLAT, pitchHint: 'red', flatPitchHint: 'blue', deskewed: true, thumb: null }]);
     mockIdentify.mockImplementation(async (h: any) => ({ success: true, data: h === FLAT
       ? { candidates: [{ name: 'Flat Wins', distance: 12, cards: [] }], bestDistance: 12, indexSize: 100 }
       : { candidates: [{ name: 'Bad Deskew', distance: 90, cards: [] }], bestDistance: 90, indexSize: 100 } }));
@@ -149,5 +150,37 @@ describe('POST /api/scan/identify', () => {
     const res = await POST(multipart(PNG_BYTES));
     expect(res.status).toBe(429);
     expect(mockAnalyze).not.toHaveBeenCalled();
+  });
+
+  describe('several cards in one photo', () => {
+    const H2 = { phash: '2'.repeat(16), dhash: '2'.repeat(16), artHash: '2'.repeat(16) };
+    it('identifies each card and returns them in order under data.cards (data = first card for compatibility)', async () => {
+      mockAnalyze.mockResolvedValue([
+        { hashes: HASHES, pitchHint: 'red', deskewed: true, thumb: 'data:image/jpeg;base64,ONE' },
+        { hashes: H2, pitchHint: null, deskewed: true, thumb: 'data:image/jpeg;base64,TWO' },
+      ]);
+      mockIdentify.mockImplementation(async (h: any) => ({ success: true, data: h === H2
+        ? { candidates: [{ name: 'Second', distance: 9, cards: [] }], bestDistance: 9, indexSize: 100 }
+        : { candidates: [{ name: 'First', distance: 4, cards: [] }], bestDistance: 4, indexSize: 100 } }));
+      const res = await POST(multipart(PNG_BYTES));
+      const body = await res.json();
+      expect(mockIdentify).toHaveBeenCalledTimes(2);
+      expect(body.data.cards.map((c: any) => c.candidates[0].name)).toEqual(['First', 'Second']);
+      expect(body.data.cards.map((c: any) => c.thumb)).toEqual(['data:image/jpeg;base64,ONE', 'data:image/jpeg;base64,TWO']);
+      expect(body.data.candidates[0].name).toBe('First');
+    });
+    it('appends one session item per card, each with its own thumbnail', async () => {
+      mockAnalyze.mockResolvedValue([
+        { hashes: HASHES, pitchHint: 'red', deskewed: true, thumb: 'data:image/jpeg;base64,ONE' },
+        { hashes: H2, pitchHint: null, deskewed: true, thumb: 'data:image/jpeg;base64,TWO' },
+      ]);
+      const s = await sessionStore.create('u1');
+      const res = await POST(multipart(PNG_BYTES, { session: s.code }));
+      const body = await res.json();
+      const items = await sessionStore.listItems(s.code);
+      expect(items).toHaveLength(2);
+      expect(items.map(i => i.thumb)).toEqual(['data:image/jpeg;base64,ONE', 'data:image/jpeg;base64,TWO']);
+      expect(body.data.cards.map((c: any) => c.sessionItemId)).toEqual(items.map(i => i.id));
+    });
   });
 });

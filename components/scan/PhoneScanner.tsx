@@ -11,7 +11,7 @@ import { matchConfidence } from "@/lib/scan/scan-session";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 
-interface Shot { id: string; previewUrl: string; status: "identifying" | "done" | "error"; name?: string; confidence?: "confident" | "plausible" | "weak" | "none"; error?: string }
+interface Shot { id: string; previewUrl: string; status: "identifying" | "done" | "error"; name?: string; confidence?: "confident" | "plausible" | "weak" | "none"; error?: string; cardCount?: number }
 
 export default function PhoneScanner({ code }: { code: string }) {
   const [phase, setPhase] = useState<"pairing" | "ready" | "error">("pairing");
@@ -40,7 +40,12 @@ export default function PhoneScanner({ code }: { code: string }) {
           const blob = await prepareUpload(file);
           const res = await scanClient.identifyCardForSession(blob, code);
           setShots(s => s.map(x => x.id !== id ? x : res.success
-            ? { ...x, status: "done", name: res.data.candidates[0]?.name, confidence: res.data.candidates.length ? matchConfidence(res.data.bestDistance) : "none" }
+            ? (() => {
+                const cards = res.data.cards ?? [res.data];
+                const matched = cards.filter(c => c.candidates.length > 0);
+                if (cards.length > 1) return { ...x, status: "done" as const, cardCount: cards.length, name: `${matched.length} of ${cards.length} cards recognised`, confidence: matched.length === cards.length ? "confident" as const : matched.length ? "plausible" as const : "none" as const };
+                return { ...x, status: "done" as const, cardCount: 1, name: res.data.candidates[0]?.name, confidence: res.data.candidates.length ? matchConfidence(res.data.bestDistance) : "none" as const };
+              })()
             : { ...x, status: "error", error: res.error }));
         } catch (err) {
           setShots(s => s.map(x => x.id !== id ? x : { ...x, status: "error", error: err instanceof Error ? err.message : "Upload failed" }));
@@ -58,7 +63,7 @@ export default function PhoneScanner({ code }: { code: string }) {
     </div>
   );
 
-  const done = shots.filter(s => s.status === "done").length;
+  const done = shots.filter(s => s.status === "done").reduce((n, s) => n + (s.cardCount ?? 1), 0);
   return (
     <div>
       <p className="text-base text-green-700 dark:text-green-300" data-testid="phone-status">✓ Connected to your desktop · {done} scanned</p>
@@ -67,7 +72,7 @@ export default function PhoneScanner({ code }: { code: string }) {
         className={`mt-4 flex w-full items-center justify-center gap-3 rounded-xl bg-gray-900 px-6 py-6 text-xl font-semibold text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 ${FOCUS_RING}`}>
         <Camera className="h-7 w-7" aria-hidden /> Take a photo
       </button>
-      <p className="mt-2 text-center text-sm text-gray-700 dark:text-gray-300">Fill the frame with one card. Pick printings on the desktop.</p>
+      <p className="mt-2 text-center text-sm text-gray-700 dark:text-gray-300">One card filling the frame, or several laid out on a table. Pick printings on the desktop.</p>
       {shots.length > 0 && (
         <ul className="mt-4 space-y-2" aria-label="Recent shots">
           {shots.map((s) => (

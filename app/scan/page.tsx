@@ -85,8 +85,14 @@ function ScanPageInner() {
         try {
           const blob = await prepareUpload(file);
           const res = await scanClient.identifyCard(blob);
-          if (res.success) dispatch({ type: "identified", id, candidates: res.data.candidates, bestDistance: res.data.bestDistance, pitchHint: res.data.pitchHint });
-          else dispatch({ type: "failed", id, error: res.error });
+          if (!res.success) { dispatch({ type: "failed", id, error: res.error }); return; }
+          const cards = res.data.cards ?? [];
+          if (cards.length > 1 || (cards.length === 1 && cards[0].thumb)) {
+            // several cards in one photo (or one deskewed card with its own thumbnail): one item each
+            dispatch({ type: "split", id, cards: cards.map((c, i) => ({ id: `${id}:${i}`, previewUrl: c.thumb, candidates: c.candidates, bestDistance: c.bestDistance, pitchHint: c.pitchHint })) });
+          } else {
+            dispatch({ type: "identified", id, candidates: res.data.candidates, bestDistance: res.data.bestDistance, pitchHint: res.data.pitchHint });
+          }
         } catch (err) {
           dispatch({ type: "failed", id, error: err instanceof Error ? err.message : "Upload failed" });
         }
@@ -161,7 +167,7 @@ function ScanPageInner() {
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scan cards</h1>
       <p className="mt-1 text-base text-gray-700 dark:text-gray-300">
-        Photograph one card per shot, filling the frame. We match the artwork; you confirm the pitch, foiling and edition.
+        Photograph one card filling the frame, or several laid out on a table. We match the artwork; you confirm the pitch, foiling and edition.
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
