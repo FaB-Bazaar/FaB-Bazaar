@@ -35,4 +35,14 @@ describe('pairBaseUrl', () => {
   it('never emits an unusable internal address when nothing better is known', () => {
     expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true })).toBe('http://0.0.0.0:3000'); // documented worst case, nothing to swap to
   });
+
+  it('uses the plain Host header when the proxy forwards no X-Forwarded-Host (Caddy passes Host through)', () => {
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true, hostHeader: 'fabbazaar.app' })).toBe('https://fabbazaar.app');
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true, hostHeader: 'fabbazaar.app', forwardedProto: 'https' })).toBe('https://fabbazaar.app');
+    expect(pairBaseUrl('http://localhost:3000', { lanIp: '10.0.0.92', production: false, hostHeader: '10.0.0.92:3000' })).toBe('http://10.0.0.92:3000');
+  });
+  it('ignores a Host header or app URL that is itself an internal address', () => {
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true, hostHeader: '0.0.0.0:3000', appUrl: 'http://localhost:3000' })).toBe('http://0.0.0.0:3000');
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true, hostHeader: 'localhost:3000', appUrl: 'https://fabbazaar.app' })).toBe('https://fabbazaar.app');
+  });
 });

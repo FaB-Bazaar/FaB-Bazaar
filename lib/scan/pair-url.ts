@@ -1,9 +1,11 @@
 // lib/scan/pair-url.ts — the base URL a phone must open to pair with the desktop.
 // Behind Caddy the container sees itself as 0.0.0.0:3000, and "localhost" in a
 // QR means "this phone", so the origin alone is never good enough. Precedence:
-//   SCAN_PAIR_BASE_URL  →  proxy X-Forwarded-Host/Proto (what the user typed)
-//   →  NEXT_PUBLIC_APP_URL / NEXTAUTH_URL in production when the origin is an
+//   SCAN_PAIR_BASE_URL  →  proxy X-Forwarded-Host/Proto  →  the plain Host
+//   header (Caddy passes it through; it is what the user typed)  →
+//   NEXT_PUBLIC_APP_URL / NEXTAUTH_URL in production when the origin is an
 //   internal bind address  →  LAN ip for localhost in dev  →  the origin.
+// Internal addresses (localhost, 0.0.0.0, …) are never trusted from any source.
 import os from 'node:os';
 import type { NextRequest } from 'next/server';
 
@@ -13,24 +15,34 @@ export interface PairUrlEnv {
   override?: string | null;
   forwardedHost?: string | null;
   forwardedProto?: string | null;
+  /** The request's Host header (host[:port]). */
+  hostHeader?: string | null;
   appUrl?: string | null;
 }
 
-const INTERNAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '[::]']);
+const INTERNAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '[::1]', '[::]', '::1', '::']);
 const trimSlash = (u: string) => u.replace(/\/+$/, '');
+const hostOf = (hostHeader: string) => hostHeader.replace(/:\d+$/, '');
+const isInternalHost = (hostHeader: string) => INTERNAL_HOSTS.has(hostOf(hostHeader));
+const isInternalUrl = (u: string) => { try { return INTERNAL_HOSTS.has(new URL(u).hostname); } catch { return true; } };
+/** A bare public hostname (no port) is served over TLS; anything with a port is a dev/LAN address. */
+const protoFor = (host: string, forwardedProto: string | null | undefined, production: boolean) => {
+  const fp = (forwardedProto ?? '').split(',')[0].trim();
+  if (fp) return fp;
+  return /:\d+$/.test(host) ? 'http' : (production || !isInternalHost(host) ? 'https' : 'http');
+};
 
 export function pairBaseUrl(origin: string, env: PairUrlEnv): string {
   if (env.override) return trimSlash(env.override);
-  if (env.forwardedHost) {
-    const host = env.forwardedHost.split(',')[0].trim();
-    const proto = (env.forwardedProto ?? '').split(',')[0].trim() || (env.production ? 'https' : 'http');
-    if (host) return `${proto}://${host}`;
-  }
+  const forwarded = env.forwardedHost?.split(',')[0].trim();
+  if (forwarded && !isInternalHost(forwarded)) return `${protoFor(forwarded, env.forwardedProto, env.production)}://${forwarded}`;
+  const host = env.hostHeader?.trim();
+  if (host && !isInternalHost(host)) return `${protoFor(host, env.forwardedProto, env.production)}://${host}`;
   let hostname: string | null = null;
   try { hostname = new URL(origin).hostname; } catch { return origin; }
   const internal = INTERNAL_HOSTS.has(hostname);
   if (env.production) {
-    if (internal && env.appUrl) return trimSlash(env.appUrl);
+    if (internal && env.appUrl && !isInternalUrl(env.appUrl)) return trimSlash(env.appUrl);
     return origin;
   }
   if (internal && env.lanIp) {
@@ -58,6 +70,7 @@ export function pairBaseUrlForRequest(request: NextRequest): string {
     override: process.env.SCAN_PAIR_BASE_URL ?? null,
     forwardedHost: request.headers.get('x-forwarded-host'),
     forwardedProto: request.headers.get('x-forwarded-proto'),
+    hostHeader: request.headers.get('host'),
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL ?? null,
   });
 }

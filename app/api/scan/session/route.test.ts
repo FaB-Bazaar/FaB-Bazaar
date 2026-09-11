@@ -45,4 +45,10 @@ describe('POST /api/scan/session', () => {
     const body = await res.json();
     expect(body.data.pairUrl).toBe(`https://fabbazaar.app/scan?pair=${body.data.code}`);
   });
+
+  it('with only a Host header (no forwarded headers) the pair URL still uses the public host over https', async () => {
+    const res = await POST(new NextRequest('http://0.0.0.0:3000/api/scan/session', { method: 'POST', headers: { host: 'fabbazaar.app' } }));
+    const body = await res.json();
+    expect(body.data.pairUrl).toBe(`https://fabbazaar.app/scan?pair=${body.data.code}`);
+  });
 });
