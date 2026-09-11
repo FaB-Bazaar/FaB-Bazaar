@@ -3,7 +3,9 @@
 // scanner only identifies ARTWORK; pitch/foiling/edition are the user's pick.
 "use client";
 
-import { Check, Trash2, Minus, Plus, AlertTriangle, ImageOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Trash2, Minus, Plus, AlertTriangle, ImageOff, Search } from "lucide-react";
+import { searchClient } from "@/lib/client";
 import { FOILING_MAP, EDITION_MAP, SET_MAP } from "@/lib/fab-constants";
 import { matchConfidence, type ScanItem, type ScanCandidate, type ScanPrinting, defaultPrintingChoice } from "@/lib/scan/scan-session";
 
@@ -52,9 +54,60 @@ export interface ScanItemCardProps {
   onChoose: (printingId: string) => void;
   onQuantity: (quantity: number) => void;
   onRemove: () => void;
+  /** The user searched for and picked the true card (wrong or missing recognition). */
+  onOverride?: (card: ScanCandidate["cards"][0], printingId: string) => void;
 }
 
-export default function ScanItemCard({ item, onChoose, onQuantity, onRemove }: ScanItemCardProps) {
+/** "Not this card?" — name search → pick → the true card replaces the recognition (and labels the capture). */
+function CorrectCard({ onPick }: { onPick: (card: ScanCandidate["cards"][0], printingId: string) => void }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current);
+    if (q.trim().length < 2) { setResults([]); return; }
+    timer.current = setTimeout(async () => {
+      setBusy(true);
+      const res = await searchClient.searchPrintings({ name: q.trim(), languages: ['en'] } as any, { limit: 8 });
+      setBusy(false);
+      setResults(res.success ? res.data.printings : []);
+    }, 250);
+    return () => { if (timer.current) clearTimeout(timer.current); };
+  }, [q]);
+  return (
+    <div className="mt-3">
+      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <Search className="h-4 w-4" aria-hidden />
+        <span>Not this card? Search by name</span>
+      </label>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. Big Game Trophy Shot" aria-label="Search for the correct card"
+        className={`mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 ${FOCUS_RING}`} />
+      {busy && <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">Searching…</p>}
+      {results.length > 0 && (
+        <ul className="mt-1 max-h-56 overflow-auto rounded-md border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900" role="listbox" aria-label="Search results">
+          {results.map((r) => {
+            const pitch = r.pitch ?? r.card_pitch ?? null;
+            return (
+              <li key={r.printing_id}>
+                <button type="button" role="option" aria-selected={false} onClick={() => {
+                  const printing: ScanPrinting = { printingId: r.printing_id, collectorNumber: r.collector_number ?? null, set: r.set ?? "", edition: r.edition ?? "", foiling: r.foiling ?? "", language: r.language ?? "en", rarity: r.rarity ?? "", artVariations: r.art_variations ?? null, imageUrl: r.image_url ?? null, tcgLow: r.tcg_low ?? null, distance: null };
+                  onPick({ cardUniqueId: r.card_unique_id, name: r.name, pitch: pitch ? Number(pitch) : null, distance: 128, printings: [printing] }, r.printing_id);
+                  setQ(""); setResults([]);
+                }} className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${FOCUS_RING}`}>
+                  {r.image_url ? <img src={r.image_url} alt="" className="h-10 w-7 flex-none rounded object-cover" loading="lazy" /> : null}
+                  <span className="min-w-0 flex-1 truncate text-gray-900 dark:text-gray-100">{r.name}{pitch ? ` (${PITCH_LABEL[Number(pitch)] ?? pitch})` : ""} · {r.collector_number ?? ""} · {label(FOILING_MAP as Record<string, string>, r.foiling)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export default function ScanItemCard({ item, onChoose, onQuantity, onRemove, onOverride }: ScanItemCardProps) {
   // Which candidate name + card own the chosen printing?
   const owner = (() => {
     for (const cand of item.candidates) for (const card of cand.cards) for (const p of card.printings) {
@@ -85,6 +138,10 @@ export default function ScanItemCard({ item, onChoose, onQuantity, onRemove }: S
               <Trash2 className="h-5 w-5" aria-hidden />
             </button>
           </div>
+
+          {!done && (item.status === "ready" || item.status === "no-match") && onOverride && (
+            <CorrectCard onPick={onOverride} />
+          )}
 
           {!done && item.status !== "identifying" && item.candidates.length > 0 && (
             <>

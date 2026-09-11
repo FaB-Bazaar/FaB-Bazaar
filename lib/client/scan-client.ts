@@ -10,6 +10,8 @@ export interface IdentifiedCard extends IdentifyResult {
   /** Per-card JPEG data URL when the card was found and deskewed in the photo. */
   thumb: string | null;
   sessionItemId?: string;
+  /** Server-side capture id of the photo (label it with labelCapture). */
+  captureId?: string;
 }
 /** `data` is the first card (compatibility); `cards` holds every card found in the photo, in reading order. */
 export type IdentifyResponse = IdentifiedCard & { cards: IdentifiedCard[] };
@@ -66,4 +68,14 @@ export async function identifyCardForSession(image: Blob, session: string, limit
 /** Desktop: SSE URL for a session's live events. */
 export function sessionEventsUrl(code: string): string {
   return `/api/scan/session/${encodeURIComponent(code)}/events`;
+}
+
+/** Tell the server what a scanned photo really was ('corrected' = picked via search, 'accepted' = added as suggested). */
+export async function labelCapture(captureId: string, printingId: string, source: 'corrected' | 'accepted'): Promise<ApiResponse<{ captureId: string }>> {
+  try {
+    const response = await fetch('/api/scan/captures/label', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ captureId, printingId, source }) });
+    return await handleResponse<{ captureId: string }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
 }

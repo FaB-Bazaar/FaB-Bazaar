@@ -27,6 +27,8 @@ export interface ScanSessionItem {
   candidates: ScanCandidate[];
   bestDistance: number | null;
   pitchHint: PitchHint | null;
+  /** Capture id of the photo (for labelling on the desktop). */
+  captureId?: string;
 }
 
 export interface ScanSessionSubscriber {

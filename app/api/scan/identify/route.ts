@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Per card: identify; when a deskew was applied to a lone card, the flat frame is matched too and the closer wins.
-  const cards: Array<{ candidates: IdentifyResult['candidates']; bestDistance: number | null; indexSize: number; pitchHint: PitchHint | null; deskewed: boolean; thumb: string | null; sessionItemId?: string }> = [];
+  const cards: Array<{ candidates: IdentifyResult['candidates']; bestDistance: number | null; indexSize: number; pitchHint: PitchHint | null; deskewed: boolean; thumb: string | null; sessionItemId?: string; captureId?: string }> = [];
   for (const analysis of analyses) {
     const primary = await scanService.identify(analysis.hashes, { limit: parsed.limit, pitchHint: analysis.pitchHint });
     if (!primary.success) return NextResponse.json({ error: primary.error }, { status: 500 });
@@ -104,23 +104,26 @@ export async function POST(request: NextRequest) {
     cards.push({ ...chosen.result, pitchHint: chosen.hint, deskewed: chosen.deskewed, thumb: analysis.thumb ?? null });
   }
 
+  // Rollout diagnostics + labelling: keep the original photo (short TTL) so a scan can be
+  // reproduced, and hand the client the capture id so a correction/accept can label it.
+  const first = cards[0];
+  const capture = await getScanCaptureStore().save(authResult.userId!, parsed.bytes, parsed.contentType ?? 'image/jpeg', {
+    cardsFound: cards.filter(c => c.deskewed).length, topName: first?.candidates[0]?.name ?? null, bestDistance: first?.bestDistance ?? null,
+  }).catch(() => null);
+  const captureId = capture?.id;
+  for (const card of cards) card.captureId = captureId;
+
   if (sessionCode) {
     const photoThumb = analyses.some(a => !a.thumb) ? await thumbnailDataUrl(parsed.bytes).catch(() => null) : null;
     for (const card of cards) {
       card.sessionItemId = randomUUID();
       await getScanSessionStore().appendItem(sessionCode, {
         id: card.sessionItemId, createdAt: Date.now(), thumb: card.thumb ?? photoThumb,
-        candidates: card.candidates, bestDistance: card.bestDistance, pitchHint: card.pitchHint,
+        candidates: card.candidates, bestDistance: card.bestDistance, pitchHint: card.pitchHint, captureId,
       });
     }
   }
-  // Rollout diagnostics: keep the original photo (short TTL) so a failed scan can be reproduced and tuned.
-  const first = cards[0];
-  void getScanCaptureStore().save(authResult.userId!, parsed.bytes, parsed.contentType ?? 'image/jpeg', {
-    cardsFound: cards.filter(c => c.deskewed).length, topName: first?.candidates[0]?.name ?? null, bestDistance: first?.bestDistance ?? null,
-  }).catch(() => undefined);
-
   // `data` keeps the first card's shape for existing clients; `cards` carries all of them in reading order.
-  return NextResponse.json({ success: true, data: { ...first, cards } });
+  return NextResponse.json({ success: true, data: { ...first, captureId, cards } });
 
 }

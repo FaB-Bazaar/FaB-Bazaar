@@ -7,6 +7,8 @@ import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
 
 export const CAPTURE_TTL_SEC = 24 * 60 * 60;
+/** A labelled capture is ground truth for the real-photo eval — keep it longer. */
+export const LABELLED_TTL_SEC = 7 * 24 * 60 * 60;
 export const CAPTURE_KEEP = 30;
 
 export interface CaptureOutcome {
@@ -14,17 +16,27 @@ export interface CaptureOutcome {
   topName: string | null;
   bestDistance: number | null;
 }
+export interface CaptureLabel {
+  printingId: string;
+  cardName: string;
+  /** 'corrected' = the user picked a different card; 'accepted' = the user added the suggested card as-is. */
+  source: 'corrected' | 'accepted';
+  at: number;
+}
 export interface CaptureMeta {
   id: string;
   createdAt: number;
   contentType: string;
   bytes: number;
   outcome: CaptureOutcome;
+  label?: CaptureLabel;
 }
 export interface ScanCaptureStore {
   save(userId: string, data: Buffer | Uint8Array, contentType: string, outcome: CaptureOutcome, opts?: { keep?: number }): Promise<CaptureMeta>;
   list(userId: string): Promise<CaptureMeta[]>;
   get(userId: string, id: string): Promise<{ contentType: string; data: Uint8Array } | null>;
+  /** Attach the true printing to a capture (scoped to its owner). false = unknown/expired. */
+  label(userId: string, id: string, label: Omit<CaptureLabel, 'at'>): Promise<boolean>;
 }
 
 export class MemoryScanCaptureStore implements ScanCaptureStore {
@@ -43,6 +55,12 @@ export class MemoryScanCaptureStore implements ScanCaptureStore {
   async get(userId: string, id: string) {
     const hit = (this.byUser.get(userId) ?? []).find(c => c.id === id);
     return hit ? { contentType: hit.contentType, data: hit.data } : null;
+  }
+  async label(userId: string, id: string, label: Omit<CaptureLabel, 'at'>) {
+    const hit = (this.byUser.get(userId) ?? []).find(c => c.id === id);
+    if (!hit) return false;
+    hit.label = { ...label, at: Date.now() };
+    return true;
   }
 }
 
@@ -86,6 +104,15 @@ export class RedisScanCaptureStore implements ScanCaptureStore {
     const data = await this.redis.getBuffer(dataKey(userId, id));
     if (!data) return null;
     return { contentType: (JSON.parse(raw) as CaptureMeta).contentType, data: new Uint8Array(data) };
+  }
+  async label(userId: string, id: string, label: Omit<CaptureLabel, 'at'>) {
+    const raw = await this.redis.get(metaKey(userId, id));
+    if (!raw) return false;
+    const meta = JSON.parse(raw) as CaptureMeta;
+    meta.label = { ...label, at: Date.now() };
+    await this.redis.set(metaKey(userId, id), JSON.stringify(meta), 'EX', LABELLED_TTL_SEC);
+    await this.redis.expire(dataKey(userId, id), LABELLED_TTL_SEC);
+    return true;
   }
 }
 

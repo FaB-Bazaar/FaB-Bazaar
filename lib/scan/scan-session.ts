@@ -19,6 +19,8 @@ export interface ScanItem {
   chosenPrintingId: string | null;
   quantity: number;
   error?: string;
+  /** Server-side capture id of the photo this item came from (labelling). */
+  captureId?: string;
 }
 
 export interface ScanState {
@@ -44,7 +46,7 @@ export function matchConfidence(distance: number | null): MatchConfidence {
 
 export type ScanAction =
   | { type: 'queued'; id: string; previewUrl: string }
-  | { type: 'identified'; id: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null }
+  | { type: 'identified'; id: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null; captureId?: string }
   | { type: 'failed'; id: string; error: string }
   | { type: 'choose'; id: string; printingId: string }
   | { type: 'quantity'; id: string; quantity: number }
@@ -52,9 +54,11 @@ export type ScanAction =
   | { type: 'added'; ids: string[] }
   | { type: 'clearAdded' }
   /** An item identified on a paired phone, delivered over SSE (idempotent on id). */
-  | { type: 'remote'; id: string; previewUrl: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null }
+  | { type: 'remote'; id: string; previewUrl: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null; captureId?: string }
   /** One photo held several cards: replace the queued item with one item per card (in order). */
-  | { type: 'split'; id: string; cards: Array<{ id: string; previewUrl: string | null; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null }> };
+  | { type: 'split'; id: string; cards: Array<{ id: string; previewUrl: string | null; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null; captureId?: string }> }
+  /** The user picked the true card via search: it becomes the (only) candidate group and the chosen printing. */
+  | { type: 'override'; id: string; card: ScanCandidate['cards'][0]; printingId: string };
 
 /** Scale (w,h) so the longer edge is at most `max`; never upscale. */
 export function fitWithin(width: number, height: number, max: number): { width: number; height: number } {
@@ -102,6 +106,7 @@ export function scanReducer(state: ScanState, action: ScanAction): ScanState {
         chosenPrintingId: action.candidates[0] ? defaultPrintingChoice(action.candidates[0]) : null,
         status: action.candidates.length > 0 ? 'ready' : 'no-match',
         error: undefined,
+        captureId: action.captureId ?? i.captureId,
       }));
     case 'failed':
       return update(state, action.id, i => ({ ...i, status: 'error', error: action.error }));
@@ -124,7 +129,7 @@ export function scanReducer(state: ScanState, action: ScanAction): ScanState {
       const replacements: ScanItem[] = action.cards.map(c => ({
         id: c.id, previewUrl: c.previewUrl || photo.previewUrl, status: c.candidates.length > 0 ? 'ready' : 'no-match',
         candidates: c.candidates, bestDistance: c.bestDistance, pitchHint: c.pitchHint,
-        chosenPrintingId: c.candidates[0] ? defaultPrintingChoice(c.candidates[0]) : null, quantity: 1,
+        chosenPrintingId: c.candidates[0] ? defaultPrintingChoice(c.candidates[0]) : null, quantity: 1, captureId: c.captureId,
       }));
       return { items: [...state.items.slice(0, at), ...replacements, ...state.items.slice(at + 1)] };
     }
@@ -134,10 +139,15 @@ export function scanReducer(state: ScanState, action: ScanAction): ScanState {
         items: [...state.items, {
           id: action.id, previewUrl: action.previewUrl, status: action.candidates.length > 0 ? 'ready' : 'no-match',
           candidates: action.candidates, bestDistance: action.bestDistance, pitchHint: action.pitchHint,
-          chosenPrintingId: action.candidates[0] ? defaultPrintingChoice(action.candidates[0]) : null, quantity: 1,
+          chosenPrintingId: action.candidates[0] ? defaultPrintingChoice(action.candidates[0]) : null, quantity: 1, captureId: action.captureId,
         }],
       };
     }
+    case 'override':
+      return update(state, action.id, i => ({
+        ...i, status: 'ready', chosenPrintingId: action.printingId,
+        candidates: [{ name: action.card.name, distance: action.card.distance, cards: [action.card] }, ...i.candidates.filter(c => c.name !== action.card.name)],
+      }));
     default:
       return state;
   }
@@ -162,6 +172,13 @@ export function pickBetterIdentification<T extends { result: IdentifyResult }>(a
   const da = a.result.bestDistance ?? Number.POSITIVE_INFINITY;
   const db = b.result.bestDistance ?? Number.POSITIVE_INFINITY;
   return db < da ? b : a;
+}
+
+/** Capture ids + chosen printings of the items an "add" implicitly confirms (source 'accepted'). */
+export function acceptedLabels(state: ScanState): Array<{ captureId: string; printingId: string }> {
+  return state.items
+    .filter(i => i.status === 'ready' && i.chosenPrintingId && i.captureId)
+    .map(i => ({ captureId: i.captureId!, printingId: i.chosenPrintingId! }));
 }
 
 /** Ids of the items pendingAdds() would submit. */

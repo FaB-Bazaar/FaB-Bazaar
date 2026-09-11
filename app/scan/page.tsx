@@ -18,7 +18,7 @@ import ScanItemCard from "@/components/scan/ScanItemCard";
 import PhonePairPanel from "@/components/scan/PhonePairPanel";
 import PhoneScanner from "@/components/scan/PhoneScanner";
 import { prepareUpload } from "@/lib/scan/prepare-upload";
-import { scanReducer, initialScanState, pendingAdds, readyItemIds } from "@/lib/scan/scan-session";
+import { scanReducer, initialScanState, pendingAdds, readyItemIds, acceptedLabels } from "@/lib/scan/scan-session";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 const BINDER_KEY = "scan:lastBinderId";
@@ -89,9 +89,9 @@ function ScanPageInner() {
           const cards = res.data.cards ?? [];
           if (cards.length > 1 || (cards.length === 1 && cards[0].thumb)) {
             // several cards in one photo (or one deskewed card with its own thumbnail): one item each
-            dispatch({ type: "split", id, cards: cards.map((c, i) => ({ id: `${id}:${i}`, previewUrl: c.thumb, candidates: c.candidates, bestDistance: c.bestDistance, pitchHint: c.pitchHint })) });
+            dispatch({ type: "split", id, cards: cards.map((c, i) => ({ id: `${id}:${i}`, previewUrl: c.thumb, candidates: c.candidates, bestDistance: c.bestDistance, pitchHint: c.pitchHint, captureId: c.captureId })) });
           } else {
-            dispatch({ type: "identified", id, candidates: res.data.candidates, bestDistance: res.data.bestDistance, pitchHint: res.data.pitchHint });
+            dispatch({ type: "identified", id, candidates: res.data.candidates, bestDistance: res.data.bestDistance, pitchHint: res.data.pitchHint, captureId: res.data.captureId });
           }
         } catch (err) {
           dispatch({ type: "failed", id, error: err instanceof Error ? err.message : "Upload failed" });
@@ -117,10 +117,13 @@ function ScanPageInner() {
     if (!binderId || adds.length === 0) return;
     setAdding(true);
     const ids = readyItemIds(state);
+    const labels = acceptedLabels(state);
     const res = await bindersClient.addCardsToBinder(binderId, adds.map(a => ({ printingId: a.printingId, quantity: a.quantity })));
     setAdding(false);
     if (res.success) {
       dispatch({ type: "added", ids });
+      // adding as suggested confirms the recognition: label those captures (best effort, fire and forget)
+      for (const l of labels) void scanClient.labelCapture(l.captureId, l.printingId, "accepted");
       const binder = binders.find(b => b._id === binderId);
       toast({ title: `Added ${addCount} card${addCount === 1 ? "" : "s"}`, description: binder ? `to ${binder.name}` : undefined });
     } else {
@@ -207,7 +210,7 @@ function ScanPageInner() {
         <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">…or drop images here, or paste one.</p>
       </div>
 
-      <PhonePairPanel onRemoteItem={(item) => dispatch({ type: "remote", id: item.id, previewUrl: item.thumb ?? "", candidates: item.candidates, bestDistance: item.bestDistance, pitchHint: item.pitchHint })} />
+      <PhonePairPanel onRemoteItem={(item) => dispatch({ type: "remote", id: item.id, previewUrl: item.thumb ?? "", candidates: item.candidates, bestDistance: item.bestDistance, pitchHint: item.pitchHint, captureId: item.captureId })} />
 
       {state.items.length > 0 && (
         <ul className="mt-5 space-y-3" aria-label="Scanned cards">
@@ -215,6 +218,10 @@ function ScanPageInner() {
             <ScanItemCard key={item.id} item={item}
               onChoose={(printingId) => dispatch({ type: "choose", id: item.id, printingId })}
               onQuantity={(quantity) => dispatch({ type: "quantity", id: item.id, quantity })}
+              onOverride={(card, printingId) => {
+                dispatch({ type: "override", id: item.id, card, printingId });
+                if (item.captureId) void scanClient.labelCapture(item.captureId, printingId, "corrected");
+              }}
               onRemove={() => { URL.revokeObjectURL(item.previewUrl); dispatch({ type: "remove", id: item.id }); }} />
           ))}
         </ul>

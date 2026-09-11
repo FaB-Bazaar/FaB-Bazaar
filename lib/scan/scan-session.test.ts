@@ -2,7 +2,7 @@
 // photographed cards, each identified → printing chosen → added to a binder.
 import { describe, it, expect } from 'vitest';
 import {
-  scanReducer, initialScanState, defaultPrintingChoice, pendingAdds, fitWithin, pickBetterIdentification,
+  scanReducer, initialScanState, defaultPrintingChoice, pendingAdds, fitWithin, pickBetterIdentification, acceptedLabels,
   type ScanCandidate,
 } from './scan-session';
 
@@ -114,6 +114,24 @@ describe('scanReducer split (several cards in one photo)', () => {
     let s = scanReducer(initialScanState, { type: 'queued', id: 'a', previewUrl: 'blob:a' });
     s = scanReducer(s, { type: 'split', id: 'a', cards: [{ id: 'a-1', previewUrl: null, candidates: [CAND], bestDistance: 3, pitchHint: null }] });
     expect(s.items[0].previewUrl).toBe('blob:a');
+  });
+});
+
+describe('capture ids for labelling', () => {
+  it('identified and split items carry the capture id', () => {
+    let s = scanReducer(initialScanState, { type: 'queued', id: 'a', previewUrl: 'blob:a' });
+    s = scanReducer(s, { type: 'identified', id: 'a', candidates: [CAND], bestDistance: 3, pitchHint: null, captureId: 'cap-1' });
+    expect(s.items[0].captureId).toBe('cap-1');
+    s = scanReducer(s, { type: 'queued', id: 'b', previewUrl: 'blob:b' });
+    s = scanReducer(s, { type: 'split', id: 'b', cards: [{ id: 'b-1', previewUrl: null, candidates: [CAND], bestDistance: 3, pitchHint: null, captureId: 'cap-2' }] });
+    expect(s.items[1].captureId).toBe('cap-2');
+  });
+  it('acceptedLabels lists chosen printing + capture id for ready items (what an add implicitly confirms)', () => {
+    let s = scanReducer(initialScanState, { type: 'queued', id: 'a', previewUrl: 'blob:a' });
+    s = scanReducer(s, { type: 'identified', id: 'a', candidates: [CAND], bestDistance: 3, pitchHint: null, captureId: 'cap-1' });
+    s = scanReducer(s, { type: 'queued', id: 'b', previewUrl: 'blob:b' });
+    s = scanReducer(s, { type: 'identified', id: 'b', candidates: [CAND], bestDistance: 3, pitchHint: null }); // no capture id → nothing to label
+    expect(acceptedLabels(s)).toEqual([{ captureId: 'cap-1', printingId: 'p-red-en' }]);
   });
 });
 

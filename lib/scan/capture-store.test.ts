@@ -32,6 +32,18 @@ function contract(name: string, make: () => Promise<ScanCaptureStore | null>, te
       expect(await store!.get('someone-else', c.id)).toBeNull();
       expect(await store!.get(u, 'nope')).toBeNull();
     });
+    it('records a label (the true printing) on a capture and returns it in list/get', async () => {
+      if (skip()) return;
+      const u = user();
+      const c = await store!.save(u, PNG, 'image/png', { cardsFound: 1, topName: 'Wrong Card', bestDistance: 40 });
+      const labelled = await store!.label(u, c.id, { printingId: 'p-true', cardName: 'True Card', source: 'corrected' });
+      expect(labelled).toBe(true);
+      const meta = (await store!.list(u)).find(x => x.id === c.id)!;
+      expect(meta.label).toMatchObject({ printingId: 'p-true', cardName: 'True Card', source: 'corrected' });
+      expect(typeof meta.label!.at).toBe('number');
+      expect(await store!.label(u, 'nope', { printingId: 'p', cardName: 'x', source: 'accepted' })).toBe(false);
+      expect(await store!.label('someone-else', c.id, { printingId: 'p', cardName: 'x', source: 'accepted' })).toBe(false);
+    });
     it('keeps only the newest N per user', async () => {
       if (skip()) return;
       const u = user();

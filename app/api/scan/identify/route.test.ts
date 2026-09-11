@@ -189,9 +189,12 @@ describe('POST /api/scan/identify', () => {
 
   it('keeps the uploaded photo for rollout diagnostics, tagged with the outcome', async () => {
     const before = (await captureStore.list('u1')).length;
-    await POST(multipart(PNG_BYTES));
+    const body = await (await POST(multipart(PNG_BYTES))).json();
     const list = await captureStore.list('u1');
     expect(list.length).toBe(before + 1);
     expect(list[0]).toMatchObject({ contentType: 'image/png', bytes: PNG_BYTES.length, outcome: { cardsFound: 1, topName: 'Sink Below', bestDistance: 4 } });
+    // the client needs the capture id to label the result later
+    expect(body.data.captureId).toBe(list[0].id);
+    expect(body.data.cards[0].captureId).toBe(list[0].id);
   });
 });

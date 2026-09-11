@@ -30,3 +30,6 @@ Components should use these services instead of calling fetch() directly.
 ## Nonstandard response bodies
 
 Some routes return payload fields at the TOP level beside `success`, not under `data` (deck results → `total`; ownership-status → `ownership`/`summary`; hero-printings → `heroes`/`count`; users/autocomplete → `users`; inventory/toggle-for-trade → `updatedCount`; printings/add → `summary`/`deck`). `handleResponse` silently drops these (its legacy fallback masks the bug at runtime) — client methods for such routes must repackage the body manually and pin the shape with a unit test (see `decks-client.notes-results.test.ts`).
+
+- **`searchClient.quickSearch` is dead** — it fetches `/api/search/quick`, which does not exist (404 HTML). Name search is `searchPrintings({ name, languages: ['en'] }, { limit })` → `data.printings` (GET `/api/printings/search?name=`; a `query`/`search` param is silently ignored and returns everything).
+
