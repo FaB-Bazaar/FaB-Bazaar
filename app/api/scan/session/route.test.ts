@@ -6,6 +6,7 @@ import { MemoryScanSessionStore } from '@/lib/scan/session-store';
 const store = new MemoryScanSessionStore();
 vi.mock('@/lib/scan/session-store', async (orig) => ({ ...(await orig<any>()), getScanSessionStore: () => store }));
 vi.mock('@/lib/auth/multi-auth', () => ({ authenticateRequest: vi.fn() }));
+vi.mock('@/lib/scan/pair-url', async (orig) => ({ ...(await orig<any>()), detectLanIp: () => '10.0.0.92' }));
 
 import { POST } from './route';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
@@ -25,7 +26,8 @@ describe('POST /api/scan/session', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data.code).toMatch(/^[A-Z2-9]{8}$/);
-    expect(body.data.pairUrl).toBe(`http://localhost/scan?pair=${body.data.code}`);
+    // the QR must be reachable from a PHONE: localhost is swapped for the LAN ip in dev
+    expect(body.data.pairUrl).toBe(`http://10.0.0.92/scan?pair=${body.data.code}`);
     expect(body.data.expiresInSec).toBe(1800);
     expect((await store.get(body.data.code))?.userId).toBe('u1');
   });
