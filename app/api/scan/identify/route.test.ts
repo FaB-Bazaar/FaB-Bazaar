@@ -15,7 +15,11 @@ vi.mock('@/lib/auth/multi-auth', () => ({
 vi.mock('@/lib/scan/image-hash', () => ({
   hashImage: vi.fn(),
   pitchHint: vi.fn(),
+  thumbnailDataUrl: vi.fn(async () => 'data:image/jpeg;base64,AAAA'),
 }));
+import { MemoryScanSessionStore } from '@/lib/scan/session-store';
+const sessionStore = new MemoryScanSessionStore();
+vi.mock('@/lib/scan/session-store', async (orig) => ({ ...(await orig<any>()), getScanSessionStore: () => sessionStore }));
 
 import { POST } from './route';
 import { scanService } from '@/lib/services';
@@ -97,5 +101,24 @@ describe('POST /api/scan/identify', () => {
     mockIdentify.mockResolvedValue({ success: false, error: 'db down' });
     const res = await POST(multipart(PNG_BYTES));
     expect(res.status).toBe(500);
+  });
+
+  describe('with a paired phone session', () => {
+    it('appends the result (with a thumbnail) to the caller\'s session and returns it too', async () => {
+      const s = await sessionStore.create('u1');
+      const res = await POST(multipart(PNG_BYTES, { session: s.code }));
+      expect(res.status).toBe(200);
+      const items = await sessionStore.listItems(s.code);
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({ candidates: RESULT.candidates, bestDistance: 4, pitchHint: 'red', thumb: 'data:image/jpeg;base64,AAAA' });
+      expect((await res.json()).data.sessionItemId).toBe(items[0].id);
+    });
+    it('403s when the session belongs to someone else', async () => {
+      const s = await sessionStore.create('other');
+      expect((await POST(multipart(PNG_BYTES, { session: s.code }))).status).toBe(403);
+    });
+    it('404s an unknown session code', async () => {
+      expect((await POST(multipart(PNG_BYTES, { session: 'ZZZZZZZZ' }))).status).toBe(404);
+    });
   });
 });

@@ -82,6 +82,22 @@ describe('scanReducer', () => {
   });
 });
 
+describe('scanReducer remote items (phone → desktop)', () => {
+  it('inserts an already-identified item from a paired phone, ready with a default printing', () => {
+    const s = scanReducer(initialScanState, { type: 'remote', id: 'r1', previewUrl: 'data:image/jpeg;base64,xx', candidates: [CAND], bestDistance: 3, pitchHint: 'red' });
+    expect(s.items[0]).toMatchObject({ id: 'r1', status: 'ready', chosenPrintingId: 'p-red-en', quantity: 1, previewUrl: 'data:image/jpeg;base64,xx' });
+  });
+  it('ignores a remote item whose id is already present (SSE replay)', () => {
+    let s = scanReducer(initialScanState, { type: 'remote', id: 'r1', previewUrl: '', candidates: [CAND], bestDistance: 3, pitchHint: null });
+    s = scanReducer(s, { type: 'remote', id: 'r1', previewUrl: '', candidates: [CAND], bestDistance: 3, pitchHint: null });
+    expect(s.items).toHaveLength(1);
+  });
+  it('a remote item with no candidates is no-match', () => {
+    const s = scanReducer(initialScanState, { type: 'remote', id: 'r2', previewUrl: '', candidates: [], bestDistance: null, pitchHint: null });
+    expect(s.items[0].status).toBe('no-match');
+  });
+});
+
 describe('pendingAdds', () => {
   it('collects ready items into binder add rows, merging duplicates of one printing', () => {
     let s = initialScanState;

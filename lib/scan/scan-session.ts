@@ -48,7 +48,9 @@ export type ScanAction =
   | { type: 'quantity'; id: string; quantity: number }
   | { type: 'remove'; id: string }
   | { type: 'added'; ids: string[] }
-  | { type: 'clearAdded' };
+  | { type: 'clearAdded' }
+  /** An item identified on a paired phone, delivered over SSE (idempotent on id). */
+  | { type: 'remote'; id: string; previewUrl: string; candidates: ScanCandidate[]; bestDistance: number | null; pitchHint: PitchHint | null };
 
 /** Scale (w,h) so the longer edge is at most `max`; never upscale. */
 export function fitWithin(width: number, height: number, max: number): { width: number; height: number } {
@@ -111,6 +113,16 @@ export function scanReducer(state: ScanState, action: ScanAction): ScanState {
     }
     case 'clearAdded':
       return { items: state.items.filter(i => i.status !== 'added') };
+    case 'remote': {
+      if (state.items.some(i => i.id === action.id)) return state;
+      return {
+        items: [...state.items, {
+          id: action.id, previewUrl: action.previewUrl, status: action.candidates.length > 0 ? 'ready' : 'no-match',
+          candidates: action.candidates, bestDistance: action.bestDistance, pitchHint: action.pitchHint,
+          chosenPrintingId: action.candidates[0] ? defaultPrintingChoice(action.candidates[0]) : null, quantity: 1,
+        }],
+      };
+    }
     default:
       return state;
   }

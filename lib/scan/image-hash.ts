@@ -79,3 +79,9 @@ export async function pitchHint(input: Buffer | Uint8Array): Promise<PitchHint |
   if (best[1] < second[1] * 1.5) return null;         // no clear winner
   return best[0];
 }
+
+/** Small JPEG data URL of the photo (for the paired desktop's preview). */
+export async function thumbnailDataUrl(input: Buffer | Uint8Array, width = 160): Promise<string> {
+  const buf = await sharp(input).rotate().resize({ width }).jpeg({ quality: 70 }).toBuffer();
+  return `data:image/jpeg;base64,${buf.toString('base64')}`;
+}

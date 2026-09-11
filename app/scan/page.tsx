@@ -4,7 +4,8 @@
 // lib/scan/scan-session (pure reducer) so the flow is unit-tested there.
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Camera, ImagePlus, Loader2 } from "lucide-react";
@@ -12,31 +13,24 @@ import { bindersClient, scanClient } from "@/lib/client";
 import type { BinderSummaryDTO } from "@/lib/services/contracts/IBinderService";
 import { useToast } from "@/hooks/use-toast";
 import ScanItemCard from "@/components/scan/ScanItemCard";
-import { scanReducer, initialScanState, pendingAdds, readyItemIds, fitWithin } from "@/lib/scan/scan-session";
+import PhonePairPanel from "@/components/scan/PhonePairPanel";
+import PhoneScanner from "@/components/scan/PhoneScanner";
+import { prepareUpload } from "@/lib/scan/prepare-upload";
+import { scanReducer, initialScanState, pendingAdds, readyItemIds } from "@/lib/scan/scan-session";
 
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
-const UPLOAD_MAX_EDGE = 1000;
 const BINDER_KEY = "scan:lastBinderId";
 
-/** Downscale a photo in the browser (EXIF-aware) to a JPEG ≤ UPLOAD_MAX_EDGE px. */
-async function prepareUpload(file: File): Promise<Blob> {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions);
-  } catch {
-    return file; // let the server try the original
-  }
-  const { width, height } = fitWithin(bitmap.width, bitmap.height, UPLOAD_MAX_EDGE);
-  const canvas = document.createElement("canvas");
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return file;
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close?.();
-  return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", 0.85));
+export default function ScanPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-700 dark:text-gray-300" aria-label="Loading" /></div>}>
+      <ScanPageInner />
+    </Suspense>
+  );
 }
 
-export default function ScanPage() {
+function ScanPageInner() {
+  const pairCode = useSearchParams().get("pair");
   const { status: sessionStatus } = useSession();
   const signedIn = sessionStatus === "authenticated";
   const { toast } = useToast();
@@ -132,7 +126,16 @@ export default function ScanPage() {
         <Camera className="mx-auto h-10 w-10 text-gray-700 dark:text-gray-300" aria-hidden />
         <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Scan cards into your collection</h1>
         <p className="mt-2 text-base text-gray-700 dark:text-gray-300">Sign in to photograph cards and add them to a binder.</p>
-        <Link href="/auth/login?callbackUrl=%2Fscan" className={`mt-6 inline-block rounded-md bg-blue-600 px-5 py-2.5 text-base font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>Sign in</Link>
+        <Link href={`/auth/login?callbackUrl=${encodeURIComponent(pairCode ? `/scan?pair=${pairCode}` : "/scan")}`} className={`mt-6 inline-block rounded-md bg-blue-600 px-5 py-2.5 text-base font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>Sign in</Link>
+      </div>
+    );
+  }
+
+  if (pairCode) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scan cards</h1>
+        <div className="mt-3"><PhoneScanner code={pairCode.toUpperCase()} /></div>
       </div>
     );
   }
@@ -180,6 +183,8 @@ export default function ScanPage() {
         </div>
         <p className="mt-3 text-sm text-gray-700 dark:text-gray-300">…or drop images here, or paste one.</p>
       </div>
+
+      <PhonePairPanel onRemoteItem={(item) => dispatch({ type: "remote", id: item.id, previewUrl: item.thumb ?? "", candidates: item.candidates, bestDistance: item.bestDistance, pitchHint: item.pitchHint })} />
 
       {state.items.length > 0 && (
         <ul className="mt-5 space-y-3" aria-label="Scanned cards">
