@@ -2,7 +2,7 @@
 // A queue of photographed cards; each is identified by /api/scan/identify,
 // the user confirms/changes the printing + quantity, then batches are added
 // to a binder. Kept pure so it's unit-testable under the node project.
-import type { ScanCandidate, ScanPrinting } from '@/lib/services/postgres/scan/PostgresScanService';
+import type { ScanCandidate, ScanPrinting, IdentifyResult } from '@/lib/services/postgres/scan/PostgresScanService';
 import type { PitchHint } from '@/lib/scan/image-hash';
 
 export type { ScanCandidate, ScanPrinting };
@@ -27,11 +27,12 @@ export interface ScanState {
 
 export const initialScanState: ScanState = { items: [] };
 
-// Combined Hamming distance bands (0..128), from scripts/scan-eval.ts on the
-// real index: correct matches ≤25 under normal phone degradation (p90 19),
-// misses started at 26-31 under harsh degradation.
-export const CONFIDENT_MAX_DISTANCE = 22;
-export const PLAUSIBLE_MAX_DISTANCE = 34;
+// Combined Hamming distance bands (0..256 = 2×art + phash + dhash), from
+// scripts/scan-eval.ts on the PEN+SEA index (2026-09): correct matches p90 40
+// (normal) / 64 (harsh) / 54 (table scene), max 76; wrong matches start at 68.
+// Re-measure after changing the hash pipeline or after the full-index build.
+export const CONFIDENT_MAX_DISTANCE = 44;
+export const PLAUSIBLE_MAX_DISTANCE = 66;
 export type MatchConfidence = 'confident' | 'plausible' | 'weak';
 export function matchConfidence(distance: number | null): MatchConfidence {
   if (distance === null) return 'weak';
@@ -136,6 +137,17 @@ export function pendingAdds(state: ScanState): Array<{ printingId: string; quant
     out.set(i.chosenPrintingId, (out.get(i.chosenPrintingId) ?? 0) + i.quantity);
   }
   return [...out.entries()].map(([printingId, quantity]) => ({ printingId, quantity }));
+}
+
+/**
+ * Deskew is do-no-harm: a photo that was deskewed is ALSO matched flat, and
+ * the closer result wins (a false quad scores far above a real match).
+ * Ties keep the first argument.
+ */
+export function pickBetterIdentification<T extends { result: IdentifyResult }>(a: T, b: T): T {
+  const da = a.result.bestDistance ?? Number.POSITIVE_INFINITY;
+  const db = b.result.bestDistance ?? Number.POSITIVE_INFINITY;
+  return db < da ? b : a;
 }
 
 /** Ids of the items pendingAdds() would submit. */

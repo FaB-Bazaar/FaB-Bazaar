@@ -84,12 +84,24 @@ describe('rankByDistance', () => {
     const ranked = rankByDistance({ phash: '0000000000000000', dhash: '0000000000000000' }, index, 3);
     expect(ranked.map(r => r.id)).toEqual(['exact', 'near', 'far']);
     expect(ranked[0].distance).toBe(0);
-    expect(ranked[1].distance).toBe(3);
+    expect(ranked[1].distance).toBe(6); // no art on either side: 2×((2+1)/2) + 2 + 1
   });
 
   it('honours the limit', () => {
     const ranked = rankByDistance({ phash: '0000000000000000', dhash: '0000000000000000' }, index, 1);
     expect(ranked).toHaveLength(1);
     expect(ranked[0].id).toBe('exact');
+  });
+
+  it('weighs the art hash double when both sides have one, and falls back to whole-card when either lacks it', () => {
+    const withArt = [
+      { id: 'art-near', phash: '00000000000000ff', dhash: '00000000000000ff', artHash: '0000000000000000' }, // whole-card 16 off, art exact
+      { id: 'art-far', phash: '0000000000000000', dhash: '0000000000000000', artHash: '000000000000ffff' },  // whole-card exact, art 16 off
+      { id: 'no-art', phash: '0000000000000003', dhash: '0000000000000000', artHash: null },                 // 2 off, no art
+    ];
+    const q = { phash: '0000000000000000', dhash: '0000000000000000', artHash: '0000000000000000' };
+    const ranked = rankByDistance(q, withArt, 3);
+    // art-near: 2*0 + 8 + 8 = 16 ; art-far: 2*16 + 0 + 0 = 32 ; no-art: fallback 2*((2+0)/2) + 2 + 0 = 4
+    expect(ranked.map(r => [r.id, r.distance])).toEqual([['no-art', 4], ['art-near', 16], ['art-far', 32]]);
   });
 });

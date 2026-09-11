@@ -13,8 +13,7 @@ vi.mock('@/lib/auth/multi-auth', () => ({
   authenticateRequest: vi.fn(),
 }));
 vi.mock('@/lib/scan/image-hash', () => ({
-  hashImage: vi.fn(),
-  pitchHint: vi.fn(),
+  analyzeImage: vi.fn(),
   thumbnailDataUrl: vi.fn(async () => 'data:image/jpeg;base64,AAAA'),
 }));
 import { MemoryScanSessionStore } from '@/lib/scan/session-store';
@@ -24,12 +23,12 @@ vi.mock('@/lib/scan/session-store', async (orig) => ({ ...(await orig<any>()), g
 import { POST } from './route';
 import { scanService } from '@/lib/services';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
-import { hashImage, pitchHint } from '@/lib/scan/image-hash';
+import { analyzeImage } from '@/lib/scan/image-hash';
 
 const mockIdentify = vi.mocked(scanService.identify);
 const mockAuth = vi.mocked(authenticateRequest);
-const mockHash = vi.mocked(hashImage);
-const mockPitch = vi.mocked(pitchHint);
+const mockAnalyze = vi.mocked(analyzeImage);
+const HASHES = { phash: '0'.repeat(16), dhash: '0'.repeat(16), artHash: '1'.repeat(16) };
 
 const PNG_BYTES = Buffer.from('89504e470d0a1a0a', 'hex'); // just a header; hashing is mocked
 
@@ -50,8 +49,7 @@ const RESULT = { candidates: [{ name: 'Sink Below', distance: 4, cards: [] }], b
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue({ success: true, userId: 'u1' } as any);
-  mockHash.mockResolvedValue({ phash: '0'.repeat(16), dhash: '0'.repeat(16) });
-  mockPitch.mockResolvedValue('red');
+  mockAnalyze.mockResolvedValue({ hashes: HASHES, pitchHint: 'red', deskewed: true });
   mockIdentify.mockResolvedValue({ success: true, data: RESULT });
 });
 
@@ -66,16 +64,30 @@ describe('POST /api/scan/identify', () => {
     const res = await POST(multipart(PNG_BYTES));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ success: true, data: { ...RESULT, pitchHint: 'red' } });
-    expect(mockHash).toHaveBeenCalledTimes(1);
-    expect(Buffer.from(mockHash.mock.calls[0][0]).equals(PNG_BYTES)).toBe(true);
-    expect(mockIdentify).toHaveBeenCalledWith({ phash: '0'.repeat(16), dhash: '0'.repeat(16) }, { limit: 5, pitchHint: 'red' });
+    expect(body).toEqual({ success: true, data: { ...RESULT, pitchHint: 'red', deskewed: true } });
+    expect(mockAnalyze).toHaveBeenCalledTimes(1);
+    expect(Buffer.from(mockAnalyze.mock.calls[0][0]).equals(PNG_BYTES)).toBe(true);
+    expect(mockIdentify).toHaveBeenCalledWith(HASHES, { limit: 5, pitchHint: 'red' });
+  });
+
+  it('when a deskew was applied, also tries the flat frame and keeps the closer match', async () => {
+    const FLAT = { phash: 'f'.repeat(16), dhash: 'f'.repeat(16), artHash: 'f'.repeat(16) };
+    mockAnalyze.mockResolvedValue({ hashes: HASHES, flatHashes: FLAT, pitchHint: 'red', flatPitchHint: 'blue', deskewed: true });
+    mockIdentify.mockImplementation(async (h: any) => ({ success: true, data: h === FLAT
+      ? { candidates: [{ name: 'Flat Wins', distance: 12, cards: [] }], bestDistance: 12, indexSize: 100 }
+      : { candidates: [{ name: 'Bad Deskew', distance: 90, cards: [] }], bestDistance: 90, indexSize: 100 } }));
+    const res = await POST(multipart(PNG_BYTES));
+    const body = await res.json();
+    expect(mockIdentify).toHaveBeenCalledTimes(2);
+    expect(body.data.candidates[0].name).toBe('Flat Wins');
+    expect(body.data.deskewed).toBe(false);
+    expect(body.data.pitchHint).toBe('blue');
   });
 
   it('accepts a JSON body with a base64 image (data-URL prefix tolerated)', async () => {
     const res = await POST(json({ image: 'data:image/png;base64,' + PNG_BYTES.toString('base64'), limit: 3 }));
     expect(res.status).toBe(200);
-    expect(Buffer.from(mockHash.mock.calls[0][0]).equals(PNG_BYTES)).toBe(true);
+    expect(Buffer.from(mockAnalyze.mock.calls[0][0]).equals(PNG_BYTES)).toBe(true);
     expect(mockIdentify).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ limit: 3 }));
   });
 
@@ -92,7 +104,7 @@ describe('POST /api/scan/identify', () => {
   });
 
   it('400s when the bytes are not decodable as an image', async () => {
-    mockHash.mockRejectedValue(new Error('Input buffer contains unsupported image format'));
+    mockAnalyze.mockRejectedValue(new Error('Input buffer contains unsupported image format'));
     const res = await POST(multipart(Buffer.from('nope')));
     expect(res.status).toBe(400);
   });

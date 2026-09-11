@@ -12,7 +12,7 @@ import { db } from '@/lib/postgres/db';
 import { cards, printings, printingImageHashes } from '@/lib/postgres/schema';
 import { eq, inArray, sql } from 'drizzle-orm';
 import type { AsyncResult } from '../../contracts/common';
-import { rankByDistance, type HashPair, type HashIndexEntry } from '@/lib/scan/phash';
+import { rankByDistance, MAX_DISTANCE, type HashPair, type HashIndexEntry } from '@/lib/scan/phash';
 import type { PitchHint } from '@/lib/scan/image-hash';
 
 export interface HashIndexRow extends HashIndexEntry {
@@ -51,7 +51,7 @@ export interface ScanCandidate {
 
 export interface IdentifyResult {
   candidates: ScanCandidate[];
-  /** Combined Hamming distance (0..128) of the best match. */
+  /** Combined Hamming distance (0..256: 2×art + phash + dhash) of the best match. */
   bestDistance: number | null;
   indexSize: number;
 }
@@ -83,16 +83,17 @@ export class PostgresScanService {
     this.loading = null;
   }
 
-  async upsertHashes(rows: Array<{ printingId: string; phash: string; dhash: string; imageUrl: string }>): AsyncResult<{ upserted: number }> {
+  async upsertHashes(rows: Array<{ printingId: string; phash: string; dhash: string; artHash?: string | null; imageUrl: string }>): AsyncResult<{ upserted: number }> {
     try {
       if (rows.length === 0) return { success: true, data: { upserted: 0 } };
       await db.insert(printingImageHashes)
-        .values(rows.map(r => ({ printingId: r.printingId, phash: r.phash, dhash: r.dhash, imageUrl: r.imageUrl })))
+        .values(rows.map(r => ({ printingId: r.printingId, phash: r.phash, dhash: r.dhash, artPhash: r.artHash ?? null, imageUrl: r.imageUrl })))
         .onConflictDoUpdate({
           target: printingImageHashes.printingId,
           set: {
             phash: sql`excluded.phash`,
             dhash: sql`excluded.dhash`,
+            artPhash: sql`excluded.art_phash`,
             imageUrl: sql`excluded.image_url`,
             computedAt: sql`now()`,
           },
@@ -121,10 +122,11 @@ export class PostgresScanService {
           cardUniqueId: printings.cardUniqueId,
           phash: printingImageHashes.phash,
           dhash: printingImageHashes.dhash,
+          artPhash: printingImageHashes.artPhash,
         })
         .from(printingImageHashes)
         .innerJoin(printings, eq(printings.printingId, printingImageHashes.printingId));
-      return { success: true, data: rows.map(r => ({ id: r.printingId, printingId: r.printingId, cardUniqueId: r.cardUniqueId, phash: r.phash.trim(), dhash: r.dhash.trim() })) };
+      return { success: true, data: rows.map(r => ({ id: r.printingId, printingId: r.printingId, cardUniqueId: r.cardUniqueId, phash: r.phash.trim(), dhash: r.dhash.trim(), artHash: r.artPhash?.trim() ?? null })) };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to load hash index' };
     }
@@ -210,7 +212,7 @@ export class PostgresScanService {
         .map(g => ({ ...g, cards: orderCardsByPitchHint(g.cards, opts.pitchHint ?? null) }))
         .sort((a, b) => a.distance - b.distance)
         .slice(0, limit)
-        .map(g => ({ ...g, distance: Number.isFinite(g.distance) ? g.distance : 128 }));
+        .map(g => ({ ...g, distance: Number.isFinite(g.distance) ? g.distance : MAX_DISTANCE }));
 
       return { success: true, data: { candidates, bestDistance: candidates[0]?.distance ?? null, indexSize: index.length } };
     } catch (error) {

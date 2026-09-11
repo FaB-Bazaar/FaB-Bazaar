@@ -7,8 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
 import { scanService } from '@/lib/services';
-import { hashImage, pitchHint, thumbnailDataUrl } from '@/lib/scan/image-hash';
+import { analyzeImage, thumbnailDataUrl } from '@/lib/scan/image-hash';
 import { getScanSessionStore, loadOwnedSession } from '@/lib/scan/session-store';
+import { pickBetterIdentification } from '@/lib/scan/scan-session';
 import { randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
@@ -73,17 +74,23 @@ export async function POST(request: NextRequest) {
     sessionCode = owned.record.code;
   }
 
-  let hashes, hint;
+  // one decode: deskew the card if it can be found, whole-card + art hashes, pitch hint
+  let analysis;
   try {
-    [hashes, hint] = await Promise.all([hashImage(parsed.bytes), pitchHint(parsed.bytes).catch(() => null)]);
+    analysis = await analyzeImage(parsed.bytes);
   } catch {
     return NextResponse.json({ error: 'That file is not a readable image' }, { status: 400 });
   }
-
-  const result = await scanService.identify(hashes, { limit: parsed.limit, pitchHint: hint });
-  if (!result.success) {
-    return NextResponse.json({ error: result.error }, { status: 500 });
+  // Deskew is do-no-harm: when a quad was used, the flat frame is matched too and the closer wins.
+  const primary = await scanService.identify(analysis.hashes, { limit: parsed.limit, pitchHint: analysis.pitchHint });
+  if (!primary.success) return NextResponse.json({ error: primary.error }, { status: 500 });
+  let chosen = { result: primary.data, hint: analysis.pitchHint, deskewed: analysis.deskewed };
+  if (analysis.deskewed && analysis.flatHashes) {
+    const flat = await scanService.identify(analysis.flatHashes, { limit: parsed.limit, pitchHint: analysis.flatPitchHint ?? null });
+    if (flat.success) chosen = pickBetterIdentification(chosen, { result: flat.data, hint: analysis.flatPitchHint ?? null, deskewed: false });
   }
+  const { hint, deskewed } = chosen;
+  const result = { success: true as const, data: chosen.result };
 
   let sessionItemId: string | undefined;
   if (sessionCode) {
@@ -94,5 +101,5 @@ export async function POST(request: NextRequest) {
       candidates: result.data.candidates, bestDistance: result.data.bestDistance, pitchHint: hint,
     });
   }
-  return NextResponse.json({ success: true, data: { ...result.data, pitchHint: hint, ...(sessionItemId ? { sessionItemId } : {}) } });
+  return NextResponse.json({ success: true, data: { ...result.data, pitchHint: hint, deskewed, ...(sessionItemId ? { sessionItemId } : {}) } });
 }

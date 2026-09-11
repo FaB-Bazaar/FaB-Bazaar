@@ -43,14 +43,14 @@ afterEach(async () => {
 describe('PostgresScanService', () => {
   it('upsertHashes inserts rows that listHashIndex returns with their card id', async () => {
     const res = await service.upsertHashes([
-      { printingId: otherCard, phash: ONES, dhash: ONES, imageUrl: 'https://example.test/x' },
+      { printingId: otherCard, phash: ONES, dhash: ONES, artHash: ZERO, imageUrl: 'https://example.test/x' },
     ]);
     expect(res.success).toBe(true);
     const idx = await service.listHashIndex();
     expect(idx.success).toBe(true);
     if (!idx.success) return;
     const row = idx.data.find(r => r.printingId === otherCard);
-    expect(row).toMatchObject({ printingId: otherCard, phash: ONES, dhash: ONES });
+    expect(row).toMatchObject({ printingId: otherCard, phash: ONES, dhash: ONES, artHash: ZERO });
     expect(row?.cardUniqueId).toBeTruthy();
   });
 
@@ -66,12 +66,12 @@ describe('PostgresScanService', () => {
 
   it('identify ranks the exact-hash card first at distance 0 and groups its printings under one card', async () => {
     await service.upsertHashes([
-      { printingId: sameCardA, phash: ZERO, dhash: ZERO, imageUrl: 'a' },
-      { printingId: sameCardB, phash: ZERO, dhash: ZERO, imageUrl: 'b' },
-      { printingId: otherCard, phash: ONES, dhash: ONES, imageUrl: 'c' },
+      { printingId: sameCardA, phash: ZERO, dhash: ZERO, artHash: ZERO, imageUrl: 'a' },
+      { printingId: sameCardB, phash: ZERO, dhash: ZERO, artHash: ZERO, imageUrl: 'b' },
+      { printingId: otherCard, phash: ONES, dhash: ONES, artHash: ONES, imageUrl: 'c' },
     ]);
     service.clearIndexCache();
-    const res = await service.identify({ phash: ZERO, dhash: ZERO }, { limit: 3 });
+    const res = await service.identify({ phash: ZERO, dhash: ZERO, artHash: ZERO }, { limit: 3 });
     expect(res.success).toBe(true);
     if (!res.success) return;
     const best = res.data.candidates[0];
@@ -100,5 +100,20 @@ describe('PostgresScanService', () => {
     ];
     expect(orderCardsByPitchHint(cards, 'yellow').map(c => c.cardUniqueId)).toEqual(['y', 'r', 'b']);
     expect(orderCardsByPitchHint(cards, null).map(c => c.cardUniqueId)).toEqual(['r', 'y', 'b']);
+  });
+
+  it('identify prefers an art-hash match over a whole-card match (art weighs double)', async () => {
+    // A: art exact, whole-card 16 bits off. B: whole-card exact, art 16 bits off.
+    await service.upsertHashes([
+      { printingId: sameCardA, phash: '00000000000000ff', dhash: '00000000000000ff', artHash: ZERO, imageUrl: 'a' },
+      { printingId: otherCard, phash: ZERO, dhash: ZERO, artHash: '000000000000ffff', imageUrl: 'c' },
+    ]);
+    service.clearIndexCache();
+    const res = await service.identify({ phash: ZERO, dhash: ZERO, artHash: ZERO }, { limit: 2 });
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    const first = res.data.candidates[0];
+    expect(first.cards.some(c => c.cardUniqueId === sameCardUniqueId)).toBe(true);
+    expect(first.distance).toBe(16);
   });
 });

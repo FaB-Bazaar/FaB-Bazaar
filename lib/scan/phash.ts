@@ -12,6 +12,8 @@ const DCT_KEEP = 8; // low-frequency block used for the pHash bits
 export interface HashPair {
   phash: string;
   dhash: string;
+  /** pHash of the fixed art rectangle (after deskew). Null on rows indexed before migration 0110. */
+  artHash?: string | null;
 }
 
 function assertPlane(px: Uint8Array | number[]): void {
@@ -64,19 +66,23 @@ export function pHash(px: Uint8Array | number[]): string {
   return bitsToHex(bits);
 }
 
-/** Box-resample a HASH_SIZE² plane down to w×h by averaging. */
-function boxResample(px: Uint8Array | number[], w: number, h: number): number[] {
-  const out: number[] = [];
+/** Box-resample a srcW×srcH plane to w×h by averaging (pure; used for the 32×32 hash input too). */
+export function resamplePlane(px: ArrayLike<number>, srcW: number, srcH: number, w: number, h: number): Uint8Array {
+  const out = new Uint8Array(w * h);
   for (let j = 0; j < h; j++) {
-    const y0 = Math.floor((j * HASH_SIZE) / h), y1 = Math.max(y0 + 1, Math.floor(((j + 1) * HASH_SIZE) / h));
+    const y0 = Math.floor((j * srcH) / h), y1 = Math.max(y0 + 1, Math.floor(((j + 1) * srcH) / h));
     for (let i = 0; i < w; i++) {
-      const x0 = Math.floor((i * HASH_SIZE) / w), x1 = Math.max(x0 + 1, Math.floor(((i + 1) * HASH_SIZE) / w));
+      const x0 = Math.floor((i * srcW) / w), x1 = Math.max(x0 + 1, Math.floor(((i + 1) * srcW) / w));
       let s = 0, n = 0;
-      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += px[y * HASH_SIZE + x]; n++; }
-      out.push(s / n);
+      for (let y = y0; y < y1 && y < srcH; y++) for (let x = x0; x < x1 && x < srcW; x++) { s += px[y * srcW + x]; n++; }
+      out[j * w + i] = n ? Math.round(s / n) : 0;
     }
   }
   return out;
+}
+
+function boxResample(px: Uint8Array | number[], w: number, h: number): number[] {
+  return Array.from(resamplePlane(px, HASH_SIZE, HASH_SIZE, w, h));
 }
 
 /** dHash of a HASH_SIZE² grayscale plane: 9×8 resample, sign of horizontal gradient. */
@@ -111,18 +117,26 @@ export interface HashIndexEntry extends HashPair {
 
 export interface RankedMatch {
   id: string;
+  /** 0..256: 2×art + phash + dhash (art falls back to the whole-card mean when either side lacks it). */
   distance: number;
   phashDistance: number;
   dhashDistance: number;
+  artDistance: number | null;
 }
 
-/** Rank an index by combined (phash + dhash) Hamming distance to `query`. */
+/** Max combined distance (see RankedMatch.distance). */
+export const MAX_DISTANCE = 256;
+
+/** Rank an index by combined Hamming distance to `query` — art hash weighted double. */
 export function rankByDistance(query: HashPair, index: readonly HashIndexEntry[], limit: number): RankedMatch[] {
   const qp = BigInt('0x' + query.phash), qd = BigInt('0x' + query.dhash);
+  const qa = query.artHash ? BigInt('0x' + query.artHash) : null;
   const scored: RankedMatch[] = index.map(e => {
     const phashDistance = popcount64(qp ^ BigInt('0x' + e.phash));
     const dhashDistance = popcount64(qd ^ BigInt('0x' + e.dhash));
-    return { id: e.id, distance: phashDistance + dhashDistance, phashDistance, dhashDistance };
+    const artDistance = qa !== null && e.artHash ? popcount64(qa ^ BigInt('0x' + e.artHash)) : null;
+    const art = artDistance ?? (phashDistance + dhashDistance) / 2;
+    return { id: e.id, distance: 2 * art + phashDistance + dhashDistance, phashDistance, dhashDistance, artDistance };
   });
   scored.sort((a, b) => a.distance - b.distance || a.phashDistance - b.phashDistance);
   return scored.slice(0, limit);

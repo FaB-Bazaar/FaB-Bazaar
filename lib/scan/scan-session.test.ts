@@ -2,7 +2,7 @@
 // photographed cards, each identified → printing chosen → added to a binder.
 import { describe, it, expect } from 'vitest';
 import {
-  scanReducer, initialScanState, defaultPrintingChoice, pendingAdds, fitWithin,
+  scanReducer, initialScanState, defaultPrintingChoice, pendingAdds, fitWithin, pickBetterIdentification,
   type ScanCandidate,
 } from './scan-session';
 
@@ -111,5 +111,23 @@ describe('pendingAdds', () => {
       { printingId: 'p-red-en', quantity: 3 },
       { printingId: 'p-blue-en', quantity: 1 },
     ]);
+  });
+
+});
+
+describe('pickBetterIdentification', () => {
+  const r = (bestDistance: number | null) => ({ candidates: bestDistance === null ? [] : [{ ...CAND, distance: bestDistance }], bestDistance, indexSize: 1 });
+  it('keeps the deskewed result when it is closer', () => {
+    expect(pickBetterIdentification({ result: r(20), label: 'deskewed' }, { result: r(60), label: 'flat' }).label).toBe('deskewed');
+  });
+  it('falls back to the flat result when the deskew produced a worse match (false quad)', () => {
+    expect(pickBetterIdentification({ result: r(85), label: 'deskewed' }, { result: r(30), label: 'flat' }).label).toBe('flat');
+  });
+  it('treats no-match as infinitely far', () => {
+    expect(pickBetterIdentification({ result: r(null), label: 'deskewed' }, { result: r(90), label: 'flat' }).label).toBe('flat');
+    expect(pickBetterIdentification({ result: r(90), label: 'deskewed' }, { result: r(null), label: 'flat' }).label).toBe('deskewed');
+  });
+  it('prefers the first on ties', () => {
+    expect(pickBetterIdentification({ result: r(40), label: 'deskewed' }, { result: r(40), label: 'flat' }).label).toBe('deskewed');
   });
 });
