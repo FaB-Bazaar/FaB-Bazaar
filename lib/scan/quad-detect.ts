@@ -14,11 +14,11 @@ const WORK_MAX = 384;         // longest edge of the working image (a row of 3 c
 const EDGE_PERCENTILE = 0.75; // gradient magnitude above this = edge pixel (low: a black border on a dark table is a faint edge)
 const STRONG_FRACTION = 0.25;  // a line counts as a candidate edge if it has ≥ this × the group's best votes
 const ANGLE_TOL = 25;         // degrees from vertical/horizontal a card edge may lean
-const MIN_SEP = 0.3;          // min distance between opposite edges, fraction of the dimension
+const MIN_SEP_PX = 22;        // min distance between opposite edges in working px (an arm's-length card is ~45px wide at WORK_MAX)
 // A card FILLING the frame has no detectable outer edge — the strongest lines
 // are then its inner border, which would crop it differently from the (never
 // deskewed) index renders. So a quad must leave visible background around it.
-const MIN_AREA = 0.2, MAX_AREA = 0.65; // above this the card overflows the frame — the flat path handles frame-filling shots
+const MIN_AREA = 0.02, MAX_AREA = 0.65; // a card may be small (arm's length); above MAX the card overflows the frame — the flat path handles frame-filling shots
 const MIN_MARGIN = 0.02; // every corner this far inside the frame (cards in a multi-card shot sit close to the edges)
 const PAIR_PARALLEL_TOL = 8;  // degrees: opposite card edges must be (near-)parallel
 const MIN_ASPECT = 1.15, MAX_ASPECT = 1.9; // card is ~1.4 tall:wide; allow perspective
@@ -147,7 +147,7 @@ function parallelPair(a: Line, b: Line): { rho: number } | null {
   return { rho: flip ? -b.rho : b.rho };
 }
 
-interface Candidate { quad: Quad; score: number; area: number; support: number; vPair: [Line, Line]; hPair: [Line, Line] }
+interface Candidate { quad: Quad; score: number; area: number; aspect: number; support: number; vPair: [Line, Line]; hPair: [Line, Line] }
 
 const TOP_LINES = 24; // per orientation, when enumerating quads (a row of 3 cards has 6 outer + 6 inner verticals + text boxes)
 const MIN_QUAD_SCORE = 0.5;   // edge support a quad needs to count as a card (real cards score ≥0.85; structured noise ≈0.45)
@@ -200,9 +200,9 @@ export function enumerateCandidates(gray: Uint8Array | Uint8ClampedArray, width:
   const cands: Candidate[] = [];
   let reject = 'no pair';
   for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) {
-    const vp = parallelPair(vs[i], vs[j]); if (!vp || Math.abs(vs[i].rho - vp.rho) < MIN_SEP * Math.min(w, h)) continue;
+    const vp = parallelPair(vs[i], vs[j]); if (!vp || Math.abs(vs[i].rho - vp.rho) < MIN_SEP_PX) continue;
     for (let k = 0; k < hs.length; k++) for (let l = k + 1; l < hs.length; l++) {
-      const hp = parallelPair(hs[k], hs[l]); if (!hp || Math.abs(hs[k].rho - hp.rho) < MIN_SEP * Math.min(w, h)) continue;
+      const hp = parallelPair(hs[k], hs[l]); if (!hp || Math.abs(hs[k].rho - hp.rho) < MIN_SEP_PX) continue;
       const vPair: [Line, Line] = [vs[i], vs[j]], hPair: [Line, Line] = [hs[k], hs[l]];
       const pts: Point[] = [];
       let ok = true;
@@ -212,7 +212,7 @@ export function enumerateCandidates(gray: Uint8Array | Uint8ClampedArray, width:
       let bad: string | null = null;
       for (const [x, y] of quad) if (x < MIN_MARGIN * w || x > (1 - MIN_MARGIN) * w || y < MIN_MARGIN * h || y > (1 - MIN_MARGIN) * h) { bad = 'no margin'; break; }
       const area = quadArea(quad) / (w * h);
-      if (!bad && (area < MIN_AREA * 0.25 || area > MAX_AREA)) bad = `area ${area.toFixed(2)}`; // a card among several may be small
+      if (!bad && (area < MIN_AREA || area > MAX_AREA)) bad = `area ${area.toFixed(2)}`;
       const top = Math.hypot(quad[1][0] - quad[0][0], quad[1][1] - quad[0][1]);
       const bottom = Math.hypot(quad[2][0] - quad[3][0], quad[2][1] - quad[3][1]);
       const left = Math.hypot(quad[3][0] - quad[0][0], quad[3][1] - quad[0][1]);
@@ -228,7 +228,7 @@ export function enumerateCandidates(gray: Uint8Array | Uint8ClampedArray, width:
       // shape term: a card-plus-gap span (~1.9) or a two-card span (~0.7) loses to a real card (~1.4)
       const score = support * (1 - Math.min(1, Math.abs(aspect - CARD_ASPECT) / 0.6) * 0.5);
       if (score < MIN_QUAD_SCORE) { reject = 'weak'; continue; }
-      cands.push({ quad, score, area, support: Math.min(...supports), vPair, hPair });
+      cands.push({ quad, score, area, aspect, support: Math.min(...supports), vPair, hPair });
     }
   }
   if (debug) Object.assign(debug, { lines, vertical, horizontal, vPair: cands[0]?.vPair ?? null, hPair: cands[0]?.hPair ?? null, w, h });
@@ -254,20 +254,26 @@ export function detectCardQuads(gray: Uint8Array | Uint8ClampedArray, width: num
     for (const o of inside) { if (picked.every(p => overlapRatio(p.quad, o.quad) < OVERLAP_SUPPRESS)) picked.push(o); if (picked.length >= 2) break; }
     return picked.length < 2;
   });
+  // 0b) a candidate fully inside a much larger, reasonably supported candidate is an inner
+  //     feature (text box, art frame) — the enclosing outline is the card. Card+gap spans are
+  //     only ~1.35× a card, so the 1.5× floor keeps them from swallowing real cards.
+  //     The enclosing quad must itself be card-shaped (aspect ≈ 1.4): a card+gap+partial span is not.
+  const candsInner = cands.filter(c => !cands.some(o => o !== c && o.area >= c.area * 1.5 && o.score >= c.score * 0.85 && Math.abs(o.aspect - CARD_ASPECT) <= 0.2 && contains(o.quad, c.quad)));
   // 1) greedy non-max suppression by score; within the winner's overlap cluster prefer the
   //    LARGER border variant (outer vs inner edge differ by ~1.16× in area) when its support is close.
   const kept: Candidate[] = [];
-  const alive = cands.map(() => true);
-  for (let i = 0; i < cands.length; i++) {
+  const pool = candsInner;
+  const alive = pool.map(() => true);
+  for (let i = 0; i < pool.length; i++) {
     if (!alive[i]) continue;
-    let winner = cands[i];
-    for (let j = i + 1; j < cands.length; j++) {
-      if (!alive[j] || overlapRatio(cands[i].quad, cands[j].quad) < OVERLAP_SUPPRESS) continue;
+    let winner = pool[i];
+    for (let j = i + 1; j < pool.length; j++) {
+      if (!alive[j] || overlapRatio(pool[i].quad, pool[j].quad) < OVERLAP_SUPPRESS) continue;
       // (spans like card+gap are already discounted by the aspect term, blocks by the composite filter)
-      if (cands[j].score >= cands[i].score * 0.85 && cands[j].area > winner.area * 1.05) winner = cands[j];
+      if (pool[j].score >= pool[i].score * 0.85 && pool[j].area > winner.area * 1.05) winner = pool[j];
     }
     kept.push(winner);
-    for (let j = i; j < cands.length; j++) if (alive[j] && overlapRatio(winner.quad, cands[j].quad) >= OVERLAP_SUPPRESS) alive[j] = false;
+    for (let j = i; j < pool.length; j++) if (alive[j] && overlapRatio(winner.quad, pool[j].quad) >= OVERLAP_SUPPRESS) alive[j] = false;
     if (kept.length >= (opts.maxCards ?? 12)) break;
   }
   const confidenceOf = (c: Candidate) => c.support;
@@ -284,7 +290,5 @@ export function detectCardQuad(gray: Uint8Array | Uint8ClampedArray, width: numb
   if (cands.length === 0) { if (debug) debug.reject = reject; return null; }
   let best = cands[0];
   for (const c of cands) if (c.score >= cands[0].score * 0.85 && c.area > best.area * 1.05 && overlapRatio(c.quad, cands[0].quad) >= OVERLAP_SUPPRESS) best = c;
-  // a lone quad covering < MIN_AREA of a single-card shot is an inner feature (text box), not the card
-  if (best.area < MIN_AREA) { if (debug) debug.reject = `area ${best.area.toFixed(2)}`; return null; }
   return { quad: best.quad.map(([x, y]) => [x * scale, y * scale]) as Quad, confidence: best.support };
 }

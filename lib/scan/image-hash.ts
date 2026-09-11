@@ -4,7 +4,7 @@
 import sharp from 'sharp';
 import { HASH_SIZE, hashPair, pHash, resamplePlane, type HashPair } from './phash';
 import { detectCardQuad, detectCardQuads } from './quad-detect';
-import { warpQuadToRect, computeHomography, applyHomography, quadArea, type Quad } from './geometry';
+import { warpQuadToRect, computeHomography, applyHomography, type Quad } from './geometry';
 
 // Working resolution for analysis (longest edge) and the deskewed card plane.
 const WORK_MAX = 1000;
@@ -164,8 +164,9 @@ export interface ImageAnalysis {
 export async function analyzeImageMulti(input: Buffer | Uint8Array, opts: { maxCards?: number } = {}): Promise<ImageAnalysis[]> {
   const d = await decode(input);
   let quads = detectCardQuads(d.gray, d.w, d.h, { maxCards: opts.maxCards ?? 12 }).filter(q => q.confidence >= MIN_QUAD_CONFIDENCE);
-  // a lone quad on a one-card shot must look like a card on a table: not tiny, background all round
-  if (quads.length === 1 && (quadArea(quads[0].quad) / (d.w * d.h) < 0.2 || !hasMargin(quads[0].quad, d.w, d.h, SINGLE_MIN_MARGIN))) quads = [];
+  // a lone quad on a one-card shot must have background all round (a quad hugging the frame is an
+  // inner feature of a frame-filling card); small is fine — an arm's-length card is ~8% of the frame
+  if (quads.length === 1 && !hasMargin(quads[0].quad, d.w, d.h, SINGLE_MIN_MARGIN)) quads = [];
   const planes = quads.map(q => planesForQuad(d, q.quad)).filter((p): p is CardPlanes => p !== null);
   if (planes.length === 0) {
     const flat = flatPlanes(d);

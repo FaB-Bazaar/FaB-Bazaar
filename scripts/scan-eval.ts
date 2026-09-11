@@ -119,13 +119,15 @@ async function evalMulti(rows: any[], service: any) {
     const deskewedOnes = analyses.filter(a => a.deskewed);
     found += Math.min(deskewedOnes.length, group.length);
     extra += Math.max(0, deskewedOnes.length - group.length);
-    // reading order = group order
-    for (let k = 0; k < group.length; k++) {
-      const a = deskewedOnes[k];
-      if (!a) { misses.push(`${group[k].name}: not found (photo ${gi})`); continue; }
-      const out = await service.identify(a.hashes, { limit: 3, pitchHint: a.pitchHint });
-      const names = out.success ? out.data.candidates.map((c: any) => c.name) : [];
-      if (names[0] === group[k].name) top1++; else misses.push(`${group[k].name} → ${names.slice(0, 2).join(' | ')} (photo ${gi})`);
+    // score by set membership: which of the photo's cards appear among the found quads' top-1 names
+    const winners: string[] = [];
+    for (const a of deskewedOnes) {
+      const out = await service.identify(a.hashes, { limit: 1, pitchHint: a.pitchHint });
+      winners.push(out.success && out.data.candidates[0] ? out.data.candidates[0].name : '');
+    }
+    for (const r of group) {
+      const at = winners.indexOf(r.name);
+      if (at >= 0) { top1++; winners[at] = ''; } else misses.push(`${r.name}: ${deskewedOnes.length < group.length ? 'maybe not found' : 'wrong'} — found names: ${winners.filter(Boolean).join(' | ') || '—'} (photo ${gi})`);
     }
   }
   const pct = (n: number) => `${((100 * n) / cardsTotal).toFixed(1)}%`;

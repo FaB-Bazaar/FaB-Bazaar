@@ -98,4 +98,11 @@ describe('detectCardQuad', () => {
     const found = detectCardQuads(multiScene(W, H, truths), W, H);
     expect(found).toHaveLength(3);
   });
+
+  it('finds a single SMALL card (arm\'s-length shot: ~10% of the frame) — small is not the same as "inner feature"', () => {
+    const W = 640, H = 480; const truth = rot(330, 250, 130, 182, 5); // 130×182 of 640×480 ≈ 7.7%
+    const found = detectCardQuad(scene(W, H, truth, { noise: 6 }), W, H);
+    expect(found).not.toBeNull();
+    for (let i = 0; i < 4; i++) expect(near(found!.quad[i], truth[i], 7)).toBe(true);
+  });
 });

@@ -176,4 +176,15 @@ describe('analyzeImageMulti — several cards in one photo', () => {
     expect(results).toHaveLength(1);
     expect(results[0].deskewed).toBe(false);
   });
+
+  it('a small card on a big table (arm\'s-length phone shot) is still found and deskewed', async () => {
+    const card = await sharp(fs.readFileSync(path.join(FIX, 'WTR001-UL.jpg'))).resize({ width: 150 }).rotate(4, { background: '#4a4034' }).png().toBuffer({ resolveWithObject: true });
+    const photo = await sharp({ create: { width: 900, height: 700, channels: 3, background: '#4a4034' } })
+      .composite([{ input: card.data, left: 380, top: 240 }]).blur(0.6).jpeg({ quality: 65 }).toBuffer();
+    const results = await analyzeImageMulti(photo);
+    expect(results).toHaveLength(1);
+    expect(results[0].deskewed).toBe(true);
+    const clean = await hashImage(fs.readFileSync(path.join(FIX, 'WTR001-UL.jpg')), { deskew: false });
+    expect(hamming(results[0].hashes.artHash!, clean.artHash!)).toBeLessThanOrEqual(22);
+  });
 });
