@@ -8,6 +8,8 @@ import { Suspense, useCallback, useEffect, useReducer, useRef, useState } from "
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useAuth } from "@/contexts/AuthContext";
+import { canUseScanner } from "@/lib/scan/scan-access";
 import { Camera, ImagePlus, Loader2 } from "lucide-react";
 import { bindersClient, scanClient } from "@/lib/client";
 import type { BinderSummaryDTO } from "@/lib/services/contracts/IBinderService";
@@ -32,7 +34,10 @@ export default function ScanPage() {
 function ScanPageInner() {
   const pairCode = useSearchParams().get("pair");
   const { status: sessionStatus } = useSession();
+  const { user } = useAuth();
   const signedIn = sessionStatus === "authenticated";
+  // AuthContext fills `user` one render after the session resolves; gate on both to avoid a flash.
+  const allowed = signedIn && !!user && canUseScanner(user);
   const { toast } = useToast();
 
   const [state, dispatch] = useReducer(scanReducer, initialScanState);
@@ -46,7 +51,7 @@ function ScanPageInner() {
   const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    if (!signedIn) return;
+    if (!allowed) return;
     let cancelled = false;
     setBindersLoading(true);
     void bindersClient.getUserBinders().then((res) => {
@@ -63,7 +68,7 @@ function ScanPageInner() {
       setBindersLoading(false);
     });
     return () => { cancelled = true; };
-  }, [signedIn, toast]);
+  }, [allowed, toast]);
 
   const chooseBinder = (id: string) => {
     setBinderId(id);
@@ -117,7 +122,7 @@ function ScanPageInner() {
     }
   };
 
-  if (sessionStatus === "loading") {
+  if (sessionStatus === "loading" || (signedIn && !user)) {
     return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-700 dark:text-gray-300" aria-label="Loading" /></div>;
   }
   if (!signedIn) {
@@ -127,6 +132,18 @@ function ScanPageInner() {
         <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Scan cards into your collection</h1>
         <p className="mt-2 text-base text-gray-700 dark:text-gray-300">Sign in to photograph cards and add them to a binder.</p>
         <Link href={`/auth/login?callbackUrl=${encodeURIComponent(pairCode ? `/scan?pair=${pairCode}` : "/scan")}`} className={`mt-6 inline-block rounded-md bg-blue-600 px-5 py-2.5 text-base font-medium text-white hover:bg-blue-700 ${FOCUS_RING}`}>Sign in</Link>
+      </div>
+    );
+  }
+
+  if (!allowed) {
+    // Rollout gate (lib/scan/scan-access.ts). Static panel — never redirect during render.
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <Camera className="mx-auto h-10 w-10 text-gray-700 dark:text-gray-300" aria-hidden />
+        <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-100">Card scanning isn't available on your account yet</h1>
+        <p className="mt-2 text-base text-gray-700 dark:text-gray-300">It's being tested with a small group first. In the meantime you can add cards from your collection page.</p>
+        <Link href="/collection" className={`mt-6 inline-block rounded-md border border-gray-300 px-5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700 ${FOCUS_RING}`}>Go to your collection</Link>
       </div>
     );
   }

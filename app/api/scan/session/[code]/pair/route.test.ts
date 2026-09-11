@@ -6,6 +6,7 @@ import { MemoryScanSessionStore } from '@/lib/scan/session-store';
 const store = new MemoryScanSessionStore();
 vi.mock('@/lib/scan/session-store', async (orig) => ({ ...(await orig<any>()), getScanSessionStore: () => store }));
 vi.mock('@/lib/auth/multi-auth', () => ({ authenticateRequest: vi.fn() }));
+vi.mock('@/lib/services', () => ({ userService: { getRoles: vi.fn(async () => ({ success: true, data: { isSuperAdmin: true } })) } }));
 
 import { POST } from './route';
 import { authenticateRequest } from '@/lib/auth/multi-auth';
@@ -25,5 +26,12 @@ describe('POST /api/scan/session/[code]/pair', () => {
     expect(res.status).toBe(200);
     expect((await res.json()).data.paired).toBe(true);
     expect((await store.get(s.code))?.pairedAt).toEqual(expect.any(Number));
+  });
+
+  it('403s a signed-in non-superadmin while the scanner is superadmin-only', async () => {
+    const { userService } = await import('@/lib/services');
+    vi.mocked(userService.getRoles).mockResolvedValueOnce({ success: true, data: { isSuperAdmin: false } } as any);
+    const res = await post((await store.create('u1')).code);
+    expect(res.status).toBe(403);
   });
 });

@@ -45,6 +45,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { accessibleAdminLinks } from "@/components/nav/admin-links"
+import { canUseScanner } from "@/lib/scan/scan-access"
 import { canUseVolzar } from "@/lib/ai/volzar-access"
 import {
   DropdownMenu,
@@ -447,12 +448,14 @@ export default function Navbar() {
               Collectibles
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/scan" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
-              <Camera className="h-4 w-4 mr-2" />
-              Scan Cards
-            </Link>
-          </DropdownMenuItem>
+          {canUseScanner(user) && (
+            <DropdownMenuItem asChild>
+              <Link href="/scan" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <Camera className="h-4 w-4 mr-2" />
+                Scan Cards
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <Link href="/wants" className="w-full text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700">
               <FileText className="h-4 w-4 mr-2" />
@@ -1060,9 +1063,11 @@ export default function Navbar() {
                       <Link href="/playmats" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Collectibles</div>
                       </Link>
-                      <Link href="/scan" onClick={() => setIsMenuOpen(false)}>
-                        <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Scan Cards</div>
-                      </Link>
+                      {canUseScanner(user) && (
+                        <Link href="/scan" onClick={() => setIsMenuOpen(false)}>
+                          <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Scan Cards</div>
+                        </Link>
+                      )}
                       <Link href="/wants" onClick={() => setIsMenuOpen(false)}>
                         <div className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Wants List</div>
                       </Link>

@@ -29,3 +29,5 @@ OAuth Bearer tokens are silently rejected unless you pass `{ allowOAuth: true }`
 authenticateRequest(request, body, { allowOAuth: true })
 ```
 Omitting the 3rd arg returns 401 for OAuth clients with no error about the missing flag.
+
+- **`lib/auth/require-superadmin.ts`** — shared superadmin route gate (`allowOAuth`, so scripts can call with a bearer). Same contract as the older route-local `app/api/admin/*/_auth.ts` copies; new admin routes import the shared one. Route helper, not middleware.

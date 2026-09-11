@@ -7,11 +7,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/services', () => ({
+  userService: { getRoles: vi.fn(async () => ({ success: true, data: { isSuperAdmin: true } })) },
   scanService: { identify: vi.fn() },
 }));
 vi.mock('@/lib/auth/multi-auth', () => ({
   authenticateRequest: vi.fn(),
 }));
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn(async () => ({ success: true, remaining: 59 })) }));
 vi.mock('@/lib/scan/image-hash', () => ({
   analyzeImage: vi.fn(),
   thumbnailDataUrl: vi.fn(async () => 'data:image/jpeg;base64,AAAA'),
@@ -132,5 +134,20 @@ describe('POST /api/scan/identify', () => {
     it('404s an unknown session code', async () => {
       expect((await POST(multipart(PNG_BYTES, { session: 'ZZZZZZZZ' }))).status).toBe(404);
     });
+  });
+
+  it('403s a signed-in non-superadmin while the scanner is superadmin-only', async () => {
+    const { userService } = await import('@/lib/services');
+    vi.mocked(userService.getRoles).mockResolvedValueOnce({ success: true, data: { isSuperAdmin: false } } as any);
+    const res = await POST(multipart(PNG_BYTES));
+    expect(res.status).toBe(403);
+  });
+
+  it('429s when the per-user identify rate limit is exhausted', async () => {
+    const { rateLimit } = await import('@/lib/rate-limit');
+    vi.mocked(rateLimit).mockResolvedValueOnce({ success: false, remaining: 0, resetTime: Date.now() + 1000 } as any);
+    const res = await POST(multipart(PNG_BYTES));
+    expect(res.status).toBe(429);
+    expect(mockAnalyze).not.toHaveBeenCalled();
   });
 });

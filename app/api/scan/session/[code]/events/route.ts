@@ -3,7 +3,7 @@
 //   {type:'item', item} / {type:'paired'} as the phone works. Heartbeat
 //   comments keep proxies from closing the idle stream.
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth/multi-auth';
+import { requireScanAccess } from '@/lib/scan/require-scan-access';
 import { getScanSessionStore, loadOwnedSession, type ScanSessionItem } from '@/lib/scan/session-store';
 
 export const runtime = 'nodejs';
@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 const HEARTBEAT_MS = 20_000;
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
-  const auth = await authenticateRequest(request, {});
-  if (!auth.success) return NextResponse.json({ error: auth.error }, { status: 401 });
+  const auth = await requireScanAccess(request);
+  if (!auth.ok) return auth.response;
   const { code } = await params;
   const owned = await loadOwnedSession(getScanSessionStore(), code, auth.userId!);
   if (owned.status !== 200) return NextResponse.json({ error: owned.error }, { status: owned.status });

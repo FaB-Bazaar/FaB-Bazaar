@@ -104,6 +104,34 @@ export class PostgresScanService {
     }
   }
 
+  /** Which of these printing ids exist (the hash table has an FK to printings). */
+  async filterKnownPrintingIds(ids: string[]): AsyncResult<Set<string>> {
+    try {
+      if (ids.length === 0) return { success: true, data: new Set() };
+      const rows = await db.select({ id: printings.printingId }).from(printings).where(inArray(printings.printingId, ids));
+      return { success: true, data: new Set(rows.map(r => r.id)) };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to look up printings' };
+    }
+  }
+
+  /** Index size — the no-SSH probe for "is the table there and populated on prod?". */
+  async countHashes(): AsyncResult<{ total: number; withArt: number; latestComputedAt: string | null }> {
+    try {
+      const [row] = await db
+        .select({
+          total: sql<number>`count(*)::int`,
+          withArt: sql<number>`count(${printingImageHashes.artPhash})::int`,
+          latest: sql<Date | null>`max(${printingImageHashes.computedAt})`,
+        })
+        .from(printingImageHashes);
+      const latest = row?.latest ? new Date(row.latest as unknown as string) : null;
+      return { success: true, data: { total: row?.total ?? 0, withArt: row?.withArt ?? 0, latestComputedAt: latest ? latest.toISOString() : null } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to count hashes' };
+    }
+  }
+
   /** Printing ids already hashed, with the image_url that was hashed (for skip-unchanged). */
   async listHashedImageUrls(): AsyncResult<Map<string, string>> {
     try {

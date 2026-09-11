@@ -5,11 +5,12 @@
 // Returns candidates grouped by card name → pitch → printings; the client
 // lets the user pick the exact printing. Signed-in users only.
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateRequest } from '@/lib/auth/multi-auth';
+import { requireScanAccess } from '@/lib/scan/require-scan-access';
 import { scanService } from '@/lib/services';
 import { analyzeImage, thumbnailDataUrl } from '@/lib/scan/image-hash';
 import { getScanSessionStore, loadOwnedSession } from '@/lib/scan/session-store';
 import { pickBetterIdentification } from '@/lib/scan/scan-session';
+import { rateLimit } from '@/lib/rate-limit';
 import { randomUUID } from 'node:crypto';
 
 export const runtime = 'nodejs';
@@ -17,6 +18,7 @@ export const runtime = 'nodejs';
 /** Clients downscale before upload (~1000px JPEG ≈ 150KB); this is a hard backstop. */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_LIMIT = 5;
+const IDENTIFY_PER_MINUTE = 60;
 
 interface Parsed { bytes: Buffer | null; limit: number; session?: string; error?: string; tooLarge?: boolean }
 
@@ -47,9 +49,13 @@ function clampLimit(n: unknown): number {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await authenticateRequest(request, {}, { allowOAuth: true });
-  if (!authResult.success) {
-    return NextResponse.json({ error: authResult.error }, { status: 401 });
+  const authResult = await requireScanAccess(request, {}, { allowOAuth: true });
+  if (!authResult.ok) return authResult.response;
+
+  // sharp decode + Hough + two rankings per photo: bound it per user (in-memory, per-process).
+  const limited = await rateLimit({ key: `scan-identify:${authResult.userId}`, limit: IDENTIFY_PER_MINUTE, window: 60_000 });
+  if (!limited.success) {
+    return NextResponse.json({ error: 'Too many scans — wait a moment and try again' }, { status: 429, headers: { 'Retry-After': '60' } });
   }
 
   let parsed: Parsed;

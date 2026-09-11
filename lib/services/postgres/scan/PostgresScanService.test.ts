@@ -116,4 +116,28 @@ describe('PostgresScanService', () => {
     expect(first.cards.some(c => c.cardUniqueId === sameCardUniqueId)).toBe(true);
     expect(first.distance).toBe(16);
   });
+
+  it('filterKnownPrintingIds keeps only ids that exist in printings', async () => {
+    const res = await service.filterKnownPrintingIds([otherCard, 'does-not-exist', sameCardA]);
+    expect(res.success).toBe(true);
+    if (!res.success) return;
+    expect([...res.data].sort()).toEqual([otherCard, sameCardA].sort());
+  });
+
+  it('countHashes reports total, rows with an art hash, and the latest computed_at', async () => {
+    const before = await service.countHashes();
+    expect(before.success).toBe(true);
+    if (!before.success) return;
+    await service.upsertHashes([
+      { printingId: sameCardA, phash: ZERO, dhash: ZERO, artHash: ZERO, imageUrl: 'a' },
+      { printingId: otherCard, phash: ONES, dhash: ONES, artHash: null, imageUrl: 'c' },
+    ]);
+    const after = await service.countHashes();
+    expect(after.success).toBe(true);
+    if (!after.success) return;
+    const snapTotal = snapshot.length, snapArt = snapshot.filter(r => r.artPhash).length;
+    expect(after.data.total - before.data.total).toBe(2 - snapTotal);
+    expect(after.data.withArt - before.data.withArt).toBe(1 - snapArt);
+    expect(typeof after.data.latestComputedAt).toBe('string');
+  });
 });
