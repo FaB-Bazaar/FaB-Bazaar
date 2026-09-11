@@ -18,4 +18,21 @@ describe('pairBaseUrl', () => {
     expect(pairBaseUrl('http://localhost:3000', { lanIp: '10.0.0.92', production: false, override: 'https://dev.example.test' })).toBe('https://dev.example.test');
     expect(pairBaseUrl('https://fabbazaar.app', { lanIp: null, production: true, override: 'https://staging.example.test/' })).toBe('https://staging.example.test');
   });
+
+  it('behind a reverse proxy, uses the forwarded host + proto (the address the user actually typed)', () => {
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true, forwardedHost: 'fabbazaar.app', forwardedProto: 'https' })).toBe('https://fabbazaar.app');
+    expect(pairBaseUrl('http://localhost:3000', { lanIp: '10.0.0.92', production: false, forwardedHost: '10.0.0.92:3000', forwardedProto: 'http' })).toBe('http://10.0.0.92:3000');
+  });
+  it('in production, replaces an internal bind address (0.0.0.0 / localhost) with the configured public app URL', () => {
+    expect(pairBaseUrl('https://0.0.0.0:3000', { lanIp: null, production: true, appUrl: 'https://fabbazaar.app' })).toBe('https://fabbazaar.app');
+    expect(pairBaseUrl('http://localhost:3000', { lanIp: null, production: true, appUrl: 'https://fabbazaar.app/' })).toBe('https://fabbazaar.app');
+  });
+  it('precedence: override > forwarded headers > app url > lan swap > origin', () => {
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: '10.0.0.92', production: true, override: 'https://tunnel.test', forwardedHost: 'fabbazaar.app', forwardedProto: 'https', appUrl: 'https://app.test' })).toBe('https://tunnel.test');
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: '10.0.0.92', production: true, forwardedHost: 'fabbazaar.app', forwardedProto: 'https', appUrl: 'https://app.test' })).toBe('https://fabbazaar.app');
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: '10.0.0.92', production: false, appUrl: 'https://app.test' })).toBe('http://10.0.0.92:3000');
+  });
+  it('never emits an unusable internal address when nothing better is known', () => {
+    expect(pairBaseUrl('http://0.0.0.0:3000', { lanIp: null, production: true })).toBe('http://0.0.0.0:3000'); // documented worst case, nothing to swap to
+  });
 });

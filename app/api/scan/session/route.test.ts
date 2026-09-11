@@ -39,4 +39,10 @@ describe('POST /api/scan/session', () => {
     const res = await POST(req());
     expect(res.status).toBe(403);
   });
+
+  it('behind the production proxy, the pair URL uses the forwarded public host, not the container bind address', async () => {
+    const res = await POST(new NextRequest('http://0.0.0.0:3000/api/scan/session', { method: 'POST', headers: { 'x-forwarded-host': 'fabbazaar.app', 'x-forwarded-proto': 'https' } }));
+    const body = await res.json();
+    expect(body.data.pairUrl).toBe(`https://fabbazaar.app/scan?pair=${body.data.code}`);
+  });
 });
